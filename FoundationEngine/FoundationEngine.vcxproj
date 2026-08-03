@@ -1,0 +1,396 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" DefaultTargets="Build">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="ECS\Actor.cpp">
+    </ClCompile>
+    <ClCompile Include="ECS\Archetype.cpp">
+    </ClCompile>
+    <ClInclude Include="ECS\Archetype.h" />
+    <ClCompile Include="ECS\ArchetypeRegistry.cpp">
+    </ClCompile>
+    <ClCompile Include="ECS\Chunk.cpp">
+    </ClCompile>
+    <ClInclude Include="ECS\Chunk.h" />
+    <ClInclude Include="ECS\Component.h" />
+    <ClCompile Include="ECS\ComponentRegistry.cpp">
+    </ClCompile>
+    <ClCompile Include="ECS\Component\ComponentBase.cpp">
+    </ClCompile>
+    <ClCompile Include="ECS\Entity.cpp">
+    </ClCompile>
+    <ClInclude Include="ECS\Component\Active.h" />
+    <ClInclude Include="ECS\Component\ComponentBase.h" />
+    <ClInclude Include="ECS\Component\InspectorDrawable.h" />
+    <ClInclude Include="ECS\Entity.h" />
+    <ClCompile Include="ECS\EntityRecord.cpp">
+    </ClCompile>
+    <ClCompile Include="ECS\PayloadRegistry.cpp">
+    </ClCompile>
+    <ClCompile Include="ECS\ReflectionRegistry.cpp">
+    </ClCompile>
+    <ClCompile Include="ECS\System\MoveSystem.cpp" />
+    <ClCompile Include="ECS\System\SystemScheduler.cpp">
+    </ClCompile>
+    <ClCompile Include="ECS\System\SceneTransitionSystem.cpp" />
+    <ClCompile Include="ECS\System\TransformSystem.cpp">
+    </ClCompile>
+    <ClCompile Include="ECS\TagRegistry.cpp" />
+    <ClCompile Include="ECS\World.cpp">
+    </ClCompile>
+    <ClInclude Include="ECS\PayloadRegistry.h" />
+    <ClInclude Include="ECS\System\MoveSystem.h" />
+    <ClInclude Include="ECS\System\TransformSystem.h" />
+    <ClInclude Include="ECS\TagRegistry.h" />
+    <ClInclude Include="ECS\World.h" />
+    <ClCompile Include="ECS\WorldSnapshot.cpp" />
+    <ClCompile Include="File\FileDialog.cpp">
+    </ClCompile>
+    <ClCompile Include="File\FileDirectory.cpp">
+    </ClCompile>
+    <ClCompile Include="File\FileUtility.cpp">
+    </ClCompile>
+    <ClCompile Include="Input\Input.cpp">
+    </ClCompile>
+    <ClCompile Include="Input\InputSystem.cpp">
+    </ClCompile>
+    <ClCompile Include="JobSystem\FlowBuilder.cpp">
+    </ClCompile>
+    <ClCompile Include="JobSystem\JobExecutor.cpp">
+    </ClCompile>
+    <ClCompile Include="JobSystem\JobGraph.cpp">
+    </ClCompile>
+    <ClCompile Include="JobSystem\JobNode.cpp">
+    </ClCompile>
+    <ClCompile Include="JobSystem\JobNodeBase.cpp">
+    </ClCompile>
+    <ClCompile Include="JobSystem\JobRuntime.cpp">
+    </ClCompile>
+    <ClCompile Include="JobSystem\JobTask.cpp">
+    </ClCompile>
+    <ClCompile Include="JobSystem\JobTaskflow.cpp">
+    </ClCompile>
+    <ClCompile Include="JobSystem\JobTopology.cpp">
+    </ClCompile>
+    <ClCompile Include="JobSystem\JobVector.cpp">
+    </ClCompile>
+    <ClCompile Include="JobSystem\JobWorker.cpp">
+    </ClCompile>
+    <ClInclude Include="ECS\WorldSnapshot.h" />
+    <ClInclude Include="File\FileDialog.h" />
+    <ClInclude Include="File\FileDirectory.h" />
+    <ClInclude Include="Input\Input.h" />
+    <ClInclude Include="Input\InputSystem.h" />
+    <ClInclude Include="Log\Error.h" />
+    <ClInclude Include="Log\LogSystem.h" />
+    <ClInclude Include="Log\Notice.h" />
+    <ClInclude Include="Log\SlFail.h" />
+    <ClInclude Include="Log\Warning.h" />
+    <ClInclude Include="Math\Random\Hash.h" />
+    <ClInclude Include="Math\Random\Xorshift.h" />
+    <ClCompile Include="JobSystem\Semaphore.cpp">
+    </ClCompile>
+    <ClCompile Include="Log\LogSystem.cpp">
+    </ClCompile>
+    <ClCompile Include="Math\Random\Hash.cpp" />
+    <ClCompile Include="Pool\InternPool.cpp">
+    </ClCompile>
+    <ClCompile Include="Pool\ObjectPool.cpp">
+    </ClCompile>
+    <ClCompile Include="Prelude.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
+      <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">FoundationEngine/Prelude.h</PrecompiledHeaderFile>
+      <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release|x64'">FoundationEngine/Prelude.h</PrecompiledHeaderFile>
+    </ClCompile>
+    <ClCompile Include="Resource\AxisConvention.cpp" />
+    <ClCompile Include="Resource\Gateway.cpp" />
+    <ClCompile Include="Resource\LoaderSystem.cpp">
+    </ClCompile>
+    <ClCompile Include="Resource\ActorSerialization.cpp" />
+    <ClCompile Include="Resource\Prefab.cpp" />
+    <ClCompile Include="Resource\PrefabPool.cpp" />
+    <ClCompile Include="Resource\Scene.cpp" />
+    <ClCompile Include="Resource\ScenePool.cpp" />
+    <ClCompile Include="Resource\ResourceCache.cpp">
+    </ClCompile>
+    <ClCompile Include="Time\GameTimer.cpp">
+    </ClCompile>
+    <ClCompile Include="Time\Timer.cpp">
+    </ClCompile>
+    <ClCompile Include="Time\WorldTimer.cpp">
+    </ClCompile>
+    <ClCompile Include="Utility\Bitset.cpp">
+    </ClCompile>
+    <ClCompile Include="Utility\String.cpp">
+    </ClCompile>
+    <ClCompile Include="Reflection\Reflection.generated.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="Payload\Payload.generated.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="ECS\Actor.h" />
+    <ClInclude Include="ECS\ArchetypeRegistry.h" />
+    <ClInclude Include="ECS\ComponentRegistry.h" />
+    <ClInclude Include="ECS\Component\Awakeable.h" />
+    <ClInclude Include="ECS\Component\Collisionable.h" />
+    <ClInclude Include="ECS\Component\Destroyable.h" />
+    <ClInclude Include="ECS\Component\FixedTick.h" />
+    <ClInclude Include="ECS\Component\LateTickable.h" />
+    <ClInclude Include="ECS\Component\Name.h" />
+    <ClInclude Include="ECS\Component\Position.h" />
+    <ClInclude Include="ECS\Component\Rotation.h" />
+    <ClInclude Include="ECS\Component\Scale.h" />
+    <ClInclude Include="ECS\Component\Startable.h" />
+    <ClInclude Include="ECS\Component\Tickable.h" />
+    <ClInclude Include="ECS\Component\Triggerable.h" />
+    <ClInclude Include="ECS\Component\Velocity.h" />
+    <ClInclude Include="ECS\EcsConcept.h" />
+    <ClInclude Include="ECS\EcsID.h" />
+    <ClInclude Include="ECS\EntityRecord.h" />
+    <ClInclude Include="ECS\Query.h" />
+    <ClInclude Include="ECS\ReflectionRegistry.h" />
+    <ClInclude Include="ECS\SparseSet.h" />
+    <ClInclude Include="ECS\System\QuerySystem.h" />
+    <ClInclude Include="ECS\System\SystemScheduler.h" />
+    <ClInclude Include="ECS\System\SceneTransitionSystem.h" />
+    <ClInclude Include="File\FileUtility.h" />
+    <ClInclude Include="JobSystem\AtomicNotifier.h" />
+    <ClInclude Include="JobSystem\FlowBuilder.h" />
+    <ClInclude Include="JobSystem\JobCommon.h" />
+    <ClInclude Include="JobSystem\JobConcept.h" />
+    <ClInclude Include="JobSystem\JobDeclaretions.h" />
+    <ClInclude Include="JobSystem\JobExecutor.h" />
+    <ClInclude Include="JobSystem\JobGraph.h" />
+    <ClInclude Include="JobSystem\JobNode.h" />
+    <ClInclude Include="JobSystem\JobNodeBase.h" />
+    <ClInclude Include="JobSystem\JobRuntime.h" />
+    <ClInclude Include="JobSystem\JobTask.h" />
+    <ClInclude Include="JobSystem\JobTaskflow.h" />
+    <ClInclude Include="JobSystem\JobTopology.h" />
+    <ClInclude Include="JobSystem\JobVector.h" />
+    <ClInclude Include="JobSystem\JobWorker.h" />
+    <ClInclude Include="JobSystem\NonblockingNotifier.h" />
+    <ClInclude Include="JobSystem\Semaphore.h" />
+    <ClInclude Include="JobSystem\WorkerCommon.h" />
+    <ClInclude Include="JobSystem\WorkerQueue.h" />
+    <ClInclude Include="Log\Assert.h" />
+    <ClInclude Include="Log\DxFail.h" />
+    <ClInclude Include="Log\Exeption.h" />
+    <ClInclude Include="Math\Algorithm.h" />
+    <ClInclude Include="Math\MathCommon.h" />
+    <ClInclude Include="Math\Matrix.h" />
+    <ClInclude Include="Math\Quaternion.h" />
+    <ClInclude Include="Math\Vector.h" />
+    <ClInclude Include="Memory\ChunkAllocator.h" />
+    <ClInclude Include="Pool\InternPool.h" />
+    <ClInclude Include="Pool\ObjectPool.h" />
+    <ClInclude Include="Pool\StablePool.h" />
+    <ClInclude Include="Prelude.h" />
+    <ClInclude Include="Resource\AxisConvention.h" />
+    <ClInclude Include="Resource\Gateway.h" />
+    <ClInclude Include="Resource\LoaderSystem.h" />
+    <ClInclude Include="Resource\ActorSerialization.h" />
+    <ClInclude Include="Resource\Prefab.h" />
+    <ClInclude Include="Resource\PrefabPool.h" />
+    <ClInclude Include="Resource\Scene.h" />
+    <ClInclude Include="Resource\ResourceCache.h" />
+    <ClInclude Include="Resource\ScenePool.h" />
+    <ClInclude Include="SeedScript.h" />
+    <ClInclude Include="Time\GameTimer.h" />
+    <ClInclude Include="Time\Timer.h" />
+    <ClInclude Include="Time\WorldTimer.h" />
+    <ClInclude Include="Utility\Array.h" />
+    <ClInclude Include="Utility\Bitset.h" />
+    <ClInclude Include="Utility\Bootstrap.h" />
+    <ClInclude Include="Utility\ColliderInstance.h" />
+    <ClInclude Include="Utility\DestructiveCopy.h" />
+    <ClInclude Include="Utility\FlatMap.h" />
+    <ClInclude Include="Utility\Handle.h" />
+    <ClInclude Include="Utility\IndexRange.h" />
+    <ClInclude Include="Utility\ArtMap.h" />
+    <ClInclude Include="Utility\NonCopyable.h" />
+    <ClInclude Include="Utility\NonMovable.h" />
+    <ClInclude Include="Utility\NonTransferable.h" />
+    <ClInclude Include="Utility\ReadWrite.h" />
+    <ClInclude Include="Utility\ResourcePtr.h" />
+    <ClInclude Include="Utility\ResourceRef.h" />
+    <ClInclude Include="Utility\SerializeFallback.h" />
+    <ClInclude Include="Utility\String.h" />
+    <ClInclude Include="Utility\Types.h" />
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{30996a34-7fa2-4977-89d9-fbd1f2b64a18}</ProjectGuid>
+    <RootNamespace>FoundationEngine</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v145</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>ClangCL</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <OutDir>$(SolutionDir)Build\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)Intermediate\$(ProjectName)\$(Platform)\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <OutDir>$(SolutionDir)Build\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)Intermediate\$(ProjectName)\$(Platform)\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Label="Vcpkg">
+    <VcpkgEnabled>false</VcpkgEnabled>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+    </ClCompile>
+    <Link>
+      <SubSystem>
+      </SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+    </ClCompile>
+    <Link>
+      <SubSystem>
+      </SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>_DEBUG;_LIB;%(PreprocessorDefinitions);FOUNDATIONENGINE_EXPORTS</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>FoundationEngine/Prelude.h</PrecompiledHeaderFile>
+      <ForcedIncludeFiles>FoundationEngine/Prelude.h</ForcedIncludeFiles>
+      <LanguageStandard>stdcpp23</LanguageStandard>
+      <AdditionalIncludeDirectories>$(SolutionDir)..\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <AdditionalOptions>/utf-8 /Zc:preprocessor %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Link>
+      <SubSystem>
+      </SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+    <PreBuildEvent>
+      <Command>py "..\Tools\Python\Reflection.py" ".."
+py "..\Tools\Python\Payload.py" ".."</Command>
+    </PreBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>NDEBUG;_LIB;%(PreprocessorDefinitions);FOUNDATIONENGINE_EXPORTS</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>FoundationEngine/Prelude.h</PrecompiledHeaderFile>
+      <ForcedIncludeFiles>FoundationEngine/Prelude.h</ForcedIncludeFiles>
+      <LanguageStandard>stdcpp23</LanguageStandard>
+      <AdditionalIncludeDirectories>$(SolutionDir)..\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Link>
+      <SubSystem>
+      </SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+    <PreBuildEvent>
+      <Command>py "..\Tools\Python\Reflection.py" ".."
+py "..\Tools\Python\Payload.py" ".."</Command>
+    </PreBuildEvent>
+  </ItemDefinitionGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

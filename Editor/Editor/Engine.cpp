@@ -1,0 +1,338 @@
+#include <Editor/Editor/Engine.h>
+#include <FoundationEngine/Utility/Bootstrap.h>
+#include <FoundationEngine/Input/InputSystem.h>
+#include <FoundationEngine/Resource/Gateway.h>
+
+#include <GraphicsEngine/D3D12/Context/D3D12CommandList.h>
+#include <GraphicsEngine/D3D12/Context/D3D12CommandQueue.h>
+#include <GraphicsEngine/D3D12/Context/D3D12Adapter.h>
+
+#include <GraphicsEngine/Font/FontResource.h>
+
+#include <PhysicsEngine/Physics/PhysicsSystem.h>
+
+namespace SeedCore
+{
+	void Engine::Boot(const Bootstrap& boot)
+	{
+		if (!BootWindow(boot))
+		{
+			return;
+		}
+
+		world_ = MakePtr<World>();
+
+		system_ = MakePtr<SystemScheduler>();
+
+		auto worker = MakeWorkerInterface<JobScheduler>();
+		executor_ = MakePtr<JobExecutor>(std::thread::hardware_concurrency(), std::move(worker));
+
+		joltManager_ = MakePtr<JoltManager>();
+		if (!joltManager_->Initialize(*executor_))
+		{
+			return;
+		}
+		Gateway::BindJoltManager(joltManager_.get());
+
+		graphics_ = MakePtr<Graphics>();
+		if (!graphics_->Initialize(hwnd_, static_cast<Float>(boot.WindowDesc_.Width_), static_cast<Float>(boot.WindowDesc_.Height_)))
+		{
+			return;
+		}
+		Gateway::BindEffekseerManager(graphics_->GetEffekseerManager());
+
+		ID3D12Device* device = graphics_->GetContext()->GetDevice();
+
+		criManager_ = MakePtr<CriManager>();
+		if (!criManager_->Initialize())
+		{
+			return;
+		}
+		Gateway::BindCriManager(criManager_.get());
+
+		fontManager_ = MakePtr<FontManager>();
+		if (!fontManager_->Initialize())
+		{
+			return;
+		}
+		Gateway::BindFontManager(fontManager_.get());
+
+		imgui_ = MakePtr<ImGuiRenderer>();
+		if (!imgui_->Initialize(hwnd_, device, static_cast<Int>(graphics_->GetSwapChain()->BufferCount())))
+		{
+			return;
+		}
+
+		graphics_->RegisterImGuiShaderResourceViews(device, imgui_->GetDescriptorHeap());
+
+		loaderSystem_ = MakePtr<LoaderSystem>(device);
+		resource_ = MakePtr<ResourceCache>(*loaderSystem_, device, graphics_->GetContext()->GetDirectQueue()->GetCommandQueue(), graphics_->GetBindlessHeap());
+		resource_->Async();
+
+		Scene::Initialize(*world_, *resource_, *executor_);
+
+		editorContext_.world_ = world_.get();
+		editorContext_.resource_ = resource_.get();
+		editorContext_.loader_ = loaderSystem_.get();
+		editorContext_.gameTimer_ = &gameTimer_;
+		editorContext_.editorCamera_ = &editorCamera_;
+		editorContext_.editorCameraController_ = &editorCameraController_;
+		editorContext_.canvasCamera_ = &canvasCamera_;
+		editorContext_.previewCamera_ = &previewCamera_;
+		editorContext_.device_ = device;
+		editorContext_.cmdQueue_ = graphics_->GetContext()->GetDirectQueue()->GetCommandQueue();
+		editorContext_.bc7Shader_ = &graphics_->GetBC7CompressShader();
+		editorContext_.adapter_ = graphics_->GetContext()->GetAdapter()->Get();
+		editorContext_.descHeap_ = imgui_->GetDescriptorHeap();
+		editorContext_.bindlessHeap_ = graphics_->GetBindlessHeap();
+		editorContext_.cameraSystem_ = &graphics_->GetCameraSystem();
+		editorContext_.imgui_ = imgui_.get();
+
+		InputSystem::Initialize();
+
+		hotReload_.Load(*world_);
+
+		editorConfig_.Load();
+		editorConfig_.Apply(editorCamera_, editorCameraController_, *imgui_);
+
+		if (!editorConfig_.lastScenePath_.str().empty())
+		{
+			std::filesystem::path lastScenePath = editorConfig_.lastScenePath_.str();
+			String raytracingSettingsJson;
+			if (Scene::Load(*world_, *resource_, lastScenePath, &raytracingSettingsJson))
+			{
+				editorContext_.raytracing_ = DeserializeRaytracingContext(raytracingSettingsJson);
+				editorContext_.currentScenePath_ = lastScenePath;
+
+				/// [JP] DLSS有効/モードはネイティブ解像度の再計算(MainLoopの
+				///      resizeRequested_ 分岐)を経て初めて反映される。シーン
+				///      読込では誰もこのフラグを立てないため、読み込んだ設定の
+				///      DLSSがずっと未適用のまま(ConfigPanelのチェックボックスを
+				///      一度触るまで)になっていた。ここで立てて次フレームの
+				///      MainLoopに拾わせる。
+				editorContext_.resizeRequested_ = true;
+			}
+		}
+
+		editor_ = MakePtr<Editor>(editorContext_);
+	}
+
+	void Engine::Shutdown()
+	{
+		if (imgui_)
+		{
+			editorConfig_.Capture(editorCamera_, editorCameraController_, *imgui_, editorContext_.currentScenePath_);
+			editorConfig_.Save();
+		}
+
+		if (window_)
+		{
+			window_->RestoreAccessibilitySettings();
+		}
+
+		if (world_)
+		{
+			hotReload_.Unload(*world_);
+		}
+
+		InputSystem::Finalize();
+
+		if (editor_)
+		{
+			editor_.reset();
+			editor_ = nullptr;
+		}
+
+		if (resource_)
+		{
+			resource_.reset();
+			resource_ = nullptr;
+		}
+
+		if (imgui_)
+		{
+			imgui_->Finalize();
+			imgui_.reset();
+			imgui_ = nullptr;
+		}
+
+		if (loaderSystem_)
+		{
+			loaderSystem_.reset();
+			loaderSystem_ = nullptr;
+		}
+		
+		if (fontManager_)
+		{
+			fontManager_->Finalize();
+			fontManager_.reset();
+			fontManager_ = nullptr;
+		}
+
+		if (joltManager_)
+		{
+			joltManager_->Finalize();
+			joltManager_.reset();
+			joltManager_ = nullptr;
+		}
+
+		if (criManager_)
+		{
+			criManager_->Finalize();
+			criManager_.reset();
+			criManager_ = nullptr;
+		}
+
+		if (graphics_)
+		{
+			graphics_->Finalize();
+			graphics_.reset();
+			graphics_ = nullptr;
+		}
+	}
+
+	void Engine::MainLoop()
+	{
+		MSG msg{};
+		while (WM_QUIT != msg.message) [[likely]]
+		{
+			if (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) [[unlikely]]
+			{
+				TranslateMessage(&msg);
+				DispatchMessage(&msg);
+			}
+			else
+			{
+				if (window_->ConsumeCloseRequested())
+				{
+					editorContext_.exitRequested_ = true;
+				}
+
+				window_->CalculateFrameStats();
+				window_->GetTimer().Tick();
+				worldTimer_.Tick(window_->GetTimer().Delta());
+				gameTimer_.Tick(window_->GetTimer().Delta());
+
+				InputSystem::Update();
+
+				hotReload_.Tick(*world_);
+
+				editorContext_.uiFrame_++;
+
+				if (editorContext_.resizeRequested_)
+				{
+					editorContext_.resizeRequested_ = false;
+
+					ScResolution::ResSize outputSize = ToResSize(editorContext_.outputResolution_);
+					Uint32 outputWidth = static_cast<Uint32>(outputSize.Width);
+					Uint32 outputHeight = static_cast<Uint32>(outputSize.Height);
+
+					Uint32 nativeWidth = outputWidth;
+					Uint32 nativeHeight = outputHeight;
+					if (editorContext_.raytracing_.dlssRayReconstructionEnabled_)
+					{
+						Float scale = DlssRenderScale(editorContext_.raytracing_.dlssMode_);
+						nativeWidth = Max<Uint32>(64, static_cast<Uint32>(outputWidth * scale + 0.5f));
+						nativeHeight = Max<Uint32>(64, static_cast<Uint32>(outputHeight * scale + 0.5f));
+					}
+
+					graphics_->Resize(nativeWidth, nativeHeight, outputWidth, outputHeight, imgui_->GetDescriptorHeap());
+				}
+
+				graphics_->Begin();
+
+				if (!graphics_->IsSplashFinished())
+				{
+					resource_->Step(*loaderSystem_, graphics_->GetContext()->GetDevice(), graphics_->GetContext()->GetDirectQueue()->GetCommandQueue(), graphics_->GetBindlessHeap(), graphics_->GetBC7CompressShader());
+
+					graphics_->Clear();
+					graphics_->DrawSplashScreen(resource_->Complete());
+					graphics_->End();
+					graphics_->GetSwapChain()->Present();
+					continue;
+				}
+
+				InputSystem::SetInputEnabled(editor_->IsGameViewImageHovered());
+
+				if (gameTimer_.IsPlaying())
+				{
+					while (worldTimer_.Step())
+					{
+						joltManager_->Execute(worldTimer_.FixedDeltaTime());
+						system_->Step(*world_, worldTimer_.FixedDeltaTime());
+					}
+				}
+
+				system_->Run(*world_, *executor_, gameTimer_.DeltaTime(), gameTimer_.IsPlaying());
+
+				if (gameTimer_.IsPlaying())
+				{
+					Scene::Update(gameTimer_.DeltaTime());
+				}
+
+				InputSystem::SetInputEnabled(true);
+
+				criManager_->Execute();
+
+				imgui_->NewFrame();
+
+				editorCamera_.Tick(window_->GetTimer().Delta());
+				canvasCamera_.Tick(window_->GetTimer().Delta());
+				previewCamera_.Tick(window_->GetTimer().Delta());
+
+				if (editorContext_.raytracing_.daySystemEnabled_)
+				{
+					CelestialSystem::Advance(gameTimer_.DeltaTime(), editorContext_.raytracing_.daySystem_);
+
+					/// [JP] 天候による色味の変化(WeatherSystem)より前に、時刻による
+					///      現実的な空グラデーション(夜/薄明/朝焼け夕焼け/昼)を
+					///      基準値として書き込んでおく。SunLight 無効時は太陽/月自体が
+					///      上書きされないのに合わせ、空色もここでは変えない。
+					if (editorContext_.raytracing_.sunLightEnabled_)
+					{
+						CelestialResult celestial = CelestialSystem::Compute(editorContext_.raytracing_.daySystem_, editorContext_.raytracing_.sunLight_, editorContext_.raytracing_.moonLight_);
+						for (Int index = 0; index < 3; index++)
+						{
+							editorContext_.raytracing_.volumetricCloudScapes_.skyZenithColor_[index] = celestial.skyZenithColor_[index];
+							editorContext_.raytracing_.volumetricCloudScapes_.skyHorizonColor_[index] = celestial.skyHorizonColor_[index];
+						}
+					}
+				}
+				weatherSystem_.Execute(*world_, gameTimer_.DeltaTime(), editorContext_.raytracing_.daySystem_.monthOfYear_, editorContext_.raytracing_.volumetricCloudScapes_);
+
+				graphics_->SetRaytracingSettings(editor_->GetRaytracingSettings());
+				graphics_->EditorRender(worldTimer_, editorCamera_, *loaderSystem_, *resource_, *world_, editor_->GetViewMode(), PhysicsSystem::GatherColliderInstances(*world_), editor_->GetSelectedEntity());
+				graphics_->GameRender(gameTimer_, *loaderSystem_, *resource_, *world_);
+				graphics_->CanvasRender(worldTimer_, canvasCamera_, *loaderSystem_, *resource_, *world_);
+
+				if (editorContext_.previewActive_)
+				{
+					graphics_->PreviewRender(worldTimer_, previewCamera_, *loaderSystem_, *resource_, editorContext_.previewMeshAssetId_, editorContext_.previewAnimationAssetId_, editorContext_.previewTime_);
+				}
+
+				graphics_->Clear();
+
+				imgui_->DockSpaceBegin(editor_->DrawToolbar());
+				editor_->Draw(graphics_->EditorImGuiGPUHandle(), graphics_->GameImGuiGPUHandle(), graphics_->CanvasImGuiGPUHandle(), graphics_->PreviewImGuiGPUHandle(), graphics_->GetGpuProfiler());
+				imgui_->DockSpaceEnd();
+
+				imgui_->Render(graphics_->GetContext()->GetDirectList()->Get());
+
+				graphics_->End();
+				graphics_->GetSwapChain()->Present();
+			}
+		}
+	}
+
+	Bool Engine::BootWindow(const Bootstrap& boot)
+	{
+		window_ = MakePtr<Window>();
+		if (window_)
+		{
+			hwnd_ = window_->Create(boot);
+			window_->GetTimer().Start();
+			return true;
+		}
+		return false;
+	}
+}

@@ -1,0 +1,109 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="JoltPhysics">
+      <UniqueIdentifier>{433f06d7-7fa8-416f-8424-8964b959ee05}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Rigidbody">
+      <UniqueIdentifier>{883b1db7-49b7-4d0c-8013-489f4c0ac984}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Softbody">
+      <UniqueIdentifier>{4a8de8a7-25f0-44c5-8344-ff966a58dff0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Collider">
+      <UniqueIdentifier>{c81f7fa2-f1a3-4d9f-ab0e-43d63e561244}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Physics">
+      <UniqueIdentifier>{16da94ac-77b1-46ce-b41e-1a527ac9514c}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="JoltPhysics\JoltManager.h">
+      <Filter>JoltPhysics</Filter>
+    </ClInclude>
+    <ClInclude Include="JoltPhysics\JoltExecutorBridge.h">
+      <Filter>JoltPhysics</Filter>
+    </ClInclude>
+    <ClInclude Include="JoltPhysics\JoltLayerdef.h">
+      <Filter>JoltPhysics</Filter>
+    </ClInclude>
+    <ClInclude Include="Rigidbody\Rigidbody.h">
+      <Filter>Rigidbody</Filter>
+    </ClInclude>
+    <ClInclude Include="Softbody\Softbody.h">
+      <Filter>Softbody</Filter>
+    </ClInclude>
+    <ClInclude Include="Collider\BoxCollider.h">
+      <Filter>Collider</Filter>
+    </ClInclude>
+    <ClInclude Include="Collider\SphereCollider.h">
+      <Filter>Collider</Filter>
+    </ClInclude>
+    <ClInclude Include="Collider\CapsuleCollider.h">
+      <Filter>Collider</Filter>
+    </ClInclude>
+    <ClInclude Include="Collider\CylinderCollider.h">
+      <Filter>Collider</Filter>
+    </ClInclude>
+    <ClInclude Include="Collider\MeshCollider.h">
+      <Filter>Collider</Filter>
+    </ClInclude>
+    <ClInclude Include="Collider\RectCollider.h">
+      <Filter>Collider</Filter>
+    </ClInclude>
+    <ClInclude Include="Collider\CircleCollider.h">
+      <Filter>Collider</Filter>
+    </ClInclude>
+    <ClInclude Include="JoltPhysics\JoltShapePool.h">
+      <Filter>JoltPhysics</Filter>
+    </ClInclude>
+    <ClInclude Include="Physics\Physics.h">
+      <Filter>Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="Physics\PhysicsSystem.h">
+      <Filter>Physics</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="JoltPhysics\JoltManager.cpp">
+      <Filter>JoltPhysics</Filter>
+    </ClCompile>
+    <ClCompile Include="JoltPhysics\JoltExecutorBridge.cpp">
+      <Filter>JoltPhysics</Filter>
+    </ClCompile>
+    <ClCompile Include="Prelude.cpp" />
+    <ClCompile Include="JoltPhysics\JoltShapePool.cpp">
+      <Filter>JoltPhysics</Filter>
+    </ClCompile>
+    <ClCompile Include="Physics\Physics.cpp">
+      <Filter>Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="JoltPhysics\JoltLayerdef.cpp">
+      <Filter>JoltPhysics</Filter>
+    </ClCompile>
+    <ClCompile Include="Rigidbody\Rigidbody.cpp">
+      <Filter>Rigidbody</Filter>
+    </ClCompile>
+    <ClCompile Include="Collider\BoxCollider.cpp">
+      <Filter>Collider</Filter>
+    </ClCompile>
+    <ClCompile Include="Collider\CapsuleCollider.cpp">
+      <Filter>Collider</Filter>
+    </ClCompile>
+    <ClCompile Include="Collider\CircleCollider.cpp">
+      <Filter>Collider</Filter>
+    </ClCompile>
+    <ClCompile Include="Collider\CylinderCollider.cpp">
+      <Filter>Collider</Filter>
+    </ClCompile>
+    <ClCompile Include="Collider\RectCollider.cpp">
+      <Filter>Collider</Filter>
+    </ClCompile>
+    <ClCompile Include="Collider\SphereCollider.cpp">
+      <Filter>Collider</Filter>
+    </ClCompile>
+    <ClCompile Include="Physics\PhysicsSystem.cpp">
+      <Filter>Physics</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

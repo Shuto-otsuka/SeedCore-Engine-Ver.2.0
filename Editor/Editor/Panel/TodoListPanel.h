@@ -1,0 +1,57 @@
+#pragma once
+#include <FoundationEngine/Prelude.h>
+
+namespace SeedCore
+{
+	struct EditorContext;
+
+	enum class TodoPriority : Int32
+	{
+		Low = 0,
+		Mid = 1,
+		High = 2,
+	};
+
+	struct TodoItem
+	{
+		std::string text_;
+		Bool done_ = false;
+		TodoPriority priority_ = TodoPriority::Mid;
+
+		template<class T>
+		void serialize(T& archive)
+		{
+			Int32 priorityValue = static_cast<Int32>(priority_);
+			archive(
+				cereal::make_nvp("text", text_),
+				cereal::make_nvp("done", done_),
+				cereal::make_nvp("priority", priorityValue)
+			);
+			priority_ = static_cast<TodoPriority>(priorityValue);
+		}
+	};
+
+	class TodoListPanel
+	{
+	public:
+		TodoListPanel(EditorContext& context);
+		~TodoListPanel() = default;
+
+		void Draw();
+
+		void Open();
+
+	private:
+		void Load();
+
+		void Save();
+
+		Bool show_ = false;
+
+		DynamicArray<TodoItem> items_;
+
+		std::string newItemBuffer_;
+
+		TodoPriority newItemPriority_ = TodoPriority::Mid;
+	};
+}

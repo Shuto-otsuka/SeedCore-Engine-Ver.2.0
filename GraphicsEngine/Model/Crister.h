@@ -1,0 +1,1118 @@
+#pragma once
+#include <FoundationEngine/Prelude.h>
+
+/// [EN] Texture mip streaming: implemented alongside geometry StreamingGeometry
+///      streaming, same shape (coarsest pinned resident, finer levels
+///      on demand, EvictClusterBudget/EvictTextureBudget reclaim under
+///      separate VRAM budgets — see MakeClusterResident/EvictCluster and
+///      MakeTextureMipResident/EvictTextureMip). Picked option A from the
+///      two considered: one committed resource PER MIP LEVEL, created/freed
+///      independently (mirrors StreamingGeometry's per-cluster buffers), over one
+///      MipLevels=N resource with only some subresources uploaded (rejected —
+///      a DEFAULT-heap resource reserves memory for its full mip chain at
+///      creation regardless of which subresources hold data, so that option
+///      would not have reduced VRAM usage). No Model.hlsli change was needed:
+///      UV space is unaffected by which single-mip resource currently backs
+///      the SRV, so the existing sampling code works unmodified against
+///      whatever resolution happens to be resident.
+/// [JP] テクスチャミップストリーミング: ジオメトリの StreamingGeometry ストリーミングと
+///      同じ形で実装済み（最粗ミップをピン留めして常駐、細かいミップはオンデマンド、
+///      EvictClusterBudget/EvictTextureBudget がそれぞれ別の VRAM 予算超過時に回収 —
+///      MakeClusterResident/EvictCluster と MakeTextureMipResident/EvictTextureMip
+///      参照）。検討した2案のうちA案を採用: ミップレベルごとに別々の committed
+///      resource を作り個別に作成/破棄する方式（StreamingGeometry のクラスタごとバッファと
+///      同じ発想）。MipLevels=N の1リソースを作り一部のサブリソースにしかデータを
+///      入れない方式は却下 — DEFAULT ヒープのリソースはサブリソースにデータが
+///      入っているかに関わらず作成時点でフルミップチェーン分のメモリを確保するため、
+///      VRAM 削減にならなかったはず。Model.hlsli の変更は不要だった: どの単一ミップの
+///      リソースが SRV の裏にあっても UV 空間は変わらないため、既存のサンプリング
+///      コードは常駐中の解像度に対してそのまま動作する。
+namespace SeedCore
+{
+	class BindlessHeap;
+	class BC7CompressShader;
+
+	struct Vertex
+	{
+		Vector3 position_ = { 0,0,0 };
+		Vector3 normal_ = { 0,0,1 };
+		Vector4 tangent_ = { 1,0,0,1 };
+		Vector2 texcoord_ = { 0,0 };
+		XmUint4 joints_ = { 0,0,0,0 };
+		Vector4 weights_ = { 1,0,0,0 };
+
+		template<class T>
+		void serialize(T& archive)
+		{
+			archive(
+				cereal::make_nvp("position", position_),
+				cereal::make_nvp("normal", normal_),
+				cereal::make_nvp("tangent", tangent_),
+				cereal::make_nvp("texcoord", texcoord_),
+				cereal::make_nvp("joints", joints_),
+				cereal::make_nvp("weights", weights_)
+			);
+		}
+	};
+
+	/// [EN] GPU vertex format, quantised on the CPU at BakeMesh() time (load/bake,
+	///      baked into the .crister cache) and decoded in the mesh/hit shaders
+	///      (Model.hlsli: DecodeModelVertex). 16 bytes vs the 80-byte source
+	///      Vertex. Positions/texcoords are 16-bit UNORM against the whole
+	///      Crister's AABB (shared vertices quantise identically, so meshlet
+	///      seams cannot crack); normals are 16+16-bit octahedral; tangents are
+	///      8+7-bit octahedral plus a handedness sign.
+	/// [JP] GPU 頂点フォーマット。BakeMesh() 時（ロード/ベイク時、.crister キャッシュに
+	///      焼き込み）に CPU で量子化し、メッシュ/ヒットシェーダでデコードする
+	///      (Model.hlsli: DecodeModelVertex)。元 Vertex の 80 バイトに対し 16 バイト。
+	///      位置/UV は Crister 全体の AABB に対する 16bit UNORM（共有頂点は同一に
+	///      量子化されるため、メシュレット境界で亀裂は出ない）。法線は 16+16bit
+	///      octahedral、タンジェントは 8+7bit octahedral + 利き手符号 1bit。
+	struct CompressedVertex
+	{
+		Uint32 positionXY_ = 0;    // x:16 | y:16 (UNORM in AABB)
+		Uint32 positionZTexU_ = 0; // z:16 | texcoord u:16 (UNORM in UV AABB)
+		Uint32 texVTangent_ = 0;   // texcoord v:16 | tangent oct x:8 y:7 sign:1
+		Uint32 normal_ = 0;        // octahedral x:16 | y:16
+
+		template<class T>
+		void serialize(T& archive)
+		{
+			archive(
+				cereal::make_nvp("position_xy", positionXY_),
+				cereal::make_nvp("position_z_tex_u", positionZTexU_),
+				cereal::make_nvp("tex_v_tangent", texVTangent_),
+				cereal::make_nvp("normal", normal_)
+			);
+		}
+	};
+
+	/// [EN] Skinning attributes, split from CompressedVertex so static models
+	///      never pay for them. Uploaded only when the Crister has skins.
+	/// [JP] スキニング属性。静的モデルがコストを払わずに済むよう
+	///      CompressedVertex から分離。スキンを持つ Crister のみアップロード。
+	struct CompressedSkinVertex
+	{
+		Uint32 jointsXY_ = 0; // joint0:16 | joint1:16
+		Uint32 jointsZW_ = 0; // joint2:16 | joint3:16
+		Uint32 weights_ = 0;  // 4 x 8-bit UNORM, renormalised in the shader
+
+		template<class T>
+		void serialize(T& archive)
+		{
+			archive(
+				cereal::make_nvp("joints_xy", jointsXY_),
+				cereal::make_nvp("joints_zw", jointsZW_),
+				cereal::make_nvp("weights", weights_)
+			);
+		}
+	};
+
+	struct Meshlet
+	{
+		Uint32 vertexOffset_ = 0;
+		Uint32 triangleOffset_ = 0;
+		Uint32 vertexCount_ = 0;
+		Uint32 triangleCount_ = 0;
+
+		template<class T>
+		void serialize(T& archive)
+		{
+			archive(
+				cereal::make_nvp("vertex_offset", vertexOffset_),
+				cereal::make_nvp("triangle_offset", triangleOffset_),
+				cereal::make_nvp("vertex_count", vertexCount_),
+				cereal::make_nvp("triangle_count", triangleCount_)
+			);
+		}
+	};
+
+	struct MeshletBound
+	{
+		Vector3 center_ = { 0,0,0 };
+		Float radius_ = 0.0f;
+		Vector3 coneAxis_ = { 0,0,1 };
+		Float coneCutoff_ = 1.0f;
+
+		template<class T>
+		void serialize(T& archive)
+		{
+			archive(
+				cereal::make_nvp("center", center_),
+				cereal::make_nvp("radius", radius_),
+				cereal::make_nvp("cone_axis", coneAxis_),
+				cereal::make_nvp("cone_cutoff", coneCutoff_)
+			);
+		}
+	};
+
+	struct Cluster
+	{
+		Uint32 meshletOffset_ = 0;
+		Uint32 meshletCount_ = 0;
+		Uint32 lodLevel_ = 0;
+		Float lodError_ = 0.0f;
+
+		template<class T>
+		void serialize(T& archive)
+		{
+			archive(
+				cereal::make_nvp("meshlet_offset", meshletOffset_),
+				cereal::make_nvp("meshlet_count", meshletCount_),
+				cereal::make_nvp("lod_level", lodLevel_),
+				cereal::make_nvp("lod_error", lodError_)
+			);
+		}
+	};
+
+	struct SubMesh
+	{
+		Uint32 clusterOffset_ = 0;
+		Uint32 clusterCount_ = 0;
+		Uint32 materialIndex_ = 0;
+		Uint32 indexOffset_ = 0;
+		Uint32 indexCount_ = 0;
+
+		/// [EN] Index into Crister::skins_ if this SubMesh is skinned, -1 otherwise.
+		///      Resolved from the glTF node that references this SubMesh's mesh.
+		/// [JP] この SubMesh がスキンドなら Crister::skins_ へのインデックス、それ以外は -1。
+		///      この SubMesh のメッシュを参照する glTF ノードから解決される。
+		Int skinIndex_ = -1;
+
+		template<class T>
+		void serialize(T& archive)
+		{
+			archive(
+				cereal::make_nvp("cluster_offset", clusterOffset_),
+				cereal::make_nvp("cluster_count", clusterCount_),
+				cereal::make_nvp("material_index", materialIndex_),
+				cereal::make_nvp("index_offset", indexOffset_),
+				cereal::make_nvp("index_count", indexCount_),
+				cereal::make_nvp("skin_index", skinIndex_)
+			);
+		}
+	};
+
+	struct Stage
+	{
+		std::string name_;
+		DynamicArray<Int> nodes_;
+
+		template<class T>
+		void serialize(T& archive)
+		{
+			archive(
+				cereal::make_nvp("name", name_),
+				cereal::make_nvp("nodes", nodes_)
+			);
+		}
+	};
+
+	/// [JP] glTF の KHR_materials_* 拡張をまとめて持つ。各拡張のデフォルトは
+	///      「拡張が glTF に無い時＝中立（効果なし）」になるよう設定している。
+	struct KHR
+	{
+		/// [JP] KHR_materials_emissive_strength: エミッシブ強度（>1 で HDR 発光）。既定 1.0＝中立。
+		struct EmissiveStrength
+		{
+			Float emissiveStrength_ = 1.0f;
+
+			template<class T>
+			void serialize(T& archive)
+			{
+				archive(cereal::make_nvp("emissive_strength", emissiveStrength_));
+			}
+		};
+		EmissiveStrength emissiveStrength_;
+
+		/// [JP] KHR_materials_ior: 誘電体の屈折率。既定 1.5（glTF 既定）。F0 計算に効く。
+		struct Ior
+		{
+			Float ior_ = 1.5f;
+
+			template<class T>
+			void serialize(T& archive)
+			{
+				archive(cereal::make_nvp("ior", ior_));
+			}
+		};
+		Ior ior_;
+
+		/// [JP] KHR_materials_specular: スペキュラ強度と色。既定 factor=1/color=白＝フルスペキュラ（中立）。
+		struct Specular
+		{
+			Float specularFactor_ = 1.0f;
+			Float specularColorFactor_[3] = { 1,1,1 };
+
+			Uint32 specularTextureIndex_ = 0xFFFFFFFF;
+			Uint32 specularColorTextureIndex_ = 0xFFFFFFFF;
+
+			template<class T>
+			void serialize(T& archive)
+			{
+				archive(
+					cereal::make_nvp("specular_factor", specularFactor_),
+					cereal::make_nvp("specular_color_factor", specularColorFactor_),
+					cereal::make_nvp("specular_texture_index", specularTextureIndex_),
+					cereal::make_nvp("specular_color_texture_index", specularColorTextureIndex_)
+				);
+			}
+		};
+		Specular specular_;
+
+		/// [JP] KHR_materials_clearcoat: クリアコート層。既定 factor=0＝コート無し（中立）。
+		struct ClearCoat
+		{
+			Float clearCoatFactor_ = 0.0f;
+			Float clearCoatRoughnessFactor_ = 0.0f;
+
+			Uint32 clearCoatTextureIndex_ = 0xFFFFFFFF;
+			Uint32 clearCoatRoughnessTextureIndex_ = 0xFFFFFFFF;
+			Uint32 clearCoatNormalTextureIndex_ = 0xFFFFFFFF;
+
+			template<class T>
+			void serialize(T& archive)
+			{
+				archive(
+					cereal::make_nvp("clear_coat_factor", clearCoatFactor_),
+					cereal::make_nvp("clear_coat_roughness_factor", clearCoatRoughnessFactor_),
+					cereal::make_nvp("clear_coat_texture_index", clearCoatTextureIndex_),
+					cereal::make_nvp("clear_coat_roughness_texture_index", clearCoatRoughnessTextureIndex_),
+					cereal::make_nvp("clear_coat_normal_texture_index", clearCoatNormalTextureIndex_)
+				);
+			}
+		};
+		ClearCoat clearCoat_;
+
+		/// [JP] KHR_materials_transmission: 透過（薄いガラス）。既定 factor=0＝不透過（中立）。
+		struct Transmission
+		{
+			Float transmissionFactor_ = 0.0f;
+
+			Uint32 transmissionTextureIndex_ = 0xFFFFFFFF;
+
+			template<class T>
+			void serialize(T& archive)
+			{
+				archive(
+					cereal::make_nvp("transmission_factor", transmissionFactor_),
+					cereal::make_nvp("transmission_texture_index", transmissionTextureIndex_)
+				);
+			}
+		};
+		Transmission transmission_;
+
+		/// [JP] KHR_materials_volume: 内部ボリューム（厚み・吸収）。transmission と併用。
+		///      既定 thickness=0/attenuationDistance=∞（吸収なし）/color=白＝中立。
+		struct Volume
+		{
+			Float thicknessFactor_ = 0.0f;
+			Float attenuationDistance_ = FLT_MAX;
+			Float attenuationColor_[3] = { 1,1,1 };
+
+			Uint32 thicknessTextureIndex_ = 0xFFFFFFFF;
+
+			template<class T>
+			void serialize(T& archive)
+			{
+				archive(
+					cereal::make_nvp("thickness_factor", thicknessFactor_),
+					cereal::make_nvp("attenuation_distance", attenuationDistance_),
+					cereal::make_nvp("attenuation_color", attenuationColor_),
+					cereal::make_nvp("thickness_texture_index", thicknessTextureIndex_)
+				);
+			}
+		};
+		Volume volume_;
+
+		/// [JP] KHR_materials_sheen: 布の光沢。既定 color=黒＝シーン無し（中立）。
+		struct Sheen
+		{
+			Float sheenColorFactor_[3] = { 0,0,0 };
+			Float sheenRoughnessFactor_ = 0.0f;
+
+			Uint32 sheenColorTextureIndex_ = 0xFFFFFFFF;
+			Uint32 sheenRoughnessTextureIndex_ = 0xFFFFFFFF;
+
+			template<class T>
+			void serialize(T& archive)
+			{
+				archive(
+					cereal::make_nvp("sheen_color_factor", sheenColorFactor_),
+					cereal::make_nvp("sheen_roughness_factor", sheenRoughnessFactor_),
+					cereal::make_nvp("sheen_color_texture_index", sheenColorTextureIndex_),
+					cereal::make_nvp("sheen_roughness_texture_index", sheenRoughnessTextureIndex_)
+				);
+			}
+		};
+		Sheen sheen_;
+
+		/// [JP] KHR_materials_iridescence: 虹色（シャボン玉・油膜）。既定 factor=0＝無し（中立）。
+		///      厚みは nm 単位（既定 min=100/max=400）、ior 既定 1.3。
+		struct Iridescence
+		{
+			Float iridescenceFactor_ = 0.0f;
+			Float iridescenceIor_ = 1.3f;
+			Float iridescenceThicknessMinimum_ = 100.0f;
+			Float iridescenceThicknessMaximum_ = 400.0f;
+
+			Uint32 iridescenceTextureIndex_ = 0xFFFFFFFF;
+			Uint32 iridescenceThicknessTextureIndex_ = 0xFFFFFFFF;
+
+			template<class T>
+			void serialize(T& archive)
+			{
+				archive(
+					cereal::make_nvp("iridescence_factor", iridescenceFactor_),
+					cereal::make_nvp("iridescence_ior", iridescenceIor_),
+					cereal::make_nvp("iridescence_thickness_minimum", iridescenceThicknessMinimum_),
+					cereal::make_nvp("iridescence_thickness_maximum", iridescenceThicknessMaximum_),
+					cereal::make_nvp("iridescence_texture_index", iridescenceTextureIndex_),
+					cereal::make_nvp("iridescence_thickness_texture_index", iridescenceThicknessTextureIndex_)
+				);
+			}
+		};
+		Iridescence iridescence_;
+
+		/// [JP] KHR_materials_anisotropy: 異方性スペキュラ（ヘアライン金属・髪）。
+		///      既定 strength=0＝等方（中立）。rotation はラジアン。
+		struct Anisotropy
+		{
+			Float anisotropyStrength_ = 0.0f;
+			Float anisotropyRotation_ = 0.0f;
+
+			Uint32 anisotropyTextureIndex_ = 0xFFFFFFFF;
+
+			template<class T>
+			void serialize(T& archive)
+			{
+				archive(
+					cereal::make_nvp("anisotropy_strength", anisotropyStrength_),
+					cereal::make_nvp("anisotropy_rotation", anisotropyRotation_),
+					cereal::make_nvp("anisotropy_texture_index", anisotropyTextureIndex_)
+				);
+			}
+		};
+		Anisotropy anisotropy_;
+
+		/// [JP] KHR_materials_unlit: ライティング無効（フラット）。存在で 1、既定 0＝通常ライティング。
+		struct Unlit
+		{
+			Int unlit_ = 0;
+
+			template<class T>
+			void serialize(T& archive)
+			{
+				archive(cereal::make_nvp("unlit", unlit_));
+			}
+		};
+		Unlit unlit_;
+
+		template<class T>
+		void serialize(T& archive)
+		{
+			archive(
+				cereal::make_nvp("emissive_strength", emissiveStrength_),
+				cereal::make_nvp("ior", ior_),
+				cereal::make_nvp("specular", specular_),
+				cereal::make_nvp("clear_coat", clearCoat_),
+				cereal::make_nvp("transmission", transmission_),
+				cereal::make_nvp("volume", volume_),
+				cereal::make_nvp("sheen", sheen_),
+				cereal::make_nvp("iridescence", iridescence_),
+				cereal::make_nvp("anisotropy", anisotropy_),
+				cereal::make_nvp("unlit", unlit_)
+			);
+		}
+	};
+
+	struct Material
+	{
+		Color baseColor_ = { 1,1,1,1 };
+		Float metallic_ = 0.0f;
+		Float roughness_ = 1.0f;
+		Float emissiveFactor_[3] = { 0,0,0 };
+		Int alphaMode_ = 0;
+		Float alphaCutoff_ = 0.5f;
+		Int doubleSided_ = 0;
+
+		/// [JP] KHR_materials_* 拡張。拡張が無ければ各デフォルト（中立値）のまま。
+		KHR khr_;
+
+		Uint32 baseColorTextureIndex_ = 0xFFFFFFFF;
+		Uint32 normalTextureIndex_ = 0xFFFFFFFF;
+		Uint32 metallicRoughnessTextureIndex_ = 0xFFFFFFFF;
+		Uint32 occlusionTextureIndex_ = 0xFFFFFFFF;
+		Uint32 emissiveTextureIndex_ = 0xFFFFFFFF;
+
+		template<class T>
+		void serialize(T& archive)
+		{
+			archive(
+				cereal::make_nvp("base_color", baseColor_),
+				cereal::make_nvp("metallic", metallic_),
+				cereal::make_nvp("roughness", roughness_),
+				cereal::make_nvp("emissive_factor", emissiveFactor_),
+				cereal::make_nvp("alpha_mode", alphaMode_),
+				cereal::make_nvp("alpha_cutoff", alphaCutoff_),
+				cereal::make_nvp("double_sided", doubleSided_),
+				cereal::make_nvp("khr", khr_),
+				cereal::make_nvp("base_color_texture_index", baseColorTextureIndex_),
+				cereal::make_nvp("normal_texture_index", normalTextureIndex_),
+				cereal::make_nvp("metallic_roughness_texture_index", metallicRoughnessTextureIndex_),
+				cereal::make_nvp("occlusion_texture_index", occlusionTextureIndex_),
+				cereal::make_nvp("emissive_texture_index", emissiveTextureIndex_)
+			);
+		}
+	};
+
+	struct Node
+	{
+		std::string name_;
+		Int mesh_ = -1;
+		Int skin_ = -1;
+		Int light_ = -1; // KHR_lights_punctual: index into Crister::lights_, -1 if none.
+		DynamicArray<Int> children_;
+
+		Quaternion rotation_ = { 0,0,0,1 };
+		Vector3 scale_ = { 1,1,1 };
+		Vector3 translation_ = { 0,0,0 };
+		Matrix globalTransform_ = Matrix::Identity;
+
+		template<class T>
+		void serialize(T& archive)
+		{
+			archive(
+				cereal::make_nvp("name", name_),
+				cereal::make_nvp("mesh", mesh_),
+				cereal::make_nvp("skin", skin_),
+				cereal::make_nvp("light", light_),
+				cereal::make_nvp("children", children_),
+				cereal::make_nvp("rotation", rotation_),
+				cereal::make_nvp("scale", scale_),
+				cereal::make_nvp("translation", translation_),
+				cereal::make_nvp("global_transform", globalTransform_)
+			);
+		}
+	};
+
+	struct Skin
+	{
+		DynamicArray<Matrix> inverseBindMatrices_;
+		DynamicArray<Int> joints_;
+
+		template<class T>
+		void serialize(T& archive)
+		{
+			archive(
+				cereal::make_nvp("inverse_bind_matrices", inverseBindMatrices_),
+				cereal::make_nvp("joints", joints_)
+			);
+		}
+	};
+
+	/**
+	* [EN]
+	* KHR_lights_punctual point/spot light, resolved to world-space
+	* position/direction (via the referencing Node's globalTransform_)
+	* at load time. Directional lights are not represented here; see
+	* ModelLoader::FetchLights.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* KHR_lights_punctual のポイント/スポットライト。ロード時に参照ノードの
+	* globalTransform_ からワールド空間の位置/向きに解決済み。
+	* ディレクショナルライトはここに含めない（ModelLoader::FetchLights 参照）。
+	*/
+	struct PunctualLight
+	{
+		enum class Type : Uint32
+		{
+			Point = 0,
+			Spot = 1,
+		};
+
+		Type type_ = Type::Point;
+		Vector3 position_ = { 0,0,0 };
+		Vector3 direction_ = { 0,0,-1 }; // Spot only.
+		Float colorRGB_[3] = { 1,1,1 };
+		Float intensity_ = 1.0f;
+		Float range_ = 0.0f; // glTF: 0 = unbounded; resolved to a finite fallback by FetchLights.
+		Float innerConeAngle_ = 0.0f; // Spot only, radians.
+		Float outerConeAngle_ = 0.785398163f; // Spot only, radians (45 deg default per glTF spec).
+
+		template<class T>
+		void serialize(T& archive)
+		{
+			archive(
+				cereal::make_nvp("type", type_),
+				cereal::make_nvp("position", position_),
+				cereal::make_nvp("direction", direction_),
+				cereal::make_nvp("color_rgb", colorRGB_),
+				cereal::make_nvp("intensity", intensity_),
+				cereal::make_nvp("range", range_),
+				cereal::make_nvp("inner_cone_angle", innerConeAngle_),
+				cereal::make_nvp("outer_cone_angle", outerConeAngle_)
+			);
+		}
+	};
+
+	/// [EN] width_/height_/mipCount_ describe cacheData_ as baked by
+	///      Crister::BakeBitmap(): BC7-compressed blocks for mip 0 through
+	///      mipCount_-1, concatenated in mip order (standard BC block
+	///      layout — 16 bytes per 4x4 texel block, no explicit per-mip
+	///      offsets stored; Upload() recomputes them from width_/height_).
+	///      component_/bits_ describe the original glTF source image only.
+	/// [JP] width_/height_/mipCount_ は Crister::BakeBitmap() が焼いた
+	///      cacheData_ の内容を表す: mip 0 から mipCount_-1 までの BC7 圧縮
+	///      ブロックをミップ順に連結したもの（標準的な BC ブロックレイアウト
+	///      — 4x4 テクセルブロックあたり 16 バイト、ミップごとのオフセットは
+	///      持たず Upload() が width_/height_ から再計算する）。
+	///      component_/bits_ は元の glTF ソース画像の情報のみ。
+	struct Bitmap
+	{
+		std::string name_;
+		Int width_ = -1;
+		Int height_ = -1;
+		Int component_ = -1;
+		Int bits_ = -1;
+		Int mipCount_ = 1;
+		std::string mimeType_;
+		DynamicArray<Uchar> cacheData_;
+
+		template<class T>
+		void serialize(T& archive)
+		{
+			archive(
+				cereal::make_nvp("name", name_),
+				cereal::make_nvp("width", width_),
+				cereal::make_nvp("height", height_),
+				cereal::make_nvp("component", component_),
+				cereal::make_nvp("bits", bits_),
+				cereal::make_nvp("mip_count", mipCount_),
+				cereal::make_nvp("mime_type", mimeType_),
+				cereal::make_nvp("cache_data", cacheData_)
+			);
+		}
+	};
+
+	class SEEDCORE_API Crister
+	{
+	private:
+		friend class ModelLoader;
+
+		/// [EN] Source vertices. Only alive during the load/bake pipeline
+		///      (FetchMeshes -> BuildMeshlets -> BakeMesh); not serialized.
+		///      BakeMesh() consumes this into compressedVertices_/
+		///      compressedSkinVertices_ and clears it.
+		/// [JP] ソース頂点。ロード/ベイクのパイプライン中
+		///      (FetchMeshes -> BuildMeshlets -> BakeMesh) のみ生存し、
+		///      シリアライズしない。BakeMesh() がこれを compressedVertices_/
+		///      compressedSkinVertices_ へ変換して空にする。
+		DynamicArray<Vertex> vertices_;
+
+		/// [EN] Quantised GPU vertex format, baked by BakeMesh() and cached to
+		///      disk. Indexed the same way vertices_ was (global vertex index).
+		/// [JP] 量子化済み GPU 頂点フォーマット。BakeMesh() で焼き込みディスクに
+		///      キャッシュする。vertices_ と同じグローバル頂点インデックスで引く。
+		DynamicArray<CompressedVertex> compressedVertices_;
+
+		/// [EN] Quantised skinning attributes, baked alongside compressedVertices_.
+		///      Empty when skins_ is empty.
+		/// [JP] 量子化済みスキニング属性。compressedVertices_ と一緒に焼き込む。
+		///      skins_ が空なら空のまま。
+		DynamicArray<CompressedSkinVertex> compressedSkinVertices_;
+
+		DynamicArray<Uint32> vertexIndices_;
+		DynamicArray<Uint8> primitiveIndices_;
+		DynamicArray<Meshlet> meshlets_;
+		DynamicArray<MeshletBound> meshletBounds_;
+		DynamicArray<Cluster> clusters_;
+		DynamicArray<Stage> stages_;
+		DynamicArray<SubMesh> subMeshes_;
+		DynamicArray<Material> materials_;
+		DynamicArray<Node> nodes_;
+		DynamicArray<Skin> skins_;
+		DynamicArray<Bitmap> bitmaps_;
+		DynamicArray<PunctualLight> lights_;
+
+		Int defaultStage_ = 0;
+
+	public:
+		Crister() = default;
+		~Crister();
+
+		Crister(Crister&&)noexcept = default;
+		Crister& operator=(Crister&&)noexcept = default;
+
+		template<class T>
+		void serialize(T& archive)
+		{
+			archive(
+				cereal::make_nvp("compressed_vertices", compressedVertices_),
+				cereal::make_nvp("compressed_skin_vertices", compressedSkinVertices_),
+				cereal::make_nvp("position_min", positionMin_),
+				cereal::make_nvp("position_extent", positionExtent_),
+				cereal::make_nvp("texcoord_min", texcoordMin_),
+				cereal::make_nvp("texcoord_extent", texcoordExtent_),
+				cereal::make_nvp("vertex_indices", vertexIndices_),
+				cereal::make_nvp("primitive_indices", primitiveIndices_),
+				cereal::make_nvp("meshlets", meshlets_),
+				cereal::make_nvp("meshlet_bounds", meshletBounds_),
+				cereal::make_nvp("clusters", clusters_),
+				cereal::make_nvp("stages", stages_),
+				cereal::make_nvp("sub_meshes", subMeshes_),
+				cereal::make_nvp("materials", materials_),
+				cereal::make_nvp("nodes", nodes_),
+				cereal::make_nvp("skins", skins_),
+				cereal::make_nvp("bitmaps", bitmaps_),
+				cereal::make_nvp("lights", lights_),
+				cereal::make_nvp("default_stage", defaultStage_)
+			);
+		}
+
+		/// [EN] Computes the quantisation AABB and bakes vertices_ (and, if
+		///      skinned, skin attributes) into compressedVertices_ /
+		///      compressedSkinVertices_, then frees vertices_. Must run after
+		///      BuildMeshlets (LOD vertex duplication must already be final)
+		///      and before serialising to the .crister cache.
+		/// [JP] 量子化 AABB を計算し、vertices_（スキンがあればスキン属性も）を
+		///      compressedVertices_ / compressedSkinVertices_ へ焼き込んで
+		///      vertices_ を解放する。BuildMeshlets の後（LOD 頂点複製が確定済み）、
+		///      .crister キャッシュへのシリアライズ前に実行すること。
+		void BakeMesh();
+
+		/**
+		* [EN]
+		* Re-converts an already-baked Crister (no source glTF required) from
+		* one axis convention to another, in place: decodes every quantised
+		* vertex/skin back to full precision, applies deltaBasis to
+		* positions/normals/tangents/node transforms/skin inverse-bind
+		* matrices/light positions-directions/meshlet bounds, optionally
+		* reverses triangle winding, recomputes the quantisation AABBs from
+		* the transformed data, re-quantises via BakeMesh(), and
+		* re-serialises the result to cristerPath. Does NOT touch GPU
+		* resources or bindless indices — the caller must force a reload
+		* (Unload then Load) afterward. Returns false if this Crister has no
+		* compressed vertex data to convert (e.g. textures-only/degenerate asset).
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* 既に焼き込み済みの Crister（ソース glTF 不要）を、ある軸コンベンション
+		* から別のものへその場で再変換する: 量子化済みの頂点/スキンをフル精度へ
+		* デコードし、位置/法線/タンジェント/ノードトランスフォーム/スキン
+		* 逆バインド行列/ライト位置・向き/メシュレット境界へ deltaBasis を
+		* 適用、必要なら三角形の巻き順を反転、変換後データから量子化 AABB を
+		* 再計算し、BakeMesh() で再量子化して cristerPath へ再シリアライズ
+		* する。GPU リソースや bindless インデックスは触らない —
+		* 呼び出し側が後で強制リロード（Unload → Load）すること。この
+		* Crister に変換対象の量子化済み頂点データが無い場合（テクスチャのみ
+		* 等の縮退アセット）は false を返す。
+		*/
+		Bool ApplyAxisConversion(const Matrix& deltaBasis, Bool flipWinding, const std::filesystem::path& cristerPath);
+
+		/// [EN] Downsamples oversized textures, dilates transparent-texel
+		///      color (must happen before compression — BC7 blocks can't be
+		///      touched per-texel afterwards), then BC7-compresses a full mip
+		///      chain into each Bitmap's cacheData_. Must run before
+		///      serialising to the .crister cache.
+		///      BC7 encoding runs on the GPU (BC7CompressCS.hlsl, mode 6 only —
+		///      the CPU DirectXTex encoder's default quality search is
+		///      impractically slow and TEX_COMPRESS_PARALLEL is a no-op unless
+		///      the vendored DirectXTex.lib happens to be built with OpenMP).
+		///      Needs device/cmdQueue for the one-shot compute dispatch;
+		///      unlike Upload() this has no BindlessHeap dependency (the
+		///      shader binds its input/output as root SRV/UAV, not through
+		///      the bindless heap).
+		/// [JP] 大きすぎるテクスチャをダウンサンプルし、透明テクセルの色を
+		///      dilation する（圧縮後は BC7 ブロックをテクセル単位で触れない
+		///      ため圧縮前必須）。その後フルミップチェーンを BC7 圧縮して各
+		///      Bitmap の cacheData_ へ焼き込む。.crister キャッシュへの
+		///      シリアライズ前に実行すること。
+		///      BC7 エンコードは GPU で行う(BC7CompressCS.hlsl、mode 6 のみ —
+		///      CPU 版 DirectXTex のデフォルト品質探索は実用にならないほど遅く、
+		///      TEX_COMPRESS_PARALLEL も同梱の DirectXTex.lib が OpenMP 付きで
+		///      ビルドされていない限り無効)。一発実行のコンピュートディスパッチの
+		///      ため device/cmdQueue が要る。Upload() と違い BindlessHeap には
+		///      依存しない(シェーダの入出力は bindless ヒープではなくルート
+		///      SRV/UAV で直接バインドする)。ルートシグネチャ+PSOは
+		///      BC7CompressShader(Graphics所有、ModelShaderと同じ立ち位置)が
+		///      持つので、それを渡してもらう。
+		void BakeBitmap(ID3D12Device* device, ID3D12CommandQueue* cmdQueue, BC7CompressShader& bc7Shader);
+
+		void Upload(ID3D12Device* device, ID3D12CommandQueue* cmdQueue, BindlessHeap* heap);
+
+		[[nodiscard]] const DynamicArray<Stage>& Stages()const;
+		[[nodiscard]] const DynamicArray<Node>& Nodes()const;
+		[[nodiscard]] const DynamicArray<PunctualLight>& Lights()const;
+		[[nodiscard]] const DynamicArray<SubMesh>& SubMeshes()const;
+		[[nodiscard]] const DynamicArray<Material>& Materials()const;
+		[[nodiscard]] const DynamicArray<Skin>& Skins()const;
+		[[nodiscard]] const DynamicArray<Cluster>& Clusters()const;
+		[[nodiscard]] Int DefaultStage()const;
+
+		/// [EN] Dequantisation parameters for CompressedVertex (see the struct
+		///      comment). Passed to the shaders through ModelInstance.
+		/// [JP] CompressedVertex の逆量子化パラメータ（構造体コメント参照）。
+		///      ModelInstance 経由でシェーダに渡す。
+		[[nodiscard]] Vector3 PositionMin()const;
+		[[nodiscard]] Vector3 PositionExtent()const;
+		[[nodiscard]] Vector2 TexcoordMin()const;
+		[[nodiscard]] Vector2 TexcoordExtent()const;
+
+		/// [EN] Raw GPU addresses for BLAS construction. The vertex buffer is a
+		///      dedicated float3 position buffer (stride = sizeof(Vector3)),
+		///      decoded on the CPU from the quantised CompressedVertex data with
+		///      the same math the mesh shader uses — so BLAS positions match the
+		///      rasterized ones; the flat index buffer is a classic (non-meshlet) 32-bit
+		///      triangle list unpacked once at Upload() time from
+		///      primitiveIndices_/vertexIndices_, in the same order the mesh
+		///      shader draws them — so BLAS geometry matches the rasterized
+		///      geometry exactly (no re-derived winding).
+		/// [JP] BLAS 構築用の生 GPU アドレス。頂点バッファは BLAS 専用の float3
+		///      位置バッファ（stride = sizeof(Vector3)）。量子化済み CompressedVertex
+		///      からメッシュシェーダと同じ計算で CPU デコードするため、BLAS の
+		///      位置はラスタライズ結果と一致する。フラットインデックスバッファは、
+		///      primitiveIndices_/vertexIndices_ から Upload() 時に 1 度だけ展開する
+		///      古典的な（非meshlet）32bit 三角形リストで、メッシュシェーダが描く
+		///      のと同じ順序 — BLAS のジオメトリはラスタライズされるジオメトリと
+		///      完全に一致する（巻き順を再導出しない）。
+		[[nodiscard]] D3D12_GPU_VIRTUAL_ADDRESS VertexBufferGPUAddress()const;
+		[[nodiscard]] Uint32 VertexCount()const;
+		[[nodiscard]] D3D12_GPU_VIRTUAL_ADDRESS FlatTriangleIndexBufferGPUAddress()const;
+		[[nodiscard]] Uint32 FlatTriangleIndexCount()const;
+
+		/// [EN] Bindless heap index accessors — all return an index into the
+		///      BindlessHeap for the corresponding GPU buffer/texture.
+		/// [JP] bindless ヒープインデックスのアクセサ群 — 対応する GPU バッファ/
+		///      テクスチャの BindlessHeap 上のインデックスを返す。
+
+		/// [EN] Maps a glTF image index (as stored in Material) to the bindless heap index
+		///      of the uploaded GPU texture. Returns 0xFFFFFFFF when not present.
+		/// [JP] glTF の image インデックス（Material に格納されている値）を、アップロード済み
+		///      GPU テクスチャの bindless ヒープインデックスに変換する。無ければ 0xFFFFFFFF。
+		[[nodiscard]] Uint TextureBindlessIndex(Uint32 textureIndex)const;
+
+		/// [EN] Bindless SRV of the RT proxy CompressedVertex buffer (built from
+		///      each SubMesh's coarsest cluster — reflections trace against a
+		///      low-poly proxy so full-detail geometry never has to be resident).
+		/// [JP] RT プロキシ CompressedVertex バッファの bindless SRV（各 SubMesh の
+		///      最粗クラスタから構築 — 反射は低ポリプロキシに対してトレースする
+		///      ため、フル詳細ジオメトリを常駐させる必要がない）。
+		[[nodiscard]] Uint VertexBufferIndex()const;
+
+		/// [EN] Bindless SRV of the CompressedSkinVertex buffer, or 0xFFFFFFFF
+		///      when this Crister has no skins.
+		/// [JP] CompressedSkinVertex バッファの bindless SRV。スキンが無い
+		///      Crister では 0xFFFFFFFF。
+		[[nodiscard]] Uint SkinVertexBufferIndex()const;
+
+		/// [EN] Bindless SRV over the flat 32-bit triangle index buffer, for
+		///      raytracing closesthit shaders to re-fetch the hit triangle's
+		///      vertices (PrimitiveIndex() * 3 + 0/1/2 -> vertex index).
+		/// [JP] フラット 32bit 三角形インデックスバッファの bindless SRV。
+		///      レイトレの closesthit がヒット三角形の頂点を引き直すのに使う
+		///      (PrimitiveIndex() * 3 + 0/1/2 → 頂点インデックス)。
+		[[nodiscard]] Uint FlatTriangleIndexShaderResourceViewIndex()const;
+
+		[[nodiscard]] Bool HasSkinnedRTGeometry()const;
+
+		[[nodiscard]] D3D12_GPU_VIRTUAL_ADDRESS RTPositionBufferGPUAddress()const;
+
+		[[nodiscard]] D3D12_GPU_VIRTUAL_ADDRESS RTSkinVertexBufferGPUAddress()const;
+
+		/// [EN] Geometry streaming (Nanite-style residency) + budget control.
+		///      A page is one Cluster's slice of meshlets/bounds/vertex-
+		///      indices/primitive-indices (+ its own vertex range for LOD>=1).
+		///      LOD 0 clusters share the original vertex pool page instead.
+		///      Pages upload on demand from the CPU-resident arrays and are
+		///      evicted by EvictClusterBudget when total VRAM exceeds the budget.
+		///      Pinned pages (coarsest cluster per SubMesh, skinned LOD 0 and
+		///      the pool they reference) never evict, so every model can always
+		///      be drawn at some LOD.
+		///      MakeClusterResident/MakePoolResident/EvictCluster/EvictPool are
+		///      the resident/evict pair for cluster vs. pool. Public only
+		///      because MakeClusterResident is also driven externally by
+		///      ModelRenderer; the naming/shape of this whole group still
+		///      needs a pass — flagged in review, not yet fixed.
+		/// [JP] ジオメトリストリーミング（Nanite 型の常駐管理）+ 予算制御。
+		///      ページは 1 Cluster 分の meshlet/バウンド/頂点インデックス/
+		///      プリミティブインデックスのスライス（LOD>=1 は専用頂点範囲込み）。
+		///      LOD 0 クラスタは代わりに元の共有頂点プールページを参照する。
+		///      ページは CPU 常駐配列からオンデマンドでアップロードされ、VRAM が
+		///      予算を超えると EvictClusterBudget が追い出す。ピン留めページ（SubMesh
+		///      ごとの最粗クラスタ、スキンド LOD 0 とそれが参照するプール）は
+		///      追い出さないため、モデルは常に何らかの LOD で描画できる。
+		///      MakeClusterResident/MakePoolResident/EvictCluster/EvictPool は
+		///      クラスタ/プールの常駐・追い出しの対。MakeClusterResident が
+		///      ModelRenderer からも呼ばれるため public。この群の命名・形は
+		///      レビューで指摘済み、未修正。
+
+		/// [EN] Synchronously uploads the cluster's page (and the vertex pool if
+		///      the cluster is LOD 0). No-op when already resident.
+		/// [JP] クラスタのページを同期アップロードする（LOD 0 なら頂点プールも）。
+		///      常駐済みなら何もしない。
+		/// [EN] Texture mip counterpart: streams a mip level instead of a cluster
+		///      (see StreamingTexture below). targetMip is uploaded directly —
+		///      NOT one level at a time — so a texture reaches the resolution the
+		///      camera wants in a single upload instead of converging over as many
+		///      frames as there are mip levels (which left visible blur whenever
+		///      the camera moved, since each step also blocks on a GPU fence).
+		/// [JP] テクスチャミップ版の対。クラスタではなくミップレベルを
+		///      ストリーミングする（下記 StreamingTexture 参照）。targetMip は
+		///      1 段ずつではなく直接アップロードする — カメラが要求する解像度へ
+		///      1 回のアップロードで到達させるため。1 段ずつだとミップ段数分の
+		///      フレームを要し（各段が GPU フェンス待ちで同期もする）、カメラを
+		///      動かすたびにボケが残っていた。
+		void MakeClusterResident(Uint32 clusterIndex);
+		void MakeTextureMipResident(Uint32 textureIndex, Uint32 targetMip);
+		void MakePoolResident();
+		void EvictCluster(Uint32 clusterIndex);
+		void EvictTextureMip(Uint32 textureIndex);
+		void EvictPool();
+
+		/// [EN] Marks the cluster page (and its pool) as used this frame so the
+		///      eviction age guard keeps it alive while the GPU may reference it.
+		/// [JP] クラスタページ（とプール）を今フレーム使用中として記録し、GPU が
+		///      参照しうる間は追い出しの経過フレームガードで生存させる。
+		void TouchCluster(Uint32 clusterIndex, Uint64 frame);
+		void TouchTexture(Uint32 textureIndex, Uint64 frame);
+
+		[[nodiscard]] Bool IsClusterResident(Uint32 clusterIndex)const;
+		[[nodiscard]] Bool IsTextureResident(Uint32 textureIndex)const;
+
+		/// [EN] Evicts unpinned pages (oldest first) across every live Crister
+		///      until total resident geometry fits the budget. Pages must be
+		///      unused for evictAgeFrames_ frames before eviction so in-flight
+		///      GPU work never loses a buffer it references.
+		/// [JP] 生存中の全 Crister を対象に、未ピンのページを古い順に追い出して
+		///      常駐ジオメトリ合計を予算内に収める。インフライトの GPU 作業が
+		///      参照中のバッファを失わないよう、evictAgeFrames_ フレーム未使用の
+		///      ページのみ追い出す。
+		static void EvictClusterBudget(Uint64 currentFrame);
+		static void EvictTextureBudget(Uint64 currentFrame);
+
+		[[nodiscard]] Uint ClusterVertexBufferIndex(Uint32 clusterIndex)const;
+		[[nodiscard]] Uint ClusterMeshletBufferIndex(Uint32 clusterIndex)const;
+		[[nodiscard]] Uint ClusterMeshletBoundBufferIndex(Uint32 clusterIndex)const;
+		[[nodiscard]] Uint ClusterVertexIndicesBufferIndex(Uint32 clusterIndex)const;
+		[[nodiscard]] Uint ClusterPrimitiveIndicesBufferIndex(Uint32 clusterIndex)const;
+
+		[[nodiscard]] Uint32 TextureMipCount(Uint32 textureIndex)const;
+		[[nodiscard]] Uint32 TextureTopResidentMip(Uint32 textureIndex)const;
+
+		/// [EN] Approximates the mip a material texture needs from the same
+		///      worldScale/pixelsPerUnit metric ModelRenderer already computes
+		///      for cluster LOD selection (screen coverage of the instance).
+		/// [JP] ModelRenderer がクラスタ LOD 選択のために既に計算している
+		///      worldScale/pixelsPerUnit（インスタンスの画面被覆率）から、
+		///      マテリアルテクスチャに必要なミップを近似する。
+		[[nodiscard]] Uint32 DesiredTextureMip(Uint32 textureIndex, Float worldScale, Float pixelsPerUnit)const;
+
+	private:
+		/// [EN] Walks stages_[defaultStage_]'s node tree depth-first and recomputes
+		///      every Node::globalTransform_ from local S/R/T. Duplicates
+		///      ModelLoader::CumulateTransforms' logic so ApplyAxisConversion
+		///      can recompute global transforms without a ModelLoader/glTF
+		///      re-parse.
+		/// [JP] stages_[defaultStage_]のノードツリーを深さ優先で走査し、ローカル
+		///      S/R/T から全 Node::globalTransform_ を再計算する。
+		///      ModelLoader::CumulateTransforms のロジックを複製したもの。
+		///      ApplyAxisConversion が ModelLoader/glTF 再解析無しにグローバル
+		///      トランスフォームを再計算できるようにする。
+		void CumulateTransforms();
+
+		static Uint CreateStructuredShaderResourceView(ID3D12Device* device, BindlessHeap* heap, ID3D12Resource* resource, Uint elementCount, Uint stride);
+
+		/// [EN] DirectX::CreateStaticBuffer rejects any resource above ~128MB
+		///      (D3D12_REQ_RESOURCE_SIZE_IN_MEGABYTES_EXPRESSION_A_TERM used
+		///      directly as a flat byte cap by DirectXTK12's BufferHelpers.cpp,
+		///      not an actual D3D12 hardware limit - real buffers can be
+		///      gigabytes, bounded only by available GPU memory). High-poly
+		///      meshes routinely exceed that for the flat 32-bit triangle
+		///      index buffer, so this mirrors CreateStaticBuffer's own
+		///      implementation without the artificial size gate.
+		/// [JP] DirectX::CreateStaticBuffer は約128MBを超えるリソースを拒否する
+		///      (DirectXTK12 の BufferHelpers.cpp が
+		///      D3D12_REQ_RESOURCE_SIZE_IN_MEGABYTES_EXPRESSION_A_TERM を単純な
+		///      バイト上限としてそのまま使っているだけで、実際の D3D12/GPU の
+		///      ハード制限ではない - 実バッファは GPU メモリが許す限り
+		///      ギガバイト単位まで作れる)。ハイポリメッシュのフラット32bit
+		///      三角形インデックスバッファはこれを普通に超えるため、
+		///      CreateStaticBuffer と同じ実装からサイズ上限チェックだけ外した版。
+		static HRESULT CreateStaticBufferUnbounded(ID3D12Device* device, DirectX::ResourceUploadBatch& resourceUpload, const void* data, Uint64 count, Uint64 stride, D3D12_RESOURCE_STATES afterState, ID3D12Resource** outResource);
+
+		/// [EN] Texture counterpart: resolves mip dimensions/row-pitch/
+		///      slice-pitch/byte-offset within Bitmap::cacheData_ for a given
+		///      mip index, from the standard BC block layout (16 bytes per
+		///      4x4 texel block, mips concatenated in order with no stored
+		///      per-mip offsets).
+		/// [JP] テクスチャ版の対。Bitmap::cacheData_ 内での指定ミップの寸法/
+		///      row-pitch/slice-pitch/バイトオフセットを、標準的な BC
+		///      ブロックレイアウト（4x4 テクセルブロックあたり 16 バイト、
+		///      ミップは順に連結・オフセット未保存）から解決する。
+		static void ComputeTextureMipLayout(const Bitmap& bitmap, Uint32 mipIndex, Uint32& outWidth, Uint32& outHeight, Uint64& outRowPitch, Uint64& outSlicePitch, Uint64& outByteOffset);
+
+		/// [EN] One streamable GPU page: a Cluster's rebased slice of geometry.
+		///      Offsets stored in the page's meshlets are page-local; LOD>=1
+		///      pages own their vertex slice, LOD 0 pages reference the shared
+		///      vertex pool page instead (vertexBufferIndex_ = pool SRV).
+		/// [JP] ストリーミング可能な GPU ページ 1 つ = Cluster のリベース済み
+		///      ジオメトリスライス。ページ内 meshlet のオフセットはページ
+		///      ローカル。LOD>=1 は専用頂点スライスを所有し、LOD 0 は共有頂点
+		///      プールページを参照する（vertexBufferIndex_ = プール SRV）。
+		struct StreamingGeometry
+		{
+			/// [JP] CPU 配列内の派生レンジ（ロード時に meshlet 列から導出）。
+			Uint32 vertexIndexBegin_ = 0;
+			Uint32 vertexIndexEnd_ = 0;
+			Uint32 primitiveBegin_ = 0;
+			Uint32 primitiveEnd_ = 0;
+			Uint32 vertexBegin_ = 0;
+			Uint32 vertexEnd_ = 0;
+			Bool ownsVertices_ = false;
+			Bool pinned_ = false;
+
+			Microsoft::WRL::ComPtr<ID3D12Resource> meshletResource_;
+			Microsoft::WRL::ComPtr<ID3D12Resource> meshletBoundResource_;
+			Microsoft::WRL::ComPtr<ID3D12Resource> vertexIndicesResource_;
+			Microsoft::WRL::ComPtr<ID3D12Resource> primitiveIndicesResource_;
+			Microsoft::WRL::ComPtr<ID3D12Resource> vertexResource_;
+
+			Uint meshletBufferIndex_ = 0xFFFFFFFF;
+			Uint meshletBoundBufferIndex_ = 0xFFFFFFFF;
+			Uint vertexIndicesBufferIndex_ = 0xFFFFFFFF;
+			Uint primitiveIndicesBufferIndex_ = 0xFFFFFFFF;
+			Uint vertexBufferIndex_ = 0xFFFFFFFF;
+
+			Bool resident_ = false;
+			Uint64 sizeBytes_ = 0;
+			Uint64 lastUsedFrame_ = 0;
+		};
+
+		/// [EN] One streamable GPU mip of a Model-embedded texture: a single-mip
+		///      committed resource at that mip's own resolution. UV space is the
+		///      same regardless of which mip currently backs the SRV, so swapping
+		///      it in/out needs no shader-side change.
+		/// [JP] Model 内蔵テクスチャのストリーミング可能な GPU ミップ 1 つ。
+		///      そのミップ自身の解像度を持つ単一ミップの committed resource。
+		///      どのミップが SRV の裏にあっても UV 空間は変わらないため、
+		///      出し入れにシェーダ側の変更は不要。
+		struct TextureMipLevel
+		{
+			Microsoft::WRL::ComPtr<ID3D12Resource> resource_;
+			Uint bindlessIndex_ = 0xFFFFFFFF;
+			Uint64 sizeBytes_ = 0;
+		};
+
+		/// [EN] Streaming state for one Bitmap. At most 2 mips are ever GPU-resident
+		///      at once: pinnedMip_ (mipCount_-1, the coarsest, uploaded once at
+		///      Upload() and never freed — guarantees a fallback SRV) and
+		///      currentMip_ (topResidentMip_, the best mip streamed in so far;
+		///      unused while topResidentMip_ == mipCount_-1, i.e. nothing finer
+		///      than pinned has been requested yet). TextureBindlessIndex always
+		///      returns whichever of the two is finest, so intermediate mips
+		///      never need to stay resident — only the currently sampled one.
+		///      (Keeping the whole [topResidentMip_, mipCount_-1] range resident,
+		///      as an earlier version of this did, multiplies bindless-heap and
+		///      VRAM usage by up to mipCount_ per texture once DesiredTextureMip
+		///      legitimately converges toward mip 0 — exhausted the shared
+		///      BindlessHeap and corrupted other textures' descriptors. Do not
+		///      go back to that shape without also capping resident mips.)
+		/// [JP] Bitmap 1 枚分のストリーミング状態。GPU 常駐は常に最大2ミップまで:
+		///      pinnedMip_(mipCount_-1、最粗。Upload() で一度だけアップロードし
+		///      以後解放しない — フォールバック SRV を保証する)と currentMip_
+		///      (topResidentMip_、これまでにストリームインした最良ミップ。
+		///      topResidentMip_ == mipCount_-1 の間、つまりピン留めより細かい
+		///      ミップを未要求の間は未使用)。TextureBindlessIndex は常にこの2つの
+		///      うち細かい方を返すため、中間ミップを常駐させ続ける必要はなく、
+		///      実際にサンプルされる1枚だけで済む。
+		///      (以前のバージョンのように [topResidentMip_, mipCount_-1] を丸ごと
+		///      常駐させ続けると、DesiredTextureMip が正しくミップ0へ収束する
+		///      ようになった途端、1テクスチャあたり最大 mipCount_ 個分の
+		///      bindless ヒープ/VRAM を消費し、共有 BindlessHeap を枯渇させて
+		///      他テクスチャのディスクリプタまで壊れた。常駐ミップ数を制限せずに
+		///      その形へ戻さないこと。)
+		struct StreamingTexture
+		{
+			TextureMipLevel pinnedMip_;
+			TextureMipLevel currentMip_;
+			Uint32 mipCount_ = 0;
+			Uint32 topResidentMip_ = 0;
+			Uint64 lastUsedFrame_ = 0;
+			Bool valid_ = false;
+		};
+
+		/// [EN] RT proxy geometry (coarsest cluster per SubMesh): compressed
+		///      vertices for the hit shader, decoded float3 positions for BLAS,
+		///      flat 32-bit triangle indices for both. Always resident, small.
+		///      skinVertexResource_ covers the vertex pool range for skinned
+		///      models (skinned SubMeshes are LOD 0 / pool-indexed only).
+		/// [JP] RT プロキシジオメトリ（SubMesh ごとの最粗クラスタ）: ヒット
+		///      シェーダ用圧縮頂点、BLAS 用デコード済み float3 位置、両者用の
+		///      フラット 32bit 三角形インデックス。常に常駐・小サイズ。
+		///      skinVertexResource_ はスキンドモデル用に頂点プール範囲を
+		///      カバーする（スキンド SubMesh は LOD 0 / プール参照のみ）。
+		Microsoft::WRL::ComPtr<ID3D12Resource> vertexResource_;
+		Microsoft::WRL::ComPtr<ID3D12Resource> positionResource_;
+		Microsoft::WRL::ComPtr<ID3D12Resource> skinVertexResource_;
+		Microsoft::WRL::ComPtr<ID3D12Resource> flatTriangleIndexResource_;
+
+		Microsoft::WRL::ComPtr<ID3D12Resource> rtSkinVertexResource_;
+
+		Uint vertexBufferIndex_ = 0xFFFFFFFF;
+		Uint skinVertexBufferIndex_ = 0xFFFFFFFF;
+		Uint flatTriangleIndexShaderResourceViewIndex_ = 0;
+		Uint32 flatTriangleIndexCount_ = 0;
+		Uint32 rtVertexCount_ = 0;
+
+		/// [EN] Shared LOD 0 vertex pool page (referenced by LOD 0 cluster pages).
+		/// [JP] 共有 LOD 0 頂点プールページ（LOD 0 クラスタページが参照する）。
+		Microsoft::WRL::ComPtr<ID3D12Resource> poolResource_;
+		Uint poolBufferIndex_ = 0xFFFFFFFF;
+		Uint32 poolVertexEnd_ = 0;
+		Uint32 poolResidentReferences_ = 0;
+		Bool poolResident_ = false;
+		Bool poolPinned_ = false;
+		Uint64 poolSizeBytes_ = 0;
+		Uint64 poolLastUsedFrame_ = 0;
+
+		DynamicArray<StreamingGeometry> streamingGeometry_;
+		DynamicArray<StreamingTexture> streamingTextures_;
+
+		/// [EN] Captured at Upload() so pages can stream in and out later.
+		///      These engine objects outlive every Crister.
+		/// [JP] 後からページを出し入れできるよう Upload() で保持する。
+		///      これらのエンジンオブジェクトは全 Crister より長寿命。
+		ID3D12Device* device_ = nullptr;
+		ID3D12CommandQueue* uploadQueue_ = nullptr;
+		BindlessHeap* bindlessHeap_ = nullptr;
+
+		/// [EN] Dequantisation AABBs computed over all vertices at Upload() time.
+		/// [JP] Upload() 時に全頂点から計算する逆量子化 AABB。
+		Vector3 positionMin_ = { 0,0,0 };
+		Vector3 positionExtent_ = { 1,1,1 };
+		Vector2 texcoordMin_ = { 0,0 };
+		Vector2 texcoordExtent_ = { 1,1 };
+
+		/// [EN] Streaming bookkeeping shared by every live Crister. All access
+		///      happens on the render thread. Geometry and textures track
+		///      separate resident-byte totals against separate budgets, but
+		///      share the registry and the eviction age guard.
+		/// [JP] 生存中の全 Crister で共有するストリーミング管理。アクセスは
+		///      すべてレンダースレッド上。ジオメトリとテクスチャは常駐バイト数と
+		///      予算をそれぞれ別管理するが、レジストリと追い出しの経過フレーム
+		///      ガードは共有する。
+		static inline DynamicArray<Crister*> streamingRegistry_;
+
+		static inline Uint64 totalResidentGeometryBytes_ = 0;
+		static inline Uint64 totalResidentTextureBytes_ = 0;
+
+		static inline Uint64 geometryBudgetBytes_ = 512ull * 1024 * 1024;
+		static inline Uint64 textureBudgetBytes_ = 256ull * 1024 * 1024;
+
+		static constexpr Uint64 evictAgeFrames_ = 8;
+	};
+}

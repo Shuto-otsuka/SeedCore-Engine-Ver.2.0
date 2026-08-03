@@ -1,0 +1,555 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <ItemGroup>
+    <Filter Include="ESC">
+      <UniqueIdentifier>{f529b68a-9c76-453b-92f3-09c51c91602f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="JobSystem">
+      <UniqueIdentifier>{9dbabcc7-87ed-4e09-8974-6decad331374}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Math">
+      <UniqueIdentifier>{c08df867-32d0-4bc6-9d6f-d1416f4d2e35}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Utility">
+      <UniqueIdentifier>{96bf49e2-b491-4170-bb9c-8788a914119c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Log">
+      <UniqueIdentifier>{b44ffef0-bd16-4fbf-97c6-6dbab4b93b31}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Pool">
+      <UniqueIdentifier>{2e80dd9c-fb80-4d8d-bb4c-6a730a6a530f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Memory">
+      <UniqueIdentifier>{4be45a4b-7de3-4695-a079-8a6d4c39d8f8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Math\Random">
+      <UniqueIdentifier>{0bce8bfc-01ae-4b40-8a60-776ed080de7d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Input">
+      <UniqueIdentifier>{387778eb-d688-4754-811e-74c24b801133}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="File">
+      <UniqueIdentifier>{f22d5a97-1f12-429d-b5e7-f07cb3e88102}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ESC\Component">
+      <UniqueIdentifier>{14ad8944-8cc1-47e7-a405-c97f0babffa2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ESC\System">
+      <UniqueIdentifier>{093ff7d7-94b9-4170-8086-5c988c2b27cd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource">
+      <UniqueIdentifier>{ecf535db-1b40-4dca-ab80-da0d3c3b5791}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Time">
+      <UniqueIdentifier>{20e56ac5-20ef-4fe0-83b2-db27fff14f23}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Reflection">
+      <UniqueIdentifier>{a1b2c3d4-refl-0000-0000-000000000001}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Payload">
+      <UniqueIdentifier>{a1b2c3d4-payl-0000-0000-000000000001}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="JobSystem\FlowBuilder.cpp">
+      <Filter>JobSystem</Filter>
+    </ClCompile>
+    <ClCompile Include="JobSystem\JobNode.cpp">
+      <Filter>JobSystem</Filter>
+    </ClCompile>
+    <ClCompile Include="JobSystem\JobTask.cpp">
+      <Filter>JobSystem</Filter>
+    </ClCompile>
+    <ClCompile Include="JobSystem\JobNodeBase.cpp">
+      <Filter>JobSystem</Filter>
+    </ClCompile>
+    <ClCompile Include="JobSystem\JobGraph.cpp">
+      <Filter>JobSystem</Filter>
+    </ClCompile>
+    <ClCompile Include="JobSystem\JobTopology.cpp">
+      <Filter>JobSystem</Filter>
+    </ClCompile>
+    <ClCompile Include="JobSystem\JobTaskflow.cpp">
+      <Filter>JobSystem</Filter>
+    </ClCompile>
+    <ClCompile Include="JobSystem\JobWorker.cpp">
+      <Filter>JobSystem</Filter>
+    </ClCompile>
+    <ClCompile Include="JobSystem\JobExecutor.cpp">
+      <Filter>JobSystem</Filter>
+    </ClCompile>
+    <ClCompile Include="JobSystem\JobRuntime.cpp">
+      <Filter>JobSystem</Filter>
+    </ClCompile>
+    <ClCompile Include="Pool\ObjectPool.cpp">
+      <Filter>Pool</Filter>
+    </ClCompile>
+    <ClCompile Include="Pool\InternPool.cpp">
+      <Filter>Pool</Filter>
+    </ClCompile>
+    <ClCompile Include="JobSystem\JobVector.cpp">
+      <Filter>JobSystem</Filter>
+    </ClCompile>
+    <ClCompile Include="Utility\String.cpp">
+      <Filter>Utility</Filter>
+    </ClCompile>
+    <ClCompile Include="Prelude.cpp" />
+    <ClCompile Include="File\FileUtility.cpp">
+      <Filter>File</Filter>
+    </ClCompile>
+    <ClCompile Include="File\FileDialog.cpp">
+      <Filter>File</Filter>
+    </ClCompile>
+    <ClCompile Include="Utility\Bitset.cpp">
+      <Filter>Utility</Filter>
+    </ClCompile>
+    <ClCompile Include="ECS\Chunk.cpp">
+      <Filter>ESC</Filter>
+    </ClCompile>
+    <ClCompile Include="ECS\ComponentRegistry.cpp">
+      <Filter>ESC</Filter>
+    </ClCompile>
+    <ClCompile Include="ECS\Archetype.cpp">
+      <Filter>ESC</Filter>
+    </ClCompile>
+    <ClCompile Include="ECS\ArchetypeRegistry.cpp">
+      <Filter>ESC</Filter>
+    </ClCompile>
+    <ClCompile Include="ECS\Entity.cpp">
+      <Filter>ESC</Filter>
+    </ClCompile>
+    <ClCompile Include="ECS\ReflectionRegistry.cpp">
+      <Filter>ESC</Filter>
+    </ClCompile>
+    <ClCompile Include="ECS\Actor.cpp">
+      <Filter>ESC</Filter>
+    </ClCompile>
+    <ClCompile Include="ECS\World.cpp">
+      <Filter>ESC</Filter>
+    </ClCompile>
+    <ClCompile Include="ECS\EntityRecord.cpp">
+      <Filter>ESC</Filter>
+    </ClCompile>
+    <ClCompile Include="ECS\System\SystemScheduler.cpp">
+      <Filter>ESC\System</Filter>
+    </ClCompile>
+    <ClCompile Include="ECS\System\SceneTransitionSystem.cpp">
+      <Filter>ESC\System</Filter>
+    </ClCompile>
+    <ClCompile Include="Resource\ResourceCache.cpp">
+      <Filter>Resource</Filter>
+    </ClCompile>
+    <ClCompile Include="ECS\Component\ComponentBase.cpp">
+      <Filter>ESC\Component</Filter>
+    </ClCompile>
+    <ClCompile Include="File\FileDirectory.cpp">
+      <Filter>File</Filter>
+    </ClCompile>
+    <ClCompile Include="JobSystem\Semaphore.cpp">
+      <Filter>JobSystem</Filter>
+    </ClCompile>
+    <ClCompile Include="ECS\PayloadRegistry.cpp">
+      <Filter>ESC</Filter>
+    </ClCompile>
+    <ClCompile Include="ECS\System\TransformSystem.cpp">
+      <Filter>ESC\System</Filter>
+    </ClCompile>
+    <ClCompile Include="Time\Timer.cpp">
+      <Filter>Time</Filter>
+    </ClCompile>
+    <ClCompile Include="Time\WorldTimer.cpp">
+      <Filter>Time</Filter>
+    </ClCompile>
+    <ClCompile Include="Time\GameTimer.cpp">
+      <Filter>Time</Filter>
+    </ClCompile>
+    <ClCompile Include="Input\Input.cpp">
+      <Filter>Input</Filter>
+    </ClCompile>
+    <ClCompile Include="Input\InputSystem.cpp">
+      <Filter>Input</Filter>
+    </ClCompile>
+    <ClCompile Include="Resource\LoaderSystem.cpp">
+      <Filter>Resource</Filter>
+    </ClCompile>
+    <ClCompile Include="Log\LogSystem.cpp">
+      <Filter>Log</Filter>
+    </ClCompile>
+    <ClCompile Include="ECS\WorldSnapshot.cpp">
+      <Filter>ESC</Filter>
+    </ClCompile>
+    <ClCompile Include="Resource\Gateway.cpp">
+      <Filter>Resource</Filter>
+    </ClCompile>
+    <ClCompile Include="ECS\TagRegistry.cpp">
+      <Filter>ESC</Filter>
+    </ClCompile>
+    <ClCompile Include="Resource\ActorSerialization.cpp">
+      <Filter>Resource</Filter>
+    </ClCompile>
+    <ClCompile Include="Resource\Prefab.cpp">
+      <Filter>Resource</Filter>
+    </ClCompile>
+    <ClCompile Include="Resource\PrefabPool.cpp">
+      <Filter>Resource</Filter>
+    </ClCompile>
+    <ClCompile Include="Resource\Scene.cpp">
+      <Filter>Resource</Filter>
+    </ClCompile>
+    <ClCompile Include="Resource\ScenePool.cpp">
+      <Filter>Resource</Filter>
+    </ClCompile>
+    <ClCompile Include="ECS\System\MoveSystem.cpp">
+      <Filter>ESC\System</Filter>
+    </ClCompile>
+    <ClCompile Include="Resource\AxisConvention.cpp">
+      <Filter>Resource</Filter>
+    </ClCompile>
+    <ClCompile Include="Reflection\Reflection.generated.cpp">
+      <Filter>Reflection</Filter>
+    </ClCompile>
+    <ClCompile Include="Payload\Payload.generated.cpp">
+      <Filter>Payload</Filter>
+    </ClCompile>
+    <ClCompile Include="Math\Random\Hash.cpp">
+      <Filter>Math\Random</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Log\DxFail.h">
+      <Filter>Log</Filter>
+    </ClInclude>
+    <ClInclude Include="JobSystem\WorkerCommon.h">
+      <Filter>JobSystem</Filter>
+    </ClInclude>
+    <ClInclude Include="Log\Assert.h">
+      <Filter>Log</Filter>
+    </ClInclude>
+    <ClInclude Include="Log\Exeption.h">
+      <Filter>Log</Filter>
+    </ClInclude>
+    <ClInclude Include="Utility\Types.h">
+      <Filter>Utility</Filter>
+    </ClInclude>
+    <ClInclude Include="JobSystem\FlowBuilder.h">
+      <Filter>JobSystem</Filter>
+    </ClInclude>
+    <ClInclude Include="JobSystem\JobExecutor.h">
+      <Filter>JobSystem</Filter>
+    </ClInclude>
+    <ClInclude Include="JobSystem\AtomicNotifier.h">
+      <Filter>JobSystem</Filter>
+    </ClInclude>
+    <ClInclude Include="Math\Algorithm.h">
+      <Filter>Math</Filter>
+    </ClInclude>
+    <ClInclude Include="Memory\ChunkAllocator.h">
+      <Filter>Memory</Filter>
+    </ClInclude>
+    <ClInclude Include="Pool\InternPool.h">
+      <Filter>Pool</Filter>
+    </ClInclude>
+    <ClInclude Include="Pool\ObjectPool.h">
+      <Filter>Pool</Filter>
+    </ClInclude>
+    <ClInclude Include="Pool\StablePool.h">
+      <Filter>Pool</Filter>
+    </ClInclude>
+    <ClInclude Include="Utility\Array.h">
+      <Filter>Utility</Filter>
+    </ClInclude>
+    <ClInclude Include="Utility\Bitset.h">
+      <Filter>Utility</Filter>
+    </ClInclude>
+    <ClInclude Include="Utility\Bootstrap.h">
+      <Filter>Utility</Filter>
+    </ClInclude>
+    <ClInclude Include="Utility\DestructiveCopy.h">
+      <Filter>Utility</Filter>
+    </ClInclude>
+    <ClInclude Include="Utility\Handle.h">
+      <Filter>Utility</Filter>
+    </ClInclude>
+    <ClInclude Include="Utility\IndexRange.h">
+      <Filter>Utility</Filter>
+    </ClInclude>
+    <ClInclude Include="Utility\NonCopyable.h">
+      <Filter>Utility</Filter>
+    </ClInclude>
+    <ClInclude Include="Utility\NonMovable.h">
+      <Filter>Utility</Filter>
+    </ClInclude>
+    <ClInclude Include="Utility\NonTransferable.h">
+      <Filter>Utility</Filter>
+    </ClInclude>
+    <ClInclude Include="Utility\ResourcePtr.h">
+      <Filter>Utility</Filter>
+    </ClInclude>
+    <ClInclude Include="Utility\String.h">
+      <Filter>Utility</Filter>
+    </ClInclude>
+    <ClInclude Include="JobSystem\JobCommon.h">
+      <Filter>JobSystem</Filter>
+    </ClInclude>
+    <ClInclude Include="JobSystem\JobConcept.h">
+      <Filter>JobSystem</Filter>
+    </ClInclude>
+    <ClInclude Include="JobSystem\JobDeclaretions.h">
+      <Filter>JobSystem</Filter>
+    </ClInclude>
+    <ClInclude Include="JobSystem\WorkerQueue.h">
+      <Filter>JobSystem</Filter>
+    </ClInclude>
+    <ClInclude Include="JobSystem\Semaphore.h">
+      <Filter>JobSystem</Filter>
+    </ClInclude>
+    <ClInclude Include="JobSystem\NonblockingNotifier.h">
+      <Filter>JobSystem</Filter>
+    </ClInclude>
+    <ClInclude Include="JobSystem\JobWorker.h">
+      <Filter>JobSystem</Filter>
+    </ClInclude>
+    <ClInclude Include="JobSystem\JobVector.h">
+      <Filter>JobSystem</Filter>
+    </ClInclude>
+    <ClInclude Include="JobSystem\JobTopology.h">
+      <Filter>JobSystem</Filter>
+    </ClInclude>
+    <ClInclude Include="JobSystem\JobTaskflow.h">
+      <Filter>JobSystem</Filter>
+    </ClInclude>
+    <ClInclude Include="JobSystem\JobTask.h">
+      <Filter>JobSystem</Filter>
+    </ClInclude>
+    <ClInclude Include="JobSystem\JobRuntime.h">
+      <Filter>JobSystem</Filter>
+    </ClInclude>
+    <ClInclude Include="JobSystem\JobNodeBase.h">
+      <Filter>JobSystem</Filter>
+    </ClInclude>
+    <ClInclude Include="JobSystem\JobNode.h">
+      <Filter>JobSystem</Filter>
+    </ClInclude>
+    <ClInclude Include="JobSystem\JobGraph.h">
+      <Filter>JobSystem</Filter>
+    </ClInclude>
+    <ClInclude Include="Prelude.h" />
+    <ClInclude Include="File\FileUtility.h">
+      <Filter>File</Filter>
+    </ClInclude>
+    <ClInclude Include="File\FileDialog.h">
+      <Filter>File</Filter>
+    </ClInclude>
+    <ClInclude Include="Utility\ArtMap.h">
+      <Filter>Utility</Filter>
+    </ClInclude>
+    <ClInclude Include="Math\Vector.h">
+      <Filter>Math</Filter>
+    </ClInclude>
+    <ClInclude Include="Math\MathCommon.h">
+      <Filter>Math</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\ComponentRegistry.h">
+      <Filter>ESC</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\ArchetypeRegistry.h">
+      <Filter>ESC</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\ReflectionRegistry.h">
+      <Filter>ESC</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\Actor.h">
+      <Filter>ESC</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\Query.h">
+      <Filter>ESC</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\EntityRecord.h">
+      <Filter>ESC</Filter>
+    </ClInclude>
+    <ClInclude Include="Utility\FlatMap.h">
+      <Filter>Utility</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\Component\Position.h">
+      <Filter>ESC\Component</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\Component\Rotation.h">
+      <Filter>ESC\Component</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\Component\Scale.h">
+      <Filter>ESC\Component</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\Component\Velocity.h">
+      <Filter>ESC\Component</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\Component\Tickable.h">
+      <Filter>ESC\Component</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\Component\Awakeable.h">
+      <Filter>ESC\Component</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\Component\Startable.h">
+      <Filter>ESC\Component</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\Component\LateTickable.h">
+      <Filter>ESC\Component</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\Component\FixedTick.h">
+      <Filter>ESC\Component</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\Component\Destroyable.h">
+      <Filter>ESC\Component</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\Component\Collisionable.h">
+      <Filter>ESC\Component</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\Component\Triggerable.h">
+      <Filter>ESC\Component</Filter>
+    </ClInclude>
+    <ClInclude Include="Utility\ReadWrite.h">
+      <Filter>Utility</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\System\QuerySystem.h">
+      <Filter>ESC\System</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\System\SystemScheduler.h">
+      <Filter>ESC\System</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\System\SceneTransitionSystem.h">
+      <Filter>ESC\System</Filter>
+    </ClInclude>
+    <ClInclude Include="Math\Matrix.h">
+      <Filter>Math</Filter>
+    </ClInclude>
+    <ClInclude Include="Math\Quaternion.h">
+      <Filter>Math</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\Component\Name.h">
+      <Filter>ESC\Component</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource\ResourceCache.h">
+      <Filter>Resource</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\Component.h">
+      <Filter>ESC</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\SparseSet.h">
+      <Filter>ESC</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\EcsConcept.h">
+      <Filter>ESC</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\EcsID.h">
+      <Filter>ESC</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\World.h">
+      <Filter>ESC</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\Entity.h">
+      <Filter>ESC</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\Chunk.h">
+      <Filter>ESC</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\Archetype.h">
+      <Filter>ESC</Filter>
+    </ClInclude>
+    <ClInclude Include="Math\Random\Xorshift.h">
+      <Filter>Math\Random</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\Component\ComponentBase.h">
+      <Filter>ESC\Component</Filter>
+    </ClInclude>
+    <ClInclude Include="Log\SlFail.h">
+      <Filter>Log</Filter>
+    </ClInclude>
+    <ClInclude Include="File\FileDirectory.h">
+      <Filter>File</Filter>
+    </ClInclude>
+    <ClInclude Include="SeedScript.h" />
+    <ClInclude Include="ECS\PayloadRegistry.h">
+      <Filter>ESC</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\System\TransformSystem.h">
+      <Filter>ESC\System</Filter>
+    </ClInclude>
+    <ClInclude Include="Time\Timer.h">
+      <Filter>Time</Filter>
+    </ClInclude>
+    <ClInclude Include="Time\GameTimer.h">
+      <Filter>Time</Filter>
+    </ClInclude>
+    <ClInclude Include="Time\WorldTimer.h">
+      <Filter>Time</Filter>
+    </ClInclude>
+    <ClInclude Include="Input\Input.h">
+      <Filter>Input</Filter>
+    </ClInclude>
+    <ClInclude Include="Input\InputSystem.h">
+      <Filter>Input</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource\LoaderSystem.h">
+      <Filter>Resource</Filter>
+    </ClInclude>
+    <ClInclude Include="Log\Error.h">
+      <Filter>Log</Filter>
+    </ClInclude>
+    <ClInclude Include="Log\Warning.h">
+      <Filter>Log</Filter>
+    </ClInclude>
+    <ClInclude Include="Log\Notice.h">
+      <Filter>Log</Filter>
+    </ClInclude>
+    <ClInclude Include="Log\LogSystem.h">
+      <Filter>Log</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\Component\Active.h">
+      <Filter>ESC\Component</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\WorldSnapshot.h">
+      <Filter>ESC</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource\Gateway.h">
+      <Filter>Resource</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\TagRegistry.h">
+      <Filter>ESC</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\Component\InspectorDrawable.h">
+      <Filter>ESC\Component</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource\ActorSerialization.h">
+      <Filter>Resource</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource\Prefab.h">
+      <Filter>Resource</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource\PrefabPool.h">
+      <Filter>Resource</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource\Scene.h">
+      <Filter>Resource</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource\ScenePool.h">
+      <Filter>Resource</Filter>
+    </ClInclude>
+    <ClInclude Include="Utility\ResourceRef.h">
+      <Filter>Utility</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\System\MoveSystem.h">
+      <Filter>ESC\System</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource\AxisConvention.h">
+      <Filter>Resource</Filter>
+    </ClInclude>
+    <ClInclude Include="Math\Random\Hash.h">
+      <Filter>Math\Random</Filter>
+    </ClInclude>
+    <ClInclude Include="Utility\ColliderInstance.h">
+      <Filter>Utility</Filter>
+    </ClInclude>
+    <ClInclude Include="Utility\SerializeFallback.h">
+      <Filter>Utility</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

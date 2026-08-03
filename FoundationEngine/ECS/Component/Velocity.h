@@ -1,0 +1,34 @@
+#pragma once
+#include <FoundationEngine/Prelude.h>
+#include <FoundationEngine/ECS/ComponentRegistry.h>
+
+namespace SeedCore
+{
+	/**
+	* [EN]
+	* Component holding an entity's linear velocity.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* エンティティの線形速度を保持するコンポーネント。
+	*/
+	struct Velocity
+	{
+		/// [EN] Velocity along the X axis.
+		/// [JP] X 軸方向の速度。
+		SC_REFLECTION_FIELD()
+		Float x;
+
+		/// [EN] Velocity along the Y axis.
+		/// [JP] Y 軸方向の速度。
+		SC_REFLECTION_FIELD()
+		Float y;
+
+		/// [EN] Velocity along the Z axis.
+		/// [JP] Z 軸方向の速度。
+		SC_REFLECTION_FIELD()
+		Float z;
+	};
+	REGISTER_COMPONENT(Velocity, "Core", ComponentStorage::Archetype);
+}

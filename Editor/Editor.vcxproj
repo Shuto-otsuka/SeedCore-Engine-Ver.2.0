@@ -1,0 +1,290 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{a1b543d2-e58d-433b-8d8f-45bfb5a234ef}</ProjectGuid>
+    <RootNamespace>Editor</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v145</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>ClangCL</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <IntDir>$(SolutionDir)Intermediate\$(ProjectName)\$(Platform)\$(Configuration)\</IntDir>
+    <OutDir>$(SolutionDir)Build\$(Platform)\$(Configuration)\</OutDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <IntDir>$(SolutionDir)Intermediate\$(ProjectName)\$(Platform)\$(Configuration)\</IntDir>
+    <OutDir>$(SolutionDir)Build\$(Platform)\$(Configuration)\</OutDir>
+  </PropertyGroup>
+  <PropertyGroup Label="Vcpkg">
+    <VcpkgEnabled>false</VcpkgEnabled>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp23</LanguageStandard>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <AdditionalIncludeDirectories>$(SolutionDir)..\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>FoundationEngine/Prelude.h</PrecompiledHeaderFile>
+      <ForcedIncludeFiles>FoundationEngine/Prelude.h</ForcedIncludeFiles>
+      <AdditionalOptions>/utf-8 /Zc:preprocessor %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>
+      </AdditionalLibraryDirectories>
+      <AdditionalOptions>/NODEFAULTLIB:FoundationEngine.lib /NODEFAULTLIB:GraphicsEngine.lib /NODEFAULTLIB:PhysicsEngine.lib /NODEFAULTLIB:AIEngine.lib /NODEFAULTLIB:AudioEngine.lib %(AdditionalOptions)</AdditionalOptions>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp23</LanguageStandard>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <AdditionalIncludeDirectories>$(SolutionDir)..\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>FoundationEngine/Prelude.h</PrecompiledHeaderFile>
+      <ForcedIncludeFiles>FoundationEngine/Prelude.h</ForcedIncludeFiles>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <AdditionalOptions>/NODEFAULTLIB:FoundationEngine.lib /NODEFAULTLIB:GraphicsEngine.lib /NODEFAULTLIB:PhysicsEngine.lib /NODEFAULTLIB:AIEngine.lib /NODEFAULTLIB:AudioEngine.lib %(AdditionalOptions)</AdditionalOptions>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>
+      </AdditionalLibraryDirectories>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SeedCore\SeedCore.vcxproj">
+      <Project>{8f3c1a72-5e4b-4c9a-9d7f-1b6a3e8c2f05}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\UserProject\UserProject.vcxproj">
+      <Project>{5a68d96a-2812-4a6e-ba12-e20c779bdc3d}</Project>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Editor\Build\Config.cpp" />
+    <ClCompile Include="Editor\Build\HotReload.cpp" />
+    <ClCompile Include="Editor\Build\RuntimeBuilder.cpp" />
+    <ClCompile Include="Editor\Build\VisualStudioAutomation.cpp" />
+    <ClCompile Include="Editor\Panel\AnimatorControllerPanel.cpp" />
+    <ClCompile Include="Editor\Panel\CanvasViewPanel.cpp" />
+    <ClCompile Include="Editor\Panel\ConfigPanel.cpp" />
+    <ClCompile Include="Editor\Panel\EnvironmentMenuPanel.cpp" />
+    <ClCompile Include="Editor\Panel\GraphicsMenuPanel.cpp" />
+    <ClCompile Include="Editor\Panel\ModelTransformPanel.cpp" />
+    <ClCompile Include="Editor\Panel\ProfilerPanel.cpp" />
+    <ClCompile Include="Editor\Panel\RaytracingPanel.cpp" />
+    <ClCompile Include="Editor\Panel\ShortCutKeyPanel.cpp" />
+    <ClCompile Include="Editor\Panel\SpecMemoPanel.cpp" />
+    <ClCompile Include="Editor\Panel\TimelinePanel.cpp" />
+    <ClCompile Include="Editor\Panel\TodoListPanel.cpp" />
+    <ClCompile Include="Editor\Panel\ToolPanel.cpp" />
+    <ClCompile Include="Editor\Panel\VersionPanel.cpp" />
+    <ClCompile Include="Prelude.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
+      <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">FoundationEngine/Prelude.h</PrecompiledHeaderFile>
+      <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release|x64'">FoundationEngine/Prelude.h</PrecompiledHeaderFile>
+    </ClCompile>
+    <ClCompile Include="Editor\Editor.cpp">
+    </ClCompile>
+    <ClCompile Include="Editor\Engine.cpp">
+    </ClCompile>
+    <ClCompile Include="Editor\Framework.cpp">
+    </ClCompile>
+    <ClCompile Include="Editor\ImGui\ImGuiRenderer.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+      </ForcedIncludeFiles>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+      <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+      </ForcedIncludeFiles>
+    </ClCompile>
+    <ClCompile Include="Editor\ImGui\ImGuiTexture.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+      </ForcedIncludeFiles>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+      <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+      </ForcedIncludeFiles>
+    </ClCompile>
+    <ClCompile Include="Editor\Main.cpp">
+    </ClCompile>
+    <ClCompile Include="Editor\Panel\AddComponentPanel.cpp">
+    </ClCompile>
+    <ClCompile Include="Editor\Panel\ConsolePanel.cpp">
+    </ClCompile>
+    <ClCompile Include="Editor\Panel\ContentsDrawerPanel.cpp">
+    </ClCompile>
+    <ClCompile Include="Editor\Panel\ControlPanel.cpp">
+    </ClCompile>
+    <ClCompile Include="Editor\Panel\EditorWindowPanel.cpp">
+    </ClCompile>
+    <ClCompile Include="Editor\Panel\GameWindowPanel.cpp">
+    </ClCompile>
+    <ClCompile Include="Editor\Panel\GuizmoPanel3D.cpp">
+    </ClCompile>
+    <ClCompile Include="Editor\Panel\GuizmoPanel2D.cpp">
+    </ClCompile>
+    <ClCompile Include="Editor\Panel\HierarchyPanel.cpp">
+    </ClCompile>
+    <ClCompile Include="Editor\Panel\InspectorPanel.cpp">
+    </ClCompile>
+    <ClCompile Include="Editor\Panel\MenuBarPanel.cpp">
+    </ClCompile>
+    <ClCompile Include="Editor\Window.cpp">
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Editor\Build\Config.h" />
+    <ClInclude Include="Editor\Build\HotReload.h" />
+    <ClInclude Include="Editor\Build\RuntimeBuilder.h" />
+    <ClInclude Include="Editor\Build\VisualStudioAutomation.h" />
+    <ClInclude Include="Editor\Editor.h" />
+    <ClInclude Include="Editor\EditorContext.h" />
+    <ClInclude Include="Editor\Engine.h" />
+    <ClInclude Include="Editor\Framework.h" />
+    <ClInclude Include="Editor\GizmoContext.h" />
+    <ClInclude Include="Editor\ImGui\ImGuiCommon.h" />
+    <ClInclude Include="Editor\ImGui\ImGuiRenderer.h" />
+    <ClInclude Include="Editor\ImGui\ImGuiTexture.h" />
+    <ClInclude Include="Editor\Panel\AddComponentPanel.h" />
+    <ClInclude Include="Editor\Panel\AnimatorControllerPanel.h" />
+    <ClInclude Include="Editor\Panel\CanvasViewPanel.h" />
+    <ClInclude Include="Editor\Panel\ConfigPanel.h" />
+    <ClInclude Include="Editor\Panel\ConsolePanel.h" />
+    <ClInclude Include="Editor\Panel\ContentsDrawerPanel.h" />
+    <ClInclude Include="Editor\Panel\ControlPanel.h" />
+    <ClInclude Include="Editor\Panel\EditorWindowPanel.h" />
+    <ClInclude Include="Editor\Panel\EnvironmentMenuPanel.h" />
+    <ClInclude Include="Editor\Panel\GameWindowPanel.h" />
+    <ClInclude Include="Editor\Panel\GraphicsMenuPanel.h" />
+    <ClInclude Include="Editor\Panel\GuizmoPanel3D.h" />
+    <ClInclude Include="Editor\Panel\GuizmoPanel2D.h" />
+    <ClInclude Include="Editor\Panel\HierarchyPanel.h" />
+    <ClInclude Include="Editor\Panel\InspectorPanel.h" />
+    <ClInclude Include="Editor\Panel\MenuBarPanel.h" />
+    <ClInclude Include="Editor\Panel\ModelTransformPanel.h" />
+    <ClInclude Include="Editor\Panel\ProfilerPanel.h" />
+    <ClInclude Include="Editor\Panel\RaytracingPanel.h" />
+    <ClInclude Include="Editor\Panel\ShortCutKeyPanel.h" />
+    <ClInclude Include="Editor\Panel\SpecMemoPanel.h" />
+    <ClInclude Include="Editor\Panel\TimelinePanel.h" />
+    <ClInclude Include="Editor\Panel\TodoListPanel.h" />
+    <ClInclude Include="Editor\Panel\ToolPanel.h" />
+    <ClInclude Include="Editor\Panel\VersionPanel.h" />
+    <ClInclude Include="Editor\Window.h" />
+  </ItemGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <PostBuildEvent>
+      <Command>xcopy /Y /D "$(SolutionDir)..\External\MTSDF\Lib\Debug\*.pdb" "$(OutDir)"</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

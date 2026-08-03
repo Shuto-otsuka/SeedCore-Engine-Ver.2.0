@@ -1,0 +1,52 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="SpatialAI">
+      <UniqueIdentifier>{a2bd74e3-a705-4dd9-aa51-1d3e15565260}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="CharacterAI">
+      <UniqueIdentifier>{b428962f-c420-414f-9400-2d11a618df7a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="MetaAI">
+      <UniqueIdentifier>{811bc999-5a8d-46af-873c-1683f61e4468}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="SpatialAI\NavigationAI">
+      <UniqueIdentifier>{31c6157b-cdfa-4ac1-83c2-a6aac372a514}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="CharacterAI\HFSM">
+      <UniqueIdentifier>{4f940e41-a2e1-4f2a-ba5c-6407a63fe44b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="SpatialAI\PerceptionAI">
+      <UniqueIdentifier>{2632502c-1a9b-46a1-bf64-691e9cf35782}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="SpatialAI\InfluenceMap">
+      <UniqueIdentifier>{7e327b40-9128-4dee-a878-2d644cafc406}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="CharacterAI\BehaviorTree">
+      <UniqueIdentifier>{f6f733aa-a70a-4019-b805-e9aa2ab5f048}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="CharacterAI\Agent">
+      <UniqueIdentifier>{c1f3573e-f06d-4d8d-8f5a-0e9ab0decefc}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="CharacterAI\BehaviorTree\BehaviorTreeData.h">
+      <Filter>CharacterAI\BehaviorTree</Filter>
+    </ClInclude>
+    <ClInclude Include="CharacterAI\BehaviorTree\BehaviorTreeGraph.h">
+      <Filter>CharacterAI\BehaviorTree</Filter>
+    </ClInclude>
+    <ClInclude Include="CharacterAI\BehaviorTree\BehaviorTreeNode.h">
+      <Filter>CharacterAI\BehaviorTree</Filter>
+    </ClInclude>
+    <ClInclude Include="SpatialAI\NavigationAI\NavMesh.h">
+      <Filter>SpatialAI\NavigationAI</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="CharacterAI\BehaviorTree\BehaviorTreeNode.cpp">
+      <Filter>CharacterAI\BehaviorTree</Filter>
+    </ClCompile>
+    <ClCompile Include="Prelude.cpp" />
+  </ItemGroup>
+</Project>

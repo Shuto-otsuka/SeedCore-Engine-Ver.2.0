@@ -1,0 +1,169 @@
+#include <GraphicsEngine/Model/OITBuffer.h>
+#include <GraphicsEngine/D3D12/Descriptor/BindlessHeap.h>
+#include <GraphicsEngine/System/IndicesSystem.h>
+#include <FoundationEngine/Log/DxFail.h>
+
+namespace SeedCore
+{
+	void OITBuffer::Create(ID3D12Device* device, BindlessHeap* bindlessHeap, IndicesSystem& indicesSystem, Uint32 width, Uint32 height)
+	{
+		HRESULT hr{ S_OK };
+
+		bindlessHeap_ = bindlessHeap;
+		width_ = width;
+		height_ = height;
+
+		clearHeap_.Create(device, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 2, false);
+
+		/// [EN] Head Pointer Texture: R32_UINT, one uint per pixel.
+		/// [JP] ヘッドポインタテクスチャ: R32_UINT、ピクセルごとに uint 1 つ。
+		{
+			D3D12_RESOURCE_DESC resourceDesc{};
+			resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+			resourceDesc.Width = width;
+			resourceDesc.Height = height;
+			resourceDesc.DepthOrArraySize = 1;
+			resourceDesc.MipLevels = 1;
+			resourceDesc.Format = DXGI_FORMAT_R32_UINT;
+			resourceDesc.SampleDesc.Count = 1;
+			resourceDesc.SampleDesc.Quality = 0;
+			resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+			resourceDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+
+			D3D12_HEAP_PROPERTIES heapProperties{};
+			heapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
+
+			hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, nullptr, IID_PPV_ARGS(&headPointerTexture_));
+			SC_HR_CHECK(hr, "OIT HeadPointerTextureの生成に失敗しました");
+
+			headPointerUAVIndex_ = bindlessHeap->AllocateIndex();
+
+			D3D12_UNORDERED_ACCESS_VIEW_DESC unorderedAccessViewDesc{};
+			unorderedAccessViewDesc.Format = DXGI_FORMAT_R32_UINT;
+			unorderedAccessViewDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+			unorderedAccessViewDesc.Texture2D.MipSlice = 0;
+			unorderedAccessViewDesc.Texture2D.PlaneSlice = 0;
+			device->CreateUnorderedAccessView(headPointerTexture_.Get(), nullptr, &unorderedAccessViewDesc, bindlessHeap->CPUHandle(headPointerUAVIndex_));
+
+			clearHeadPointerIndex_ = clearHeap_.AllocateIndex();
+			device->CreateUnorderedAccessView(headPointerTexture_.Get(), nullptr, &unorderedAccessViewDesc, clearHeap_.CPUHandle(clearHeadPointerIndex_));
+		}
+
+		/// [EN] Fragment Buffer: RWStructuredBuffer, width * height * maxLayers elements.
+		/// [JP] フラグメントバッファ: RWStructuredBuffer、width * height * maxLayers 要素。
+		{
+			static constexpr Uint fragmentStride = 12;
+			Uint64 fragmentCount = static_cast<Uint64>(width) * height * maxLayers_;
+			Uint64 bufferSize = fragmentCount * fragmentStride;
+
+			D3D12_RESOURCE_DESC resourceDesc{};
+			resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+			resourceDesc.Width = bufferSize;
+			resourceDesc.Height = 1;
+			resourceDesc.DepthOrArraySize = 1;
+			resourceDesc.MipLevels = 1;
+			resourceDesc.Format = DXGI_FORMAT_UNKNOWN;
+			resourceDesc.SampleDesc.Count = 1;
+			resourceDesc.SampleDesc.Quality = 0;
+			resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+			resourceDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+
+			D3D12_HEAP_PROPERTIES heapProperties{};
+			heapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
+
+			hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&fragmentBuffer_));
+			SC_HR_CHECK(hr, "OIT FragmentBufferの生成に失敗しました");
+
+			fragmentBufferUAVIndex_ = bindlessHeap->AllocateIndex();
+
+			D3D12_UNORDERED_ACCESS_VIEW_DESC unorderedAccessViewDesc{};
+			unorderedAccessViewDesc.Format = DXGI_FORMAT_UNKNOWN;
+			unorderedAccessViewDesc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
+			unorderedAccessViewDesc.Buffer.FirstElement = 0;
+			unorderedAccessViewDesc.Buffer.NumElements = static_cast<Uint>(fragmentCount);
+			unorderedAccessViewDesc.Buffer.StructureByteStride = fragmentStride;
+			unorderedAccessViewDesc.Buffer.CounterOffsetInBytes = 0;
+			unorderedAccessViewDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
+			device->CreateUnorderedAccessView(fragmentBuffer_.Get(), nullptr, &unorderedAccessViewDesc, bindlessHeap->CPUHandle(fragmentBufferUAVIndex_));
+		}
+
+		/// [EN] Counter Buffer: RWByteAddressBuffer, 4 bytes.
+		/// [JP] カウンターバッファ: RWByteAddressBuffer、4 バイト。
+		{
+			D3D12_RESOURCE_DESC resourceDesc{};
+			resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+			resourceDesc.Width = 4;
+			resourceDesc.Height = 1;
+			resourceDesc.DepthOrArraySize = 1;
+			resourceDesc.MipLevels = 1;
+			resourceDesc.Format = DXGI_FORMAT_UNKNOWN;
+			resourceDesc.SampleDesc.Count = 1;
+			resourceDesc.SampleDesc.Quality = 0;
+			resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+			resourceDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+
+			D3D12_HEAP_PROPERTIES heapProperties{};
+			heapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
+
+			hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&counterBuffer_));
+			SC_HR_CHECK(hr, "OIT CounterBufferの生成に失敗しました");
+
+			counterUAVIndex_ = bindlessHeap->AllocateIndex();
+
+			D3D12_UNORDERED_ACCESS_VIEW_DESC unorderedAccessViewDesc{};
+			unorderedAccessViewDesc.Format = DXGI_FORMAT_R32_TYPELESS;
+			unorderedAccessViewDesc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
+			unorderedAccessViewDesc.Buffer.FirstElement = 0;
+			unorderedAccessViewDesc.Buffer.NumElements = 1;
+			unorderedAccessViewDesc.Buffer.StructureByteStride = 0;
+			unorderedAccessViewDesc.Buffer.CounterOffsetInBytes = 0;
+			unorderedAccessViewDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_RAW;
+			device->CreateUnorderedAccessView(counterBuffer_.Get(), nullptr, &unorderedAccessViewDesc, bindlessHeap->CPUHandle(counterUAVIndex_));
+
+			clearCounterIndex_ = clearHeap_.AllocateIndex();
+			device->CreateUnorderedAccessView(counterBuffer_.Get(), nullptr, &unorderedAccessViewDesc, clearHeap_.CPUHandle(clearCounterIndex_));
+		}
+
+		indicesSystem.SetOITHeadPointerIndex(headPointerUAVIndex_);
+		indicesSystem.SetOITFragmentBufferIndex(fragmentBufferUAVIndex_);
+		indicesSystem.SetOITCounterIndex(counterUAVIndex_);
+	}
+
+	void OITBuffer::Destroy(BindlessHeap* bindlessHeap)
+	{
+		bindlessHeap->FreeIndex(headPointerUAVIndex_);
+		bindlessHeap->FreeIndex(fragmentBufferUAVIndex_);
+		bindlessHeap->FreeIndex(counterUAVIndex_);
+
+		headPointerTexture_.Reset();
+		fragmentBuffer_.Reset();
+		counterBuffer_.Reset();
+	}
+
+	void OITBuffer::Resize(ID3D12Device* device, BindlessHeap* bindlessHeap, IndicesSystem& indicesSystem, Uint32 width, Uint32 height)
+	{
+		Destroy(bindlessHeap);
+		Create(device, bindlessHeap, indicesSystem, width, height);
+	}
+
+	void OITBuffer::Clear(ID3D12GraphicsCommandList* cmdList)
+	{
+		const UINT headPointerClearValues[4] = { 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF };
+		cmdList->ClearUnorderedAccessViewUint(
+			bindlessHeap_->GPUHandle(headPointerUAVIndex_),
+			clearHeap_.CPUHandle(clearHeadPointerIndex_),
+			headPointerTexture_.Get(),
+			headPointerClearValues,
+			0, nullptr
+		);
+
+		const UINT counterClearValues[4] = { 0, 0, 0, 0 };
+		cmdList->ClearUnorderedAccessViewUint(
+			bindlessHeap_->GPUHandle(counterUAVIndex_),
+			clearHeap_.CPUHandle(clearCounterIndex_),
+			counterBuffer_.Get(),
+			counterClearValues,
+			0, nullptr
+		);
+	}
+}

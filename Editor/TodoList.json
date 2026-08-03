@@ -1,0 +1,64 @@
+{
+    "items": [
+        {
+            "text": "影レイトレーシング",
+            "done": true,
+            "priority": 2
+        },
+        {
+            "text": "モデルアニメーション",
+            "done": false,
+            "priority": 1
+        },
+        {
+            "text": "モデルアニメーションFullbodyIK",
+            "done": false,
+            "priority": 0
+        },
+        {
+            "text": "Zephyrシステム実装",
+            "done": false,
+            "priority": 0
+        },
+        {
+            "text": "GlobalIlluminationレイトレーシング実装",
+            "done": false,
+            "priority": 0
+        },
+        {
+            "text": "物理実装（剛体）",
+            "done": false,
+            "priority": 1
+        },
+        {
+            "text": "物理実装（軟体）",
+            "done": false,
+            "priority": 0
+        },
+        {
+            "text": "物理のCollider描画実装",
+            "done": false,
+            "priority": 1
+        },
+        {
+            "text": "Viewでのクリック選択実装",
+            "done": false,
+            "priority": 2
+        },
+        {
+            "text": "選択時アウトライン&複数選択時ギズモ処理実装",
+            "done": false,
+            "priority": 1
+        },
+        {
+            "text": "KHRを導入する",
+            "done": true,
+            "priority": 2
+        },
+        {
+            "text": "初期化時のロード中演出&マルチスレッド化",
+            "done": false,
+            "priority": 0
+        }
+    ]
+}
