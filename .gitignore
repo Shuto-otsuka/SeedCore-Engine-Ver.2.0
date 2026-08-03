@@ -62,9 +62,6 @@
 ImGui.ini
 imgui.ini
 
-# アイコン
-*.ico
-
 # バックアップ
 *.dds_backup
 *.tmp
