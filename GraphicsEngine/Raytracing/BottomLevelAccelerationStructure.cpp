@@ -26,9 +26,21 @@ namespace SeedCore
 			resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 			resourceDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 
+			/// [EN] Soft failure: a null return makes Build() bail out, the caller
+			///      drops this mesh from the TLAS instance list, and rendering
+			///      continues without it. Hard-failing here (modal box +
+			///      __debugbreak) would fire once per allocation while a removed
+			///      device fails every call in a row.
+			/// [JP] ソフトフェイル: null を返すと Build() が中断し、呼び出し側が
+			///      このメッシュを TLAS インスタンス一覧から外して描画を継続する。
+			///      ここでハードフェイル(モーダル + __debugbreak)すると、デバイス削除で
+			///      全呼び出しが連続して失敗する状況では確保のたびに発火してしまう。
 			Microsoft::WRL::ComPtr<ID3D12Resource> resource;
 			HRESULT hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, state, nullptr, IID_PPV_ARGS(&resource));
-			SC_HR_CHECK(hr, "アクセラレーション構造用バッファの作成に失敗しました。");
+			if (FAILED(hr))
+			{
+				return nullptr;
+			}
 			return resource;
 		}
 	}
@@ -74,8 +86,20 @@ namespace SeedCore
 			return false;
 		}
 
-		scratch_ = CreateAccelerationStructureBuffer(device, prebuildInfo.ScratchDataSizeInBytes, D3D12_RESOURCE_STATE_COMMON);
-		result_ = CreateAccelerationStructureBuffer(device, prebuildInfo.ResultDataMaxSizeInBytes, D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE);
+		Microsoft::WRL::ComPtr<ID3D12Resource> scratch = CreateAccelerationStructureBuffer(device, prebuildInfo.ScratchDataSizeInBytes, D3D12_RESOURCE_STATE_COMMON);
+		Microsoft::WRL::ComPtr<ID3D12Resource> result = CreateAccelerationStructureBuffer(device, prebuildInfo.ResultDataMaxSizeInBytes, D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE);
+		if (!scratch || !result)
+		{
+			/// [EN] Leave scratch_/result_ untouched on failure: a BLAS that built
+			///      successfully on an earlier frame stays valid and keeps rendering
+			///      instead of being dropped from the TLAS.
+			/// [JP] 失敗時は scratch_/result_ に触れない: 過去フレームで構築に成功した
+			///      BLAS はそのまま有効に保ち、TLAS から外さず描画を継続する。
+			return false;
+		}
+
+		scratch_ = scratch;
+		result_ = result;
 		scratch_->SetName(L"BottomLevelAccelerationStructure_Scratch");
 		result_->SetName(L"BottomLevelAccelerationStructure_Result");
 

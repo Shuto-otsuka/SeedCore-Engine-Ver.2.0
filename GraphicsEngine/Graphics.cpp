@@ -342,8 +342,17 @@ namespace SeedCore
 		auto backBuffer = swapChain_->BackBuffer();
 		
 		cmdList->Barrier(backBuffer, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
-		
+
 		context_->EndFrame();
+
+		/// [EN] Advance the deferred-reclaim ring once this frame's command list
+		///      has been submitted, so descriptors and resources retired during
+		///      the frame are only reused after every frame that referenced them
+		///      has completed on the GPU.
+		/// [JP] このフレームのコマンドリストを提出し終えてから遅延回収リングを
+		///      進める。フレーム中に退役したディスクリプタとリソースは、それらを
+		///      参照した全フレームが GPU 上で完了してから初めて再利用される。
+		bindlessHeap_->Retire();
 	}
 
 	void Graphics::Clear()

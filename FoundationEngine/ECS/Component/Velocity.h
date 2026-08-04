@@ -17,17 +17,17 @@ namespace SeedCore
 	{
 		/// [EN] Velocity along the X axis.
 		/// [JP] X 軸方向の速度。
-		SC_REFLECTION_FIELD()
+		SC_SERIALIZE_FIELD()
 		Float x;
 
 		/// [EN] Velocity along the Y axis.
 		/// [JP] Y 軸方向の速度。
-		SC_REFLECTION_FIELD()
+		SC_SERIALIZE_FIELD()
 		Float y;
 
 		/// [EN] Velocity along the Z axis.
 		/// [JP] Z 軸方向の速度。
-		SC_REFLECTION_FIELD()
+		SC_SERIALIZE_FIELD()
 		Float z;
 	};
 	REGISTER_COMPONENT(Velocity, "Core", ComponentStorage::Archetype);

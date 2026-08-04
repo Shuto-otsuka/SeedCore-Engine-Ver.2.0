@@ -1,4 +1,5 @@
 #include <GraphicsEngine/D3D12/Descriptor/BindlessHeap.h>
+#include <FoundationEngine/Log/Error.h>
 
 namespace SeedCore
 {
@@ -25,7 +26,24 @@ namespace SeedCore
 	{
 		if (freeLists_.empty())
 		{
-			return 0xFFFFFFFF;
+			/// [EN] Returning 0xFFFFFFFF here would be fatal: no call site checks
+			///      the result, and CPUHandle multiplies the index by the
+			///      descriptor size, so the caller would write a descriptor
+			///      terabytes past the heap and crash instantly. Alias descriptor 0
+			///      instead - the frame renders wrong, but it stays alive and says
+			///      why.
+			/// [JP] ここで 0xFFFFFFFF を返すのは致命的: 戻り値を検査している
+			///      呼び出し箇所は 1 つも無く、CPUHandle はインデックスに
+			///      ディスクリプタサイズを掛けるため、ヒープの遥か彼方へ
+			///      ディスクリプタを書き込んで即クラッシュする。代わりに
+			///      ディスクリプタ 0 をエイリアスする — 描画は壊れるが、
+			///      落ちずに理由を伝えられる。
+			if (!exhaustedLogged_)
+			{
+				SC_LOG_ERROR("バインドレスディスクリプタヒープが枯渇しました(上限 {})。以降の確保はディスクリプタ 0 を共有するため描画が乱れます。", maxCount_);
+				exhaustedLogged_ = true;
+			}
+			return 0;
 		}
 
 		Uint index = freeLists_.back();
@@ -35,7 +53,41 @@ namespace SeedCore
 
 	void BindlessHeap::FreeIndex(Uint index)
 	{
-		freeLists_.push_back(index);
+		if (index == 0xFFFFFFFF)
+		{
+			return;
+		}
+
+		pendingIndices_[deferredSlot_].push_back(index);
+	}
+
+	void BindlessHeap::DeferRelease(Microsoft::WRL::ComPtr<ID3D12Resource> resource)
+	{
+		if (!resource)
+		{
+			return;
+		}
+
+		pendingResources_[deferredSlot_].push_back(std::move(resource));
+	}
+
+	void BindlessHeap::Retire()
+	{
+		deferredSlot_ = (deferredSlot_ + 1) % deferredSlotCount;
+
+		/// [EN] This slot was last written deferredSlotCount frames ago, so every
+		///      frame that could still reference its descriptors and resources has
+		///      finished on the GPU by now.
+		/// [JP] このスロットへ最後に書き込んだのは deferredSlotCount フレーム前
+		///      なので、そのディスクリプタとリソースを参照しうるフレームは
+		///      すべて GPU 上で完了済み。
+		for (Uint index : pendingIndices_[deferredSlot_])
+		{
+			freeLists_.push_back(index);
+		}
+		pendingIndices_[deferredSlot_].clear();
+
+		pendingResources_[deferredSlot_].clear();
 	}
 
 	D3D12_CPU_DESCRIPTOR_HANDLE BindlessHeap::CPUHandle(Uint index)const

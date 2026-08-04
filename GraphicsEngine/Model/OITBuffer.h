@@ -56,6 +56,8 @@ namespace SeedCore
 
 		void Clear(ID3D12GraphicsCommandList* cmdList);
 
+		void Barrier(ID3D12GraphicsCommandList* cmdList)const;
+
 	private:
 		Microsoft::WRL::ComPtr<ID3D12Resource> headPointerTexture_;
 		Microsoft::WRL::ComPtr<ID3D12Resource> fragmentBuffer_;

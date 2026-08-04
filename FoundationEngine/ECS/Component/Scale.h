@@ -17,17 +17,17 @@ namespace SeedCore
 	{
 		/// [EN] Scale along the X axis.
 		/// [JP] X 軸方向のスケール。
-		SC_REFLECTION_FIELD()
+		SC_SERIALIZE_FIELD()
 		Float x;
 
 		/// [EN] Scale along the Y axis.
 		/// [JP] Y 軸方向のスケール。
-		SC_REFLECTION_FIELD()
+		SC_SERIALIZE_FIELD()
 		Float y;
 
 		/// [EN] Scale along the Z axis.
 		/// [JP] Z 軸方向のスケール。
-		SC_REFLECTION_FIELD()
+		SC_SERIALIZE_FIELD()
 		Float z;
 	};
 	REGISTER_COMPONENT(Scale, "Core", ComponentStorage::Archetype);

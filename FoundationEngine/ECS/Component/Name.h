@@ -17,6 +17,7 @@ namespace SeedCore
 	{
 		/// [EN] The entity's display name.
 		/// [JP] エンティティの表示名。
+		SC_SERIALIZE_FIELD()
 		String name_;
 	};
 	REGISTER_COMPONENT(Name, "Core", ComponentStorage::Archetype);

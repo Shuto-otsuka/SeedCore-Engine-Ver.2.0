@@ -58,14 +58,14 @@ namespace SeedCore
 		return SUCCEEDED(hr);
 	}
 
-	void SwapChain::Present()
+	void SwapChain::Present(ID3D12Device* device)
 	{
 		HRESULT hr{ S_OK };
 
 		Uint syncInterval = 0;
 		Uint presentFlags = DXGI_PRESENT_ALLOW_TEARING;
 		hr = swapChain_->Present(syncInterval, presentFlags);
-		SC_HR_CHECK(hr, "スワップチェーンのPresentに失敗しました");
+		SC_DEVICE_REMOVED_CHECK(hr, device, "スワップチェーンのPresentに失敗しました");
 	}
 
 	Size SwapChain::BufferCount()const

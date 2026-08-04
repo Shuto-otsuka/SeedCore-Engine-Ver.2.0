@@ -26,9 +26,22 @@ namespace SeedCore
 			resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 			resourceDesc.Flags = (heapType == D3D12_HEAP_TYPE_DEFAULT) ? D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS : D3D12_RESOURCE_FLAG_NONE;
 
+			/// [EN] Soft failure: a null return makes Build() bail out and leave the
+			///      TLAS unbuilt, so TLASBindlessIndex() stays 0xFFFFFFFF and every
+			///      RT effect takes its existing "no TLAS" neutral path. Hard-failing
+			///      here (modal box + __debugbreak) would instead fire once per
+			///      allocation while a removed device fails every call in a row.
+			/// [JP] ソフトフェイル: null を返すと Build() が中断して TLAS が未構築の
+			///      ままになり、TLASBindlessIndex() は 0xFFFFFFFF のままなので、各 RT
+			///      エフェクトが既存の「TLAS なし」中立経路へ倒れる。ここでハード
+			///      フェイル(モーダル + __debugbreak)すると、デバイス削除で全呼び出しが
+			///      連続して失敗する状況では確保のたびに発火してしまう。
 			Microsoft::WRL::ComPtr<ID3D12Resource> resource;
 			HRESULT hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, state, nullptr, IID_PPV_ARGS(&resource));
-			SC_HR_CHECK(hr, "アクセラレーション構造用バッファの作成に失敗しました。");
+			if (FAILED(hr))
+			{
+				return nullptr;
+			}
 			return resource;
 		}
 	}
@@ -67,10 +80,17 @@ namespace SeedCore
 		/// [JP] 構築が読む per-instance ディスクリプタを保持するアップロードバッファ。
 		const Uint64 instanceBufferSize = sizeof(D3D12_RAYTRACING_INSTANCE_DESC) * static_cast<Uint64>(instanceCount);
 		instanceBuffer_[frame] = CreateAccelerationStructureBuffer(device, instanceBufferSize, D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_COMMON);
+		if (!instanceBuffer_[frame])
+		{
+			return false;
+		}
 
 		D3D12_RAYTRACING_INSTANCE_DESC* mapped = nullptr;
 		HRESULT hr = instanceBuffer_[frame]->Map(0, nullptr, reinterpret_cast<void**>(&mapped));
-		SC_HR_CHECK(hr, "TLAS インスタンスバッファのマップに失敗しました。");
+		if (FAILED(hr) || mapped == nullptr)
+		{
+			return false;
+		}
 
 		for (Uint32 index = 0; index < instanceCount; index++)
 		{
@@ -91,6 +111,18 @@ namespace SeedCore
 
 		scratch_[frame] = CreateAccelerationStructureBuffer(device, prebuildInfo.ScratchDataSizeInBytes, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_COMMON);
 		result_[frame] = CreateAccelerationStructureBuffer(device, prebuildInfo.ResultDataMaxSizeInBytes, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE);
+		if (!scratch_[frame] || !result_[frame])
+		{
+			/// [EN] Drop the half-built slot so Address()/Resource() cannot hand out
+			///      a stale buffer from an earlier frame that no longer matches this
+			///      frame's instance list.
+			/// [JP] 中途半端に構築されたスロットは捨てる。Address()/Resource() が、
+			///      今フレームのインスタンス一覧と一致しない過去フレームの
+			///      バッファを返してしまわないようにするため。
+			scratch_[frame].Reset();
+			result_[frame].Reset();
+			return false;
+		}
 
 		D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC buildDesc{};
 		buildDesc.Inputs = inputs;

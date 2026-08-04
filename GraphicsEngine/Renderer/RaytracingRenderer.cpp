@@ -8,6 +8,7 @@
 #include <GraphicsEngine/Model/Mesh.h>
 #include <GraphicsEngine/System/IndicesSystem.h>
 #include <FoundationEngine/Log/Warning.h>
+#include <FoundationEngine/Log/Error.h>
 #include <FoundationEngine/Log/DxFail.h>
 #include <GraphicsEngine/Model/Animation/Animator.h>
 #include <GraphicsEngine/Renderer/ModelRenderer.h>
@@ -282,6 +283,35 @@ namespace SeedCore
 	{
 		Vector3 wind = Vector3(volumetricCloudScapesSettings_.windSpeed_ * 10.0f, 0.0f, 0.0f);
 		tlasBuiltThisFrame_ = false;
+
+		/// [EN] Once the device is removed every D3D12 call fails, so building
+		///      acceleration structures only produces a cascade of failed
+		///      allocations. Skip the whole RT path and report the real removal
+		///      reason once - without this the first visible symptom is the
+		///      downstream "TLAS の構築に失敗しました", which points at the wrong
+		///      subsystem. Nothing can actually render past this point; the goal
+		///      is a single accurate log line, not recovery (device loss is
+		///      process-wide and cannot be undone per-subsystem).
+		/// [JP] デバイスが削除されると全ての D3D12 呼び出しが失敗するため、
+		///      加速構造を構築しようとしても確保失敗が連鎖するだけ。RT 経路を
+		///      丸ごとスキップし、本当の削除理由を 1 度だけ報告する — これが無いと
+		///      最初に見える症状が下流の「TLAS の構築に失敗しました」になり、
+		///      原因を別のサブシステムだと誤認させる。この時点で描画は継続不能で、
+		///      狙いは復帰ではなく正確なログ 1 行(デバイス削除はプロセス全体の
+		///      事象で、サブシステム単位では取り消せない)。
+		HRESULT deviceRemovedReason = device->GetDeviceRemovedReason();
+		if (FAILED(deviceRemovedReason))
+		{
+			if (!deviceRemovedLogged_)
+			{
+				_com_error removedError(deviceRemovedReason);
+				SC_LOG_ERROR("GPU デバイスが削除されているため、レイトレーシングを停止しました。理由: {:#010x} ({})", static_cast<Uint32>(deviceRemovedReason), ConvertToCharString(removedError.ErrorMessage()));
+				deviceRemovedLogged_ = true;
+			}
+
+			indicesSystem_->SetTLASIndex(TLASBindlessIndex());
+			return;
+		}
 
 		/// [JP] 全 RT エフェクトが無効の間は BLAS/TLAS 構築を丸ごとスキップして
 		///      GPU コストをゼロにする(TLASBindlessIndex() は 0xFFFFFFFF のまま=

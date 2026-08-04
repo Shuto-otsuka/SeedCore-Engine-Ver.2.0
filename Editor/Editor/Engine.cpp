@@ -248,7 +248,7 @@ namespace SeedCore
 					graphics_->Clear();
 					graphics_->DrawSplashScreen(resource_->Complete());
 					graphics_->End();
-					graphics_->GetSwapChain()->Present();
+					graphics_->GetSwapChain()->Present(graphics_->GetContext()->GetDevice());
 					continue;
 				}
 
@@ -319,7 +319,7 @@ namespace SeedCore
 				imgui_->Render(graphics_->GetContext()->GetDirectList()->Get());
 
 				graphics_->End();
-				graphics_->GetSwapChain()->Present();
+				graphics_->GetSwapChain()->Present(graphics_->GetContext()->GetDevice());
 			}
 		}
 	}

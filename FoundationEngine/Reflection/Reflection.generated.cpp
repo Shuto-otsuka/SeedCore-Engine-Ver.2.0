@@ -1,5 +1,6 @@
 #include <FoundationEngine/Prelude.h>
 #include <FoundationEngine/ECS/ReflectionRegistry.h>
+#include <FoundationEngine/ECS/Component/Name.h>
 #include <FoundationEngine/ECS/Component/Position.h>
 #include <FoundationEngine/ECS/Component/Rotation.h>
 #include <FoundationEngine/ECS/Component/Scale.h>
@@ -31,6 +32,7 @@
 #include <PhysicsEngine/Rigidbody/Rigidbody.h>
 #include <PhysicsEngine/Softbody/Softbody.h>
 
+extern "C" int _force_reflection_Name = 0;
 extern "C" int _force_reflection_Position = 0;
 extern "C" int _force_reflection_Rotation = 0;
 extern "C" int _force_reflection_Scale = 0;
@@ -75,6 +77,26 @@ namespace SeedCore
 {
 	 namespace ScReflection
 	 {
+		// ---- FoundationEngine/ECS/Component/Name.h ----
+		struct Register_Name
+		{
+			Register_Name()
+			{
+				ReflectionRegistry::Register(String("Name"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
+					Name& obj = *static_cast<Name*>(ptr);
+					{
+						FieldInfo fi;
+						fi.name_ = String("name_");
+						fi.offset_ = offsetof(Name, name_);
+						fi.type_ = AttributeType::String;
+						fi.editorVisible_ = false;
+						outInfo.push_back(std::move(fi));
+					}
+				});
+			}
+		};
+		static Register_Name global_Name_register;
+
 		// ---- FoundationEngine/ECS/Component/Position.h ----
 		struct Register_Position
 		{
@@ -82,9 +104,30 @@ namespace SeedCore
 			{
 				ReflectionRegistry::Register(String("Position"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
 					Position& obj = *static_cast<Position*>(ptr);
-					outInfo.push_back({ String("x"), offsetof(Position, x), AttributeType::Float });
-					outInfo.push_back({ String("y"), offsetof(Position, y), AttributeType::Float });
-					outInfo.push_back({ String("z"), offsetof(Position, z), AttributeType::Float });
+					{
+						FieldInfo fi;
+						fi.name_ = String("x");
+						fi.offset_ = offsetof(Position, x);
+						fi.type_ = AttributeType::Float;
+						fi.editorVisible_ = false;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("y");
+						fi.offset_ = offsetof(Position, y);
+						fi.type_ = AttributeType::Float;
+						fi.editorVisible_ = false;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("z");
+						fi.offset_ = offsetof(Position, z);
+						fi.type_ = AttributeType::Float;
+						fi.editorVisible_ = false;
+						outInfo.push_back(std::move(fi));
+					}
 				});
 			}
 		};
@@ -97,9 +140,30 @@ namespace SeedCore
 			{
 				ReflectionRegistry::Register(String("Rotation"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
 					Rotation& obj = *static_cast<Rotation*>(ptr);
-					outInfo.push_back({ String("x"), offsetof(Rotation, x), AttributeType::Float });
-					outInfo.push_back({ String("y"), offsetof(Rotation, y), AttributeType::Float });
-					outInfo.push_back({ String("z"), offsetof(Rotation, z), AttributeType::Float });
+					{
+						FieldInfo fi;
+						fi.name_ = String("x");
+						fi.offset_ = offsetof(Rotation, x);
+						fi.type_ = AttributeType::Float;
+						fi.editorVisible_ = false;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("y");
+						fi.offset_ = offsetof(Rotation, y);
+						fi.type_ = AttributeType::Float;
+						fi.editorVisible_ = false;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("z");
+						fi.offset_ = offsetof(Rotation, z);
+						fi.type_ = AttributeType::Float;
+						fi.editorVisible_ = false;
+						outInfo.push_back(std::move(fi));
+					}
 				});
 			}
 		};
@@ -112,9 +176,30 @@ namespace SeedCore
 			{
 				ReflectionRegistry::Register(String("Scale"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
 					Scale& obj = *static_cast<Scale*>(ptr);
-					outInfo.push_back({ String("x"), offsetof(Scale, x), AttributeType::Float });
-					outInfo.push_back({ String("y"), offsetof(Scale, y), AttributeType::Float });
-					outInfo.push_back({ String("z"), offsetof(Scale, z), AttributeType::Float });
+					{
+						FieldInfo fi;
+						fi.name_ = String("x");
+						fi.offset_ = offsetof(Scale, x);
+						fi.type_ = AttributeType::Float;
+						fi.editorVisible_ = false;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("y");
+						fi.offset_ = offsetof(Scale, y);
+						fi.type_ = AttributeType::Float;
+						fi.editorVisible_ = false;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("z");
+						fi.offset_ = offsetof(Scale, z);
+						fi.type_ = AttributeType::Float;
+						fi.editorVisible_ = false;
+						outInfo.push_back(std::move(fi));
+					}
 				});
 			}
 		};
@@ -127,9 +212,30 @@ namespace SeedCore
 			{
 				ReflectionRegistry::Register(String("Velocity"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
 					Velocity& obj = *static_cast<Velocity*>(ptr);
-					outInfo.push_back({ String("x"), offsetof(Velocity, x), AttributeType::Float });
-					outInfo.push_back({ String("y"), offsetof(Velocity, y), AttributeType::Float });
-					outInfo.push_back({ String("z"), offsetof(Velocity, z), AttributeType::Float });
+					{
+						FieldInfo fi;
+						fi.name_ = String("x");
+						fi.offset_ = offsetof(Velocity, x);
+						fi.type_ = AttributeType::Float;
+						fi.editorVisible_ = false;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("y");
+						fi.offset_ = offsetof(Velocity, y);
+						fi.type_ = AttributeType::Float;
+						fi.editorVisible_ = false;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("z");
+						fi.offset_ = offsetof(Velocity, z);
+						fi.type_ = AttributeType::Float;
+						fi.editorVisible_ = false;
+						outInfo.push_back(std::move(fi));
+					}
 				});
 			}
 		};

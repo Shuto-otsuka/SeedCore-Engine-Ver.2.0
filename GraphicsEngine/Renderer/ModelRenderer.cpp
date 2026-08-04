@@ -408,21 +408,25 @@ namespace SeedCore
 						continue;
 					}
 
-					/// [EN] Geometry streaming: mirror the AS's IsLodSelected metric
-					///      on the CPU to find the cluster the camera actually wants
-					///      (the coarsest whose screen-space error fits 1px), request
-					///      it if not yet resident, and emit ONLY resident clusters
-					///      with the lodError chain rebuilt across the resident set —
-					///      the AS then selects among them with unchanged shader code.
-					///      The coarsest cluster is pinned at load, so the chain is
-					///      never empty.
-					/// [JP] ジオメトリストリーミング: AS の IsLodSelected と同じ式を
-					///      CPU で再現してカメラが本当に必要とするクラスタ（スクリーン
-					///      誤差が 1px に収まる最も粗いもの）を求め、未常駐なら要求し、
-					///      常駐クラスタのみを lodError チェーンを常駐集合内で組み直して
-					///      発行する — AS はシェーダ無変更のままその中から選択する。
-					///      最粗クラスタはロード時にピン留めされるため、チェーンが
-					///      空になることはない。
+					/// [EN] Geometry streaming + LOD selection: mirror the AS's
+					///      IsLodSelected metric on the CPU to find the cluster the
+					///      camera actually wants (the coarsest whose screen-space
+					///      error fits 1px), request it if not yet resident, and emit
+					///      ONLY that one cluster. Previously every resident cluster of
+					///      every LOD was emitted and the AS discarded all but one on
+					///      the GPU, so the instance buffer filled up with entries that
+					///      never drew — a detailed model could push the total past the
+					///      dispatch cap. The coarsest cluster is pinned at load, so
+					///      there is always a resident fallback and never a hole.
+					/// [JP] ジオメトリストリーミング + LOD 選択: AS の IsLodSelected と
+					///      同じ式を CPU で再現してカメラが本当に必要とするクラスタ
+					///      （スクリーン誤差が 1px に収まる最も粗いもの）を求め、
+					///      未常駐なら要求し、その 1 つだけを発行する。以前は全 LOD の
+					///      常駐クラスタを発行して AS が GPU 側で 1 つを残し他を捨てて
+					///      いたため、インスタンスバッファが描画されないエントリで
+					///      埋まっていた — 詳細なモデルでは合計がディスパッチ上限を
+					///      超えうる。最粗クラスタはロード時にピン留めされるため、
+					///      常駐のフォールバックが必ず存在し穴は開かない。
 					Float worldScale = std::max(std::max(
 						Vector3(worldMatrix._11, worldMatrix._12, worldMatrix._13).Length(),
 						Vector3(worldMatrix._21, worldMatrix._22, worldMatrix._23).Length()),
@@ -463,11 +467,11 @@ namespace SeedCore
 					requestTextureMip(material.metallicRoughnessTextureIndex_);
 					requestTextureMip(material.emissiveTextureIndex_);
 
-					DynamicArray<Uint32> residentClusters;
+					Uint32 selectedCluster = 0xFFFFFFFF;
 					if (skinned)
 					{
 						/// [JP] スキンドは LOD 0 固定（ロード時にピン留め済み）。
-						residentClusters.push_back(subMesh.clusterOffset_);
+						selectedCluster = subMesh.clusterOffset_;
 					}
 					else
 					{
@@ -484,30 +488,81 @@ namespace SeedCore
 							geometryStreamingRequests_.push_back({ crister, subMesh.clusterOffset_ + desired });
 						}
 
+						/// [EN] Same bracket the AS used to apply, resolved here instead:
+						///      clusters are walked coarsest-error-ascending, so the last
+						///      resident one still within 1px wins. If none fit (only
+						///      coarse clusters are resident yet), the first resident —
+						///      the finest available — is kept as the fallback.
+						/// [JP] AS が行っていたのと同じ判定をここで解決する: クラスタは
+						///      誤差の昇順に並ぶため、1px に収まる最後の常駐クラスタが
+						///      選ばれる。どれも収まらない場合（まだ粗いクラスタしか
+						///      常駐していない場合）は、最初の常駐クラスタ＝利用可能な
+						///      中で最も細かいものをフォールバックとして残す。
 						for (Uint32 c = 0; c < subMesh.clusterCount_; ++c)
 						{
-							if (crister->IsClusterResident(subMesh.clusterOffset_ + c))
+							Uint32 clusterIndex = subMesh.clusterOffset_ + c;
+							if (!crister->IsClusterResident(clusterIndex))
 							{
-								residentClusters.push_back(subMesh.clusterOffset_ + c);
+								continue;
+							}
+							if (selectedCluster == 0xFFFFFFFF || clusters[clusterIndex].lodError_ * worldScale * pixelsPerUnit <= 1.0f)
+							{
+								selectedCluster = clusterIndex;
 							}
 						}
 					}
 
-					for (Size residentIndex = 0; residentIndex < residentClusters.size(); residentIndex++)
+					if (selectedCluster == 0xFFFFFFFF)
 					{
-						Uint32 clusterIndex = residentClusters[residentIndex];
-						const Cluster& cluster = clusters[clusterIndex];
-						crister->TouchCluster(clusterIndex, streamingFrame_);
+						continue;
+					}
 
-						/// [EN] Error of the next coarser RESIDENT cluster; FLT_MAX
-						///      keeps the last one (and skinned LOD0) always selected.
-						/// [JP] 次に粗い「常駐」クラスタの誤差。FLT_MAX なら最後の 1 つ
-						///      （およびスキンド LOD0）が常に選択される。
-						Float lodErrorNext = FLT_MAX;
-						if (!skinned && residentIndex + 1 < residentClusters.size())
+					/// [EN] Keep every RESIDENT cluster of this chain warm, not just the
+					///      selected one. Only the selected cluster is emitted as an
+					///      instance (that is the dispatch-count win), but touching only
+					///      it would let the neighbouring LODs age out and be evicted -
+					///      and then any Scale/camera change that reselects one of them
+					///      forces a re-upload whose MakeClusterResident does a blocking
+					///      GPU wait, thrashing upload/evict every frame.
+					/// [JP] このチェーンの「常駐」クラスタは、選択したものだけでなく全て
+					///      warm に保つ。インスタンスとして発行するのは選択した 1 つだけ
+					///      (ディスパッチ数削減の本体はそこ)だが、選択分だけを touch すると
+					///      隣接 LOD が期限切れで追い出され、その後 Scale やカメラの変化で
+					///      それらが再選択されるたびに再アップロードが必要になる —
+					///      MakeClusterResident は GPU をブロッキング待ちするため、
+					///      毎フレーム アップロード/追い出しのスラッシングになる。
+					if (skinned)
+					{
+						crister->TouchCluster(subMesh.clusterOffset_, streamingFrame_);
+					}
+					else
+					{
+						for (Uint32 c = 0; c < subMesh.clusterCount_; ++c)
 						{
-							lodErrorNext = clusters[residentClusters[residentIndex + 1]].lodError_;
+							Uint32 clusterIndex = subMesh.clusterOffset_ + c;
+							if (crister->IsClusterResident(clusterIndex))
+							{
+								crister->TouchCluster(clusterIndex, streamingFrame_);
+							}
 						}
+					}
+
+					{
+						Uint32 clusterIndex = selectedCluster;
+						const Cluster& cluster = clusters[clusterIndex];
+
+						/// [EN] The CPU already picked this cluster, so the AS's
+						///      IsLodSelected must pass unconditionally: a zero error
+						///      always fits the 1px threshold and an infinite next error
+						///      always exceeds it. Feeding the real error back instead
+						///      would risk CPU/GPU float divergence rejecting the one
+						///      cluster that was emitted, leaving the mesh invisible.
+						/// [JP] このクラスタは CPU が既に選び終えているため、AS の
+						///      IsLodSelected は無条件で通す必要がある: 誤差 0 は必ず
+						///      1px 閾値に収まり、次の誤差が無限大なら必ず閾値を超える。
+						///      実際の誤差を渡すと CPU と GPU の浮動小数の差で、唯一
+						///      発行したクラスタが棄却されメッシュが消える恐れがある。
+						Float lodErrorNext = FLT_MAX;
 
 						constexpr Uint32 maxMeshletsPerDispatch = 32;
 						Uint32 remaining = cluster.meshletCount_;
@@ -568,7 +623,7 @@ namespace SeedCore
 							instanceData.meshletOffset_ = offset - cluster.meshletOffset_;
 							instanceData.meshletCount_ = count;
 
-							instanceData.lodError_ = cluster.lodError_;
+							instanceData.lodError_ = 0.0f;
 							instanceData.lodErrorNext_ = lodErrorNext;
 
 							/// [EN] Skinned SubMesh: point at this Crister's palette slice.
@@ -911,6 +966,7 @@ namespace SeedCore
 		auto* cmd = cmdList->Get();
 
 		oitBuffer_.Clear(cmd);
+		oitBuffer_.Barrier(cmd);
 
 		D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle = geometryBuffer->DepthStencilViewHandle();
 		cmd->OMSetRenderTargets(0, nullptr, FALSE, &dsvHandle);
@@ -928,10 +984,14 @@ namespace SeedCore
 
 		if (hasSkinnedTransparent_)
 		{
+			oitBuffer_.Barrier(cmd);
+
 			cmd->SetPipelineState(modelShader_.GetPipelineStateSkeletalTransparent());
 			cmd->DispatchMesh(static_cast<Uint>(opaqueInstances_.size() + transparentInstances_.size()), 1, 1);
 			ProfilerStats::AddDrawCall();
 		}
+
+		oitBuffer_.Barrier(cmd);
 
 		geometryBuffer->EndDepth(cmdList);
 

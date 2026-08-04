@@ -12,7 +12,7 @@ namespace SeedCore
 
 		Bool Create(IDXGIFactory7* factory, ID3D12Device* device, ID3D12CommandQueue* cmdQueue, HWND hwnd);
 
-		void Present();
+		void Present(ID3D12Device* device);
 
 		Size BufferCount()const;
 

@@ -135,6 +135,16 @@ namespace SeedCore
 		bindlessHeap->FreeIndex(fragmentBufferUAVIndex_);
 		bindlessHeap->FreeIndex(counterUAVIndex_);
 
+		/// [EN] Resize() destroys and immediately recreates these while the
+		///      previous frames are still in flight writing their PPLL fragments,
+		///      so the old buffers have to outlive this call.
+		/// [JP] Resize() はこれらを破棄して即座に作り直すが、その時点で前フレームは
+		///      まだインフライトで PPLL のフラグメントを書き込んでいるため、
+		///      古いバッファはこの呼び出しより長く生存させる必要がある。
+		bindlessHeap->DeferRelease(headPointerTexture_);
+		bindlessHeap->DeferRelease(fragmentBuffer_);
+		bindlessHeap->DeferRelease(counterBuffer_);
+
 		headPointerTexture_.Reset();
 		fragmentBuffer_.Reset();
 		counterBuffer_.Reset();
@@ -144,6 +154,22 @@ namespace SeedCore
 	{
 		Destroy(bindlessHeap);
 		Create(device, bindlessHeap, indicesSystem, width, height);
+	}
+
+	void OITBuffer::Barrier(ID3D12GraphicsCommandList* cmdList)const
+	{
+		D3D12_RESOURCE_BARRIER barriers[3]{};
+
+		barriers[0].Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+		barriers[0].UAV.pResource = headPointerTexture_.Get();
+
+		barriers[1].Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+		barriers[1].UAV.pResource = fragmentBuffer_.Get();
+
+		barriers[2].Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+		barriers[2].UAV.pResource = counterBuffer_.Get();
+
+		cmdList->ResourceBarrier(_countof(barriers), barriers);
 	}
 
 	void OITBuffer::Clear(ID3D12GraphicsCommandList* cmdList)

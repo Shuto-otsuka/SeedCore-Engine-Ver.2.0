@@ -201,8 +201,18 @@ namespace SeedCore
 
 		/// [EN] Release every resident page (pinned included — the model itself
 		///      is going away) and give the descriptor indices back to the heap.
+		///      Every GPU resource is handed to the deferred-reclaim ring rather
+		///      than dying with this object: ModelLoader::Clear destroys the
+		///      Crister synchronously (ModelResource::Unload, which the editor's
+		///      model-conversion "適用" runs mid-session), and the frames still in
+		///      flight are drawing from exactly these buffers and textures.
 		/// [JP] 常駐ページをすべて解放し（モデル自体が消えるためピン留め込み）、
-		///      ディスクリプタインデックスをヒープへ返す。
+		///      ディスクリプタインデックスをヒープへ返す。GPU リソースはこの
+		///      オブジェクトと一緒に死なせず、遅延回収リングへ渡す:
+		///      ModelLoader::Clear は Crister を同期的に破棄し
+		///      (ModelResource::Unload — エディタのモデル変換「適用」が実行中に
+		///      呼ぶ)、インフライトのフレームはまさにこれらのバッファと
+		///      テクスチャで描画している最中だから。
 		for (StreamingGeometry& page : streamingGeometry_)
 		{
 			if (!page.resident_)
@@ -213,9 +223,14 @@ namespace SeedCore
 			bindlessHeap_->FreeIndex(page.meshletBoundBufferIndex_);
 			bindlessHeap_->FreeIndex(page.vertexIndicesBufferIndex_);
 			bindlessHeap_->FreeIndex(page.primitiveIndicesBufferIndex_);
+			bindlessHeap_->DeferRelease(page.meshletResource_);
+			bindlessHeap_->DeferRelease(page.meshletBoundResource_);
+			bindlessHeap_->DeferRelease(page.vertexIndicesResource_);
+			bindlessHeap_->DeferRelease(page.primitiveIndicesResource_);
 			if (page.ownsVertices_)
 			{
 				bindlessHeap_->FreeIndex(page.vertexBufferIndex_);
+				bindlessHeap_->DeferRelease(page.vertexResource_);
 			}
 			totalResidentGeometryBytes_ -= page.sizeBytes_;
 			page.resident_ = false;
@@ -224,6 +239,7 @@ namespace SeedCore
 		if (poolResident_)
 		{
 			bindlessHeap_->FreeIndex(poolBufferIndex_);
+			bindlessHeap_->DeferRelease(poolResource_);
 			totalResidentGeometryBytes_ -= poolSizeBytes_;
 			poolResident_ = false;
 		}
@@ -233,11 +249,13 @@ namespace SeedCore
 			if (streamingTexture.pinnedMip_.resource_)
 			{
 				bindlessHeap_->FreeIndex(streamingTexture.pinnedMip_.bindlessIndex_);
+				bindlessHeap_->DeferRelease(streamingTexture.pinnedMip_.resource_);
 				totalResidentTextureBytes_ -= streamingTexture.pinnedMip_.sizeBytes_;
 			}
 			if (streamingTexture.currentMip_.resource_)
 			{
 				bindlessHeap_->FreeIndex(streamingTexture.currentMip_.bindlessIndex_);
+				bindlessHeap_->DeferRelease(streamingTexture.currentMip_.resource_);
 				totalResidentTextureBytes_ -= streamingTexture.currentMip_.sizeBytes_;
 			}
 		}
@@ -1360,6 +1378,17 @@ namespace SeedCore
 			if (streamingTexture.currentMip_.resource_)
 			{
 				bindlessHeap_->FreeIndex(streamingTexture.currentMip_.bindlessIndex_);
+				/// [EN] The mip being replaced is the one the in-flight frames are
+				///      still sampling - this upgrade is driven by worldScale, so it
+				///      fires on the very frame the Actor's Scale changes. Dropping
+				///      the last reference here would destroy the texture out from
+				///      under the GPU.
+				/// [JP] 置き換えられるミップは、インフライトのフレームがまだ
+				///      サンプリングしている当のもの — この昇格は worldScale で
+				///      駆動されるため、Actor の Scale を変えたまさにそのフレームで
+				///      発火する。ここで最後の参照を落とすと、GPU が使っている
+				///      最中にテクスチャを破棄することになる。
+				bindlessHeap_->DeferRelease(streamingTexture.currentMip_.resource_);
 				totalResidentTextureBytes_ -= streamingTexture.currentMip_.sizeBytes_;
 			}
 			streamingTexture.currentMip_.resource_ = newResource;
@@ -1383,6 +1412,10 @@ namespace SeedCore
 		bindlessHeap_->FreeIndex(page.meshletBoundBufferIndex_);
 		bindlessHeap_->FreeIndex(page.vertexIndicesBufferIndex_);
 		bindlessHeap_->FreeIndex(page.primitiveIndicesBufferIndex_);
+		bindlessHeap_->DeferRelease(page.meshletResource_);
+		bindlessHeap_->DeferRelease(page.meshletBoundResource_);
+		bindlessHeap_->DeferRelease(page.vertexIndicesResource_);
+		bindlessHeap_->DeferRelease(page.primitiveIndicesResource_);
 		page.meshletResource_.Reset();
 		page.meshletBoundResource_.Reset();
 		page.vertexIndicesResource_.Reset();
@@ -1390,6 +1423,7 @@ namespace SeedCore
 		if (page.ownsVertices_)
 		{
 			bindlessHeap_->FreeIndex(page.vertexBufferIndex_);
+			bindlessHeap_->DeferRelease(page.vertexResource_);
 			page.vertexResource_.Reset();
 		}
 		else
@@ -1416,6 +1450,7 @@ namespace SeedCore
 		}
 
 		bindlessHeap_->FreeIndex(streamingTexture.currentMip_.bindlessIndex_);
+		bindlessHeap_->DeferRelease(streamingTexture.currentMip_.resource_);
 		streamingTexture.currentMip_.resource_.Reset();
 		streamingTexture.currentMip_.bindlessIndex_ = 0xFFFFFFFF;
 		totalResidentTextureBytes_ -= streamingTexture.currentMip_.sizeBytes_;
@@ -1430,6 +1465,7 @@ namespace SeedCore
 			return;
 		}
 		bindlessHeap_->FreeIndex(poolBufferIndex_);
+		bindlessHeap_->DeferRelease(poolResource_);
 		poolResource_.Reset();
 		totalResidentGeometryBytes_ -= poolSizeBytes_;
 		poolSizeBytes_ = 0;

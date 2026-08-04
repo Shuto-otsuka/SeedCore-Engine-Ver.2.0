@@ -366,5 +366,9 @@ namespace SeedCore
 		Bool blasBuildFailureLogged_ = false;
 		Bool tlasBuildFailureLogged_ = false;
 		Bool skinnedBlasBuildFailureLogged_ = false;
+
+		/// [EN] Reports the device-removed reason once instead of every frame.
+		/// [JP] デバイス削除の理由を毎フレームでなく 1 度だけ報告する。
+		Bool deviceRemovedLogged_ = false;
 	};
 }

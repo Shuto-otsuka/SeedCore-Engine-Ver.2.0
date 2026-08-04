@@ -137,6 +137,15 @@ namespace SeedCore
 			heap->FreeIndex(equirectShaderResourceViewIndex_);
 			equirectShaderResourceViewIndex_ = invalidIndex_;
 		}
+
+		/// [EN] SkymapLoader::Clear calls this and then destroys the Skymap
+		///      outright, so the equirect texture the in-flight frames are still
+		///      sampling has to outlive both.
+		/// [JP] SkymapLoader::Clear はこれを呼んだ直後に Skymap 自体を破棄する
+		///      ため、インフライトのフレームがまだサンプリングしている equirect
+		///      テクスチャは両者より長く生存させる必要がある。
+		heap->DeferRelease(equirectResource_);
+		equirectResource_.Reset();
 	}
 
 	Uint Skymap::EquirectShaderResourceViewIndex()const
