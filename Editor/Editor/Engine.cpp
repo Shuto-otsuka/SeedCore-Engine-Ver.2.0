@@ -307,7 +307,7 @@ namespace SeedCore
 
 				if (editorContext_.previewActive_)
 				{
-					graphics_->PreviewRender(worldTimer_, previewCamera_, *loaderSystem_, *resource_, editorContext_.previewMeshAssetId_, editorContext_.previewAnimationAssetId_, editorContext_.previewTime_);
+					graphics_->PreviewRender(worldTimer_, previewCamera_, *loaderSystem_, *resource_, editorContext_.previewMeshAssetId_, editorContext_.previewAnimationAssetId_, editorContext_.previewTime_, editorContext_.previewWorldMatrix_);
 				}
 
 				graphics_->Clear();

@@ -100,5 +100,15 @@ namespace SeedCore
 		Uint32 previewMeshAssetId_ = 0;
 		Uint32 previewAnimationAssetId_ = 0;
 		Float previewTime_ = 0.0f;
+
+		/// [EN] World matrix applied to the preview mesh, written by whichever
+		///      panel is currently driving the preview (ModelTransformPanel for a
+		///      live look at its base-transform sliders before 適用; Identity
+		///      otherwise). Same one-frame-lag tolerance as previewMeshAssetId_.
+		/// [JP] プレビューメッシュへ適用するワールド行列。その時点でプレビューを
+		///      駆動しているパネルが書き込む(ModelTransformPanel は 適用 前に
+		///      基礎トランスフォームのスライダーをその場で確認するため。それ
+		///      以外は単位行列)。previewMeshAssetId_ と同じ 1 フレーム遅延を許容。
+		Matrix previewWorldMatrix_ = Matrix::Identity;
 	};
 }

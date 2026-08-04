@@ -523,6 +523,110 @@ namespace SeedCore
 		return true;
 	}
 
+	Bool Crister::ApplyTransformConversion(Vector3 position, Vector3 rotation, Vector3 scale, Vector3 pivot, const std::filesystem::path& cristerPath)
+	{
+		if (compressedVertices_.empty())
+		{
+			return false;
+		}
+
+		/// [EN] Away-from-zero clamp: a zero/near-zero axis would bake a
+		///      singular linearBasis, making normalBasis (its inverse-transpose)
+		///      undefined.
+		/// [JP] ゼロから離す方向へのクランプ: 軸が 0/0 近傍だと linearBasis が
+		///      特異になり、その逆転置である normalBasis が定義できなくなる。
+		Vector3 clampedScale(
+			std::abs(scale.x) < 0.0001f ? std::copysign(0.0001f, scale.x) : scale.x,
+			std::abs(scale.y) < 0.0001f ? std::copysign(0.0001f, scale.y) : scale.y,
+			std::abs(scale.z) < 0.0001f ? std::copysign(0.0001f, scale.z) : scale.z);
+
+		Matrix linearBasis = Matrix::CreateScale(clampedScale.x, clampedScale.y, clampedScale.z) * Matrix::CreateFromYawPitchRoll(ToRadians(rotation.y), ToRadians(rotation.x), ToRadians(rotation.z));
+		Matrix normalBasis = linearBasis.Invert().Transpose();
+		Matrix fullTransform = Matrix::CreateTranslation(-pivot) * linearBasis * Matrix::CreateTranslation(pivot + position);
+
+		Float tangentSign = linearBasis.Determinant() < 0.0f ? -1.0f : 1.0f;
+
+		DynamicArray<Vertex> transformedVertices(compressedVertices_.size());
+		for (Size vertexIndex = 0; vertexIndex < compressedVertices_.size(); vertexIndex++)
+		{
+			const CompressedVertex& compressed = compressedVertices_[vertexIndex];
+			Vertex& vertex = transformedVertices[vertexIndex];
+
+			vertex.position_ = Vector3::Transform(DecodePosition(compressed, positionMin_, positionExtent_), fullTransform);
+			vertex.texcoord_ = DecodeTexcoord(compressed, texcoordMin_, texcoordExtent_);
+			vertex.normal_ = Vector3::TransformNormal(DecodeNormal(compressed), normalBasis);
+			vertex.normal_.Normalize();
+
+			Vector4 tangent = DecodeTangent(compressed);
+			Vector3 tangentXyz = Vector3::TransformNormal(Vector3(tangent.x, tangent.y, tangent.z), linearBasis);
+			tangentXyz.Normalize();
+			vertex.tangent_ = Vector4(tangentXyz.x, tangentXyz.y, tangentXyz.z, tangent.w * tangentSign);
+
+			if (!compressedSkinVertices_.empty())
+			{
+				DecodeSkin(compressedSkinVertices_[vertexIndex], vertex.joints_, vertex.weights_);
+			}
+		}
+
+		if (defaultStage_ >= 0 && static_cast<Size>(defaultStage_) < stages_.size())
+		{
+			for (Int rootNodeIndex : stages_[defaultStage_].nodes_)
+			{
+				if (rootNodeIndex < 0 || static_cast<Size>(rootNodeIndex) >= nodes_.size())
+				{
+					continue;
+				}
+
+				Node& node = nodes_[rootNodeIndex];
+				Matrix localScale = Matrix::CreateScale(node.scale_.x, node.scale_.y, node.scale_.z);
+				Matrix localRotation = Matrix::CreateFromQuaternion(node.rotation_);
+				Matrix localTranslation = Matrix::CreateTranslation(node.translation_.x, node.translation_.y, node.translation_.z);
+				Matrix newLocal = localScale * localRotation * localTranslation * fullTransform;
+
+				newLocal.Decompose(node.scale_, node.rotation_, node.translation_);
+			}
+		}
+		CumulateTransforms();
+
+		Matrix inverseFullTransform = fullTransform.Invert();
+		for (auto& skin : skins_)
+		{
+			for (Matrix& inverseBindMatrix : skin.inverseBindMatrices_)
+			{
+				inverseBindMatrix = inverseFullTransform * inverseBindMatrix;
+			}
+		}
+
+		for (auto& light : lights_)
+		{
+			light.position_ = Vector3::Transform(light.position_, fullTransform);
+			light.direction_ = Vector3::TransformNormal(light.direction_, linearBasis);
+			light.direction_.Normalize();
+		}
+
+		Float radiusScale = Max(Max(std::abs(clampedScale.x), std::abs(clampedScale.y)), std::abs(clampedScale.z));
+		for (auto& bound : meshletBounds_)
+		{
+			bound.center_ = Vector3::Transform(bound.center_, fullTransform);
+			bound.coneAxis_ = Vector3::TransformNormal(bound.coneAxis_, linearBasis);
+			bound.coneAxis_.Normalize();
+			bound.radius_ *= radiusScale;
+		}
+
+		vertices_ = std::move(transformedVertices);
+		BakeMesh();
+
+		std::ofstream ofs(cristerPath, std::ios::binary);
+		if (!ofs)
+		{
+			return false;
+		}
+		cereal::BinaryOutputArchive archive(ofs);
+		archive(*this);
+
+		return true;
+	}
+
 	void Crister::BakeBitmap(ID3D12Device* device, ID3D12CommandQueue* cmdQueue, BC7CompressShader& bc7Shader)
 	{
 		/// [JP] RGBA8 画像を整数倍率のボックスフィルタで縮小する（D3D12 の 2D

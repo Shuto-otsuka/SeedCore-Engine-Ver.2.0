@@ -275,11 +275,11 @@ namespace SeedCore
 		effekseerRenderer_->SetCamera(scene);
 	}
 
-	void Renderer::GatherPreview(LoaderSystem& loaderSystem, ResourceCache& resourceCache, Uint32 meshAssetId, Uint32 animationAssetId, Float time)
+	void Renderer::GatherPreview(LoaderSystem& loaderSystem, ResourceCache& resourceCache, Uint32 meshAssetId, Uint32 animationAssetId, Float time, const Matrix& worldMatrix)
 	{
 		ModelResource* modelResource = resourceCache.GetModelResource();
 		AnimationResource* animationResource = resourceCache.GetAnimationResource();
-		previewRenderer_->Gather(loaderSystem, *modelResource, *animationResource, meshAssetId, animationAssetId, time);
+		previewRenderer_->Gather(loaderSystem, *modelResource, *animationResource, meshAssetId, animationAssetId, time, worldMatrix);
 	}
 
 	void Renderer::SetRaytracingSettings(const RaytracingContext& settings)

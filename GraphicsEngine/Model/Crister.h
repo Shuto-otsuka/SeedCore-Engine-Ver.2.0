@@ -713,6 +713,33 @@ namespace SeedCore
 		*/
 		Bool ApplyAxisConversion(const Matrix& deltaBasis, Bool flipWinding, const std::filesystem::path& cristerPath);
 
+		/// [EN] Bakes a global position/rotation(euler degrees)/scale/pivot
+		///      transform into this Crister's data, same scope as
+		///      ApplyAxisConversion (vertices/node hierarchy/skin inverse-bind
+		///      matrices/light positions-directions/meshlet bounds), then
+		///      re-serialises to cristerPath. scale/pivot/rotation compose about
+		///      pivot first, position is a separate world-space offset applied
+		///      after. Only root-level nodes (stages_[defaultStage_].nodes_) have
+		///      their local transform updated - CumulateTransforms() then
+		///      propagates to every descendant, since post-multiplying the whole
+		///      transform onto just the root telescopes correctly through the
+		///      local-transform chain (node.globalTransform_ = local *
+		///      parentGlobal). Returns false if this Crister has no compressed
+		///      vertex data.
+		/// [JP] グローバルな位置/回転(オイラー角、度)/スケール/ピボット変換を
+		///      この Crister のデータへ焼き込む。対象範囲は ApplyAxisConversion
+		///      と同じ(頂点/ノード階層/スキン逆バインド行列/ライト位置・向き/
+		///      メシュレット境界)、その後 cristerPath へ再シリアライズする。
+		///      スケール/ピボット/回転はまずピボットを中心に合成し、position は
+		///      その後に適用する独立したワールド空間オフセット。ローカル
+		///      トランスフォームを更新するのはルートノード
+		///      (stages_[defaultStage_].nodes_)のみ — CumulateTransforms() が
+		///      全子孫へ伝播する。ルートだけに変換全体を後乗せすれば、ローカル
+		///      トランスフォームの連鎖(node.globalTransform_ = local *
+		///      parentGlobal)を通じて正しく telescope するため。この Crister に
+		///      変換対象の量子化済み頂点データが無い場合は false を返す。
+		Bool ApplyTransformConversion(Vector3 position, Vector3 rotation, Vector3 scale, Vector3 pivot, const std::filesystem::path& cristerPath);
+
 		/// [EN] Downsamples oversized textures, dilates transparent-texel
 		///      color (must happen before compression — BC7 blocks can't be
 		///      touched per-texel afterwards), then BC7-compresses a full mip

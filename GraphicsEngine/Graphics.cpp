@@ -290,9 +290,9 @@ namespace SeedCore
 		renderer_->EndCanvasFrame(context_->GetDirectList());
 	}
 
-	void Graphics::PreviewRender(WorldTimer& timer, const PreviewCamera& previewCamera, LoaderSystem& loaderSystem, ResourceCache& resourceCache, Uint32 meshAssetId, Uint32 animationAssetId, Float time)
+	void Graphics::PreviewRender(WorldTimer& timer, const PreviewCamera& previewCamera, LoaderSystem& loaderSystem, ResourceCache& resourceCache, Uint32 meshAssetId, Uint32 animationAssetId, Float time, const Matrix& worldMatrix)
 	{
-		renderer_->GatherPreview(loaderSystem, resourceCache, meshAssetId, animationAssetId, time);
+		renderer_->GatherPreview(loaderSystem, resourceCache, meshAssetId, animationAssetId, time, worldMatrix);
 
 		SceneConstantBuffer previewSceneConstantBuffer{};
 		previewSceneConstantBuffer.view_ = previewCamera.View();

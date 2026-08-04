@@ -106,7 +106,7 @@ namespace SeedCore
 		///      independent of ModelRenderer/World — see PreviewRenderer.
 		/// [JP] 単体モデルプレビュー用の独立した gather(Timelineパネル)。
 		///      ModelRenderer/World と完全に独立 — PreviewRenderer 参照。
-		void GatherPreview(LoaderSystem& loaderSystem, ResourceCache& resourceCache, Uint32 meshAssetId, Uint32 animationAssetId, Float time);
+		void GatherPreview(LoaderSystem& loaderSystem, ResourceCache& resourceCache, Uint32 meshAssetId, Uint32 animationAssetId, Float time, const Matrix& worldMatrix);
 
 		/// [EN] Stored on Renderer (not threaded through Flush's parameters) so
 		///      adding future tunables — for this or other raytraced effects —

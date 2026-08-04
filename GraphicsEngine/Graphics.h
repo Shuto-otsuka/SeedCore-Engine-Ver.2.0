@@ -78,7 +78,7 @@ namespace SeedCore
 		///      EditorRenderが収集したインスタンス一覧は再利用しない —
 		///      meshAssetId/animationAssetId/timeでモデル+ポーズを1つだけ
 		///      指定する。ライブのWorld/ECSに依存しない。
-		void PreviewRender(WorldTimer& timer, const PreviewCamera& previewCamera, LoaderSystem& loaderSystem, ResourceCache& resourceCache, Uint32 meshAssetId, Uint32 animationAssetId, Float time);
+		void PreviewRender(WorldTimer& timer, const PreviewCamera& previewCamera, LoaderSystem& loaderSystem, ResourceCache& resourceCache, Uint32 meshAssetId, Uint32 animationAssetId, Float time, const Matrix& worldMatrix);
 
 		void Begin();
 

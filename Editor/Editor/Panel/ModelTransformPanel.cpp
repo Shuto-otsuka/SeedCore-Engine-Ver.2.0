@@ -79,10 +79,12 @@ namespace SeedCore
 		if (!show_)
 		{
 			context_.previewActive_ = false;
+			context_.previewWorldMatrix_ = Matrix::Identity;
 			return;
 		}
 
 		context_.previewActive_ = false;
+		context_.previewWorldMatrix_ = Matrix::Identity;
 
 		ImGui::SetNextWindowSize(ImVec2(1280, 720), ImGuiCond_FirstUseEver);
 
@@ -100,6 +102,10 @@ namespace SeedCore
 				{
 					targetMeshAssetId_ = mesh->meshID_;
 					editConvention_ = context_.resource_->ReadAxisConvention(targetMeshAssetId_);
+					baseTransformPosition_ = Vector3(0.0f, 0.0f, 0.0f);
+					baseTransformRotation_ = Vector3(0.0f, 0.0f, 0.0f);
+					baseTransformScale_ = Vector3(1.0f, 1.0f, 1.0f);
+					baseTransformPivot_ = Vector3(0.0f, 0.0f, 0.0f);
 				}
 
 				ModelResource* modelResource = context_.resource_->GetModelResource();
@@ -125,6 +131,7 @@ namespace SeedCore
 					ImGui::BeginChild("##axisInspectorColumn", ImVec2(0.0f, 0.0f), true);
 					{
 						DrawAxisInspector(targetMeshAssetId_);
+						DrawBaseTransformInspector(targetMeshAssetId_);
 					}
 					ImGui::EndChild();
 				}
@@ -140,13 +147,102 @@ namespace SeedCore
 		context_.previewAnimationAssetId_ = 0;
 		context_.previewTime_ = 0.0f;
 
+		/// [EN] Mirrors Crister::ApplyTransformConversion's fullTransform exactly,
+		///      so the preview is a WYSIWYG of what 適用 will bake.
+		/// [JP] Crister::ApplyTransformConversion の fullTransform と厳密に一致
+		///      させる。適用 が焼き込む結果をそのままプレビューできるように。
+		Matrix baseTransformLinearBasis = Matrix::CreateScale(baseTransformScale_.x, baseTransformScale_.y, baseTransformScale_.z) * Matrix::CreateFromYawPitchRoll(ToRadians(baseTransformRotation_.y), ToRadians(baseTransformRotation_.x), ToRadians(baseTransformRotation_.z));
+		context_.previewWorldMatrix_ = Matrix::CreateTranslation(-baseTransformPivot_) * baseTransformLinearBasis * Matrix::CreateTranslation(baseTransformPivot_ + baseTransformPosition_);
+
 		ImVec2 previewSize = ImGui::GetContentRegionAvail();
 		if (context_.previewCamera_)
 		{
 			context_.previewCamera_->Resize(previewSize.x, previewSize.y);
 		}
 
+		ImVec2 imagePosition = ImGui::GetCursorScreenPos();
 		ImGui::Image(ImTextureID(previewHandle_.ptr), previewSize);
+
+		if (context_.previewCamera_ && ImGui::IsItemHovered() && ImGui::GetIO().MouseWheel != 0.0f)
+		{
+			Vector3 eye = context_.previewCamera_->Eye();
+			Vector3 focus = context_.previewCamera_->Focus();
+			Vector3 toEye = eye - focus;
+			Float distance = toEye.Length();
+			if (distance > 0.0001f)
+			{
+				Float newDistance = Max(0.1f, distance - ImGui::GetIO().MouseWheel * distance * 0.1f);
+				context_.previewCamera_->Eye(focus + toEye / distance * newDistance);
+			}
+		}
+
+		if (ImGui::IsKeyPressed(ImGuiKey_W))
+		{
+			baseTransformGizmoOperation_ = ImGuizmo::TRANSLATE;
+		}
+		if (ImGui::IsKeyPressed(ImGuiKey_E))
+		{
+			baseTransformGizmoOperation_ = ImGuizmo::ROTATE;
+		}
+		if (ImGui::IsKeyPressed(ImGuiKey_R))
+		{
+			baseTransformGizmoOperation_ = ImGuizmo::SCALE;
+		}
+
+		if (ImGui::RadioButton("移動(W)", baseTransformGizmoOperation_ == ImGuizmo::TRANSLATE))
+		{
+			baseTransformGizmoOperation_ = ImGuizmo::TRANSLATE;
+		}
+		ImGui::SameLine();
+		if (ImGui::RadioButton("回転(E)", baseTransformGizmoOperation_ == ImGuizmo::ROTATE))
+		{
+			baseTransformGizmoOperation_ = ImGuizmo::ROTATE;
+		}
+		ImGui::SameLine();
+		if (ImGui::RadioButton("拡縮(R)", baseTransformGizmoOperation_ == ImGuizmo::SCALE))
+		{
+			baseTransformGizmoOperation_ = ImGuizmo::SCALE;
+		}
+
+		if (context_.previewCamera_)
+		{
+			ImGuizmo::SetDrawlist();
+			ImGuizmo::SetRect(imagePosition.x, imagePosition.y, previewSize.x, previewSize.y);
+			ImGuizmo::SetOrthographic(false);
+			ImGuizmo::AllowAxisFlip(false);
+
+			Matrix view = context_.previewCamera_->View();
+			Matrix projection = context_.previewCamera_->Projection();
+
+			/// [EN] The anchor: pivot/position/rotation/scale collapsed into the
+			///      single matrix ImGuizmo manipulates, placed at pivot+position
+			///      in world space (a point at local-space pivot lands exactly
+			///      there under fullTransform - see ApplyTransformConversion).
+			///      Dragging it therefore maps directly onto Position/Rotation/
+			///      Scale; Pivot itself has no handle here.
+			/// [JP] アンカー: pivot/position/rotation/scale を 1 つの行列へ畳み込み、
+			///      ImGuizmo に操作させる。ワールド空間の pivot+position に置く
+			///      (ローカル空間の pivot にある点は fullTransform の下でちょうど
+			///      そこへ着地する — ApplyTransformConversion 参照)。ドラッグは
+			///      そのまま Position/Rotation/Scale に対応する。Pivot 自体の
+			///      ハンドルはここには無い。
+			Matrix anchorWorld = Matrix::CreateScale(baseTransformScale_.x, baseTransformScale_.y, baseTransformScale_.z) * Matrix::CreateFromYawPitchRoll(ToRadians(baseTransformRotation_.y), ToRadians(baseTransformRotation_.x), ToRadians(baseTransformRotation_.z)) * Matrix::CreateTranslation(baseTransformPivot_ + baseTransformPosition_);
+
+			if (ImGuizmo::Manipulate(&view._11, &projection._11, baseTransformGizmoOperation_, ImGuizmo::LOCAL, &anchorWorld._11))
+			{
+				Vector3 newScale, newTranslation;
+				Quaternion newRotation;
+				if (anchorWorld.Decompose(newScale, newRotation, newTranslation))
+				{
+					baseTransformScale_ = newScale;
+
+					Vector3 euler = newRotation.ToEuler();
+					baseTransformRotation_ = Vector3(ToDegrees(euler.x), ToDegrees(euler.y), ToDegrees(euler.z));
+
+					baseTransformPosition_ = newTranslation - baseTransformPivot_;
+				}
+			}
+		}
 	}
 
 	void ModelTransformPanel::DrawAxisInspector(Uint32 assetId)
@@ -247,5 +343,84 @@ namespace SeedCore
 			modelResource->Unload(*context_.loader_, assetId, heap);
 			modelResource->Load(*context_.loader_, context_.device_, context_.cmdQueue_, heap, *context_.bc7Shader_, *context_.resource_, assetId);
 		}
+	}
+
+	void ModelTransformPanel::DrawBaseTransformInspector(Uint32 assetId)
+	{
+		ImGui::Spacing();
+		ImGui::Separator();
+		ImGui::Spacing();
+
+		ImGui::TextDisabled("基礎トランスフォーム");
+		ImGui::Separator();
+		ImGui::Spacing();
+
+		ImGui::Text("Position");
+		ImGui::SetNextItemWidth(-1.0f);
+		ImGui::DragFloat3("##basePosition", &baseTransformPosition_.x, 0.01f);
+
+		ImGui::Text("Rotation");
+		ImGui::SetNextItemWidth(-1.0f);
+		ImGui::DragFloat3("##baseRotation", &baseTransformRotation_.x, 0.1f);
+
+		ImGui::Text("Scale");
+		ImGui::SetNextItemWidth(-1.0f);
+		ImGui::DragFloat3("##baseScale", &baseTransformScale_.x, 0.01f);
+
+		ImGui::Text("Pivot");
+		ImGui::SetNextItemWidth(-1.0f);
+		ImGui::DragFloat3("##basePivot", &baseTransformPivot_.x, 0.01f);
+
+		ImGui::Spacing();
+		ImGui::Separator();
+		ImGui::Spacing();
+
+		Asset* asset = context_.resource_->GetAsset(assetId);
+		std::filesystem::path path = asset ? std::filesystem::path(asset->fullpath_.c_str()) : std::filesystem::path();
+		Bool isSourceAsset = (path.extension() == ".gltf" || path.extension() == ".glb");
+
+		if (isSourceAsset)
+		{
+			ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "軸コンベンションを一度適用して .crister へ変換してから使用してください");
+		}
+
+		ImGui::BeginDisabled(isSourceAsset);
+		if (ImGui::Button("適用##baseTransform"))
+		{
+			ApplyTransformConversion(assetId);
+		}
+		ImGui::EndDisabled();
+	}
+
+	void ModelTransformPanel::ApplyTransformConversion(Uint32 assetId)
+	{
+		Asset* asset = context_.resource_->GetAsset(assetId);
+		if (!asset)
+		{
+			return;
+		}
+
+		std::filesystem::path path(asset->fullpath_.c_str());
+		if (path.extension() == ".gltf" || path.extension() == ".glb")
+		{
+			return;
+		}
+
+		ModelResource* modelResource = context_.resource_->GetModelResource();
+		Handle<Crister> handle = modelResource->GetHandle(assetId);
+		Crister* crister = handle.empty() ? nullptr : modelResource->Resolve(*context_.loader_, handle);
+		if (!crister || !crister->ApplyTransformConversion(baseTransformPosition_, baseTransformRotation_, baseTransformScale_, baseTransformPivot_, path))
+		{
+			return;
+		}
+
+		baseTransformPosition_ = Vector3(0.0f, 0.0f, 0.0f);
+		baseTransformRotation_ = Vector3(0.0f, 0.0f, 0.0f);
+		baseTransformScale_ = Vector3(1.0f, 1.0f, 1.0f);
+		baseTransformPivot_ = Vector3(0.0f, 0.0f, 0.0f);
+
+		BindlessHeap* heap = context_.resource_->Heap();
+		modelResource->Unload(*context_.loader_, assetId, heap);
+		modelResource->Load(*context_.loader_, context_.device_, context_.cmdQueue_, heap, *context_.bc7Shader_, *context_.resource_, assetId);
 	}
 }

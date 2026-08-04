@@ -53,7 +53,7 @@ namespace SeedCore
 		frameBuffer_->Resize(device, bindlessHeap, width, height);
 	}
 
-	void PreviewRenderer::Gather(LoaderSystem& loaderSystem, ModelResource& modelResource, AnimationResource& animationResource, Uint32 meshAssetId, Uint32 animationAssetId, Float time)
+	void PreviewRenderer::Gather(LoaderSystem& loaderSystem, ModelResource& modelResource, AnimationResource& animationResource, Uint32 meshAssetId, Uint32 animationAssetId, Float time, const Matrix& worldMatrix)
 	{
 		opaqueInstances_.clear();
 		transparentInstances_.clear();
@@ -73,8 +73,7 @@ namespace SeedCore
 			return;
 		}
 
-		Matrix worldMatrix = Matrix::Identity;
-		Matrix inverseTransposeWorld = Matrix::Identity;
+		Matrix inverseTransposeWorld = worldMatrix.Invert().Transpose();
 
 		const auto& subMeshes = crister->SubMeshes();
 		const auto& materials = crister->Materials();
