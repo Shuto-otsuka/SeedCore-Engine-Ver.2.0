@@ -8,7 +8,7 @@ namespace SeedCore
 {
 	VersionPanel::VersionPanel(EditorContext& context)
 	{
-		TextureLoader* loader = context.loader_->textureLoader_.get();
+		TextureLoader* loader = context.worldContext_.loader_->textureLoader_.get();
 
 		std::time_t t = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
 		std::tm local{};
@@ -17,9 +17,9 @@ namespace SeedCore
 
 		String logoPath = isDaytime ? String("../Runtime/Logo/day_logo.dds") : String("../Runtime/Logo/night_logo.dds");
 
-		Uint index = context.descHeap_->AllocateIndex();
-		loader->CreateTexture(context.device_, context.cmdQueue_, context.descHeap_->Get(), logoPath, logoResource_, index);
-		logoTextureId_ = static_cast<ImTextureID>(context.descHeap_->GPUHandle(index).ptr);
+		Uint index = context.graphicsContext_.descHeap_->AllocateIndex();
+		loader->CreateTexture(context.graphicsContext_.device_, context.graphicsContext_.cmdQueue_, context.graphicsContext_.descHeap_->Get(), logoPath, logoResource_, index);
+		logoTextureId_ = static_cast<ImTextureID>(context.graphicsContext_.descHeap_->GPUHandle(index).ptr);
 
 		if (logoResource_)
 		{
@@ -28,10 +28,10 @@ namespace SeedCore
 			logoHeight_ = static_cast<Float>(desc.Height);
 		}
 
-		if (context.adapter_)
+		if (context.graphicsContext_.adapter_)
 		{
 			DXGI_ADAPTER_DESC1 adapterDesc{};
-			context.adapter_->GetDesc1(&adapterDesc);
+			context.graphicsContext_.adapter_->GetDesc1(&adapterDesc);
 
 			Char buf[256]{};
 			WideCharToMultiByte(CP_UTF8, 0, adapterDesc.Description, -1, buf, sizeof(buf), nullptr, nullptr);

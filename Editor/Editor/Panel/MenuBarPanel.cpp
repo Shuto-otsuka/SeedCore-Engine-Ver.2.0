@@ -16,10 +16,10 @@ namespace SeedCore
 
 	void MenuBarPanel::Draw()
 	{
-		if (context_.requestedSceneAssetID_ != 0)
+		if (context_.sceneContext_.requestedSceneAssetID_ != 0)
 		{
-			Uint32 assetID = context_.requestedSceneAssetID_;
-			context_.requestedSceneAssetID_ = 0;
+			Uint32 assetID = context_.sceneContext_.requestedSceneAssetID_;
+			context_.sceneContext_.requestedSceneAssetID_ = 0;
 			RequestSceneSwitch(PendingSceneOp::OpenAsset, {}, assetID);
 		}
 
@@ -346,7 +346,7 @@ namespace SeedCore
 
 	ViewMode MenuBarPanel::GetViewMode()const
 	{
-		return context_.viewMode_;
+		return context_.viewportContext_.viewMode_;
 	}
 
 	void MenuBarPanel::BuildRuntime()
@@ -357,7 +357,7 @@ namespace SeedCore
 		}
 
 		SC_LOG_NOTICE("Runtimeビルドを開始します");
-		runtimeBuilder_.BuildAsync(context_.resource_->ProjectRootPath());
+		runtimeBuilder_.BuildAsync(context_.worldContext_.resource_->ProjectRootPath());
 	}
 
 	void MenuBarPanel::RequestSceneSwitch(PendingSceneOp op, const std::filesystem::path& path, Uint32 assetID)
@@ -366,7 +366,7 @@ namespace SeedCore
 		pendingScenePath_ = path;
 		pendingSceneAssetID_ = assetID;
 
-		if (context_.world_->GetActors().empty())
+		if (context_.worldContext_.world_->GetActors().empty())
 		{
 			ExecutePendingSceneOp();
 		}
@@ -390,37 +390,37 @@ namespace SeedCore
 		case PendingSceneOp::OpenPath:
 		{
 			String raytracingSettingsJson;
-			if (!Scene::Load(*context_.world_, *context_.resource_, path, &raytracingSettingsJson))
+			if (!Scene::Load(*context_.worldContext_.world_, *context_.worldContext_.resource_, path, &raytracingSettingsJson))
 			{
 				SC_LOG_WARNING("シーンの読み込みに失敗しました: {}", path.string());
 				break;
 			}
-			context_.raytracing_ = DeserializeRaytracingContext(raytracingSettingsJson);
+			context_.viewportContext_.raytracing_ = DeserializeRaytracingContext(raytracingSettingsJson);
 			/// [JP] DLSS有効/モードはネイティブ解像度の再計算(Engine::MainLoop の
 			///      resizeRequested_ 分岐)を経て初めて反映されるため、ここで立てる。
-			context_.resizeRequested_ = true;
-			context_.currentScenePath_ = path;
-			context_.selectedActor_ = nullptr;
-			context_.selectedActors_.clear();
+			context_.viewportContext_.resizeRequested_ = true;
+			context_.sceneContext_.currentScenePath_ = path;
+			context_.selectionContext_.selectedActor_ = nullptr;
+			context_.selectionContext_.selectedActors_.clear();
 			SC_LOG_NOTICE("シーンを読み込みました: {}", path.string());
 			break;
 		}
 		case PendingSceneOp::OpenAsset:
 		{
 			String raytracingSettingsJson;
-			if (!Scene::Load(*context_.world_, *context_.resource_, assetID, &raytracingSettingsJson))
+			if (!Scene::Load(*context_.worldContext_.world_, *context_.worldContext_.resource_, assetID, &raytracingSettingsJson))
 			{
 				SC_LOG_WARNING("シーンの読み込みに失敗しました(assetID: {})", assetID);
 				break;
 			}
-			context_.raytracing_ = DeserializeRaytracingContext(raytracingSettingsJson);
+			context_.viewportContext_.raytracing_ = DeserializeRaytracingContext(raytracingSettingsJson);
 			/// [JP] DLSS有効/モードはネイティブ解像度の再計算(Engine::MainLoop の
 			///      resizeRequested_ 分岐)を経て初めて反映されるため、ここで立てる。
-			context_.resizeRequested_ = true;
-			context_.currentScenePath_ = context_.resource_->GetAsset(assetID)->fullpath_.c_str();
-			context_.selectedActor_ = nullptr;
-			context_.selectedActors_.clear();
-			SC_LOG_NOTICE("シーンを読み込みました: {}", context_.currentScenePath_.string());
+			context_.viewportContext_.resizeRequested_ = true;
+			context_.sceneContext_.currentScenePath_ = context_.worldContext_.resource_->GetAsset(assetID)->fullpath_.c_str();
+			context_.selectionContext_.selectedActor_ = nullptr;
+			context_.selectionContext_.selectedActors_.clear();
+			SC_LOG_NOTICE("シーンを読み込みました: {}", context_.sceneContext_.currentScenePath_.string());
 			break;
 		}
 		case PendingSceneOp::Exit:
@@ -433,18 +433,18 @@ namespace SeedCore
 
 	void MenuBarPanel::NewScene()
 	{
-		context_.world_->DestroyActors();
+		context_.worldContext_.world_->DestroyActors();
 
-		context_.currentScenePath_.clear();
-		context_.selectedActor_ = nullptr;
-		context_.selectedActors_.clear();
+		context_.sceneContext_.currentScenePath_.clear();
+		context_.selectionContext_.selectedActor_ = nullptr;
+		context_.selectionContext_.selectedActors_.clear();
 
 		SC_LOG_NOTICE("新規シーンを作成しました");
 	}
 
 	void MenuBarPanel::OpenScene()
 	{
-		std::filesystem::path sceneDir = context_.resource_->ProjectRootPath() / "UserProject" / "Assets" / "Scene";
+		std::filesystem::path sceneDir = context_.worldContext_.resource_->ProjectRootPath() / "UserProject" / "Assets" / "Scene";
 		std::filesystem::create_directories(sceneDir);
 
 		std::filesystem::path selectedPath;
@@ -458,7 +458,7 @@ namespace SeedCore
 
 	void MenuBarPanel::SaveScene()
 	{
-		std::filesystem::path sceneDir = context_.resource_->ProjectRootPath() / "UserProject" / "Assets" / "Scene";
+		std::filesystem::path sceneDir = context_.worldContext_.resource_->ProjectRootPath() / "UserProject" / "Assets" / "Scene";
 		std::filesystem::create_directories(sceneDir);
 
 		std::filesystem::path savePath;
@@ -467,31 +467,31 @@ namespace SeedCore
 			return;
 		}
 
-		if (!Scene::Save(*context_.world_, *context_.resource_, savePath, SerializeRaytracingContext(context_.raytracing_)))
+		if (!Scene::Save(*context_.worldContext_.world_, *context_.worldContext_.resource_, savePath, SerializeRaytracingContext(context_.viewportContext_.raytracing_)))
 		{
 			SC_LOG_WARNING("シーンの保存に失敗しました: {}", savePath.string());
 			return;
 		}
 
-		context_.currentScenePath_ = savePath;
+		context_.sceneContext_.currentScenePath_ = savePath;
 
 		SC_LOG_NOTICE("シーンを保存しました: {}", savePath.string());
 	}
 
 	void MenuBarPanel::OverwriteSaveScene()
 	{
-		if (context_.currentScenePath_.empty())
+		if (context_.sceneContext_.currentScenePath_.empty())
 		{
 			SaveScene();
 			return;
 		}
 
-		if (!Scene::Save(*context_.world_, *context_.resource_, context_.currentScenePath_, SerializeRaytracingContext(context_.raytracing_)))
+		if (!Scene::Save(*context_.worldContext_.world_, *context_.worldContext_.resource_, context_.sceneContext_.currentScenePath_, SerializeRaytracingContext(context_.viewportContext_.raytracing_)))
 		{
-			SC_LOG_WARNING("シーンの上書き保存に失敗しました: {}", context_.currentScenePath_.string());
+			SC_LOG_WARNING("シーンの上書き保存に失敗しました: {}", context_.sceneContext_.currentScenePath_.string());
 			return;
 		}
 
-		SC_LOG_NOTICE("シーンを上書き保存しました: {}", context_.currentScenePath_.string());
+		SC_LOG_NOTICE("シーンを上書き保存しました: {}", context_.sceneContext_.currentScenePath_.string());
 	}
 }

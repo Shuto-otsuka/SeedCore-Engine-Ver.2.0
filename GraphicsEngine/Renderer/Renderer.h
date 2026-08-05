@@ -15,6 +15,7 @@
 
 #include <GraphicsEngine/D3D12/Buffer/GeometryBuffer.h>
 #include <GraphicsEngine/D3D12/Buffer/HiZBuffer.h>
+#include <GraphicsEngine/D3D12/Buffer/DepthResizeBuffer.h>
 #include <GraphicsEngine/Renderer/ImageRenderer.h>
 #include <GraphicsEngine/Renderer/FontRenderer.h>
 #include <GraphicsEngine/Renderer/MovieRenderer.h>
@@ -132,6 +133,14 @@ namespace SeedCore
 		///      DLSS-RR 有効時に Tag()/EvaluateRayReconstruction() を駆動する
 		///      ためのポインタが要るだけ。
 		void SetDlssManager(DlssManager* dlssManager);
+
+		/// [EN] Cached from the last SetRaytracingSettings() call. Lets a caller that runs before this frame's EditorFlush (e.g. Graphics::EditorRender building the scene constant buffer) know whether the post-tonemap debug overlay will end up drawing at PostProcessOutputSize() (true) or the native resolution (false) later this same frame - see EndEditorFrame.
+		/// [JP] 直近の SetRaytracingSettings() 呼び出しからキャッシュ。この関数を、今フレームのEditorFlushより前に実行される呼び出し側(例えばシーン定数バッファを組み立てるGraphics::EditorRender)が、トーンマップ後デバッグオーバーレイが今フレーム後でPostProcessOutputSize()(true)とネイティブ解像度(false)のどちらで描画することになるかを知るために使う - EndEditorFrame参照。
+		[[nodiscard]] Bool IsDlssRayReconstructionEnabled()const { return dlssRayReconstructionEnabled_; }
+
+		/// [EN] PostProcessRenderer's DLSS-RR-upscaled output resolution - see IsDlssRayReconstructionEnabled().
+		/// [JP] PostProcessRendererのDLSS-RRアップスケール後出力解像度 - IsDlssRayReconstructionEnabled()参照。
+		[[nodiscard]] Vector2 PostProcessOutputSize()const;
 
 		void EditorFlush(D3D12CommandList* cmdList, SceneSystem* sceneSystem, Float deltaTime, ViewMode viewMode);
 
@@ -325,6 +334,10 @@ namespace SeedCore
 
 		GeometryBuffer geometryBuffer_;
 		HiZBuffer hiZBuffer_;
+
+		/// [EN] geometryBuffer_'s depth resized to PostProcessRenderer's DLSS-RR-upscaled output resolution - see Renderer::EndEditorFrame's debug overlay.
+		/// [JP] geometryBuffer_の深度をPostProcessRendererのDLSS-RRアップスケール後出力解像度へリサイズしたもの - Renderer::EndEditorFrameのデバッグオーバーレイ参照。
+		DepthResizeBuffer debugDepthResizeBuffer_;
 
 		/// [EN] Per-pass GPU timing. Owned here because Renderer is where every
 		///      timed pass is issued, so no plumbing has to reach further down.

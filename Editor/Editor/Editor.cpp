@@ -2,6 +2,7 @@
 #include <FoundationEngine/Log/Notice.h>
 #include <FoundationEngine/ECS/Actor.h>
 #include <FoundationEngine/ECS/World.h>
+#include <FoundationEngine/Time/GameTimer.h>
 #include <GraphicsEngine/Model/Animation/Animator.h>
 #include <GraphicsEngine/Model/Animation/AnimatorControllerState.h>
 
@@ -13,7 +14,7 @@ namespace SeedCore
 		inspectorPanel_ = MakePtr<InspectorPanel>(context_, imguiTexture_);
 		toolPanel_ = MakePtr<ToolPanel>(context_, imguiTexture_);
 		editorWindowPanel_ = MakePtr<EditorWindowPanel>(context_, imguiTexture_);
-		gameWindowPanel_ = MakePtr<GameWindowPanel>(*context_.cameraSystem_);
+		gameWindowPanel_ = MakePtr<GameWindowPanel>(*context_.cameraContext_.cameraSystem_);
 		canvasViewPanel_ = MakePtr<CanvasViewPanel>(context_, imguiTexture_);
 		contentsDrawerPanel_ = MakePtr<ContentsDrawerPanel>(context_, imguiTexture_);
 		controlPanel_ = MakePtr<ControlPanel>(context_, imguiTexture_);
@@ -83,13 +84,13 @@ namespace SeedCore
 		}
 		if (menuBarPanel_->ConsumeAnimatorControllerRequest())
 		{
-			Animator* animator = context_.selectedActor_ ? const_cast<Animator*>(context_.selectedActor_->GetComponent<Animator>()) : nullptr;
+			Animator* animator = context_.selectionContext_.selectedActor_ ? const_cast<Animator*>(context_.selectionContext_.selectedActor_->GetComponent<Animator>()) : nullptr;
 			animatorControllerPanel_->Open(animator);
 		}
 		if (AnimatorControllerRequest::requested_)
 		{
 			AnimatorControllerRequest::requested_ = false;
-			Animator* animator = context_.selectedActor_ ? const_cast<Animator*>(context_.selectedActor_->GetComponent<Animator>()) : nullptr;
+			Animator* animator = context_.selectionContext_.selectedActor_ ? const_cast<Animator*>(context_.selectionContext_.selectedActor_->GetComponent<Animator>()) : nullptr;
 			animatorControllerPanel_->Open(animator);
 		}
 		if (menuBarPanel_->ConsumeTimelineRequest())
@@ -133,6 +134,19 @@ namespace SeedCore
 			editorWindowPanel_->Draw(editorFrameBufferHandle);
 			contentsDrawerPanel_->Draw();
 		}
+
+		if (!context_.worldContext_.gameTimer_->IsPlaying() && !ImGui::GetIO().WantTextInput)
+		{
+			Bool ctrlPressed = ImGui::IsKeyDown(ImGuiKey_LeftCtrl) || ImGui::IsKeyDown(ImGuiKey_RightCtrl);
+			if (ctrlPressed && ImGui::IsKeyPressed(ImGuiKey_Z))
+			{
+				context_.sceneContext_.history_.Undo();
+			}
+			if (ctrlPressed && ImGui::IsKeyPressed(ImGuiKey_Y))
+			{
+				context_.sceneContext_.history_.Redo();
+			}
+		}
 	}
 
 	ViewMode Editor::GetViewMode()const
@@ -142,11 +156,11 @@ namespace SeedCore
 
 	Entity Editor::GetSelectedEntity()const
 	{
-		return context_.selectedEntity_;
+		return context_.selectionContext_.selectedEntity_;
 	}
 
 	const RaytracingContext& Editor::GetRaytracingSettings()const
 	{
-		return context_.raytracing_;
+		return context_.viewportContext_.raytracing_;
 	}
 }

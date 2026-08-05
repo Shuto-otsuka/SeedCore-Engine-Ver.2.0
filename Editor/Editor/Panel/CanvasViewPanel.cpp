@@ -17,15 +17,15 @@ namespace SeedCore
 		ImVec4 activeColor = ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive);
 		ImVec4 hoverColor = ImGui::GetStyleColorVec4(ImGuiCol_HeaderHovered);
 
-		auto& op = context_.guizmo_.guizmoOperation_;
+		auto& op = context_.viewportContext_.guizmo_.guizmoOperation_;
 
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, hoverColor);
 		ImGui::PushStyleColor(ImGuiCol_ButtonActive, activeColor);
 
-		ImGui::PushStyleColor(ImGuiCol_Button, !context_.guizmo_.showGuizmo_ ? activeColor : transparent);
+		ImGui::PushStyleColor(ImGuiCol_Button, !context_.viewportContext_.guizmo_.showGuizmo_ ? activeColor : transparent);
 		if (ImGui::ImageButton("##NonSelected", imguiTexture_.Icon(IconType::NonSelected), iconSize))
 		{
-			context_.guizmo_.showGuizmo_ = !context_.guizmo_.showGuizmo_;
+			context_.viewportContext_.guizmo_.showGuizmo_ = !context_.viewportContext_.guizmo_.showGuizmo_;
 			op = (ImGuizmo::OPERATION)0;
 		}
 		ImGui::PopStyleColor();
@@ -35,7 +35,7 @@ namespace SeedCore
 		ImGui::PushStyleColor(ImGuiCol_Button, (op == ImGuizmo::TRANSLATE) ? activeColor : transparent);
 		if (ImGui::ImageButton("##Translate", imguiTexture_.Icon(IconType::Translate), iconSize))
 		{
-			context_.guizmo_.showGuizmo_ = true;
+			context_.viewportContext_.guizmo_.showGuizmo_ = true;
 			op = ImGuizmo::TRANSLATE;
 		}
 		ImGui::PopStyleColor();
@@ -45,7 +45,7 @@ namespace SeedCore
 		ImGui::PushStyleColor(ImGuiCol_Button, (op == ImGuizmo::ROTATE) ? activeColor : transparent);
 		if (ImGui::ImageButton("##Rotate", imguiTexture_.Icon(IconType::Rotate), iconSize))
 		{
-			context_.guizmo_.showGuizmo_ = true;
+			context_.viewportContext_.guizmo_.showGuizmo_ = true;
 			op = ImGuizmo::ROTATE;
 		}
 		ImGui::PopStyleColor();
@@ -55,7 +55,7 @@ namespace SeedCore
 		ImGui::PushStyleColor(ImGuiCol_Button, (op == ImGuizmo::SCALE) ? activeColor : transparent);
 		if (ImGui::ImageButton("##Scale", imguiTexture_.Icon(IconType::Scale), iconSize))
 		{
-			context_.guizmo_.showGuizmo_ = true;
+			context_.viewportContext_.guizmo_.showGuizmo_ = true;
 			op = ImGuizmo::SCALE;
 		}
 		ImGui::PopStyleColor();
@@ -81,13 +81,13 @@ namespace SeedCore
 			ImGui::SeparatorText("スナップ");
 
 			ImGui::SetNextItemWidth(120.0f);
-			ImGui::DragFloat("移動", &context_.guizmo_.translateSnap_, 0.1f, 0.01f, 100.0f, "%.2f");
+			ImGui::DragFloat("移動", &context_.viewportContext_.guizmo_.translateSnap_, 0.1f, 0.01f, 100.0f, "%.2f");
 
 			ImGui::SetNextItemWidth(120.0f);
-			ImGui::DragFloat("回転", &context_.guizmo_.rotateSnap_, 0.5f, 0.1f, 90.0f, "%.0f\xc2\xb0");
+			ImGui::DragFloat("回転", &context_.viewportContext_.guizmo_.rotateSnap_, 0.5f, 0.1f, 90.0f, "%.0f\xc2\xb0");
 
 			ImGui::SetNextItemWidth(120.0f);
-			ImGui::DragFloat("拡大縮小", &context_.guizmo_.scaleSnap_, 0.05f, 0.01f, 10.0f, "%.2f");
+			ImGui::DragFloat("拡大縮小", &context_.viewportContext_.guizmo_.scaleSnap_, 0.05f, 0.01f, 10.0f, "%.2f");
 
 			ImGui::EndPopup();
 		}

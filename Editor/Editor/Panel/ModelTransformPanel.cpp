@@ -78,19 +78,19 @@ namespace SeedCore
 	{
 		if (!show_)
 		{
-			context_.previewActive_ = false;
-			context_.previewWorldMatrix_ = Matrix::Identity;
+			context_.previewContext_.previewActive_ = false;
+			context_.previewContext_.previewWorldMatrix_ = Matrix::Identity;
 			return;
 		}
 
-		context_.previewActive_ = false;
-		context_.previewWorldMatrix_ = Matrix::Identity;
+		context_.previewContext_.previewActive_ = false;
+		context_.previewContext_.previewWorldMatrix_ = Matrix::Identity;
 
 		ImGui::SetNextWindowSize(ImVec2(1280, 720), ImGuiCond_FirstUseEver);
 
 		if (ImGui::Begin("モデル変換", &show_))
 		{
-			const Mesh* mesh = context_.selectedActor_ ? context_.selectedActor_->GetComponent<Mesh>() : nullptr;
+			const Mesh* mesh = context_.selectionContext_.selectedActor_ ? context_.selectionContext_.selectedActor_->GetComponent<Mesh>() : nullptr;
 
 			if (!mesh || mesh->meshID_ == 0)
 			{
@@ -101,16 +101,16 @@ namespace SeedCore
 				if (mesh->meshID_ != targetMeshAssetId_)
 				{
 					targetMeshAssetId_ = mesh->meshID_;
-					editConvention_ = context_.resource_->ReadAxisConvention(targetMeshAssetId_);
+					editConvention_ = context_.worldContext_.resource_->ReadAxisConvention(targetMeshAssetId_);
 					baseTransformPosition_ = Vector3(0.0f, 0.0f, 0.0f);
 					baseTransformRotation_ = Vector3(0.0f, 0.0f, 0.0f);
 					baseTransformScale_ = Vector3(1.0f, 1.0f, 1.0f);
 					baseTransformPivot_ = Vector3(0.0f, 0.0f, 0.0f);
 				}
 
-				ModelResource* modelResource = context_.resource_->GetModelResource();
+				ModelResource* modelResource = context_.worldContext_.resource_->GetModelResource();
 				Handle<Crister> handle = modelResource->GetHandle(targetMeshAssetId_);
-				Crister* crister = handle.empty() ? nullptr : modelResource->Resolve(*context_.loader_, handle);
+				Crister* crister = handle.empty() ? nullptr : modelResource->Resolve(*context_.worldContext_.loader_, handle);
 
 				if (!crister)
 				{
@@ -142,37 +142,37 @@ namespace SeedCore
 
 	void ModelTransformPanel::DrawPreview()
 	{
-		context_.previewActive_ = true;
-		context_.previewMeshAssetId_ = targetMeshAssetId_;
-		context_.previewAnimationAssetId_ = 0;
-		context_.previewTime_ = 0.0f;
+		context_.previewContext_.previewActive_ = true;
+		context_.previewContext_.previewMeshAssetId_ = targetMeshAssetId_;
+		context_.previewContext_.previewAnimationAssetId_ = 0;
+		context_.previewContext_.previewTime_ = 0.0f;
 
 		/// [EN] Mirrors Crister::ApplyTransformConversion's fullTransform exactly,
 		///      so the preview is a WYSIWYG of what 適用 will bake.
 		/// [JP] Crister::ApplyTransformConversion の fullTransform と厳密に一致
 		///      させる。適用 が焼き込む結果をそのままプレビューできるように。
 		Matrix baseTransformLinearBasis = Matrix::CreateScale(baseTransformScale_.x, baseTransformScale_.y, baseTransformScale_.z) * Matrix::CreateFromYawPitchRoll(ToRadians(baseTransformRotation_.y), ToRadians(baseTransformRotation_.x), ToRadians(baseTransformRotation_.z));
-		context_.previewWorldMatrix_ = Matrix::CreateTranslation(-baseTransformPivot_) * baseTransformLinearBasis * Matrix::CreateTranslation(baseTransformPivot_ + baseTransformPosition_);
+		context_.previewContext_.previewWorldMatrix_ = Matrix::CreateTranslation(-baseTransformPivot_) * baseTransformLinearBasis * Matrix::CreateTranslation(baseTransformPivot_ + baseTransformPosition_);
 
 		ImVec2 previewSize = ImGui::GetContentRegionAvail();
-		if (context_.previewCamera_)
+		if (context_.cameraContext_.previewCamera_)
 		{
-			context_.previewCamera_->Resize(previewSize.x, previewSize.y);
+			context_.cameraContext_.previewCamera_->Resize(previewSize.x, previewSize.y);
 		}
 
 		ImVec2 imagePosition = ImGui::GetCursorScreenPos();
 		ImGui::Image(ImTextureID(previewHandle_.ptr), previewSize);
 
-		if (context_.previewCamera_ && ImGui::IsItemHovered() && ImGui::GetIO().MouseWheel != 0.0f)
+		if (context_.cameraContext_.previewCamera_ && ImGui::IsItemHovered() && ImGui::GetIO().MouseWheel != 0.0f)
 		{
-			Vector3 eye = context_.previewCamera_->Eye();
-			Vector3 focus = context_.previewCamera_->Focus();
+			Vector3 eye = context_.cameraContext_.previewCamera_->Eye();
+			Vector3 focus = context_.cameraContext_.previewCamera_->Focus();
 			Vector3 toEye = eye - focus;
 			Float distance = toEye.Length();
 			if (distance > 0.0001f)
 			{
 				Float newDistance = Max(0.1f, distance - ImGui::GetIO().MouseWheel * distance * 0.1f);
-				context_.previewCamera_->Eye(focus + toEye / distance * newDistance);
+				context_.cameraContext_.previewCamera_->Eye(focus + toEye / distance * newDistance);
 			}
 		}
 
@@ -204,15 +204,15 @@ namespace SeedCore
 			baseTransformGizmoOperation_ = ImGuizmo::SCALE;
 		}
 
-		if (context_.previewCamera_)
+		if (context_.cameraContext_.previewCamera_)
 		{
 			ImGuizmo::SetDrawlist();
 			ImGuizmo::SetRect(imagePosition.x, imagePosition.y, previewSize.x, previewSize.y);
 			ImGuizmo::SetOrthographic(false);
 			ImGuizmo::AllowAxisFlip(false);
 
-			Matrix view = context_.previewCamera_->View();
-			Matrix projection = context_.previewCamera_->Projection();
+			Matrix view = context_.cameraContext_.previewCamera_->View();
+			Matrix projection = context_.cameraContext_.previewCamera_->Projection();
 
 			/// [EN] The anchor: pivot/position/rotation/scale collapsed into the
 			///      single matrix ImGuizmo manipulates, placed at pivot+position
@@ -307,7 +307,7 @@ namespace SeedCore
 
 	void ModelTransformPanel::ApplyConversion(Uint32 assetId)
 	{
-		Asset* asset = context_.resource_->GetAsset(assetId);
+		Asset* asset = context_.worldContext_.resource_->GetAsset(assetId);
 		if (!asset)
 		{
 			return;
@@ -316,32 +316,32 @@ namespace SeedCore
 		std::filesystem::path path(asset->fullpath_.c_str());
 		Bool isSourceAsset = (path.extension() == ".gltf" || path.extension() == ".glb");
 
-		ModelResource* modelResource = context_.resource_->GetModelResource();
-		BindlessHeap* heap = context_.resource_->Heap();
+		ModelResource* modelResource = context_.worldContext_.resource_->GetModelResource();
+		BindlessHeap* heap = context_.worldContext_.resource_->Heap();
 
 		if (isSourceAsset)
 		{
-			context_.resource_->WriteAssetMeta(assetId, editConvention_);
-			modelResource->Unload(*context_.loader_, assetId, heap);
-			modelResource->Load(*context_.loader_, context_.device_, context_.cmdQueue_, heap, *context_.bc7Shader_, *context_.resource_, assetId);
+			context_.worldContext_.resource_->WriteAssetMeta(assetId, editConvention_);
+			modelResource->Unload(*context_.worldContext_.loader_, assetId, heap);
+			modelResource->Load(*context_.worldContext_.loader_, context_.graphicsContext_.device_, context_.graphicsContext_.cmdQueue_, heap, *context_.graphicsContext_.bc7Shader_, *context_.worldContext_.resource_, assetId);
 		}
 		else
 		{
-			AxisConvention previousConvention = context_.resource_->ReadAxisConvention(assetId);
+			AxisConvention previousConvention = context_.worldContext_.resource_->ReadAxisConvention(assetId);
 			ResolvedAxisConvention oldResolved = ResolvedAxisConvention::Resolve(previousConvention);
 			ResolvedAxisConvention newResolved = ResolvedAxisConvention::Resolve(editConvention_);
 			Matrix deltaBasis = oldResolved.basis_.Transpose() * newResolved.basis_;
 
 			Handle<Crister> handle = modelResource->GetHandle(assetId);
-			Crister* crister = handle.empty() ? nullptr : modelResource->Resolve(*context_.loader_, handle);
+			Crister* crister = handle.empty() ? nullptr : modelResource->Resolve(*context_.worldContext_.loader_, handle);
 			if (!crister || !crister->ApplyAxisConversion(deltaBasis, newResolved.flipWinding_, path))
 			{
 				return;
 			}
 
-			context_.resource_->WriteAssetMeta(assetId, editConvention_);
-			modelResource->Unload(*context_.loader_, assetId, heap);
-			modelResource->Load(*context_.loader_, context_.device_, context_.cmdQueue_, heap, *context_.bc7Shader_, *context_.resource_, assetId);
+			context_.worldContext_.resource_->WriteAssetMeta(assetId, editConvention_);
+			modelResource->Unload(*context_.worldContext_.loader_, assetId, heap);
+			modelResource->Load(*context_.worldContext_.loader_, context_.graphicsContext_.device_, context_.graphicsContext_.cmdQueue_, heap, *context_.graphicsContext_.bc7Shader_, *context_.worldContext_.resource_, assetId);
 		}
 	}
 
@@ -375,7 +375,7 @@ namespace SeedCore
 		ImGui::Separator();
 		ImGui::Spacing();
 
-		Asset* asset = context_.resource_->GetAsset(assetId);
+		Asset* asset = context_.worldContext_.resource_->GetAsset(assetId);
 		std::filesystem::path path = asset ? std::filesystem::path(asset->fullpath_.c_str()) : std::filesystem::path();
 		Bool isSourceAsset = (path.extension() == ".gltf" || path.extension() == ".glb");
 
@@ -394,7 +394,7 @@ namespace SeedCore
 
 	void ModelTransformPanel::ApplyTransformConversion(Uint32 assetId)
 	{
-		Asset* asset = context_.resource_->GetAsset(assetId);
+		Asset* asset = context_.worldContext_.resource_->GetAsset(assetId);
 		if (!asset)
 		{
 			return;
@@ -406,9 +406,9 @@ namespace SeedCore
 			return;
 		}
 
-		ModelResource* modelResource = context_.resource_->GetModelResource();
+		ModelResource* modelResource = context_.worldContext_.resource_->GetModelResource();
 		Handle<Crister> handle = modelResource->GetHandle(assetId);
-		Crister* crister = handle.empty() ? nullptr : modelResource->Resolve(*context_.loader_, handle);
+		Crister* crister = handle.empty() ? nullptr : modelResource->Resolve(*context_.worldContext_.loader_, handle);
 		if (!crister || !crister->ApplyTransformConversion(baseTransformPosition_, baseTransformRotation_, baseTransformScale_, baseTransformPivot_, path))
 		{
 			return;
@@ -419,8 +419,8 @@ namespace SeedCore
 		baseTransformScale_ = Vector3(1.0f, 1.0f, 1.0f);
 		baseTransformPivot_ = Vector3(0.0f, 0.0f, 0.0f);
 
-		BindlessHeap* heap = context_.resource_->Heap();
-		modelResource->Unload(*context_.loader_, assetId, heap);
-		modelResource->Load(*context_.loader_, context_.device_, context_.cmdQueue_, heap, *context_.bc7Shader_, *context_.resource_, assetId);
+		BindlessHeap* heap = context_.worldContext_.resource_->Heap();
+		modelResource->Unload(*context_.worldContext_.loader_, assetId, heap);
+		modelResource->Load(*context_.worldContext_.loader_, context_.graphicsContext_.device_, context_.graphicsContext_.cmdQueue_, heap, *context_.graphicsContext_.bc7Shader_, *context_.worldContext_.resource_, assetId);
 	}
 }

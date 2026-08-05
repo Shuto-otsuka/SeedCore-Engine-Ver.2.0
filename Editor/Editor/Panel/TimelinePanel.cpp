@@ -319,12 +319,12 @@ namespace SeedCore
 	{
 		if (!show_)
 		{
-			context_.previewActive_ = false;
+			context_.previewContext_.previewActive_ = false;
 			isPlaying_ = false;
 			return;
 		}
 
-		Animator* selectedTarget = context_.selectedActor_ ? const_cast<Animator*>(context_.selectedActor_->GetComponent<Animator>()) : nullptr;
+		Animator* selectedTarget = context_.selectionContext_.selectedActor_ ? const_cast<Animator*>(context_.selectionContext_.selectedActor_->GetComponent<Animator>()) : nullptr;
 		if (selectedTarget != target_)
 		{
 			target_ = selectedTarget;
@@ -333,7 +333,7 @@ namespace SeedCore
 			isPlaying_ = false;
 		}
 
-		context_.previewActive_ = false;
+		context_.previewContext_.previewActive_ = false;
 
 		ImGui::SetNextWindowSize(ImVec2(1280, 720), ImGuiCond_FirstUseEver);
 
@@ -350,7 +350,7 @@ namespace SeedCore
 			else
 			{
 				std::string preview = (selectedAnimationIndex_ < target_->animationIDs_.size())
-					? AnimationLabel(context_.resource_, target_->animationIDs_[selectedAnimationIndex_])
+					? AnimationLabel(context_.worldContext_.resource_, target_->animationIDs_[selectedAnimationIndex_])
 					: "(未選択)";
 
 				ImGui::SetNextItemWidth(200.0f);
@@ -358,7 +358,7 @@ namespace SeedCore
 				{
 					for (Size index = 0; index < target_->animationIDs_.size(); ++index)
 					{
-						std::string label = AnimationLabel(context_.resource_, target_->animationIDs_[index]);
+						std::string label = AnimationLabel(context_.worldContext_.resource_, target_->animationIDs_[index]);
 						Bool selected = (selectedAnimationIndex_ == index);
 						if (ImGui::Selectable(label.c_str(), selected))
 						{
@@ -379,9 +379,9 @@ namespace SeedCore
 
 				if (selectedAnimationIndex_ != SIZE_MAX)
 				{
-					AnimationResource* animationResource = context_.resource_->GetAnimationResource();
-					Handle<Animation> handle = animationResource->Load(*context_.loader_, *context_.resource_, assetId);
-					animation = animationResource->Resolve(*context_.loader_, handle);
+					AnimationResource* animationResource = context_.worldContext_.resource_->GetAnimationResource();
+					Handle<Animation> handle = animationResource->Load(*context_.worldContext_.loader_, *context_.worldContext_.resource_, assetId);
+					animation = animationResource->Resolve(*context_.worldContext_.loader_, handle);
 
 					duration = animation ? animation->Duration() : 0.0f;
 
@@ -395,13 +395,13 @@ namespace SeedCore
 					}
 				}
 
-				const Mesh* mesh = context_.selectedActor_ ? context_.selectedActor_->GetComponent<Mesh>() : nullptr;
+				const Mesh* mesh = context_.selectionContext_.selectedActor_ ? context_.selectionContext_.selectedActor_->GetComponent<Mesh>() : nullptr;
 				if (mesh && mesh->meshID_ != 0)
 				{
-					context_.previewActive_ = true;
-					context_.previewMeshAssetId_ = mesh->meshID_;
-					context_.previewAnimationAssetId_ = assetId;
-					context_.previewTime_ = animation ? EvaluateTimeRemap(animation->SpeedCurve(), scrubTime_) : scrubTime_;
+					context_.previewContext_.previewActive_ = true;
+					context_.previewContext_.previewMeshAssetId_ = mesh->meshID_;
+					context_.previewContext_.previewAnimationAssetId_ = assetId;
+					context_.previewContext_.previewTime_ = animation ? EvaluateTimeRemap(animation->SpeedCurve(), scrubTime_) : scrubTime_;
 
 					Float unit = ImGui::GetFrameHeightWithSpacing();
 					Float separatorHeight = ImGui::GetStyle().ItemSpacing.y * 2.0f + 1.0f;
@@ -415,9 +415,9 @@ namespace SeedCore
 					ImVec2 previewSize = ImGui::GetContentRegionAvail();
 					previewSize.y = std::max(previewSize.y - reservedHeight, 100.0f);
 
-					if (context_.previewCamera_)
+					if (context_.cameraContext_.previewCamera_)
 					{
-						context_.previewCamera_->Resize(previewSize.x, previewSize.y);
+						context_.cameraContext_.previewCamera_->Resize(previewSize.x, previewSize.y);
 					}
 
 					ImGui::Image(ImTextureID(previewHandle_.ptr), previewSize);
@@ -553,12 +553,12 @@ namespace SeedCore
 						ImGui::Separator();
 						ImGui::Spacing();
 
-						Asset* asset = context_.resource_->GetAsset(assetId);
+						Asset* asset = context_.worldContext_.resource_->GetAsset(assetId);
 
 						if (ImGui::Button("上書き保存") && asset)
 						{
 							std::filesystem::path overwritePath(asset->fullpath_.c_str());
-							if (context_.loader_->animationLoader_->Save(*animation, overwritePath))
+							if (context_.worldContext_.loader_->animationLoader_->Save(*animation, overwritePath))
 							{
 								SC_LOG_NOTICE("アニメーションを上書き保存しました: {}", overwritePath.string());
 							}
@@ -577,7 +577,7 @@ namespace SeedCore
 							std::filesystem::path savePath;
 							if (FileDialog::SaveFile(savePath, initialDir, L"Animation Files (*.animation)", L"*.animation", L"animation"))
 							{
-								if (context_.loader_->animationLoader_->Save(*animation, savePath))
+								if (context_.worldContext_.loader_->animationLoader_->Save(*animation, savePath))
 								{
 									SC_LOG_NOTICE("アニメーションを保存しました: {}", savePath.string());
 								}

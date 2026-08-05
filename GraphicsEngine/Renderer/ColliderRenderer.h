@@ -10,8 +10,6 @@ namespace SeedCore
 	class ShaderCache;
 	class BindlessHeap;
 	class D3D12CommandList;
-	class FrameBuffer;
-	class GeometryBuffer;
 
 	/// [EN] Per-frame constants for the collider instance shader: which
 	///      bindless structured-buffer index holds this frame's collider
@@ -116,12 +114,24 @@ namespace SeedCore
 		void AddInstance(ColliderShapeKind shapeKind, const Vector3& position, const Quaternion& rotation, const Vector3& dimensions, const Color& color);
 
 		/// [EN] Uploads this frame's accumulated instance batch and issues the
-		///      mesh-shader draw call. Does nothing if no instances were
-		///      accumulated this frame.
+		///      mesh-shader draw call against the given render target/depth
+		///      views. Does nothing if no instances were accumulated this
+		///      frame. Takes raw views/viewport rather than FrameBuffer*/
+		///      GeometryBuffer* so it can draw onto any target - the editor
+		///      frame buffer's color + geometry buffer's depth (as today), or
+		///      PostProcessRenderer's post-tonemap output + a matching depth
+		///      view (see Renderer::EndEditorFrame). Caller owns every
+		///      resource's state transitions.
 		/// [JP] このフレームで蓄積したインスタンスバッチをアップロードし、
-		///      メッシュシェーダの描画コマンドを発行する。このフレームに
-		///      1つも蓄積されていなければ何もしない。
-		void Draw(D3D12CommandList* cmdList, FrameBuffer* frameBuffer, GeometryBuffer* geometryBuffer, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex);
+		///      指定されたレンダーターゲット/深度ビューへメッシュシェーダの
+		///      描画コマンドを発行する。このフレームに1つも蓄積されて
+		///      いなければ何もしない。FrameBuffer*/GeometryBuffer* ではなく
+		///      生のビュー/ビューポートを受け取ることで、どんなターゲットへも
+		///      描画できる - エディタフレームバッファの色+ジオメトリバッファの
+		///      深度(現状通り)、あるいは PostProcessRenderer のトーンマップ後
+		///      出力+対応する深度ビュー(Renderer::EndEditorFrame参照)。
+		///      各リソースの状態遷移は呼び出し側の責任。
+		void Draw(D3D12CommandList* cmdList, D3D12_CPU_DESCRIPTOR_HANDLE renderTargetView, D3D12_CPU_DESCRIPTOR_HANDLE depthStencilView, D3D12_VIEWPORT viewport, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex);
 
 	private:
 		/// [EN] Owned directly rather than reusing Renderer's shared

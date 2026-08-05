@@ -1,6 +1,7 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
 #include <FoundationEngine/ECS/EcsID.h>
+#include <FoundationEngine/ECS/Entity.h>
 #include <FoundationEngine/ECS/ReflectionRegistry.h>
 #include <FoundationEngine/ECS/PayloadRegistry.h>
 #include <Editor/Editor/Panel/AddComponentPanel.h>
@@ -39,13 +40,15 @@ namespace SeedCore
 		///      削除されたら true。
 		Bool DrawComponentEntry(Actor* actor, ComponentID componentID, const String& componentName, void* componentData);
 
-		void DrawReflectedFields(String componentName, void* componentData, ComponentID componentID);
+		void DrawReflectedFields(String componentName, void* componentData, ComponentID componentID, Entity entity);
 
-		void DrawFieldList(DynamicArray<FieldInfo>& fields, void* baseData);
+		/// [EN] baseOffset is baseData's own byte offset (0 at the top level) from the start of the component named by componentID - used to build the undo Command for each field drawn, unless that field's own FieldInfo::directPtr_ is set (not part of the component's fixed-offset POD layout, e.g. a DynamicArray element), in which case its pointer is used directly instead.
+		/// [JP] baseOffsetは、componentIDで指されるコンポーネント先頭からの、baseData自身のバイトオフセット(トップレベルでは0) - 描画する各フィールドのundo Commandを組み立てるために使う。ただしそのフィールド自身のFieldInfo::directPtr_が設定されている場合(コンポーネントの固定オフセットPODレイアウトの一部でない場合。例: DynamicArrayの要素)は、代わりにそのポインタを直接使う。
+		void DrawFieldList(DynamicArray<FieldInfo>& fields, void* baseData, Entity entity, ComponentID componentID, Size baseOffset);
 
-		void DrawField(const FieldInfo& field, void* pointer);
+		void DrawField(const FieldInfo& field, void* pointer, Entity entity, ComponentID componentID, Size fieldOffset);
 
-		void DrawPayloadField(const FieldInfo& field, void* pointer);
+		void DrawPayloadField(const FieldInfo& field, void* pointer, Entity entity, ComponentID componentID, Size fieldOffset);
 
 		void DrawPayloadArrayRow(const FieldInfo& field, void* pointer);
 
@@ -53,7 +56,7 @@ namespace SeedCore
 
 		const Char* GetPayloadDropType(PayloadAssetType assetType)const;
 
-		void DrawTransform(Float* data, const Char* label, Bool& linked, Float* previousValues);
+		void DrawTransform(Float* data, const Char* label, Bool& linked, Float* previousValues, Entity entity, ComponentID componentID);
 
 	private:
 		EditorContext& context_;
@@ -74,5 +77,14 @@ namespace SeedCore
 		std::string newTagBuffer_;
 
 		ImGuiTexture& imguiTexture_;
+
+		/// [EN] Value of the field currently being dragged/typed into, captured on ImGui::IsItemActivated() and diffed against the field's value on ImGui::IsItemDeactivatedAfterEdit() to build an undo Command. Only one of these is meaningful at a time, since ImGui allows at most one active item.
+		/// [JP] 現在ドラッグ/入力中のフィールドの値。ImGui::IsItemActivated()時点で捕捉し、ImGui::IsItemDeactivatedAfterEdit()時点のフィールド値と比較してundo Commandを組み立てる。ImGuiのアクティブアイテムは常に高々1つのため、これらのうち意味を持つのは同時に1つだけ。
+		Int pendingOldInt_ = 0;
+		Float pendingOldFloat_ = 0.0f;
+		Vector2 pendingOldVector2_ = Vector2::Zero;
+		Vector3 pendingOldVector3_ = Vector3::Zero;
+		Color pendingOldColor_ = Color(0.0f, 0.0f, 0.0f, 0.0f);
+		String pendingOldString_;
 	};
 }

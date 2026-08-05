@@ -543,6 +543,7 @@ namespace SeedCore
 		scene.farPlane_ = captureFarPlane_;
 		scene.screenSize_ = Vector2(static_cast<Float>(environmentSize_), static_cast<Float>(environmentSize_));
 		scene.inverseScreenSize_ = Vector2(1.0f / environmentSize_, 1.0f / environmentSize_);
+		scene.displaySize_ = scene.screenSize_;
 		captureSceneConstantBuffer_->Update(scene);
 
 		ConstantIndices indices{};

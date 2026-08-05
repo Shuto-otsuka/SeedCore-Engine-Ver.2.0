@@ -271,7 +271,7 @@ namespace SeedCore
 			return;
 		}
 
-		Animator* selectedTarget = context_.selectedActor_ ? const_cast<Animator*>(context_.selectedActor_->GetComponent<Animator>()) : nullptr;
+		Animator* selectedTarget = context_.selectionContext_.selectedActor_ ? const_cast<Animator*>(context_.selectionContext_.selectedActor_->GetComponent<Animator>()) : nullptr;
 		if (selectedTarget != target_)
 		{
 			target_ = selectedTarget;
@@ -1051,12 +1051,12 @@ namespace SeedCore
 			}
 			ImGui::Spacing();
 
-			std::string preview = AssetLabel(context_.resource_, state.animationID_);
+			std::string preview = AssetLabel(context_.worldContext_.resource_, state.animationID_);
 			if (ImGui::BeginCombo("Animation", preview.c_str()))
 			{
 				for (Uint32 animationId : target_->animationIDs_)
 				{
-					std::string label = AssetLabel(context_.resource_, static_cast<Int>(animationId));
+					std::string label = AssetLabel(context_.worldContext_.resource_, static_cast<Int>(animationId));
 					Bool selected = (state.animationID_ == static_cast<Int>(animationId));
 					if (ImGui::Selectable(label.c_str(), selected))
 					{

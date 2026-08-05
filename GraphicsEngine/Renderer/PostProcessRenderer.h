@@ -155,12 +155,57 @@ namespace SeedCore
 		///      選んだ方のチェーン(SD/UHD)を返す。
 		[[nodiscard]] ID3D12Resource* OutputResource(RaytracingView view)const;
 
+		/// [EN] outputWidth_/outputHeight_ (the DLSS-RR-upscaled chain's resolution), unconditionally - not gated by whether that chain is the currently active one. Lets a caller that runs before this frame's PrepareView() (e.g. Graphics::EditorRender building the scene constant buffer) know what resolution the debug overlay will end up drawing at later this same frame if DLSS-RR is active.
+		/// [JP] outputWidth_/outputHeight_(DLSS-RRアップスケール後チェーンの解像度)を無条件に返す - そのチェーンが現在アクティブかどうかには関係しない。この関数を、今フレームのPrepareView()より前に実行される呼び出し側(例えばシーン定数バッファを組み立てるGraphics::EditorRender)が、DLSS-RR有効時にデバッグオーバーレイが今フレーム後で実際に描画することになる解像度を知るために使う。
+		[[nodiscard]] Vector2 OutputSize()const;
+
+		/// [EN] RTV onto whichever chain (SD/UHD) that view's most recent
+		///      PrepareView() selected - same resource OutputResource()
+		///      returns. Valid to bind only while that resource is in
+		///      RENDER_TARGET state (see BeginDebugOverlay/EndDebugOverlay).
+		/// [JP] そのビューの直近の PrepareView() が選んだ方のチェーン(SD/UHD)
+		///      へのRTV — OutputResource() が返すのと同じリソース。
+		///      そのリソースが RENDER_TARGET 状態の間のみバインド可能
+		///      (BeginDebugOverlay/EndDebugOverlay 参照)。
+		[[nodiscard]] D3D12_CPU_DESCRIPTOR_HANDLE OutputRenderTargetViewHandle(RaytracingView view)const;
+
+		/// [EN] Viewport matching whichever chain (SD/UHD) that view's most
+		///      recent PrepareView() selected - width_/height_ for the native
+		///      chain, outputWidth_/outputHeight_ for the DLSS-RR-upscaled one.
+		/// [JP] そのビューの直近の PrepareView() が選んだ方のチェーン(SD/UHD)に
+		///      合わせたビューポート - ネイティブチェーンなら width_/height_、
+		///      DLSS-RRアップスケール版なら outputWidth_/outputHeight_。
+		[[nodiscard]] D3D12_VIEWPORT Viewport(RaytracingView view)const;
+
+		/// [EN] Transitions view's active output chain from Dispatch()'s exit
+		///      state (PIXEL_SHADER_RESOURCE) to RENDER_TARGET, so a
+		///      post-tonemap debug overlay (collider wireframes, selection
+		///      outline, ...) can draw directly onto the final display
+		///      texture without being affected by tone mapping/exposure -
+		///      call after Dispatch(), pair with EndDebugOverlay().
+		/// [JP] viewのアクティブな出力チェーンを、Dispatch()が抜ける時点の
+		///      状態(PIXEL_SHADER_RESOURCE)からRENDER_TARGETへ遷移する。
+		///      これにより、トーンマップ後のデバッグオーバーレイ
+		///      (コライダーワイヤーフレーム、選択アウトラインなど)が
+		///      トーンマップ/露出の影響を受けずに最終表示テクスチャへ
+		///      直接描画できる - Dispatch()の後に呼び、EndDebugOverlay()と
+		///      対にすること。
+		void BeginDebugOverlay(D3D12CommandList* cmdList, RaytracingView view);
+
+		/// [EN] Transitions view's active output chain from RENDER_TARGET back
+		///      to PIXEL_SHADER_RESOURCE, so RefreshImGuiOutputView can read it.
+		/// [JP] viewのアクティブな出力チェーンをRENDER_TARGETから
+		///      PIXEL_SHADER_RESOURCEへ戻す。RefreshImGuiOutputViewが
+		///      読み取れるようにするため。
+		void EndDebugOverlay(D3D12CommandList* cmdList, RaytracingView view);
+
 	private:
 		struct View
 		{
 			Microsoft::WRL::ComPtr<ID3D12Resource> outputResource_;
 			D3D12_RESOURCE_STATES outputState_ = D3D12_RESOURCE_STATE_COMMON;
 			Uint32 outputUnorderedAccessViewIndex_ = 0;
+			Uint32 outputRenderTargetViewIndex_ = 0;
 
 			/// [EN] UHD (3840x2160) counterpart of outputResource_ above, used
 			///      only when DLSS Ray Reconstruction is active — fed by
@@ -178,6 +223,7 @@ namespace SeedCore
 			Microsoft::WRL::ComPtr<ID3D12Resource> outputResourceUpscaled_;
 			D3D12_RESOURCE_STATES outputStateUpscaled_ = D3D12_RESOURCE_STATE_COMMON;
 			Uint32 outputUnorderedAccessViewIndexUpscaled_ = 0;
+			Uint32 outputRenderTargetViewIndexUpscaled_ = 0;
 
 			/// [EN] Which chain the most recent PrepareView() selected - what
 			///      OutputResource() reports back to Renderer for ImGui.
@@ -356,6 +402,15 @@ namespace SeedCore
 		/// [EN] Two slots per view (histogram + exposure), so 4 total.
 		/// [JP] ビューごとに2枠(ヒストグラム+露出)で計4枠。
 		DescriptorHeap clearHeap_;
+
+		/// [EN] Two slots per view (SD output + UHD output), so 4 total.
+		///      Non-shader-visible RTV heap, distinct from bindlessHeap_ (SRV/
+		///      UAV/CBV) and clearHeap_ (also CBV_SRV_UAV) - RTV descriptors
+		///      require their own heap type.
+		/// [JP] ビューごとに2枠(SD出力+UHD出力)で計4枠。非シェーダ可視の
+		///      RTVヒープ。bindlessHeap_(SRV/UAV/CBV)やclearHeap_(同じく
+		///      CBV_SRV_UAV)とは別 — RTV記述子は専用のヒープ種別を要する。
+		DescriptorHeap renderTargetViewHeap_;
 
 		BindlessHeap* bindlessHeap_ = nullptr;
 

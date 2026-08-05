@@ -55,20 +55,20 @@ namespace SeedCore
 
 		if (ImGui::Begin("##ControlPanel", nullptr, flags))
 		{
-			Bool isPlaying = context_.gameTimer_->IsPlaying();
-			Bool isPaused = context_.gameTimer_->IsPaused();
+			Bool isPlaying = context_.worldContext_.gameTimer_->IsPlaying();
+			Bool isPaused = context_.worldContext_.gameTimer_->IsPaused();
 
 			if (!isPlaying && ImGui::IsKeyPressed(ImGuiKey_F5))
 			{
 				BeginPlayMemCheck();
-				context_.worldSnapshot_.Capture(*context_.world_);
-				context_.gameTimer_->Play();
+				context_.sceneContext_.worldSnapshot_.Capture(*context_.worldContext_.world_);
+				context_.worldContext_.gameTimer_->Play();
 				isPlaying = true;
 			}
 			if (isPlaying && ImGui::IsKeyPressed(ImGuiKey_F7))
 			{
-				context_.gameTimer_->Stop();
-				context_.worldSnapshot_.Restore(*context_.world_);
+				context_.worldContext_.gameTimer_->Stop();
+				context_.sceneContext_.worldSnapshot_.Restore(*context_.worldContext_.world_);
 				isPlaying = false;
 				EndPlayMemCheck();
 			}
@@ -76,12 +76,12 @@ namespace SeedCore
 			{
 				if (isPaused)
 				{
-					context_.gameTimer_->Resume();
+					context_.worldContext_.gameTimer_->Resume();
 					isPaused = false;
 				}
 				else
 				{
-					context_.gameTimer_->Pause();
+					context_.worldContext_.gameTimer_->Pause();
 					isPaused = true;
 				}
 			}
@@ -105,8 +105,8 @@ namespace SeedCore
 				if (ImGui::ImageButton("##Play", imguiTexture_.Icon(IconType::Play), buttonSize))
 				{
 					BeginPlayMemCheck();
-					context_.worldSnapshot_.Capture(*context_.world_);
-					context_.gameTimer_->Play();
+					context_.sceneContext_.worldSnapshot_.Capture(*context_.worldContext_.world_);
+					context_.worldContext_.gameTimer_->Play();
 				}
 			}
 
@@ -123,7 +123,7 @@ namespace SeedCore
 				ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
 				if (ImGui::ImageButton("##Pause", imguiTexture_.Icon(IconType::Pause), buttonSize))
 				{
-					context_.gameTimer_->Resume();
+					context_.worldContext_.gameTimer_->Resume();
 				}
 				ImGui::PopStyleColor();
 			}
@@ -131,7 +131,7 @@ namespace SeedCore
 			{
 				if (ImGui::ImageButton("##Pause", imguiTexture_.Icon(IconType::Pause), buttonSize))
 				{
-					context_.gameTimer_->Pause();
+					context_.worldContext_.gameTimer_->Pause();
 				}
 			}
 
@@ -147,8 +147,8 @@ namespace SeedCore
 			{
 				if (ImGui::ImageButton("##Stop", imguiTexture_.Icon(IconType::Stop), buttonSize))
 				{
-					context_.gameTimer_->Stop();
-					context_.worldSnapshot_.Restore(*context_.world_);
+					context_.worldContext_.gameTimer_->Stop();
+					context_.sceneContext_.worldSnapshot_.Restore(*context_.worldContext_.world_);
 					EndPlayMemCheck();
 				}
 			}

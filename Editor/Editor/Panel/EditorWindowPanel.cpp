@@ -19,15 +19,15 @@ namespace SeedCore
 		ImVec4 activeColor = ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive);
 		ImVec4 hoverColor = ImGui::GetStyleColorVec4(ImGuiCol_HeaderHovered);
 
-		auto& op = context_.guizmo_.guizmoOperation_;
+		auto& op = context_.viewportContext_.guizmo_.guizmoOperation_;
 
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, hoverColor);
 		ImGui::PushStyleColor(ImGuiCol_ButtonActive, activeColor);
 
-		ImGui::PushStyleColor(ImGuiCol_Button, !context_.guizmo_.showGuizmo_ ? activeColor : transparent);
+		ImGui::PushStyleColor(ImGuiCol_Button, !context_.viewportContext_.guizmo_.showGuizmo_ ? activeColor : transparent);
 		if (ImGui::ImageButton("##NonSelected", imguiTexture_.Icon(IconType::NonSelected), iconSize))
 		{
-			context_.guizmo_.showGuizmo_ = !context_.guizmo_.showGuizmo_;
+			context_.viewportContext_.guizmo_.showGuizmo_ = !context_.viewportContext_.guizmo_.showGuizmo_;
 			op = (ImGuizmo::OPERATION)0;
 		}
 		ImGui::PopStyleColor();
@@ -37,7 +37,7 @@ namespace SeedCore
 		ImGui::PushStyleColor(ImGuiCol_Button, (op == ImGuizmo::TRANSLATE) ? activeColor : transparent);
 		if (ImGui::ImageButton("##Translate", imguiTexture_.Icon(IconType::Translate), iconSize))
 		{
-			context_.guizmo_.showGuizmo_ = true;
+			context_.viewportContext_.guizmo_.showGuizmo_ = true;
 			op = ImGuizmo::TRANSLATE;
 		}
 		ImGui::PopStyleColor();
@@ -47,7 +47,7 @@ namespace SeedCore
 		ImGui::PushStyleColor(ImGuiCol_Button, (op == ImGuizmo::ROTATE) ? activeColor : transparent);
 		if (ImGui::ImageButton("##Rotate", imguiTexture_.Icon(IconType::Rotate), iconSize))
 		{
-			context_.guizmo_.showGuizmo_ = true;
+			context_.viewportContext_.guizmo_.showGuizmo_ = true;
 			op = ImGuizmo::ROTATE;
 		}
 		ImGui::PopStyleColor();
@@ -57,7 +57,7 @@ namespace SeedCore
 		ImGui::PushStyleColor(ImGuiCol_Button, (op == ImGuizmo::SCALE) ? activeColor : transparent);
 		if (ImGui::ImageButton("##Scale", imguiTexture_.Icon(IconType::Scale), iconSize))
 		{
-			context_.guizmo_.showGuizmo_ = true;
+			context_.viewportContext_.guizmo_.showGuizmo_ = true;
 			op = ImGuizmo::SCALE;
 		}
 		ImGui::PopStyleColor();
@@ -83,13 +83,13 @@ namespace SeedCore
 			ImGui::SeparatorText("スナップ");
 
 			ImGui::SetNextItemWidth(120.0f);
-			ImGui::DragFloat("移動", &context_.guizmo_.translateSnap_, 0.1f, 0.01f, 100.0f, "%.2f");
+			ImGui::DragFloat("移動", &context_.viewportContext_.guizmo_.translateSnap_, 0.1f, 0.01f, 100.0f, "%.2f");
 
 			ImGui::SetNextItemWidth(120.0f);
-			ImGui::DragFloat("回転", &context_.guizmo_.rotateSnap_, 0.5f, 0.1f, 90.0f, "%.0f\xc2\xb0");
+			ImGui::DragFloat("回転", &context_.viewportContext_.guizmo_.rotateSnap_, 0.5f, 0.1f, 90.0f, "%.0f\xc2\xb0");
 
 			ImGui::SetNextItemWidth(120.0f);
-			ImGui::DragFloat("拡大縮小", &context_.guizmo_.scaleSnap_, 0.05f, 0.01f, 10.0f, "%.2f");
+			ImGui::DragFloat("拡大縮小", &context_.viewportContext_.guizmo_.scaleSnap_, 0.05f, 0.01f, 10.0f, "%.2f");
 
 			ImGui::EndPopup();
 		}
@@ -111,9 +111,9 @@ namespace SeedCore
 		ImGui::PushStyleVar(ImGuiStyleVar_PopupBorderSize, 1.0f);
 		if (ImGui::BeginPopup("##CameraSettings"))
 		{
-			if (context_.editorCamera_)
+			if (context_.cameraContext_.editorCamera_)
 			{
-				EditorCamera& camera = *context_.editorCamera_;
+				EditorCamera& camera = *context_.cameraContext_.editorCamera_;
 				ImGui::SeparatorText("投影");
 
 				Float nearPlane = camera.Near();
@@ -138,9 +138,9 @@ namespace SeedCore
 				}
 			}
 
-			if (context_.editorCameraController_)
+			if (context_.cameraContext_.editorCameraController_)
 			{
-				EditorCameraController& controller = *context_.editorCameraController_;
+				EditorCameraController& controller = *context_.cameraContext_.editorCameraController_;
 				ImGui::SeparatorText("操作速度");
 
 				Float moveSpeed = controller.MoveSpeed();
@@ -201,9 +201,9 @@ namespace SeedCore
 		{
 			auto item = [&](const Char* label, ViewMode mode)
 			{
-				if (ImGui::MenuItem(label, nullptr, context_.viewMode_ == mode))
+				if (ImGui::MenuItem(label, nullptr, context_.viewportContext_.viewMode_ == mode))
 				{
-					context_.viewMode_ = mode;
+					context_.viewportContext_.viewMode_ = mode;
 				}
 			};
 
@@ -290,14 +290,14 @@ namespace SeedCore
 				ImVec2 borderMax = ImVec2(screenPosition.x + imageWidth + 1.0f, screenPosition.y + imageHeight + 1.0f);
 				ImGui::GetWindowDrawList()->AddRect(borderMin, borderMax, ImGui::GetColorU32(ImGuiCol_Border));
 
-				if (context_.editorCamera_)
+				if (context_.cameraContext_.editorCamera_)
 				{
 					constexpr Float gizmoSize = 80.0f;
 					ImVec2 gizmoPosition = ImVec2(screenPosition.x, screenPosition.y + imageHeight - gizmoSize);
 
-					Matrix view = context_.editorCamera_->View();
+					Matrix view = context_.cameraContext_.editorCamera_->View();
 
-					Float orbitDistance = Vector3::Distance(context_.editorCamera_->Eye(), context_.editorCamera_->Focus());
+					Float orbitDistance = Vector3::Distance(context_.cameraContext_.editorCamera_->Eye(), context_.cameraContext_.editorCamera_->Focus());
 					if (orbitDistance < 0.01f)
 					{
 						orbitDistance = 8.0f;
@@ -319,13 +319,13 @@ namespace SeedCore
 						Vector3 newUp = worldUp - newForward * newForward.Dot(worldUp);
 						if (newUp.LengthSquared() < 1e-6f)
 						{
-							newUp = context_.editorCamera_->Up();
+							newUp = context_.cameraContext_.editorCamera_->Up();
 						}
 						newUp.Normalize();
 
-						context_.editorCamera_->Eye(newEye);
-						context_.editorCamera_->Focus(newEye + newForward * orbitDistance);
-						context_.editorCamera_->Up(newUp);
+						context_.cameraContext_.editorCamera_->Eye(newEye);
+						context_.cameraContext_.editorCamera_->Focus(newEye + newForward * orbitDistance);
+						context_.cameraContext_.editorCamera_->Up(newUp);
 					}
 
 					Vector2 cachePosition = { screenPosition.x, screenPosition.y };
@@ -351,7 +351,7 @@ namespace SeedCore
 			Bool editorRotateHeld = InputSystem::MouseState(InputSystem::MouseButton::Right, InputSystem::IsPressed);
 			Bool editorPanHeld = InputSystem::MouseState(InputSystem::MouseButton::Middle, InputSystem::IsPressed);
 
-			if (!ImGuizmo::IsUsing() && ImGui::IsWindowHovered() && context_.editorCamera_ && context_.editorCameraController_)
+			if (!ImGuizmo::IsUsing() && ImGui::IsWindowHovered() && context_.cameraContext_.editorCamera_ && context_.cameraContext_.editorCameraController_)
 			{
 				if ((editorRotateHeld || editorPanHeld) && !InputSystem::IsMouseCaptured())
 				{
@@ -359,7 +359,7 @@ namespace SeedCore
 				}
 
 				Float deltaTime = ImGui::GetIO().DeltaTime;
-				context_.editorCameraController_->Update(*context_.editorCamera_, deltaTime);
+				context_.cameraContext_.editorCameraController_->Update(*context_.cameraContext_.editorCamera_, deltaTime);
 			}
 
 			if (!editorRotateHeld && !editorPanHeld && InputSystem::IsMouseCaptured())

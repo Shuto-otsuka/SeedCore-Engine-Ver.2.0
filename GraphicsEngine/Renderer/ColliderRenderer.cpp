@@ -2,8 +2,6 @@
 #include <GraphicsEngine/Profiler/ProfilerStats.h>
 #include <GraphicsEngine/D3D12/Descriptor/BindlessHeap.h>
 #include <GraphicsEngine/D3D12/Context/D3D12CommandList.h>
-#include <GraphicsEngine/D3D12/Buffer/FrameBuffer.h>
-#include <GraphicsEngine/D3D12/Buffer/GeometryBuffer.h>
 
 namespace SeedCore
 {
@@ -170,7 +168,7 @@ namespace SeedCore
 		instances_.push_back(instance);
 	}
 
-	void ColliderRenderer::Draw(D3D12CommandList* cmdList, FrameBuffer* frameBuffer, GeometryBuffer* geometryBuffer, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex)
+	void ColliderRenderer::Draw(D3D12CommandList* cmdList, D3D12_CPU_DESCRIPTOR_HANDLE renderTargetView, D3D12_CPU_DESCRIPTOR_HANDLE depthStencilView, D3D12_VIEWPORT viewport, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex)
 	{
 		if (instances_.empty())
 		{
@@ -204,15 +202,12 @@ namespace SeedCore
 
 		auto* cmd = cmdList->Get();
 
-		/// [JP] エディタフレームバッファの色 ＋ ジオメトリ深度（読み取りのみ）を
-		///      bind する — ModelRenderer::DrawWireframe/DrawMeshlet と同じ
-		///      パターン。呼び出し側が geometryBuffer->BeginDepth を既に
-		///      呼んでいる前提。
-		D3D12_CPU_DESCRIPTOR_HANDLE renderTargetViewHandle = frameBuffer->RenderTargetViewHandle();
-		D3D12_CPU_DESCRIPTOR_HANDLE depthStencilViewHandle = geometryBuffer->DepthStencilViewHandle();
-		cmd->OMSetRenderTargets(1, &renderTargetViewHandle, FALSE, &depthStencilViewHandle);
+		/// [JP] 呼び出し側が渡した色 ＋ 深度（読み取りのみ）を bind する —
+		///      ModelRenderer::DrawWireframe/DrawMeshlet と同じパターン。
+		///      呼び出し側が depthStencilView の元となる深度リソースを
+		///      既に読み取り可能な状態にしている前提。
+		cmd->OMSetRenderTargets(1, &renderTargetView, FALSE, &depthStencilView);
 
-		D3D12_VIEWPORT viewport = frameBuffer->GetViewport();
 		cmd->RSSetViewports(1, &viewport);
 		D3D12_RECT scissorRect = { 0, 0, static_cast<LONG>(viewport.Width), static_cast<LONG>(viewport.Height) };
 		cmd->RSSetScissorRects(1, &scissorRect);

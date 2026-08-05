@@ -71,6 +71,7 @@ namespace SeedCore
 		sceneConstantBuffer_.deltaTime_ = timer.DeltaTime();
 		sceneConstantBuffer_.screenSize_ = Vector2(width, height);
 		sceneConstantBuffer_.inverseScreenSize_ = Vector2(1.0f / width, 1.0f / height);
+		sceneConstantBuffer_.displaySize_ = sceneConstantBuffer_.screenSize_;
 
 		previousViewProjection_ = freeCamera_.CurrentViewProjection();
 		previousNonJitterViewProjection_ = freeCamera_.NonJitterViewProjection();
@@ -135,6 +136,7 @@ namespace SeedCore
 				sceneConstantBuffer_.deltaTime_ = timer.DeltaTime();
 				sceneConstantBuffer_.screenSize_ = Vector2(width, height);
 				sceneConstantBuffer_.inverseScreenSize_ = Vector2(1.0f / width, 1.0f / height);
+				sceneConstantBuffer_.displaySize_ = sceneConstantBuffer_.screenSize_;
 
 				previousViewProjection_ = viewProjection;
 				previousNonJitterViewProjection_ = nonJitterViewProjection;

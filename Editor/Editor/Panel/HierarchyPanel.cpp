@@ -4,6 +4,8 @@
 #include <FoundationEngine/ECS/World.h>
 #include <FoundationEngine/ECS/Actor.h>
 #include <FoundationEngine/ECS/Component/Name.h>
+#include <FoundationEngine/ECS/ActorCommand.h>
+#include <FoundationEngine/Resource/ActorSerialization.h>
 #include <FoundationEngine/Resource/Prefab.h>
 #include <FoundationEngine/Resource/ResourceCache.h>
 #include <FoundationEngine/File/FileDialog.h>
@@ -25,7 +27,7 @@ namespace SeedCore
 			rows_.clear();
 			pendingClickActor_ = nullptr;
 
-			const auto& actors = context_.world_->GetActors();
+			const auto& actors = context_.worldContext_.world_->GetActors();
 			for (Size index = 0; index < actors.size(); ++index)
 			{
 				if (actors[index]->GetParent() == nullptr)
@@ -63,18 +65,21 @@ namespace SeedCore
 					if (preview->IsDelivery())
 					{
 						Actor* dropped = *static_cast<Actor* const*>(preview->Data);
+						Actor* oldParent = dropped->GetParent();
+						Uint32 oldParentId = oldParent ? oldParent->GetPersistentID() : 0;
 						dropped->SetParent(nullptr);
+						context_.sceneContext_.history_.Push(MakePtr<ActorReparentCommand>(*context_.worldContext_.world_, dropped->GetPersistentID(), oldParentId, 0));
 					}
 				}
 
 				if (const ImGuiPayload* prefabPayload = ImGui::AcceptDragDropPayload("ASSET_PREFAB"))
 				{
 					Uint32 assetID = *static_cast<const Uint32*>(prefabPayload->Data);
-					Handle<Prefab> handle = context_.resource_->GetPrefabPool().Load(assetID, *context_.resource_);
-					Prefab* prefab = context_.resource_->GetPrefabPool().Get(handle);
+					Handle<Prefab> handle = context_.worldContext_.resource_->GetPrefabPool().Load(assetID, *context_.worldContext_.resource_);
+					Prefab* prefab = context_.worldContext_.resource_->GetPrefabPool().Get(handle);
 					if (prefab)
 					{
-						prefab->Instantiate(*context_.world_, *context_.resource_, nullptr, assetID);
+						prefab->Instantiate(*context_.worldContext_.world_, *context_.worldContext_.resource_, nullptr, assetID);
 					}
 				}
 
@@ -106,19 +111,19 @@ namespace SeedCore
 
 				if (!ImGui::IsMouseDown(ImGuiMouseButton_Left))
 				{
-					context_.selectedActors_.clear();
+					context_.selectionContext_.selectedActors_.clear();
 					for (const RowRect& row : rows_)
 					{
 						Bool overlaps = !(row.max_.x < rectMin.x || row.min_.x > rectMax.x || row.max_.y < rectMin.y || row.min_.y > rectMax.y);
 						if (overlaps)
 						{
-							context_.selectedActors_.push_back(row.actor_);
+							context_.selectionContext_.selectedActors_.push_back(row.actor_);
 						}
 					}
 
-					context_.selectedActor_ = context_.selectedActors_.empty() ? nullptr : context_.selectedActors_.back();
-					context_.selectedEntity_ = context_.selectedActor_ ? context_.selectedActor_->GetEntity() : Entity::Null();
-					rangeAnchor_ = context_.selectedActor_;
+					context_.selectionContext_.selectedActor_ = context_.selectionContext_.selectedActors_.empty() ? nullptr : context_.selectionContext_.selectedActors_.back();
+					context_.selectionContext_.selectedEntity_ = context_.selectionContext_.selectedActor_ ? context_.selectionContext_.selectedActor_->GetEntity() : Entity::Null();
+					rangeAnchor_ = context_.selectionContext_.selectedActor_;
 
 					marqueeActive_ = false;
 				}
@@ -135,7 +140,10 @@ namespace SeedCore
 				if (ImGui::MenuItem("空のActorを作成"))
 				{
 					String uniqueName = GetUniqueName();
-					context_.world_->CreateActor(uniqueName);
+					Actor* actor = context_.worldContext_.world_->CreateActor(uniqueName);
+					DynamicArray<SerializedActorNode> nodes;
+					CaptureActorNode(actor, -1, nodes);
+					context_.sceneContext_.history_.Push(MakePtr<ActorCreateCommand>(*context_.worldContext_.world_, *context_.worldContext_.resource_, nodes));
 				}
 				ImGui::EndPopup();
 			}
@@ -164,7 +172,10 @@ namespace SeedCore
 			if (ImGui::Button("空のActorを追加", ImVec2(buttonWidth, 0)))
 			{
 				String uniqueName = GetUniqueName();
-				context_.world_->CreateActor(uniqueName);
+				Actor* actor = context_.worldContext_.world_->CreateActor(uniqueName);
+				DynamicArray<SerializedActorNode> nodes;
+				CaptureActorNode(actor, -1, nodes);
+				context_.sceneContext_.history_.Push(MakePtr<ActorCreateCommand>(*context_.worldContext_.world_, *context_.worldContext_.resource_, nodes));
 			}
 
 			ImGui::Dummy(ImVec2(0.0f, 8.0f));
@@ -241,7 +252,10 @@ namespace SeedCore
 
 					if (preview->IsDelivery())
 					{
+						Actor* oldParent = dropped->GetParent();
+						Uint32 oldParentId = oldParent ? oldParent->GetPersistentID() : 0;
 						dropped->SetParent(actor);
+						context_.sceneContext_.history_.Push(MakePtr<ActorReparentCommand>(*context_.worldContext_.world_, dropped->GetPersistentID(), oldParentId, actor->GetPersistentID()));
 					}
 				}
 			}
@@ -249,11 +263,11 @@ namespace SeedCore
 			if (const ImGuiPayload* prefabPayload = ImGui::AcceptDragDropPayload("ASSET_PREFAB"))
 			{
 				Uint32 assetID = *static_cast<const Uint32*>(prefabPayload->Data);
-				Handle<Prefab> handle = context_.resource_->GetPrefabPool().Load(assetID, *context_.resource_);
-				Prefab* prefab = context_.resource_->GetPrefabPool().Get(handle);
+				Handle<Prefab> handle = context_.worldContext_.resource_->GetPrefabPool().Load(assetID, *context_.worldContext_.resource_);
+				Prefab* prefab = context_.worldContext_.resource_->GetPrefabPool().Get(handle);
 				if (prefab)
 				{
-					prefab->Instantiate(*context_.world_, *context_.resource_, actor, assetID);
+					prefab->Instantiate(*context_.worldContext_.world_, *context_.worldContext_.resource_, actor, assetID);
 				}
 			}
 
@@ -322,6 +336,7 @@ namespace SeedCore
 		Float activeY = activePosition.y + (ImGui::GetTextLineHeight() - iconSize) * 0.5f + activeYOffset;
 		if (ImGui::InvisibleButton("##Active", ImVec2(iconSize, ImGui::GetTextLineHeight())))
 		{
+			context_.sceneContext_.history_.Push(MakePtr<ActorActiveCommand>(*context_.worldContext_.world_, actor, !actor->IsActive()));
 			actor->SetActive(!actor->IsActive());
 		}
 		ImGui::GetWindowDrawList()->AddImage(activeIcon, ImVec2(activePosition.x, activeY), ImVec2(activePosition.x + iconSize, activeY + iconSize));
@@ -340,7 +355,7 @@ namespace SeedCore
 
 	void HierarchyPanel::SaveAsPrefab(Actor* actor)
 	{
-		std::filesystem::path prefabDir = context_.resource_->ProjectRootPath() / "UserProject" / "Assets" / "Prefab";
+		std::filesystem::path prefabDir = context_.worldContext_.resource_->ProjectRootPath() / "UserProject" / "Assets" / "Prefab";
 		std::filesystem::create_directories(prefabDir);
 
 		std::filesystem::path savedPath;
@@ -354,7 +369,7 @@ namespace SeedCore
 			return;
 		}
 
-		context_.resource_->Reload(*context_.loader_, context_.device_, context_.cmdQueue_, *context_.bc7Shader_);
+		context_.worldContext_.resource_->Reload(*context_.worldContext_.loader_, context_.graphicsContext_.device_, context_.graphicsContext_.cmdQueue_, *context_.graphicsContext_.bc7Shader_);
 
 		/// [EN] Rebind this Actor's Apply target to the newly-saved file, so a later
 		///      "Prefab に適用" writes to this new Prefab instead of any Prefab it
@@ -362,9 +377,9 @@ namespace SeedCore
 		/// [JP] この Actor の適用先を、新しく保存されたファイルに再バインドする。
 		///      これにより以降の「Prefab に適用」は、元々インスタンス化された Prefab
 		///      ではなく、この新しい Prefab に書き込まれる。
-		std::string relative = std::filesystem::relative(savedPath, context_.resource_->ProjectRootPath()).string();
+		std::string relative = std::filesystem::relative(savedPath, context_.worldContext_.resource_->ProjectRootPath()).string();
 		std::replace(relative.begin(), relative.end(), '\\', '/');
-		Uint32 newAssetID = context_.resource_->GetAssetID(String(relative));
+		Uint32 newAssetID = context_.worldContext_.resource_->GetAssetID(String(relative));
 		if (newAssetID != 0)
 		{
 			actor->SetSourcePrefabAssetID(newAssetID);
@@ -382,7 +397,7 @@ namespace SeedCore
 		{
 			Bool exists = false;
 
-			for (auto& actor : context_.world_->GetActors())
+			for (auto& actor : context_.worldContext_.world_->GetActors())
 			{
 				const Name* name = actor->GetComponent<Name>();
 				if (!name)
@@ -410,7 +425,7 @@ namespace SeedCore
 
 	Bool HierarchyPanel::IsSelected(Actor* actor)const
 	{
-		return std::find(context_.selectedActors_.begin(), context_.selectedActors_.end(), actor) != context_.selectedActors_.end();
+		return std::find(context_.selectionContext_.selectedActors_.begin(), context_.selectionContext_.selectedActors_.end(), actor) != context_.selectionContext_.selectedActors_.end();
 	}
 
 	void HierarchyPanel::HandleNodeSelection(Actor* actor, Bool ctrl, Bool shift)
@@ -437,57 +452,58 @@ namespace SeedCore
 				Size lo = std::min(anchorIndex, targetIndex);
 				Size hi = std::max(anchorIndex, targetIndex);
 
-				context_.selectedActors_.clear();
+				context_.selectionContext_.selectedActors_.clear();
 				for (Size rowIndex = lo; rowIndex <= hi; ++rowIndex)
 				{
-					context_.selectedActors_.push_back(rows_[rowIndex].actor_);
+					context_.selectionContext_.selectedActors_.push_back(rows_[rowIndex].actor_);
 				}
 			}
 		}
 		else if (ctrl)
 		{
-			auto it = std::find(context_.selectedActors_.begin(), context_.selectedActors_.end(), actor);
-			if (it != context_.selectedActors_.end())
+			auto it = std::find(context_.selectionContext_.selectedActors_.begin(), context_.selectionContext_.selectedActors_.end(), actor);
+			if (it != context_.selectionContext_.selectedActors_.end())
 			{
-				context_.selectedActors_.erase(it);
+				context_.selectionContext_.selectedActors_.erase(it);
 			}
 			else
 			{
-				context_.selectedActors_.push_back(actor);
+				context_.selectionContext_.selectedActors_.push_back(actor);
 			}
 			rangeAnchor_ = actor;
 		}
 		else
 		{
-			context_.selectedActors_.clear();
-			context_.selectedActors_.push_back(actor);
+			context_.selectionContext_.selectedActors_.clear();
+			context_.selectionContext_.selectedActors_.push_back(actor);
 			rangeAnchor_ = actor;
 		}
 
-		context_.selectedActor_ = context_.selectedActors_.empty() ? nullptr : context_.selectedActors_.back();
-		context_.selectedEntity_ = context_.selectedActor_ ? context_.selectedActor_->GetEntity() : Entity::Null();
+		context_.selectionContext_.selectedActor_ = context_.selectionContext_.selectedActors_.empty() ? nullptr : context_.selectionContext_.selectedActors_.back();
+		context_.selectionContext_.selectedEntity_ = context_.selectionContext_.selectedActor_ ? context_.selectionContext_.selectedActor_->GetEntity() : Entity::Null();
 	}
 
 	void HierarchyPanel::DeleteActor(Actor* actor)
 	{
-		auto it = std::find(context_.selectedActors_.begin(), context_.selectedActors_.end(), actor);
-		if (it != context_.selectedActors_.end())
+		auto it = std::find(context_.selectionContext_.selectedActors_.begin(), context_.selectionContext_.selectedActors_.end(), actor);
+		if (it != context_.selectionContext_.selectedActors_.end())
 		{
-			context_.selectedActors_.erase(it);
+			context_.selectionContext_.selectedActors_.erase(it);
 		}
 
-		if (context_.selectedActor_ == actor)
+		if (context_.selectionContext_.selectedActor_ == actor)
 		{
-			context_.selectedActor_ = context_.selectedActors_.empty() ? nullptr : context_.selectedActors_.back();
-			context_.selectedEntity_ = context_.selectedActor_ ? context_.selectedActor_->GetEntity() : Entity::Null();
+			context_.selectionContext_.selectedActor_ = context_.selectionContext_.selectedActors_.empty() ? nullptr : context_.selectionContext_.selectedActors_.back();
+			context_.selectionContext_.selectedEntity_ = context_.selectionContext_.selectedActor_ ? context_.selectionContext_.selectedActor_->GetEntity() : Entity::Null();
 		}
 
-		context_.world_->DestroyActor(actor);
+		context_.sceneContext_.history_.Push(MakePtr<ActorDeleteCommand>(*context_.worldContext_.world_, *context_.worldContext_.resource_, actor));
+		context_.worldContext_.world_->DestroyActor(actor);
 	}
 
 	void HierarchyPanel::DeleteSelection()
 	{
-		DynamicArray<Actor*> toDelete = context_.selectedActors_;
+		DynamicArray<Actor*> toDelete = context_.selectionContext_.selectedActors_;
 		for (Actor* actor : toDelete)
 		{
 			DeleteActor(actor);
@@ -496,12 +512,12 @@ namespace SeedCore
 
 	void HierarchyPanel::DuplicateSelection()
 	{
-		if (context_.selectedActors_.empty())
+		if (context_.selectionContext_.selectedActors_.empty())
 		{
 			return;
 		}
 
-		DynamicArray<Actor*> toDuplicate = context_.selectedActors_;
+		DynamicArray<Actor*> toDuplicate = context_.selectionContext_.selectedActors_;
 		DynamicArray<Actor*> newSelection;
 
 		for (Actor* actor : toDuplicate)
@@ -527,20 +543,25 @@ namespace SeedCore
 			Prefab prefab;
 			prefab.Capture(actor);
 
-			Actor* duplicate = prefab.Instantiate(*context_.world_, *context_.resource_, actor->GetParent(), actor->GetSourcePrefabAssetID());
+			Actor* duplicate = prefab.Instantiate(*context_.worldContext_.world_, *context_.worldContext_.resource_, actor->GetParent(), actor->GetSourcePrefabAssetID());
 			if (!duplicate)
 			{
 				continue;
 			}
 
+			DynamicArray<SerializedActorNode> nodes;
+			CaptureActorNode(duplicate, -1, nodes);
+			Actor* duplicateParent = duplicate->GetParent();
+			context_.sceneContext_.history_.Push(MakePtr<ActorCreateCommand>(*context_.worldContext_.world_, *context_.worldContext_.resource_, nodes, duplicateParent ? duplicateParent->GetPersistentID() : 0));
+
 			MoveAfter(duplicate, actor);
 			newSelection.push_back(duplicate);
 		}
 
-		context_.selectedActors_ = newSelection;
-		context_.selectedActor_ = newSelection.empty() ? nullptr : newSelection.back();
-		context_.selectedEntity_ = context_.selectedActor_ ? context_.selectedActor_->GetEntity() : Entity::Null();
-		rangeAnchor_ = context_.selectedActor_;
+		context_.selectionContext_.selectedActors_ = newSelection;
+		context_.selectionContext_.selectedActor_ = newSelection.empty() ? nullptr : newSelection.back();
+		context_.selectionContext_.selectedEntity_ = context_.selectionContext_.selectedActor_ ? context_.selectionContext_.selectedActor_->GetEntity() : Entity::Null();
+		rangeAnchor_ = context_.selectionContext_.selectedActor_;
 	}
 
 	void HierarchyPanel::MoveAfter(Actor* actor, Actor* after)
@@ -552,7 +573,7 @@ namespace SeedCore
 			return;
 		}
 
-		auto& actors = context_.world_->GetActors();
+		auto& actors = context_.worldContext_.world_->GetActors();
 
 		auto actorIt = std::find_if(actors.begin(), actors.end(), [actor](const ResourcePtr<Actor>& a) { return a.get() == actor; });
 		if (actorIt == actors.end())

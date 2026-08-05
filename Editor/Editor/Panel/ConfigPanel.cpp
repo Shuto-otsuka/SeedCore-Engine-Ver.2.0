@@ -181,12 +181,12 @@ namespace SeedCore
 
 		/// [JP] gameConfig_ は GameConfig.scg(独立した設定ファイル)からの値で、
 		///      現在読み込まれているシーンの実際の DLSS/解像度設定
-		///      (context_.raytracing_/context_.outputResolution_)とは無関係に
+		///      (context_.viewportContext_.raytracing_/context_.viewportContext_.outputResolution_)とは無関係に
 		///      ずれ得る。パネルを開く時点の実際の値で上書きし、表示を
 		///      現在の状態と一致させる。
-		gameConfig_.useDlss_ = context_.raytracing_.dlssRayReconstructionEnabled_;
-		gameConfig_.dlssMode_ = context_.raytracing_.dlssMode_;
-		gameConfig_.resolution_ = context_.outputResolution_;
+		gameConfig_.useDlss_ = context_.viewportContext_.raytracing_.dlssRayReconstructionEnabled_;
+		gameConfig_.dlssMode_ = context_.viewportContext_.raytracing_.dlssMode_;
+		gameConfig_.resolution_ = context_.viewportContext_.outputResolution_;
 
 		std::fill(initialScenePathBuffer_.begin(), initialScenePathBuffer_.end(), '\0');
 		std::string initialScenePath = gameConfig_.initialScenePath_.str();
@@ -230,9 +230,9 @@ namespace SeedCore
 		if (ImGui::DragFloat("文字サイズ倍率", &editorConfig_.fontScale_, 0.01f, 0.5f, 3.0f, "%.2f"))
 		{
 			changed = true;
-			if (context_.imgui_)
+			if (context_.graphicsContext_.imgui_)
 			{
-				context_.imgui_->FontScale(editorConfig_.fontScale_);
+				context_.graphicsContext_.imgui_->FontScale(editorConfig_.fontScale_);
 			}
 		}
 
@@ -286,8 +286,8 @@ namespace SeedCore
 		{
 			gameConfig_.resolution_ = static_cast<ResolutionPreset>(resolutionIndex);
 			changed = true;
-			context_.outputResolution_ = gameConfig_.resolution_;
-			context_.resizeRequested_ = true;
+			context_.viewportContext_.outputResolution_ = gameConfig_.resolution_;
+			context_.viewportContext_.resizeRequested_ = true;
 		}
 
 		ImGui::TextDisabled("(エディターのレンダー解像度に即時反映されます)");
@@ -302,8 +302,8 @@ namespace SeedCore
 		if (ImGui::Checkbox("DLSSを使用する", &gameConfig_.useDlss_))
 		{
 			changed = true;
-			context_.raytracing_.dlssRayReconstructionEnabled_ = gameConfig_.useDlss_;
-			context_.resizeRequested_ = true;
+			context_.viewportContext_.raytracing_.dlssRayReconstructionEnabled_ = gameConfig_.useDlss_;
+			context_.viewportContext_.resizeRequested_ = true;
 		}
 
 		const Char* dlssModeLabels[] = { "最高性能", "バランス", "最高画質", "超高性能", "DLAA" };
@@ -314,8 +314,8 @@ namespace SeedCore
 		{
 			gameConfig_.dlssMode_ = static_cast<DlssMode>(dlssModeIndex);
 			changed = true;
-			context_.raytracing_.dlssMode_ = gameConfig_.dlssMode_;
-			context_.resizeRequested_ = true;
+			context_.viewportContext_.raytracing_.dlssMode_ = gameConfig_.dlssMode_;
+			context_.viewportContext_.resizeRequested_ = true;
 		}
 		ImGui::EndDisabled();
 

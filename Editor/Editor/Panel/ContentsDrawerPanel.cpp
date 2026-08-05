@@ -19,7 +19,7 @@ namespace SeedCore
 		searchBuffer_.resize(256, '\0');
 		BuildDirectoryTree();
 
-		const std::filesystem::path& projectRoot = context_.resource_->ProjectRootPath();
+		const std::filesystem::path& projectRoot = context_.worldContext_.resource_->ProjectRootPath();
 		directoryWatchHandle_ = FindFirstChangeNotificationW(projectRoot.wstring().c_str(), TRUE, FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_DIR_NAME | FILE_NOTIFY_CHANGE_LAST_WRITE);
 		if (directoryWatchHandle_ == INVALID_HANDLE_VALUE || directoryWatchHandle_ == nullptr)
 		{
@@ -44,7 +44,7 @@ namespace SeedCore
 
 		if (directoryWatchHandle_ != INVALID_HANDLE_VALUE && WaitForSingleObject(directoryWatchHandle_, 0) == WAIT_OBJECT_0)
 		{
-			context_.resource_->Reload(*context_.loader_, context_.device_, context_.cmdQueue_, *context_.bc7Shader_);
+			context_.worldContext_.resource_->Reload(*context_.worldContext_.loader_, context_.graphicsContext_.device_, context_.graphicsContext_.cmdQueue_, *context_.graphicsContext_.bc7Shader_);
 			needsRebuild_ = true;
 			FindNextChangeNotification(directoryWatchHandle_);
 		}
@@ -106,7 +106,7 @@ namespace SeedCore
 
 			if (!searchKey.empty())
 			{
-				auto results = context_.resource_->Search(String(searchKey));
+				auto results = context_.worldContext_.resource_->Search(String(searchKey));
 				for (auto* asset : results)
 				{
 					ImGui::PushID(asset->assetID_);
@@ -184,12 +184,12 @@ namespace SeedCore
 						std::filesystem::path savedPath = Prefab::SaveToDirectory(dropped, directory);
 						if (!savedPath.empty())
 						{
-							context_.resource_->Reload(*context_.loader_, context_.device_, context_.cmdQueue_, *context_.bc7Shader_);
+							context_.worldContext_.resource_->Reload(*context_.worldContext_.loader_, context_.graphicsContext_.device_, context_.graphicsContext_.cmdQueue_, *context_.graphicsContext_.bc7Shader_);
 							needsRebuild_ = true;
 
-							std::string relative = std::filesystem::relative(savedPath, context_.resource_->ProjectRootPath()).string();
+							std::string relative = std::filesystem::relative(savedPath, context_.worldContext_.resource_->ProjectRootPath()).string();
 							std::replace(relative.begin(), relative.end(), '\\', '/');
-							Uint32 newAssetID = context_.resource_->GetAssetID(String(relative));
+							Uint32 newAssetID = context_.worldContext_.resource_->GetAssetID(String(relative));
 							if (newAssetID != 0)
 							{
 								dropped->SetSourcePrefabAssetID(newAssetID);
@@ -218,7 +218,7 @@ namespace SeedCore
 			".vs", "x64", ".git",
 		};
 
-		const std::filesystem::path& projectRoot = context_.resource_->ProjectRootPath();
+		const std::filesystem::path& projectRoot = context_.worldContext_.resource_->ProjectRootPath();
 		std::error_code errorCode;
 		for (auto it = std::filesystem::recursive_directory_iterator(projectRoot, errorCode); it != std::filesystem::recursive_directory_iterator(); ++it)
 		{
@@ -261,7 +261,7 @@ namespace SeedCore
 			}
 		}
 
-		const auto& allAssets = context_.resource_->AssetList();
+		const auto& allAssets = context_.worldContext_.resource_->AssetList();
 		for (const auto& asset : allAssets | std::ranges::views::values)
 		{
 			std::string path = asset.path_.str();
@@ -716,9 +716,9 @@ namespace SeedCore
 				return thumbnailCache_.at(asset.assetID_);
 			}
 
-			ImageResource* imageResource = context_.resource_->GetImageResource();
+			ImageResource* imageResource = context_.worldContext_.resource_->GetImageResource();
 			Handle<Texture> handle = imageResource->GetHandle(asset.assetID_);
-			Texture* texture = imageResource->Resolve(*context_.loader_, context_.bindlessHeap_, handle, context_.uiFrame_);
+			Texture* texture = imageResource->Resolve(*context_.worldContext_.loader_, context_.graphicsContext_.bindlessHeap_, handle, context_.uiFrame_);
 			if (texture && texture->resource_)
 			{
 				texture->pinned_ = true;
@@ -730,10 +730,10 @@ namespace SeedCore
 				/// [JP] shader-visible ヒープは CPU 書き込み専用のため CopyDescriptorsSimple の
 				///      コピー元にできない。代わりにテクスチャリソースから ImGui ヒープへ
 				///      SRV を直接作成する（desc null = リソース全体のデフォルトビュー）。
-				Uint descIndex = context_.descHeap_->AllocateIndex();
-				D3D12_CPU_DESCRIPTOR_HANDLE dest = context_.descHeap_->CPUHandle(descIndex);
-				context_.device_->CreateShaderResourceView(texture->resource_.Get(), nullptr, dest);
-				ImTextureID textureID = static_cast<ImTextureID>(context_.descHeap_->GPUHandle(descIndex).ptr);
+				Uint descIndex = context_.graphicsContext_.descHeap_->AllocateIndex();
+				D3D12_CPU_DESCRIPTOR_HANDLE dest = context_.graphicsContext_.descHeap_->CPUHandle(descIndex);
+				context_.graphicsContext_.device_->CreateShaderResourceView(texture->resource_.Get(), nullptr, dest);
+				ImTextureID textureID = static_cast<ImTextureID>(context_.graphicsContext_.descHeap_->GPUHandle(descIndex).ptr);
 				thumbnailCache_.insert({ asset.assetID_, textureID });
 				return textureID;
 			}
@@ -797,9 +797,9 @@ namespace SeedCore
 
 		if (asset.type_ == AssetType::Texture && asset.isLoaded_)
 		{
-			ImageResource* imageResource = context_.resource_->GetImageResource();
+			ImageResource* imageResource = context_.worldContext_.resource_->GetImageResource();
 			Handle<Texture> handle = imageResource->GetHandle(asset.assetID_);
-			Texture* texture = imageResource->Resolve(*context_.loader_, context_.bindlessHeap_, handle, context_.uiFrame_);
+			Texture* texture = imageResource->Resolve(*context_.worldContext_.loader_, context_.graphicsContext_.bindlessHeap_, handle, context_.uiFrame_);
 			if (texture && texture->resource_)
 			{
 				D3D12_RESOURCE_DESC desc = texture->resource_->GetDesc();
@@ -814,7 +814,7 @@ namespace SeedCore
 	{
 		if (asset.type_ == AssetType::Scene)
 		{
-			context_.requestedSceneAssetID_ = asset.assetID_;
+			context_.sceneContext_.requestedSceneAssetID_ = asset.assetID_;
 			return;
 		}
 
@@ -1072,9 +1072,9 @@ namespace SeedCore
 	{
 		if (relativePath.empty())
 		{
-			return context_.resource_->ProjectRootPath();
+			return context_.worldContext_.resource_->ProjectRootPath();
 		}
-		return context_.resource_->ProjectRootPath() / relativePath;
+		return context_.worldContext_.resource_->ProjectRootPath() / relativePath;
 	}
 
 	void ContentsDrawerPanel::CreateNewFolder(const std::string& parentRelative)
@@ -1211,7 +1211,7 @@ namespace SeedCore
 			projectRelativeDirectory = "Script";
 		}
 
-		std::filesystem::path targetDirectory = context_.resource_->ProjectRootPath() / "UserProject" / projectRelativeDirectory;
+		std::filesystem::path targetDirectory = context_.worldContext_.resource_->ProjectRootPath() / "UserProject" / projectRelativeDirectory;
 
 		std::string baseName = sanitized;
 		std::string finalName = baseName;
@@ -1282,7 +1282,7 @@ namespace SeedCore
 
 	Bool ContentsDrawerPanel::RegisterScriptInProject(const std::filesystem::path& headerFullPath, const std::filesystem::path& cppFullPath)
 	{
-		std::filesystem::path projectRoot = context_.resource_->ProjectRootPath();
+		std::filesystem::path projectRoot = context_.worldContext_.resource_->ProjectRootPath();
 
 		/// [EN] Tried first: if Visual Studio has Runtime.sln open, letting it add the files itself keeps Solution Explorer in sync immediately and never triggers the "project modified outside the editor" reload prompt (see VisualStudioAutomation's own doc comment). Falls through to editing UserProject.vcxproj directly — the only path available when Visual Studio isn't running this solution at all.
 		/// [JP] まずこちらを試す: Visual Studio が Runtime.sln を開いていれば、ファイルの追加自体をVSにやらせることで Solution Explorer が即座に同期され、「プロジェクトが外部で変更されました」という再読み込み確認も一切発生しない(詳細は VisualStudioAutomation 自身のドキュメントコメントを参照)。Visual Studio がこのソリューションを開いていない場合にのみ、UserProject.vcxproj を直接編集する経路へフォールバックする。

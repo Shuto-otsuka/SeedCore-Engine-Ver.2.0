@@ -7,16 +7,16 @@ namespace SeedCore
 {
 	ImGuiTexture::ImGuiTexture(EditorContext& context)
 	{
-		TextureLoader* loader = context.loader_->textureLoader_.get();
+		TextureLoader* loader = context.worldContext_.loader_->textureLoader_.get();
 
 		auto load = [&](IconType type, const String& filePath)
 		{
-			Uint index = context.descHeap_->AllocateIndex();
+			Uint index = context.graphicsContext_.descHeap_->AllocateIndex();
 
 			Microsoft::WRL::ComPtr<ID3D12Resource> resource;
-			loader->CreateTexture(context.device_, context.cmdQueue_, context.descHeap_->Get(), filePath, resource, index);
+			loader->CreateTexture(context.graphicsContext_.device_, context.graphicsContext_.cmdQueue_, context.graphicsContext_.descHeap_->Get(), filePath, resource, index);
 
-			icons_[static_cast<Uint>(type)] = static_cast<ImTextureID>(context.descHeap_->GPUHandle(index).ptr);
+			icons_[static_cast<Uint>(type)] = static_cast<ImTextureID>(context.graphicsContext_.descHeap_->GPUHandle(index).ptr);
 			resources_.push_back(std::move(resource));
 		};
 

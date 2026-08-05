@@ -214,6 +214,18 @@
     <ClCompile Include="Math\Random\Hash.cpp">
       <Filter>Math\Random</Filter>
     </ClCompile>
+    <ClCompile Include="ECS\ActorCommand.cpp">
+      <Filter>ESC</Filter>
+    </ClCompile>
+    <ClCompile Include="ECS\ArrayFieldCommand.cpp">
+      <Filter>ESC</Filter>
+    </ClCompile>
+    <ClCompile Include="ECS\ComponentLifecycleCommand.cpp">
+      <Filter>ESC</Filter>
+    </ClCompile>
+    <ClCompile Include="ECS\History.cpp">
+      <Filter>ESC</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Log\DxFail.h">
@@ -550,6 +562,24 @@
     </ClInclude>
     <ClInclude Include="Utility\SerializeFallback.h">
       <Filter>Utility</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\ActorCommand.h">
+      <Filter>ESC</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\ArrayFieldCommand.h">
+      <Filter>ESC</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\Command.h">
+      <Filter>ESC</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\ComponentCommand.h">
+      <Filter>ESC</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\ComponentLifecycleCommand.h">
+      <Filter>ESC</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\History.h">
+      <Filter>ESC</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

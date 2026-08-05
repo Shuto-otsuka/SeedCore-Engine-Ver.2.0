@@ -33,6 +33,7 @@
     <ClInclude Include="D3D12\Buffer\ArgumentBuffer.h" />
     <ClInclude Include="D3D12\Buffer\Buffer.h" />
     <ClInclude Include="D3D12\Buffer\ConstantBuffer.h" />
+    <ClInclude Include="D3D12\Buffer\DepthResizeBuffer.h" />
     <ClInclude Include="D3D12\Buffer\FrameBuffer.h" />
     <ClInclude Include="D3D12\Buffer\GeometryBuffer.h" />
     <ClInclude Include="D3D12\Buffer\HiZBuffer.h" />
@@ -208,6 +209,7 @@
     <ClCompile Include="Camera\FreeCameraController.cpp" />
     <ClCompile Include="Camera\OrbitCameraController.cpp" />
     <ClCompile Include="Camera\PreviewCamera.cpp" />
+    <ClCompile Include="D3D12\Buffer\DepthResizeBuffer.cpp" />
     <ClCompile Include="DLSS\DlssBackgroundVelocityShader.cpp" />
     <ClCompile Include="DLSS\DlssNormalRoughnessShader.cpp" />
     <ClCompile Include="Effect\Effekseer\EffekseerFileInterface.cpp" />
@@ -891,6 +893,11 @@
   </ItemGroup>
   <ItemGroup>
     <Text Include="Raytracing\Reflection\ReflectionDenoiseCS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Model\DepthResizeCS.hlsl">
       <FileType>Document</FileType>
     </Text>
   </ItemGroup>

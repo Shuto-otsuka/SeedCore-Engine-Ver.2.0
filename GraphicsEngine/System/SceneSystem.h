@@ -30,7 +30,10 @@ namespace SeedCore
 
 		Float totalTime_;
 		Float deltaTime_;
-		Vector2 sceneConstantPadding2_;
+
+		/// [EN] Resolution of whatever the post-tonemap debug overlay (collider wireframes, selection outline) actually draws onto - screenSize_ normally, or PostProcessRenderer's DLSS-RR-upscaled output resolution while DLSS-RR is active. SelectionOutlinePS.hlsl scales SV_Position by screen_size_/display_size_ before indexing the (native-resolution) selection mask.
+		/// [JP] トーンマップ後デバッグオーバーレイ(コライダーワイヤーフレーム、選択アウトライン)が実際に描画する先の解像度 - 通常はscreenSize_、DLSS-RR有効時はPostProcessRendererのDLSS-RRアップスケール後出力解像度。SelectionOutlinePS.hlslは(ネイティブ解像度の)選択マスクをインデックスする前にSV_Positionをscreen_size_/display_size_でスケールする。
+		Vector2 displaySize_;
 
 		Vector2 screenSize_;
 		Vector2 inverseScreenSize_;

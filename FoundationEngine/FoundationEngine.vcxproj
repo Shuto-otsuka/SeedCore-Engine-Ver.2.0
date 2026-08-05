@@ -21,27 +21,36 @@
   <ItemGroup>
     <ClCompile Include="ECS\Actor.cpp">
     </ClCompile>
+    <ClCompile Include="ECS\ActorCommand.cpp" />
     <ClCompile Include="ECS\Archetype.cpp">
     </ClCompile>
+    <ClInclude Include="ECS\ActorCommand.h" />
     <ClInclude Include="ECS\Archetype.h" />
     <ClCompile Include="ECS\ArchetypeRegistry.cpp">
     </ClCompile>
+    <ClCompile Include="ECS\ArrayFieldCommand.cpp" />
     <ClCompile Include="ECS\Chunk.cpp">
     </ClCompile>
+    <ClInclude Include="ECS\ArrayFieldCommand.h" />
     <ClInclude Include="ECS\Chunk.h" />
+    <ClInclude Include="ECS\Command.h" />
     <ClInclude Include="ECS\Component.h" />
+    <ClCompile Include="ECS\ComponentLifecycleCommand.cpp" />
     <ClCompile Include="ECS\ComponentRegistry.cpp">
     </ClCompile>
     <ClCompile Include="ECS\Component\ComponentBase.cpp">
     </ClCompile>
     <ClCompile Include="ECS\Entity.cpp">
     </ClCompile>
+    <ClInclude Include="ECS\ComponentCommand.h" />
+    <ClInclude Include="ECS\ComponentLifecycleCommand.h" />
     <ClInclude Include="ECS\Component\Active.h" />
     <ClInclude Include="ECS\Component\ComponentBase.h" />
     <ClInclude Include="ECS\Component\InspectorDrawable.h" />
     <ClInclude Include="ECS\Entity.h" />
     <ClCompile Include="ECS\EntityRecord.cpp">
     </ClCompile>
+    <ClCompile Include="ECS\History.cpp" />
     <ClCompile Include="ECS\PayloadRegistry.cpp">
     </ClCompile>
     <ClCompile Include="ECS\ReflectionRegistry.cpp">
@@ -55,6 +64,7 @@
     <ClCompile Include="ECS\TagRegistry.cpp" />
     <ClCompile Include="ECS\World.cpp">
     </ClCompile>
+    <ClInclude Include="ECS\History.h" />
     <ClInclude Include="ECS\PayloadRegistry.h" />
     <ClInclude Include="ECS\System\MoveSystem.h" />
     <ClInclude Include="ECS\System\TransformSystem.h" />

@@ -71,22 +71,22 @@ namespace SeedCore
 
 		Scene::Initialize(*world_, *resource_, *executor_);
 
-		editorContext_.world_ = world_.get();
-		editorContext_.resource_ = resource_.get();
-		editorContext_.loader_ = loaderSystem_.get();
-		editorContext_.gameTimer_ = &gameTimer_;
-		editorContext_.editorCamera_ = &editorCamera_;
-		editorContext_.editorCameraController_ = &editorCameraController_;
-		editorContext_.canvasCamera_ = &canvasCamera_;
-		editorContext_.previewCamera_ = &previewCamera_;
-		editorContext_.device_ = device;
-		editorContext_.cmdQueue_ = graphics_->GetContext()->GetDirectQueue()->GetCommandQueue();
-		editorContext_.bc7Shader_ = &graphics_->GetBC7CompressShader();
-		editorContext_.adapter_ = graphics_->GetContext()->GetAdapter()->Get();
-		editorContext_.descHeap_ = imgui_->GetDescriptorHeap();
-		editorContext_.bindlessHeap_ = graphics_->GetBindlessHeap();
-		editorContext_.cameraSystem_ = &graphics_->GetCameraSystem();
-		editorContext_.imgui_ = imgui_.get();
+		editorContext_.worldContext_.world_ = world_.get();
+		editorContext_.worldContext_.resource_ = resource_.get();
+		editorContext_.worldContext_.loader_ = loaderSystem_.get();
+		editorContext_.worldContext_.gameTimer_ = &gameTimer_;
+		editorContext_.cameraContext_.editorCamera_ = &editorCamera_;
+		editorContext_.cameraContext_.editorCameraController_ = &editorCameraController_;
+		editorContext_.cameraContext_.canvasCamera_ = &canvasCamera_;
+		editorContext_.cameraContext_.previewCamera_ = &previewCamera_;
+		editorContext_.graphicsContext_.device_ = device;
+		editorContext_.graphicsContext_.cmdQueue_ = graphics_->GetContext()->GetDirectQueue()->GetCommandQueue();
+		editorContext_.graphicsContext_.bc7Shader_ = &graphics_->GetBC7CompressShader();
+		editorContext_.graphicsContext_.adapter_ = graphics_->GetContext()->GetAdapter()->Get();
+		editorContext_.graphicsContext_.descHeap_ = imgui_->GetDescriptorHeap();
+		editorContext_.graphicsContext_.bindlessHeap_ = graphics_->GetBindlessHeap();
+		editorContext_.cameraContext_.cameraSystem_ = &graphics_->GetCameraSystem();
+		editorContext_.graphicsContext_.imgui_ = imgui_.get();
 
 		InputSystem::Initialize();
 
@@ -101,8 +101,8 @@ namespace SeedCore
 			String raytracingSettingsJson;
 			if (Scene::Load(*world_, *resource_, lastScenePath, &raytracingSettingsJson))
 			{
-				editorContext_.raytracing_ = DeserializeRaytracingContext(raytracingSettingsJson);
-				editorContext_.currentScenePath_ = lastScenePath;
+				editorContext_.viewportContext_.raytracing_ = DeserializeRaytracingContext(raytracingSettingsJson);
+				editorContext_.sceneContext_.currentScenePath_ = lastScenePath;
 
 				/// [JP] DLSS有効/モードはネイティブ解像度の再計算(MainLoopの
 				///      resizeRequested_ 分岐)を経て初めて反映される。シーン
@@ -110,7 +110,7 @@ namespace SeedCore
 				///      DLSSがずっと未適用のまま(ConfigPanelのチェックボックスを
 				///      一度触るまで)になっていた。ここで立てて次フレームの
 				///      MainLoopに拾わせる。
-				editorContext_.resizeRequested_ = true;
+				editorContext_.viewportContext_.resizeRequested_ = true;
 			}
 		}
 
@@ -121,7 +121,7 @@ namespace SeedCore
 	{
 		if (imgui_)
 		{
-			editorConfig_.Capture(editorCamera_, editorCameraController_, *imgui_, editorContext_.currentScenePath_);
+			editorConfig_.Capture(editorCamera_, editorCameraController_, *imgui_, editorContext_.sceneContext_.currentScenePath_);
 			editorConfig_.Save();
 		}
 
@@ -219,19 +219,19 @@ namespace SeedCore
 
 				editorContext_.uiFrame_++;
 
-				if (editorContext_.resizeRequested_)
+				if (editorContext_.viewportContext_.resizeRequested_)
 				{
-					editorContext_.resizeRequested_ = false;
+					editorContext_.viewportContext_.resizeRequested_ = false;
 
-					ScResolution::ResSize outputSize = ToResSize(editorContext_.outputResolution_);
+					ScResolution::ResSize outputSize = ToResSize(editorContext_.viewportContext_.outputResolution_);
 					Uint32 outputWidth = static_cast<Uint32>(outputSize.Width);
 					Uint32 outputHeight = static_cast<Uint32>(outputSize.Height);
 
 					Uint32 nativeWidth = outputWidth;
 					Uint32 nativeHeight = outputHeight;
-					if (editorContext_.raytracing_.dlssRayReconstructionEnabled_)
+					if (editorContext_.viewportContext_.raytracing_.dlssRayReconstructionEnabled_)
 					{
-						Float scale = DlssRenderScale(editorContext_.raytracing_.dlssMode_);
+						Float scale = DlssRenderScale(editorContext_.viewportContext_.raytracing_.dlssMode_);
 						nativeWidth = Max<Uint32>(64, static_cast<Uint32>(outputWidth * scale + 0.5f));
 						nativeHeight = Max<Uint32>(64, static_cast<Uint32>(outputHeight * scale + 0.5f));
 					}
@@ -280,34 +280,34 @@ namespace SeedCore
 				canvasCamera_.Tick(window_->GetTimer().Delta());
 				previewCamera_.Tick(window_->GetTimer().Delta());
 
-				if (editorContext_.raytracing_.daySystemEnabled_)
+				if (editorContext_.viewportContext_.raytracing_.daySystemEnabled_)
 				{
-					CelestialSystem::Advance(gameTimer_.DeltaTime(), editorContext_.raytracing_.daySystem_);
+					CelestialSystem::Advance(gameTimer_.DeltaTime(), editorContext_.viewportContext_.raytracing_.daySystem_);
 
 					/// [JP] 天候による色味の変化(WeatherSystem)より前に、時刻による
 					///      現実的な空グラデーション(夜/薄明/朝焼け夕焼け/昼)を
 					///      基準値として書き込んでおく。SunLight 無効時は太陽/月自体が
 					///      上書きされないのに合わせ、空色もここでは変えない。
-					if (editorContext_.raytracing_.sunLightEnabled_)
+					if (editorContext_.viewportContext_.raytracing_.sunLightEnabled_)
 					{
-						CelestialResult celestial = CelestialSystem::Compute(editorContext_.raytracing_.daySystem_, editorContext_.raytracing_.sunLight_, editorContext_.raytracing_.moonLight_);
+						CelestialResult celestial = CelestialSystem::Compute(editorContext_.viewportContext_.raytracing_.daySystem_, editorContext_.viewportContext_.raytracing_.sunLight_, editorContext_.viewportContext_.raytracing_.moonLight_);
 						for (Int index = 0; index < 3; index++)
 						{
-							editorContext_.raytracing_.volumetricCloudScapes_.skyZenithColor_[index] = celestial.skyZenithColor_[index];
-							editorContext_.raytracing_.volumetricCloudScapes_.skyHorizonColor_[index] = celestial.skyHorizonColor_[index];
+							editorContext_.viewportContext_.raytracing_.volumetricCloudScapes_.skyZenithColor_[index] = celestial.skyZenithColor_[index];
+							editorContext_.viewportContext_.raytracing_.volumetricCloudScapes_.skyHorizonColor_[index] = celestial.skyHorizonColor_[index];
 						}
 					}
 				}
-				weatherSystem_.Execute(*world_, gameTimer_.DeltaTime(), editorContext_.raytracing_.daySystem_.monthOfYear_, editorContext_.raytracing_.volumetricCloudScapes_);
+				weatherSystem_.Execute(*world_, gameTimer_.DeltaTime(), editorContext_.viewportContext_.raytracing_.daySystem_.monthOfYear_, editorContext_.viewportContext_.raytracing_.volumetricCloudScapes_);
 
 				graphics_->SetRaytracingSettings(editor_->GetRaytracingSettings());
 				graphics_->EditorRender(worldTimer_, editorCamera_, *loaderSystem_, *resource_, *world_, editor_->GetViewMode(), PhysicsSystem::GatherColliderInstances(*world_), editor_->GetSelectedEntity());
 				graphics_->GameRender(gameTimer_, *loaderSystem_, *resource_, *world_);
 				graphics_->CanvasRender(worldTimer_, canvasCamera_, *loaderSystem_, *resource_, *world_);
 
-				if (editorContext_.previewActive_)
+				if (editorContext_.previewContext_.previewActive_)
 				{
-					graphics_->PreviewRender(worldTimer_, previewCamera_, *loaderSystem_, *resource_, editorContext_.previewMeshAssetId_, editorContext_.previewAnimationAssetId_, editorContext_.previewTime_, editorContext_.previewWorldMatrix_);
+					graphics_->PreviewRender(worldTimer_, previewCamera_, *loaderSystem_, *resource_, editorContext_.previewContext_.previewMeshAssetId_, editorContext_.previewContext_.previewAnimationAssetId_, editorContext_.previewContext_.previewTime_, editorContext_.previewContext_.previewWorldMatrix_);
 				}
 
 				graphics_->Clear();

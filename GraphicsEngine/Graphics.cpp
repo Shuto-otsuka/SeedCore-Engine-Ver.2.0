@@ -218,6 +218,7 @@ namespace SeedCore
 		editorSceneConstantBuffer.deltaTime_ = timer.DeltaTime();
 		editorSceneConstantBuffer.screenSize_ = Vector2(static_cast<Float>(nativeWidth_), static_cast<Float>(nativeHeight_));
 		editorSceneConstantBuffer.inverseScreenSize_ = Vector2(1.0f / nativeWidth_, 1.0f / nativeHeight_);
+		editorSceneConstantBuffer.displaySize_ = renderer_->IsDlssRayReconstructionEnabled() ? renderer_->PostProcessOutputSize() : editorSceneConstantBuffer.screenSize_;
 		editorSceneSystem_->Upload(editorSceneConstantBuffer);
 
 		resourceCache.GetFontResource()->Update(context_->GetDevice(), context_->GetDirectQueue()->GetCommandQueue(), bindlessHeap_.get());
@@ -283,6 +284,7 @@ namespace SeedCore
 		canvasSceneConstantBuffer.deltaTime_ = timer.DeltaTime();
 		canvasSceneConstantBuffer.screenSize_ = Vector2(static_cast<Float>(nativeWidth_), static_cast<Float>(nativeHeight_));
 		canvasSceneConstantBuffer.inverseScreenSize_ = Vector2(1.0f / nativeWidth_, 1.0f / nativeHeight_);
+		canvasSceneConstantBuffer.displaySize_ = canvasSceneConstantBuffer.screenSize_;
 		canvasSceneSystem_->Upload(canvasSceneConstantBuffer);
 
 		renderer_->BeginCanvasFrame(context_->GetDirectList());
@@ -313,6 +315,7 @@ namespace SeedCore
 		previewSceneConstantBuffer.deltaTime_ = timer.DeltaTime();
 		previewSceneConstantBuffer.screenSize_ = Vector2(static_cast<Float>(nativeWidth_), static_cast<Float>(nativeHeight_));
 		previewSceneConstantBuffer.inverseScreenSize_ = Vector2(1.0f / nativeWidth_, 1.0f / nativeHeight_);
+		previewSceneConstantBuffer.displaySize_ = previewSceneConstantBuffer.screenSize_;
 
 		renderer_->BeginPreviewFrame(context_->GetDirectList());
 		renderer_->PreviewFlush(context_->GetDirectList(), previewSceneConstantBuffer);

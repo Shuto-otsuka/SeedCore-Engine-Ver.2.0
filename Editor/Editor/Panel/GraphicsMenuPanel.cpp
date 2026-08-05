@@ -16,9 +16,9 @@ namespace SeedCore
 			{
 				auto item = [&](const Char* label, ViewMode mode)
 				{
-					if (ImGui::MenuItem(label, nullptr, context_.viewMode_ == mode))
+					if (ImGui::MenuItem(label, nullptr, context_.viewportContext_.viewMode_ == mode))
 					{
-						context_.viewMode_ = mode;
+						context_.viewportContext_.viewMode_ = mode;
 					}
 				};
 

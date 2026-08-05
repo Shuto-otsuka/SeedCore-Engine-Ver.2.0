@@ -6,6 +6,10 @@
 #include <FoundationEngine/ECS/Component.h>
 #include <FoundationEngine/ECS/Component/Name.h>
 #include <FoundationEngine/ECS/ComponentRegistry.h>
+#include <FoundationEngine/ECS/ComponentCommand.h>
+#include <FoundationEngine/ECS/ComponentLifecycleCommand.h>
+#include <FoundationEngine/ECS/ArrayFieldCommand.h>
+#include <FoundationEngine/ECS/ActorCommand.h>
 #include <FoundationEngine/Resource/ResourceCache.h>
 #include <FoundationEngine/ECS/ReflectionRegistry.h>
 #include <FoundationEngine/ECS/PayloadRegistry.h>
@@ -15,7 +19,7 @@
 
 namespace SeedCore
 {
-	InspectorPanel::InspectorPanel(EditorContext& context, ImGuiTexture& imguiTexture) : context_(context), imguiTexture_(imguiTexture)
+	InspectorPanel::InspectorPanel(EditorContext& context, ImGuiTexture& imguiTexture) : context_(context), addComponentPanel_(context), imguiTexture_(imguiTexture)
 	{
 		newTagBuffer_.resize(64);
 	}
@@ -27,7 +31,7 @@ namespace SeedCore
 
 		if (ImGui::Begin("インスペクター"))
 		{
-			Actor* actor = locked_ ? lockedActor_ : context_.selectedActor_;
+			Actor* actor = locked_ ? lockedActor_ : context_.selectionContext_.selectedActor_;
 
 			if (actor && actor->GetEntity().Exists())
 			{
@@ -77,7 +81,7 @@ namespace SeedCore
 
 		ImGui::SameLine();
 
-		Name* nameComponent = static_cast<Name*>(context_.world_->GetComponent(actor->GetEntity(), ComponentRegistry::GetComponentID<Name>()));
+		Name* nameComponent = static_cast<Name*>(context_.worldContext_.world_->GetComponent(actor->GetEntity(), ComponentRegistry::GetComponentID<Name>()));
 		if (!nameComponent)
 		{
 			return;
@@ -88,7 +92,9 @@ namespace SeedCore
 
 		if (ImGui::InputText("名前", nameBuffer.data(), nameBuffer.capacity(), ImGuiInputTextFlags_EnterReturnsTrue))
 		{
+			String oldValue = nameComponent->name_;
 			nameComponent->name_ = String(std::string_view(nameBuffer.c_str()));
+			context_.sceneContext_.history_.Push(MakePtr<ComponentCommand<String>>(*context_.worldContext_.world_, actor->GetEntity(), ComponentRegistry::GetComponentID<Name>(), 0, oldValue, nameComponent->name_));
 		}
 
 		ImGui::SameLine();
@@ -96,6 +102,7 @@ namespace SeedCore
 		Bool active = actor->IsActive();
 		if (ImGui::Checkbox("有効", &active))
 		{
+			context_.sceneContext_.history_.Push(MakePtr<ActorActiveCommand>(*context_.worldContext_.world_, actor, active));
 			actor->SetActive(active);
 		}
 	}
@@ -174,6 +181,7 @@ namespace SeedCore
 
 		if (hasRemoveTag)
 		{
+			context_.sceneContext_.history_.Push(MakePtr<ActorTagCommand>(*context_.worldContext_.world_, actor->GetPersistentID(), removeTag, false));
 			actor->RemoveTag(removeTag);
 		}
 		if (hasDeleteTag)
@@ -208,7 +216,9 @@ namespace SeedCore
 				std::string text(newTagBuffer_.c_str());
 				if (!text.empty())
 				{
-					actor->AddTag(String(std::string_view(text)));
+					String newTag = String(std::string_view(text));
+					context_.sceneContext_.history_.Push(MakePtr<ActorTagCommand>(*context_.worldContext_.world_, actor->GetPersistentID(), newTag, true));
+					actor->AddTag(newTag);
 				}
 				std::fill(newTagBuffer_.begin(), newTagBuffer_.end(), '\0');
 				ImGui::SetKeyboardFocusHere(-1);
@@ -246,6 +256,7 @@ namespace SeedCore
 					Bool hasTag = actor->HasTag(tag);
 					if (ImGui::Checkbox(tag.c_str(), &hasTag))
 					{
+						context_.sceneContext_.history_.Push(MakePtr<ActorTagCommand>(*context_.worldContext_.world_, actor->GetPersistentID(), tag, hasTag));
 						if (hasTag)
 						{
 							actor->AddTag(tag);
@@ -282,7 +293,7 @@ namespace SeedCore
 			return;
 		}
 
-		Asset* asset = context_.resource_->GetAsset(assetID);
+		Asset* asset = context_.worldContext_.resource_->GetAsset(assetID);
 		if (!asset)
 		{
 			return;
@@ -290,7 +301,7 @@ namespace SeedCore
 
 		ImGui::Text("Prefab: %s", asset->path_.c_str());
 
-		Bool isPlaying = context_.gameTimer_->IsPlaying();
+		Bool isPlaying = context_.worldContext_.gameTimer_->IsPlaying();
 		if (isPlaying)
 		{
 			ImGui::BeginDisabled();
@@ -298,8 +309,8 @@ namespace SeedCore
 
 		if (ImGui::Button("Prefab に適用"))
 		{
-			Handle<Prefab> handle = context_.resource_->GetPrefabPool().Load(assetID, *context_.resource_);
-			Prefab* prefab = context_.resource_->GetPrefabPool().Get(handle);
+			Handle<Prefab> handle = context_.worldContext_.resource_->GetPrefabPool().Load(assetID, *context_.worldContext_.resource_);
+			Prefab* prefab = context_.worldContext_.resource_->GetPrefabPool().Get(handle);
 			if (prefab)
 			{
 				prefab->Capture(actor);
@@ -346,6 +357,7 @@ namespace SeedCore
 		{
 			if (ImGui::MenuItem("コンポーネントを削除"))
 			{
+				context_.sceneContext_.history_.Push(MakePtr<ComponentRemoveCommand>(*context_.worldContext_.world_, actor->GetPersistentID(), componentID, componentName, componentData));
 				actor->RemoveComponent(componentID);
 				ImGui::EndPopup();
 				return true;
@@ -355,7 +367,7 @@ namespace SeedCore
 
 		if (isHeaderOpen)
 		{
-			DrawReflectedFields(componentName, componentData, componentID);
+			DrawReflectedFields(componentName, componentData, componentID, actor->GetEntity());
 		}
 
 		return false;
@@ -364,7 +376,7 @@ namespace SeedCore
 	void InspectorPanel::DrawComponents(Actor* actor)
 	{
 		Entity entity = actor->GetEntity();
-		const DynamicArray<ComponentID>& layout = context_.world_->GetLayout(entity);
+		const DynamicArray<ComponentID>& layout = context_.worldContext_.world_->GetLayout(entity);
 
 		static const String nameString("Name");
 		static const String positionString("Position");
@@ -383,21 +395,21 @@ namespace SeedCore
 		{
 			if (ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen))
 			{
-				Float* positionData = static_cast<Float*>(context_.world_->GetComponent(entity, positionID));
-				Float* rotationData = static_cast<Float*>(context_.world_->GetComponent(entity, rotationID));
-				Float* scaleData = static_cast<Float*>(context_.world_->GetComponent(entity, scaleID));
+				Float* positionData = static_cast<Float*>(context_.worldContext_.world_->GetComponent(entity, positionID));
+				Float* rotationData = static_cast<Float*>(context_.worldContext_.world_->GetComponent(entity, rotationID));
+				Float* scaleData = static_cast<Float*>(context_.worldContext_.world_->GetComponent(entity, scaleID));
 
 				if (positionData)
 				{
-					DrawTransform(positionData, "位置", positionLinked_, previousPosition_);
+					DrawTransform(positionData, "位置", positionLinked_, previousPosition_, entity, positionID);
 				}
 				if (rotationData)
 				{
-					DrawTransform(rotationData, "回転", rotationLinked_, previousRotation_);
+					DrawTransform(rotationData, "回転", rotationLinked_, previousRotation_, entity, rotationID);
 				}
 				if (scaleData)
 				{
-					DrawTransform(scaleData, "拡大縮小", scaleLinked_, previousScale_);
+					DrawTransform(scaleData, "拡大縮小", scaleLinked_, previousScale_, entity, scaleID);
 				}
 			}
 		}
@@ -411,7 +423,7 @@ namespace SeedCore
 				continue;
 			}
 
-			void* componentData = context_.world_->GetComponent(entity, componentID);
+			void* componentData = context_.worldContext_.world_->GetComponent(entity, componentID);
 			if (!componentData)
 			{
 				continue;
@@ -446,7 +458,7 @@ namespace SeedCore
 				continue;
 			}
 
-			void* componentData = context_.world_->GetComponent(entity, componentID);
+			void* componentData = context_.worldContext_.world_->GetComponent(entity, componentID);
 			if (!componentData)
 			{
 				continue;
@@ -464,7 +476,7 @@ namespace SeedCore
 		{
 			String componentName = ComponentRegistry::GetName(componentBaseID);
 			EntityID entityID = static_cast<Uint32>(entity.GetHandle().index_);
-			void* componentData = context_.world_->GetComponent(entityID, componentBaseID);
+			void* componentData = context_.worldContext_.world_->GetComponent(entityID, componentBaseID);
 			if (!componentData)
 			{
 				continue;
@@ -476,6 +488,7 @@ namespace SeedCore
 			{
 				if (ImGui::MenuItem("コンポーネントを削除"))
 				{
+					context_.sceneContext_.history_.Push(MakePtr<ComponentRemoveCommand>(*context_.worldContext_.world_, actor->GetPersistentID(), componentBaseID, componentName, componentData));
 					actor->RemoveComponent(componentBaseID);
 					ImGui::EndPopup();
 					break;
@@ -504,7 +517,7 @@ namespace SeedCore
 				}
 
 				std::stable_sort(fields.begin(), fields.end(), [](const FieldInfo& a, const FieldInfo& b) { return a.offset_ < b.offset_; });
-				DrawFieldList(fields, componentData);
+				DrawFieldList(fields, componentData, entity, componentBaseID, 0);
 
 				static_cast<ComponentBase*>(componentData)->DispatchInspectorGUI();
 
@@ -513,7 +526,7 @@ namespace SeedCore
 		}
 	}
 
-	void InspectorPanel::DrawReflectedFields(String componentName, void* componentData, ComponentID componentID)
+	void InspectorPanel::DrawReflectedFields(String componentName, void* componentData, ComponentID componentID, Entity entity)
 	{
 		if (!componentData)
 		{
@@ -539,12 +552,12 @@ namespace SeedCore
 		}
 
 		std::stable_sort(fields.begin(), fields.end(), [](const FieldInfo& a, const FieldInfo& b) { return a.offset_ < b.offset_; });
-		DrawFieldList(fields, componentData);
+		DrawFieldList(fields, componentData, entity, componentID, 0);
 
 		ImGui::PopID();
 	}
 
-	void InspectorPanel::DrawTransform(Float* data, const Char* label, Bool& linked, Float* previousValues)
+	void InspectorPanel::DrawTransform(Float* data, const Char* label, Bool& linked, Float* previousValues, Entity entity, ComponentID componentID)
 	{
 		std::string checkboxID = std::string("##Link_") + label;
 
@@ -557,6 +570,11 @@ namespace SeedCore
 		ImGui::SameLine();
 		ImGui::SetNextItemWidth(300.0f);
 		ImGui::DragFloat3(label, data, 0.1f);
+
+		if (ImGui::IsItemActivated())
+		{
+			pendingOldVector3_ = Vector3(data[0], data[1], data[2]);
+		}
 
 		if (linked)
 		{
@@ -573,12 +591,21 @@ namespace SeedCore
 			}
 		}
 
+		if (ImGui::IsItemDeactivatedAfterEdit())
+		{
+			Vector3 newValue(data[0], data[1], data[2]);
+			if (newValue != pendingOldVector3_)
+			{
+				context_.sceneContext_.history_.Push(MakePtr<ComponentCommand<Vector3>>(*context_.worldContext_.world_, entity, componentID, 0, pendingOldVector3_, newValue));
+			}
+		}
+
 		previousValues[0] = data[0];
 		previousValues[1] = data[1];
 		previousValues[2] = data[2];
 	}
 
-	void InspectorPanel::DrawFieldList(DynamicArray<FieldInfo>& fields, void* baseData)
+	void InspectorPanel::DrawFieldList(DynamicArray<FieldInfo>& fields, void* baseData, Entity entity, ComponentID componentID, Size baseOffset)
 	{
 		for (Size index = 0; index < fields.size(); ++index)
 		{
@@ -619,8 +646,10 @@ namespace SeedCore
 							reflectionIt->second(nestedData, nestedFields);
 							std::stable_sort(nestedFields.begin(), nestedFields.end(), [](const FieldInfo& a, const FieldInfo& b) { return a.offset_ < b.offset_; });
 
+							Size nestedBaseOffset = baseOffset + field.offset_;
+
 							ImGui::Indent();
-							DrawFieldList(nestedFields, nestedData);
+							DrawFieldList(nestedFields, nestedData, entity, componentID, nestedBaseOffset);
 							ImGui::Unindent();
 
 							ImGui::TreePop();
@@ -693,6 +722,10 @@ namespace SeedCore
 
 						if (removeIndex != SIZE_MAX && field.array_.remove_)
 						{
+							auto& removedElement = fields[index + 1 + removeIndex];
+							void* removedPtr = removedElement.directPtr_ ? removedElement.directPtr_ : (static_cast<Uint8*>(baseData) + removedElement.offset_);
+							Int removedValue = *static_cast<Int*>(removedPtr);
+							context_.sceneContext_.history_.Push(MakePtr<PayloadArrayCommand>(field.array_.add_, field.array_.remove_, field.array_.lastPtr_, removeIndex, removedValue, false));
 							field.array_.remove_(removeIndex);
 						}
 					}
@@ -710,6 +743,7 @@ namespace SeedCore
 						ImGui::SameLine();
 						if (ImGui::SmallButton("+"))
 						{
+							context_.sceneContext_.history_.Push(MakePtr<ArrayAppendCommand>(field.array_.add_, field.array_.remove_, count));
 							field.array_.add_();
 						}
 					}
@@ -733,16 +767,31 @@ namespace SeedCore
 								ImGui::PopID();
 							}
 
+							Size elementOffset = baseOffset + element.offset_;
+
 							if (element.assetType_ != PayloadAssetType::None)
 							{
-								DrawPayloadField(element, ptr);
+								DrawPayloadField(element, ptr, entity, componentID, elementOffset);
 							}
 							else
 							{
-								DrawField(element, ptr);
+								DrawField(element, ptr, entity, componentID, elementOffset);
 							}
 						}
 
+						/// [EN] A plain (non-payload) array's "-" removal has no undo
+						///      support: unlike payload arrays, ArrayInfo exposes no
+						///      lastPtr_ equivalent for these elements, so there is
+						///      no way to recover the removed value on Undo (add_'s
+						///      counterpart ArrayAppendCommand is safe precisely
+						///      because add_/remove_ are exact inverses with nothing
+						///      to lose).
+						/// [JP] プレーン(Payloadでない)配列の「-」削除にはUndo対応が
+						///      無い: Payload配列と異なり、ArrayInfoはこれらの要素
+						///      向けのlastPtr_相当を持たないため、Undo時に削除された
+						///      値を復元する手段が無い(add_側のArrayAppendCommandが
+						///      安全なのは、add_/remove_が失うデータの無い完全な逆
+						///      操作だからである)。
 						if (removeIndex != SIZE_MAX && field.array_.remove_)
 						{
 							field.array_.remove_(removeIndex);
@@ -762,20 +811,22 @@ namespace SeedCore
 			Bool enabled = !field.enableIf_ || field.enableIf_(baseData);
 			ImGui::BeginDisabled(!enabled);
 
+			Size fieldOffset = baseOffset + field.offset_;
+
 			if (field.assetType_ != PayloadAssetType::None)
 			{
-				DrawPayloadField(field, ptr);
+				DrawPayloadField(field, ptr, entity, componentID, fieldOffset);
 			}
 			else
 			{
-				DrawField(field, ptr);
+				DrawField(field, ptr, entity, componentID, fieldOffset);
 			}
 
 			ImGui::EndDisabled();
 		}
 	}
 
-	void InspectorPanel::DrawField(const FieldInfo& field, void* pointer)
+	void InspectorPanel::DrawField(const FieldInfo& field, void* pointer, Entity entity, ComponentID componentID, Size fieldOffset)
 	{
 		const Char* label = field.name_.c_str();
 
@@ -786,20 +837,106 @@ namespace SeedCore
 		switch (field.type_)
 		{
 		case AttributeType::Int:
-			ImGui::DragInt(label, static_cast<Int*>(pointer), 1.0f, hasClamped ? static_cast<Int>(cMin) : 0, hasClamped ? static_cast<Int>(cMax) : 0);
+		{
+			Int* value = static_cast<Int*>(pointer);
+			ImGui::DragInt(label, value, 1.0f, hasClamped ? static_cast<Int>(cMin) : 0, hasClamped ? static_cast<Int>(cMax) : 0);
+			if (ImGui::IsItemActivated())
+			{
+				pendingOldInt_ = *value;
+			}
+			if (ImGui::IsItemDeactivatedAfterEdit())
+			{
+				if (field.directPtr_)
+				{
+					context_.sceneContext_.history_.Push(MakePtr<PointerCommand<Int>>(value, pendingOldInt_, *value));
+				}
+				else
+				{
+					context_.sceneContext_.history_.Push(MakePtr<ComponentCommand<Int>>(*context_.worldContext_.world_, entity, componentID, fieldOffset, pendingOldInt_, *value));
+				}
+			}
 			break;
+		}
 		case AttributeType::Float:
-			ImGui::DragFloat(label, static_cast<Float*>(pointer), 0.1f, cMin, cMax);
+		{
+			Float* value = static_cast<Float*>(pointer);
+			ImGui::DragFloat(label, value, 0.1f, cMin, cMax);
+			if (ImGui::IsItemActivated())
+			{
+				pendingOldFloat_ = *value;
+			}
+			if (ImGui::IsItemDeactivatedAfterEdit())
+			{
+				if (field.directPtr_)
+				{
+					context_.sceneContext_.history_.Push(MakePtr<PointerCommand<Float>>(value, pendingOldFloat_, *value));
+				}
+				else
+				{
+					context_.sceneContext_.history_.Push(MakePtr<ComponentCommand<Float>>(*context_.worldContext_.world_, entity, componentID, fieldOffset, pendingOldFloat_, *value));
+				}
+			}
 			break;
+		}
 		case AttributeType::Bool:
-			ImGui::Checkbox(label, static_cast<Bool*>(pointer));
+		{
+			Bool* value = static_cast<Bool*>(pointer);
+			Bool oldValue = *value;
+			if (ImGui::Checkbox(label, value))
+			{
+				if (field.directPtr_)
+				{
+					context_.sceneContext_.history_.Push(MakePtr<PointerCommand<Bool>>(value, oldValue, *value));
+				}
+				else
+				{
+					context_.sceneContext_.history_.Push(MakePtr<ComponentCommand<Bool>>(*context_.worldContext_.world_, entity, componentID, fieldOffset, oldValue, *value));
+				}
+			}
 			break;
+		}
 		case AttributeType::Vector2:
-			ImGui::DragFloat2(label, static_cast<Float*>(pointer), 0.1f, cMin, cMax);
+		{
+			Vector2* value = static_cast<Vector2*>(pointer);
+			ImGui::DragFloat2(label, &value->x, 0.1f, cMin, cMax);
+			if (ImGui::IsItemActivated())
+			{
+				pendingOldVector2_ = *value;
+			}
+			if (ImGui::IsItemDeactivatedAfterEdit())
+			{
+				if (field.directPtr_)
+				{
+					context_.sceneContext_.history_.Push(MakePtr<PointerCommand<Vector2>>(value, pendingOldVector2_, *value));
+				}
+				else
+				{
+					context_.sceneContext_.history_.Push(MakePtr<ComponentCommand<Vector2>>(*context_.worldContext_.world_, entity, componentID, fieldOffset, pendingOldVector2_, *value));
+				}
+			}
 			break;
+		}
 		case AttributeType::Vector3:
-			ImGui::DragFloat3(label, static_cast<Float*>(pointer), 0.1f, cMin, cMax);
+		{
+			Vector3* value = static_cast<Vector3*>(pointer);
+			ImGui::DragFloat3(label, &value->x, 0.1f, cMin, cMax);
+			if (ImGui::IsItemActivated())
+			{
+				pendingOldVector3_ = *value;
+			}
+			if (ImGui::IsItemDeactivatedAfterEdit())
+			{
+				if (field.directPtr_)
+				{
+					context_.sceneContext_.history_.Push(MakePtr<PointerCommand<Vector3>>(value, pendingOldVector3_, *value));
+				}
+				else
+				{
+					context_.sceneContext_.history_.Push(MakePtr<ComponentCommand<Vector3>>(*context_.worldContext_.world_, entity, componentID, fieldOffset, pendingOldVector3_, *value));
+				}
+			}
 			break;
+		}
 		case AttributeType::String:
 		{
 			String* stringValue = static_cast<String*>(pointer);
@@ -809,11 +946,44 @@ namespace SeedCore
 			{
 				*stringValue = String(std::string_view(textBuffer.c_str()));
 			}
+			if (ImGui::IsItemActivated())
+			{
+				pendingOldString_ = *stringValue;
+			}
+			if (ImGui::IsItemDeactivatedAfterEdit())
+			{
+				if (field.directPtr_)
+				{
+					context_.sceneContext_.history_.Push(MakePtr<PointerCommand<String>>(stringValue, pendingOldString_, *stringValue));
+				}
+				else
+				{
+					context_.sceneContext_.history_.Push(MakePtr<ComponentCommand<String>>(*context_.worldContext_.world_, entity, componentID, fieldOffset, pendingOldString_, *stringValue));
+				}
+			}
 			break;
 		}
 		case AttributeType::Color:
-			ImGui::ColorEdit4(label, static_cast<Float*>(pointer));
+		{
+			Color* value = static_cast<Color*>(pointer);
+			ImGui::ColorEdit4(label, &value->x);
+			if (ImGui::IsItemActivated())
+			{
+				pendingOldColor_ = *value;
+			}
+			if (ImGui::IsItemDeactivatedAfterEdit())
+			{
+				if (field.directPtr_)
+				{
+					context_.sceneContext_.history_.Push(MakePtr<PointerCommand<Color>>(value, pendingOldColor_, *value));
+				}
+				else
+				{
+					context_.sceneContext_.history_.Push(MakePtr<ComponentCommand<Color>>(*context_.worldContext_.world_, entity, componentID, fieldOffset, pendingOldColor_, *value));
+				}
+			}
 			break;
+		}
 		case AttributeType::Enum:
 		{
 			Int* current = static_cast<Int*>(pointer);
@@ -836,7 +1006,19 @@ namespace SeedCore
 						Bool selected = (entry.value_ == *current);
 						if (ImGui::Selectable(entry.name_.c_str(), selected))
 						{
+							Int oldValue = *current;
 							*current = entry.value_;
+							if (oldValue != entry.value_)
+							{
+								if (field.directPtr_)
+								{
+									context_.sceneContext_.history_.Push(MakePtr<PointerCommand<Int>>(current, oldValue, entry.value_));
+								}
+								else
+								{
+									context_.sceneContext_.history_.Push(MakePtr<ComponentCommand<Int>>(*context_.worldContext_.world_, entity, componentID, fieldOffset, oldValue, entry.value_));
+								}
+							}
 						}
 						if (selected)
 						{
@@ -885,7 +1067,7 @@ namespace SeedCore
 		}
 	}
 
-	void InspectorPanel::DrawPayloadField(const FieldInfo& field, void* pointer)
+	void InspectorPanel::DrawPayloadField(const FieldInfo& field, void* pointer, Entity entity, ComponentID componentID, Size fieldOffset)
 	{
 		Int* value = static_cast<Int*>(pointer);
 
@@ -896,12 +1078,12 @@ namespace SeedCore
 		if (field.assetType_ == PayloadAssetType::Actor)
 		{
 			Uint32 targetId = static_cast<Uint32>(*value);
-			Actor* target = (targetId != 0) ? context_.world_->FindActor(targetId) : nullptr;
+			Actor* target = (targetId != 0) ? context_.worldContext_.world_->FindActor(targetId) : nullptr;
 
 			std::string buttonLabel = "ここにドロップ";
 			if (target)
 			{
-				Name* nameComponent = static_cast<Name*>(context_.world_->GetComponent(target->GetEntity(), ComponentRegistry::GetComponentID<Name>()));
+				Name* nameComponent = static_cast<Name*>(context_.worldContext_.world_->GetComponent(target->GetEntity(), ComponentRegistry::GetComponentID<Name>()));
 				buttonLabel = nameComponent ? nameComponent->name_.str() : "(名前なし)";
 			}
 
@@ -913,7 +1095,16 @@ namespace SeedCore
 				if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(dropType))
 				{
 					Actor* droppedActor = *static_cast<Actor* const*>(payload->Data);
+					Int oldValue = *value;
 					*value = static_cast<Int>(droppedActor->GetPersistentID());
+					if (field.directPtr_)
+					{
+						context_.sceneContext_.history_.Push(MakePtr<PointerCommand<Int>>(value, oldValue, *value));
+					}
+					else
+					{
+						context_.sceneContext_.history_.Push(MakePtr<ComponentCommand<Int>>(*context_.worldContext_.world_, entity, componentID, fieldOffset, oldValue, *value));
+					}
 				}
 				ImGui::EndDragDropTarget();
 			}
@@ -922,7 +1113,7 @@ namespace SeedCore
 		}
 
 		Uint32 assetId = static_cast<Uint32>(*value);
-		Asset* asset = (assetId != 0) ? context_.resource_->GetAsset(assetId) : nullptr;
+		Asset* asset = (assetId != 0) ? context_.worldContext_.resource_->GetAsset(assetId) : nullptr;
 
 		std::string buttonLabel = asset ? std::filesystem::path(asset->path_.c_str()).filename().string() : "ここにドロップ";
 
@@ -933,7 +1124,16 @@ namespace SeedCore
 		{
 			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(dropType))
 			{
+				Int oldValue = *value;
 				*value = *static_cast<const Int*>(payload->Data);
+				if (field.directPtr_)
+				{
+					context_.sceneContext_.history_.Push(MakePtr<PointerCommand<Int>>(value, oldValue, *value));
+				}
+				else
+				{
+					context_.sceneContext_.history_.Push(MakePtr<ComponentCommand<Int>>(*context_.worldContext_.world_, entity, componentID, fieldOffset, oldValue, *value));
+				}
 			}
 			ImGui::EndDragDropTarget();
 		}
@@ -943,7 +1143,7 @@ namespace SeedCore
 	{
 		Int* value = static_cast<Int*>(pointer);
 		Uint32 assetId = static_cast<Uint32>(*value);
-		Asset* asset = (assetId != 0) ? context_.resource_->GetAsset(assetId) : nullptr;
+		Asset* asset = (assetId != 0) ? context_.worldContext_.resource_->GetAsset(assetId) : nullptr;
 
 		std::string label = asset ? std::filesystem::path(asset->path_.c_str()).filename().string() : "(空)";
 		ImGui::Selectable(label.c_str());
@@ -967,6 +1167,7 @@ namespace SeedCore
 				Bool alreadyExists = std::find(existingValues.begin(), existingValues.end(), droppedValue) != existingValues.end();
 				if (!alreadyExists)
 				{
+					context_.sceneContext_.history_.Push(MakePtr<PayloadArrayCommand>(field.array_.add_, field.array_.remove_, field.array_.lastPtr_, existingValues.size(), droppedValue, true));
 					field.array_.add_();
 					*static_cast<Int*>(field.array_.lastPtr_()) = droppedValue;
 				}

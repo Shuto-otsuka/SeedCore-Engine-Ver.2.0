@@ -64,10 +64,10 @@ namespace SeedCore
 			ImGui::ProgressBar(cpuRatio, ImVec2(-1.0f, 0.0f), cpuOverlay);
 		}
 
-		if (context_.adapter_)
+		if (context_.graphicsContext_.adapter_)
 		{
 			DXGI_QUERY_VIDEO_MEMORY_INFO localInfo{};
-			context_.adapter_->QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &localInfo);
+			context_.graphicsContext_.adapter_->QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &localInfo);
 
 			Float usedMB = static_cast<Float>(localInfo.CurrentUsage) / (1024.0f * 1024.0f);
 			Float budgetMB = static_cast<Float>(localInfo.Budget) / (1024.0f * 1024.0f);

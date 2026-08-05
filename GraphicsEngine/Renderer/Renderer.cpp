@@ -72,6 +72,8 @@ namespace SeedCore
 		hiZBuffer_.Create(device, bindlessHeap, shaderCache, rootSignature_, pipelineStateObject_, width, height, geometryBuffer_.DepthShaderResourceViewIndex());
 		indicesSystem_->SetHiZIndex(hiZBuffer_.ShaderResourceViewIndex());
 
+		debugDepthResizeBuffer_.Create(device, bindlessHeap, shaderCache, rootSignature_, pipelineStateObject_, width, height);
+
 		/// [EN] Not a frame-ring resource — its SRV index is stable across frames.
 		/// [JP] フレームリングではないため SRV インデックスは毎フレーム固定。
 		selectionMaskRenderTargetViewHeap_.Create(device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 1);
@@ -128,6 +130,8 @@ namespace SeedCore
 		hiZBuffer_.Resize(device, bindlessHeap, shaderCache, rootSignature_, pipelineStateObject_, nativeWidth, nativeHeight, geometryBuffer_.DepthShaderResourceViewIndex());
 		indicesSystem_->SetHiZIndex(hiZBuffer_.ShaderResourceViewIndex());
 
+		debugDepthResizeBuffer_.Resize(device, bindlessHeap, shaderCache, rootSignature_, pipelineStateObject_, outputWidth, outputHeight);
+
 		selectionMaskRenderTargetViewHeap_.Create(device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 1);
 		selectionMaskFrameBuffer_->Resize(device, bindlessHeap, nativeWidth, nativeHeight);
 		indicesSystem_->SetSelectionMaskIndex(selectionMaskFrameBuffer_->ColorShaderResourceViewIndex());
@@ -146,6 +150,11 @@ namespace SeedCore
 	void Renderer::SetDlssManager(DlssManager* dlssManager)
 	{
 		dlssManager_ = dlssManager;
+	}
+
+	Vector2 Renderer::PostProcessOutputSize()const
+	{
+		return postProcessRenderer_->OutputSize();
 	}
 
 	const GpuProfiler& Renderer::GetGpuProfiler()const
@@ -184,6 +193,76 @@ namespace SeedCore
 		gpuProfiler_.Begin(cmdList, GpuProfileView::Editor, GpuProfileScope::PostProcess);
 		postProcessRenderer_->Dispatch(cmdList, bindlessHeap_->Heap(), indicesSystem_->EditorConstantAddress(), indicesSystem_->StructuredAddress(), RaytracingView::Editor, postProcessSource, dlssRayReconstructionEnabled_);
 		gpuProfiler_.End(cmdList, GpuProfileView::Editor, GpuProfileScope::PostProcess);
+
+		/// [EN] Debug overlay: draws directly onto PostProcess's tone-mapped
+		///      display texture, after PostProcess (and every raytracing
+		///      effect that fed into it) has already run - so neither
+		///      exposure/tone mapping/bloom nor any RT effect alters these
+		///      colors, unlike when they used to draw into editorFrameBuffer_
+		///      inside EditorFlush (see the comment there).
+		/// [EN] The collider wireframe is depth-tested against a depth
+		///      buffer matching the display texture's own resolution:
+		///      geometryBuffer_'s native depth directly while PostProcess's
+		///      active output chain is the matching native-resolution one
+		///      (dlssRayReconstructionEnabled_ false), or
+		///      debugDepthResizeBuffer_'s point-resampled copy (see
+		///      DepthResizeCS.hlsl) while DLSS-RR is active and the display
+		///      texture is the upscaled (outputWidth_/outputHeight_) chain
+		///      instead - binding geometryBuffer_'s native depth directly
+		///      against that chain would depth-test at the wrong pixel
+		///      coordinates.
+		/// [EN] The selection outline's pixel shader still indexes
+		///      selectionMaskFrameBuffer_ (native resolution) with SV_Position,
+		///      but now rescales it by SceneConstantBuffer's
+		///      screen_size_/display_size_ first (see SelectionOutlinePS.hlsl
+		///      and where editorSceneConstantBuffer.displaySize_ is set in
+		///      Graphics::EditorRender), so it stays correct at whichever
+		///      resolution this pass is actually drawing at.
+		/// [JP] デバッグオーバーレイ: PostProcess(およびそこへ流れ込む全ての
+		///      レイトレーシングエフェクト)が既に実行された後、PostProcess の
+		///      トーンマップ済み表示テクスチャへ直接描画する - そのため
+		///      露出/トーンマップ/ブルームもRTエフェクトも、これらの色には
+		///      一切影響しない。以前 EditorFlush 内で editorFrameBuffer_ へ
+		///      描画していた時とは異なる(そちらのコメント参照)。
+		/// [JP] コライダーワイヤーフレームは、表示テクスチャ自身の解像度に
+		///      一致する深度バッファに対して深度テストされる: PostProcess の
+		///      アクティブな出力チェーンが対応するネイティブ解像度版である間
+		///      (dlssRayReconstructionEnabled_ が false)は geometryBuffer_ の
+		///      ネイティブ深度をそのまま、DLSS-RR 有効時で表示テクスチャが
+		///      アップスケール版(outputWidth_/outputHeight_)になっている間は
+		///      debugDepthResizeBuffer_ がポイントリサンプルしたコピー
+		///      (DepthResizeCS.hlsl参照)を使う - そのチェーンへ
+		///      geometryBuffer_ のネイティブ深度を直接バインドすると誤った
+		///      ピクセル座標で深度テストしてしまう。
+		/// [JP] 選択アウトラインのピクセルシェーダは、いまも
+		///      selectionMaskFrameBuffer_(ネイティブ解像度)をSV_Positionで
+		///      インデックスするが、まずSceneConstantBufferの
+		///      screen_size_/display_size_で座標をスケールし直すようになった
+		///      (SelectionOutlinePS.hlsl、およびGraphics::EditorRenderで
+		///      editorSceneConstantBuffer.displaySize_を設定している箇所を
+		///      参照) - これによりこのパスが実際にどの解像度で描画していても
+		///      正しく動作する。
+		postProcessRenderer_->BeginDebugOverlay(cmdList, RaytracingView::Editor);
+
+		D3D12_CPU_DESCRIPTOR_HANDLE debugRenderTargetView = postProcessRenderer_->OutputRenderTargetViewHandle(RaytracingView::Editor);
+		D3D12_VIEWPORT debugViewport = postProcessRenderer_->Viewport(RaytracingView::Editor);
+
+		if (dlssRayReconstructionEnabled_)
+		{
+			debugDepthResizeBuffer_.Dispatch(cmdList, bindlessHeap_->Heap(), geometryBuffer_, nativeWidth_, nativeHeight_);
+			colliderRenderer_->Draw(cmdList, debugRenderTargetView, debugDepthResizeBuffer_.DepthStencilViewHandle(), debugViewport, bindlessHeap_->Heap(), indicesSystem_->EditorConstantAddress());
+			geometryBuffer_.BeginDepth(cmdList);
+		}
+		else
+		{
+			geometryBuffer_.BeginDepth(cmdList);
+			colliderRenderer_->Draw(cmdList, debugRenderTargetView, geometryBuffer_.DepthStencilViewHandle(), debugViewport, bindlessHeap_->Heap(), indicesSystem_->EditorConstantAddress());
+			geometryBuffer_.EndDepth(cmdList);
+		}
+
+		outlineRenderer_->Draw(cmdList, debugRenderTargetView, debugViewport, bindlessHeap_->Heap(), indicesSystem_->EditorConstantAddress(), indicesSystem_->StructuredAddress());
+
+		postProcessRenderer_->EndDebugOverlay(cmdList, RaytracingView::Editor);
 
 		RefreshImGuiOutputView(RaytracingView::Editor);
 	}
@@ -466,27 +545,31 @@ namespace SeedCore
 			gpuProfiler_.End(cmdList, profileView, GpuProfileScope::WeatherParticle);
 		}
 
-		/// [EN] Collider/constraint debug wireframe: reuses the same
-		///      color+depth binding pattern as DrawWireframe/DrawMeshlet
-		///      above (editor frame buffer color, geometry-buffer depth,
-		///      read-only). ColliderRenderer::Draw is a no-op if this frame's
-		///      Gather() was passed an empty colliderInstances list.
-		/// [JP] コライダー/コンストレイントのデバッグワイヤーフレーム:
-		///      上の DrawWireframe/DrawMeshlet と同じ色+深度バインド
-		///      パターン（エディタフレームバッファの色、ジオメトリバッファの
-		///      深度、読み取り専用）を再利用する。このフレームの Gather() に
-		///      渡された colliderInstances が空であれば
-		///      ColliderRenderer::Draw は何もしない。
-		geometryBuffer_.BeginDepth(cmdList);
-		colliderRenderer_->Draw(cmdList, editorFrameBuffer_.get(), &geometryBuffer_, heap, constantAddr);
-		geometryBuffer_.EndDepth(cmdList);
-
-		/// [JP] 選択アウトライン: EditorFlush が実際に描画するのは Model と Billboard
-		///      （Image の Billboard と、Font の Billboard = 3D ワールドテキスト）。
-		///      Sprite と Font の Sprite（2D UI テキスト）は Canvas/Game 専用で
-		///      EditorFlush では描かれないので、マスクへ描き込むのもこの 2 種だけ。
-		///      Sprite 系の選択アウトラインは CanvasFlush 側で同じマスクを
-		///      使い回して行う。
+		/// [EN] Collider/constraint debug wireframe and the selection outline
+		///      both used to draw here (into editorFrameBuffer_, before
+		///      EndEditorFrame's tone mapping/PostProcess) - which meant
+		///      exposure/tone mapping/bloom altered their color, exactly like
+		///      the rest of the lit scene. They are now drawn in
+		///      EndEditorFrame, after PostProcess, directly onto the final
+		///      display texture instead (see BeginDebugOverlay/EndDebugOverlay
+		///      there). Only the selection mask itself (what the outline pass
+		///      reads) still needs to be built here, before Model/Billboard
+		///      finish drawing.
+		/// [JP] コライダー/コンストレイントのデバッグワイヤーフレームと選択
+		///      アウトラインは、以前はここ(EndEditorFrameのトーンマップ/
+		///      PostProcessより前、editorFrameBuffer_)へ描画していた —
+		///      つまり露出/トーンマップ/ブルームが、他のライティング済み
+		///      シーンと全く同じようにこれらの色にも影響していた。現在は
+		///      EndEditorFrame内、PostProcessの後に、最終表示テクスチャへ
+		///      直接描画する(そちらのBeginDebugOverlay/EndDebugOverlay参照)。
+		///      ここで構築が必要なのは、アウトラインパスが読み取る選択マスク
+		///      自体のみ(Model/Billboardの描画が終わる前に)。
+		/// [JP] 選択アウトライン用マスク: EditorFlush が実際に描画するのは Model と
+		///      Billboard（Image の Billboard と、Font の Billboard = 3D ワールド
+		///      テキスト）。Sprite と Font の Sprite（2D UI テキスト）は
+		///      Canvas/Game 専用で EditorFlush では描かれないので、マスクへ
+		///      書き込むのもこの 2 種だけ。Sprite 系の選択アウトラインは
+		///      CanvasFlush 側で同じマスクを使い回して行う。
 		selectionMaskFrameBuffer_->Begin(cmdList);
 		selectionMaskFrameBuffer_->Clear(cmdList, 0.0f, 0.0f, 0.0f, 0.0f);
 		modelRenderer_->DrawSelectionMask(cmdList, heap, constantAddr, structuredAddr);
@@ -494,8 +577,6 @@ namespace SeedCore
 		fontRenderer_->DrawSelectionMaskBillboard(cmdList->Get(), heap, constantAddr, structuredAddr);
 		movieRenderer_->DrawSelectionMaskBillboard(cmdList->Get(), heap, constantAddr, structuredAddr);
 		selectionMaskFrameBuffer_->End(cmdList);
-
-		outlineRenderer_->Draw(cmdList, editorFrameBuffer_.get(), heap, constantAddr, structuredAddr);
 
 		imageRenderer_->Upload();
 		imageRenderer_->DrawBillboard(cmdList->Get(), heap, constantAddr, structuredAddr);
@@ -666,7 +747,7 @@ namespace SeedCore
 		movieRenderer_->DrawSelectionMaskSprite(cmdList->Get(), heap, constantAddr, structuredAddr);
 		selectionMaskFrameBuffer_->End(cmdList);
 
-		outlineRenderer_->Draw(cmdList, canvasFrameBuffer_.get(), heap, constantAddr, structuredAddr);
+		outlineRenderer_->Draw(cmdList, canvasFrameBuffer_->RenderTargetViewHandle(), canvasFrameBuffer_->GetViewport(), heap, constantAddr, structuredAddr);
 	}
 
 	void Renderer::PreviewFlush(D3D12CommandList* cmdList, const SceneConstantBuffer& scene)

@@ -50,6 +50,9 @@ namespace SeedCore
 		///      Editor/Game で計4枠。
 		clearHeap_.Create(device, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 4, false);
 
+		/// [JP] ビューごとに SD 出力 + UHD 出力 の RTV = 2枠、Editor/Game で計4枠。
+		renderTargetViewHeap_.Create(device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 4, false);
+
 		CreateView(device, bindlessHeap, editorView_, width, height, outputWidth, outputHeight);
 		CreateView(device, bindlessHeap, gameView_, width, height, outputWidth, outputHeight);
 	}
@@ -92,7 +95,7 @@ namespace SeedCore
 		outputDesc.MipLevels = 1;
 		outputDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 		outputDesc.SampleDesc.Count = 1;
-		outputDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+		outputDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS | D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
 
 		hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &outputDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&view.outputResource_));
 		SC_HR_CHECK(hr, "ポストプロセス表示テクスチャの生成に失敗しました");
@@ -105,6 +108,20 @@ namespace SeedCore
 		view.outputUnorderedAccessViewIndex_ = bindlessHeap->AllocateIndex();
 		device->CreateUnorderedAccessView(view.outputResource_.Get(), nullptr, &outputUnorderedAccessViewDesc, bindlessHeap->CPUHandle(view.outputUnorderedAccessViewIndex_));
 
+		/// [EN] RTV so a post-tonemap debug overlay (collider wireframes,
+		///      selection outline) can draw directly onto this display
+		///      texture - see BeginDebugOverlay/EndDebugOverlay.
+		/// [JP] トーンマップ後のデバッグオーバーレイ(コライダー
+		///      ワイヤーフレーム、選択アウトライン)がこの表示テクスチャへ
+		///      直接描画できるようにするRTV - BeginDebugOverlay/
+		///      EndDebugOverlay参照。
+		D3D12_RENDER_TARGET_VIEW_DESC outputRenderTargetViewDesc{};
+		outputRenderTargetViewDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		outputRenderTargetViewDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
+
+		view.outputRenderTargetViewIndex_ = renderTargetViewHeap_.AllocateIndex();
+		device->CreateRenderTargetView(view.outputResource_.Get(), &outputRenderTargetViewDesc, renderTargetViewHeap_.CPUHandle(view.outputRenderTargetViewIndex_));
+
 		// ---- 表示テクスチャ(UHD版、DLSS-RR有効時用) ----
 		D3D12_RESOURCE_DESC outputDescUpscaled{};
 		outputDescUpscaled.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
@@ -114,7 +131,7 @@ namespace SeedCore
 		outputDescUpscaled.MipLevels = 1;
 		outputDescUpscaled.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 		outputDescUpscaled.SampleDesc.Count = 1;
-		outputDescUpscaled.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+		outputDescUpscaled.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS | D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
 
 		hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &outputDescUpscaled, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&view.outputResourceUpscaled_));
 		SC_HR_CHECK(hr, "ポストプロセス表示テクスチャ(UHD)の生成に失敗しました");
@@ -122,6 +139,9 @@ namespace SeedCore
 
 		view.outputUnorderedAccessViewIndexUpscaled_ = bindlessHeap->AllocateIndex();
 		device->CreateUnorderedAccessView(view.outputResourceUpscaled_.Get(), nullptr, &outputUnorderedAccessViewDesc, bindlessHeap->CPUHandle(view.outputUnorderedAccessViewIndexUpscaled_));
+
+		view.outputRenderTargetViewIndexUpscaled_ = renderTargetViewHeap_.AllocateIndex();
+		device->CreateRenderTargetView(view.outputResourceUpscaled_.Get(), &outputRenderTargetViewDesc, renderTargetViewHeap_.CPUHandle(view.outputRenderTargetViewIndexUpscaled_));
 
 		// ---- ヒストグラムバッファ (256 x uint) ----
 		{
@@ -563,6 +583,82 @@ namespace SeedCore
 	{
 		const View& target = view == RaytracingView::Editor ? editorView_ : gameView_;
 		return target.activeIsUpscaled_ ? target.outputResourceUpscaled_.Get() : target.outputResource_.Get();
+	}
+
+	Vector2 PostProcessRenderer::OutputSize()const
+	{
+		return Vector2(static_cast<Float>(outputWidth_), static_cast<Float>(outputHeight_));
+	}
+
+	D3D12_CPU_DESCRIPTOR_HANDLE PostProcessRenderer::OutputRenderTargetViewHandle(RaytracingView view)const
+	{
+		const View& target = view == RaytracingView::Editor ? editorView_ : gameView_;
+		Uint32 index = target.activeIsUpscaled_ ? target.outputRenderTargetViewIndexUpscaled_ : target.outputRenderTargetViewIndex_;
+		return renderTargetViewHeap_.CPUHandle(index);
+	}
+
+	D3D12_VIEWPORT PostProcessRenderer::Viewport(RaytracingView view)const
+	{
+		const View& target = view == RaytracingView::Editor ? editorView_ : gameView_;
+
+		D3D12_VIEWPORT viewport{};
+		viewport.TopLeftX = 0.0f;
+		viewport.TopLeftY = 0.0f;
+		viewport.Width = static_cast<Float>(target.activeIsUpscaled_ ? outputWidth_ : width_);
+		viewport.Height = static_cast<Float>(target.activeIsUpscaled_ ? outputHeight_ : height_);
+		viewport.MinDepth = 0.0f;
+		viewport.MaxDepth = 1.0f;
+		return viewport;
+	}
+
+	/**
+	* [EN]
+	* Transitions view's active output chain from Dispatch()'s exit state
+	* (PIXEL_SHADER_RESOURCE) to RENDER_TARGET, so a post-tonemap debug
+	* overlay can draw directly onto the final display texture without
+	* being affected by tone mapping/exposure. Call after Dispatch(), pair
+	* with EndDebugOverlay().
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* viewのアクティブな出力チェーンを、Dispatch()が抜ける時点の状態
+	* (PIXEL_SHADER_RESOURCE)からRENDER_TARGETへ遷移する。これにより、
+	* トーンマップ後のデバッグオーバーレイがトーンマップ/露出の影響を
+	* 受けずに最終表示テクスチャへ直接描画できる。Dispatch()の後に呼び、
+	* EndDebugOverlay()と対にすること。
+	*/
+	void PostProcessRenderer::BeginDebugOverlay(D3D12CommandList* cmdList, RaytracingView view)
+	{
+		View& target = ViewFor(view);
+
+		Microsoft::WRL::ComPtr<ID3D12Resource>& outputResource = target.activeIsUpscaled_ ? target.outputResourceUpscaled_ : target.outputResource_;
+		D3D12_RESOURCE_STATES& outputState = target.activeIsUpscaled_ ? target.outputStateUpscaled_ : target.outputState_;
+
+		cmdList->Barrier(outputResource.Get(), outputState, D3D12_RESOURCE_STATE_RENDER_TARGET);
+		outputState = D3D12_RESOURCE_STATE_RENDER_TARGET;
+	}
+
+	/**
+	* [EN]
+	* Transitions view's active output chain from RENDER_TARGET back to
+	* PIXEL_SHADER_RESOURCE, so RefreshImGuiOutputView can read it.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* viewのアクティブな出力チェーンをRENDER_TARGETからPIXEL_SHADER_RESOURCE
+	* へ戻す。RefreshImGuiOutputViewが読み取れるようにするため。
+	*/
+	void PostProcessRenderer::EndDebugOverlay(D3D12CommandList* cmdList, RaytracingView view)
+	{
+		View& target = ViewFor(view);
+
+		Microsoft::WRL::ComPtr<ID3D12Resource>& outputResource = target.activeIsUpscaled_ ? target.outputResourceUpscaled_ : target.outputResource_;
+		D3D12_RESOURCE_STATES& outputState = target.activeIsUpscaled_ ? target.outputStateUpscaled_ : target.outputState_;
+
+		cmdList->Barrier(outputResource.Get(), outputState, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+		outputState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
 	}
 
 	void PostProcessRenderer::UnorderedAccessBarrier(D3D12CommandList* cmdList, ID3D12Resource* resource)

@@ -2,7 +2,6 @@
 #include <GraphicsEngine/Profiler/ProfilerStats.h>
 #include <GraphicsEngine/D3D12/Descriptor/BindlessHeap.h>
 #include <GraphicsEngine/D3D12/Context/D3D12CommandList.h>
-#include <GraphicsEngine/D3D12/Buffer/FrameBuffer.h>
 
 namespace SeedCore
 {
@@ -17,15 +16,18 @@ namespace SeedCore
 		outlineShader_.Create(shaderCache, device);
 	}
 
-	void OutlineRenderer::Draw(D3D12CommandList* cmdList, FrameBuffer* frameBuffer, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex)
+	void OutlineRenderer::Draw(D3D12CommandList* cmdList, D3D12_CPU_DESCRIPTOR_HANDLE renderTargetView, D3D12_VIEWPORT viewport, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex)
 	{
-		/// [JP] マスクが全て0でもエッジ検出PS側が全ピクセルdiscardするだけで安全
-		///      なので、選択の有無に関わらず常に実行し frameBuffer を確実に
-		///      Rebind する（呼び出し元がこの直後に別の描画をこの frameBuffer へ
-		///      続けるため）。
-		frameBuffer->Rebind(cmdList);
-
 		auto* cmd = cmdList->Get();
+
+		/// [JP] マスクが全て0でもエッジ検出PS側が全ピクセルdiscardするだけで
+		///      安全なので、選択の有無に関わらず常に実行し、呼び出し側が
+		///      渡したターゲットへ確実にバインドし直す（呼び出し元がこの
+		///      直後に別の描画をこのターゲットへ続けるため）。
+		cmd->OMSetRenderTargets(1, &renderTargetView, FALSE, nullptr);
+		cmd->RSSetViewports(1, &viewport);
+		D3D12_RECT scissorRect = { 0, 0, static_cast<LONG>(viewport.Width), static_cast<LONG>(viewport.Height) };
+		cmd->RSSetScissorRects(1, &scissorRect);
 
 		ID3D12DescriptorHeap* heaps[] = { heap };
 		cmd->SetDescriptorHeaps(_countof(heaps), heaps);

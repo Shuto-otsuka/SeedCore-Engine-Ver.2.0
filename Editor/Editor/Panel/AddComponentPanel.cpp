@@ -1,10 +1,17 @@
 #include <Editor/Editor/Panel/AddComponentPanel.h>
+#include <Editor/Editor/EditorContext.h>
 #include <Editor/Editor/ImGui/ImGuiTexture.h>
 #include <FoundationEngine/ECS/Actor.h>
 #include <FoundationEngine/ECS/ComponentRegistry.h>
+#include <FoundationEngine/ECS/ComponentLifecycleCommand.h>
 
 namespace SeedCore
 {
+	AddComponentPanel::AddComponentPanel(EditorContext& context) : context_(context)
+	{
+		/// No Code
+	}
+
 	void AddComponentPanel::Draw(Actor* actor, ImGuiTexture& imguiTexture)
 	{
 		Float availableWidth = ImGui::GetContentRegionAvail().x;
@@ -163,6 +170,7 @@ namespace SeedCore
 			state_.selectedName = componentName;
 			if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
 			{
+				context_.sceneContext_.history_.Push(MakePtr<ComponentAddCommand>(*context_.worldContext_.world_, actor->GetPersistentID(), componentID));
 				actor->AddComponent(componentID);
 				ImGui::CloseCurrentPopup();
 			}

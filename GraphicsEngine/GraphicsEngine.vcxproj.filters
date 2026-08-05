@@ -682,6 +682,9 @@
     <ClInclude Include="Raytracing\Reflection\ReflectionDenoiseShader.h">
       <Filter>Raytracing\Reflection</Filter>
     </ClInclude>
+    <ClInclude Include="D3D12\Buffer\DepthResizeBuffer.h">
+      <Filter>D3D12\Buffer</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="D3D12\Context\D3D12Adapter.cpp">
@@ -1133,6 +1136,9 @@
     <ClCompile Include="Raytracing\Reflection\ReflectionDenoiseShader.cpp">
       <Filter>Raytracing\Reflection</Filter>
     </ClCompile>
+    <ClCompile Include="D3D12\Buffer\DepthResizeBuffer.cpp">
+      <Filter>D3D12\Buffer</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="Shader\Sampler.hlsli">
@@ -1511,6 +1517,9 @@
     </Text>
     <Text Include="Raytracing\Reflection\ReflectionDenoiseCS.hlsl">
       <Filter>Raytracing\Reflection</Filter>
+    </Text>
+    <Text Include="Model\DepthResizeCS.hlsl">
+      <Filter>Model</Filter>
     </Text>
   </ItemGroup>
 </Project>

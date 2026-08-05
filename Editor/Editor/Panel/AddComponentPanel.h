@@ -4,12 +4,15 @@
 
 namespace SeedCore
 {
+	struct EditorContext;
 	class Actor;
 	class ImGuiTexture;
 
 	class AddComponentPanel
 	{
 	public:
+		AddComponentPanel(EditorContext& context);
+
 		void Draw(Actor* actor, ImGuiTexture& imguiTexture);
 
 	private:
@@ -34,6 +37,8 @@ namespace SeedCore
 
 		Bool CheckBuiltinComponent(const String& componentName)const;
 		Bool CheckFilterMatch(const String& componentName, const std::string& filterText)const;
+
+		EditorContext& context_;
 
 		State state_;
 	};
