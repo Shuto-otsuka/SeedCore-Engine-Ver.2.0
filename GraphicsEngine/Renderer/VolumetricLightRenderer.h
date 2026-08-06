@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <FoundationEngine/Prelude.h>
 #include <GraphicsEngine/D3D12/Buffer/ConstantBuffer.h>
 #include <GraphicsEngine/D3D12/Descriptor/DescriptorHeap.h>
@@ -13,12 +13,12 @@ namespace SeedCore
 
 	/// [EN] Mirrors Raytracing/VolumetricLight/VolumetricLight.hlsli's
 	///      VolumetricLightRayConstantBuffer — read by the three froxel passes
-	///      and DeferredCompositePS.hlsl via
+	///      and DeferredLightingPS.hlsl via
 	///      structured_indices.vl_ray_constant_index_. Must stay byte-for-byte
 	///      in sync with the HLSL side.
 	/// [JP] Raytracing/VolumetricLight/VolumetricLight.hlsli の
 	///      VolumetricLightRayConstantBuffer と対応。froxel 3パスと
-	///      DeferredCompositePS.hlsl が structured_indices.vl_ray_constant_index_
+	///      DeferredLightingPS.hlsl が structured_indices.vl_ray_constant_index_
 	///      経由で読む。HLSL 側とバイト単位で一致させること。
 	struct VolumetricLightRayConstantBuffer
 	{
@@ -91,7 +91,7 @@ namespace SeedCore
 	* Runs the froxel volumetric pipeline: FogInjectionCS (medium) ->
 	* VolumetricLightScatteringRT (sun occlusion via inline RayQuery + cloud
 	* lightmarch = god rays) -> FroxelIntegrationCS (front-to-back scan into
-	* the integration volume, sampled by DeferredCompositePS.hlsl with a
+	* the integration volume, sampled by DeferredLightingPS.hlsl with a
 	* linear sampler at each pixel's depth slice). Deterministic — no
 	* denoiser, no per-view chain (one 160x90x64 grid re-written per flush).
 	* When disabled the integration volume is cleared to (0,0,0,1) =
@@ -103,7 +103,7 @@ namespace SeedCore
 	* Froxel ボリューメトリクスパイプラインを実行する: FogInjectionCS(媒質)→
 	* VolumetricLightScatteringRT(インライン RayQuery の太陽遮蔽+雲ライト
 	* マーチ=ゴッドレイ)→ FroxelIntegrationCS(front-to-back 積分。
-	* DeferredCompositePS.hlsl が各ピクセルの深度スライスでリニアサンプル)。
+	* DeferredLightingPS.hlsl が各ピクセルの深度スライスでリニアサンプル)。
 	* 決定論的 — デノイザもビュー別チェーンも無し(160x90x64 のグリッド1式を
 	* Flush ごとに書き直す)。無効時は積分ボリュームを (0,0,0,1)=散乱なし・
 	* 全透過にクリアするので合成は実質no-op。

@@ -26,10 +26,10 @@ namespace SeedCore
 			resourceDesc.Format = formats_[bufferIndex];
 			resourceDesc.SampleDesc.Count = 1;
 			resourceDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
-			if (bufferIndex == 3)
+			if (bufferIndex != 4)
 			{
-				/// [JP] RT3(velocity)のみ UAV も付ける — 理由は GeometryBuffer.h の
-				///      VelocityUnorderedAccessViewIndex() 参照。
+				/// [JP] RT4(VisibilityBuffer id)以外は UAV も付ける — 理由は
+				///      GeometryBuffer.h の ColorUnorderedAccessViewIndex() 参照。
 				resourceDesc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 			}
 
@@ -58,13 +58,13 @@ namespace SeedCore
 			shaderResourceViewDesc.Texture2D.MipLevels = 1;
 			device->CreateShaderResourceView(colorResources_[bufferIndex].Get(), &shaderResourceViewDesc, bindlessHeap->CPUHandle(colorShaderResourceViewIndices_[bufferIndex]));
 
-			if (bufferIndex == 3)
+			if (bufferIndex != 4)
 			{
-				velocityUnorderedAccessViewIndex_ = bindlessHeap->AllocateIndex();
+				colorUnorderedAccessViewIndices_[bufferIndex] = bindlessHeap->AllocateIndex();
 				D3D12_UNORDERED_ACCESS_VIEW_DESC unorderedAccessViewDesc{};
 				unorderedAccessViewDesc.Format = formats_[bufferIndex];
 				unorderedAccessViewDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
-				device->CreateUnorderedAccessView(colorResources_[bufferIndex].Get(), nullptr, &unorderedAccessViewDesc, bindlessHeap->CPUHandle(velocityUnorderedAccessViewIndex_));
+				device->CreateUnorderedAccessView(colorResources_[bufferIndex].Get(), nullptr, &unorderedAccessViewDesc, bindlessHeap->CPUHandle(colorUnorderedAccessViewIndices_[bufferIndex]));
 			}
 		}
 
@@ -112,10 +112,13 @@ namespace SeedCore
 		for (Int bufferIndex = 0; bufferIndex < bufferCount_; ++bufferIndex)
 		{
 			bindlessHeap->FreeIndex(colorShaderResourceViewIndices_[bufferIndex]);
+			if (bufferIndex != 4)
+			{
+				bindlessHeap->FreeIndex(colorUnorderedAccessViewIndices_[bufferIndex]);
+			}
 			colorResources_[bufferIndex].Reset();
 		}
 
-		bindlessHeap->FreeIndex(velocityUnorderedAccessViewIndex_);
 		bindlessHeap->FreeIndex(depthShaderResourceViewIndex_);
 		depthResource_.Reset();
 	}
@@ -175,25 +178,17 @@ namespace SeedCore
 		cmdList->Get()->RSSetScissorRects(1, &scissorRect);
 	}
 
-	void GeometryBuffer::BeginColor(D3D12CommandList* cmdList)
+	void GeometryBuffer::BeginVisibility(D3D12CommandList* cmdList)
 	{
-		for (Int bufferIndex = 0; bufferIndex < bufferCount_; ++bufferIndex)
+		if (colorStates_[4] != D3D12_RESOURCE_STATE_RENDER_TARGET)
 		{
-			if (colorStates_[bufferIndex] != D3D12_RESOURCE_STATE_RENDER_TARGET)
-			{
-				cmdList->Barrier(colorResources_[bufferIndex].Get(), colorStates_[bufferIndex], D3D12_RESOURCE_STATE_RENDER_TARGET);
-				colorStates_[bufferIndex] = D3D12_RESOURCE_STATE_RENDER_TARGET;
-			}
+			cmdList->Barrier(colorResources_[4].Get(), colorStates_[4], D3D12_RESOURCE_STATE_RENDER_TARGET);
+			colorStates_[4] = D3D12_RESOURCE_STATE_RENDER_TARGET;
 		}
 
-		D3D12_CPU_DESCRIPTOR_HANDLE renderTargetViewHandles[bufferCount_];
-		for (Int bufferIndex = 0; bufferIndex < bufferCount_; ++bufferIndex)
-		{
-			renderTargetViewHandles[bufferIndex] = renderTargetViewHeap_.CPUHandle(static_cast<Uint>(bufferIndex));
-		}
-
+		D3D12_CPU_DESCRIPTOR_HANDLE renderTargetViewHandle = renderTargetViewHeap_.CPUHandle(4);
 		D3D12_CPU_DESCRIPTOR_HANDLE depthStencilViewHandle = depthStencilViewHeap_.CPUHandle(0);
-		cmdList->Get()->OMSetRenderTargets(bufferCount_, renderTargetViewHandles, FALSE, &depthStencilViewHandle);
+		cmdList->Get()->OMSetRenderTargets(1, &renderTargetViewHandle, FALSE, &depthStencilViewHandle);
 
 		cmdList->Get()->RSSetViewports(1, &viewport_);
 
@@ -229,14 +224,10 @@ namespace SeedCore
 		cmdList->Get()->ClearDepthStencilView(depthStencilViewHandle, D3D12_CLEAR_FLAG_DEPTH, 0.0f, 0, 0, nullptr);
 	}
 
-	void GeometryBuffer::ClearColor(D3D12CommandList* cmdList)
+	void GeometryBuffer::ClearVisibility(D3D12CommandList* cmdList)
 	{
 		const Float clearColor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
-
-		for (Int bufferIndex = 0; bufferIndex < bufferCount_; ++bufferIndex)
-		{
-			cmdList->Get()->ClearRenderTargetView(renderTargetViewHeap_.CPUHandle(static_cast<Uint>(bufferIndex)), clearColor, 0, nullptr);
-		}
+		cmdList->Get()->ClearRenderTargetView(renderTargetViewHeap_.CPUHandle(4), clearColor, 0, nullptr);
 	}
 
 	void GeometryBuffer::EndColor(D3D12CommandList* cmdList)
@@ -295,9 +286,14 @@ namespace SeedCore
 		return depthResource_.Get();
 	}
 
+	Uint32 GeometryBuffer::ColorUnorderedAccessViewIndex(Int index)const
+	{
+		return colorUnorderedAccessViewIndices_[index];
+	}
+
 	Uint32 GeometryBuffer::VelocityUnorderedAccessViewIndex()const
 	{
-		return velocityUnorderedAccessViewIndex_;
+		return colorUnorderedAccessViewIndices_[2];
 	}
 
 	D3D12_CPU_DESCRIPTOR_HANDLE GeometryBuffer::DepthStencilViewHandle()const

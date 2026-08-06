@@ -1,6 +1,7 @@
-#include "../Shader/Constants.hlsli"
+﻿#include "../Shader/Constants.hlsli"
 #include "../Shader/Structured.hlsli"
 #include "../Shader/Normal.hlsli"
+#include "../Model/Model.hlsli"
 
 /**
 * [EN]
@@ -8,7 +9,7 @@
 * Reconstruction expects (`DlssBufferTag::normalRoughnessBuffer_`) from the
 * G-Buffer's packed RT1 (`gbuffer1.rg` = octahedral-encoded world-space
 * normal, `gbuffer1.b` = roughness — same decode as
-* Model/DeferredCompositePS.hlsl). DLSS-RR wants a plain float normal+
+* Model/DeferredLightingPS.hlsl). DLSS-RR wants a plain float normal+
 * roughness channel, not the engine's octahedral packing, so this is a tiny
 * full-screen decode pass run once per view right before DLSS-RR's Tag()/
 * Evaluate() for that view.
@@ -17,7 +18,7 @@
 * NVIDIA DLSS Ray Reconstruction が要求する RGB=法線 / A=ラフネスのテクスチャ
 * (`DlssBufferTag::normalRoughnessBuffer_`)を、G-Buffer のパック済み RT1
 * (`gbuffer1.rg`=八面体エンコードされたワールド空間法線、`gbuffer1.b`=
-* ラフネス — Model/DeferredCompositePS.hlsl と同じデコード)から合成する。
+* ラフネス — Model/DeferredLightingPS.hlsl と同じデコード)から合成する。
 * DLSS-RR はエンジン独自の八面体パッキングではなく素の float 法線+ラフネス
 * チャンネルを要求するため、各ビューの DLSS-RR Tag()/Evaluate() の直前に
 * 1回だけ走る小さな全画面デコードパス。
@@ -59,7 +60,7 @@ void main(uint3 dtid : SV_DispatchThreadID)
 
 	Texture2D<float4> gbuffer0 = ResourceDescriptorHeap[structured_indices.gbuffer_.index_0_];
 	Texture2D<float4> gbuffer1 = ResourceDescriptorHeap[structured_indices.gbuffer_.index_1_];
-	Texture2D<float4> gbuffer2 = ResourceDescriptorHeap[structured_indices.gbuffer_.index_2_];
+	Texture2D<uint2> gbuffer4 = ResourceDescriptorHeap[structured_indices.gbuffer_.index_4_];
 	Texture2D<float> depth_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.depth_index_];
 	RWTexture2D<float4> normal_roughness = ResourceDescriptorHeap[constant_indices.dlss_.normal_roughness_uav_index_];
 	RWTexture2D<float4> specular_albedo = ResourceDescriptorHeap[constant_indices.dlss_.specular_albedo_uav_index_];
@@ -80,7 +81,18 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	float n_o_v = dot(normal, view_direction);
 
 	float4 base_color_metallic = gbuffer0.Load(int3(pixel, 0));
-	float3 dielectric_f0 = gbuffer2.Load(int3(pixel, 0)).gba;
+
+	/// [JP] KHR_materials_ior/specular はGBufferに焼き込まれていないので、
+	///      VisID(RT4)からinstance_indexを引いてModelInstanceからその場で
+	///      誘電体F0を計算する(Model/DeferredLightingPS.hlsl と同じ式)。
+	uint2 visibility_id = gbuffer4.Load(int3(pixel, 0));
+	uint material_instance_index, material_meshlet_index, material_triangle_index;
+	UnpackVisibilityID(visibility_id, material_instance_index, material_meshlet_index, material_triangle_index);
+	StructuredBuffer<ModelInstance> material_instances = ResourceDescriptorHeap[structured_indices.model_.instance_index_];
+	ModelInstance material_instance = material_instances[material_instance_index];
+	float dielectric = (material_instance.ior_ - 1.0) / (material_instance.ior_ + 1.0);
+	dielectric *= dielectric;
+	float3 dielectric_f0 = saturate(dielectric * material_instance.specular_color_ * material_instance.specular_factor_);
 	float3 specular_color = lerp(dielectric_f0, base_color_metallic.rgb, base_color_metallic.a);
 	specular_albedo[pixel] = float4(EnvBRDFApprox2(specular_color, roughness * roughness, n_o_v), 1.0);
 

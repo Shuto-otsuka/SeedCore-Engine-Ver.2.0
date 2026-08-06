@@ -10,18 +10,18 @@ namespace SeedCore
 	* [EN]
 	* A loaded skymap asset: just the decoded equirectangular HDR source
 	* texture. It is only a *source* of sky radiance now - the environment /
-	* irradiance / prefiltered / dynamic cubes and the whole IBL machinery live
-	* in the SkyRenderer, so the same machinery can also be fed by other sky
-	* sources (e.g. future Realtime volumetric clouds, which need no skymap).
+	* irradiance / prefiltered cubes and the whole IBL machinery live in the
+	* SkyRenderer, so the same machinery can also be fed by other sky sources
+	* (e.g. the procedural sky, which needs no skymap).
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
 	* 読み込まれたスカイマップアセット: デコード済みパノラマ HDR ソース
 	* テクスチャのみ。今は空の放射輝度の *ソース* にすぎない。environment /
-	* irradiance / prefilter / dynamic キューブと IBL 機構一式は SkyRenderer 側に
-	* あるので、同じ機構を別の空ソース（例: 将来の Realtime ボリューメトリック
-	* クラウド。スカイマップ不要）でも駆動できる。
+	* irradiance / prefilter キューブと IBL 機構一式は SkyRenderer 側に
+	* あるので、同じ機構を別の空ソース（例: プロシージャル空。スカイマップ
+	* 不要）でも駆動できる。
 	*/
 	class Skymap :public NonCopyable
 	{

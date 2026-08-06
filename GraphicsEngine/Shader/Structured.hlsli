@@ -35,16 +35,35 @@ struct OitIndices                         // 1 row
 	uint oit_padding_;
 };
 
-struct GBufferIndices                     // 2 rows
+struct GBufferIndices                     // 3 rows
 {
-	uint index_0_;
-	uint index_1_;
-	uint index_2_;
-	uint index_3_;
-	uint index_4_;
+	uint index_0_;                    // RT0: base_color.rgb + metallic
+	uint index_1_;                    // RT1: octNormal.rg + roughness (.a unused)
+	uint index_2_;                    // RT2: velocity
+	uint index_3_;                    // RT3: emissive.rgb (raw, emissive_strength_ applied at lighting time)
+	uint index_4_;                    // RT4: VisibilityBuffer id (instance/meshlet/triangle), R32G32_UINT
 	uint depth_index_;
-	uint velocity_uav_index_;
-	uint gbuffer_padding_;
+	uint velocity_uav_index_;         // RT2 UAV
+	uint index_0_uav_;
+	uint index_1_uav_;
+	uint index_3_uav_;
+	uint gbuffer_padding_0_;
+	uint gbuffer_padding_1_;
+};
+
+struct MaterialSortIndices                // 1 row
+{
+	// RWStructuredBuffer<uint>[MATERIAL_SORT_BUCKET_COUNT] - per-bucket pixel
+	// count, then in-place turned into exclusive-scan offsets, then further
+	// turned into atomic write cursors by MaterialScatterCS.hlsl (see Model.hlsli).
+	uint bucket_index_;
+	// RWStructuredBuffer<uint>[screen_width * screen_height] - MaterialScatterCS.hlsl
+	// writes each pixel's linear coordinate (y * width + x) into its bucket's
+	// slot range; Model/MaterialResolveCS.hlsl is dispatched 1D over this list
+	// instead of raw screen order. Cleared to MATERIAL_SORT_INVALID_PIXEL each frame.
+	uint sorted_pixel_list_index_;
+	uint material_sort_padding_0_;
+	uint material_sort_padding_1_;
 };
 
 struct SkyIndices                         // 2 rows
@@ -97,6 +116,14 @@ struct ReflectionIndices                  // 1 row
 	uint output_srv_index_;
 	uint ray_constant_index_;
 	uint reflection_padding_;
+};
+
+struct RefractionIndices                  // 1 row
+{
+	uint output_uav_index_;
+	uint output_srv_index_;
+	uint ray_constant_index_;
+	uint refraction_padding_;
 };
 
 struct GlobalIlluminationIndices          // 1 row
@@ -155,19 +182,21 @@ struct MovieIndices                       // 1 row
 	uint movie_padding_;
 };
 
-// 21 rows total (336 bytes).
+// 24 rows total (384 bytes).
 struct StructuredIndices
 {
 	SpriteIndices sprite_;
 	ModelIndices model_;
 	OitIndices oit_;
 	GBufferIndices gbuffer_;
+	MaterialSortIndices material_sort_;
 	SkyIndices sky_;
 	RaytracingIndices raytracing_;
 	ShadowIndices shadow_;
 	AmbientOcclusionIndices ambient_occlusion_;
 	SubsurfaceScatteringIndices subsurface_scattering_;
 	ReflectionIndices reflection_;
+	RefractionIndices refraction_;
 	GlobalIlluminationIndices global_illumination_;
 	CloudIndices cloud_;
 	StarIndices star_;

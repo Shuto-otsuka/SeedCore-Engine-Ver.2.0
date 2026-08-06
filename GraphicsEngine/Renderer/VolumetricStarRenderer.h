@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <FoundationEngine/Prelude.h>
 #include <FoundationEngine/Utility/SerializeFallback.h>
 #include <GraphicsEngine/D3D12/Buffer/ConstantBuffer.h>
@@ -28,13 +28,13 @@ namespace SeedCore
 
 	/// [EN] Mirrors Raytracing/VolumetricStar/VolumetricStar.hlsli's
 	///      VolumetricStarRayConstantBuffer. Read by both VolumetricStarRT.hlsl
-	///      and DeferredCompositePS.hlsl via structured_indices.star_.
+	///      and DeferredLightingPS.hlsl via structured_indices.star_.
 	///      ray_constant_index_. Must stay byte-for-byte in sync with the HLSL
 	///      side - laid out in 4-scalar (16 byte) cbuffer rows, same convention
 	///      as VolumetricCloudScapesRayConstantBuffer.
 	/// [JP] Raytracing/VolumetricStar/VolumetricStar.hlsli の
 	///      VolumetricStarRayConstantBuffer と対応。VolumetricStarRT.hlsl と
-	///      DeferredCompositePS.hlsl の両方が structured_indices.star_.
+	///      DeferredLightingPS.hlsl の両方が structured_indices.star_.
 	///      ray_constant_index_ 経由で読む。HLSL 側とバイト単位で一致させること
 	///      - VolumetricCloudScapesRayConstantBuffer と同じく4スカラー
 	///      (16バイト)単位の cbuffer 行で並べてある。
@@ -121,7 +121,7 @@ namespace SeedCore
 	* Dispatches the volumetric star pass (VolumetricStarRT.hlsl - screen-space,
 	* sky pixels only) into an RGBA16F texture (rgb = pre-multiplied color, a =
 	* coverage) and leaves it in PIXEL_SHADER_RESOURCE state for
-	* DeferredCompositePS.hlsl to composite over the sky, the same way
+	* DeferredLightingPS.hlsl to composite over the sky, the same way
 	* VolumetricCloudScapesRenderer's cloud texture is composited. Also owns the
 	* CPU-side shooting star spawn/lifetime bookkeeping (PrepareFrame), since
 	* that state must persist frame to frame and the tuning cbuffer is the
@@ -133,7 +133,7 @@ namespace SeedCore
 	* [JP]
 	* ボリューメトリック・スターパス(VolumetricStarRT.hlsl - スクリーン空間、
 	* 空ピクセル限定)を RGBA16F テクスチャ(rgb=事前乗算色、a=カバレッジ)へ
-	* ディスパッチし、DeferredCompositePS.hlsl が空の上に合成できるよう
+	* ディスパッチし、DeferredLightingPS.hlsl が空の上に合成できるよう
 	* PIXEL_SHADER_RESOURCE 状態にしておく
 	* (VolumetricCloudScapesRenderer の雲テクスチャと同じ合成方式)。流れ星の
 	* CPU側スポーン/寿命管理(PrepareFrame)もここが持つ - フレームを跨いで

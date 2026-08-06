@@ -1,4 +1,4 @@
-#include "../../Shader/Constants.hlsli"
+﻿#include "../../Shader/Constants.hlsli"
 #include "../../Shader/Structured.hlsli"
 #include "../../Shader/Sampler.hlsli"
 #include "../../Shader/Normal.hlsli"
@@ -87,7 +87,7 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	// velocity は (current_ndc - previous_ndc) * 0.5 で書き込まれている
 	// (StaticModelPS.hlsl 等)。NDC->UV 変換で y は反転するため、UV 空間の
 	// 移動量は (velocity.x, -velocity.y)。
-	Texture2D<float2> velocity_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.index_3_];
+	Texture2D<float2> velocity_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.index_2_];
 	float2 velocity = velocity_texture.Load(int3(pixel, 0));
 	float2 delta_uv = float2(velocity.x, -velocity.y);
 	float2 previous_uv = uv - delta_uv;
@@ -199,7 +199,7 @@ void AtrousPassCommon(uint2 pixel, Texture2D<float4> source, RWTexture2D<float4>
 * PSO). GlobalIlluminationRenderer::Dispatch runs all 3 in order, once per
 * view per frame, ping-ponging between the two scratch textures with a
 * doubling step (1, 2, 4) - the last pass writes directly into this frame's
-* accumulated/history slot, so what DeferredCompositePS.hlsl samples this
+* accumulated/history slot, so what DeferredLightingPS.hlsl samples this
 * frame and what next frame's temporal blend reprojects as history is the
 * A-Trous-filtered result, not just the temporally-blended one. See
 * Denoiser.hlsli's DenoiserATrousPass for why a doubling step across several
@@ -214,7 +214,7 @@ void AtrousPassCommon(uint2 pixel, Texture2D<float4> source, RWTexture2D<float4>
 * GlobalIlluminationRenderer::Dispatch がビューごとに毎フレーム3つ順番に
 * 実行し、2枚のスクラッチテクスチャ間を step を倍々(1, 2, 4)にしながら
 * ピンポンする - 最後のパスは今フレームの蓄積/履歴スロットへ直接書くので、
-* DeferredCompositePS.hlsl が今フレーム読むのも、次フレームの時間的ブレンドが
+* DeferredLightingPS.hlsl が今フレーム読むのも、次フレームの時間的ブレンドが
 * 履歴としてリプロジェクションするのも、単なる時間的ブレンド結果ではなく
 * A-Trousフィルタ済みの結果になる。step を倍々にした複数パスが1回の広い
 * シングルパスぼかしより安く済む理由は Denoiser.hlsli の DenoiserATrousPass

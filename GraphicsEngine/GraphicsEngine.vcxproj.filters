@@ -685,6 +685,12 @@
     <ClInclude Include="D3D12\Buffer\DepthResizeBuffer.h">
       <Filter>D3D12\Buffer</Filter>
     </ClInclude>
+    <ClInclude Include="Model\MaterialResolveShader.h">
+      <Filter>Model</Filter>
+    </ClInclude>
+    <ClInclude Include="Model\MaterialSortBuffer.h">
+      <Filter>Model</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="D3D12\Context\D3D12Adapter.cpp">
@@ -1139,6 +1145,12 @@
     <ClCompile Include="D3D12\Buffer\DepthResizeBuffer.cpp">
       <Filter>D3D12\Buffer</Filter>
     </ClCompile>
+    <ClCompile Include="Model\MaterialResolveShader.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="Model\MaterialSortBuffer.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="Shader\Sampler.hlsli">
@@ -1266,12 +1278,6 @@
     <Text Include="Light\ClusterAssignCS.hlsl">
       <Filter>Light</Filter>
     </Text>
-    <Text Include="Model\DeferredCompositeMS.hlsl">
-      <Filter>Model</Filter>
-    </Text>
-    <Text Include="Model\DeferredCompositePS.hlsl">
-      <Filter>Model</Filter>
-    </Text>
     <Text Include="Model\OITResolveMS.hlsl">
       <Filter>Model</Filter>
     </Text>
@@ -1312,9 +1318,6 @@
       <Filter>Sky</Filter>
     </Text>
     <Text Include="Sky\SpecularPrefilterCS.hlsl">
-      <Filter>Sky</Filter>
-    </Text>
-    <Text Include="Sky\SkyForwardPS.hlsl">
       <Filter>Sky</Filter>
     </Text>
     <Text Include="Raytracing\Shadow\ShadowRT.hlsl">
@@ -1519,6 +1522,24 @@
       <Filter>Raytracing\Reflection</Filter>
     </Text>
     <Text Include="Model\DepthResizeCS.hlsl">
+      <Filter>Model</Filter>
+    </Text>
+    <Text Include="Model\MaterialResolveCS.hlsl">
+      <Filter>Model</Filter>
+    </Text>
+    <Text Include="Model\DeferredLightingMS.hlsl">
+      <Filter>Model</Filter>
+    </Text>
+    <Text Include="Model\DeferredLightingPS.hlsl">
+      <Filter>Model</Filter>
+    </Text>
+    <Text Include="Model\MaterialScatterCS.hlsl">
+      <Filter>Model</Filter>
+    </Text>
+    <Text Include="Model\MaterialPrefixSumCS.hlsl">
+      <Filter>Model</Filter>
+    </Text>
+    <Text Include="Model\MaterialClassifyCS.hlsl">
       <Filter>Model</Filter>
     </Text>
   </ItemGroup>

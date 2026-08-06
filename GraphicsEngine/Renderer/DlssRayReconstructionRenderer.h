@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <FoundationEngine/Prelude.h>
 #include <GraphicsEngine/D3D12/Descriptor/DescriptorHeap.h>
 #include <GraphicsEngine/DLSS/DlssManager.h>
@@ -17,7 +17,7 @@ namespace SeedCore
 	/**
 	* [EN]
 	* Runs NVIDIA DLSS Ray Reconstruction (DLSS-RR) on one view's raw noisy
-	* composited color (Model/DeferredCompositePS.hlsl's output, before any
+	* composited color (Model/DeferredLightingPS.hlsl's output, before any
 	* per-effect denoising or tone mapping) and produces a denoised,
 	* 1280x720->3840x2160 upscaled, linear HDR result for
 	* PostProcessRenderer's tone-map pass to consume. Two independent
@@ -39,7 +39,7 @@ namespace SeedCore
 	*
 	* [JP]
 	* NVIDIA DLSS Ray Reconstruction(DLSS-RR)を、あるビューの生のノイズ入り
-	* 合成カラー(Model/DeferredCompositePS.hlsl の出力、エフェクトごとの
+	* 合成カラー(Model/DeferredLightingPS.hlsl の出力、エフェクトごとの
 	* デノイズやトーンマップより前)に対して実行し、デノイズ済み・
 	* 1280x720→3840x2160 アップスケール済みのリニア HDR 結果を
 	* PostProcessRenderer のトーンマップパスへ渡す。ビューごとに独立した
@@ -70,7 +70,7 @@ namespace SeedCore
 		/// [EN] The full per-view pass: normal+roughness/diffuse-albedo/
 		///      specular-albedo synthesis, DlssManager Tag(), then
 		///      EvaluateRayReconstruction() into this view's 3840x2160 output.
-		///      colorResource must be Model/DeferredCompositePS.hlsl's raw
+		///      colorResource must be Model/DeferredLightingPS.hlsl's raw
 		///      composited HDR result (PIXEL_SHADER_RESOURCE on entry);
 		///      depth/velocity come from the same frame's G-Buffer
 		///      (GeometryBuffer::DepthResource()/ColorResource(3)); albedo/
@@ -84,7 +84,7 @@ namespace SeedCore
 		/// [JP] 1ビューぶんの全処理: 法線+ラフネス/拡散アルベド/鏡面アルベド合成、
 		///      DlssManager の Tag()、続けて EvaluateRayReconstruction() を
 		///      このビューの3840x2160出力へ。colorResource は
-		///      Model/DeferredCompositePS.hlsl の生の合成HDR結果であること
+		///      Model/DeferredLightingPS.hlsl の生の合成HDR結果であること
 		///      (呼び出し時点でPIXEL_SHADER_RESOURCE)。depth/velocity は
 		///      同フレームのG-Buffer(GeometryBuffer::DepthResource()/
 		///      ColorResource(3))から。albedo/鏡面アルベド/法線ラフネスは

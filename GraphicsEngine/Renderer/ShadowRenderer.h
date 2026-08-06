@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <FoundationEngine/Prelude.h>
 #include <GraphicsEngine/D3D12/Buffer/ConstantBuffer.h>
 #include <GraphicsEngine/D3D12/Descriptor/DescriptorHeap.h>
@@ -36,11 +36,11 @@ namespace SeedCore
 	};
 
 	/// [EN] Mirrors Raytracing/Shadow/Shadow.hlsli's ShadowRayConstantBuffer —
-	///      read by both ShadowRT.hlsl and DeferredCompositePS.hlsl via
+	///      read by both ShadowRT.hlsl and DeferredLightingPS.hlsl via
 	///      structured_indices.shadow_ray_constant_index_. Must stay
 	///      byte-for-byte in sync with the HLSL side.
 	/// [JP] Raytracing/Shadow/Shadow.hlsli の ShadowRayConstantBuffer と対応。
-	///      ShadowRT.hlsl と DeferredCompositePS.hlsl の両方が
+	///      ShadowRT.hlsl と DeferredLightingPS.hlsl の両方が
 	///      structured_indices.shadow_ray_constant_index_ 経由で読む。HLSL 側と
 	///      バイト単位で一致させること。
 	struct ShadowRayConstantBuffer
@@ -93,7 +93,7 @@ namespace SeedCore
 	* 2-channel (directional, punctual) noisy visibility texture, then denoises
 	* it (ShadowDenoiseCS.hlsl: temporal reprojection + blend against a
 	* ping-ponged accumulation buffer) and leaves the result in
-	* PIXEL_SHADER_RESOURCE state for DeferredCompositePS.hlsl to sample. If the
+	* PIXEL_SHADER_RESOURCE state for DeferredLightingPS.hlsl to sample. If the
 	* scene has no TLAS this frame (nothing to trace against) or the DXR PSO is
 	* unavailable, both stages are skipped and the accumulated buffer is
 	* cleared to 1.0 (fully lit) instead.
@@ -104,7 +104,7 @@ namespace SeedCore
 	* レイトレシャドウのコンピュートパス(ShadowRT.hlsl)を生の2チャンネル
 	* (ディレクショナル/パンクチュアル)ノイズ可視性テクスチャへディスパッチし、
 	* それをデノイズ(ShadowDenoiseCS.hlsl: 時間的リプロジェクション+ピンポン
-	* 蓄積バッファとのブレンド)した上で、DeferredCompositePS.hlsl がサンプル
+	* 蓄積バッファとのブレンド)した上で、DeferredLightingPS.hlsl がサンプル
 	* できるよう PIXEL_SHADER_RESOURCE 状態にしておく。今フレーム TLAS が無い
 	* （追跡対象が無い）、または DXR PSO が無い場合は両パスともスキップし、
 	* 蓄積バッファを 1.0（照射）でクリアする。
@@ -124,14 +124,14 @@ namespace SeedCore
 		/// [EN] Updates the tuning constant buffer, decides this frame's
 		///      history/write ping-pong slot, and registers every bindless
 		///      index (raw uav/srv, history srv, write uav, and the final srv
-		///      DeferredCompositePS.hlsl will sample) into IndicesSystem. Must
+		///      DeferredLightingPS.hlsl will sample) into IndicesSystem. Must
 		///      run before IndicesSystem::UploadEditor/UploadGame bakes this
 		///      frame's structured indices — i.e. before the G-Buffer even
 		///      exists — unlike Dispatch(), which needs the G-Buffer's
 		///      depth/normal/velocity and so runs later. No GPU work.
 		/// [JP] チューニング用定数バッファを更新し、今フレームのピンポン
 		///      history/write スロットを決め、すべての bindless インデックス
-		///      (raw uav/srv、history srv、write uav、DeferredCompositePS.hlsl
+		///      (raw uav/srv、history srv、write uav、DeferredLightingPS.hlsl
 		///      がサンプルする最終 srv)を IndicesSystem へ登録する。
 		///      IndicesSystem::UploadEditor/UploadGame が今フレームの
 		///      structured indices を確定する前 — つまり G-Buffer が存在する
@@ -185,13 +185,13 @@ namespace SeedCore
 		///      pair per view (see RaytracingView). Each frame one slot is read
 		///      as "history" (by ShadowDenoiseCS.hlsl) while the other is
 		///      written as this frame's result, then read by
-		///      DeferredCompositePS.hlsl; the roles swap next frame. Hand-
+		///      DeferredLightingPS.hlsl; the roles swap next frame. Hand-
 		///      rolled (not FrameRing) because these are barrier-transitioned
 		///      in place, never reallocated.
 		/// [JP] ピンポン方式の蓄積(デノイズ済み)可視性。ビューごと(RaytracingView
 		///      参照)に独立した1ペア。毎フレーム片方を "history" として読み
 		///      (ShadowDenoiseCS.hlsl)、もう片方を今フレームの結果として
-		///      書き込み、それを DeferredCompositePS.hlsl が読む。役割は次
+		///      書き込み、それを DeferredLightingPS.hlsl が読む。役割は次
 		///      フレームで入れ替わる。リソースは再確保せずバリアで状態遷移
 		///      するだけなので、FrameRing ではなく手動で管理する。
 		Microsoft::WRL::ComPtr<ID3D12Resource> accumulatedVisibilityResource_[viewCount][accumulationSlotCount];

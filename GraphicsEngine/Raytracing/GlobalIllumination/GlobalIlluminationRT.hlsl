@@ -1,4 +1,4 @@
-#include "../../Shader/Constants.hlsli"
+﻿#include "../../Shader/Constants.hlsli"
 #include "../../Shader/Structured.hlsli"
 #include "../../Shader/Light.hlsli"
 #include "../../Shader/Normal.hlsli"
@@ -16,7 +16,7 @@
 * closesthit relights the hit surface (sun + shadow ray + base color texture +
 * diffuse IBL) so the bounce carries colour bleeding rather than just sky
 * visibility. raygen writes the incoming radiance; the ALBEDO of the receiving
-* surface is applied in DeferredCompositePS.hlsl.
+* surface is applied in DeferredLightingPS.hlsl.
 *
 * [JP]
 * レイトレ拡散グローバルイルミネーション、1バウンス(RTPSO / DispatchRays:
@@ -24,7 +24,7 @@
 * コサイン重み付き半球レイを1本撃つ。miss は空の放射輝度を返し、closesthit は
 * ヒット面を再ライティング(太陽+影レイ+ベースカラーテクスチャ+拡散IBL)する
 * ので、単なる空可視性ではなくカラーブリーディングになる。raygen は入射
-* 放射輝度を書き、受け側の面のアルベドは DeferredCompositePS.hlsl で掛ける。
+* 放射輝度を書き、受け側の面のアルベドは DeferredLightingPS.hlsl で掛ける。
 */
 
 [shader("raygeneration")]

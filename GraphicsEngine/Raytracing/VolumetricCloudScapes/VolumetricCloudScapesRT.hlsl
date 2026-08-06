@@ -1,4 +1,4 @@
-#include "../../Shader/Constants.hlsli"
+﻿#include "../../Shader/Constants.hlsli"
 #include "../../Shader/Structured.hlsli"
 #include "../../Shader/Light.hlsli"
 #include "../../Shader/Sampler.hlsli"
@@ -21,7 +21,7 @@
 * path length through the layer, and a sky-gradient ambient term. Distant clouds
 * wash toward the horizon color (aerial perspective) and fade out at the march
 * limit. Active only when no skymap is bound (the procedural sky replaces the
-* skybox; DeferredCompositePS.hlsl draws sky+sun and blends this texture over
+* skybox; DeferredLightingPS.hlsl draws sky+sun and blends this texture over
 * it). Sky pixels only, no TLAS.
 *
 * [JP]
@@ -37,7 +37,7 @@
 * Beer-powder + 層内の実光路長に沿った指数ステップのライトマーチ +
 * 空グラデーション環境光。遠景の雲は地平線色へ寄せ(空気遠近)、マーチ上限へ
 * 向けてフェードアウトする。スカイマップ未バインド時のみ有効(プロシージャル空
-* がスカイボックスを置き換え、DeferredCompositePS.hlsl が空+太陽を描いた上に
+* がスカイボックスを置き換え、DeferredLightingPS.hlsl が空+太陽を描いた上に
 * このテクスチャを合成する)。空ピクセル限定、TLAS 不使用。
 */
 

@@ -1,4 +1,4 @@
-#ifndef __CONSTANTS_HLSL__
+﻿#ifndef __CONSTANTS_HLSL__
 #define __CONSTANTS_HLSL__
 
 // Per-view auto-exposure indices/tuning (3 rows / 48 bytes). Same
@@ -119,7 +119,7 @@ struct PostProcessIndices
 // buffer shared by every view, so per-view values placed there would clobber
 // each other. history = previous frame's accumulated result (SRV),
 // accumulated = this frame's write target (UAV), visibility = the same write
-// target's SRV, sampled by DeferredCompositePS.hlsl after the denoise pass.
+// target's SRV, sampled by DeferredLightingPS.hlsl after the denoise pass.
 struct ShadowAccumulationIndices
 {
 	uint history_srv_index_;
@@ -141,7 +141,7 @@ struct AmbientOcclusionAccumulationIndices
 // Per-view ray-traced GI accumulation chain - same scheme as shadow/AO
 // above. The raw 1spp radiance (structured_indices.global_illumination_) is
 // shared/single-buffered across views; this chain is the per-view denoised
-// (spatio-temporal) result DeferredCompositePS.hlsl samples.
+// (spatio-temporal) result DeferredLightingPS.hlsl samples.
 //
 // atrous_scratch0_/atrous_scratch1_ are the two per-view ping-pong textures
 // GlobalIlluminationDenoiseCS.hlsl's ATrousPass1/2/3 entry points read/write
@@ -167,7 +167,7 @@ struct GlobalIlluminationAccumulationIndices
 // shadow/AO/GI above. The raw 1spp GGX-sampled radiance
 // (structured_indices.reflection_) is shared/single-buffered across views;
 // this chain is the per-view denoised (spatio-temporal) result
-// DeferredCompositePS.hlsl samples.
+// DeferredLightingPS.hlsl samples.
 struct ReflectionAccumulationIndices
 {
 	uint history_srv_index_;

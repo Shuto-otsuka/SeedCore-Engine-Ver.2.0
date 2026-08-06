@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <FoundationEngine/Prelude.h>
 #include <GraphicsEngine/D3D12/Buffer/ConstantBuffer.h>
 #include <GraphicsEngine/D3D12/Buffer/StructuredBuffer.h>
@@ -16,12 +16,12 @@ namespace SeedCore
 
 	/// [EN] Mirrors Raytracing/Reflection/Reflection.hlsli's
 	///      ReflectionRayConstantBuffer — read by both ReflectionRT.hlsl and
-	///      DeferredCompositePS.hlsl via
+	///      DeferredLightingPS.hlsl via
 	///      structured_indices.reflection_ray_constant_index_. Must stay
 	///      byte-for-byte in sync with the HLSL side.
 	/// [JP] Raytracing/Reflection/Reflection.hlsli の
 	///      ReflectionRayConstantBuffer と対応。ReflectionRT.hlsl と
-	///      DeferredCompositePS.hlsl の両方が
+	///      DeferredLightingPS.hlsl の両方が
 	///      structured_indices.reflection_ray_constant_index_ 経由で読む。
 	///      HLSL 側とバイト単位で一致させること。
 	struct ReflectionRayConstantBuffer
@@ -29,8 +29,8 @@ namespace SeedCore
 		Float rayTMax_ = 1000.0f;
 		Float normalBias_ = 0.01f;
 
-		/// [EN] Overall reflection intensity applied in DeferredCompositePS.hlsl.
-		/// [JP] DeferredCompositePS.hlsl で適用する反射の全体強度。
+		/// [EN] Overall reflection intensity applied in DeferredLightingPS.hlsl.
+		/// [JP] DeferredLightingPS.hlsl で適用する反射の全体強度。
 		Float strength_ = 1.0f;
 
 		/// [EN] Incremented once per frame by ReflectionRenderer (not the UI) —
@@ -62,6 +62,17 @@ namespace SeedCore
 	{
 		Float baseColor_[3] = { 1.0f, 1.0f, 1.0f };
 		Uint32 baseColorTextureIndex_ = 0xFFFFFFFF;
+
+		/// [EN] KHR_materials_ior/transmission/volume - unused by Reflection
+		///      itself, read by Raytracing/Refraction/RefractionRT.hlsl via the
+		///      same per-triangle table (ResolveReflectionMaterial).
+		/// [JP] KHR_materials_ior/transmission/volume - Reflection自体は使わない。
+		///      Raytracing/Refraction/RefractionRT.hlsl が同じ三角形単位の
+		///      テーブル(ResolveReflectionMaterial)経由で読む。
+		Float ior_ = 1.5f;
+		Float transmissionFactor_ = 0.0f;
+		Float volumeAttenuationColor_[3] = { 1.0f, 1.0f, 1.0f };
+		Float volumeAttenuationDistance_ = FLT_MAX;
 	};
 
 	/// [EN] Mirrors Reflection.hlsli's ReflectionInstanceData — one entry per
@@ -130,7 +141,7 @@ namespace SeedCore
 	* filter + temporal reprojection with variance clipping against a
 	* ping-ponged accumulation buffer, one independent chain per view) and
 	* leaves the result in PIXEL_SHADER_RESOURCE state for
-	* DeferredCompositePS.hlsl to sample. GGX importance sampling (see
+	* DeferredLightingPS.hlsl to sample. GGX importance sampling (see
 	* ReflectionRT.hlsl) degenerates to the old exact mirror ray at roughness 0,
 	* so this is a superset of the v1 behavior rather than a replacement of it —
 	* same structure as GlobalIlluminationRenderer, extended from GI's
@@ -148,7 +159,7 @@ namespace SeedCore
 	* (rgb=入射反射放射輝度、a=1 有効 / 0 無効)へディスパッチし、それを
 	* デノイズ(ReflectionDenoiseCS.hlsl: 空間バイラテラルフィルタ+ビューごとに
 	* 独立したピンポン蓄積バッファに対する分散クリッピング付き時間的
-	* リプロジェクション)した上で、DeferredCompositePS.hlsl がサンプルできる
+	* リプロジェクション)した上で、DeferredLightingPS.hlsl がサンプルできる
 	* よう PIXEL_SHADER_RESOURCE 状態にしておく。GGX 重点サンプリング
 	* (ReflectionRT.hlsl 参照)は roughness 0 で旧・厳密ミラーレイへ縮退するため、
 	* これは v1 の置き換えではなく上位互換。GlobalIlluminationRenderer と同じ

@@ -16,6 +16,8 @@
 #include <GraphicsEngine/D3D12/Buffer/GeometryBuffer.h>
 #include <GraphicsEngine/D3D12/Buffer/HiZBuffer.h>
 #include <GraphicsEngine/D3D12/Buffer/DepthResizeBuffer.h>
+#include <GraphicsEngine/Model/MaterialResolveShader.h>
+#include <GraphicsEngine/Model/MaterialSortBuffer.h>
 #include <GraphicsEngine/Renderer/ImageRenderer.h>
 #include <GraphicsEngine/Renderer/FontRenderer.h>
 #include <GraphicsEngine/Renderer/MovieRenderer.h>
@@ -334,6 +336,20 @@ namespace SeedCore
 
 		GeometryBuffer geometryBuffer_;
 		HiZBuffer hiZBuffer_;
+
+		/// [EN] VisibilityBuffer material resolve compute pass (Model/MaterialResolveCS.hlsl)
+		///      - rewrites geometryBuffer_'s RT0/1/2/3 from RT4(visibility id)+depth.
+		///      Also owns the material sort PSOs (Classify/PrefixSum/Scatter)
+		///      that run before it - see materialSortBuffer_.
+		/// [JP] VisibilityBuffer マテリアル解決コンピュートパス(Model/MaterialResolveCS.hlsl)
+		///      - geometryBuffer_ の RT0/1/2/3 を RT4(visibility id)+depth から書き直す。
+		///      その前段のマテリアルソートPSO(Classify/PrefixSum/Scatter)も持つ -
+		///      materialSortBuffer_ 参照。
+		ResourcePtr<MaterialResolveShader> materialResolveShader_;
+
+		/// [EN] GPU resources for the material sort - see MaterialResolveShader.
+		/// [JP] マテリアルソート用のGPUリソース - MaterialResolveShader 参照。
+		MaterialSortBuffer materialSortBuffer_;
 
 		/// [EN] geometryBuffer_'s depth resized to PostProcessRenderer's DLSS-RR-upscaled output resolution - see Renderer::EndEditorFrame's debug overlay.
 		/// [JP] geometryBuffer_の深度をPostProcessRendererのDLSS-RRアップスケール後出力解像度へリサイズしたもの - Renderer::EndEditorFrameのデバッグオーバーレイ参照。

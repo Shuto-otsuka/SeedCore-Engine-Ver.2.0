@@ -30,6 +30,7 @@ namespace SeedCore
 		effekseerManager_ = MakePtr<EffekseerManager>();
 		postProcessRenderer_ = MakePtr<PostProcessRenderer>(rootSignature_, pipelineStateObject_);
 		dlssRayReconstructionRenderer_ = MakePtr<DlssRayReconstructionRenderer>(rootSignature_, pipelineStateObject_);
+		materialResolveShader_ = MakePtr<MaterialResolveShader>(rootSignature_, pipelineStateObject_);
 	}
 
 	void Renderer::Create(ID3D12Device* device, ID3D12CommandQueue* commandQueue, Uint32 swapBufferCount, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, Uint32 width, Uint32 height)
@@ -60,6 +61,7 @@ namespace SeedCore
 		canvasFrameBuffer_ = MakePtr<FrameBuffer>(device, &canvasRenderTargetViewHeap_, bindlessHeap, width, height, DXGI_FORMAT_R16G16B16A16_FLOAT, &canvasDepthStencilViewHeap_);
 
 		geometryBuffer_.Create(device, bindlessHeap, width, height);
+		materialSortBuffer_.Create(device, bindlessHeap, *indicesSystem_, width, height);
 
 		indicesSystem_->SetGBuffer0Index(geometryBuffer_.ColorShaderResourceViewIndex(0));
 		indicesSystem_->SetGBuffer1Index(geometryBuffer_.ColorShaderResourceViewIndex(1));
@@ -68,6 +70,9 @@ namespace SeedCore
 		indicesSystem_->SetGBuffer4Index(geometryBuffer_.ColorShaderResourceViewIndex(4));
 		indicesSystem_->SetGBufferDepthIndex(geometryBuffer_.DepthShaderResourceViewIndex());
 		indicesSystem_->SetGBufferVelocityUnorderedAccessViewIndex(geometryBuffer_.VelocityUnorderedAccessViewIndex());
+		indicesSystem_->SetGBuffer0UnorderedAccessViewIndex(geometryBuffer_.ColorUnorderedAccessViewIndex(0));
+		indicesSystem_->SetGBuffer1UnorderedAccessViewIndex(geometryBuffer_.ColorUnorderedAccessViewIndex(1));
+		indicesSystem_->SetGBuffer3UnorderedAccessViewIndex(geometryBuffer_.ColorUnorderedAccessViewIndex(3));
 
 		hiZBuffer_.Create(device, bindlessHeap, shaderCache, rootSignature_, pipelineStateObject_, width, height, geometryBuffer_.DepthShaderResourceViewIndex());
 		indicesSystem_->SetHiZIndex(hiZBuffer_.ShaderResourceViewIndex());
@@ -95,6 +100,7 @@ namespace SeedCore
 		previewRenderer_->Create(device, bindlessHeap, shaderCache, width, height);
 		postProcessRenderer_->Create(device, bindlessHeap, shaderCache, width, height, width, height);
 		dlssRayReconstructionRenderer_->Create(device, bindlessHeap, shaderCache, *indicesSystem_, width, height, width, height);
+		materialResolveShader_->Create(shaderCache, device);
 
 		gpuProfiler_.Create(device, commandQueue, swapBufferCount);
 	}
@@ -118,6 +124,7 @@ namespace SeedCore
 		canvasFrameBuffer_->Resize(device, bindlessHeap, nativeWidth, nativeHeight);
 
 		geometryBuffer_.Resize(device, bindlessHeap, nativeWidth, nativeHeight);
+		materialSortBuffer_.Resize(device, bindlessHeap, *indicesSystem_, nativeWidth, nativeHeight);
 
 		indicesSystem_->SetGBuffer0Index(geometryBuffer_.ColorShaderResourceViewIndex(0));
 		indicesSystem_->SetGBuffer1Index(geometryBuffer_.ColorShaderResourceViewIndex(1));
@@ -126,6 +133,9 @@ namespace SeedCore
 		indicesSystem_->SetGBuffer4Index(geometryBuffer_.ColorShaderResourceViewIndex(4));
 		indicesSystem_->SetGBufferDepthIndex(geometryBuffer_.DepthShaderResourceViewIndex());
 		indicesSystem_->SetGBufferVelocityUnorderedAccessViewIndex(geometryBuffer_.VelocityUnorderedAccessViewIndex());
+		indicesSystem_->SetGBuffer0UnorderedAccessViewIndex(geometryBuffer_.ColorUnorderedAccessViewIndex(0));
+		indicesSystem_->SetGBuffer1UnorderedAccessViewIndex(geometryBuffer_.ColorUnorderedAccessViewIndex(1));
+		indicesSystem_->SetGBuffer3UnorderedAccessViewIndex(geometryBuffer_.ColorUnorderedAccessViewIndex(3));
 
 		hiZBuffer_.Resize(device, bindlessHeap, shaderCache, rootSignature_, pipelineStateObject_, nativeWidth, nativeHeight, geometryBuffer_.DepthShaderResourceViewIndex());
 		indicesSystem_->SetHiZIndex(hiZBuffer_.ShaderResourceViewIndex());
@@ -184,7 +194,7 @@ namespace SeedCore
 		if (dlssRayReconstructionEnabled_ && dlssManager_)
 		{
 			gpuProfiler_.Begin(cmdList, GpuProfileView::Editor, GpuProfileScope::DlssRayReconstruction);
-			dlssRayReconstructionRenderer_->Dispatch(cmdList, bindlessHeap_->Heap(), indicesSystem_->EditorConstantAddress(), indicesSystem_->StructuredAddress(), RaytracingView::Editor, dlssManager_, scene, editorFrameBuffer_->ColorResource(), geometryBuffer_.DepthResource(), geometryBuffer_.ColorResource(3), nativeWidth_, nativeHeight_, dlssMode_);
+			dlssRayReconstructionRenderer_->Dispatch(cmdList, bindlessHeap_->Heap(), indicesSystem_->EditorConstantAddress(), indicesSystem_->StructuredAddress(), RaytracingView::Editor, dlssManager_, scene, editorFrameBuffer_->ColorResource(), geometryBuffer_.DepthResource(), geometryBuffer_.ColorResource(2), nativeWidth_, nativeHeight_, dlssMode_);
 			gpuProfiler_.End(cmdList, GpuProfileView::Editor, GpuProfileScope::DlssRayReconstruction);
 
 			postProcessSource = dlssRayReconstructionRenderer_->OutputResource(RaytracingView::Editor);
@@ -282,7 +292,7 @@ namespace SeedCore
 		if (dlssRayReconstructionEnabled_ && dlssManager_)
 		{
 			gpuProfiler_.Begin(cmdList, GpuProfileView::Game, GpuProfileScope::DlssRayReconstruction);
-			dlssRayReconstructionRenderer_->Dispatch(cmdList, bindlessHeap_->Heap(), indicesSystem_->GameConstantAddress(), indicesSystem_->StructuredAddress(), RaytracingView::Game, dlssManager_, scene, gameFrameBuffer_->ColorResource(), geometryBuffer_.DepthResource(), geometryBuffer_.ColorResource(3), nativeWidth_, nativeHeight_, dlssMode_);
+			dlssRayReconstructionRenderer_->Dispatch(cmdList, bindlessHeap_->Heap(), indicesSystem_->GameConstantAddress(), indicesSystem_->StructuredAddress(), RaytracingView::Game, dlssManager_, scene, gameFrameBuffer_->ColorResource(), geometryBuffer_.DepthResource(), geometryBuffer_.ColorResource(2), nativeWidth_, nativeHeight_, dlssMode_);
 			gpuProfiler_.End(cmdList, GpuProfileView::Game, GpuProfileScope::DlssRayReconstruction);
 
 			postProcessSource = dlssRayReconstructionRenderer_->OutputResource(RaytracingView::Game);
@@ -443,11 +453,79 @@ namespace SeedCore
 		gpuProfiler_.End(cmdList, profileView, GpuProfileScope::HiZBuild);
 
 		gpuProfiler_.Begin(cmdList, profileView, GpuProfileScope::GeometryBuffer);
-		geometryBuffer_.BeginColor(cmdList);
-		geometryBuffer_.ClearColor(cmdList);
+		geometryBuffer_.BeginVisibility(cmdList);
+		geometryBuffer_.ClearVisibility(cmdList);
 		modelRenderer_->DrawOpaque(cmdList, heap, constantAddr, structuredAddr);
 		geometryBuffer_.End(cmdList);
 		gpuProfiler_.End(cmdList, profileView, GpuProfileScope::GeometryBuffer);
+
+		/// [JP] VisibilityBuffer マテリアル解決: RT4(visibility id)+depth から
+		///      RT0/1/2/3 を書き直す。RT0-3 は geometryBuffer_.End() で
+		///      PIXEL_SHADER_RESOURCE へ遷移済みなので、一時的に
+		///      UNORDERED_ACCESS へ戻し、書き終えたらまた PIXEL_SHADER_RESOURCE へ
+		///      戻す(DlssBackgroundVelocityCS と同じやり方 - GeometryBuffer 側の
+		///      状態追跡と整合するよう、進入時と同じ状態で抜ける)。以降の
+		///      シャドウ/AO/反射/GI レイトレパスと DeferredLightingPS が RT0-3 を
+		///      PIXEL_SHADER_RESOURCE として読むため、それより前に実行する。
+		///      マテリアルソート(Classify→PrefixSum→Scatter)→Resolve の4パス構成 -
+		///      Model/MaterialResolveShader.h 参照。
+		gpuProfiler_.Begin(cmdList, profileView, GpuProfileScope::MaterialResolve);
+		{
+			ID3D12PipelineState* classifyPipelineState = materialResolveShader_->GetClassifyPipelineState();
+			ID3D12PipelineState* prefixSumPipelineState = materialResolveShader_->GetPrefixSumPipelineState();
+			ID3D12PipelineState* scatterPipelineState = materialResolveShader_->GetScatterPipelineState();
+			ID3D12PipelineState* resolvePipelineState = materialResolveShader_->GetPipelineState();
+			if (classifyPipelineState && prefixSumPipelineState && scatterPipelineState && resolvePipelineState)
+			{
+				ID3D12GraphicsCommandList* cmd = cmdList->Get();
+
+				cmdList->Barrier(geometryBuffer_.ColorResource(0), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+				cmdList->Barrier(geometryBuffer_.ColorResource(1), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+				cmdList->Barrier(geometryBuffer_.ColorResource(2), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+				cmdList->Barrier(geometryBuffer_.ColorResource(3), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+
+				materialSortBuffer_.Clear(cmd);
+				materialSortBuffer_.Barrier(cmd);
+
+				ID3D12DescriptorHeap* heaps[] = { heap };
+				cmd->SetDescriptorHeaps(_countof(heaps), heaps);
+				cmd->SetComputeRootSignature(materialResolveShader_->GetRootSignature());
+				cmd->SetComputeRootDescriptorTable(0, bindlessHeap_->GPUHandle(0));
+				cmd->SetComputeRootConstantBufferView(2, constantAddr);
+				cmd->SetComputeRootConstantBufferView(3, structuredAddr);
+
+				/// [JP] パス1/4: バケットごとのピクセル数を数える。全画面走査する
+				///      唯一のパスなので、背景ピクセルのRT0-3ゼロ書きもここで行う。
+				cmd->SetPipelineState(classifyPipelineState);
+				cmd->Dispatch((nativeWidth_ + 7) / 8, (nativeHeight_ + 7) / 8, 1);
+				ProfilerStats::AddDrawCall();
+				materialSortBuffer_.Barrier(cmd);
+
+				/// [JP] パス2/4: バケットカウント→排他的スキャンのオフセットへ(1ディスパッチ)。
+				cmd->SetPipelineState(prefixSumPipelineState);
+				cmd->Dispatch(1, 1, 1);
+				ProfilerStats::AddDrawCall();
+				materialSortBuffer_.Barrier(cmd);
+
+				/// [JP] パス3/4: 各前景ピクセルをそのバケット範囲へ書き出す。
+				cmd->SetPipelineState(scatterPipelineState);
+				cmd->Dispatch((nativeWidth_ + 7) / 8, (nativeHeight_ + 7) / 8, 1);
+				ProfilerStats::AddDrawCall();
+				materialSortBuffer_.Barrier(cmd);
+
+				/// [JP] パス4/4: ソート済みリストを1Dで辿ってマテリアルを解決する。
+				Uint32 totalPixels = nativeWidth_ * nativeHeight_;
+				cmd->SetPipelineState(resolvePipelineState);
+				cmd->Dispatch((totalPixels + 63) / 64, 1, 1);
+				ProfilerStats::AddDrawCall();
+
+				cmdList->Barrier(geometryBuffer_.ColorResource(0), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+				cmdList->Barrier(geometryBuffer_.ColorResource(1), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+				cmdList->Barrier(geometryBuffer_.ColorResource(2), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+				cmdList->Barrier(geometryBuffer_.ColorResource(3), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+			}
+		}
+		gpuProfiler_.End(cmdList, profileView, GpuProfileScope::MaterialResolve);
 
 		gpuProfiler_.Begin(cmdList, profileView, GpuProfileScope::LightCluster);
 		lightSystem_->DispatchCluster(cmdList, heap, constantAddr, structuredAddr);
@@ -499,18 +577,6 @@ namespace SeedCore
 		gpuProfiler_.Begin(cmdList, profileView, GpuProfileScope::SkyGenerate);
 		skyRenderer_->Generate(cmdList, heap, structuredAddr);
 		gpuProfiler_.End(cmdList, profileView, GpuProfileScope::SkyGenerate);
-
-		if (skyRenderer_->RealtimeCaptureReady(deltaTime))
-		{
-			GpuProfileScopeGuard captureScope(gpuProfiler_, cmdList, profileView, GpuProfileScope::SkyRealtimeCapture);
-
-			Uint captureFace = skyRenderer_->CurrentCaptureFace();
-			skyRenderer_->BeginFaceCapture(cmdList, heap, captureFace, lightSystem_->GetIndex());
-			modelRenderer_->DrawOpaqueForward(cmdList, heap, skyRenderer_->CaptureConstantAddress(), structuredAddr);
-			skyRenderer_->EndFaceCapture(cmdList, captureFace);
-			skyRenderer_->ConvolveRealtime(cmdList, heap);
-			skyRenderer_->AdvanceCaptureFace();
-		}
 
 		/// [JP] ワイヤーフレーム / メッシュレット表示: Lit 合成と透明を飛ばし、
 		///      クリア済みフレームバッファにデバッグ描画だけを行う（シーン深度で遮蔽）。
@@ -620,11 +686,67 @@ namespace SeedCore
 		gpuProfiler_.End(cmdList, profileView, GpuProfileScope::HiZBuild);
 
 		gpuProfiler_.Begin(cmdList, profileView, GpuProfileScope::GeometryBuffer);
-		geometryBuffer_.BeginColor(cmdList);
-		geometryBuffer_.ClearColor(cmdList);
+		geometryBuffer_.BeginVisibility(cmdList);
+		geometryBuffer_.ClearVisibility(cmdList);
 		modelRenderer_->DrawOpaque(cmdList, heap, constantAddr, structuredAddr);
 		geometryBuffer_.End(cmdList);
 		gpuProfiler_.End(cmdList, profileView, GpuProfileScope::GeometryBuffer);
+
+		/// [JP] VisibilityBuffer マテリアル解決。EditorFlush 側と同じ理由・同じ
+		///      入退場状態で RT0-3 を一時的に UNORDERED_ACCESS へ戻して書く。
+		///      マテリアルソート(Classify→PrefixSum→Scatter)→Resolve の4パス構成。
+		gpuProfiler_.Begin(cmdList, profileView, GpuProfileScope::MaterialResolve);
+		{
+			ID3D12PipelineState* classifyPipelineState = materialResolveShader_->GetClassifyPipelineState();
+			ID3D12PipelineState* prefixSumPipelineState = materialResolveShader_->GetPrefixSumPipelineState();
+			ID3D12PipelineState* scatterPipelineState = materialResolveShader_->GetScatterPipelineState();
+			ID3D12PipelineState* resolvePipelineState = materialResolveShader_->GetPipelineState();
+			if (classifyPipelineState && prefixSumPipelineState && scatterPipelineState && resolvePipelineState)
+			{
+				ID3D12GraphicsCommandList* cmd = cmdList->Get();
+
+				cmdList->Barrier(geometryBuffer_.ColorResource(0), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+				cmdList->Barrier(geometryBuffer_.ColorResource(1), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+				cmdList->Barrier(geometryBuffer_.ColorResource(2), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+				cmdList->Barrier(geometryBuffer_.ColorResource(3), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+
+				materialSortBuffer_.Clear(cmd);
+				materialSortBuffer_.Barrier(cmd);
+
+				ID3D12DescriptorHeap* heaps[] = { heap };
+				cmd->SetDescriptorHeaps(_countof(heaps), heaps);
+				cmd->SetComputeRootSignature(materialResolveShader_->GetRootSignature());
+				cmd->SetComputeRootDescriptorTable(0, bindlessHeap_->GPUHandle(0));
+				cmd->SetComputeRootConstantBufferView(2, constantAddr);
+				cmd->SetComputeRootConstantBufferView(3, structuredAddr);
+
+				cmd->SetPipelineState(classifyPipelineState);
+				cmd->Dispatch((nativeWidth_ + 7) / 8, (nativeHeight_ + 7) / 8, 1);
+				ProfilerStats::AddDrawCall();
+				materialSortBuffer_.Barrier(cmd);
+
+				cmd->SetPipelineState(prefixSumPipelineState);
+				cmd->Dispatch(1, 1, 1);
+				ProfilerStats::AddDrawCall();
+				materialSortBuffer_.Barrier(cmd);
+
+				cmd->SetPipelineState(scatterPipelineState);
+				cmd->Dispatch((nativeWidth_ + 7) / 8, (nativeHeight_ + 7) / 8, 1);
+				ProfilerStats::AddDrawCall();
+				materialSortBuffer_.Barrier(cmd);
+
+				Uint32 totalPixels = nativeWidth_ * nativeHeight_;
+				cmd->SetPipelineState(resolvePipelineState);
+				cmd->Dispatch((totalPixels + 63) / 64, 1, 1);
+				ProfilerStats::AddDrawCall();
+
+				cmdList->Barrier(geometryBuffer_.ColorResource(0), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+				cmdList->Barrier(geometryBuffer_.ColorResource(1), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+				cmdList->Barrier(geometryBuffer_.ColorResource(2), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+				cmdList->Barrier(geometryBuffer_.ColorResource(3), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+			}
+		}
+		gpuProfiler_.End(cmdList, profileView, GpuProfileScope::MaterialResolve);
 
 		gpuProfiler_.Begin(cmdList, profileView, GpuProfileScope::LightCluster);
 		lightSystem_->DispatchCluster(cmdList, heap, constantAddr, structuredAddr);
@@ -670,18 +792,6 @@ namespace SeedCore
 		gpuProfiler_.Begin(cmdList, profileView, GpuProfileScope::SkyGenerate);
 		skyRenderer_->Generate(cmdList, heap, structuredAddr);
 		gpuProfiler_.End(cmdList, profileView, GpuProfileScope::SkyGenerate);
-
-		if (skyRenderer_->RealtimeCaptureReady(deltaTime))
-		{
-			GpuProfileScopeGuard captureScope(gpuProfiler_, cmdList, profileView, GpuProfileScope::SkyRealtimeCapture);
-
-			Uint captureFace = skyRenderer_->CurrentCaptureFace();
-			skyRenderer_->BeginFaceCapture(cmdList, heap, captureFace, lightSystem_->GetIndex());
-			modelRenderer_->DrawOpaqueForward(cmdList, heap, skyRenderer_->CaptureConstantAddress(), structuredAddr);
-			skyRenderer_->EndFaceCapture(cmdList, captureFace);
-			skyRenderer_->ConvolveRealtime(cmdList, heap);
-			skyRenderer_->AdvanceCaptureFace();
-		}
 
 		gpuProfiler_.Begin(cmdList, profileView, GpuProfileScope::Composite);
 		modelRenderer_->Compose(cmdList, gameFrameBuffer_.get(), heap, constantAddr, structuredAddr);

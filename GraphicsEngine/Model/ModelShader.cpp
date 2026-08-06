@@ -57,8 +57,12 @@ namespace SeedCore
 			pipelineStateObjectDepthPrepass_ = pipelineStateObject_.GetOrCreate(device, psokey);
 		}
 
-		/// [EN] Static model PSO: ModelAS + StaticModelMS + StaticModelPS → G-Buffer (4 RTs).
-		/// [JP] 静的モデル PSO: ModelAS + StaticModelMS + StaticModelPS → G-Buffer (4 RT)。
+		/// [EN] Static model PSO: ModelAS + StaticModelMS + StaticModelPS → G-Buffer
+		///      visibility id only (RT4, R32G32_UINT). RT0-3 are rewritten
+		///      afterward by Model/MaterialResolveCS.hlsl - see GeometryBuffer::BeginVisibility.
+		/// [JP] 静的モデル PSO: ModelAS + StaticModelMS + StaticModelPS →
+		///      G-Buffer visibility id のみ(RT4, R32G32_UINT)。RT0-3 はこの後
+		///      Model/MaterialResolveCS.hlsl が書き直す - GeometryBuffer::BeginVisibility 参照。
 		{
 			staticMeshShader_ = shaderCache.GetOrCreateMeshShader(String("../GraphicsEngine/Model/StaticModelMS.hlsl"));
 			staticPixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Model/StaticModelPS.hlsl"));
@@ -72,19 +76,17 @@ namespace SeedCore
 			psokey.rasterizerDesc_ = RasterizerState::Get(RasterizerStateType::SolidNoneLHS);
 			psokey.blendDesc_ = BlendState::Get(BlendStateType::Opaque);
 			psokey.depthStencilDesc_ = DepthStencilState::Get(DepthStencilStateType::DepthOnWriteOffReverseZ);
-			psokey.renderTargetViewFormat_[0] = DXGI_FORMAT_R8G8B8A8_UNORM;			// base_color.rgb + metallic
-			psokey.renderTargetViewFormat_[1] = DXGI_FORMAT_R16G16B16A16_UNORM;	// octNormal.rg + roughness + packed clearcoat
-			psokey.renderTargetViewFormat_[2] = DXGI_FORMAT_R8G8B8A8_UNORM;			// anisotropy + specularColor.rgb
-			psokey.renderTargetViewFormat_[3] = DXGI_FORMAT_R16G16_FLOAT;			// velocity
-			psokey.renderTargetViewFormat_[4] = DXGI_FORMAT_R11G11B10_FLOAT;		// emissive
-			psokey.renderTargetViewCount_ = 5;
+			psokey.renderTargetViewFormat_[0] = DXGI_FORMAT_R32G32_UINT;			// visibility id (instance_index, pack(meshlet_index, triangle_in_meshlet_index)) - see GeometryBuffer::BeginVisibility
+			psokey.renderTargetViewCount_ = 1;
 			psokey.depthStencilViewFormat_ = DXGI_FORMAT_D32_FLOAT;
 			psokey.primitiveTopologyType_ = D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED;
 			pipelineStateObjectStatic_ = pipelineStateObject_.GetOrCreate(device, psokey);
 		}
 
-		/// [EN] Skeletal model PSO: ModelAS + SkeletalModelMS + SkeletalModelPS → G-Buffer (4 RTs).
-		/// [JP] スケルタルモデル PSO: ModelAS + SkeletalModelMS + SkeletalModelPS → G-Buffer (4 RT)。
+		/// [EN] Skeletal model PSO: ModelAS + SkeletalModelMS + SkeletalModelPS →
+		///      G-Buffer visibility id only (RT4, R32G32_UINT). Same as the static PSO above.
+		/// [JP] スケルタルモデル PSO: ModelAS + SkeletalModelMS + SkeletalModelPS →
+		///      G-Buffer visibility id のみ(RT4, R32G32_UINT)。上の静的PSOと同様。
 		{
 			skeletalMeshShader_ = shaderCache.GetOrCreateMeshShader(String("../GraphicsEngine/Model/SkeletalModelMS.hlsl"));
 			skeletalPixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Model/SkeletalModelPS.hlsl"));
@@ -98,53 +100,19 @@ namespace SeedCore
 			psokey.rasterizerDesc_ = RasterizerState::Get(RasterizerStateType::SolidNoneLHS);
 			psokey.blendDesc_ = BlendState::Get(BlendStateType::Opaque);
 			psokey.depthStencilDesc_ = DepthStencilState::Get(DepthStencilStateType::DepthOnWriteOffReverseZ);
-			psokey.renderTargetViewFormat_[0] = DXGI_FORMAT_R8G8B8A8_UNORM;			// base_color.rgb + metallic
-			psokey.renderTargetViewFormat_[1] = DXGI_FORMAT_R16G16B16A16_UNORM;	// octNormal.rg + roughness + packed clearcoat
-			psokey.renderTargetViewFormat_[2] = DXGI_FORMAT_R8G8B8A8_UNORM;			// anisotropy + specularColor.rgb
-			psokey.renderTargetViewFormat_[3] = DXGI_FORMAT_R16G16_FLOAT;			// velocity
-			psokey.renderTargetViewFormat_[4] = DXGI_FORMAT_R11G11B10_FLOAT;		// emissive
-			psokey.renderTargetViewCount_ = 5;
+			psokey.renderTargetViewFormat_[0] = DXGI_FORMAT_R32G32_UINT;			// visibility id (instance_index, pack(meshlet_index, triangle_in_meshlet_index)) - see GeometryBuffer::BeginVisibility
+			psokey.renderTargetViewCount_ = 1;
 			psokey.depthStencilViewFormat_ = DXGI_FORMAT_D32_FLOAT;
 			psokey.primitiveTopologyType_ = D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED;
 			pipelineStateObjectSkeletal_ = pipelineStateObject_.GetOrCreate(device, psokey);
 		}
 
-		/// [EN] Forward capture PSOs: ModelAS (no Hi-Z; the capture uses a
-		///      different, per-cube-face view) + Static/Skeletal MS + SkyForwardPS
-		///      → a single R16G16B16A16_FLOAT render target with depth write on
-		///      (no prepass in the capture). Reverse-Z to match the mesh shader.
-		/// [JP] フォワードキャプチャ PSO: ModelAS（Hi-Z なし。キャプチャは面ごとに
-		///      別視点）＋ Static/Skeletal MS ＋ SkyForwardPS → 単一
-		///      R16G16B16A16_FLOAT レンダーターゲット、深度書き込みあり（キャプチャ
-		///      にプリパス無し）。メッシュシェーダーに合わせ reverse-Z。
-		{
-			forwardCapturePixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Sky/SkyForwardPS.hlsl"));
-
-			PipelineStateKey psokey{};
-			memset(&psokey, 0, sizeof(psokey));
-			psokey.rootSignature_ = rootSignature_.Get(modelRootSignature_)->Get();
-			psokey.amplificationShader_ = shaderCache.GetAmplificationShader(amplificationShader_)->Bytecode();
-			psokey.meshShader_ = shaderCache.GetMeshShader(staticMeshShader_)->Bytecode();
-			psokey.pixelShader_ = shaderCache.GetPixelShader(forwardCapturePixelShader_)->Bytecode();
-			psokey.rasterizerDesc_ = RasterizerState::Get(RasterizerStateType::SolidNoneLHS);
-			psokey.blendDesc_ = BlendState::Get(BlendStateType::Opaque);
-			psokey.depthStencilDesc_ = DepthStencilState::Get(DepthStencilStateType::DepthOnWriteOnReverseZ);
-			psokey.renderTargetViewFormat_[0] = DXGI_FORMAT_R16G16B16A16_FLOAT;
-			psokey.renderTargetViewCount_ = 1;
-			psokey.depthStencilViewFormat_ = DXGI_FORMAT_D32_FLOAT;
-			psokey.primitiveTopologyType_ = D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED;
-			pipelineStateObjectForwardCaptureStatic_ = pipelineStateObject_.GetOrCreate(device, psokey);
-
-			psokey.meshShader_ = shaderCache.GetMeshShader(skeletalMeshShader_)->Bytecode();
-			pipelineStateObjectForwardCaptureSkeletal_ = pipelineStateObject_.GetOrCreate(device, psokey);
-		}
-
-		/// [EN] Preview PSOs: same shape as forward capture (ModelAS + Static/
-		///      Skeletal MS, single R16G16B16A16_FLOAT RT, depth write on,
-		///      reverse-Z) but with the unlit ModelPreviewPS.
-		/// [JP] プレビューPSO: フォワードキャプチャと同じ形状(ModelAS +
-		///      Static/Skeletal MS、単一R16G16B16A16_FLOAT RT、深度書き込み
-		///      あり、reverse-Z)だが、アンリットのModelPreviewPSを使う。
+		/// [EN] Preview PSOs: ModelAS + Static/Skeletal MS, single
+		///      R16G16B16A16_FLOAT RT, depth write on, reverse-Z, with the
+		///      unlit ModelPreviewPS.
+		/// [JP] プレビューPSO: ModelAS + Static/Skeletal MS、単一
+		///      R16G16B16A16_FLOAT RT、深度書き込みあり、reverse-Z、
+		///      アンリットのModelPreviewPSを使う。
 		{
 			previewPixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Model/ModelPreviewPS.hlsl"));
 
@@ -305,11 +273,11 @@ namespace SeedCore
 			pipelineStateObjectResolve_ = pipelineStateObject_.GetOrCreate(device, psokey);
 		}
 
-		/// [EN] Deferred composite PSO: fullscreen, reads G-Buffer SRVs, outputs to FrameBuffer.
-		/// [JP] ディファードコンポジット PSO: フルスクリーン、G-Buffer SRV を読み出しフレームバッファに出力。
+		/// [EN] Deferred lighting PSO: fullscreen, reads G-Buffer SRVs, outputs to FrameBuffer.
+		/// [JP] ディファードライティング PSO: フルスクリーン、G-Buffer SRV を読み出しフレームバッファに出力。
 		{
-			compositeMeshShader_ = shaderCache.GetOrCreateMeshShader(String("../GraphicsEngine/Model/DeferredCompositeMS.hlsl"));
-			compositePixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Model/DeferredCompositePS.hlsl"));
+			compositeMeshShader_ = shaderCache.GetOrCreateMeshShader(String("../GraphicsEngine/Model/DeferredLightingMS.hlsl"));
+			compositePixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Model/DeferredLightingPS.hlsl"));
 
 			PipelineStateKey psokey{};
 			memset(&psokey, 0, sizeof(psokey));
@@ -360,16 +328,6 @@ namespace SeedCore
 	ID3D12PipelineState* ModelShader::GetPipelineStateComposite()const
 	{
 		return pipelineStateObject_.Get(pipelineStateObjectComposite_);
-	}
-
-	ID3D12PipelineState* ModelShader::GetPipelineStateForwardCaptureStatic()const
-	{
-		return pipelineStateObject_.Get(pipelineStateObjectForwardCaptureStatic_);
-	}
-
-	ID3D12PipelineState* ModelShader::GetPipelineStateForwardCaptureSkeletal()const
-	{
-		return pipelineStateObject_.Get(pipelineStateObjectForwardCaptureSkeletal_);
 	}
 
 	ID3D12PipelineState* ModelShader::GetPipelineStatePreviewStatic()const

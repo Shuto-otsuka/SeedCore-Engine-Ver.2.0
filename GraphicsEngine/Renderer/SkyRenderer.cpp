@@ -1,4 +1,4 @@
-#include <GraphicsEngine/Renderer/SkyRenderer.h>
+﻿#include <GraphicsEngine/Renderer/SkyRenderer.h>
 #include <GraphicsEngine/D3D12/Descriptor/BindlessHeap.h>
 #include <GraphicsEngine/D3D12/Context/D3D12CommandList.h>
 #include <GraphicsEngine/D3D12/PipelineState/PipelineStateObject.h>
@@ -7,6 +7,7 @@
 #include <GraphicsEngine/Shader/ShaderCache.h>
 #include <GraphicsEngine/Sky/Skymap.h>
 #include <GraphicsEngine/Sky/SkymapResource.h>
+#include <GraphicsEngine/Light/SkyLight.h>
 #include <FoundationEngine/Resource/ResourceCache.h>
 #include <FoundationEngine/Resource/LoaderSystem.h>
 #include <FoundationEngine/ECS/Query.h>
@@ -37,7 +38,6 @@ namespace SeedCore
 
 		CreateBrdfLookupTable(device, bindlessHeap);
 		CreateIblCubes(device, bindlessHeap);
-		CreateCaptureResources(device);
 	}
 
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> SkyRenderer::CreateComputePipeline(ID3D12Device* device, ShaderCache& shaderCache, PipelineStateObject& pipelineStateObject, const String& filePath)
@@ -97,7 +97,6 @@ namespace SeedCore
 		const D3D12_RESOURCE_STATES readState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
 
 		CreateCube(device, bindlessHeap, environmentSize_, environmentMipLevels_, nullptr, readState, environmentResource_, environmentShaderResourceViewIndex_, environmentUnorderedAccessViewIndices_);
-		CreateCube(device, bindlessHeap, environmentSize_, 1, &dynamicRenderTargetViewHeap_, readState, dynamicResource_, dynamicShaderResourceViewIndex_, &dynamicUnorderedAccessViewIndex_);
 		CreateCube(device, bindlessHeap, irradianceSize_, 1, nullptr, readState, irradianceResource_, irradianceShaderResourceViewIndex_, &irradianceUnorderedAccessViewIndex_);
 		CreateCube(device, bindlessHeap, prefilterSize_, prefilterMipLevels_, nullptr, readState, prefilterResource_, prefilterShaderResourceViewIndex_, prefilterUnorderedAccessViewIndices_);
 	}
@@ -168,50 +167,11 @@ namespace SeedCore
 		}
 	}
 
-	void SkyRenderer::CreateCaptureResources(ID3D12Device* device)
-	{
-		HRESULT hr{ S_OK };
-
-		D3D12_HEAP_PROPERTIES heapProperties{};
-		heapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
-
-		D3D12_RESOURCE_DESC resourceDesc{};
-		resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-		resourceDesc.Width = environmentSize_;
-		resourceDesc.Height = environmentSize_;
-		resourceDesc.DepthOrArraySize = 1;
-		resourceDesc.MipLevels = 1;
-		resourceDesc.Format = captureDepthFormat_;
-		resourceDesc.SampleDesc.Count = 1;
-		resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-		resourceDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
-
-		D3D12_CLEAR_VALUE clearValue{};
-		clearValue.Format = captureDepthFormat_;
-		clearValue.DepthStencil.Depth = 0.0f;
-		clearValue.DepthStencil.Stencil = 0;
-
-		hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_DEPTH_WRITE, &clearValue, IID_PPV_ARGS(&captureDepthResource_));
-		SC_HR_CHECK(hr, "スカイマップキャプチャ深度バッファの生成に失敗しました");
-
-		captureDepthStencilViewHeap_.Create(device, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 1, false);
-		Uint depthIndex = captureDepthStencilViewHeap_.AllocateIndex();
-		D3D12_DEPTH_STENCIL_VIEW_DESC depthStencilViewDesc{};
-		depthStencilViewDesc.Format = captureDepthFormat_;
-		depthStencilViewDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
-		depthStencilViewDesc.Texture2D.MipSlice = 0;
-		device->CreateDepthStencilView(captureDepthResource_.Get(), &depthStencilViewDesc, captureDepthStencilViewHeap_.CPUHandle(depthIndex));
-
-		captureSceneConstantBuffer_ = MakePtr<ConstantBuffer<SceneConstantBuffer>>(device, bindlessHeap_);
-		captureConstantIndicesBuffer_ = MakePtr<ConstantBuffer<ConstantIndices>>(device, bindlessHeap_);
-	}
-
 	void SkyRenderer::Gather(LoaderSystem& loaderSystem, ResourceCache& resourceCache, World& world)
 	{
 		hasSkymap_ = false;
 		sourceEquirectShaderResourceViewIndex_ = invalidIndex_;
 		intensity_ = 1.0f;
-		captureType_ = SkyLight::CaptureType::Lietime;
 
 		SkymapResource* skymapResource = resourceCache.GetSkymapResource();
 		if (!skymapResource)
@@ -248,20 +208,18 @@ namespace SeedCore
 				hasSkymap_ = true;
 				sourceEquirectShaderResourceViewIndex_ = skymap->EquirectShaderResourceViewIndex();
 				intensity_ = skyLight.intensity_;
-				captureType_ = skyLight.captureType_;
-				captureDuration_ = skyLight.captureDuration_;
 				found = true;
 			});
 
 		/// [EN] Note: the generated cubes are kept while the sky is toggled off
 		///      (nothing overwrites them), so toggling the same skymap back on
-		///      resumes instantly without re-seeding the dynamic cube. A change
-		///      to a different skymap is detected by its differing source index
-		///      in Generate and triggers a regenerate there.
+		///      resumes instantly. A change to a different skymap is detected
+		///      by its differing source index in Generate and triggers a
+		///      regenerate there.
 		/// [JP] 空を OFF にしている間も生成済みキューブは保持される（誰も上書き
-		///      しない）ので、同じスカイマップに戻せば dynamic を再シードせず即
-		///      再開する。別スカイマップへの変更は Generate 側で source index の
-		///      差異として検出され、そこで再生成される。
+		///      しない）ので、同じスカイマップに戻せば即再開する。別スカイマップ
+		///      への変更は Generate 側で source index の差異として検出され、
+		///      そこで再生成される。
 	}
 
 	void SkyRenderer::SetProceduralSky(Bool enabled, Uint32 settingsHash, Uint lightIndex, Float totalTime)
@@ -289,12 +247,12 @@ namespace SeedCore
 			/// [EN] Procedural-sky IBL: register irradiance/prefilter only.
 			///      The environment cube index deliberately stays 0 so the
 			///      background remains the ANALYTIC sky (crisp sun disc, see
-			///      DeferredCompositePS.hlsl) while lit surfaces receive the
+			///      DeferredLightingPS.hlsl) while lit surfaces receive the
 			///      convolved sky as IBL.
 			/// [JP] プロシージャル空の IBL: irradiance/prefilter のみ登録する。
 			///      environment キューブのインデックスは意図的に 0 のままに
 			///      して、背景は【解析的な】空(シャープな太陽ディスク、
-			///      DeferredCompositePS.hlsl 参照)のまま、ライティング面だけが
+			///      DeferredLightingPS.hlsl 参照)のまま、ライティング面だけが
 			///      畳み込み済みの空を IBL として受け取るようにする。
 			indicesSystem.SetSkyEnvironmentCubeIndex(0);
 			indicesSystem.SetSkyDiffuseIrradianceIndex(irradianceShaderResourceViewIndex_);
@@ -409,24 +367,6 @@ namespace SeedCore
 		UnorderedAccessBarrier(cmdList, environmentResource_.Get());
 		Transition(cmdList, environmentResource_.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, readState);
 
-		/// [EN] Seed the dynamic cube with the same sky so the first Realtime
-		///      captures don't convolve uninitialised faces.
-		/// [JP] dynamic キューブも同じ空で初期化し、最初の Realtime キャプチャが
-		///      未初期化面を畳み込まないようにする。
-		if (captureType_ == SkyLight::CaptureType::Realtime)
-		{
-			Transition(cmdList, dynamicResource_.Get(), readState, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-			{
-				SkyGenerateConstant data{};
-				data.sourceIndex_ = sourceEquirectShaderResourceViewIndex_;
-				data.destIndex_ = dynamicUnorderedAccessViewIndex_;
-				data.faceSize_ = environmentSize_;
-				Dispatch(cmdList, heap, equirectToCubePipeline_.Get(), data, (environmentSize_ + 7) / 8, (environmentSize_ + 7) / 8, 6);
-			}
-			UnorderedAccessBarrier(cmdList, dynamicResource_.Get());
-			Transition(cmdList, dynamicResource_.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, readState);
-		}
-
 		ConvolveFromSource(cmdList, heap, environmentShaderResourceViewIndex_);
 	}
 
@@ -467,139 +407,6 @@ namespace SeedCore
 		UnorderedAccessBarrier(cmdList, prefilterResource_.Get());
 		Transition(cmdList, irradianceResource_.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, readState);
 		Transition(cmdList, prefilterResource_.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, readState);
-	}
-
-	Bool SkyRenderer::RealtimeCaptureReady(Float deltaTime)
-	{
-		if (!hasSkymap_ || captureType_ != SkyLight::CaptureType::Realtime || generatedSourceShaderResourceViewIndex_ != sourceEquirectShaderResourceViewIndex_ || sourceEquirectShaderResourceViewIndex_ == invalidIndex_)
-		{
-			captureTimer_ = 0.0f;
-			return false;
-		}
-
-		captureTimer_ += deltaTime;
-		if (captureTimer_ >= captureDuration_)
-		{
-			captureTimer_ = 0.0f;
-			return true;
-		}
-		return false;
-	}
-
-	Uint SkyRenderer::CurrentCaptureFace()const
-	{
-		return currentCaptureFace_;
-	}
-
-	void SkyRenderer::AdvanceCaptureFace()
-	{
-		currentCaptureFace_ = (currentCaptureFace_ + 1) % 6;
-	}
-
-	D3D12_GPU_VIRTUAL_ADDRESS SkyRenderer::CaptureConstantAddress()const
-	{
-		return captureConstantIndicesBuffer_->Address();
-	}
-
-	void SkyRenderer::UpdateFaceCamera(Uint face, Uint lightIndex)
-	{
-		static const Vector3 forwards[6] =
-		{
-			Vector3(1.0f, 0.0f, 0.0f), Vector3(-1.0f, 0.0f, 0.0f),
-			Vector3(0.0f, 1.0f, 0.0f), Vector3(0.0f, -1.0f, 0.0f),
-			Vector3(0.0f, 0.0f, 1.0f), Vector3(0.0f, 0.0f, -1.0f),
-		};
-		static const Vector3 ups[6] =
-		{
-			Vector3(0.0f, 1.0f, 0.0f), Vector3(0.0f, 1.0f, 0.0f),
-			Vector3(0.0f, 0.0f, -1.0f), Vector3(0.0f, 0.0f, 1.0f),
-			Vector3(0.0f, 1.0f, 0.0f), Vector3(0.0f, 1.0f, 0.0f),
-		};
-
-		const Vector3 center = Vector3(0.0f, 0.0f, 0.0f);
-
-		Matrix view = Matrix::CreateLookAt(center, center + forwards[face], ups[face]);
-
-		Matrix projection = Matrix::CreatePerspectiveFieldOfView(1.57079632679f, 1.0f, captureNearPlane_, captureFarPlane_);
-		projection._33 = captureNearPlane_ / (captureNearPlane_ - captureFarPlane_);
-		projection._43 = (captureFarPlane_ * captureNearPlane_) / (captureFarPlane_ - captureNearPlane_);
-
-		Matrix viewProjection = view * projection;
-
-		SceneConstantBuffer scene{};
-		scene.view_ = view;
-		scene.inverseView_ = view.Invert();
-		scene.projection_ = projection;
-		scene.inverseProjection_ = projection.Invert();
-		scene.nonJitterProjection_ = projection;
-		scene.currentViewProjection_ = viewProjection;
-		scene.previousViewProjection_ = viewProjection;
-		scene.inverseViewProjection_ = viewProjection.Invert();
-		scene.nonJitterViewProjection_ = viewProjection;
-		scene.cameraPosition_ = Vector4(center.x, center.y, center.z, 1.0f);
-		scene.cameraFocus_ = Vector4(forwards[face].x, forwards[face].y, forwards[face].z, 0.0f);
-		scene.fieldOfView_ = 1.57079632679f;
-		scene.nearPlane_ = captureNearPlane_;
-		scene.farPlane_ = captureFarPlane_;
-		scene.screenSize_ = Vector2(static_cast<Float>(environmentSize_), static_cast<Float>(environmentSize_));
-		scene.inverseScreenSize_ = Vector2(1.0f / environmentSize_, 1.0f / environmentSize_);
-		scene.displaySize_ = scene.screenSize_;
-		captureSceneConstantBuffer_->Update(scene);
-
-		ConstantIndices indices{};
-		indices.sceneIndex_ = captureSceneConstantBuffer_->GetIndex();
-		indices.lightIndex_ = lightIndex;
-		indices.clusterConstantIndex_ = 0;
-		captureConstantIndicesBuffer_->Update(indices);
-	}
-
-	void SkyRenderer::BeginFaceCapture(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, Uint face, Uint lightIndex)
-	{
-		const D3D12_RESOURCE_STATES readState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
-
-		UpdateFaceCamera(face, lightIndex);
-
-		/// [EN] Restore the sky onto this dynamic face (currently the HDR skymap;
-		///      later a volumetric-cloud pass), then move the cube to a render
-		///      target for the forward scene draw.
-		/// [JP] この dynamic 面へ空を復元し（現状は HDR スカイマップ、将来は
-		///      ボリューメトリッククラウド）、フォワードのシーン描画のためキューブを
-		///      レンダーターゲットへ移す。
-		Transition(cmdList, dynamicResource_.Get(), readState, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-
-		SkyGenerateConstant data{};
-		data.sourceIndex_ = sourceEquirectShaderResourceViewIndex_;
-		data.destIndex_ = dynamicUnorderedAccessViewIndex_;
-		data.faceSize_ = environmentSize_;
-		data.faceOffset_ = face;
-		Dispatch(cmdList, heap, equirectToCubePipeline_.Get(), data, (environmentSize_ + 7) / 8, (environmentSize_ + 7) / 8, 1);
-
-		UnorderedAccessBarrier(cmdList, dynamicResource_.Get());
-		Transition(cmdList, dynamicResource_.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_RENDER_TARGET);
-
-		auto* cmd = cmdList->Get();
-
-		D3D12_CPU_DESCRIPTOR_HANDLE renderTargetView = dynamicRenderTargetViewHeap_.CPUHandle(face);
-		D3D12_CPU_DESCRIPTOR_HANDLE depthStencilView = captureDepthStencilViewHeap_.CPUHandle(0);
-		cmd->OMSetRenderTargets(1, &renderTargetView, FALSE, &depthStencilView);
-
-		D3D12_VIEWPORT viewport{ 0.0f, 0.0f, static_cast<Float>(environmentSize_), static_cast<Float>(environmentSize_), 0.0f, 1.0f };
-		D3D12_RECT scissor{ 0, 0, static_cast<Int>(environmentSize_), static_cast<Int>(environmentSize_) };
-		cmd->RSSetViewports(1, &viewport);
-		cmd->RSSetScissorRects(1, &scissor);
-
-		cmd->ClearDepthStencilView(depthStencilView, D3D12_CLEAR_FLAG_DEPTH, 0.0f, 0, 0, nullptr);
-	}
-
-	void SkyRenderer::EndFaceCapture(D3D12CommandList* cmdList, Uint face)
-	{
-		(void)face;
-		Transition(cmdList, dynamicResource_.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-	}
-
-	void SkyRenderer::ConvolveRealtime(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap)
-	{
-		ConvolveFromSource(cmdList, heap, dynamicShaderResourceViewIndex_);
 	}
 
 	void SkyRenderer::Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, ID3D12PipelineState* pipeline, const SkyGenerateConstant& data, Uint groupsX, Uint groupsY, Uint groupsZ, D3D12_GPU_VIRTUAL_ADDRESS structuredAddress)

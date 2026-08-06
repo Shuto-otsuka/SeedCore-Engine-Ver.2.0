@@ -249,6 +249,16 @@ namespace SeedCore
 					instanceData.clearCoatFactor_ = material.khr_.clearCoat_.clearCoatFactor_;
 					instanceData.clearCoatRoughness_ = material.khr_.clearCoat_.clearCoatRoughnessFactor_;
 					instanceData.anisotropy_ = material.khr_.anisotropy_.anisotropyStrength_;
+					instanceData.transmissionFactor_ = material.khr_.transmission_.transmissionFactor_;
+					instanceData.volumeThicknessFactor_ = material.khr_.volume_.thicknessFactor_;
+					instanceData.volumeAttenuationDistance_ = material.khr_.volume_.attenuationDistance_;
+					instanceData.volumeAttenuationColor_ = Vector3(material.khr_.volume_.attenuationColor_[0], material.khr_.volume_.attenuationColor_[1], material.khr_.volume_.attenuationColor_[2]);
+					instanceData.sheenColor_ = Vector3(material.khr_.sheen_.sheenColorFactor_[0], material.khr_.sheen_.sheenColorFactor_[1], material.khr_.sheen_.sheenColorFactor_[2]);
+					instanceData.sheenRoughness_ = material.khr_.sheen_.sheenRoughnessFactor_;
+					instanceData.iridescenceFactor_ = material.khr_.iridescence_.iridescenceFactor_;
+					instanceData.iridescenceIor_ = material.khr_.iridescence_.iridescenceIor_;
+					instanceData.iridescenceThickness_ = (material.khr_.iridescence_.iridescenceThicknessMinimum_ + material.khr_.iridescence_.iridescenceThicknessMaximum_) * 0.5f;
+					instanceData.unlit_ = material.khr_.unlit_.unlit_ != 0 ? 1.0f : 0.0f;
 
 					instanceData.baseColorTextureIndex_ = crister->TextureBindlessIndex(material.baseColorTextureIndex_);
 					instanceData.normalTextureIndex_ = crister->TextureBindlessIndex(material.normalTextureIndex_);

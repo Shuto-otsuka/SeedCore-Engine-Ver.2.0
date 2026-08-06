@@ -1,3 +1,4 @@
+#include "Model.hlsli"
 #include "../Shader/Constants.hlsli"
 #include "../Shader/Structured.hlsli"
 #include "../Shader/Normal.hlsli"
@@ -45,7 +46,25 @@ float3 ReconstructWorldPosition(float2 uv, float depth)
 	return world_position.xyz / world_position.w;
 }
 
-float3 EvalDirectLight(float3 normal, float3 view, float3 light_direction, float3 diffuse_color, float3 f0, float roughness, float clearcoat, float clearcoat_roughness)
+/// [JP] KHR_materials_sheen 用の Charlie NDF(布特有のグレージング角ハイライト)。
+///      sin(theta_h) は sqrt(1 - cos^2) で求める。
+float CharlieDistribution(float roughness, float normal_dot_half)
+{
+	const float PI = 3.14159265358979;
+	float alpha = max(roughness, 0.001);
+	float inv_alpha = 1.0 / alpha;
+	float cos2h = normal_dot_half * normal_dot_half;
+	float sin2h = max(1.0 - cos2h, 0.0078125);
+	return (2.0 + inv_alpha) * pow(sin2h, inv_alpha * 0.5) / (2.0 * PI);
+}
+
+/// [JP] KHR_materials_sheen 用の Ashikhmin 可視性項。
+float AshikhminVisibility(float normal_dot_light, float normal_dot_view)
+{
+	return 1.0 / max(4.0 * (normal_dot_light + normal_dot_view - normal_dot_light * normal_dot_view), 1e-4);
+}
+
+float3 EvalDirectLight(float3 normal, float3 view, float3 light_direction, float3 diffuse_color, float3 f0, float roughness, float clearcoat, float clearcoat_roughness, float3 sheen_color, float sheen_roughness)
 {
 	float normal_dot_light = max(dot(normal, light_direction), 0.0);
 	if (normal_dot_light <= 0.0)
@@ -77,6 +96,20 @@ float3 EvalDirectLight(float3 normal, float3 view, float3 light_direction, float
 		base = base * (1.0 - coat_fresnel) + coat_specular;
 	}
 
+	/// [EN] Sheen: additive Charlie lobe (fabric grazing-angle highlight). Not
+	///      energy-conserving against the base layer (the full KHR spec scales
+	///      the base by a sheen directional-albedo LUT) - simple additive
+	///      approximation.
+	/// [JP] Sheen: 加算のCharlieローブ(布のグレージング角ハイライト)。ベース層への
+	///      エネルギー保存はしていない(KHR仕様はsheenディレクショナルアルベドLUTで
+	///      ベースを減衰させる) - 単純な加算近似。
+	if (dot(sheen_color, sheen_color) > 0.0)
+	{
+		float sheen_ndf = CharlieDistribution(sheen_roughness, normal_dot_half);
+		float sheen_visibility = AshikhminVisibility(normal_dot_light, normal_dot_view);
+		base += sheen_color * sheen_ndf * sheen_visibility;
+	}
+
 	return base * normal_dot_light;
 }
 
@@ -84,16 +117,14 @@ float4 main(CompositeOutput input) : SV_Target0
 {
 	Texture2D<float4> gbuffer0 = ResourceDescriptorHeap[structured_indices.gbuffer_.index_0_];
 	Texture2D<float4> gbuffer1 = ResourceDescriptorHeap[structured_indices.gbuffer_.index_1_];
-	Texture2D<float4> gbuffer2 = ResourceDescriptorHeap[structured_indices.gbuffer_.index_2_];
-	Texture2D<float4> gbuffer4 = ResourceDescriptorHeap[structured_indices.gbuffer_.index_4_];
+	Texture2D<float4> gbuffer3 = ResourceDescriptorHeap[structured_indices.gbuffer_.index_3_];
 	Texture2D<float> gbuffer_depth = ResourceDescriptorHeap[structured_indices.gbuffer_.depth_index_];
 
 	uint2 pixel = uint2(input.position.xy);
 
 	float4 rt0 = gbuffer0.Load(int3(pixel, 0));
 	float4 rt1 = gbuffer1.Load(int3(pixel, 0));
-	float4 rt2 = gbuffer2.Load(int3(pixel, 0));
-	float4 rt4 = gbuffer4.Load(int3(pixel, 0));
+	float4 rt3 = gbuffer3.Load(int3(pixel, 0));
 	float depth = gbuffer_depth.Load(int3(pixel, 0));
 
 	/// [JP] 深度モード(3)は背景も含めて画面全体を深度で塗るため、背景スキップより
@@ -192,14 +223,20 @@ float4 main(CompositeOutput input) : SV_Target0
 	float metallic = rt0.a;
 	float3 normal = OctNormalDecode(rt1.rg);
 	float roughness = rt1.b;
-	float3 emissive = rt4.rgb;
+	/// [JP] emissive はテクスチャ*factorの生値(RT3)。VisID(RT4)から
+	///      instance_indexを引いてModelInstanceを直接読み、per-instance定数の
+	///      KHR拡張スカラー(ior/specular/clearcoat/transmission/volume/sheen/
+	///      iridescence/anisotropy/unlit/emissive_strength)はGBufferに焼き込まず
+	///      ここ(ライティングのその場)で評価する。
+	float3 emissive = rt3.rgb;
 
-	/// [JP] RT1.a から clearcoat をアンパック、RT2 から anisotropy と誘電体 F0 を取得。
-	float clearcoat_factor;
-	float clearcoat_roughness;
-	UnpackUnorm8x8(rt1.a, clearcoat_factor, clearcoat_roughness);
-	float anisotropy = rt2.r;
-	float3 dielectric_f0 = rt2.gba;
+	Texture2D<uint2> gbuffer4 = ResourceDescriptorHeap[structured_indices.gbuffer_.index_4_];
+	uint2 visibility_id = gbuffer4.Load(int3(pixel, 0));
+	uint material_instance_index, material_meshlet_index, material_triangle_index;
+	UnpackVisibilityID(visibility_id, material_instance_index, material_meshlet_index, material_triangle_index);
+	StructuredBuffer<ModelInstance> material_instances = ResourceDescriptorHeap[structured_indices.model_.instance_index_];
+	ModelInstance material_instance = material_instances[material_instance_index];
+	emissive *= material_instance.emissive_strength_;
 
 	/// [JP] エディタービューの表示モード（ViewMode）。Lit(0) は下の通常ライティングへ流す。
 	///      Wireframe(2) / Meshlet(4) は別パスで扱うためここでは Lit と同じ扱い（素通り）。
@@ -217,10 +254,16 @@ float4 main(CompositeOutput input) : SV_Target0
 			return float4(emissive, 1.0);
 		case 9: // モーションベクター
 		{
-			Texture2D<float2> gbuffer3 = ResourceDescriptorHeap[structured_indices.gbuffer_.index_3_];
-			float2 velocity = gbuffer3.Load(int3(pixel, 0));
+			Texture2D<float2> gbuffer_velocity = ResourceDescriptorHeap[structured_indices.gbuffer_.index_2_];
+			float2 velocity = gbuffer_velocity.Load(int3(pixel, 0));
 			return float4(velocity * 0.5 + 0.5, 0.0, 1.0);
 		}
+	}
+
+	/// [JP] KHR_materials_unlit: ライティングを一切せず base_color + emissive のみ。
+	if (material_instance.unlit_ > 0.5)
+	{
+		return float4(base_color + emissive, 1.0);
 	}
 
 	float3 world_position = ReconstructWorldPosition(input.texcoord, depth);
@@ -251,13 +294,35 @@ float4 main(CompositeOutput input) : SV_Target0
 	base_color = lerp(base_color, float3(0.95, 0.96, 1.0), snow);
 	roughness = lerp(roughness, 0.9, snow);
 
-	float3 diffuse_color = base_color * (1.0 - metallic);
-	/// [JP] 誘電体 F0 は KHR_ior/specular を焼き込んだ RT2 の値を使用。金属は base_color。
+	/// [JP] KHR_materials_ior/specular からその場で誘電体 F0 を計算。金属は base_color。
+	float dielectric = (material_instance.ior_ - 1.0) / (material_instance.ior_ + 1.0);
+	dielectric *= dielectric;
+	float3 dielectric_f0 = saturate(dielectric * material_instance.specular_color_ * material_instance.specular_factor_);
+
+	/// [JP] KHR_materials_iridescence: 簡易近似(物理的に正確な薄膜干渉ではなく、
+	///      厚み/視野角で位相をずらした疑似虹色シフト)で F0 を色付けする。
+	if (material_instance.iridescence_factor_ > 0.0)
+	{
+		float normal_dot_view_for_iridescence = saturate(dot(normal, view));
+		float phase = material_instance.iridescence_thickness_ * 0.01 * normal_dot_view_for_iridescence + material_instance.iridescence_ior_;
+		float3 iridescence_shift = sin(float3(phase, phase + 2.094395, phase + 4.18879)) * 0.5 + 0.5;
+		dielectric_f0 = lerp(dielectric_f0, iridescence_shift, saturate(material_instance.iridescence_factor_));
+	}
+
+	/// [JP] KHR_materials_transmission: 透過する光は拡散反射しない。実際に背後を
+	///      透かして見せる屈折表現(スクリーン空間/レイトレの Refraction)は別途
+	///      実装予定 - ここでは拡散応答の減衰のみ反映する。
+	float3 diffuse_color = base_color * (1.0 - metallic) * (1.0 - material_instance.transmission_factor_);
 	float3 f0 = lerp(dielectric_f0, base_color, metallic);
 	/// [JP] 濡れた面は薄い水膜でグレージング角の反射率が上がる。水たまりは
 	///      水面そのものとしてさらに強く反射させる。
 	f0 = lerp(f0, max(f0, 0.02), wetness);
 	f0 = lerp(f0, max(f0, 0.05), puddle);
+
+	float clearcoat_factor = material_instance.clearcoat_factor_;
+	float clearcoat_roughness = material_instance.clearcoat_roughness_;
+	float3 sheen_color = material_instance.sheen_color_;
+	float sheen_roughness = max(material_instance.sheen_roughness_, 0.001);
 
 	/// [JP] ShadowRT.hlsl(+ShadowDenoiseCS.hlsl で時間積分済み)が書いた
 	///      2チャンネル可視性(r=ディレクショナル, g=Point/Spot/Rect のうち
@@ -366,7 +431,7 @@ float4 main(CompositeOutput input) : SV_Target0
 	{
 		float3 light_direction = normalize(-light_constant_buffer.directional_direction_);
 		float3 directional_color = light_constant_buffer.directional_color_.rgb * light_constant_buffer.directional_intensity_ * directional_shadow_factor;
-		lighting += EvalDirectLight(normal, view, light_direction, diffuse_color, f0, roughness, clearcoat_factor, clearcoat_roughness) * directional_color;
+		lighting += EvalDirectLight(normal, view, light_direction, diffuse_color, f0, roughness, clearcoat_factor, clearcoat_roughness, sheen_color, sheen_roughness) * directional_color;
 
 		/// [JP] レイトレ表面下散乱(SubsurfaceScatteringRT.hlsl が書いた透過率)。
 		///      光に背いた面(N・L<0)で、裏から差し込む光が薄い部分ほど透けて
@@ -416,7 +481,7 @@ float4 main(CompositeOutput input) : SV_Target0
 			float attenuation = AttenuateDistance(distance, point_light.range);
 
 			float3 light_color = point_light.color.rgb * point_light.intensity * attenuation * punctual_shadow_factor;
-			lighting += EvalDirectLight(normal, view, light_direction, diffuse_color, f0, roughness, clearcoat_factor, clearcoat_roughness) * light_color;
+			lighting += EvalDirectLight(normal, view, light_direction, diffuse_color, f0, roughness, clearcoat_factor, clearcoat_roughness, sheen_color, sheen_roughness) * light_color;
 		}
 	}
 
@@ -440,7 +505,7 @@ float4 main(CompositeOutput input) : SV_Target0
 			float attenuation = AttenuateDistance(distance, spot_light.range) * spot_fade;
 
 			float3 light_color = spot_light.color.rgb * spot_light.intensity * attenuation * punctual_shadow_factor;
-			lighting += EvalDirectLight(normal, view, light_direction, diffuse_color, f0, roughness, clearcoat_factor, clearcoat_roughness) * light_color;
+			lighting += EvalDirectLight(normal, view, light_direction, diffuse_color, f0, roughness, clearcoat_factor, clearcoat_roughness, sheen_color, sheen_roughness) * light_color;
 		}
 	}
 
@@ -470,7 +535,7 @@ float4 main(CompositeOutput input) : SV_Target0
 
 			float attenuation = AttenuateDistance(distance, rect_light.range);
 			float3 light_color = rect_light.color.rgb * rect_light.intensity * attenuation * punctual_shadow_factor;
-			lighting += EvalDirectLight(normal, view, light_direction, diffuse_color, f0, roughness, clearcoat_factor, clearcoat_roughness) * light_color;
+			lighting += EvalDirectLight(normal, view, light_direction, diffuse_color, f0, roughness, clearcoat_factor, clearcoat_roughness, sheen_color, sheen_roughness) * light_color;
 		}
 	}
 

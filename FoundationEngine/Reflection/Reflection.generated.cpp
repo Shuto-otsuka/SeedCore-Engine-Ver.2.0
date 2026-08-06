@@ -664,24 +664,6 @@ namespace SeedCore
 						fi.clampMax_ = 1.0f;
 						outInfo.push_back(std::move(fi));
 					}
-					{
-						FieldInfo fi;
-						fi.name_ = String("キャプチャータイプ");
-						fi.offset_ = offsetof(SkyLight, captureType_);
-						fi.type_ = AttributeType::Enum;
-						fi.enum_.typeName_ = String("CaptureType");
-						outInfo.push_back(std::move(fi));
-					}
-					{
-						FieldInfo fi;
-						fi.name_ = String("キャプチャー間隔");
-						fi.offset_ = offsetof(SkyLight, captureDuration_);
-						fi.type_ = AttributeType::Float;
-						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<SkyLight*>(p); return o.captureType_ == SkyLight::CaptureType::Realtime; };
-						fi.clampMin_ = 0.001f;
-						fi.clampMax_ = 100.0f;
-						outInfo.push_back(std::move(fi));
-					}
 				});
 			}
 		};
@@ -1898,18 +1880,6 @@ namespace SeedCore
 			}
 		};
 		static RegisterEnum_BodyType global_BodyType_enum_register;
-
-		struct RegisterEnum_CaptureType
-		{
-			RegisterEnum_CaptureType()
-			{
-				EnumRegistry::Register(String("CaptureType"), {
-					{ static_cast<Int>(SkyLight::CaptureType::Lietime), String("Lietime") },
-					{ static_cast<Int>(SkyLight::CaptureType::Realtime), String("Realtime") },
-				});
-			}
-		};
-		static RegisterEnum_CaptureType global_CaptureType_enum_register;
 
 		struct RegisterEnum_DisplayMode
 		{

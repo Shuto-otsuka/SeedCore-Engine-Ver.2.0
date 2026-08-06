@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <FoundationEngine/Prelude.h>
 #include <FoundationEngine/ECS/ComponentRegistry.h>
 
@@ -95,8 +95,8 @@ namespace SeedCore
 		Float thunderFlash_ = 0.0f;
 
 		/// [EN] Random seed re-rolled on each strike, so the bolt shape drawn by
-		///      DeferredCompositePS.hlsl differs strike to strike.
-		/// [JP] 発生ごとに引き直す乱数シード。DeferredCompositePS.hlsl が描く
+		///      DeferredLightingPS.hlsl differs strike to strike.
+		/// [JP] 発生ごとに引き直す乱数シード。DeferredLightingPS.hlsl が描く
 		///      稲妻の形が発生ごとに変わるようにする。
 		Float thunderSeed_ = 0.0f;
 

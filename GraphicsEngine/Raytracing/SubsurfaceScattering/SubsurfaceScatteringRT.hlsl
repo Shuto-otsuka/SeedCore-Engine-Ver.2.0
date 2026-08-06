@@ -1,4 +1,4 @@
-#include "../../Shader/Constants.hlsli"
+﻿#include "../../Shader/Constants.hlsli"
 #include "../../Shader/Structured.hlsli"
 #include "../../Shader/Light.hlsli"
 #include "../../Shader/Normal.hlsli"
@@ -16,7 +16,7 @@
 * transmittance = exp(-thickness / scatter_distance_) (0 = opaque, 1 = fully
 * translucent). No RNG and no denoiser needed: the ray is the same every
 * frame, so the output is stable (unlike the stochastic shadow/AO passes).
-* DeferredCompositePS.hlsl turns this into a back-lit translucency term.
+* DeferredLightingPS.hlsl turns this into a back-lit translucency term.
 *
 * [JP]
 * レイトレ表面下散乱/透光パス(インライン RayQuery、厚み計測ベース)。
@@ -25,7 +25,7 @@
 * 出口面までの距離=そこの局所的な厚みを測る。
 * transmittance = exp(-厚み / scatter_distance_) (0=不透明、1=完全透光)を
 * 書き込む。乱数もデノイザも不要: レイは毎フレーム同じなので出力は安定
-* (確率的な影/AOパスとは違う)。DeferredCompositePS.hlsl がこれを
+* (確率的な影/AOパスとは違う)。DeferredLightingPS.hlsl がこれを
 * 裏面ライティングの透光項に変換する。
 */
 [numthreads(8, 8, 1)]

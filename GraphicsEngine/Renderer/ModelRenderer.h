@@ -45,24 +45,6 @@ namespace SeedCore
 
 		void DrawOpaque(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex);
 
-		/**
-		* [EN]
-		* Draws the opaque instances with the forward-lit capture pipeline into
-		* whatever render target / depth the caller has already bound (one
-		* environment-cube face for the Realtime skymap capture). The caller sets
-		* the render target, viewport and a constantIndex whose scene points at
-		* the per-face capture camera.
-		*
-		* ---------------------------------------------------------------------
-		*
-		* [JP]
-		* 不透明インスタンスを、呼び出し側が既に bind した RT/深度（Realtime
-		* スカイマップキャプチャの environment キューブ 1 面）へフォワード
-		* ライティングのキャプチャパイプラインで描く。RT・ビューポート・面ごとの
-		* キャプチャカメラを指す constantIndex は呼び出し側が設定する。
-		*/
-		void DrawOpaqueForward(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex);
-
 		void Compose(D3D12CommandList* cmdList, FrameBuffer* frameBuffer, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex);
 
 		/// [EN] Wireframe overlay: draws opaque instances as wire over the composed

@@ -65,31 +65,18 @@ namespace SeedCore
 
 		[[nodiscard]] ID3D12PipelineState* GetPipelineStateComposite()const;
 
-		/// [EN] Forward-lit PSOs that render opaque models into an environment
-		///      cube face (single R16G16B16A16_FLOAT RT) for the Realtime skymap
-		///      capture. Reuse ModelAS (no Hi-Z, capture view) + Static/Skeletal
-		///      MS + SkyForwardPS.
-		/// [JP] Realtime スカイマップキャプチャ用に不透明モデルを environment
-		///      キューブ面（単一 R16G16B16A16_FLOAT RT）へフォワード描画する PSO。
-		///      ModelAS（Hi-Z なし・キャプチャ視点）＋ Static/Skeletal MS ＋
-		///      SkyForwardPS を再利用。
-		[[nodiscard]] ID3D12PipelineState* GetPipelineStateForwardCaptureStatic()const;
-
-		[[nodiscard]] ID3D12PipelineState* GetPipelineStateForwardCaptureSkeletal()const;
-
 		/// [EN] Unlit preview PSOs for the Timeline panel's 3D model preview:
 		///      ModelAS + Static/Skeletal MS + ModelPreviewPS (base color +
-		///      emissive only, no lighting). Same target shape as
-		///      ForwardCapture (single R16G16B16A16_FLOAT RT, depth write on,
-		///      reverse-Z) but deliberately its own PS so the preview never
-		///      reads constant_indices.light_index_ or any shared lighting
-		///      state.
+		///      emissive only, no lighting). Single R16G16B16A16_FLOAT RT,
+		///      depth write on, reverse-Z. Deliberately its own PS so the
+		///      preview never reads constant_indices.light_index_ or any
+		///      shared lighting state.
 		/// [JP] Timelineパネルの3Dモデルプレビュー用アンリットPSO: ModelAS +
 		///      Static/Skeletal MS + ModelPreviewPS（baseColor + emissiveの
-		///      み、ライティング無し）。ターゲット形状はForwardCaptureと同じ
-		///      （単一R16G16B16A16_FLOAT RT、深度書き込みあり、reverse-Z）だが、
-		///      あえて専用PSにすることでプレビューがconstant_indices.light_index_
-		///      や共有ライティング状態を一切読まないようにする。
+		///      み、ライティング無し）。単一R16G16B16A16_FLOAT RT、深度書き込み
+		///      あり、reverse-Z。あえて専用PSにすることでプレビューが
+		///      constant_indices.light_index_ や共有ライティング状態を
+		///      一切読まないようにする。
 		[[nodiscard]] ID3D12PipelineState* GetPipelineStatePreviewStatic()const;
 
 		[[nodiscard]] ID3D12PipelineState* GetPipelineStatePreviewSkeletal()const;
@@ -154,9 +141,6 @@ namespace SeedCore
 		Handle<PixelShader> compositePixelShader_;
 		Handle<Microsoft::WRL::ComPtr<ID3D12PipelineState>> pipelineStateObjectComposite_;
 
-		Handle<PixelShader> forwardCapturePixelShader_;
-		Handle<Microsoft::WRL::ComPtr<ID3D12PipelineState>> pipelineStateObjectForwardCaptureStatic_;
-		Handle<Microsoft::WRL::ComPtr<ID3D12PipelineState>> pipelineStateObjectForwardCaptureSkeletal_;
 
 		Handle<PixelShader> previewPixelShader_;
 		Handle<Microsoft::WRL::ComPtr<ID3D12PipelineState>> pipelineStateObjectPreviewStatic_;

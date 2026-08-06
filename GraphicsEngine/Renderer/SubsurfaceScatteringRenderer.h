@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <FoundationEngine/Prelude.h>
 #include <GraphicsEngine/D3D12/Buffer/ConstantBuffer.h>
 #include <GraphicsEngine/D3D12/Descriptor/DescriptorHeap.h>
@@ -13,12 +13,12 @@ namespace SeedCore
 
 	/// [EN] Mirrors Raytracing/SubsurfaceScattering/SubsurfaceScattering.hlsli's
 	///      SubsurfaceScatteringRayConstantBuffer — read by both
-	///      SubsurfaceScatteringRT.hlsl and DeferredCompositePS.hlsl via
+	///      SubsurfaceScatteringRT.hlsl and DeferredLightingPS.hlsl via
 	///      structured_indices.sss_ray_constant_index_. Must stay byte-for-byte
 	///      in sync with the HLSL side.
 	/// [JP] Raytracing/SubsurfaceScattering/SubsurfaceScattering.hlsli の
 	///      SubsurfaceScatteringRayConstantBuffer と対応。
-	///      SubsurfaceScatteringRT.hlsl と DeferredCompositePS.hlsl の両方が
+	///      SubsurfaceScatteringRT.hlsl と DeferredLightingPS.hlsl の両方が
 	///      structured_indices.sss_ray_constant_index_ 経由で読む。HLSL 側と
 	///      バイト単位で一致させること。
 	struct SubsurfaceScatteringRayConstantBuffer
@@ -40,8 +40,8 @@ namespace SeedCore
 		/// [JP] 探索する最大厚み。これより厚い箇所は不透明扱い。
 		Float rayTMax_ = 5.0f;
 
-		/// [EN] Overall translucency intensity applied in DeferredCompositePS.hlsl.
-		/// [JP] DeferredCompositePS.hlsl で適用する透光の全体強度。
+		/// [EN] Overall translucency intensity applied in DeferredLightingPS.hlsl.
+		/// [JP] DeferredLightingPS.hlsl で適用する透光の全体強度。
 		Float strength_ = 1.0f;
 
 		/// [EN] Tint of the transmitted light (reddish for skin, etc.).
@@ -65,7 +65,7 @@ namespace SeedCore
 	* [EN]
 	* Dispatches the ray-traced subsurface scattering compute pass
 	* (SubsurfaceScatteringRT.hlsl) into a single-channel transmittance texture
-	* and leaves it in PIXEL_SHADER_RESOURCE state for DeferredCompositePS.hlsl
+	* and leaves it in PIXEL_SHADER_RESOURCE state for DeferredLightingPS.hlsl
 	* to sample. The pass is deterministic (one fixed thickness ray toward the
 	* directional light per pixel), so unlike ShadowRenderer /
 	* AmbientOcclusionRenderer there is NO denoiser, NO ping-pong accumulation
@@ -78,7 +78,7 @@ namespace SeedCore
 	*
 	* [JP]
 	* レイトレ表面下散乱のコンピュートパス(SubsurfaceScatteringRT.hlsl)を
-	* 1チャンネルの透過率テクスチャへディスパッチし、DeferredCompositePS.hlsl
+	* 1チャンネルの透過率テクスチャへディスパッチし、DeferredLightingPS.hlsl
 	* がサンプルできるよう PIXEL_SHADER_RESOURCE 状態にしておく。このパスは
 	* 決定論的(1ピクセルにつきディレクショナルライトへ固定の厚み計測レイ1本)
 	* なので、ShadowRenderer / AmbientOcclusionRenderer と違ってデノイザも

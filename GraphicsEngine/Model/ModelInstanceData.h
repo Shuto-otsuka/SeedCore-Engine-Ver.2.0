@@ -55,10 +55,14 @@ namespace SeedCore
 		Float clearCoatRoughness_;
 		Float anisotropy_;
 		Uint skinVertexBufferIndex_;
-		Float instancePadding3_;
+		/// [EN] KHR_materials_transmission (factor).
+		/// [JP] KHR_materials_transmission(factor)。
+		Float transmissionFactor_;
 
 		Vector3 specularColor_;
-		Float instancePadding4_;
+		/// [EN] KHR_materials_volume (thickness factor).
+		/// [JP] KHR_materials_volume(厚みfactor)。
+		Float volumeThicknessFactor_;
 
 		/// [EN] Dequantisation AABBs for the compressed vertex buffer
 		///      (Crister::PositionMin etc.) — see Model.hlsli DecodeModelVertex.
@@ -71,6 +75,30 @@ namespace SeedCore
 		Float texcoordMinV_;
 
 		Vector2 texcoordExtent_;
-		Vector2 instancePadding5_;
+		/// [EN] KHR_materials_volume (attenuation distance, FLT_MAX = no absorption).
+		/// [JP] KHR_materials_volume(吸収距離、FLT_MAX=吸収なし)。
+		Float volumeAttenuationDistance_;
+		/// [EN] KHR_materials_unlit (1.0 = skip lighting, use base_color+emissive as-is).
+		/// [JP] KHR_materials_unlit(1.0=ライティング無効、base_color+emissiveをそのまま使う)。
+		Float unlit_;
+
+		/// [EN] KHR_materials_volume (attenuation color, tints light that has
+		///      travelled thicknessFactor_ through the medium).
+		/// [JP] KHR_materials_volume(吸収色。thicknessFactor_ぶん媒質を通過した
+		///      光を着色する)。
+		Vector3 volumeAttenuationColor_;
+		Float instancePadding6_;
+
+		/// [EN] KHR_materials_sheen.
+		/// [JP] KHR_materials_sheen。
+		Vector3 sheenColor_;
+		Float sheenRoughness_;
+
+		/// [EN] KHR_materials_iridescence.
+		/// [JP] KHR_materials_iridescence。
+		Float iridescenceFactor_;
+		Float iridescenceIor_;
+		Float iridescenceThickness_;
+		Float instancePadding7_;
 	};
 }

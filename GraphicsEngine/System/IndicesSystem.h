@@ -173,7 +173,7 @@ namespace SeedCore
 	/// [JP] ビューごとのレイトレGI蓄積インデックス。影/AOと同じ理由でここに
 	///      置く。生の1spp放射輝度(StructuredIndices::globalIllumination_)は
 	///      全ビュー共有の単一バッファ — こちらはビューごとのデノイズ
-	///      (空間+時間)済み結果で、DeferredCompositePS.hlsl がサンプルする。
+	///      (空間+時間)済み結果で、DeferredLightingPS.hlsl がサンプルする。
 	///
 	///      atrousScratch0_/atrousScratch1_ は GlobalIlluminationDenoiseCS.hlsl
 	///      の ATrousPass1/2/3 エントリポイントが読み書きするビューごとの
@@ -199,7 +199,7 @@ namespace SeedCore
 	/// [JP] ビューごとのレイトレ反射蓄積インデックス。GIと同じ理由でここに
 	///      置く。生の1spp GGXサンプル放射輝度(StructuredIndices::reflection_)
 	///      は全ビュー共有の単一バッファ — こちらはビューごとのデノイズ
-	///      (空間+時間)済み結果で、DeferredCompositePS.hlsl がサンプルする。
+	///      (空間+時間)済み結果で、DeferredLightingPS.hlsl がサンプルする。
 	struct ReflectionAccumulationIndices
 	{
 		Uint historyShaderResourceViewIndex_ = 0;
@@ -287,20 +287,66 @@ namespace SeedCore
 
 	struct GBufferIndices
 	{
+		/// [EN] RT0: base_color.rgb + metallic.
+		/// [JP] RT0: base_color.rgb + metallic。
 		Uint index0_ = 0;
+		/// [EN] RT1: octNormal.rg + roughness (.a unused).
+		/// [JP] RT1: octNormal.rg + roughness(.a は未使用)。
 		Uint index1_ = 0;
+		/// [EN] RT2: velocity.
+		/// [JP] RT2: velocity。
 		Uint index2_ = 0;
+		/// [EN] RT3: emissive.rgb (raw - emissive_strength_ applied at lighting time).
+		/// [JP] RT3: emissive.rgb(生値。emissive_strength_ はライティング時に適用)。
 		Uint index3_ = 0;
+		/// [EN] RT4: VisibilityBuffer id (instance/meshlet/triangle), read by
+		///      the material resolve pass (Model/MaterialResolveCS.hlsl) and
+		///      by DeferredLightingPS.hlsl for KHR extension lookups.
+		/// [JP] RT4: VisibilityBuffer id(instance/meshlet/triangle)。マテリアル
+		///      解決パス(Model/MaterialResolveCS.hlsl)と、KHR拡張参照のため
+		///      DeferredLightingPS.hlsl が読む。
 		Uint index4_ = 0;
 		Uint depthIndex_ = 0;
-		/// [EN] DLSS-RR only: RT3's UAV, written by the background (sky/cloud)
-		///      velocity patch - see DLSS/DlssBackgroundVelocityCS.hlsl.
-		/// [JP] DLSS-RR専用: RT3のUAV。背景(空/雲)速度パッチが書く —
-		///      DLSS/DlssBackgroundVelocityCS.hlsl 参照。
+		/// [EN] RT2's UAV. Written wholesale by the material resolve pass, and
+		///      patched again for background (sky/cloud) pixels by
+		///      DLSS/DlssBackgroundVelocityCS.hlsl (DLSS-RR only).
+		/// [JP] RT2のUAV。マテリアル解決パスが丸ごと書き、DLSS-RR時のみ背景
+		///      (空/雲)ピクセルを DLSS/DlssBackgroundVelocityCS.hlsl が
+		///      追加でパッチする。
 		Uint velocityUnorderedAccessViewIndex_ = 0;
-		Uint gbufferPadding_ = 0;
+		/// [EN] UAV indices onto RT0/1/3, written wholesale by the material
+		///      resolve pass (RT2's UAV is velocityUnorderedAccessViewIndex_ above).
+		/// [JP] RT0/1/3 への UAV インデックス。マテリアル解決パスが丸ごと書く
+		///      (RT2 の UAV は上の velocityUnorderedAccessViewIndex_)。
+		Uint index0UnorderedAccessViewIndex_ = 0;
+		Uint index1UnorderedAccessViewIndex_ = 0;
+		Uint index3UnorderedAccessViewIndex_ = 0;
+		Uint gbufferPadding0_ = 0;
+		Uint gbufferPadding1_ = 0;
 	};
 	static_assert(sizeof(GBufferIndices) % 16 == 0, "GBufferIndices が 16 バイト行の倍数ではありません");
+
+	struct MaterialSortIndices
+	{
+		/// [EN] Per-bucket pixel count -> exclusive-scan offset -> atomic write
+		///      cursor (Model/MaterialClassifyCS.hlsl / MaterialPrefixSumCS.hlsl /
+		///      MaterialScatterCS.hlsl), RWStructuredBuffer<uint>[MATERIAL_SORT_BUCKET_COUNT].
+		/// [JP] バケットごとのピクセル数 → 排他的スキャンのオフセット →
+		///      atomic書き込みカーソル(Model/MaterialClassifyCS.hlsl /
+		///      MaterialPrefixSumCS.hlsl / MaterialScatterCS.hlsl)。
+		///      RWStructuredBuffer<uint>[MATERIAL_SORT_BUCKET_COUNT]。
+		Uint bucketIndex_ = 0;
+		/// [EN] Material-sorted pixel list, RWStructuredBuffer<uint>[width*height].
+		///      Model/MaterialResolveCS.hlsl dispatches 1D over this instead of
+		///      raw screen order.
+		/// [JP] マテリアルでソート済みのピクセルリスト、
+		///      RWStructuredBuffer<uint>[width*height]。Model/MaterialResolveCS.hlsl
+		///      はスクリーン順ではなくこれを1Dディスパッチで辿る。
+		Uint sortedPixelListIndex_ = 0;
+		Uint materialSortPadding0_ = 0;
+		Uint materialSortPadding1_ = 0;
+	};
+	static_assert(sizeof(MaterialSortIndices) % 16 == 0, "MaterialSortIndices が 16 バイト行の倍数ではありません");
 
 	struct SkyIndices
 	{
@@ -431,6 +477,7 @@ namespace SeedCore
 		ModelIndices model_;
 		OitIndices oit_;
 		GBufferIndices gbuffer_;
+		MaterialSortIndices materialSort_;
 		SkyIndices sky_;
 		RaytracingIndices raytracing_;
 		ShadowIndices shadow_;
@@ -444,7 +491,7 @@ namespace SeedCore
 		VolumetricLightIndices volumetricLight_;
 		MovieIndices movie_;
 	};
-	static_assert(sizeof(StructuredIndices) == 21 * 16, "StructuredIndices が Shader/Structured.hlsli と一致していません");
+	static_assert(sizeof(StructuredIndices) % 16 == 0, "StructuredIndices が 16 バイト行の倍数ではありません");
 
 	class BindlessHeap;
 
@@ -515,6 +562,16 @@ namespace SeedCore
 		void SetGBufferDepthIndex(Uint index);
 
 		void SetGBufferVelocityUnorderedAccessViewIndex(Uint index);
+
+		void SetGBuffer0UnorderedAccessViewIndex(Uint index);
+
+		void SetGBuffer1UnorderedAccessViewIndex(Uint index);
+
+		void SetGBuffer3UnorderedAccessViewIndex(Uint index);
+
+		void SetMaterialSortBucketIndex(Uint index);
+
+		void SetMaterialSortedPixelListIndex(Uint index);
 
 		void SetSkyEnvironmentCubeIndex(Uint index);
 

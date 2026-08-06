@@ -1,10 +1,10 @@
-#ifndef __VOLUMETRIC_CLOUD_SCAPES_HLSL__
+﻿#ifndef __VOLUMETRIC_CLOUD_SCAPES_HLSL__
 #define __VOLUMETRIC_CLOUD_SCAPES_HLSL__
 
 static const float CLOUD_PI = 3.14159265358979;
 
 // Sky + cloud tuning constant buffer, read by VolumetricCloudScapesRT.hlsl,
-// DeferredCompositePS.hlsl, ProceduralSkyToCubeCS.hlsl and
+// DeferredLightingPS.hlsl, ProceduralSkyToCubeCS.hlsl and
 // VolumetricLightScatteringRT.hlsl via
 // structured_indices.cloud_.ray_constant_index_.
 // Must match the C++ mirror in Renderer/VolumetricCloudScapesRenderer.h
@@ -73,7 +73,7 @@ struct VolumetricCloudScapesRayConstantBuffer
 	float3 ground_color_;
 
 	// 1 while the cloud/sky feature is enabled (set by the renderer, not the
-	// UI) - DeferredCompositePS.hlsl uses this to decide whether to draw the
+	// UI) - DeferredLightingPS.hlsl uses this to decide whether to draw the
 	// procedural sky on skymap-less backgrounds.
 	uint procedural_sky_enabled_;
 

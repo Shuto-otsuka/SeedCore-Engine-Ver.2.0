@@ -1,4 +1,4 @@
-#include "../../Shader/Constants.hlsli"
+﻿#include "../../Shader/Constants.hlsli"
 #include "../../Shader/Structured.hlsli"
 #include "../../Shader/Light.hlsli"
 #include "../../Shader/Normal.hlsli"
@@ -72,7 +72,7 @@ void ReflectionRayGeneration()
 	float4 world = mul(clip, scene.inverse_view_projection_);
 	float3 world_position = world.xyz / world.w;
 
-	// gbuffer1: rg = octエンコード法線、b = ラフネス(DeferredCompositePS.hlsl
+	// gbuffer1: rg = octエンコード法線、b = ラフネス(DeferredLightingPS.hlsl
 	// と同じ詰め方)。
 	Texture2D<float4> normal_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.index_1_];
 	float4 gbuffer1 = normal_texture.Load(int3(pixel, 0));
@@ -206,7 +206,7 @@ void ReflectionClosestHit(inout ReflectionPayload payload, in BuiltInTriangleInt
 		// ため、ヘルパー(SampleDiffuseIrradianceEnvironmentMap)を経由せず
 		// 直接 SampleLevel で読む。irradiance キューブはミップ1枚なので等価。
 		//
-		// sky_intensity_ はここでは掛けない。DeferredCompositePS.hlsl が
+		// sky_intensity_ はここでは掛けない。DeferredLightingPS.hlsl が
 		// トレース反射を ibl_specular へ lerp した後に lighting 全体へ
 		// 一度掛けるので、ここで掛けると二重適用になる(既定値 1.0 では
 		// 見えないが、空の明るさを変えた瞬間に反射だけ二乗で効く)。

@@ -13,8 +13,11 @@
 *   1. Read the global vertex via the 2-level indirection
 *      (primitiveIndices → vertexIndices → global vertex)
 *   2. Transform position by world and view-projection matrices
-*   3. Compute world-space normal and tangent for G-Buffer
-*   4. Compute current and previous clip-space positions for velocity
+*
+* Only position + texcoord + the id fields are carried to the PS - the G-Buffer
+* pass writes a VisibilityBuffer id only (see GeometryBuffer::BeginVisibility);
+* Model/MaterialResolveCS.hlsl recomputes world position/normal/tangent/velocity
+* from that id + depth afterward, so this MS no longer needs to.
 *
 * Max output: 64 vertices, 124 triangles (meshlet constraints).
 *
@@ -27,8 +30,11 @@
 *   1. 2 段階間接参照でグローバル頂点を読み取る
 *      (primitiveIndices → vertexIndices → グローバル頂点)
 *   2. ワールド行列とビュー・プロジェクション行列で位置を変換
-*   3. G-Buffer 用にワールド空間の法線とタンジェントを計算
-*   4. 速度ベクトル用に現在と前フレームのクリップ空間位置を計算
+*
+* PS へ渡すのは position + texcoord + id 系のみ - G-Buffer パスは
+* VisibilityBuffer id のみを書く(GeometryBuffer::BeginVisibility 参照)。
+* ワールド位置/法線/タンジェント/速度はこの後 Model/MaterialResolveCS.hlsl が
+* その id + depth から計算し直すので、この MS ではもう不要。
 *
 * 最大出力: 64 頂点、124 三角形（メシュレット制約）。
 */
@@ -40,7 +46,7 @@ groupshared float4 clip_positions[64];
 
 [NumThreads(64, 1, 1)]
 [OutputTopology("triangle")]
-void main(in payload ModelASPayload as_payload, uint gtid : SV_GroupThreadID, uint gid : SV_GroupID, out vertices ModelMSOutput verts[64], out indices uint3 tris[124])
+void main(in payload ModelASPayload as_payload, uint gtid : SV_GroupThreadID, uint gid : SV_GroupID, out vertices ModelMSOutput verts[64], out indices uint3 tris[124], out primitives ModelMSPrimitiveOutput prims[124])
 {
 	StructuredBuffer<ModelInstance> instances = ResourceDescriptorHeap[structured_indices.model_.instance_index_];
 
@@ -81,24 +87,9 @@ void main(in payload ModelASPayload as_payload, uint gtid : SV_GroupThreadID, ui
 		float4 world_position = mul(float4(vertex.position_, 1.0), instance.world_);
 		float4 clip_position = mul(world_position, scene.current_view_projection_);
 
-		/// [JP] 前フレームのクリップ位置はインスタンス自身の前フレームの
-		///      ワールド行列で計算する(今フレームの行列を使い回すとカメラの
-		///      動きしか速度に反映されず、動く/アニメーションするオブジェクトが
-		///      常に速度ゼロ扱いになる)。
-		float4 previous_world_position = mul(float4(vertex.position_, 1.0), instance.previous_world_);
-		float4 previous_clip_position = mul(previous_world_position, scene.previous_view_projection_);
-
-		float3 world_normal = normalize(mul(float4(vertex.normal_, 0.0), instance.inverse_transpose_world_).xyz);
-		float4 world_tangent = float4(normalize(mul(float4(vertex.tangent_.xyz, 0.0), instance.world_).xyz), vertex.tangent_.w);
-
 		ModelMSOutput output;
 		output.position = clip_position;
-		output.world_position = world_position.xyz;
-		output.world_normal = world_normal;
-		output.world_tangent = world_tangent;
 		output.texcoord = vertex.texcoord_;
-		output.current_position = clip_position;
-		output.previous_position = previous_clip_position;
 		output.instance_index = instance_index;
 		output.meshlet_index = meshlet_index;
 
@@ -148,5 +139,7 @@ void main(in payload ModelASPayload as_payload, uint gtid : SV_GroupThreadID, ui
 		{
 			tris[triangle_index] = uint3(i0, i1, i2);
 		}
+
+		prims[triangle_index].triangle_in_meshlet_index = triangle_index;
 	}
 }

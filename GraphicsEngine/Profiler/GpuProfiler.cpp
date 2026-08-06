@@ -265,9 +265,11 @@ namespace SeedCore
 			return "深度プリパス";
 		case GpuProfileScope::HiZBuild:						
 			return "Hi-Z 構築";
-		case GpuProfileScope::GeometryBuffer:				
+		case GpuProfileScope::GeometryBuffer:
 			return "G-Buffer";
-		case GpuProfileScope::LightCluster:					
+		case GpuProfileScope::MaterialResolve:
+			return "VisBuffer マテリアル解決";
+		case GpuProfileScope::LightCluster:
 			return "ライトクラスタ";
 		case GpuProfileScope::RaytraceShadow:				
 			return "RT 影";
@@ -287,11 +289,9 @@ namespace SeedCore
 			return "天候パーティクル";
 		case GpuProfileScope::VolumetricLight:
 			return "RT ボリュメトリックライト";
-		case GpuProfileScope::SkyGenerate:					
+		case GpuProfileScope::SkyGenerate:
 			return "空 IBL 生成";
-		case GpuProfileScope::SkyRealtimeCapture:			
-			return "空リアルタイムキャプチャ";
-		case GpuProfileScope::Composite:					
+		case GpuProfileScope::Composite:
 			return "ライティング合成";
 		case GpuProfileScope::Transparent:
 			return "半透明";

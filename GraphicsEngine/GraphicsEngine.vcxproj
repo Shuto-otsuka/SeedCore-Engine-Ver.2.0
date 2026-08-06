@@ -106,6 +106,8 @@
     <ClInclude Include="Model\Animation\AnimatorControllerState.h" />
     <ClInclude Include="Model\BC7CompressShader.h" />
     <ClInclude Include="Model\Crister.h" />
+    <ClInclude Include="Model\MaterialResolveShader.h" />
+    <ClInclude Include="Model\MaterialSortBuffer.h" />
     <ClInclude Include="Model\Mesh.h" />
     <ClInclude Include="Model\ModelInstanceData.h" />
     <ClInclude Include="Model\ModelLoader.h" />
@@ -230,6 +232,8 @@
     <ClCompile Include="Model\Animation\Animator.cpp" />
     <ClCompile Include="Model\BC7CompressShader.cpp" />
     <ClCompile Include="Model\Crister.cpp" />
+    <ClCompile Include="Model\MaterialResolveShader.cpp" />
+    <ClCompile Include="Model\MaterialSortBuffer.cpp" />
     <ClCompile Include="Model\ModelCommon.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
@@ -568,12 +572,6 @@
     <Text Include="Light\ClusterAssignCS.hlsl">
       <FileType>Document</FileType>
     </Text>
-    <Text Include="Model\DeferredCompositeMS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Model\DeferredCompositePS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
     <Text Include="Model\OITResolveMS.hlsl">
       <FileType>Document</FileType>
     </Text>
@@ -622,11 +620,6 @@
       <FileType>Document</FileType>
     </Text>
     <Text Include="Sky\SpecularPrefilterCS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="Sky\SkyForwardPS.hlsl">
       <FileType>Document</FileType>
     </Text>
   </ItemGroup>
@@ -898,6 +891,30 @@
   </ItemGroup>
   <ItemGroup>
     <Text Include="Model\DepthResizeCS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Model\MaterialResolveCS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Model\DeferredLightingMS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Model\DeferredLightingPS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Model\MaterialClassifyCS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Model\MaterialPrefixSumCS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Model\MaterialScatterCS.hlsl">
       <FileType>Document</FileType>
     </Text>
   </ItemGroup>

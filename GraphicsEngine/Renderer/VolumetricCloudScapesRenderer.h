@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <FoundationEngine/Prelude.h>
 #include <FoundationEngine/Utility/SerializeFallback.h>
 #include <GraphicsEngine/D3D12/Buffer/ConstantBuffer.h>
@@ -14,12 +14,12 @@ namespace SeedCore
 
 	/// [EN] Mirrors Raytracing/VolumetricCloudScapes/VolumetricCloudScapes.hlsli's
 	///      VolumetricCloudScapesRayConstantBuffer — read by both
-	///      VolumetricCloudScapesRT.hlsl and DeferredCompositePS.hlsl via
+	///      VolumetricCloudScapesRT.hlsl and DeferredLightingPS.hlsl via
 	///      structured_indices.cloud_ray_constant_index_. Must stay
 	///      byte-for-byte in sync with the HLSL side.
 	/// [JP] Raytracing/VolumetricCloudScapes/VolumetricCloudScapes.hlsli の
 	///      VolumetricCloudScapesRayConstantBuffer と対応。
-	///      VolumetricCloudScapesRT.hlsl と DeferredCompositePS.hlsl の両方が
+	///      VolumetricCloudScapesRT.hlsl と DeferredLightingPS.hlsl の両方が
 	///      structured_indices.cloud_ray_constant_index_ 経由で読む。HLSL 側と
 	///      バイト単位で一致させること。以下は 4 スカラー = cbuffer 1 行
 	///      (16 バイト)単位で並べてある — フィールドを足すときもこの区切りを
@@ -302,7 +302,7 @@ namespace SeedCore
 	* (VolumetricCloudScapesRT.hlsl — screen-space raymarch over a procedural
 	* density field, sky pixels only) into an RGBA16F texture (rgb =
 	* in-scattered radiance, a = coverage) and leaves it in
-	* PIXEL_SHADER_RESOURCE state for DeferredCompositePS.hlsl to composite
+	* PIXEL_SHADER_RESOURCE state for DeferredLightingPS.hlsl to composite
 	* over the skybox. Needs no TLAS (pure raymarch); like
 	* SubsurfaceScatteringRenderer there is NO denoiser and NO per-view chain
 	* — one texture is written and consumed within each view's flush.
@@ -314,7 +314,7 @@ namespace SeedCore
 	* ボリューメトリック・クラウドスケープのコンピュートパス
 	* (VolumetricCloudScapesRT.hlsl — プロシージャル密度場のスクリーン空間
 	* レイマーチ、空ピクセル限定)を RGBA16F テクスチャ(rgb=内散乱放射輝度、
-	* a=カバレッジ)へディスパッチし、DeferredCompositePS.hlsl がスカイボックス
+	* a=カバレッジ)へディスパッチし、DeferredLightingPS.hlsl がスカイボックス
 	* の上に合成できるよう PIXEL_SHADER_RESOURCE 状態にしておく。TLAS 不要
 	* (純レイマーチ)。SubsurfaceScatteringRenderer と同じくデノイザも
 	* ビュー別チェーンも無い — 各ビューの Flush 内で書いて読む1枚。
@@ -357,13 +357,13 @@ namespace SeedCore
 		void CreateNoiseTexture(ID3D12Device* device, BindlessHeap* bindlessHeap, Uint32 size, Microsoft::WRL::ComPtr<ID3D12Resource>& outResource, Uint32& outUnorderedAccessViewIndex, Uint32& outShaderResourceViewIndex);
 
 		/// [EN] The cloud texture is rendered at 1/N of the screen in each axis
-		///      and bilinearly upsampled by DeferredCompositePS.hlsl. Clouds are
+		///      and bilinearly upsampled by DeferredLightingPS.hlsl. Clouds are
 		///      a low-frequency signal, so this is nearly free visually and cuts
 		///      the pass by N^2 — measured at 26ms full-res, which is the whole
 		///      frame budget. Unreal does the same (it goes to 1/4 plus temporal
 		///      reprojection). Raise to 4 for another 4x if 2 is not enough; the
 		///      only cost is softer cloud edges.
-		/// [JP] 雲テクスチャは画面の 1/N 解像度で描き、DeferredCompositePS.hlsl が
+		/// [JP] 雲テクスチャは画面の 1/N 解像度で描き、DeferredLightingPS.hlsl が
 		///      バイリニアで拡大する。雲は低周波な信号なので見た目の代償はごく
 		///      小さく、コストは N^2 分の1になる — フル解像度で実測 26ms、
 		///      フレーム予算そのものだった。Unreal も同じ手法(あちらは 1/4 +

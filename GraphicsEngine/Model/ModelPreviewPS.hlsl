@@ -1,11 +1,11 @@
-#include "Model.hlsli"
+﻿#include "Model.hlsli"
 #include "../Shader/Structured.hlsli"
 #include "../Shader/Sampler.hlsli"
 
 /**
 * [EN]
 * Pixel shader for the Timeline panel's 3D model preview. Deliberately
-* matches DeferredCompositePS.hlsl's view_mode_==1 ("albedo only" debug
+* matches DeferredLightingPS.hlsl's view_mode_==1 ("albedo only" debug
 * branch) exactly: base color (x texture), clip-tested, no lighting, no
 * normal mapping, no emissive — so the preview shows the same flat color a
 * user already knows how to read from that debug view, instead of an
@@ -16,7 +16,7 @@
 *
 * [JP]
 * Timelineパネルの3Dモデルプレビュー用ピクセルシェーダー。
-* DeferredCompositePS.hlslのview_mode_==1（「アルベドのみ」デバッグ分岐）と
+* DeferredLightingPS.hlslのview_mode_==1（「アルベドのみ」デバッグ分岐）と
 * あえて完全に一致させる: baseColor（×テクスチャ）をclipテストするだけで、
 * ライティングも法線マップもemissiveも無し — 独自に考案したシェーディング
 * 結果ではなく、既にそのデバッグ表示で見慣れているのと同じ色をプレビューに

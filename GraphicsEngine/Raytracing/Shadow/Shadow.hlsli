@@ -1,8 +1,8 @@
-#ifndef __SHADOW_HLSL__
+﻿#ifndef __SHADOW_HLSL__
 #define __SHADOW_HLSL__
 
 // Shadow tuning constant buffer, read by both ShadowRT.hlsl and
-// DeferredCompositePS.hlsl via structured_indices.shadow_.ray_constant_index_.
+// DeferredLightingPS.hlsl via structured_indices.shadow_.ray_constant_index_.
 // Must match the C++ mirror in Renderer/ShadowRenderer.h byte-for-byte.
 struct ShadowRayConstantBuffer
 {
@@ -11,7 +11,7 @@ struct ShadowRayConstantBuffer
 
 	// How strongly the traced visibility affects lighting: 0 = ignore (always
 	// lit), 1 = apply visibility as-is (hard binary shadow). Used as
-	// lerp(1.0, visibility, shadow_strength_) in DeferredCompositePS.hlsl.
+	// lerp(1.0, visibility, shadow_strength_) in DeferredLightingPS.hlsl.
 	float shadow_strength_;
 
 	// Half-angle (radians) of the directional light's disk, for soft shadows:

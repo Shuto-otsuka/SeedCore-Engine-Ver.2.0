@@ -1,4 +1,4 @@
-#include "../../Shader/Constants.hlsli"
+﻿#include "../../Shader/Constants.hlsli"
 #include "../../Shader/Structured.hlsli"
 #include "../Froxel/Froxel.hlsli"
 #include "../VolumetricLight/VolumetricLight.hlsli"
@@ -8,7 +8,7 @@
 * Froxel ボリューメトリクス — パス3: 積分(compute、RT不使用)。パイプラインの
 * 出口。パス2が書いた散乱 froxel を奥行き方向(手前→奥)に積分し、各 froxel へ
 * 「そこまでの累積散乱(rgb)」と「透過率(a)」を書く。合成
-* (DeferredCompositePS.hlsl)はこの積分ボリュームを uv+深度スライスで
+* (DeferredLightingPS.hlsl)はこの積分ボリュームを uv+深度スライスで
 * サンプルしてシーンに乗せる。
 * 各 XY 列を1スレッドが担当し、Z を 0→dim.z へ front-to-back で1回舐める。
 * Dispatch: (dim.x/8, dim.y/8, 1)。

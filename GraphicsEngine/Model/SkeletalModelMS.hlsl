@@ -32,7 +32,7 @@ groupshared float4 clip_positions[64];
 
 [NumThreads(64, 1, 1)]
 [OutputTopology("triangle")]
-void main(in payload ModelASPayload as_payload, uint gtid : SV_GroupThreadID, uint gid : SV_GroupID, out vertices ModelMSOutput verts[64], out indices uint3 tris[124])
+void main(in payload ModelASPayload as_payload, uint gtid : SV_GroupThreadID, uint gid : SV_GroupID, out vertices ModelMSOutput verts[64], out indices uint3 tris[124], out primitives ModelMSPrimitiveOutput prims[124])
 {
 	StructuredBuffer<ModelInstance> instances = ResourceDescriptorHeap[structured_indices.model_.instance_index_];
 	StructuredBuffer<ModelBoneMatrix> bone_matrices = ResourceDescriptorHeap[structured_indices.model_.bone_matrix_index_];
@@ -84,34 +84,18 @@ void main(in payload ModelASPayload as_payload, uint gtid : SV_GroupThreadID, ui
 			LoadBoneMatrix(bone_matrices[instance.bone_offset_ + joints.z]) * weights.z +
 			LoadBoneMatrix(bone_matrices[instance.bone_offset_ + joints.w]) * weights.w;
 
+		/// [JP] PS へ渡すのは position + texcoord + id 系のみでよいので、法線/
+		///      タンジェントのスキニングはしない(Model/MaterialResolveCS.hlsl が
+		///      その id + depth から計算し直す)。position のスキニングは
+		///      描画される輪郭/深度そのものに関わるため引き続き必須。
 		float3 skinned_position = mul(float4(vertex.position_, 1.0), skin_matrix).xyz;
-		float3 skinned_normal = normalize(mul(float4(vertex.normal_, 0.0), skin_matrix).xyz);
-		float3 skinned_tangent = normalize(mul(float4(vertex.tangent_.xyz, 0.0), skin_matrix).xyz);
 
 		float4 world_position = mul(float4(skinned_position, 1.0), instance.world_);
 		float4 clip_position = mul(world_position, scene.current_view_projection_);
 
-		/// [JP] 前フレームのクリップ位置はインスタンス自身の前フレームの
-		///      ワールド行列で計算する(今フレームの行列を使い回すとカメラの
-		///      動きしか速度に反映されない)。ただし bone_matrices は今フレームの
-		///      ボーンパレットしか無いため、スキニング変形そのもの(ボーンの
-		///      動き)は速度に反映されない — ここで補えるのはインスタンス全体の
-		///      剛体移動のみ。ボーン単位まで正確にするには前フレームのボーン
-		///      パレットを別途保持する必要がある(未実装)。
-		float4 previous_world_position = mul(float4(skinned_position, 1.0), instance.previous_world_);
-		float4 previous_clip_position = mul(previous_world_position, scene.previous_view_projection_);
-
-		float3 world_normal = normalize(mul(float4(skinned_normal, 0.0), instance.inverse_transpose_world_).xyz);
-		float4 world_tangent = float4(normalize(mul(float4(skinned_tangent, 0.0), instance.world_).xyz), vertex.tangent_.w);
-
 		ModelMSOutput output;
 		output.position = clip_position;
-		output.world_position = world_position.xyz;
-		output.world_normal = world_normal;
-		output.world_tangent = world_tangent;
 		output.texcoord = vertex.texcoord_;
-		output.current_position = clip_position;
-		output.previous_position = previous_clip_position;
 		output.instance_index = instance_index;
 		output.meshlet_index = meshlet_index;
 
@@ -153,5 +137,7 @@ void main(in payload ModelASPayload as_payload, uint gtid : SV_GroupThreadID, ui
 		{
 			tris[triangle_index] = uint3(i0, i1, i2);
 		}
+
+		prims[triangle_index].triangle_in_meshlet_index = triangle_index;
 	}
 }

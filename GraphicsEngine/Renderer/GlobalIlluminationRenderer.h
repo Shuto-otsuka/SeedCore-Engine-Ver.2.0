@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <FoundationEngine/Prelude.h>
 #include <GraphicsEngine/D3D12/Buffer/ConstantBuffer.h>
 #include <GraphicsEngine/D3D12/Descriptor/DescriptorHeap.h>
@@ -15,12 +15,12 @@ namespace SeedCore
 
 	/// [EN] Mirrors Raytracing/GlobalIllumination/GlobalIllumination.hlsli's
 	///      GlobalIlluminationRayConstantBuffer — read by
-	///      GlobalIlluminationRT.hlsl and DeferredCompositePS.hlsl via
+	///      GlobalIlluminationRT.hlsl and DeferredLightingPS.hlsl via
 	///      structured_indices.global_illumination_ray_constant_index_. Must
 	///      stay byte-for-byte in sync with the HLSL side.
 	/// [JP] Raytracing/GlobalIllumination/GlobalIllumination.hlsli の
 	///      GlobalIlluminationRayConstantBuffer と対応。GlobalIlluminationRT.hlsl
-	///      と DeferredCompositePS.hlsl の両方が
+	///      と DeferredLightingPS.hlsl の両方が
 	///      structured_indices.global_illumination_ray_constant_index_ 経由で
 	///      読む。HLSL 側とバイト単位で一致させること。
 	struct GlobalIlluminationRayConstantBuffer
@@ -36,8 +36,8 @@ namespace SeedCore
 		/// [JP] レイが自分の面を叩かないよう法線方向へ押し出す量。
 		Float normalBias_ = 0.05f;
 
-		/// [EN] Overall indirect intensity, applied in DeferredCompositePS.hlsl.
-		/// [JP] 間接光全体の強さ。DeferredCompositePS.hlsl 側で掛かる。
+		/// [EN] Overall indirect intensity, applied in DeferredLightingPS.hlsl.
+		/// [JP] 間接光全体の強さ。DeferredLightingPS.hlsl 側で掛かる。
 		Float intensity_ = 1.0f;
 
 		/// [EN] Incremented once per frame by GlobalIlluminationRenderer (not the
@@ -72,7 +72,7 @@ namespace SeedCore
 	* (GlobalIlluminationDenoiseCS.hlsl: spatial bilateral filter + temporal
 	* reprojection with variance clipping against a ping-ponged accumulation
 	* buffer, one independent chain per view) and leaves the result in
-	* PIXEL_SHADER_RESOURCE state for DeferredCompositePS.hlsl, which
+	* PIXEL_SHADER_RESOURCE state for DeferredLightingPS.hlsl, which
 	* multiplies it by the receiving surface's albedo. Same structure as
 	* AmbientOcclusionRenderer, extended from a scalar signal to RGB. The
 	* bounce surface's geometry and material come from reflection's
@@ -87,7 +87,7 @@ namespace SeedCore
 	* ディスパッチし、それをデノイズ(GlobalIlluminationDenoiseCS.hlsl: 空間
 	* バイラテラルフィルタ+ビューごとに独立したピンポン蓄積バッファに対する
 	* 分散クリッピング付き時間的リプロジェクション)した上で、
-	* DeferredCompositePS.hlsl が受け側の面のアルベドを掛けられるよう
+	* DeferredLightingPS.hlsl が受け側の面のアルベドを掛けられるよう
 	* PIXEL_SHADER_RESOURCE 状態にしておく。AmbientOcclusionRenderer と同じ
 	* 構成をスカラーからRGBへ拡張したもの。バウンス面のジオメトリ/マテリアルは、
 	* 反射パスがアップロード済みのインスタンステーブルを再利用する(2つ目の

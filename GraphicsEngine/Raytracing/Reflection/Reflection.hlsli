@@ -1,4 +1,4 @@
-#ifndef __REFLECTION_HLSL__
+﻿#ifndef __REFLECTION_HLSL__
 #define __REFLECTION_HLSL__
 
 #include "../../Shader/Normal.hlsli"
@@ -7,14 +7,14 @@
 #include "../../Light/Cluster.hlsli"
 
 // Reflection tuning constant buffer, read by both ReflectionRT.hlsl and
-// DeferredCompositePS.hlsl via structured_indices.reflection_.ray_constant_index_.
+// DeferredLightingPS.hlsl via structured_indices.reflection_.ray_constant_index_.
 // Must match the C++ mirror in Renderer/ReflectionRenderer.h byte-for-byte.
 struct ReflectionRayConstantBuffer
 {
 	float ray_t_max_;
 	float normal_bias_;
 
-	// Overall reflection intensity applied in DeferredCompositePS.hlsl.
+	// Overall reflection intensity applied in DeferredLightingPS.hlsl.
 	float strength_;
 
 	// Incremented once per frame by ReflectionRenderer (not the UI) - rotates
@@ -37,6 +37,17 @@ struct ReflectionMaterialData
 	// has none / is not resident yet (Crister::TextureBindlessIndex returns the
 	// sentinel while a streaming mip is still loading).
 	uint base_color_texture_index_;
+
+	// KHR_materials_ior/transmission/volume - read by Refraction/RefractionRT.hlsl
+	// (Snell refraction needs ior_; the Fresnel/transmit-vs-absorb decision needs
+	// transmission_factor_; Beer-Lambert absorption over the traveled distance
+	// inside the medium needs volume_attenuation_color_/distance_). Reflection
+	// itself does not use these - they live here rather than in a separate
+	// table so ResolveReflectionMaterial's per-triangle lookup can be shared.
+	float ior_;
+	float transmission_factor_;
+	float3 volume_attenuation_color_;
+	float volume_attenuation_distance_;
 };
 
 // One entry per TLAS instance, indexed by InstanceID() in the closesthit

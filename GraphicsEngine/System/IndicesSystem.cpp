@@ -169,6 +169,31 @@ namespace SeedCore
 		structuredIndices_.gbuffer_.velocityUnorderedAccessViewIndex_ = index;
 	}
 
+	void IndicesSystem::SetGBuffer0UnorderedAccessViewIndex(Uint index)
+	{
+		structuredIndices_.gbuffer_.index0UnorderedAccessViewIndex_ = index;
+	}
+
+	void IndicesSystem::SetGBuffer1UnorderedAccessViewIndex(Uint index)
+	{
+		structuredIndices_.gbuffer_.index1UnorderedAccessViewIndex_ = index;
+	}
+
+	void IndicesSystem::SetMaterialSortBucketIndex(Uint index)
+	{
+		structuredIndices_.materialSort_.bucketIndex_ = index;
+	}
+
+	void IndicesSystem::SetMaterialSortedPixelListIndex(Uint index)
+	{
+		structuredIndices_.materialSort_.sortedPixelListIndex_ = index;
+	}
+
+	void IndicesSystem::SetGBuffer3UnorderedAccessViewIndex(Uint index)
+	{
+		structuredIndices_.gbuffer_.index3UnorderedAccessViewIndex_ = index;
+	}
+
 	void IndicesSystem::SetSkyEnvironmentCubeIndex(Uint index)
 	{
 		structuredIndices_.sky_.environmentCubeIndex_ = index;

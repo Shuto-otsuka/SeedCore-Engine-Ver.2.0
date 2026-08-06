@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <FoundationEngine/Prelude.h>
 #include <GraphicsEngine/D3D12/Buffer/ConstantBuffer.h>
 #include <GraphicsEngine/D3D12/Descriptor/DescriptorHeap.h>
@@ -15,12 +15,12 @@ namespace SeedCore
 
 	/// [EN] Mirrors Raytracing/AmbientOcclusion/AmbientOcclusion.hlsli's
 	///      AmbientOcclusionRayConstantBuffer — read by both
-	///      AmbientOcclusionRT.hlsl and DeferredCompositePS.hlsl via
+	///      AmbientOcclusionRT.hlsl and DeferredLightingPS.hlsl via
 	///      structured_indices.ao_ray_constant_index_. Must stay byte-for-byte
 	///      in sync with the HLSL side.
 	/// [JP] Raytracing/AmbientOcclusion/AmbientOcclusion.hlsli の
 	///      AmbientOcclusionRayConstantBuffer と対応。AmbientOcclusionRT.hlsl と
-	///      DeferredCompositePS.hlsl の両方が
+	///      DeferredLightingPS.hlsl の両方が
 	///      structured_indices.ao_ray_constant_index_ 経由で読む。HLSL 側と
 	///      バイト単位で一致させること。
 	struct AmbientOcclusionRayConstantBuffer
@@ -32,8 +32,8 @@ namespace SeedCore
 		Float normalBias_ = 0.01f;
 
 		/// [EN] Contrast exponent (pow(ao, power_)) applied in
-		///      DeferredCompositePS.hlsl. 1 = as-is, >1 = darker/stronger.
-		/// [JP] DeferredCompositePS.hlsl で適用するコントラスト指数
+		///      DeferredLightingPS.hlsl. 1 = as-is, >1 = darker/stronger.
+		/// [JP] DeferredLightingPS.hlsl で適用するコントラスト指数
 		///      (pow(ao, power_))。1=そのまま、>1=より暗く/強く。
 		Float power_ = 1.0f;
 
@@ -62,7 +62,7 @@ namespace SeedCore
 	* texture, then denoises it (AmbientOcclusionDenoiseCS.hlsl: temporal
 	* reprojection + blend against a ping-ponged accumulation buffer) and
 	* leaves the result in PIXEL_SHADER_RESOURCE state for
-	* DeferredCompositePS.hlsl to sample. If the scene has no TLAS this frame
+	* DeferredLightingPS.hlsl to sample. If the scene has no TLAS this frame
 	* (nothing to trace against) or the DXR PSO is unavailable, both stages are
 	* skipped and the accumulated buffer is cleared to 1.0 (fully open)
 	* instead. Same structure as ShadowRenderer.
@@ -73,7 +73,7 @@ namespace SeedCore
 	* レイトレAOのコンピュートパス(AmbientOcclusionRT.hlsl)を生の1チャンネル
 	* ノイズ開放度テクスチャへディスパッチし、それをデノイズ
 	* (AmbientOcclusionDenoiseCS.hlsl: 時間的リプロジェクション+ピンポン
-	* 蓄積バッファとのブレンド)した上で、DeferredCompositePS.hlsl がサンプル
+	* 蓄積バッファとのブレンド)した上で、DeferredLightingPS.hlsl がサンプル
 	* できるよう PIXEL_SHADER_RESOURCE 状態にしておく。今フレーム TLAS が無い
 	* （追跡対象が無い）、または DXR PSO が無い場合は両パスともスキップし、
 	* 蓄積バッファを 1.0（開放）でクリアする。ShadowRenderer と同じ構成。

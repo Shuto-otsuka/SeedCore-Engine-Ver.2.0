@@ -1,8 +1,8 @@
-#ifndef __SUBSURFACE_SCATTERING_HLSL__
+﻿#ifndef __SUBSURFACE_SCATTERING_HLSL__
 #define __SUBSURFACE_SCATTERING_HLSL__
 
 // SSS tuning constant buffer, read by both SubsurfaceScatteringRT.hlsl and
-// DeferredCompositePS.hlsl via structured_indices.subsurface_scattering_.ray_constant_index_.
+// DeferredLightingPS.hlsl via structured_indices.subsurface_scattering_.ray_constant_index_.
 // Must match the C++ mirror in Renderer/SubsurfaceScatteringRenderer.h
 // byte-for-byte.
 struct SubsurfaceScatteringRayConstantBuffer
@@ -20,7 +20,7 @@ struct SubsurfaceScatteringRayConstantBuffer
 	// "no translucency".
 	float ray_t_max_;
 
-	// Overall intensity multiplier applied in DeferredCompositePS.hlsl.
+	// Overall intensity multiplier applied in DeferredLightingPS.hlsl.
 	float strength_;
 
 	// Tint of the transmitted light (reddish for skin, greenish for leaves).

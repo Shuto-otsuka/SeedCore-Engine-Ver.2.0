@@ -1,4 +1,4 @@
-#include "../../Shader/Constants.hlsli"
+﻿#include "../../Shader/Constants.hlsli"
 #include "../../Shader/Structured.hlsli"
 #include "../../Shader/Light.hlsli"
 #include "../../Shader/Noise.hlsli"
@@ -8,7 +8,7 @@
 * [EN]
 * Volumetric star pass (screen-space, compute): draws the procedural star
 * field, the moon disc and any active shooting star streaks into an RGBA16F
-* texture, composited by DeferredCompositePS.hlsl over the procedural sky the
+* texture, composited by DeferredLightingPS.hlsl over the procedural sky the
 * same way VolumetricCloudScapesRT.hlsl's cloud texture is. Sky pixels only,
 * no TLAS. Reads the sun/moon direction and night factor from LightConstantData
 * (populated by CelestialSystem via LightSystem::Gather when DaySystem drives
@@ -17,7 +17,7 @@
 * [JP]
 * ボリューメトリック・スターパス(スクリーン空間、compute): プロシージャル
 * 星空・月ディスク・アクティブな流れ星の筋を RGBA16F テクスチャへ描き、
-* DeferredCompositePS.hlsl が VolumetricCloudScapesRT.hlsl の雲テクスチャと
+* DeferredLightingPS.hlsl が VolumetricCloudScapesRT.hlsl の雲テクスチャと
 * 同じ手順でプロシージャル空の上に合成する。空ピクセル限定、TLAS 不使用。
 * 太陽/月の方向と夜の強さは LightConstantData から読む(DaySystem がこの
 * フレームを駆動している時に CelestialSystem が LightSystem::Gather 経由で

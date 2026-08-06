@@ -54,7 +54,7 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	// [JP] velocity は (current_ndc - previous_ndc) * 0.5 で書き込まれている
 	// (StaticModelPS.hlsl 等)。NDC->UV 変換で x は符号そのまま、y は反転する
 	// ため、UV 空間の移動量は (velocity.x, -velocity.y) になる。
-	Texture2D<float2> velocity_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.index_3_];
+	Texture2D<float2> velocity_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.index_2_];
 	float2 velocity = velocity_texture.Load(int3(pixel, 0));
 	float2 delta_uv = float2(velocity.x, -velocity.y);
 	float2 previous_uv = uv - delta_uv;

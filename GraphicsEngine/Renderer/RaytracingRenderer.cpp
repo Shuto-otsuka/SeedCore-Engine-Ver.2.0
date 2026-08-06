@@ -189,6 +189,12 @@ namespace SeedCore
 					entry.baseColor_[1] = material.baseColor_.G();
 					entry.baseColor_[2] = material.baseColor_.B();
 					entry.baseColorTextureIndex_ = static_cast<Uint32>(crister->TextureBindlessIndex(material.baseColorTextureIndex_));
+					entry.ior_ = material.khr_.ior_.ior_;
+					entry.transmissionFactor_ = material.khr_.transmission_.transmissionFactor_;
+					entry.volumeAttenuationColor_[0] = material.khr_.volume_.attenuationColor_[0];
+					entry.volumeAttenuationColor_[1] = material.khr_.volume_.attenuationColor_[1];
+					entry.volumeAttenuationColor_[2] = material.khr_.volume_.attenuationColor_[2];
+					entry.volumeAttenuationDistance_ = material.khr_.volume_.attenuationDistance_;
 					materialData.push_back(entry);
 				}
 			}
