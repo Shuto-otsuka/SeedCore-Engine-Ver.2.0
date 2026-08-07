@@ -351,18 +351,74 @@ namespace SeedCore
 	*/
 	Bool InspectorPanel::DrawComponentEntry(Actor* actor, ComponentID componentID, const String& componentName, void* componentData)
 	{
-		Bool isHeaderOpen = ImGui::CollapsingHeader(componentName.c_str(), ImGuiTreeNodeFlags_DefaultOpen);
+		/// [EN] CollapsingHeader always draws its own label starting at the
+		///      left edge and ignores a preceding SameLine(), so an icon
+		///      placed before it (like Unity's "▽ [icon] Name" row) would
+		///      land on its own line instead of inline. Use the same
+		///      TreeNodeEx + AllowOverlap technique HierarchyPanel already
+		///      uses for Actor rows instead: an empty-label header (arrow
+		///      only) reserves the row, then the icon/text are drawn
+		///      overlapping it via SameLine().
+		/// [JP] CollapsingHeader は常に自前のラベルを左端から描画し、直前の
+		///      SameLine() を無視するため、その前にアイコンを置いても
+		///      （Unity の「▽ [icon] Name」行のように）別行になってしまう。
+		///      HierarchyPanel が Actor 行で既に使っている
+		///      TreeNodeEx + AllowOverlap の手法に合わせる: 空ラベルの
+		///      ヘッダー（矢印のみ）で行を確保し、アイコン/テキストは
+		///      SameLine() でその上に重ねて描画する。
+		ImGui::PushID(componentData);
+		Bool isHeaderOpen = ImGui::TreeNodeEx("##header", ImGuiTreeNodeFlags_CollapsingHeader | ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_AllowOverlap | ImGuiTreeNodeFlags_DefaultOpen);
 
+		/// [EN] Bind the right-click menu to the header item itself (the
+		///      "last item" BeginPopupContextItem defaults to) before
+		///      drawing the icon/text overlay, so the overlay doesn't
+		///      become the new "last item" instead.
+		/// [JP] 右クリックメニューは、アイコン/テキストの重ね描画を行う前に
+		///      ヘッダー自身（BeginPopupContextItem が既定で使う「直前の
+		///      アイテム」）へ結び付ける。そうしないと重ね描画の方が
+		///      新しい「直前のアイテム」になってしまう。
+		Bool removed = false;
 		if (ImGui::BeginPopupContextItem())
 		{
 			if (ImGui::MenuItem("コンポーネントを削除"))
 			{
 				context_.sceneContext_.history_.Push(MakePtr<ComponentRemoveCommand>(*context_.worldContext_.world_, actor->GetPersistentID(), componentID, componentName, componentData));
 				actor->RemoveComponent(componentID);
-				ImGui::EndPopup();
-				return true;
+				removed = true;
 			}
 			ImGui::EndPopup();
+		}
+
+		/// [EN] ImGui::Image() top-aligns to the cursor, but the header row
+		///      is taller than the icon (frame padding above/below), so a
+		///      plain SameLine()+Image()+Text() sits the icon above center
+		///      relative to the text. Measure the header's own item rect
+		///      and place both the icon and the text into it by hand via
+		///      the draw list (same technique DrawSearchBar already uses
+		///      for its search icon) so both land on the row's true
+		///      vertical center regardless of frame padding.
+		/// [JP] ImGui::Image() はカーソル位置に対してトップ揃えで描画されるが、
+		///      ヘッダー行自体はアイコンより背が高い（上下にフレーム
+		///      パディングがある）ため、単純な SameLine()+Image()+Text()
+		///      だとアイコンがテキストより上寄りになる。ヘッダー自身の
+		///      アイテム矩形を測り、アイコンとテキストの両方を DrawList で
+		///      直接その中へ配置する（DrawSearchBar が検索アイコンで既に
+		///      使っている手法と同じ）ことで、フレームパディングに関係なく
+		///      両方とも行の真の垂直中央に来るようにする。
+		ImVec2 headerMin = ImGui::GetItemRectMin();
+		Float headerHeight = ImGui::GetItemRectSize().y;
+		Float iconSize = ImGui::GetTextLineHeight();
+		Float contentX = headerMin.x + ImGui::GetTreeNodeToLabelSpacing();
+		Float iconY = headerMin.y + (headerHeight - iconSize) * 0.5f;
+		ImGui::GetWindowDrawList()->AddImage(GetComponentIcon(componentName), ImVec2(contentX, iconY), ImVec2(contentX + iconSize, iconY + iconSize));
+
+		Float textY = headerMin.y + (headerHeight - ImGui::GetTextLineHeight()) * 0.5f;
+		ImGui::GetWindowDrawList()->AddText(ImVec2(contentX + iconSize + ImGui::GetStyle().ItemInnerSpacing.x, textY), ImGui::GetColorU32(ImGuiCol_Text), componentName.c_str());
+		ImGui::PopID();
+
+		if (removed)
+		{
+			return true;
 		}
 
 		if (isHeaderOpen)
@@ -393,7 +449,34 @@ namespace SeedCore
 
 		if (hasTransform)
 		{
-			if (ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen))
+			/// [EN] Same TreeNodeEx + AllowOverlap overlay technique as
+			///      DrawComponentEntry - see its comment for why a plain
+			///      Image()+SameLine() before CollapsingHeader doesn't work.
+			/// [JP] DrawComponentEntry と同じ TreeNodeEx + AllowOverlap の
+			///      重ね描画手法 — CollapsingHeader の前に単純な
+			///      Image()+SameLine() を置いても効かない理由はそちらの
+			///      コメント参照。
+			Bool transformHeaderOpen = ImGui::TreeNodeEx("##transformHeader", ImGuiTreeNodeFlags_CollapsingHeader | ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_AllowOverlap | ImGuiTreeNodeFlags_DefaultOpen);
+
+			/// [EN] See DrawComponentEntry's comment: Image() top-aligns to
+			///      the cursor while the header row is taller (frame
+			///      padding), so icon+text are placed by hand into the
+			///      header's own measured rect instead of via SameLine().
+			/// [JP] DrawComponentEntry のコメント参照: Image() はカーソル
+			///      位置にトップ揃えされる一方ヘッダー行はそれより背が
+			///      高い（フレームパディング）ため、アイコン/テキストは
+			///      SameLine() ではなくヘッダー自身の実測矩形へ手動で配置する。
+			ImVec2 transformHeaderMin = ImGui::GetItemRectMin();
+			Float transformHeaderHeight = ImGui::GetItemRectSize().y;
+			Float transformIconSize = ImGui::GetTextLineHeight();
+			Float transformContentX = transformHeaderMin.x + ImGui::GetTreeNodeToLabelSpacing();
+			Float transformIconY = transformHeaderMin.y + (transformHeaderHeight - transformIconSize) * 0.5f;
+			ImGui::GetWindowDrawList()->AddImage(imguiTexture_.Icon(IconType::ComponentTransform), ImVec2(transformContentX, transformIconY), ImVec2(transformContentX + transformIconSize, transformIconY + transformIconSize));
+
+			Float transformTextY = transformHeaderMin.y + (transformHeaderHeight - ImGui::GetTextLineHeight()) * 0.5f;
+			ImGui::GetWindowDrawList()->AddText(ImVec2(transformContentX + transformIconSize + ImGui::GetStyle().ItemInnerSpacing.x, transformTextY), ImGui::GetColorU32(ImGuiCol_Text), "Transform");
+
+			if (transformHeaderOpen)
 			{
 				Float* positionData = static_cast<Float*>(context_.worldContext_.world_->GetComponent(entity, positionID));
 				Float* rotationData = static_cast<Float*>(context_.worldContext_.world_->GetComponent(entity, rotationID));
@@ -482,18 +565,50 @@ namespace SeedCore
 				continue;
 			}
 
-			Bool isHeaderOpen = ImGui::CollapsingHeader(componentName.c_str(), ImGuiTreeNodeFlags_DefaultOpen);
+			/// [EN] Same TreeNodeEx + AllowOverlap overlay technique as
+			///      DrawComponentEntry - see its comment for why a plain
+			///      Image()+SameLine() before CollapsingHeader doesn't work.
+			/// [JP] DrawComponentEntry と同じ TreeNodeEx + AllowOverlap の
+			///      重ね描画手法 — CollapsingHeader の前に単純な
+			///      Image()+SameLine() を置いても効かない理由はそちらの
+			///      コメント参照。
+			ImGui::PushID(componentData);
+			Bool isHeaderOpen = ImGui::TreeNodeEx("##header", ImGuiTreeNodeFlags_CollapsingHeader | ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_AllowOverlap | ImGuiTreeNodeFlags_DefaultOpen);
 
+			Bool removed = false;
 			if (ImGui::BeginPopupContextItem())
 			{
 				if (ImGui::MenuItem("コンポーネントを削除"))
 				{
 					context_.sceneContext_.history_.Push(MakePtr<ComponentRemoveCommand>(*context_.worldContext_.world_, actor->GetPersistentID(), componentBaseID, componentName, componentData));
 					actor->RemoveComponent(componentBaseID);
-					ImGui::EndPopup();
-					break;
+					removed = true;
 				}
 				ImGui::EndPopup();
+			}
+
+			/// [EN] See DrawComponentEntry's comment: Image() top-aligns to
+			///      the cursor while the header row is taller (frame
+			///      padding), so icon+text are placed by hand into the
+			///      header's own measured rect instead of via SameLine().
+			/// [JP] DrawComponentEntry のコメント参照: Image() はカーソル
+			///      位置にトップ揃えされる一方ヘッダー行はそれより背が
+			///      高い（フレームパディング）ため、アイコン/テキストは
+			///      SameLine() ではなくヘッダー自身の実測矩形へ手動で配置する。
+			ImVec2 componentBaseHeaderMin = ImGui::GetItemRectMin();
+			Float componentBaseHeaderHeight = ImGui::GetItemRectSize().y;
+			Float componentBaseIconSize = ImGui::GetTextLineHeight();
+			Float componentBaseContentX = componentBaseHeaderMin.x + ImGui::GetTreeNodeToLabelSpacing();
+			Float componentBaseIconY = componentBaseHeaderMin.y + (componentBaseHeaderHeight - componentBaseIconSize) * 0.5f;
+			ImGui::GetWindowDrawList()->AddImage(GetComponentIcon(componentName), ImVec2(componentBaseContentX, componentBaseIconY), ImVec2(componentBaseContentX + componentBaseIconSize, componentBaseIconY + componentBaseIconSize));
+
+			Float componentBaseTextY = componentBaseHeaderMin.y + (componentBaseHeaderHeight - ImGui::GetTextLineHeight()) * 0.5f;
+			ImGui::GetWindowDrawList()->AddText(ImVec2(componentBaseContentX + componentBaseIconSize + ImGui::GetStyle().ItemInnerSpacing.x, componentBaseTextY), ImGui::GetColorU32(ImGuiCol_Text), componentName.c_str());
+			ImGui::PopID();
+
+			if (removed)
+			{
+				break;
 			}
 
 			if (isHeaderOpen)
@@ -1067,6 +1182,20 @@ namespace SeedCore
 		default:
 			return nullptr;
 		}
+	}
+
+	/// [EN] Maps a component's registered name to its Inspector header icon
+	///      (Unity-style). Falls back to IconType::ComponentCustom for
+	///      anything not explicitly listed — covers UserProject scripts and
+	///      any built-in component without a dedicated icon.
+	/// [JP] コンポーネントの登録名を Inspector ヘッダー用アイコン（Unity 風）
+	///      へ対応付ける。明示的に列挙されていないものは
+	///      IconType::ComponentCustom にフォールバックする — UserProject の
+	///      スクリプトや、専用アイコンを持たない組み込みコンポーネントを
+	///      カバーする。
+	ImTextureID InspectorPanel::GetComponentIcon(const String& componentName)const
+	{
+		return imguiTexture_.Icon(ImGuiTexture::ComponentIconType(componentName));
 	}
 
 	void InspectorPanel::DrawPayloadField(const FieldInfo& field, void* pointer, Entity entity, ComponentID componentID, Size fieldOffset)

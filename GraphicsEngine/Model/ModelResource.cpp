@@ -31,23 +31,39 @@ namespace SeedCore
 		///      ".collision" cache next to the source model, each becoming
 		///      its own AssetType::MeshCollision asset on the next scan.
 		///      The Proxy sibling keeps the model's plain name (it's the
-		///      common case); Full gets a "_full" suffix.
+		///      common case); Full gets a "_full" suffix. Unlike
+		///      ModelLoader's ".crister" cache, this does NOT re-derive from
+		///      source every load: ".collision" is derived from data already
+		///      resident in the just-loaded Crister (not an external file
+		///      that can change out from under it), so once a sibling exists
+		///      on disk it is trusted and left alone. Delete it manually to
+		///      force a rebake.
 		/// [JP] SplitClips がアニメーションクリップを自動導出するのと同じ
 		///      仕組みで、衝突ジオメトリも自動導出する: ソースモデルの隣に
 		///      Proxy と Full 両方の ".collision" キャッシュを書き出し、
 		///      それぞれ次回スキャンで AssetType::MeshCollision アセットになる。
 		///      Proxy 側はモデルと同じ素の名前（よく使う方のため）、Full 側は
-		///      "_full" サフィックスを付ける。
+		///      "_full" サフィックスを付ける。ModelLoader の ".crister"
+		///      キャッシュと違い、毎回ソースから再導出はしない — ".collision"
+		///      は既にロード済みの Crister（外部から書き換わりうるファイルでは
+		///      ない）から導出するため、隣に既にあればそれを信頼してそのまま
+		///      にする。再ベイクしたい場合は手動で削除すること。
 		if (Crister* crister = loader.modelLoader_->Get(handle))
 		{
 			std::filesystem::path proxyPath(asset->fullpath_.c_str());
 			proxyPath.replace_extension(".collision");
-			loader.meshCollisionLoader_->Bake(*crister, MeshCollisionDetail::Proxy, String(proxyPath.string()));
+			if (!std::filesystem::exists(proxyPath))
+			{
+				loader.meshCollisionLoader_->Bake(*crister, MeshCollisionDetail::Proxy, String(proxyPath.string()));
+			}
 
 			std::filesystem::path fullPath(asset->fullpath_.c_str());
 			fullPath.replace_extension("");
 			fullPath += "_full.collision";
-			loader.meshCollisionLoader_->Bake(*crister, MeshCollisionDetail::Full, String(fullPath.string()));
+			if (!std::filesystem::exists(fullPath))
+			{
+				loader.meshCollisionLoader_->Bake(*crister, MeshCollisionDetail::Full, String(fullPath.string()));
+			}
 		}
 
 		assetHandleMap_.insert({ assetId, handle });

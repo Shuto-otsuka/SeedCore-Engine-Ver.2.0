@@ -744,7 +744,7 @@ namespace SeedCore
 		std::string ext = std::filesystem::path(asset.path_.c_str()).extension().string();
 		if (ext == ".h")
 		{
-			return imguiTexture_.Icon(IconType::Text);
+			return imguiTexture_.Icon(IconType::Header);
 		}
 		if (ext == ".cpp")
 		{

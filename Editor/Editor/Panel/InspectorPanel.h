@@ -56,6 +56,17 @@ namespace SeedCore
 
 		const Char* GetPayloadDropType(PayloadAssetType assetType)const;
 
+		/// [EN] Maps a component's registered name to its Inspector header
+		///      icon (Unity-style). Falls back to IconType::ComponentCustom
+		///      for anything not explicitly listed — covers UserProject
+		///      scripts and any built-in component without a dedicated icon.
+		/// [JP] コンポーネントの登録名を Inspector ヘッダー用アイコン
+		///      （Unity 風）へ対応付ける。明示的に列挙されていないものは
+		///      IconType::ComponentCustom にフォールバックする —
+		///      UserProject のスクリプトや、専用アイコンを持たない組み込み
+		///      コンポーネントをカバーする。
+		[[nodiscard]] ImTextureID GetComponentIcon(const String& componentName)const;
+
 		void DrawTransform(Float* data, const Char* label, Bool& linked, Float* previousValues, Entity entity, ComponentID componentID);
 
 	private:

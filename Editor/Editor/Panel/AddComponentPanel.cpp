@@ -61,7 +61,7 @@ namespace SeedCore
 			ImGui::SetNextItemWidth(240.0f);
 			DrawSearchBar(imguiTexture);
 			ImGui::Separator();
-			DrawComponentList(actor);
+			DrawComponentList(actor, imguiTexture);
 			ImGui::EndPopup();
 		}
 	}
@@ -88,7 +88,7 @@ namespace SeedCore
 		ImGui::GetWindowDrawList()->AddImage(imguiTexture.Icon(IconType::Search), ImVec2(inputMin.x + originalPaddingX, iconY), ImVec2(inputMin.x + originalPaddingX + iconSize, iconY + iconSize));
 	}
 
-	void AddComponentPanel::DrawComponentList(Actor* actor)
+	void AddComponentPanel::DrawComponentList(Actor* actor, ImGuiTexture& imguiTexture)
 	{
 		auto& componentList = ComponentRegistry::GetComponentList();
 		std::string filterText = state_.searchBuffer.str();
@@ -140,21 +140,21 @@ namespace SeedCore
 			{
 				for (auto& [componentName, componentID] : entries)
 				{
-					DrawMenuItem(actor, componentName, componentID);
+					DrawMenuItem(actor, componentName, componentID, imguiTexture);
 				}
 			}
 			else if (ImGui::BeginMenu(category.c_str()))
 			{
 				for (auto& [componentName, componentID] : entries)
 				{
-					DrawMenuItem(actor, componentName, componentID);
+					DrawMenuItem(actor, componentName, componentID, imguiTexture);
 				}
 				ImGui::EndMenu();
 			}
 		}
 	}
 
-	void AddComponentPanel::DrawMenuItem(Actor* actor, const String& componentName, ComponentID componentID)
+	void AddComponentPanel::DrawMenuItem(Actor* actor, const String& componentName, ComponentID componentID, ImGuiTexture& imguiTexture)
 	{
 		Bool alreadyAttached = actor->HasComponent(componentID);
 
@@ -162,6 +162,10 @@ namespace SeedCore
 		{
 			ImGui::BeginDisabled();
 		}
+
+		Float iconSize = ImGui::GetTextLineHeight();
+		ImGui::Image(imguiTexture.Icon(ImGuiTexture::ComponentIconType(componentName)), ImVec2(iconSize, iconSize));
+		ImGui::SameLine();
 
 		Bool isSelected = (componentName == state_.selectedName);
 		ImGuiSelectableFlags flags = ImGuiSelectableFlags_NoAutoClosePopups | ImGuiSelectableFlags_AllowDoubleClick;
