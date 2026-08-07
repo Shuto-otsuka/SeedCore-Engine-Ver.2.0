@@ -45,7 +45,7 @@ namespace SeedCore
 		descender_ = static_cast<Float>(metrics.descenderY * geometryScale_);
 
 		atlas_ = Atlas(AtlasGenerator(256, 256));
-		atlas_.atlasGenerator().setThreadCount(static_cast<Int>(std::max<Uint>(1u, std::thread::hardware_concurrency() / 2)));
+		atlas_.atlasGenerator().setThreadCount(static_cast<Int>(Max<Uint>(1u, std::thread::hardware_concurrency() / 2)));
 
 		return true;
 	}

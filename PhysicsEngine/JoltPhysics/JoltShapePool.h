@@ -59,6 +59,10 @@ namespace SeedCore
 
 		ShapeHandle CreateCircleShape(Float radius, const Vector2& center);
 
+		ShapeHandle CreateMeshShape(Uint32 assetID, const DynamicArray<Vector3>& positions, const DynamicArray<Uint32>& indices);
+
+		ShapeHandle CreateConvexShape(Uint32 assetID, const DynamicArray<Vector3>& positions);
+
 		JPH::ShapeRefC Get(ShapeHandle handle)const;
 
 		/**

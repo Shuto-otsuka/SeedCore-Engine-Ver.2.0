@@ -7,8 +7,6 @@
 #include <GraphicsEngine/D3D12/Context/D3D12CommandQueue.h>
 #include <GraphicsEngine/D3D12/Context/D3D12Adapter.h>
 
-#include <GraphicsEngine/Font/FontResource.h>
-
 #include <PhysicsEngine/Physics/PhysicsSystem.h>
 
 namespace SeedCore
@@ -253,6 +251,8 @@ namespace SeedCore
 				}
 
 				InputSystem::SetInputEnabled(editor_->IsGameViewImageHovered());
+
+				PhysicsSystem::ResolveMeshColliders(*loaderSystem_, *resource_, *world_);
 
 				if (gameTimer_.IsPlaying())
 				{

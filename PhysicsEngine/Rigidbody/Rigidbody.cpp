@@ -82,4 +82,9 @@ namespace SeedCore
 
 		bodyID_ = JPH::BodyID();
 	}
+
+	JPH::BodyID Rigidbody::GetBodyID()const
+	{
+		return bodyID_;
+	}
 }

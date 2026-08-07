@@ -29,6 +29,7 @@ namespace SeedCore
 		load(IconType::Font,         String("Icon/font_icon.dds"));
 		load(IconType::Sky,          String("Icon/skymap_icon.dds"));
 		load(IconType::Animation,    String("Icon/animation_icon.dds"));
+		load(IconType::MeshCollision, String("Icon/meshcollision_icon.dds"));
 		load(IconType::Movie,        String("Icon/movie_icon.dds"));
 
 		load(IconType::Text,         String("Icon/text_icon.dds"));

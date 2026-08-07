@@ -40,13 +40,15 @@ namespace SeedCore
 
 		ShapeHandle CreateCircleShape(Float radius, const Vector2& center = { 0.0f, 0.0f });
 
-		ShapeHandle CreateMeshShape();
+		ShapeHandle CreateMeshShape(Uint32 assetID, const DynamicArray<Vector3>& positions, const DynamicArray<Uint32>& indices);
 
-		ShapeHandle CreateConvexShape();
+		ShapeHandle CreateConvexShape(Uint32 assetID, const DynamicArray<Vector3>& positions);
 
 		void ReleaseShape(ShapeHandle handle);
 
 		JPH::BodyID CreateBody(const BodyDesc& desc);
+
+		void SetBodyShape(JPH::BodyID bodyID, ShapeHandle shape);
 
 		void DestroyBody(JPH::BodyID bodyID);
 

@@ -239,6 +239,7 @@
 #include <External/JoltPhysics/Jolt/Physics/Collision/Shape/CylinderShape.h>
 #include <External/JoltPhysics/Jolt/Physics/Collision/Shape/MeshShape.h>
 #include <External/JoltPhysics/Jolt/Physics/Collision/Shape/ConvexShape.h>
+#include <External/JoltPhysics/Jolt/Physics/Collision/Shape/ConvexHullShape.h>
 #include <External/JoltPhysics/Jolt/Physics/Collision/Shape/RotatedTranslatedShape.h>
 #include <External/JoltPhysics/Jolt/Renderer/DebugRendererSimple.h>
 

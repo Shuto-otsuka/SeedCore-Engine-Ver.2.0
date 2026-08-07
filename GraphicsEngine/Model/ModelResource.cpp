@@ -26,6 +26,30 @@ namespace SeedCore
 			return Handle<Crister>::null();
 		}
 
+		/// [EN] Auto-derive collision geometry the same way SplitClips
+		///      auto-derives animation clips: write both a Proxy and a Full
+		///      ".collision" cache next to the source model, each becoming
+		///      its own AssetType::MeshCollision asset on the next scan.
+		///      The Proxy sibling keeps the model's plain name (it's the
+		///      common case); Full gets a "_full" suffix.
+		/// [JP] SplitClips がアニメーションクリップを自動導出するのと同じ
+		///      仕組みで、衝突ジオメトリも自動導出する: ソースモデルの隣に
+		///      Proxy と Full 両方の ".collision" キャッシュを書き出し、
+		///      それぞれ次回スキャンで AssetType::MeshCollision アセットになる。
+		///      Proxy 側はモデルと同じ素の名前（よく使う方のため）、Full 側は
+		///      "_full" サフィックスを付ける。
+		if (Crister* crister = loader.modelLoader_->Get(handle))
+		{
+			std::filesystem::path proxyPath(asset->fullpath_.c_str());
+			proxyPath.replace_extension(".collision");
+			loader.meshCollisionLoader_->Bake(*crister, MeshCollisionDetail::Proxy, String(proxyPath.string()));
+
+			std::filesystem::path fullPath(asset->fullpath_.c_str());
+			fullPath.replace_extension("");
+			fullPath += "_full.collision";
+			loader.meshCollisionLoader_->Bake(*crister, MeshCollisionDetail::Full, String(fullPath.string()));
+		}
+
 		assetHandleMap_.insert({ assetId, handle });
 		return handle;
 	}

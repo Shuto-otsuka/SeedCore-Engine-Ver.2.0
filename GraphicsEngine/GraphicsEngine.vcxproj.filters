@@ -133,6 +133,9 @@
     <Filter Include="Raytracing\Caustics">
       <UniqueIdentifier>{ace9bc0a-a565-44b5-894d-857f060e12fe}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Model\Collision">
+      <UniqueIdentifier>{0b6e0942-763b-4c4a-af40-2b64ad4da33b}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="D3D12\Context\D3D12Adapter.h">
@@ -694,6 +697,15 @@
     <ClInclude Include="Raytracing\Refraction\RefractionShader.h">
       <Filter>Raytracing\Refraction</Filter>
     </ClInclude>
+    <ClInclude Include="Model\Collision\MeshCollision.h">
+      <Filter>Model\Collision</Filter>
+    </ClInclude>
+    <ClInclude Include="Model\Collision\MeshCollisionLoader.h">
+      <Filter>Model\Collision</Filter>
+    </ClInclude>
+    <ClInclude Include="Model\Collision\MeshCollisionResource.h">
+      <Filter>Model\Collision</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="D3D12\Context\D3D12Adapter.cpp">
@@ -1156,6 +1168,15 @@
     </ClCompile>
     <ClCompile Include="Raytracing\Refraction\RefractionShader.cpp">
       <Filter>Raytracing\Refraction</Filter>
+    </ClCompile>
+    <ClCompile Include="Model\Collision\MeshCollision.cpp">
+      <Filter>Model\Collision</Filter>
+    </ClCompile>
+    <ClCompile Include="Model\Collision\MeshCollisionLoader.cpp">
+      <Filter>Model\Collision</Filter>
+    </ClCompile>
+    <ClCompile Include="Model\Collision\MeshCollisionResource.cpp">
+      <Filter>Model\Collision</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

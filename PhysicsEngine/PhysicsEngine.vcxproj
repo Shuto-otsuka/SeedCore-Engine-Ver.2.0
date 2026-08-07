@@ -45,6 +45,7 @@
     <ClCompile Include="Collider\CapsuleCollider.cpp" />
     <ClCompile Include="Collider\CircleCollider.cpp" />
     <ClCompile Include="Collider\CylinderCollider.cpp" />
+    <ClCompile Include="Collider\MeshCollider.cpp" />
     <ClCompile Include="Collider\RectCollider.cpp" />
     <ClCompile Include="Collider\SphereCollider.cpp" />
     <ClCompile Include="JoltPhysics\JoltLayerdef.cpp" />

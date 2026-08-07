@@ -103,8 +103,8 @@ namespace SeedCore
 			if (marqueeActive_)
 			{
 				ImVec2 current = ImGui::GetMousePos();
-				ImVec2 rectMin(std::min(marqueeStart_.x, current.x), std::min(marqueeStart_.y, current.y));
-				ImVec2 rectMax(std::max(marqueeStart_.x, current.x), std::max(marqueeStart_.y, current.y));
+				ImVec2 rectMin(Min(marqueeStart_.x, current.x), Min(marqueeStart_.y, current.y));
+				ImVec2 rectMax(Max(marqueeStart_.x, current.x), Max(marqueeStart_.y, current.y));
 
 				ImGui::GetWindowDrawList()->AddRectFilled(rectMin, rectMax, IM_COL32(100, 180, 255, 40));
 				ImGui::GetWindowDrawList()->AddRect(rectMin, rectMax, IM_COL32(100, 180, 255, 200));
@@ -449,8 +449,8 @@ namespace SeedCore
 
 			if (anchorIndex != SIZE_MAX && targetIndex != SIZE_MAX)
 			{
-				Size lo = std::min(anchorIndex, targetIndex);
-				Size hi = std::max(anchorIndex, targetIndex);
+				Size lo = Min(anchorIndex, targetIndex);
+				Size hi = Max(anchorIndex, targetIndex);
 
 				context_.selectionContext_.selectedActors_.clear();
 				for (Size rowIndex = lo; rowIndex <= hi; ++rowIndex)

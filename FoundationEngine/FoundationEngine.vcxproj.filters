@@ -49,6 +49,9 @@
     <Filter Include="Payload">
       <UniqueIdentifier>{a1b2c3d4-payl-0000-0000-000000000001}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Interop">
+      <UniqueIdentifier>{febad004-00b5-450b-aaa9-3d3101ab61d2}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="JobSystem\FlowBuilder.cpp">
@@ -557,9 +560,6 @@
     <ClInclude Include="Math\Random\Hash.h">
       <Filter>Math\Random</Filter>
     </ClInclude>
-    <ClInclude Include="Utility\ColliderInstance.h">
-      <Filter>Utility</Filter>
-    </ClInclude>
     <ClInclude Include="Utility\SerializeFallback.h">
       <Filter>Utility</Filter>
     </ClInclude>
@@ -580,6 +580,12 @@
     </ClInclude>
     <ClInclude Include="ECS\History.h">
       <Filter>ESC</Filter>
+    </ClInclude>
+    <ClInclude Include="Utility\MeshInstance.h">
+      <Filter>Utility</Filter>
+    </ClInclude>
+    <ClInclude Include="Interop\ColliderInstance.h">
+      <Filter>Interop</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -748,7 +748,7 @@ namespace SeedCore
 			/// [EN] Clamp the number of items actually pushed to whatever room remains in the fixed-size buffer.
 			/// [JP] 実際に push する個数を、固定サイズバッファに残っている空き容量に応じて制限する。
 			Size remaining = bufferSize - (bottom - top);
-			Size number = std::min(n, remaining);
+			Size number = Min(n, remaining);
 
 			if (n > 0)
 			{

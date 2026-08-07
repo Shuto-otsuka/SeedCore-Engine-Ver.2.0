@@ -7,18 +7,16 @@
 #include <PhysicsEngine/Collider/CylinderCollider.h>
 #include <PhysicsEngine/Collider/RectCollider.h>
 #include <PhysicsEngine/Collider/CircleCollider.h>
+#include <PhysicsEngine/Collider/MeshCollider.h>
 #include <FoundationEngine/ECS/World.h>
 #include <FoundationEngine/ECS/Actor.h>
 #include <FoundationEngine/ECS/Component/Position.h>
 #include <FoundationEngine/ECS/Component/Rotation.h>
+#include <FoundationEngine/Resource/ResourceCache.h>
+#include <GraphicsEngine/Model/Collision/MeshCollisionResource.h>
 
 namespace SeedCore
 {
-	namespace
-	{
-		constexpr Float defaultColliderShapeRadius = 0.5f;
-	}
-
 	ShapeHandle PhysicsSystem::FindColliderShape(Actor& actor)
 	{
 		if (BoxCollider* collider = actor.GetComponent<BoxCollider>())
@@ -87,10 +85,7 @@ namespace SeedCore
 		const Rotation* rotation = actor.GetComponent<Rotation>();
 
 		desc.position_ = position ? Vector3{ position->x, position->y, position->z } : Vector3{ 0.0f, 0.0f, 0.0f };
-		desc.rotation_ = rotation ? Quaternion::CreateFromYawPitchRoll(
-			ToRadians(rotation->y),
-			ToRadians(rotation->x),
-			ToRadians(rotation->z)) : Quaternion::Identity;
+		desc.rotation_ = rotation ? Quaternion::CreateFromYawPitchRoll(ToRadians(rotation->y), ToRadians(rotation->x), ToRadians(rotation->z)) : Quaternion::Identity;
 	}
 
 	JPH::BodyID PhysicsSystem::CreateColliderBody(Actor& actor, ShapeHandle shape)
@@ -127,10 +122,7 @@ namespace SeedCore
 			const Rotation* rotation = actor.GetComponent<Rotation>();
 
 			outPosition = position ? Vector3(position->x, position->y, position->z) : Vector3(0.0f, 0.0f, 0.0f);
-			outRotation = rotation ? Quaternion::CreateFromYawPitchRoll(
-				ToRadians(rotation->y),
-				ToRadians(rotation->x),
-				ToRadians(rotation->z)) : Quaternion::Identity;
+			outRotation = rotation ? Quaternion::CreateFromYawPitchRoll(ToRadians(rotation->y), ToRadians(rotation->x), ToRadians(rotation->z)) : Quaternion::Identity;
 		}
 	}
 
@@ -287,5 +279,43 @@ namespace SeedCore
 		}
 
 		return instances;
+	}
+
+	void PhysicsSystem::ResolveMeshColliders(LoaderSystem& loader, ResourceCache& cache, World& world)
+	{
+		MeshCollisionResource* meshCollisionResource = cache.GetMeshCollisionResource();
+		if (!meshCollisionResource)
+		{
+			return;
+		}
+
+		for (EntityID id : world.GetComponents<MeshCollider>())
+		{
+			Actor* actor = world.GetActor(id);
+			if (!actor)
+			{
+				continue;
+			}
+
+			MeshCollider* collider = actor->GetComponent<MeshCollider>();
+			if (!collider || !collider->IsPending())
+			{
+				continue;
+			}
+
+			Handle<MeshCollision> handle = meshCollisionResource->GetHandle(collider->meshID_);
+			if (handle.empty())
+			{
+				continue;
+			}
+
+			MeshCollision* meshCollision = meshCollisionResource->Resolve(loader, handle);
+			if (!meshCollision)
+			{
+				continue;
+			}
+
+			collider->Build(*meshCollision);
+		}
 	}
 }

@@ -108,6 +108,7 @@
     <ClInclude Include="File\FileDirectory.h" />
     <ClInclude Include="Input\Input.h" />
     <ClInclude Include="Input\InputSystem.h" />
+    <ClInclude Include="Interop\ColliderInstance.h" />
     <ClInclude Include="Log\Error.h" />
     <ClInclude Include="Log\LogSystem.h" />
     <ClInclude Include="Log\Notice.h" />
@@ -235,12 +236,12 @@
     <ClInclude Include="Utility\Array.h" />
     <ClInclude Include="Utility\Bitset.h" />
     <ClInclude Include="Utility\Bootstrap.h" />
-    <ClInclude Include="Utility\ColliderInstance.h" />
     <ClInclude Include="Utility\DestructiveCopy.h" />
     <ClInclude Include="Utility\FlatMap.h" />
     <ClInclude Include="Utility\Handle.h" />
     <ClInclude Include="Utility\IndexRange.h" />
     <ClInclude Include="Utility\ArtMap.h" />
+    <ClInclude Include="Utility\MeshInstance.h" />
     <ClInclude Include="Utility\NonCopyable.h" />
     <ClInclude Include="Utility\NonMovable.h" />
     <ClInclude Include="Utility\NonTransferable.h" />

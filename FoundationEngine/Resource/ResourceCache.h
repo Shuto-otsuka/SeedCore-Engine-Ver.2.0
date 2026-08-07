@@ -12,6 +12,7 @@ namespace SeedCore
 	class ImageResource;
 	class ModelResource;
 	class AnimationResource;
+	class MeshCollisionResource;
 	class BindlessHeap;
 	class BC7CompressShader;
 	class FontManager;
@@ -64,6 +65,10 @@ namespace SeedCore
 		/// [EN] Skybox/environment map (.hdr/.skymap).
 		/// [JP] スカイボックス/環境マップ（.hdr/.skymap）。
 		Skymap,
+
+		/// [EN] Baked mesh collision geometry (.collision).
+		/// [JP] 焼き込み済みの衝突ジオメトリ（.collision）。
+		MeshCollision,
 
 		/// [EN] Extension not recognized by Scan.
 		/// [JP] Scan が認識しない拡張子。
@@ -375,6 +380,17 @@ namespace SeedCore
 
 		/**
 		* [EN]
+		* Returns the mesh collision resource manager.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* 衝突ジオメトリリソースマネージャを返す。
+		*/
+		MeshCollisionResource* GetMeshCollisionResource()const;
+
+		/**
+		* [EN]
 		* Returns the Effekseer effect resource manager.
 		*
 		* ---------------------------------------------------------------------
@@ -551,6 +567,10 @@ namespace SeedCore
 		/// [JP] 読み込み済みのアニメーションリソースを所有するマネージャ。
 		ResourcePtr<AnimationResource> animationResource_;
 
+		/// [EN] Manager owning loaded mesh collision resources.
+		/// [JP] 読み込み済みの衝突ジオメトリリソースを所有するマネージャ。
+		ResourcePtr<MeshCollisionResource> meshCollisionResource_;
+
 		/// [EN] Manager owning loaded Effekseer effect resources.
 		/// [JP] 読み込み済みのEffekseerエフェクトリソースを所有するマネージャ。
 		ResourcePtr<EffekseerResource> effekseerResource_;
@@ -603,6 +623,7 @@ namespace SeedCore
 			".png", ".jpg", ".jpeg", ".texture", ".dds",
 			".gltf", ".glb", ".crister",
 			".animation",
+			".collision",
 			".navmesh",
 			".efkefc", ".effekseer", ".zephyr",
 			".mp3", ".wav", ".acb", ".awb", ".audio",

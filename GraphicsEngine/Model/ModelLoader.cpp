@@ -401,7 +401,7 @@ namespace SeedCore
 						case TINYGLTF_COMPONENT_TYPE_BYTE:
 						{
 							Int8 raw = *reinterpret_cast<const Int8*>(bytes);
-							return normalized ? std::max(static_cast<Float>(raw) / 127.0f, -1.0f) : static_cast<Float>(raw);
+							return normalized ? Max(static_cast<Float>(raw) / 127.0f, -1.0f) : static_cast<Float>(raw);
 						}
 						case TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE:
 						{
@@ -411,7 +411,7 @@ namespace SeedCore
 						case TINYGLTF_COMPONENT_TYPE_SHORT:
 						{
 							Int16 raw = *reinterpret_cast<const Int16*>(bytes);
-							return normalized ? std::max(static_cast<Float>(raw) / 32767.0f, -1.0f) : static_cast<Float>(raw);
+							return normalized ? Max(static_cast<Float>(raw) / 32767.0f, -1.0f) : static_cast<Float>(raw);
 						}
 						case TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT:
 						{

@@ -234,7 +234,7 @@ namespace SeedCore
 
 		// ---- 三角形→マテリアルインデックス ----
 		{
-			Uint32 triangleCount = std::max(crister->FlatTriangleIndexCount() / 3, 1u);
+			Uint32 triangleCount = Max(crister->FlatTriangleIndexCount() / 3, 1u);
 
 			/// [JP] SubMesh で埋まらない三角形(あり得ないはずだが)は 0
 			///      (=先頭マテリアル)へフォールバックする。

@@ -16,6 +16,7 @@ namespace SeedCore
 		Font,
 		Sky,
 		Animation,
+		MeshCollision,
 		Movie,
 
 		Text,

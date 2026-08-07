@@ -694,6 +694,8 @@ namespace SeedCore
 			return imguiTexture_.Icon(IconType::Sky);
 		case AssetType::Animation:
 			return imguiTexture_.Icon(IconType::Animation);
+		case AssetType::MeshCollision:
+			return imguiTexture_.Icon(IconType::MeshCollision);
 		case AssetType::Movie:
 			return imguiTexture_.Icon(IconType::Movie);
 		case AssetType::Prefab:
@@ -840,6 +842,8 @@ namespace SeedCore
 			return "ASSET_MOVIE";
 		case AssetType::Animation:
 			return "ASSET_ANIMATION";
+		case AssetType::MeshCollision:
+			return "ASSET_MESHCOLLISION";
 		case AssetType::Skymap:
 			return "ASSET_SKY";
 		case AssetType::Prefab:

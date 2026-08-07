@@ -10,6 +10,7 @@
 #include <GraphicsEngine/Model/Mesh.h>
 #include <GraphicsEngine/Movie/Movie.h>
 #include <GraphicsEngine/Texture/Image.h>
+#include <PhysicsEngine/Collider/MeshCollider.h>
 
 extern "C" int _force_payload_LookAtConstraint = 0;
 extern "C" int _force_payload_ParentConstraint = 0;
@@ -21,6 +22,7 @@ extern "C" int _force_payload_Mesh = 0;
 extern "C" int _force_payload_Animator = 0;
 extern "C" int _force_payload_Movie = 0;
 extern "C" int _force_payload_Image = 0;
+extern "C" int _force_payload_MeshCollider = 0;
 
 namespace SeedCore
 {
@@ -179,6 +181,19 @@ namespace SeedCore
 			}
 		};
 		static Register_Image global_Image_register;
+
+		// ---- PhysicsEngine/Collider/MeshCollider.h ----
+		struct Register_MeshCollider
+		{
+			Register_MeshCollider()
+			{
+				PayloadRegistry::Register(String("MeshCollider"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
+					MeshCollider& obj = *static_cast<MeshCollider*>(ptr);
+					outInfo.push_back({ String("コリジョンメッシュ"), offsetof(MeshCollider, meshID_), AttributeType::Int, PayloadAssetType::MeshCollision });
+				});
+			}
+		};
+		static Register_MeshCollider global_MeshCollider_register;
 
 	}
 }

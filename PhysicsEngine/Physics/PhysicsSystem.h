@@ -1,6 +1,6 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
-#include <FoundationEngine/Utility/ColliderInstance.h>
+#include <FoundationEngine/Interop/ColliderInstance.h>
 #include <PhysicsEngine/Physics/Physics.h>
 
 namespace SeedCore
@@ -8,6 +8,8 @@ namespace SeedCore
 	class Actor;
 	class Rigidbody;
 	class World;
+	class ResourceCache;
+	struct LoaderSystem;
 
 	class SEEDCORE_API PhysicsSystem
 	{
@@ -44,5 +46,25 @@ namespace SeedCore
 		///      OnAwake/OnDestroyを個別に dllexport する必要が出てしまう
 		///      ため、走査全体を PhysicsEngine 内に留めることでそれを避ける。
 		static DynamicArray<ColliderInstance> GatherColliderInstances(World& world);
+
+		/// [EN] Walks every MeshCollider still waiting on collision geometry
+		///      and, for each one whose ".collision" asset is already loaded
+		///      (via ResourceCache::GetMeshCollisionResource), resolves it
+		///      and builds the Jolt shape/body right there. Colliders whose
+		///      asset isn't loaded yet stay pending for a later call.
+		///      Lives here for the same reason GatherColliderInstances does —
+		///      walking Collider components from outside PhysicsEngine's own
+		///      translation units would require dllexporting each one.
+		/// [JP] 衝突ジオメトリ待ちの MeshCollider をすべて走査し、".collision"
+		///      アセットが既にロード済み（ResourceCache::GetMeshCollisionResource
+		///      経由）のものはその場で解決して Jolt の形状/ボディを構築する。
+		///      アセットが未ロードのコライダーは保留のまま次回の呼び出しへ
+		///      持ち越す。ここに置く理由は GatherColliderInstances と同じ —
+		///      PhysicsEngine 自身の翻訳単位の外から Collider コンポーネントを
+		///      走査すると、各々を dllexport する必要が出てしまうため。
+		static void ResolveMeshColliders(LoaderSystem& loader, ResourceCache& cache, World& world);
+
+	private:
+		static constexpr Float defaultColliderShapeRadius = 0.5f;
 	};
 }

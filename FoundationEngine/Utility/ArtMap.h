@@ -236,7 +236,7 @@ namespace SeedCore
 			Uint32 check_prefix(std::span<const Uint8> key, Uint32 depth)const noexcept
 			{
 				Uint32 match = 0;
-				const Uint32 limit = std::min<Uint32>(prefixLength_, MAX_PREFIX);
+				const Uint32 limit = static_cast<Uint32>(Min<Uint32>(prefixLength_, MAX_PREFIX));
 				for (; match < limit && depth + match < key.size(); ++match)
 				{
 					if (prefix_[match] != key[depth + match])
@@ -2239,7 +2239,7 @@ namespace SeedCore
 					++common;
 				}
 
-				newNode->prefixLength_ = static_cast<Uint8>(std::min<Uint32>(common, Art::MAX_PREFIX));
+				newNode->prefixLength_ = static_cast<Uint8>(Min<Uint32>(common, Art::MAX_PREFIX));
 				std::memcpy(newNode->prefix_, existingBytes.data() + depth, newNode->prefixLength_);
 
 				Uint32 splitDepth = depth + common;
@@ -2267,7 +2267,7 @@ namespace SeedCore
 				Uint8 oldByte = node->prefix_[prefix];
 				newNode->add(oldByte, node);
 				node->prefixLength_ -= (prefix + 1);
-				std::memmove(node->prefix_, anyBytes.data() + depth + prefix + 1, std::min<Uint32>(node->prefixLength_, Art::MAX_PREFIX));
+				std::memmove(node->prefix_, anyBytes.data() + depth + prefix + 1, Min<Uint32>(node->prefixLength_, Art::MAX_PREFIX));
 
 				Uint8 newByte = (depth + prefix < key.size()) ? key[depth + prefix] : 0;
 				auto* newLeaf = new Leaf(originalKey, std::move(value));

@@ -37,6 +37,7 @@
 #pragma comment(linker, "/include:_force_reflection_CapsuleCollider")
 #pragma comment(linker, "/include:_force_reflection_CircleCollider")
 #pragma comment(linker, "/include:_force_reflection_CylinderCollider")
+#pragma comment(linker, "/include:_force_reflection_MeshCollider")
 #pragma comment(linker, "/include:_force_reflection_RectCollider")
 #pragma comment(linker, "/include:_force_reflection_SphereCollider")
 #pragma comment(linker, "/include:_force_reflection_Rigidbody")

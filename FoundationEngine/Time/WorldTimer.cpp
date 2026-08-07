@@ -17,7 +17,7 @@ namespace SeedCore
 		total_ += static_cast<Double>(delta);
 
 		constexpr Float maxAccumulatedSteps = 8.0f;
-		accumulator_ = std::min(accumulator_ + delta, fixedDeltaTime_ * maxAccumulatedSteps);
+		accumulator_ = Min(accumulator_ + delta, fixedDeltaTime_ * maxAccumulatedSteps);
 	}
 
 	/**

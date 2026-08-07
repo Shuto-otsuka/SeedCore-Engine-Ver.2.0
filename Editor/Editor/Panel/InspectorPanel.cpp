@@ -1058,6 +1058,8 @@ namespace SeedCore
 			return "ASSET_MOVIE";
 		case PayloadAssetType::Animation:
 			return "ASSET_ANIMATION";
+		case PayloadAssetType::MeshCollision:
+			return "ASSET_MESHCOLLISION";
 		case PayloadAssetType::Sky:
 			return "ASSET_SKY";
 		case PayloadAssetType::Actor:

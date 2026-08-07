@@ -66,6 +66,9 @@ namespace SeedCore
 
 		void OnDestroy();
 
+	public:
+		JPH::BodyID GetBodyID()const;
+
 	private:
 		JPH::BodyID bodyID_;
 

@@ -225,10 +225,7 @@ namespace SeedCore
 											Scale* scaleComponent = world.GetComponent<Scale>(entity);
 
 											Matrix scaleMatrix = scaleComponent ? Matrix::CreateScale(scaleComponent->x, scaleComponent->y, scaleComponent->z) : Matrix::Identity;
-											Matrix rotationMatrix = rotationComponent ? Matrix::CreateFromYawPitchRoll(
-												DirectX::XMConvertToRadians(rotationComponent->y),
-												DirectX::XMConvertToRadians(rotationComponent->x),
-												DirectX::XMConvertToRadians(rotationComponent->z)) : Matrix::Identity;
+											Matrix rotationMatrix = rotationComponent ? Matrix::CreateFromYawPitchRoll(ToRadians(rotationComponent->y), ToRadians(rotationComponent->x), ToRadians(rotationComponent->z)) : Matrix::Identity;
 
 											Vector3 localDelta = Vector3::TransformNormal(delta, scaleMatrix * rotationMatrix);
 
@@ -427,12 +424,9 @@ namespace SeedCore
 					///      埋まっていた — 詳細なモデルでは合計がディスパッチ上限を
 					///      超えうる。最粗クラスタはロード時にピン留めされるため、
 					///      常駐のフォールバックが必ず存在し穴は開かない。
-					Float worldScale = std::max(std::max(
-						Vector3(worldMatrix._11, worldMatrix._12, worldMatrix._13).Length(),
-						Vector3(worldMatrix._21, worldMatrix._22, worldMatrix._23).Length()),
-						Vector3(worldMatrix._31, worldMatrix._32, worldMatrix._33).Length());
+					Float worldScale = Max(Max(Vector3(worldMatrix._11, worldMatrix._12, worldMatrix._13).Length(), Vector3(worldMatrix._21, worldMatrix._22, worldMatrix._23).Length()), Vector3(worldMatrix._31, worldMatrix._32, worldMatrix._33).Length());
 					Vector3 instancePosition(worldMatrix._41, worldMatrix._42, worldMatrix._43);
-					Float viewDistance = std::max((instancePosition - Vector3(scene.cameraPosition_.x, scene.cameraPosition_.y, scene.cameraPosition_.z)).Length(), 0.0001f);
+					Float viewDistance = Max((instancePosition - Vector3(scene.cameraPosition_.x, scene.cameraPosition_.y, scene.cameraPosition_.z)).Length(), 0.0001f);
 					Float pixelsPerUnit = scene.projection_._22 * scene.screenSize_.y * 0.5f / viewDistance;
 
 					/// [EN] Texture streaming: same worldScale/pixelsPerUnit metric

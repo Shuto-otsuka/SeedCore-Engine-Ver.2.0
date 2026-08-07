@@ -105,5 +105,8 @@
     <ClCompile Include="Physics\PhysicsSystem.cpp">
       <Filter>Physics</Filter>
     </ClCompile>
+    <ClCompile Include="Collider\MeshCollider.cpp">
+      <Filter>Collider</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

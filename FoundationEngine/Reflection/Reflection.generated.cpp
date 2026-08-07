@@ -27,6 +27,7 @@
 #include <PhysicsEngine/Collider/CapsuleCollider.h>
 #include <PhysicsEngine/Collider/CircleCollider.h>
 #include <PhysicsEngine/Collider/CylinderCollider.h>
+#include <PhysicsEngine/Collider/MeshCollider.h>
 #include <PhysicsEngine/Collider/RectCollider.h>
 #include <PhysicsEngine/Collider/SphereCollider.h>
 #include <PhysicsEngine/Rigidbody/Rigidbody.h>
@@ -68,6 +69,7 @@ extern "C" int _force_reflection_BoxCollider = 0;
 extern "C" int _force_reflection_CapsuleCollider = 0;
 extern "C" int _force_reflection_CircleCollider = 0;
 extern "C" int _force_reflection_CylinderCollider = 0;
+extern "C" int _force_reflection_MeshCollider = 0;
 extern "C" int _force_reflection_RectCollider = 0;
 extern "C" int _force_reflection_SphereCollider = 0;
 extern "C" int _force_reflection_Rigidbody = 0;
@@ -1570,6 +1572,19 @@ namespace SeedCore
 			}
 		};
 		static Register_CylinderCollider global_CylinderCollider_register;
+
+		// ---- PhysicsEngine/Collider/MeshCollider.h ----
+		struct Register_MeshCollider
+		{
+			Register_MeshCollider()
+			{
+				ReflectionRegistry::Register(String("MeshCollider"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
+					MeshCollider& obj = *static_cast<MeshCollider*>(ptr);
+					outInfo.push_back({ String("凸包にする"), offsetof(MeshCollider, convex_), AttributeType::Bool });
+				});
+			}
+		};
+		static Register_MeshCollider global_MeshCollider_register;
 
 		// ---- PhysicsEngine/Collider/RectCollider.h ----
 		struct Register_RectCollider

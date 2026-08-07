@@ -153,7 +153,7 @@ namespace SeedCore
 			return false;
 		}
 
-		Size copySize = std::min<Size>(pixelBuffer_.size(), static_cast<Size>(currentLength));
+		Size copySize = Min<Size>(pixelBuffer_.size(), static_cast<Size>(currentLength));
 		std::memcpy(pixelBuffer_.data(), data, copySize);
 
 		buffer->Unlock();

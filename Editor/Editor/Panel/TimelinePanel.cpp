@@ -413,7 +413,7 @@ namespace SeedCore
 					}
 
 					ImVec2 previewSize = ImGui::GetContentRegionAvail();
-					previewSize.y = std::max(previewSize.y - reservedHeight, 100.0f);
+					previewSize.y = Max(previewSize.y - reservedHeight, 100.0f);
 
 					if (context_.cameraContext_.previewCamera_)
 					{

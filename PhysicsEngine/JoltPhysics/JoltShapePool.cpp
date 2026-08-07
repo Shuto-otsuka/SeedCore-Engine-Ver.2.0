@@ -1,5 +1,6 @@
 #include <PhysicsEngine/JoltPhysics/JoltShapePool.h>
 #include <FoundationEngine/Math/Random/Hash.h>
+#include <FoundationEngine/Log/Error.h>
 
 namespace SeedCore
 {
@@ -15,10 +16,7 @@ namespace SeedCore
 			return it->second;
 		}
 
-		const JPH::Vec3 halfExtent{
-			std::max(size.x * 0.5f, JPH::cDefaultConvexRadius),
-			std::max(size.y * 0.5f, JPH::cDefaultConvexRadius),
-			std::max(size.z * 0.5f, JPH::cDefaultConvexRadius) };
+		const JPH::Vec3 halfExtent{ Max(size.x * 0.5f, JPH::cDefaultConvexRadius),Max(size.y * 0.5f, JPH::cDefaultConvexRadius),Max(size.z * 0.5f, JPH::cDefaultConvexRadius) };
 
 		JPH::ShapeRefC shape = new JPH::BoxShape(halfExtent);
 
@@ -92,10 +90,7 @@ namespace SeedCore
 			return it->second;
 		}
 
-		const JPH::Vec3 halfExtent{
-			std::max(size.x * 0.5f, JPH::cDefaultConvexRadius),
-			std::max(size.y * 0.5f, JPH::cDefaultConvexRadius),
-			flatShapeHalfThickness_ };
+		const JPH::Vec3 halfExtent{ Max(size.x * 0.5f, JPH::cDefaultConvexRadius),Max(size.y * 0.5f, JPH::cDefaultConvexRadius),flatShapeHalfThickness_ };
 
 		JPH::ShapeRefC shape = new JPH::BoxShape(halfExtent);
 
@@ -123,6 +118,89 @@ namespace SeedCore
 
 		const JPH::Quat faceForwardRotation = JPH::Quat::sRotation(JPH::Vec3::sAxisX(), JPH::JPH_PI * 0.5f);
 		shape = new JPH::RotatedTranslatedShape(JPH::Vec3{ center.x, center.y, 0.0f }, faceForwardRotation, shape);
+
+		return Register(std::move(shape), key);
+	}
+
+	ShapeHandle JoltShapePool::CreateMeshShape(Uint32 assetID, const DynamicArray<Vector3>& positions, const DynamicArray<Uint32>& indices)
+	{
+		Uint64 key = HashCombine(0, static_cast<Uint64>(ShapeKind::Mesh));
+		key = HashCombine(key, static_cast<Uint64>(assetID));
+
+		if (auto it = cache_.find(key); it != cache_.end())
+		{
+			slots_[it->second.index_].refCount_++;
+			return it->second;
+		}
+
+		if (positions.empty() || indices.size() < 3)
+		{
+			return ShapeHandle::null();
+		}
+
+		JPH::VertexList vertices;
+		vertices.reserve(positions.size());
+		for (const Vector3& position : positions)
+		{
+			vertices.push_back(JPH::Float3(position.x, position.y, position.z));
+		}
+
+		JPH::IndexedTriangleList triangles;
+		triangles.reserve(indices.size() / 3);
+		for (Size cornerIndex = 0; cornerIndex + 2 < indices.size(); cornerIndex += 3)
+		{
+			triangles.push_back(JPH::IndexedTriangle(indices[cornerIndex], indices[cornerIndex + 1], indices[cornerIndex + 2]));
+		}
+
+		JPH::MeshShapeSettings settings(std::move(vertices), std::move(triangles));
+		settings.SetEmbedded();
+
+		JPH::ShapeSettings::ShapeResult result = settings.Create();
+		if (!result.IsValid())
+		{
+			SC_LOG_ERROR("メッシュ形状の生成に失敗しました: %s", result.GetError().c_str());
+			return ShapeHandle::null();
+		}
+
+		JPH::ShapeRefC shape = result.Get();
+
+		return Register(std::move(shape), key);
+	}
+
+	ShapeHandle JoltShapePool::CreateConvexShape(Uint32 assetID, const DynamicArray<Vector3>& positions)
+	{
+		Uint64 key = HashCombine(0, static_cast<Uint64>(ShapeKind::Convex));
+		key = HashCombine(key, static_cast<Uint64>(assetID));
+
+		if (auto it = cache_.find(key); it != cache_.end())
+		{
+			slots_[it->second.index_].refCount_++;
+			return it->second;
+		}
+
+		if (positions.size() < 4)
+		{
+			return ShapeHandle::null();
+		}
+
+		JPH::Array<JPH::Vec3> points;
+		points.reserve(positions.size());
+		for (const Vector3& position : positions)
+		{
+			points.push_back(JPH::Vec3(position.x, position.y, position.z));
+		}
+
+		JPH::ConvexHullShapeSettings settings(points, JPH::cDefaultConvexRadius);
+		settings.SetEmbedded();
+
+		JPH::ShapeSettings::ShapeResult result = settings.Create();
+		if (!result.IsValid())
+		{
+			SC_LOG_ERROR("凸包形状の生成に失敗しました: %s", result.GetError().c_str());
+			return ShapeHandle::null();
+		}
+
+		JPH::ShapeRefC shape = result.Get();
 
 		return Register(std::move(shape), key);
 	}

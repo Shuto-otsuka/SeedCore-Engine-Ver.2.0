@@ -119,14 +119,10 @@ namespace SeedCore
 			joints.z = compressed.jointsZW_ & 0xFFFF;
 			joints.w = compressed.jointsZW_ >> 16;
 
-			weights = Vector4(
-				static_cast<Float>(compressed.weights_ & 0xFF),
-				static_cast<Float>((compressed.weights_ >> 8) & 0xFF),
-				static_cast<Float>((compressed.weights_ >> 16) & 0xFF),
-				static_cast<Float>(compressed.weights_ >> 24)) / 255.0f;
+			weights = Vector4(static_cast<Float>(compressed.weights_ & 0xFF), static_cast<Float>((compressed.weights_ >> 8) & 0xFF), static_cast<Float>((compressed.weights_ >> 16) & 0xFF), static_cast<Float>(compressed.weights_ >> 24)) / 255.0f;
 
 			Float weightSum = weights.x + weights.y + weights.z + weights.w;
-			weights /= std::max(weightSum, 1e-6f);
+			weights /= Max(weightSum, 1e-6f);
 		}
 
 		/// [EN] Computes the quantisation AABBs (position + texcoord) over vertices,
@@ -318,15 +314,15 @@ namespace SeedCore
 		Int mipHeight = bitmap.height_;
 		for (Uint32 mip = 0; mip < mipIndex; mip++)
 		{
-			Uint64 blockWidth = std::max<Uint64>(1, (static_cast<Uint64>(mipWidth) + 3) / 4);
-			Uint64 blockHeight = std::max<Uint64>(1, (static_cast<Uint64>(mipHeight) + 3) / 4);
+			Uint64 blockWidth = Max<Uint64>(1, (static_cast<Uint64>(mipWidth) + 3) / 4);
+			Uint64 blockHeight = Max<Uint64>(1, (static_cast<Uint64>(mipHeight) + 3) / 4);
 			offset += blockWidth * 16 * blockHeight;
-			mipWidth = std::max(1, mipWidth / 2);
-			mipHeight = std::max(1, mipHeight / 2);
+			mipWidth = Max(1, mipWidth / 2);
+			mipHeight = Max(1, mipHeight / 2);
 		}
 
-		Uint64 blockWidth = std::max<Uint64>(1, (static_cast<Uint64>(mipWidth) + 3) / 4);
-		Uint64 blockHeight = std::max<Uint64>(1, (static_cast<Uint64>(mipHeight) + 3) / 4);
+		Uint64 blockWidth = Max<Uint64>(1, (static_cast<Uint64>(mipWidth) + 3) / 4);
+		Uint64 blockHeight = Max<Uint64>(1, (static_cast<Uint64>(mipHeight) + 3) / 4);
 		outWidth = static_cast<Uint32>(mipWidth);
 		outHeight = static_cast<Uint32>(mipHeight);
 		outRowPitch = blockWidth * 16;
@@ -334,6 +330,22 @@ namespace SeedCore
 		outByteOffset = offset;
 	}
 
+	/**
+	* [EN]
+	* Computes the quantisation AABB and bakes vertices_ (and, if
+	* skinned, skin attributes) into compressedVertices_ /
+	* compressedSkinVertices_, then frees vertices_. Must run after
+	* BuildMeshlets (LOD vertex duplication must already be final)
+	* and before serialising to the .crister cache.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 量子化 AABB を計算し、vertices_（スキンがあればスキン属性も）を
+	* compressedVertices_ / compressedSkinVertices_ へ焼き込んで
+	* vertices_ を解放する。BuildMeshlets の後（LOD 頂点複製が確定済み）、
+	* .crister キャッシュへのシリアライズ前に実行すること。
+	*/
 	void Crister::BakeMesh()
 	{
 		/// [EN] Compute the dequantisation AABBs, then quantise every vertex into
@@ -427,206 +439,39 @@ namespace SeedCore
 		}
 	}
 
-	Bool Crister::ApplyAxisConversion(const Matrix& deltaBasis, Bool flipWinding, const std::filesystem::path& cristerPath)
-	{
-		if (compressedVertices_.empty())
-		{
-			return false;
-		}
-
-		Float determinant = deltaBasis.Determinant();
-		Bool isMirror = determinant < 0.0f;
-		Float tangentSign = isMirror ? -1.0f : 1.0f;
-
-		/// [EN] Decode every quantised vertex back to full precision, then
-		///      transform position/normal/tangent in place. Texcoord is
-		///      unaffected by an axis-convention change.
-		/// [JP] 量子化済みの全頂点をフル精度へデコードし、位置/法線/タンジェントを
-		///      その場で変換する。テクスチャ座標は軸コンベンション変更の影響を
-		///      受けない。
-		DynamicArray<Vertex> transformedVertices(compressedVertices_.size());
-		for (Size vertexIndex = 0; vertexIndex < compressedVertices_.size(); vertexIndex++)
-		{
-			const CompressedVertex& compressed = compressedVertices_[vertexIndex];
-			Vertex& vertex = transformedVertices[vertexIndex];
-
-			vertex.position_ = Vector3::Transform(DecodePosition(compressed, positionMin_, positionExtent_), deltaBasis);
-			vertex.texcoord_ = DecodeTexcoord(compressed, texcoordMin_, texcoordExtent_);
-			vertex.normal_ = Vector3::Transform(DecodeNormal(compressed), deltaBasis);
-
-			Vector4 tangent = DecodeTangent(compressed);
-			Vector3 tangentXyz = Vector3::Transform(Vector3(tangent.x, tangent.y, tangent.z), deltaBasis);
-			vertex.tangent_ = Vector4(tangentXyz.x, tangentXyz.y, tangentXyz.z, tangent.w * tangentSign);
-
-			if (!compressedSkinVertices_.empty())
-			{
-				DecodeSkin(compressedSkinVertices_[vertexIndex], vertex.joints_, vertex.weights_);
-			}
-		}
-
-		for (auto& node : nodes_)
-		{
-			ConvertRotationByBasis(node.rotation_, deltaBasis);
-			ConvertPositionByBasis(node.translation_, deltaBasis);
-		}
-		CumulateTransforms();
-
-		for (auto& skin : skins_)
-		{
-			for (Matrix& inverseBindMatrix : skin.inverseBindMatrices_)
-			{
-				ConvertMatrixByBasis(inverseBindMatrix, deltaBasis);
-			}
-		}
-
-		for (auto& light : lights_)
-		{
-			ConvertPositionByBasis(light.position_, deltaBasis);
-			ConvertPositionByBasis(light.direction_, deltaBasis);
-			light.direction_.Normalize();
-		}
-
-		for (auto& bound : meshletBounds_)
-		{
-			ConvertPositionByBasis(bound.center_, deltaBasis);
-			ConvertPositionByBasis(bound.coneAxis_, deltaBasis);
-		}
-
-		if (flipWinding)
-		{
-			Size triangleCount = primitiveIndices_.size() / 3;
-			for (Size triangleIndex = 0; triangleIndex < triangleCount; ++triangleIndex)
-			{
-				std::swap(primitiveIndices_[triangleIndex * 3 + 1], primitiveIndices_[triangleIndex * 3 + 2]);
-			}
-		}
-
-		/// [EN] Reuse BakeMesh()'s existing quantisation pipeline verbatim: it
-		///      recomputes positionMin_/positionExtent_/texcoordMin_/
-		///      texcoordExtent_ from vertices_ and re-populates
-		///      compressedVertices_/compressedSkinVertices_.
-		/// [JP] BakeMesh() の既存の量子化パイプラインをそのまま再利用する:
-		///      vertices_ から positionMin_/positionExtent_/texcoordMin_/
-		///      texcoordExtent_ を再計算し、compressedVertices_/
-		///      compressedSkinVertices_ を再構築する。
-		vertices_ = std::move(transformedVertices);
-		BakeMesh();
-
-		std::ofstream ofs(cristerPath, std::ios::binary);
-		if (!ofs)
-		{
-			return false;
-		}
-		cereal::BinaryOutputArchive archive(ofs);
-		archive(*this);
-
-		return true;
-	}
-
-	Bool Crister::ApplyTransformConversion(Vector3 position, Vector3 rotation, Vector3 scale, Vector3 pivot, const std::filesystem::path& cristerPath)
-	{
-		if (compressedVertices_.empty())
-		{
-			return false;
-		}
-
-		/// [EN] Away-from-zero clamp: a zero/near-zero axis would bake a
-		///      singular linearBasis, making normalBasis (its inverse-transpose)
-		///      undefined.
-		/// [JP] ゼロから離す方向へのクランプ: 軸が 0/0 近傍だと linearBasis が
-		///      特異になり、その逆転置である normalBasis が定義できなくなる。
-		Vector3 clampedScale(
-			std::abs(scale.x) < 0.0001f ? std::copysign(0.0001f, scale.x) : scale.x,
-			std::abs(scale.y) < 0.0001f ? std::copysign(0.0001f, scale.y) : scale.y,
-			std::abs(scale.z) < 0.0001f ? std::copysign(0.0001f, scale.z) : scale.z);
-
-		Matrix linearBasis = Matrix::CreateScale(clampedScale.x, clampedScale.y, clampedScale.z) * Matrix::CreateFromYawPitchRoll(ToRadians(rotation.y), ToRadians(rotation.x), ToRadians(rotation.z));
-		Matrix normalBasis = linearBasis.Invert().Transpose();
-		Matrix fullTransform = Matrix::CreateTranslation(-pivot) * linearBasis * Matrix::CreateTranslation(pivot + position);
-
-		Float tangentSign = linearBasis.Determinant() < 0.0f ? -1.0f : 1.0f;
-
-		DynamicArray<Vertex> transformedVertices(compressedVertices_.size());
-		for (Size vertexIndex = 0; vertexIndex < compressedVertices_.size(); vertexIndex++)
-		{
-			const CompressedVertex& compressed = compressedVertices_[vertexIndex];
-			Vertex& vertex = transformedVertices[vertexIndex];
-
-			vertex.position_ = Vector3::Transform(DecodePosition(compressed, positionMin_, positionExtent_), fullTransform);
-			vertex.texcoord_ = DecodeTexcoord(compressed, texcoordMin_, texcoordExtent_);
-			vertex.normal_ = Vector3::TransformNormal(DecodeNormal(compressed), normalBasis);
-			vertex.normal_.Normalize();
-
-			Vector4 tangent = DecodeTangent(compressed);
-			Vector3 tangentXyz = Vector3::TransformNormal(Vector3(tangent.x, tangent.y, tangent.z), linearBasis);
-			tangentXyz.Normalize();
-			vertex.tangent_ = Vector4(tangentXyz.x, tangentXyz.y, tangentXyz.z, tangent.w * tangentSign);
-
-			if (!compressedSkinVertices_.empty())
-			{
-				DecodeSkin(compressedSkinVertices_[vertexIndex], vertex.joints_, vertex.weights_);
-			}
-		}
-
-		if (defaultStage_ >= 0 && static_cast<Size>(defaultStage_) < stages_.size())
-		{
-			for (Int rootNodeIndex : stages_[defaultStage_].nodes_)
-			{
-				if (rootNodeIndex < 0 || static_cast<Size>(rootNodeIndex) >= nodes_.size())
-				{
-					continue;
-				}
-
-				Node& node = nodes_[rootNodeIndex];
-				Matrix localScale = Matrix::CreateScale(node.scale_.x, node.scale_.y, node.scale_.z);
-				Matrix localRotation = Matrix::CreateFromQuaternion(node.rotation_);
-				Matrix localTranslation = Matrix::CreateTranslation(node.translation_.x, node.translation_.y, node.translation_.z);
-				Matrix newLocal = localScale * localRotation * localTranslation * fullTransform;
-
-				newLocal.Decompose(node.scale_, node.rotation_, node.translation_);
-			}
-		}
-		CumulateTransforms();
-
-		Matrix inverseFullTransform = fullTransform.Invert();
-		for (auto& skin : skins_)
-		{
-			for (Matrix& inverseBindMatrix : skin.inverseBindMatrices_)
-			{
-				inverseBindMatrix = inverseFullTransform * inverseBindMatrix;
-			}
-		}
-
-		for (auto& light : lights_)
-		{
-			light.position_ = Vector3::Transform(light.position_, fullTransform);
-			light.direction_ = Vector3::TransformNormal(light.direction_, linearBasis);
-			light.direction_.Normalize();
-		}
-
-		Float radiusScale = Max(Max(std::abs(clampedScale.x), std::abs(clampedScale.y)), std::abs(clampedScale.z));
-		for (auto& bound : meshletBounds_)
-		{
-			bound.center_ = Vector3::Transform(bound.center_, fullTransform);
-			bound.coneAxis_ = Vector3::TransformNormal(bound.coneAxis_, linearBasis);
-			bound.coneAxis_.Normalize();
-			bound.radius_ *= radiusScale;
-		}
-
-		vertices_ = std::move(transformedVertices);
-		BakeMesh();
-
-		std::ofstream ofs(cristerPath, std::ios::binary);
-		if (!ofs)
-		{
-			return false;
-		}
-		cereal::BinaryOutputArchive archive(ofs);
-		archive(*this);
-
-		return true;
-	}
-
+	/**
+	* [EN]
+	* Downsamples oversized textures, dilates transparent-texel color
+	* (must happen before compression — BC7 blocks can't be touched
+	* per-texel afterwards), then BC7-compresses a full mip chain into
+	* each Bitmap's cacheData_. Must run before serialising to the
+	* .crister cache.
+	* BC7 encoding runs on the GPU (BC7CompressCS.hlsl, mode 6 only —
+	* the CPU DirectXTex encoder's default quality search is
+	* impractically slow and TEX_COMPRESS_PARALLEL is a no-op unless
+	* the vendored DirectXTex.lib happens to be built with OpenMP).
+	* Needs device/cmdQueue for the one-shot compute dispatch; unlike
+	* Upload() this has no BindlessHeap dependency (the shader binds
+	* its input/output as root SRV/UAV, not through the bindless heap).
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 大きすぎるテクスチャをダウンサンプルし、透明テクセルの色を
+	* dilation する（圧縮後は BC7 ブロックをテクセル単位で触れない
+	* ため圧縮前必須）。その後フルミップチェーンを BC7 圧縮して各
+	* Bitmap の cacheData_ へ焼き込む。.crister キャッシュへの
+	* シリアライズ前に実行すること。
+	* BC7 エンコードは GPU で行う(BC7CompressCS.hlsl、mode 6 のみ —
+	* CPU 版 DirectXTex のデフォルト品質探索は実用にならないほど遅く、
+	* TEX_COMPRESS_PARALLEL も同梱の DirectXTex.lib が OpenMP 付きで
+	* ビルドされていない限り無効)。一発実行のコンピュートディスパッチの
+	* ため device/cmdQueue が要る。Upload() と違い BindlessHeap には
+	* 依存しない(シェーダの入出力は bindless ヒープではなくルート
+	* SRV/UAV で直接バインドする)。ルートシグネチャ+PSOは
+	* BC7CompressShader(Graphics所有、ModelShaderと同じ立ち位置)が
+	* 持つので、それを渡してもらう。
+	*/
 	void Crister::BakeBitmap(ID3D12Device* device, ID3D12CommandQueue* cmdQueue, BC7CompressShader& bc7Shader)
 	{
 		/// [JP] RGBA8 画像を整数倍率のボックスフィルタで縮小する（D3D12 の 2D
@@ -983,6 +828,374 @@ namespace SeedCore
 		}
 	}
 
+	/**
+	* [EN]
+	* Flattens this Crister's triangles into a CPU-side position/index
+	* pair, for MeshCollisionLoader to bake into a ".collision" file.
+	* Reads only the CPU-resident arrays (compressedVertices_/
+	* meshlets_/vertexIndices_/primitiveIndices_/clusters_), so it is
+	* unaffected by geometry streaming residency and needs no GPU
+	* readback. Positions are dequantised with the same math as the
+	* shader decode. Returns false when there is nothing to extract.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* この Crister の三角形を CPU 側の位置/インデックス対へ展開する。
+	* MeshCollisionLoader がこれを ".collision" ファイルへ焼き込む。
+	* CPU 常駐配列 (compressedVertices_/meshlets_/vertexIndices_/
+	* primitiveIndices_/clusters_) しか読まないため、ジオメトリ
+	* ストリーミングの常駐状態に影響されず、GPU リードバックも不要。
+	* 位置はシェーダデコードと同じ計算で逆量子化する。抽出対象が
+	* 無ければ false を返す。
+	*/
+	Bool Crister::BakeCollision(MeshCollisionDetail detail, DynamicArray<Vector3>& outPositions, DynamicArray<Uint32>& outIndices)const
+	{
+		outPositions.clear();
+		outIndices.clear();
+
+		if (compressedVertices_.empty() || subMeshes_.empty())
+		{
+			return false;
+		}
+
+		/// [EN] Maps a global (pre-dedup) vertex index to its position in
+		///      outPositions, so triangles sharing a vertex reuse the same
+		///      compact index instead of duplicating the position.
+		/// [JP] グローバル（重複排除前）の頂点インデックスを outPositions 内の
+		///      位置へ対応付ける。頂点を共有する三角形が同じコンパクト
+		///      インデックスを再利用し、位置が重複しないようにする。
+		std::unordered_map<Uint32, Uint32> remap;
+
+		for (const SubMesh& subMesh : subMeshes_)
+		{
+			if (subMesh.clusterCount_ == 0)
+			{
+				continue;
+			}
+
+			/// [EN] Full takes the SubMesh's first (LOD 0, most detailed)
+			///      cluster; Proxy takes its last (coarsest) cluster — same
+			///      range the RT proxy geometry already uses.
+			/// [JP] Full は SubMesh の最初のクラスタ（LOD 0、最も詳細）、
+			///      Proxy は最後のクラスタ（最も粗い）を取る — RT プロキシ
+			///      ジオメトリが既に使っているのと同じ範囲。
+			Uint32 clusterIndex = detail == MeshCollisionDetail::Full
+				? subMesh.clusterOffset_
+				: subMesh.clusterOffset_ + subMesh.clusterCount_ - 1;
+
+			if (clusterIndex >= clusters_.size())
+			{
+				continue;
+			}
+
+			/// [EN] Walk every meshlet in the chosen cluster, then every
+			///      triangle corner in each meshlet, resolving each corner
+			///      through vertexIndices_/primitiveIndices_ to a global
+			///      vertex index.
+			/// [JP] 選んだクラスタ内の全メシュレットを走査し、各メシュレット内の
+			///      全三角形の各頂点を、vertexIndices_/primitiveIndices_ 経由で
+			///      グローバル頂点インデックスへ解決する。
+			const Cluster& cluster = clusters_[clusterIndex];
+			for (Uint32 meshletIndex = cluster.meshletOffset_; meshletIndex < cluster.meshletOffset_ + cluster.meshletCount_; meshletIndex++)
+			{
+				const Meshlet& meshlet = meshlets_[meshletIndex];
+				for (Uint32 triangleIndex = 0; triangleIndex < meshlet.triangleCount_; triangleIndex++)
+				{
+					Uint32 byteOffset = meshlet.triangleOffset_ + triangleIndex * 3;
+					for (Int corner = 0; corner < 3; corner++)
+					{
+						Uint32 globalIndex = vertexIndices_[meshlet.vertexOffset_ + primitiveIndices_[byteOffset + corner]];
+						auto found = remap.find(globalIndex);
+						if (found == remap.end())
+						{
+							/// [EN] First time this global vertex is seen: decode its
+							///      position and append it, remembering the compact
+							///      index for later corners that share it.
+							/// [JP] このグローバル頂点を初めて見た場合: 位置を
+							///      デコードして追加し、後で同じ頂点を共有する
+							///      角のためにコンパクトインデックスを記憶する。
+							Uint32 compactIndex = static_cast<Uint32>(outPositions.size());
+							remap[globalIndex] = compactIndex;
+							outPositions.push_back(DecodePosition(compressedVertices_[globalIndex], positionMin_, positionExtent_));
+							outIndices.push_back(compactIndex);
+						}
+						else
+						{
+							/// [EN] Already emitted: reuse its compact index instead
+							///      of pushing a duplicate position.
+							/// [JP] 既に出力済み: 位置を重複追加せず、そのコンパクト
+							///      インデックスを再利用する。
+							outIndices.push_back(found->second);
+						}
+					}
+				}
+			}
+		}
+
+		return outIndices.size() >= 3;
+	}
+
+	/**
+	* [EN]
+	* Re-converts an already-baked Crister (no source glTF required) from
+	* one axis convention to another, in place: decodes every quantised
+	* vertex/skin back to full precision, applies deltaBasis to
+	* positions/normals/tangents/node transforms/skin inverse-bind
+	* matrices/light positions-directions/meshlet bounds, optionally
+	* reverses triangle winding, recomputes the quantisation AABBs from
+	* the transformed data, re-quantises via BakeMesh(), and
+	* re-serialises the result to cristerPath. Does NOT touch GPU
+	* resources or bindless indices — the caller must force a reload
+	* (Unload then Load) afterward. Returns false if this Crister has no
+	* compressed vertex data to convert (e.g. textures-only/degenerate asset).
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 既に焼き込み済みの Crister（ソース glTF 不要）を、ある軸コンベンション
+	* から別のものへその場で再変換する: 量子化済みの頂点/スキンをフル精度へ
+	* デコードし、位置/法線/タンジェント/ノードトランスフォーム/スキン
+	* 逆バインド行列/ライト位置・向き/メシュレット境界へ deltaBasis を
+	* 適用、必要なら三角形の巻き順を反転、変換後データから量子化 AABB を
+	* 再計算し、BakeMesh() で再量子化して cristerPath へ再シリアライズ
+	* する。GPU リソースや bindless インデックスは触らない —
+	* 呼び出し側が後で強制リロード（Unload → Load）すること。この
+	* Crister に変換対象の量子化済み頂点データが無い場合（テクスチャのみ
+	* 等の縮退アセット）は false を返す。
+	*/
+	Bool Crister::ApplyAxisConversion(const Matrix& deltaBasis, Bool flipWinding, const std::filesystem::path& cristerPath)
+	{
+		if (compressedVertices_.empty())
+		{
+			return false;
+		}
+
+		Float determinant = deltaBasis.Determinant();
+		Bool isMirror = determinant < 0.0f;
+		Float tangentSign = isMirror ? -1.0f : 1.0f;
+
+		/// [EN] Decode every quantised vertex back to full precision, then
+		///      transform position/normal/tangent in place. Texcoord is
+		///      unaffected by an axis-convention change.
+		/// [JP] 量子化済みの全頂点をフル精度へデコードし、位置/法線/タンジェントを
+		///      その場で変換する。テクスチャ座標は軸コンベンション変更の影響を
+		///      受けない。
+		DynamicArray<Vertex> transformedVertices(compressedVertices_.size());
+		for (Size vertexIndex = 0; vertexIndex < compressedVertices_.size(); vertexIndex++)
+		{
+			const CompressedVertex& compressed = compressedVertices_[vertexIndex];
+			Vertex& vertex = transformedVertices[vertexIndex];
+
+			vertex.position_ = Vector3::Transform(DecodePosition(compressed, positionMin_, positionExtent_), deltaBasis);
+			vertex.texcoord_ = DecodeTexcoord(compressed, texcoordMin_, texcoordExtent_);
+			vertex.normal_ = Vector3::Transform(DecodeNormal(compressed), deltaBasis);
+
+			Vector4 tangent = DecodeTangent(compressed);
+			Vector3 tangentXyz = Vector3::Transform(Vector3(tangent.x, tangent.y, tangent.z), deltaBasis);
+			vertex.tangent_ = Vector4(tangentXyz.x, tangentXyz.y, tangentXyz.z, tangent.w * tangentSign);
+
+			if (!compressedSkinVertices_.empty())
+			{
+				DecodeSkin(compressedSkinVertices_[vertexIndex], vertex.joints_, vertex.weights_);
+			}
+		}
+
+		for (auto& node : nodes_)
+		{
+			ConvertRotationByBasis(node.rotation_, deltaBasis);
+			ConvertPositionByBasis(node.translation_, deltaBasis);
+		}
+		CumulateTransforms();
+
+		for (auto& skin : skins_)
+		{
+			for (Matrix& inverseBindMatrix : skin.inverseBindMatrices_)
+			{
+				ConvertMatrixByBasis(inverseBindMatrix, deltaBasis);
+			}
+		}
+
+		for (auto& light : lights_)
+		{
+			ConvertPositionByBasis(light.position_, deltaBasis);
+			ConvertPositionByBasis(light.direction_, deltaBasis);
+			light.direction_.Normalize();
+		}
+
+		for (auto& bound : meshletBounds_)
+		{
+			ConvertPositionByBasis(bound.center_, deltaBasis);
+			ConvertPositionByBasis(bound.coneAxis_, deltaBasis);
+		}
+
+		if (flipWinding)
+		{
+			Size triangleCount = primitiveIndices_.size() / 3;
+			for (Size triangleIndex = 0; triangleIndex < triangleCount; ++triangleIndex)
+			{
+				std::swap(primitiveIndices_[triangleIndex * 3 + 1], primitiveIndices_[triangleIndex * 3 + 2]);
+			}
+		}
+
+		/// [EN] Reuse BakeMesh()'s existing quantisation pipeline verbatim: it
+		///      recomputes positionMin_/positionExtent_/texcoordMin_/
+		///      texcoordExtent_ from vertices_ and re-populates
+		///      compressedVertices_/compressedSkinVertices_.
+		/// [JP] BakeMesh() の既存の量子化パイプラインをそのまま再利用する:
+		///      vertices_ から positionMin_/positionExtent_/texcoordMin_/
+		///      texcoordExtent_ を再計算し、compressedVertices_/
+		///      compressedSkinVertices_ を再構築する。
+		vertices_ = std::move(transformedVertices);
+		BakeMesh();
+
+		std::ofstream ofs(cristerPath, std::ios::binary);
+		if (!ofs)
+		{
+			return false;
+		}
+		cereal::BinaryOutputArchive archive(ofs);
+		archive(*this);
+
+		return true;
+	}
+
+	/**
+	* [EN]
+	* Bakes a global position/rotation(euler degrees)/scale/pivot
+	* transform into this Crister's data, same scope as
+	* ApplyAxisConversion (vertices/node hierarchy/skin inverse-bind
+	* matrices/light positions-directions/meshlet bounds), then
+	* re-serialises to cristerPath. scale/pivot/rotation compose about
+	* pivot first, position is a separate world-space offset applied
+	* after. Only root-level nodes (stages_[defaultStage_].nodes_) have
+	* their local transform updated - CumulateTransforms() then
+	* propagates to every descendant, since post-multiplying the whole
+	* transform onto just the root telescopes correctly through the
+	* local-transform chain (node.globalTransform_ = local *
+	* parentGlobal). Returns false if this Crister has no compressed
+	* vertex data.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* グローバルな位置/回転(オイラー角、度)/スケール/ピボット変換を
+	* この Crister のデータへ焼き込む。対象範囲は ApplyAxisConversion
+	* と同じ(頂点/ノード階層/スキン逆バインド行列/ライト位置・向き/
+	* メシュレット境界)、その後 cristerPath へ再シリアライズする。
+	* スケール/ピボット/回転はまずピボットを中心に合成し、position は
+	* その後に適用する独立したワールド空間オフセット。ローカル
+	* トランスフォームを更新するのはルートノード
+	* (stages_[defaultStage_].nodes_)のみ — CumulateTransforms() が
+	* 全子孫へ伝播する。ルートだけに変換全体を後乗せすれば、ローカル
+	* トランスフォームの連鎖(node.globalTransform_ = local *
+	* parentGlobal)を通じて正しく telescope するため。この Crister に
+	* 変換対象の量子化済み頂点データが無い場合は false を返す。
+	*/
+	Bool Crister::ApplyTransformConversion(Vector3 position, Vector3 rotation, Vector3 scale, Vector3 pivot, const std::filesystem::path& cristerPath)
+	{
+		if (compressedVertices_.empty())
+		{
+			return false;
+		}
+
+		/// [EN] Away-from-zero clamp: a zero/near-zero axis would bake a
+		///      singular linearBasis, making normalBasis (its inverse-transpose)
+		///      undefined.
+		/// [JP] ゼロから離す方向へのクランプ: 軸が 0/0 近傍だと linearBasis が
+		///      特異になり、その逆転置である normalBasis が定義できなくなる。
+		Vector3 clampedScale(
+			std::abs(scale.x) < 0.0001f ? std::copysign(0.0001f, scale.x) : scale.x,
+			std::abs(scale.y) < 0.0001f ? std::copysign(0.0001f, scale.y) : scale.y,
+			std::abs(scale.z) < 0.0001f ? std::copysign(0.0001f, scale.z) : scale.z);
+
+		Matrix linearBasis = Matrix::CreateScale(clampedScale.x, clampedScale.y, clampedScale.z) * Matrix::CreateFromYawPitchRoll(ToRadians(rotation.y), ToRadians(rotation.x), ToRadians(rotation.z));
+		Matrix normalBasis = linearBasis.Invert().Transpose();
+		Matrix fullTransform = Matrix::CreateTranslation(-pivot) * linearBasis * Matrix::CreateTranslation(pivot + position);
+
+		Float tangentSign = linearBasis.Determinant() < 0.0f ? -1.0f : 1.0f;
+
+		DynamicArray<Vertex> transformedVertices(compressedVertices_.size());
+		for (Size vertexIndex = 0; vertexIndex < compressedVertices_.size(); vertexIndex++)
+		{
+			const CompressedVertex& compressed = compressedVertices_[vertexIndex];
+			Vertex& vertex = transformedVertices[vertexIndex];
+
+			vertex.position_ = Vector3::Transform(DecodePosition(compressed, positionMin_, positionExtent_), fullTransform);
+			vertex.texcoord_ = DecodeTexcoord(compressed, texcoordMin_, texcoordExtent_);
+			vertex.normal_ = Vector3::TransformNormal(DecodeNormal(compressed), normalBasis);
+			vertex.normal_.Normalize();
+
+			Vector4 tangent = DecodeTangent(compressed);
+			Vector3 tangentXyz = Vector3::TransformNormal(Vector3(tangent.x, tangent.y, tangent.z), linearBasis);
+			tangentXyz.Normalize();
+			vertex.tangent_ = Vector4(tangentXyz.x, tangentXyz.y, tangentXyz.z, tangent.w * tangentSign);
+
+			if (!compressedSkinVertices_.empty())
+			{
+				DecodeSkin(compressedSkinVertices_[vertexIndex], vertex.joints_, vertex.weights_);
+			}
+		}
+
+		if (defaultStage_ >= 0 && static_cast<Size>(defaultStage_) < stages_.size())
+		{
+			for (Int rootNodeIndex : stages_[defaultStage_].nodes_)
+			{
+				if (rootNodeIndex < 0 || static_cast<Size>(rootNodeIndex) >= nodes_.size())
+				{
+					continue;
+				}
+
+				Node& node = nodes_[rootNodeIndex];
+				Matrix localScale = Matrix::CreateScale(node.scale_.x, node.scale_.y, node.scale_.z);
+				Matrix localRotation = Matrix::CreateFromQuaternion(node.rotation_);
+				Matrix localTranslation = Matrix::CreateTranslation(node.translation_.x, node.translation_.y, node.translation_.z);
+				Matrix newLocal = localScale * localRotation * localTranslation * fullTransform;
+
+				newLocal.Decompose(node.scale_, node.rotation_, node.translation_);
+			}
+		}
+		CumulateTransforms();
+
+		Matrix inverseFullTransform = fullTransform.Invert();
+		for (auto& skin : skins_)
+		{
+			for (Matrix& inverseBindMatrix : skin.inverseBindMatrices_)
+			{
+				inverseBindMatrix = inverseFullTransform * inverseBindMatrix;
+			}
+		}
+
+		for (auto& light : lights_)
+		{
+			light.position_ = Vector3::Transform(light.position_, fullTransform);
+			light.direction_ = Vector3::TransformNormal(light.direction_, linearBasis);
+			light.direction_.Normalize();
+		}
+
+		Float radiusScale = Max(Max(std::abs(clampedScale.x), std::abs(clampedScale.y)), std::abs(clampedScale.z));
+		for (auto& bound : meshletBounds_)
+		{
+			bound.center_ = Vector3::Transform(bound.center_, fullTransform);
+			bound.coneAxis_ = Vector3::TransformNormal(bound.coneAxis_, linearBasis);
+			bound.coneAxis_.Normalize();
+			bound.radius_ *= radiusScale;
+		}
+
+		vertices_ = std::move(transformedVertices);
+		BakeMesh();
+
+		std::ofstream ofs(cristerPath, std::ios::binary);
+		if (!ofs)
+		{
+			return false;
+		}
+		cereal::BinaryOutputArchive archive(ofs);
+		archive(*this);
+
+		return true;
+	}
+
 	void Crister::Upload(ID3D12Device* device, ID3D12CommandQueue* cmdQueue, BindlessHeap* heap)
 	{
 		HRESULT hr{ S_OK };
@@ -1032,8 +1245,8 @@ namespace SeedCore
 			Uint32 maxVertex = 0;
 			for (Uint32 index = page.vertexIndexBegin_; index < page.vertexIndexEnd_; index++)
 			{
-				minVertex = std::min(minVertex, vertexIndices_[index]);
-				maxVertex = std::max(maxVertex, vertexIndices_[index]);
+				minVertex = Min(minVertex, vertexIndices_[index]);
+				maxVertex = Max(maxVertex, vertexIndices_[index]);
 			}
 			if (page.ownsVertices_)
 			{
@@ -1044,7 +1257,7 @@ namespace SeedCore
 			{
 				page.vertexBegin_ = 0;
 				page.vertexEnd_ = maxVertex + 1;
-				poolVertexEnd_ = std::max(poolVertexEnd_, maxVertex + 1);
+				poolVertexEnd_ = Max(poolVertexEnd_, maxVertex + 1);
 			}
 		}
 
@@ -1408,7 +1621,7 @@ namespace SeedCore
 		}
 
 		/// [JP] 既に同等以上に細かいミップが常駐しているなら何もしない。
-		Uint32 mipIndex = std::min(targetMip, streamingTexture.mipCount_ - 1);
+		Uint32 mipIndex = Min(targetMip, streamingTexture.mipCount_ - 1);
 		if (mipIndex >= streamingTexture.topResidentMip_)
 		{
 			return;
@@ -1683,8 +1896,8 @@ namespace SeedCore
 		///      テクセル密度データが無いためこれ以上詰められない)。ぼやけ過ぎる
 		///      リスクを避けるため切り捨てて鮮明側に倒す。
 		Vector3 extent = positionExtent_;
-		Float modelSize = std::max(std::max(extent.x, extent.y), extent.z);
-		Float screenPixels = std::max(worldScale * modelSize * pixelsPerUnit, 1.0f);
+		Float modelSize = Max(Max(extent.x, extent.y), extent.z);
+		Float screenPixels = Max(worldScale * modelSize * pixelsPerUnit, 1.0f);
 		Float textureWidth = static_cast<Float>(bitmaps_[textureIndex].width_);
 
 		Uint32 desiredMip = 0;
@@ -1695,7 +1908,7 @@ namespace SeedCore
 		}
 
 		Uint32 mipCount = streamingTextures_[textureIndex].mipCount_;
-		return mipCount == 0 ? 0 : std::min(desiredMip, mipCount - 1);
+		return mipCount == 0 ? 0 : Min(desiredMip, mipCount - 1);
 	}
 
 	void Crister::EvictClusterBudget(Uint64 currentFrame)

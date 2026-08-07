@@ -39,15 +39,15 @@ namespace SeedCore
 		return joltPhysics_.GetShapePool().CreateCircleShape(radius, center);
 	}
 
-	//ShapeHandle Physics::CreateMeshShape()
-	//{
-	//	return 
-	//}
+	ShapeHandle Physics::CreateMeshShape(Uint32 assetID, const DynamicArray<Vector3>& positions, const DynamicArray<Uint32>& indices)
+	{
+		return joltPhysics_.GetShapePool().CreateMeshShape(assetID, positions, indices);
+	}
 
-	//ShapeHandle Physics::CreateConvexShape()
-	//{
-	//	return 
-	//}
+	ShapeHandle Physics::CreateConvexShape(Uint32 assetID, const DynamicArray<Vector3>& positions)
+	{
+		return joltPhysics_.GetShapePool().CreateConvexShape(assetID, positions);
+	}
 
 	void Physics::ReleaseShape(ShapeHandle handle)
 	{
@@ -86,6 +86,23 @@ namespace SeedCore
 
 		bodyInterface.AddBody(body->GetID(), JPH::EActivation::Activate);
 		return body->GetID();
+	}
+
+	void Physics::SetBodyShape(JPH::BodyID bodyID, ShapeHandle shape)
+	{
+		if (bodyID.IsInvalid())
+		{
+			return;
+		}
+
+		JPH::ShapeRefC newShape = joltPhysics_.GetShapePool().Get(shape);
+		if (!newShape)
+		{
+			return;
+		}
+
+		JPH::BodyInterface& bodyInterface = joltPhysics_.GetBodyInterface();
+		bodyInterface.SetShape(bodyID, newShape, true, JPH::EActivation::Activate);
 	}
 
 	void Physics::DestroyBody(JPH::BodyID bodyID)

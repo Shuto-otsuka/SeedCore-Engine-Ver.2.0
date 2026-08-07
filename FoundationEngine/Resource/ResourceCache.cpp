@@ -5,6 +5,7 @@
 #include <GraphicsEngine/Texture/ImageResource.h>
 #include <GraphicsEngine/Model/ModelResource.h>
 #include <GraphicsEngine/Model/Animation/AnimationResource.h>
+#include <GraphicsEngine/Model/Collision/MeshCollisionResource.h>
 #include <GraphicsEngine/Font/FontResource.h>
 #include <GraphicsEngine/Sky/SkymapResource.h>
 #include <GraphicsEngine/Effect/Effekseer/EffekseerResource.h>
@@ -115,6 +116,7 @@ namespace SeedCore
 		imageResource_ = MakePtr<ImageResource>();
 		modelResource_ = MakePtr<ModelResource>();
 		animationResource_ = MakePtr<AnimationResource>();
+		meshCollisionResource_ = MakePtr<MeshCollisionResource>();
 		fontResource_ = MakePtr<FontResource>();
 		skymapResource_ = MakePtr<SkymapResource>();
 		effekseerResource_ = MakePtr<EffekseerResource>();
@@ -165,6 +167,7 @@ namespace SeedCore
 			AssetType::Texture,
 			AssetType::Model,
 			AssetType::Animation,
+			AssetType::MeshCollision,
 			AssetType::Font,
 			AssetType::Effect,
 			AssetType::Audio,
@@ -232,6 +235,9 @@ namespace SeedCore
 				break;
 			case AssetType::Animation:
 				animationResource_->Load(loader, *this, asset->assetID_);
+				break;
+			case AssetType::MeshCollision:
+				meshCollisionResource_->Load(loader, *this, asset->assetID_);
 				break;
 			case AssetType::Effect:
 				effekseerResource_->Load(loader, *this, asset->assetID_);
@@ -474,6 +480,9 @@ namespace SeedCore
 			case AssetType::Animation:
 				animationResource_->Load(loader, *this, asset.assetID_);
 				break;
+			case AssetType::MeshCollision:
+				meshCollisionResource_->Load(loader, *this, asset.assetID_);
+				break;
 			case AssetType::Effect:
 				effekseerResource_->Load(loader, *this, asset.assetID_);
 				break;
@@ -532,6 +541,9 @@ namespace SeedCore
 				break;
 			case AssetType::Animation:
 				animationResource_->Unload(loader, asset.assetID_);
+				break;
+			case AssetType::MeshCollision:
+				meshCollisionResource_->Unload(loader, asset.assetID_);
 				break;
 			case AssetType::Effect:
 				effekseerResource_->Unload(loader, asset.assetID_);
@@ -603,6 +615,20 @@ namespace SeedCore
 	AnimationResource* ResourceCache::GetAnimationResource()const
 	{
 		return animationResource_.get();
+	}
+
+	/**
+	* [EN]
+	* Returns the mesh collision resource manager.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 衝突ジオメトリリソースマネージャを返す。
+	*/
+	MeshCollisionResource* ResourceCache::GetMeshCollisionResource()const
+	{
+		return meshCollisionResource_.get();
 	}
 
 	/**
@@ -869,6 +895,10 @@ namespace SeedCore
 				{
 					asset.type_ = AssetType::Animation;
 				}
+				else if (extention == ".collision")
+				{
+					asset.type_ = AssetType::MeshCollision;
+				}
 				else if (extention == ".efkefc" || extention == ".effekseer" || extention == ".zephyr")
 				{
 					asset.type_ = AssetType::Effect;
@@ -1038,6 +1068,9 @@ namespace SeedCore
 						break;
 					case AssetType::Animation:
 						animationResource_->Unload(loader_, it->second.assetID_);
+						break;
+					case AssetType::MeshCollision:
+						meshCollisionResource_->Unload(loader_, it->second.assetID_);
 						break;
 					case AssetType::Effect:
 						effekseerResource_->Unload(loader_, it->second.assetID_);

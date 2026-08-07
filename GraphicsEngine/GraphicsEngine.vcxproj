@@ -105,6 +105,9 @@
     <ClInclude Include="Model\Animation\Animator.h" />
     <ClInclude Include="Model\Animation\AnimatorControllerState.h" />
     <ClInclude Include="Model\BC7CompressShader.h" />
+    <ClInclude Include="Model\Collision\MeshCollision.h" />
+    <ClInclude Include="Model\Collision\MeshCollisionLoader.h" />
+    <ClInclude Include="Model\Collision\MeshCollisionResource.h" />
     <ClInclude Include="Model\Crister.h" />
     <ClInclude Include="Model\MaterialResolveShader.h" />
     <ClInclude Include="Model\MaterialSortBuffer.h" />
@@ -232,6 +235,9 @@
     <ClCompile Include="Model\Animation\AnimationResource.cpp" />
     <ClCompile Include="Model\Animation\Animator.cpp" />
     <ClCompile Include="Model\BC7CompressShader.cpp" />
+    <ClCompile Include="Model\Collision\MeshCollision.cpp" />
+    <ClCompile Include="Model\Collision\MeshCollisionLoader.cpp" />
+    <ClCompile Include="Model\Collision\MeshCollisionResource.cpp" />
     <ClCompile Include="Model\Crister.cpp" />
     <ClCompile Include="Model\MaterialResolveShader.cpp" />
     <ClCompile Include="Model\MaterialSortBuffer.cpp" />

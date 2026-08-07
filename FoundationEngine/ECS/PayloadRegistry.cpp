@@ -11,6 +11,7 @@
 #pragma comment(linker, "/include:_force_payload_Animator")
 #pragma comment(linker, "/include:_force_payload_Movie")
 #pragma comment(linker, "/include:_force_payload_Image")
+#pragma comment(linker, "/include:_force_payload_MeshCollider")
 // [PAYLOAD_AUTO_END]
 
 namespace SeedCore

@@ -5,6 +5,7 @@
 #include <GraphicsEngine/Texture/ImageLoader.h>
 #include <GraphicsEngine/Model/ModelLoader.h>
 #include <GraphicsEngine/Model/Animation/AnimationLoader.h>
+#include <GraphicsEngine/Model/Collision/MeshCollisionLoader.h>
 #include <GraphicsEngine/Sky/SkymapLoader.h>
 #include <GraphicsEngine/Effect/Effekseer/EffekseerLoader.h>
 
@@ -41,6 +42,10 @@ namespace SeedCore
 		/// [EN] Loads and splits animation clip data.
 		/// [JP] アニメーションクリップデータを読み込み、分割する。
 		ResourcePtr<AnimationLoader> animationLoader_;
+
+		/// [EN] Loads and bakes mesh collision geometry.
+		/// [JP] 衝突ジオメトリを読み込み、焼き込む。
+		ResourcePtr<MeshCollisionLoader> meshCollisionLoader_;
 
 		/// [EN] Loads skybox/environment map assets.
 		/// [JP] スカイボックス/環境マップアセットを読み込む。

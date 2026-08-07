@@ -1,6 +1,6 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
-#include <FoundationEngine/Utility/ColliderInstance.h>
+#include <FoundationEngine/Interop/ColliderInstance.h>
 #include <GraphicsEngine/D3D12/Buffer/StructuredBuffer.h>
 #include <GraphicsEngine/D3D12/Buffer/ConstantBuffer.h>
 #include <GraphicsEngine/Shape/Collider/ColliderLineShader.h>

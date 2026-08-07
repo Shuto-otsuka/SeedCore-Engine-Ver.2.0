@@ -113,6 +113,10 @@ namespace SeedCore
 		/// [JP] アニメーションアセット。
 		Animation,
 
+		/// [EN] Baked mesh collision geometry asset (.collision).
+		/// [JP] 焼き込み済みの衝突ジオメトリアセット（.collision）。
+		MeshCollision,
+
 		/// [EN] Sky asset.
 		/// [JP] スカイアセット。
 		Sky,
