@@ -37,7 +37,7 @@ namespace SeedCore
 
 		if (ImGui::MenuItem("集光..."))
 		{
-			showRefractionSettings_ = true;
+			showCausticsSettings_ = true;
 		}
 
 		if (ImGui::MenuItem("体積光..."))
@@ -67,7 +67,7 @@ namespace SeedCore
 		DrawAmbientOcclusionSettingsWindow();
 		DrawReflectionSettingsWindow();
 		DrawGlobalIlluminationSettingsWindow();
-		DrawPlaceholderSettingsWindow("レイトレーシング：屈折", showRefractionSettings_, context_.viewportContext_.raytracing_.refractionEnabled_);
+		DrawRefractionSettingsWindow();
 		DrawPlaceholderSettingsWindow("レイトレーシング：集光", showCausticsSettings_, context_.viewportContext_.raytracing_.causticsEnabled_);
 		DrawVolumetricLightSettingsWindow();
 		DrawVolumetricCloudScapesSettingsWindow();
@@ -313,7 +313,46 @@ namespace SeedCore
 
 	void RaytracingPanel::DrawRefractionSettingsWindow()
 	{
+		if (!showRefractionSettings_)
+		{
+			return;
+		}
 
+		ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+		ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+		ImGui::SetNextWindowSize(ImVec2(420, 0), ImGuiCond_Appearing);
+
+		ImGuiWindowFlags flags =
+			ImGuiWindowFlags_NoCollapse |
+			ImGuiWindowFlags_NoDocking |
+			ImGuiWindowFlags_AlwaysAutoResize;
+
+		if (ImGui::Begin("レイトレーシング：屈折", &showRefractionSettings_, flags))
+		{
+			ImGui::Checkbox("有効", &context_.viewportContext_.raytracing_.refractionEnabled_);
+
+			ImGui::Spacing();
+			ImGui::Separator();
+			ImGui::Spacing();
+
+			ImGui::BeginDisabled(!context_.viewportContext_.raytracing_.refractionEnabled_);
+
+			ImGui::SliderFloat("強さ", &context_.viewportContext_.raytracing_.refraction_.strength_, 0.0f, 1.0f);
+			ImGui::SliderFloat("最大距離", &context_.viewportContext_.raytracing_.refraction_.rayTMax_, 1.0f, 5000.0f, "%.0f");
+			ImGui::SliderFloat("法線バイアス", &context_.viewportContext_.raytracing_.refraction_.normalBias_, 0.0001f, 1.0f, "%.4f", ImGuiSliderFlags_Logarithmic);
+
+			ImGui::EndDisabled();
+
+			ImGui::Spacing();
+
+			Float buttonWidth = 120.0f;
+			ImGui::SetCursorPosX(ImGui::GetContentRegionAvail().x - buttonWidth + ImGui::GetCursorPosX());
+			if (ImGui::Button("閉じる", ImVec2(buttonWidth, 0)))
+			{
+				showRefractionSettings_ = false;
+			}
+		}
+		ImGui::End();
 	}
 
 	void RaytracingPanel::DrawCausticsSettingsWindow()

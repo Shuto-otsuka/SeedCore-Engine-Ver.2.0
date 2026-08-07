@@ -766,6 +766,18 @@ namespace SeedCore
 				auto& transmission = material.khr_.transmission_;
 				transmission.transmissionFactor_ = extFloat(it->second, "transmissionFactor", 0.0f);
 				transmission.transmissionTextureIndex_ = extTexture(it->second, "transmissionTexture");
+
+				/// [JP] KHR_materials_transmission の仕様上、拡張に対応する実装は
+				///      alphaMode の宣言(BLENDなど)を無視して常にOPAQUE扱いする
+				///      決まりになっている(BLEND宣言は拡張未対応ビューア向けの
+				///      フォールバックに過ぎない)。ここで上書きしないと
+				///      ModelRenderer.cpp の alphaMode_ != 2 判定で OIT
+				///      (未対応のunlitアルファブレンド)側へ回ってしまい、
+				///      Refraction/KHR拡張のライティングが一切乗らず真っ黒になる。
+				if (transmission.transmissionFactor_ > 0.0f)
+				{
+					material.alphaMode_ = 0;
+				}
 			}
 
 			if (auto it = extensions.find("KHR_materials_volume"); it != extensions.end())

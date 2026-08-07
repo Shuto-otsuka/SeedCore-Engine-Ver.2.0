@@ -1,110 +1,255 @@
+#include "../../Shader/Constants.hlsli"
+#include "../../Shader/Structured.hlsli"
+#include "../../Shader/Light.hlsli"
+#include "../../Shader/Normal.hlsli"
+#include "../../Shader/Sampler.hlsli"
+#include "../../Sky/SkyMath.hlsli"
+#include "../../Light/ImageBasedLighting.hlsli"
+#include "../VolumetricCloudScapes/VolumetricCloudScapes.hlsli"
+#include "../../Model/Model.hlsli"
+#include "../Reflection/Reflection.hlsli"
+#include "Refraction.hlsli"
+
 /**
+* [EN]
+* Ray-traced refraction (RTPSO / DispatchRays, raygeneration only - no miss /
+* closesthit exports). Only pixels whose KHR_materials_transmission factor is
+* > 0 (read via VisID -> ModelInstance, same as Model/DeferredLightingPS.hlsl)
+* trace at all; everything else writes a=0 (invalid) so DeferredLightingPS.hlsl
+* skips them. Bends the view ray through the surface with Snell's law (HLSL's
+* refract(), eta = 1/ior entering the medium), then walks the bounce chain
+* with an inline RayQuery loop inside raygeneration - NOT a recursive TraceRay
+* from a closesthit shader. Every other RTPSO in this engine
+* (Reflection/GlobalIllumination) deliberately keeps maxTraceRecursionDepth_
+* at 1 and reaches for inline RayQuery whenever a hit shader needs another
+* ray (see GlobalIlluminationShader.h's header comment); recursive TraceRay
+* from closesthit has no precedent here and reliably failed RTPSO creation on
+* this hardware/driver, so the bounce loop is inlined into raygeneration
+* instead to match the engine's only proven pattern. Each interface applies
+* Beer-Lambert absorption over the distance just traveled (KHR_materials_volume)
+* and either continues refracting or - on total internal reflection, where
+* refract() degenerates to the zero vector - reflects instead, until the ray
+* misses (sky) or the bounce budget runs out.
+*
+* Reuses Reflection.hlsli's per-triangle instance/material tables wholesale
+* (ReflectionInstanceData / ResolveReflectionMaterial) rather than duplicating
+* them - same TLAS, same instance order, and ReflectionMaterialData already
+* carries ior_/transmission_factor_/volume_attenuation_*_ alongside the
+* base_color_ Reflection itself uses.
+*
+* Deliberately does NOT also trace a reflected ray at each interface (that
+* would double the ray count per bounce) - the mirror-like reflection off the
+* refractive surface's own front face is already provided independently by
+* Raytracing/Reflection/ReflectionRT.hlsl (dielectric F0 from the same ior),
+* and DeferredLightingPS.hlsl composites both by Fresnel weight.
+*
+* ---------------------------------------------------------------------
+*
 * [JP]
-* レイトレ 屈折（RTPSO / DispatchRays）。ガラス・水などの透過面を通した先を出す。
-* 一次面から視線を Snell の法則で屈折させたレイを撃ち、界面ごとに Fresnel で反射／屈折に
-* 分岐しながら数バウンス辿る。KHR_materials_ior / transmission / volume と連携する:
-*   - ior      : 屈折率（Snell）
-*   - transmission : 透過の重み
-*   - volume(attenuation) : 媒質内の吸収（Beer-Lambert）
-* closesthit から再帰的に TraceRay するため、RaytracingStateKey の maxTraceRecursionDepth_ を
-* バウンス数ぶん確保すること（例: 4）。1spp のノイズは DLSS-RR が均す。
+* レイトレ屈折(RTPSO / DispatchRays、raygenerationのみ - miss/closesthit
+* エクスポート無し)。KHR_materials_transmission の factor が 0 より大きい
+* ピクセルだけ(VisID→ModelInstance経由で判定、Model/DeferredLightingPS.hlsl
+* と同じ)レイを撃つ。それ以外は a=0(無効)を書き、DeferredLightingPS.hlsl
+* 側でスキップされる。視線を Snell の法則(HLSL の refract()、媒質へ入る
+* eta = 1/ior)で屈折させ、そこからバウンス連鎖を raygeneration 内の
+* インライン RayQuery ループで辿る - closesthit からの再帰 TraceRay では
+* ない。このエンジンの他の RTPSO(Reflection/GlobalIllumination)はどちらも
+* maxTraceRecursionDepth_ を 1 に固定し、ヒットシェーダがもう1本レイを
+* 要るときは常にインライン RayQuery に頼っている
+* (GlobalIlluminationShader.h 冒頭コメント参照)。closesthit からの再帰
+* TraceRay はこのエンジンに前例が無く、実機でRTPSO作成が確実に失敗した
+* ため、エンジンで実績のある唯一のパターンに合わせてバウンスループを
+* raygeneration 内へインライン化した。各界面で直前に進んだ距離ぶんの
+* Beer-Lambert吸収(KHR_materials_volume)を適用し、屈折を続けるか、
+* 全反射(refract() がゼロベクトルに縮退する)なら反射に切り替えながら、
+* レイが外れる(空)かバウンス予算が尽きるまで辿る。
 *
-* 方式選択の理由: 界面での分岐・媒質内吸収・再帰追跡が要り、ヒット面のマテリアルを
-* closesthit で評価する必要があるので RTPSO 一択。
+* Reflection.hlsli の三角形単位インスタンス/マテリアルテーブル
+* (ReflectionInstanceData / ResolveReflectionMaterial)をそのまま再利用する
+* (複製しない) - 同じTLAS、同じインスタンス順序であり、
+* ReflectionMaterialData には Reflection 自身が使う base_color_ と並んで
+* ior_/transmission_factor_/volume_attenuation_*_ も既に乗っている。
 *
-* C++側(B): raygen/miss/closesthit を登録し maxTraceRecursionDepth_ を上げる。DispatchRays。
+* 各界面で反射レイもあえて撃たない(バウンスごとにレイ数が倍増するため) -
+* 屈折面自体の鏡面反射は Raytracing/Reflection/ReflectionRT.hlsl(同じiorから
+* 求めた誘電体F0)が独立して提供しており、Model/DeferredLightingPS.hlsl が
+* Fresnel重みで両者を合成する。
 */
 
-// radiance_(12)+throughput...は 16byte を超えるので payload を少し広げる。
-// radiance_(12)+bounce_(4)+throughput_(12)+hit_distance_(4)=32 byte。
-// RaytracingStateKey.maxPayloadSizeInBytes_ を 32 に設定すること。
-struct RefractionPayload
+// Must match RefractionShader::maxBounces_ (Raytracing/Refraction/RefractionShader.h).
+// Purely a loop bound now (no longer tied to maxTraceRecursionDepth_, which
+// stays 1 - see the header comment above).
+#define REFRACTION_MAX_BOUNCES 4
+
+float3 SampleRefractionSky(float3 direction)
 {
-	float3 radiance_;
-	uint bounce_;                     // 現在のバウンス数（再帰の停止条件）
-	float3 throughput_;               // ここまでの減衰（Fresnel×吸収の積）
-	float hit_distance_;
-};
+	if (structured_indices.sky_.environment_cube_index_ != 0)
+	{
+		return SampleSkyboxEnvironment(direction).rgb;
+	}
 
-struct RefractionConstantBuffer
-{
-	uint tlas_index_;
-	uint depth_index_;
-	uint normal_index_;
-	uint output_index_;
+	ConstantBuffer<VolumetricCloudScapesRayConstantBuffer> cloud_tuning = ResourceDescriptorHeap[structured_indices.cloud_.ray_constant_index_];
+	if (cloud_tuning.procedural_sky_enabled_ != 0 && structured_indices.sky_.specular_prefiltered_index_ != 0)
+	{
+		TextureCube<float4> prefiltered = ResourceDescriptorHeap[structured_indices.sky_.specular_prefiltered_index_];
+		return prefiltered.SampleLevel(sampler_linear_clamp, direction, 0).rgb;
+	}
+	else if (cloud_tuning.procedural_sky_enabled_ != 0)
+	{
+		ConstantBuffer<LightConstantData> light = ResourceDescriptorHeap[constant_indices.light_index_];
+		float3 sun_direction = normalize(-light.directional_direction_);
+		float3 sun_radiance = light.directional_color_.rgb * light.directional_intensity_;
+		return ProceduralSkyColor(direction, sun_direction, sun_radiance, cloud_tuning);
+	}
 
-	uint sky_environment_cube_index_;
-	uint frame_index_;
-	float ray_t_max_;
-	float normal_bias_;
-
-	uint max_bounces_;                // 追跡する界面の最大数
-	float3 refraction_padding_;
-
-	row_major float4x4 inverse_view_projection_;
-
-	float3 camera_position_;
-	float refraction_padding_1_;
-
-	float2 screen_size_;
-	float2 inverse_screen_size_;
-};
-ConstantBuffer<RefractionConstantBuffer> refraction : register(b0, space1);
+	return float3(0, 0, 0);
+}
 
 [shader("raygeneration")]
 void RefractionRayGeneration()
 {
 	uint2 pixel = DispatchRaysIndex().xy;
-	RWTexture2D<float4> output = ResourceDescriptorHeap[refraction.output_index_];
+	RWTexture2D<float4> output = ResourceDescriptorHeap[structured_indices.refraction_.output_uav_index_];
 
-	Texture2D<float> depth_texture = ResourceDescriptorHeap[refraction.depth_index_];
+	// 背景(reverse-Z 遠平面=0)は屈折なし。a=0 で「無効」を示す。
+	Texture2D<float> depth_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.depth_index_];
 	float depth = depth_texture.Load(int3(pixel, 0));
 	if (depth == 0.0)
 	{
-		output[pixel] = float4(0, 0, 0, 1);
+		output[pixel] = float4(0, 0, 0, 0);
 		return;
 	}
 
-	// ワールド座標と法線を復元。
-	float2 uv = (float2(pixel) + 0.5) * refraction.inverse_screen_size_;
+	// VisID から instance_index を引いて ModelInstance を直接読み、
+	// KHR_materials_transmission が無いピクセルはここで抜ける
+	// (Model/DeferredLightingPS.hlsl と同じ配線 - Model/MaterialResolveCS.hlsl
+	// 参照)。
+	Texture2D<uint2> visibility_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.index_4_];
+	uint2 visibility_id = visibility_texture.Load(int3(pixel, 0));
+	uint material_instance_index, material_meshlet_index, material_triangle_index;
+	UnpackVisibilityID(visibility_id, material_instance_index, material_meshlet_index, material_triangle_index);
+	StructuredBuffer<ModelInstance> material_instances = ResourceDescriptorHeap[structured_indices.model_.instance_index_];
+	ModelInstance material_instance = material_instances[material_instance_index];
+
+	if (material_instance.transmission_factor_ <= 0.0)
+	{
+		output[pixel] = float4(0, 0, 0, 0);
+		return;
+	}
+
+	SceneConstantBuffer scene = GetSceneConstantBuffer();
+	ConstantBuffer<RefractionRayConstantBuffer> tuning = ResourceDescriptorHeap[structured_indices.refraction_.ray_constant_index_];
+
+	// ワールド座標と法線を復元(ReflectionRT.hlsl と同じ手順)。
+	float2 uv = (float2(pixel) + 0.5) * scene.inverse_screen_size_;
 	float2 ndc = float2(uv.x * 2 - 1, 1 - uv.y * 2);
 	float4 clip = float4(ndc, depth, 1.0);
-	float4 world = mul(clip, refraction.inverse_view_projection_);
+	float4 world = mul(clip, scene.inverse_view_projection_);
 	float3 world_position = world.xyz / world.w;
 
-	Texture2D<float3> normal_texture = ResourceDescriptorHeap[refraction.normal_index_];
-	float3 normal = normalize(normal_texture.Load(int3(pixel, 0)));
+	Texture2D<float4> normal_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.index_1_];
+	float3 normal = OctNormalDecode(normal_texture.Load(int3(pixel, 0)).rg);
 
-	// ---- TODO 1: 視線方向 view_dir = normalize(world_position - camera_position_)。
+	float3 view_direction = normalize(world_position - scene.camera_position_.xyz);
 
-	// ---- TODO 2: payload を初期化する。radiance_=0 / bounce_=0 / throughput_=1 / hit_distance_=0。
+	// Snell の法則で空気(ior=1)から媒質(instance.ior_)へ屈折させる。
+	// HLSL の refract(i, n, eta) は全反射時にゼロベクトルを返す - 入射角が
+	// 臨界角を超えるほぼ真横からの視線でしか普通は起きないが、保険として
+	// ミラー反射へフォールバックする。
+	float eta = 1.0 / max(material_instance.ior_, 1.0001);
+	float3 ray_direction = refract(view_direction, normal, eta);
+	if (dot(ray_direction, ray_direction) < 0.0001)
+	{
+		ray_direction = reflect(view_direction, normal);
+	}
+	ray_direction = normalize(ray_direction);
 
-	// ---- TODO 3: 一次面から最初の屈折レイを撃つ。origin=world_position - normal*normal_bias_
-	//              (面の裏側へ入るので法線と逆に押し出す)、direction=view_dir をそのまま or
-	//              界面で屈折させた方向。TraceRay(tlas, RAY_FLAG_NONE, 0xFF, 0, 0, 0, ray, payload)。
+	RaytracingAccelerationStructure tlas = ResourceDescriptorHeap[structured_indices.raytracing_.tlas_index_];
 
-	// ---- TODO 4: payload.radiance_ を output[pixel] に書く。
-	output[pixel] = float4(0, 0, 0, 1); // 仮。
-}
+	float3 ray_origin = world_position + ray_direction * tuning.normal_bias_;
+	float3 throughput = float3(1, 1, 1);
+	float3 radiance = float3(0, 0, 0);
 
-[shader("miss")]
-void RefractionMiss(inout RefractionPayload payload)
-{
-	// ---- TODO 5: 空へ抜けた。環境キューブをサンプルし、throughput_ を掛けて radiance_ に加算。
-	//              payload.radiance_ += payload.throughput_ * sky。hit_distance_ に遠方値。
-}
+	// バウンス連鎖はここでインライン RayQuery ループとして辿る
+	// (closesthit からの再帰 TraceRay は使わない - ファイル冒頭コメント参照)。
+	for (uint bounce = 0; bounce < REFRACTION_MAX_BOUNCES; bounce++)
+	{
+		RayDesc ray_desc;
+		ray_desc.Origin = ray_origin;
+		ray_desc.Direction = ray_direction;
+		ray_desc.TMin = 0.001;
+		ray_desc.TMax = tuning.ray_t_max_;
 
-[shader("closesthit")]
-void RefractionClosestHit(inout RefractionPayload payload, in BuiltInTriangleIntersectionAttributes attributes)
-{
-	// ---- TODO 6: 界面処理。
-	//   6a: ヒット面の法線・ior・transmission を bindless から引く（InstanceID/PrimitiveIndex/bary）。
-	//   6b: 入射か出射かを dot(WorldRayDirection(), N) の符号で判定し、eta = ior_out/ior_in を決める。
-	//   6c: Fresnel(Schlick) で反射率 F を求め、屈折方向を refract() で計算（全反射なら反射のみ）。
-	//   6d: throughput_ に (1-F)×transmission（屈折側）を掛ける。媒質を通った距離ぶん
-	//       Beer-Lambert 吸収 exp(-attenuation * RayTCurrent()) を掛ける。
-	//   6e: bounce_+1 が max_bounces_ 未満なら、屈折方向へ再帰 TraceRay。超えたら打ち切り。
-	//       ヒット点 = WorldRayOrigin() + WorldRayDirection() * RayTCurrent()。
-	//       payload.hit_distance_ = RayTCurrent()。
-	//   まずは「屈折させず素通しで裏側の環境を出す」ところから疎通確認してよい。
+		RayQuery<RAY_FLAG_FORCE_OPAQUE | RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES> query;
+		query.TraceRayInline(tlas, RAY_FLAG_NONE, 0xFF, ray_desc);
+		query.Proceed();
+
+		if (query.CommittedStatus() != COMMITTED_TRIANGLE_HIT)
+		{
+			// レイが媒質を抜けて空へ出た。ここまでの throughput_(Beer-Lambert
+			// 吸収と界面ロスの累積)を空のサンプルへ掛けて最終値にする。
+			radiance = throughput * SampleRefractionSky(ray_direction);
+			break;
+		}
+
+		StructuredBuffer<ReflectionInstanceData> instances = ResourceDescriptorHeap[structured_indices.raytracing_.instance_data_index_];
+		ReflectionInstanceData hit_instance = instances[query.CommittedInstanceID()];
+
+		StructuredBuffer<uint> triangle_indices = ResourceDescriptorHeap[hit_instance.index_buffer_index_];
+		StructuredBuffer<ReflectionVertex> vertices = ResourceDescriptorHeap[hit_instance.vertex_buffer_index_];
+
+		uint primitive_index = query.CommittedPrimitiveIndex();
+		uint base_index = primitive_index * 3;
+		ReflectionVertex vertex0 = vertices[triangle_indices[base_index + 0]];
+		ReflectionVertex vertex1 = vertices[triangle_indices[base_index + 1]];
+		ReflectionVertex vertex2 = vertices[triangle_indices[base_index + 2]];
+
+		float2 barycentrics = query.CommittedTriangleBarycentrics();
+		float weight0 = 1.0 - barycentrics.x - barycentrics.y;
+		float weight1 = barycentrics.x;
+		float weight2 = barycentrics.y;
+
+		float3 object_normal =
+			DecodeReflectionVertexNormal(vertex0) * weight0 +
+			DecodeReflectionVertexNormal(vertex1) * weight1 +
+			DecodeReflectionVertexNormal(vertex2) * weight2;
+
+		// v1近似: 非一様スケールの厳密な逆転置は省略(ReflectionRT.hlsl と同じ)。
+		float3 hit_world_normal = normalize(mul((float3x3)query.CommittedObjectToWorld3x4(), object_normal));
+
+		float hit_t = query.CommittedRayT();
+		float3 hit_position = ray_origin + ray_direction * hit_t;
+
+		ReflectionMaterialData material = ResolveReflectionMaterial(hit_instance, primitive_index);
+
+		// Beer-Lambert吸収: 直前の区間(hit_t)をこの三角形の媒質の
+		// attenuation_color_/attenuation_distance_ で減衰させる。
+		// attenuation_distance_ が既定の FLT_MAX(=吸収なし)ならほぼ 1 のまま。
+		float3 optical_density = -log(max(material.volume_attenuation_color_, 0.0001)) / max(material.volume_attenuation_distance_, 0.0001);
+		float3 absorption = exp(-optical_density * hit_t);
+		throughput *= absorption;
+
+		if (bounce + 1 >= REFRACTION_MAX_BOUNCES)
+		{
+			// バウンス予算切れ - 打ち切り(吸収済みとして黒扱い)。
+			radiance = float3(0, 0, 0);
+			break;
+		}
+
+		// 入射方向はこの三角形にちょうど飛び込んできたレイの方向。ここが
+		// 媒質からの「出口」だと仮定し(単純な凸形状のガラス1枚を想定するv1近似)、
+		// 空気(ior=1)へ戻る屈折を試みる。全反射なら媒質内で反射を続ける。
+		float3 incoming_direction = ray_direction;
+		float3 next_direction = refract(incoming_direction, hit_world_normal, material.ior_);
+		if (dot(next_direction, next_direction) < 0.0001)
+		{
+			next_direction = reflect(incoming_direction, hit_world_normal);
+		}
+		next_direction = normalize(next_direction);
+
+		ray_origin = hit_position + next_direction * tuning.normal_bias_;
+		ray_direction = next_direction;
+	}
+
+	output[pixel] = float4(radiance * tuning.strength_, 1.0);
 }

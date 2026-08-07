@@ -1,4 +1,5 @@
 #include <GraphicsEngine/D3D12/PipelineState/RaytracingStateObject.h>
+#include <FoundationEngine/Log/DxFail.h>
 
 namespace SeedCore
 {
@@ -120,6 +121,7 @@ namespace SeedCore
 
 		Microsoft::WRL::ComPtr<ID3D12StateObject> raytracingStateObject;
 		hr = device->CreateStateObject(&stateObjectDesc, IID_PPV_ARGS(&raytracingStateObject));
+		SC_HR_CHECK(hr, "RTPSO(CreateStateObject)の生成に失敗しました");
 
 		if (FAILED(hr) || !raytracingStateObject)
 		{

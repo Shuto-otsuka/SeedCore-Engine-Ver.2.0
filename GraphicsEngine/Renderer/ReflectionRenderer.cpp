@@ -156,6 +156,13 @@ namespace SeedCore
 	{
 		bindlessHeap->FreeIndex(radianceUnorderedAccessViewIndex_);
 		bindlessHeap->FreeIndex(radianceShaderResourceViewIndex_);
+
+		/// [JP] Resize() はこれを呼んだ直後に同じ幅/高さで作り直すが、その時点で
+		///      前フレームのGPUコマンドがまだこのリソースを読み書きしている
+		///      可能性がある(OITBuffer::Destroyと同じ理由)。即座に.Reset()すると
+		///      解放直後のメモリへ新しいリソースが再割り当てされ、GPU側が古い
+		///      コマンドで新リソースを踏みに行く事故になる - 遅延破棄する。
+		bindlessHeap->DeferRelease(radianceResource_);
 		radianceResource_.Reset();
 
 		for (Uint32 view = 0; view < viewCount; ++view)
@@ -164,6 +171,7 @@ namespace SeedCore
 			{
 				bindlessHeap->FreeIndex(accumulatedUnorderedAccessViewIndex_[view][slot]);
 				bindlessHeap->FreeIndex(accumulatedShaderResourceViewIndex_[view][slot]);
+				bindlessHeap->DeferRelease(accumulatedRadianceResource_[view][slot]);
 				accumulatedRadianceResource_[view][slot].Reset();
 			}
 		}

@@ -277,8 +277,10 @@ namespace SeedCore
 			return "RT AO";
 		case GpuProfileScope::RaytraceSubsurfaceScattering:	
 			return "RT 表面下散乱";
-		case GpuProfileScope::RaytraceReflection:			
+		case GpuProfileScope::RaytraceReflection:
 			return "RT 反射";
+		case GpuProfileScope::RaytraceRefraction:
+			return "RT 屈折";
 		case GpuProfileScope::RaytraceGlobalIllumination:
 			return "RT GI";
 		case GpuProfileScope::VolumetricCloudScapes:

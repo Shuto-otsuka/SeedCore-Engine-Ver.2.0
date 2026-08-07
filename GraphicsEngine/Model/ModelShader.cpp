@@ -264,7 +264,10 @@ namespace SeedCore
 			psokey.meshShader_ = shaderCache.GetMeshShader(resolveMeshShader_)->Bytecode();
 			psokey.pixelShader_ = shaderCache.GetPixelShader(resolvePixelShader_)->Bytecode();
 			psokey.rasterizerDesc_ = RasterizerState::Get(RasterizerStateType::SolidNoneLHS);
-			psokey.blendDesc_ = BlendState::Get(BlendStateType::Alpha);
+			/// [JP] OITResolvePS.hlsl は事前乗算済み(premultiplied)の rgb を出力する
+			///      ので、SrcBlend が ONE の AlphaPremultiplied を使う。通常の Alpha
+			///      (SrcBlend=SRC_ALPHA)だとアルファが二重に掛かって透明面が暗くなる。
+			psokey.blendDesc_ = BlendState::Get(BlendStateType::AlphaPremultiplied);
 			psokey.depthStencilDesc_ = DepthStencilState::Get(DepthStencilStateType::DepthOff);
 			psokey.renderTargetViewFormat_[0] = DXGI_FORMAT_R16G16B16A16_FLOAT;
 			psokey.renderTargetViewCount_ = 1;

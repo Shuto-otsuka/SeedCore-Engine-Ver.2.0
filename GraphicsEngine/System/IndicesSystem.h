@@ -409,6 +409,15 @@ namespace SeedCore
 	};
 	static_assert(sizeof(ReflectionIndices) % 16 == 0, "ReflectionIndices が 16 バイト行の倍数ではありません");
 
+	struct RefractionIndices
+	{
+		Uint outputUnorderedAccessViewIndex_ = 0;
+		Uint outputShaderResourceViewIndex_ = 0;
+		Uint rayConstantIndex_ = 0;
+		Uint refractionPadding_ = 0;
+	};
+	static_assert(sizeof(RefractionIndices) % 16 == 0, "RefractionIndices が 16 バイト行の倍数ではありません");
+
 	struct GlobalIlluminationIndices
 	{
 		Uint outputUnorderedAccessViewIndex_ = 0;
@@ -484,6 +493,7 @@ namespace SeedCore
 		AmbientOcclusionIndices ambientOcclusion_;
 		SubsurfaceScatteringIndices subsurfaceScattering_;
 		ReflectionIndices reflection_;
+		RefractionIndices refraction_;
 		GlobalIlluminationIndices globalIllumination_;
 		CloudIndices cloud_;
 		StarIndices star_;
@@ -662,6 +672,12 @@ namespace SeedCore
 		void SetReflectionRayConstantIndex(Uint index);
 
 		void SetReflectionInstanceDataIndex(Uint index);
+
+		void SetRefractionOutputUnorderedAccessViewIndex(Uint index);
+
+		void SetRefractionOutputShaderResourceViewIndex(Uint index);
+
+		void SetRefractionRayConstantIndex(Uint index);
 
 		void SetGlobalIlluminationOutputUnorderedAccessViewIndex(Uint index);
 

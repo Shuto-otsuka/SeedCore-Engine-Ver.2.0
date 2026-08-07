@@ -23,6 +23,7 @@ namespace SeedCore
 		ambientOcclusionRenderer_ = MakePtr<AmbientOcclusionRenderer>(rootSignature, pipelineStateObject);
 		subsurfaceScatteringRenderer_ = MakePtr<SubsurfaceScatteringRenderer>(rootSignature, pipelineStateObject);
 		reflectionRenderer_ = MakePtr<ReflectionRenderer>(rootSignature, raytracingStateObject, pipelineStateObject);
+		refractionRenderer_ = MakePtr<RefractionRenderer>(rootSignature, raytracingStateObject);
 		globalIlluminationRenderer_ = MakePtr<GlobalIlluminationRenderer>(rootSignature, raytracingStateObject, pipelineStateObject);
 		volumetricCloudScapesRenderer_ = MakePtr<VolumetricCloudScapesRenderer>(rootSignature, pipelineStateObject);
 		volumetricStarRenderer_ = MakePtr<VolumetricStarRenderer>(rootSignature, pipelineStateObject);
@@ -44,6 +45,7 @@ namespace SeedCore
 		ambientOcclusionRenderer_->Create(device, bindlessHeap, shaderCache, indicesSystem, width, height);
 		subsurfaceScatteringRenderer_->Create(device, bindlessHeap, shaderCache, indicesSystem, width, height);
 		reflectionRenderer_->Create(device, bindlessHeap, shaderCache, indicesSystem, width, height);
+		refractionRenderer_->Create(device, bindlessHeap, shaderCache, indicesSystem, width, height);
 		globalIlluminationRenderer_->Create(device, bindlessHeap, shaderCache, indicesSystem, width, height);
 		volumetricCloudScapesRenderer_->Create(device, bindlessHeap, shaderCache, indicesSystem, width, height);
 		volumetricStarRenderer_->Create(device, bindlessHeap, shaderCache, indicesSystem, width, height);
@@ -59,6 +61,7 @@ namespace SeedCore
 		ambientOcclusionRenderer_->Resize(device, bindlessHeap, width, height);
 		subsurfaceScatteringRenderer_->Resize(device, bindlessHeap, width, height);
 		reflectionRenderer_->Resize(device, bindlessHeap, width, height);
+		refractionRenderer_->Resize(device, bindlessHeap, width, height);
 		globalIlluminationRenderer_->Resize(device, bindlessHeap, width, height);
 		volumetricCloudScapesRenderer_->Resize(device, bindlessHeap, width, height);
 		volumetricStarRenderer_->Resize(device, bindlessHeap, width, height);
@@ -327,13 +330,14 @@ namespace SeedCore
 		///      された時にそのまま使える。
 		/// [JP] 雲は TLAS を使わないため、この BLAS/TLAS スキップ判定には
 		///      含めない(PrepareFrame は両経路で呼ぶ)。
-		if (!shadowEnabled_ && !ambientOcclusionEnabled_ && !subsurfaceScatteringEnabled_ && !reflectionEnabled_ && !globalIlluminationEnabled_ && !volumetricLightEnabled_)
+		if (!shadowEnabled_ && !ambientOcclusionEnabled_ && !subsurfaceScatteringEnabled_ && !reflectionEnabled_ && !refractionEnabled_ && !globalIlluminationEnabled_ && !volumetricLightEnabled_)
 		{
 			indicesSystem_->SetTLASIndex(TLASBindlessIndex());
 			shadowRenderer_->PrepareFrame(shadowSettings_);
 			ambientOcclusionRenderer_->PrepareFrame(ambientOcclusionSettings_, dlssRayReconstructionEnabled_);
 			subsurfaceScatteringRenderer_->PrepareFrame(subsurfaceScatteringSettings_);
 			reflectionRenderer_->PrepareFrame(reflectionSettings_, dlssRayReconstructionEnabled_);
+			refractionRenderer_->PrepareFrame(refractionSettings_);
 			globalIlluminationRenderer_->PrepareFrame(globalIlluminationSettings_, dlssRayReconstructionEnabled_);
 			volumetricCloudScapesRenderer_->PrepareFrame(volumetricCloudScapesSettings_, volumetricCloudScapesEnabled_);
 			volumetricStarRenderer_->PrepareFrame(volumetricStarSettings_, volumetricStarEnabled_, deltaTime, nightFactor);
@@ -613,6 +617,7 @@ namespace SeedCore
 		ambientOcclusionRenderer_->PrepareFrame(ambientOcclusionSettings_, dlssRayReconstructionEnabled_);
 		subsurfaceScatteringRenderer_->PrepareFrame(subsurfaceScatteringSettings_);
 		reflectionRenderer_->PrepareFrame(reflectionSettings_, dlssRayReconstructionEnabled_);
+		refractionRenderer_->PrepareFrame(refractionSettings_);
 		globalIlluminationRenderer_->PrepareFrame(globalIlluminationSettings_, dlssRayReconstructionEnabled_);
 		volumetricCloudScapesRenderer_->PrepareFrame(volumetricCloudScapesSettings_, volumetricCloudScapesEnabled_);
 		volumetricStarRenderer_->PrepareFrame(volumetricStarSettings_, volumetricStarEnabled_, deltaTime, nightFactor);
@@ -644,6 +649,12 @@ namespace SeedCore
 	{
 		Bool tlasValid = TLASBindlessIndex() != 0xFFFFFFFF;
 		reflectionRenderer_->Dispatch(cmdList, heap, constantIndex, structuredIndex, tlasValid && reflectionEnabled_, view, dlssRayReconstructionEnabled_);
+	}
+
+	void RaytracingRenderer::DispatchRefraction(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex)
+	{
+		Bool tlasValid = TLASBindlessIndex() != 0xFFFFFFFF;
+		refractionRenderer_->Dispatch(cmdList, heap, constantIndex, structuredIndex, tlasValid && refractionEnabled_);
 	}
 
 	void RaytracingRenderer::DispatchGlobalIllumination(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex, RaytracingView view)
@@ -690,6 +701,8 @@ namespace SeedCore
 
 		reflectionSettings_ = settings.reflection_;
 		reflectionEnabled_ = settings.reflectionEnabled_;
+		refractionSettings_ = settings.refraction_;
+		refractionEnabled_ = settings.refractionEnabled_;
 		globalIlluminationSettings_ = settings.globalIllumination_;
 		globalIlluminationEnabled_ = settings.globalIlluminationEnabled_;
 

@@ -68,15 +68,11 @@ namespace SeedCore
 		preference.logMessageCallback = ScDlssErrorCallback;
 		preference.featuresToLoad = features;
 		preference.numFeaturesToLoad = static_cast<Uint32>(std::size(features));
-		preference.applicationId = 19032012;
-		preference.engine = sl::EngineType::eCustom;
+     	preference.engine = sl::EngineType::eCustom;
 		preference.engineVersion = "2.0";
+		preference.projectId = "8e5d9cac-4c56-4513-813c-09a0f1168a83";
 		preference.renderAPI = sl::RenderAPI::eD3D12;
-
-		preference.flags = sl::PreferenceFlags::eDisableCLStateTracking | sl::PreferenceFlags::eAllowOTA | sl::PreferenceFlags::eLoadDownloadedPlugins | sl::PreferenceFlags::eUseFrameBasedResourceTagging;
-#ifndef _DEBUG
-		preference.flags |= sl::PreferenceFlags::eDisableDebugText;
-#endif
+		preference.flags = sl::PreferenceFlags::eDisableCLStateTracking | sl::PreferenceFlags::eAllowOTA | sl::PreferenceFlags::eLoadDownloadedPlugins | sl::PreferenceFlags::eUseFrameBasedResourceTagging | sl::PreferenceFlags::eDisableDebugText;
 
 		sr = slInit(preference);
 		SC_SL_CHECK(sr, "Streamlineエンジンの初期化に失敗しました。アプリケーションIDやプラグインパスを確認してください。");

@@ -148,6 +148,7 @@
     <ClInclude Include="Raytracing\RaytracingView.h" />
     <ClInclude Include="Raytracing\Reflection\ReflectionDenoiseShader.h" />
     <ClInclude Include="Raytracing\Reflection\ReflectionShader.h" />
+    <ClInclude Include="Raytracing\Refraction\RefractionShader.h" />
     <ClInclude Include="Raytracing\Shadow\ShadowDenoiseShader.h" />
     <ClInclude Include="Raytracing\Shadow\ShadowShader.h" />
     <ClInclude Include="Raytracing\SubsurfaceScattering\SubsurfaceScatteringShader.h" />
@@ -352,6 +353,7 @@
     <ClCompile Include="Raytracing\GlobalIllumination\GlobalIlluminationShader.cpp" />
     <ClCompile Include="Raytracing\Reflection\ReflectionDenoiseShader.cpp" />
     <ClCompile Include="Raytracing\Reflection\ReflectionShader.cpp" />
+    <ClCompile Include="Raytracing\Refraction\RefractionShader.cpp" />
     <ClCompile Include="Raytracing\Shadow\ShadowDenoiseShader.cpp" />
     <ClCompile Include="Raytracing\Shadow\ShadowShader.cpp" />
     <ClCompile Include="Raytracing\SubsurfaceScattering\SubsurfaceScatteringShader.cpp" />
@@ -454,6 +456,10 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </None>
     <None Include="Raytracing\Reflection\Reflection.hlsli" />
+    <None Include="Raytracing\Refraction\Refraction.hlsli">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </None>
     <None Include="Raytracing\Shadow\Shadow.hlsli">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>

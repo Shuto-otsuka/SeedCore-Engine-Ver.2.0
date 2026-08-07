@@ -160,6 +160,7 @@ namespace SeedCore
 		std::string shaderSource = FileUtility::LoadFileText(filePath);
 		if (shaderSource.empty())
 		{
+			SC_LOG_ERROR("シェーダーソースの読み込みに失敗しました(ファイルが空か見つかりません): {}", filePath.str());
 			return {};
 		}
 

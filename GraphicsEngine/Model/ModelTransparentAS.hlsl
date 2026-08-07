@@ -89,14 +89,18 @@ void main(uint3 gtid : SV_GroupThreadID, uint3 dtid : SV_DispatchThreadID, uint3
 			}
 		}
 
-		/// [EN] Hi-Z occlusion culling — the transparent pass runs after the
-		///      opaque passes, so the pyramid is already built this frame.
-		/// [JP] Hi-Z オクルージョンカリング — 透過パスは不透明パスの後に走るため、
-		///      このフレームのピラミッドは構築済み。
-		if (is_visible)
-		{
-			is_visible = IsVisibleHiZ(world_center, world_radius, scene, structured_indices.model_.hi_z_index_);
-		}
+		/// [EN] Hi-Z occlusion culling deliberately removed here - transparent
+		///      objects were intermittently disappearing, and this was the only
+		///      culling step present in the transparent AS but absent from the
+		///      opaque one (ModelAS.hlsl), so it was the prime suspect. Occlusion
+		///      culling is purely a performance optimization; removing it only
+		///      costs some extra meshlet processing, never a correctness issue.
+		/// [JP] Hi-Zオクルージョンカリングをここではあえて外している - 透明
+		///      オブジェクトが断続的に消える不具合があり、これが透明用ASにだけ
+		///      存在して不透明用(ModelAS.hlsl)には無い唯一のカリング処理
+		///      だったため、真っ先に疑って外した。オクルージョンカリングは
+		///      あくまでパフォーマンス最適化で、外しても余分にメシュレットを
+		///      処理するだけで見た目の正しさには影響しない。
 		}
 		}
 	}

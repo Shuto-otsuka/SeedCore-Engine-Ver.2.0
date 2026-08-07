@@ -9,6 +9,7 @@
 #include "../Raytracing/AmbientOcclusion/AmbientOcclusion.hlsli"
 #include "../Raytracing/SubsurfaceScattering/SubsurfaceScattering.hlsli"
 #include "../Raytracing/Reflection/Reflection.hlsli"
+#include "../Raytracing/Refraction/Refraction.hlsli"
 #include "../Raytracing/VolumetricCloudScapes/VolumetricCloudScapes.hlsli"
 #include "../Raytracing/Froxel/Froxel.hlsli"
 #include "../Raytracing/VolumetricLight/VolumetricLight.hlsli"
@@ -406,6 +407,24 @@ float4 main(CompositeOutput input) : SV_Target0
 		/// [JP] スカイ(BRDF LUT)が無い場合の簡易フォールバック: F0 で重み付けた
 		///      トレース反射をそのまま足す。
 		lighting += traced_reflection.rgb * f0 * reflection_weight;
+	}
+
+	/// [JP] レイトレ屈折(RefractionRT.hlsl、a=1 有効)。KHR_materials_transmission
+	///      が無いピクセルは常に a=0 なので、ここは自然にスキップされる。
+	///      diffuse_color は既に (1-transmission_factor_) 分減衰済み(上の
+	///      dielectric_f0/diffuse_color 算出ブロック参照)なので、ここでは
+	///      その分を屈折放射輝度で埋め戻す形で加算する。Fresnel透過率
+	///      (1-反射率)ぶんだけ通す — グレージング角ほど反射が支配的になり
+	///      屈折は減る。
+	Texture2D<float4> refraction_texture = ResourceDescriptorHeap[structured_indices.refraction_.output_srv_index_];
+	float4 traced_refraction = refraction_texture.Load(int3(pixel, 0));
+	ConstantBuffer<RefractionRayConstantBuffer> refraction_tuning = ResourceDescriptorHeap[structured_indices.refraction_.ray_constant_index_];
+	float refraction_weight = traced_refraction.a * saturate(refraction_tuning.strength_) * saturate(material_instance.transmission_factor_);
+	if (refraction_weight > 0.0)
+	{
+		float normal_dot_view_for_refraction = clamp(dot(normal, view), 0.0, 1.0);
+		float3 fresnel_reflectance = f0 + (max(1.0 - roughness, f0) - f0) * pow(1.0 - normal_dot_view_for_refraction, 5.0);
+		lighting += traced_refraction.rgb * (1.0 - fresnel_reflectance) * refraction_weight;
 	}
 
 	/// [JP] レイトレAO(AmbientOcclusionRT.hlsl + 時間積分済み)。AO は

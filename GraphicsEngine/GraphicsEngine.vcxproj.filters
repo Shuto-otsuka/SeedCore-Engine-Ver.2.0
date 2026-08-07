@@ -691,6 +691,9 @@
     <ClInclude Include="Model\MaterialSortBuffer.h">
       <Filter>Model</Filter>
     </ClInclude>
+    <ClInclude Include="Raytracing\Refraction\RefractionShader.h">
+      <Filter>Raytracing\Refraction</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="D3D12\Context\D3D12Adapter.cpp">
@@ -1151,6 +1154,9 @@
     <ClCompile Include="Model\MaterialSortBuffer.cpp">
       <Filter>Model</Filter>
     </ClCompile>
+    <ClCompile Include="Raytracing\Refraction\RefractionShader.cpp">
+      <Filter>Raytracing\Refraction</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="Shader\Sampler.hlsli">
@@ -1245,6 +1251,9 @@
     </None>
     <None Include="Shader\Denoiser.hlsli">
       <Filter>Shader</Filter>
+    </None>
+    <None Include="Raytracing\Refraction\Refraction.hlsli">
+      <Filter>Raytracing\Refraction</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>

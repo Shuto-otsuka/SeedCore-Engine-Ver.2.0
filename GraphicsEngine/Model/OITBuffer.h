@@ -43,7 +43,7 @@ namespace SeedCore
 	class OITBuffer
 	{
 	public:
-		static constexpr Uint maxLayers_ = 4;
+		static constexpr Uint maxLayers_ = 8;
 
 		OITBuffer() = default;
 		~OITBuffer() = default;

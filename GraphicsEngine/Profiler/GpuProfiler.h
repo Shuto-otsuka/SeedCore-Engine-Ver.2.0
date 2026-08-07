@@ -34,6 +34,7 @@ namespace SeedCore
 		RaytraceAmbientOcclusion,
 		RaytraceSubsurfaceScattering,
 		RaytraceReflection,
+		RaytraceRefraction,
 		RaytraceGlobalIllumination,
 		VolumetricCloudScapes,
 		VolumetricStar,

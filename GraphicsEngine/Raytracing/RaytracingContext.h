@@ -6,6 +6,7 @@
 #include <GraphicsEngine/Renderer/AmbientOcclusionRenderer.h>
 #include <GraphicsEngine/Renderer/SubsurfaceScatteringRenderer.h>
 #include <GraphicsEngine/Renderer/ReflectionRenderer.h>
+#include <GraphicsEngine/Renderer/RefractionRenderer.h>
 #include <GraphicsEngine/Renderer/GlobalIlluminationRenderer.h>
 #include <GraphicsEngine/Renderer/VolumetricCloudScapesRenderer.h>
 #include <GraphicsEngine/Renderer/VolumetricLightRenderer.h>
@@ -15,31 +16,28 @@
 
 namespace SeedCore
 {
-	/// [EN] Groups every raytraced-effect setting. shadow_ and
-	///      ambientOcclusion_ are real, implemented tuning structs (see
-	///      Raytracing/Shadow/ShadowRT.hlsl and Raytracing/AmbientOcclusion/
-	///      AmbientOcclusionRT.hlsl). The rest (GlobalIllumination/Reflection/
-	///      Refraction/VolumetricLight/VolumetricCloudScapes/
-	///      SubsurfaceScattering — see each folder's *RT.hlsl, all still TODO
-	///      scaffold) don't have a tuning struct yet since their design isn't
-	///      settled; only a plain enabled_ flag exists for each as a
-	///      placeholder, with nothing behind it on the Renderer side yet.
-	///      Editor's EditorContext holds one of these and edits it from the
-	///      グラフィックス→レイトレーシング menu; Graphics::
-	///      SetRaytracingSettings threads it through to Renderer/
-	///      RaytracingRenderer as a single call.
-	/// [JP] レイトレーシング系エフェクトの設定をまとめる。shadow_ と
-	///      ambientOcclusion_ は実装済みの実チューニング構造体
-	///      (Raytracing/Shadow/ShadowRT.hlsl と Raytracing/AmbientOcclusion/
-	///      AmbientOcclusionRT.hlsl 参照)。残り(GlobalIllumination/Reflection/
-	///      Refraction/VolumetricLight/VolumetricCloudScapes/
-	///      SubsurfaceScattering — 各フォルダの *RT.hlsl 参照、全て TODO
-	///      scaffold)は設計がまだ固まっていないためチューニング構造体を持たず、
-	///      enabled_ フラグだけを器として用意してある(Renderer側はまだ何も
-	///      見ていない)。Editor 側の EditorContext がこれを1つ保持して
-	///      メニュー(グラフィックス→レイトレーシング)から編集し、
-	///      Graphics::SetRaytracingSettings 経由で Renderer/RaytracingRenderer
-	///      まで1本で渡す。
+	/// [EN] Groups every raytraced-effect setting. shadow_/ambientOcclusion_/
+	///      reflection_/refraction_ are real, implemented tuning structs (see
+	///      each folder's *RT.hlsl). The rest (GlobalIllumination/
+	///      VolumetricLight/VolumetricCloudScapes/SubsurfaceScattering/
+	///      Caustics — see each folder's *RT.hlsl, most still TODO scaffold)
+	///      don't have a tuning struct yet since their design isn't settled;
+	///      only a plain enabled_ flag exists for each as a placeholder, with
+	///      nothing behind it on the Renderer side yet. Editor's EditorContext
+	///      holds one of these and edits it from the グラフィックス→
+	///      レイトレーシング menu; Graphics::SetRaytracingSettings threads it
+	///      through to Renderer/RaytracingRenderer as a single call.
+	/// [JP] レイトレーシング系エフェクトの設定をまとめる。shadow_/
+	///      ambientOcclusion_/reflection_/refraction_ は実装済みの実
+	///      チューニング構造体(各フォルダの *RT.hlsl 参照)。残り
+	///      (GlobalIllumination/VolumetricLight/VolumetricCloudScapes/
+	///      SubsurfaceScattering/Caustics — 各フォルダの *RT.hlsl 参照、
+	///      多くはまだ TODO scaffold)は設計がまだ固まっていないため
+	///      チューニング構造体を持たず、enabled_ フラグだけを器として
+	///      用意してある(Renderer側はまだ何も見ていない)。Editor 側の
+	///      EditorContext がこれを1つ保持してメニュー(グラフィックス→
+	///      レイトレーシング)から編集し、Graphics::SetRaytracingSettings
+	///      経由で Renderer/RaytracingRenderer まで1本で渡す。
 	struct RaytracingContext
 	{
 		Bool shadowEnabled_ = true;
@@ -82,6 +80,7 @@ namespace SeedCore
 		SnowSettings snow_;
 
 		Bool refractionEnabled_ = false;
+		RefractionRayConstantBuffer refraction_;
 
 		Bool causticsEnabled_ = false;
 
@@ -154,6 +153,7 @@ namespace SeedCore
 			TryLoadField(archive, "snowEnabled", snowEnabled_);
 			TryLoadField(archive, "snow", snow_);
 			TryLoadField(archive, "refractionEnabled", refractionEnabled_);
+			TryLoadField(archive, "refraction", refraction_);
 			TryLoadField(archive, "dlssRayReconstructionEnabled", dlssRayReconstructionEnabled_);
 			TryLoadField(archive, "dlssMode", dlssModeValue);
 

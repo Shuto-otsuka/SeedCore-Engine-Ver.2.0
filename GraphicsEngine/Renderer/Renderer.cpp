@@ -551,6 +551,10 @@ namespace SeedCore
 		raytracingRenderer_->DispatchReflection(cmdList, heap, constantAddr, structuredAddr, RaytracingView::Editor);
 		gpuProfiler_.End(cmdList, profileView, GpuProfileScope::RaytraceReflection);
 
+		gpuProfiler_.Begin(cmdList, profileView, GpuProfileScope::RaytraceRefraction);
+		raytracingRenderer_->DispatchRefraction(cmdList, heap, constantAddr, structuredAddr);
+		gpuProfiler_.End(cmdList, profileView, GpuProfileScope::RaytraceRefraction);
+
 		gpuProfiler_.Begin(cmdList, profileView, GpuProfileScope::RaytraceGlobalIllumination);
 		raytracingRenderer_->DispatchGlobalIllumination(cmdList, heap, constantAddr, structuredAddr, RaytracingView::Editor);
 		gpuProfiler_.End(cmdList, profileView, GpuProfileScope::RaytraceGlobalIllumination);
@@ -772,6 +776,10 @@ namespace SeedCore
 		gpuProfiler_.Begin(cmdList, profileView, GpuProfileScope::RaytraceReflection);
 		raytracingRenderer_->DispatchReflection(cmdList, heap, constantAddr, structuredAddr, RaytracingView::Game);
 		gpuProfiler_.End(cmdList, profileView, GpuProfileScope::RaytraceReflection);
+
+		gpuProfiler_.Begin(cmdList, profileView, GpuProfileScope::RaytraceRefraction);
+		raytracingRenderer_->DispatchRefraction(cmdList, heap, constantAddr, structuredAddr);
+		gpuProfiler_.End(cmdList, profileView, GpuProfileScope::RaytraceRefraction);
 
 		gpuProfiler_.Begin(cmdList, profileView, GpuProfileScope::RaytraceGlobalIllumination);
 		raytracingRenderer_->DispatchGlobalIllumination(cmdList, heap, constantAddr, structuredAddr, RaytracingView::Game);

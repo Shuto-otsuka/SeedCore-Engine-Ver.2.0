@@ -396,6 +396,21 @@ namespace SeedCore
 		structuredIndices_.raytracing_.instanceDataIndex_ = index;
 	}
 
+	void IndicesSystem::SetRefractionOutputUnorderedAccessViewIndex(Uint index)
+	{
+		structuredIndices_.refraction_.outputUnorderedAccessViewIndex_ = index;
+	}
+
+	void IndicesSystem::SetRefractionOutputShaderResourceViewIndex(Uint index)
+	{
+		structuredIndices_.refraction_.outputShaderResourceViewIndex_ = index;
+	}
+
+	void IndicesSystem::SetRefractionRayConstantIndex(Uint index)
+	{
+		structuredIndices_.refraction_.rayConstantIndex_ = index;
+	}
+
 	void IndicesSystem::SetGlobalIlluminationOutputUnorderedAccessViewIndex(Uint index)
 	{
 		structuredIndices_.globalIllumination_.outputUnorderedAccessViewIndex_ = index;

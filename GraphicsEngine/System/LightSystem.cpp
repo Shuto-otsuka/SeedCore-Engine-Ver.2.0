@@ -22,8 +22,6 @@ namespace SeedCore
 {
 	LightSystem::LightSystem(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, RootSignature& rootSignature, PipelineStateObject& pipelineStateObject, Uint32 width, Uint32 height) : bindlessHeap_(bindlessHeap)
 	{
-		HRESULT hr{ S_OK };
-
 		lightConstantBuffer_ = MakePtr<ConstantBuffer<LightConstantBuffer>>(device, bindlessHeap);
 
 		clusterAssignConstantBuffer_ = MakePtr<ConstantBuffer<ClusterAssignConstantBuffer>>(device, bindlessHeap);

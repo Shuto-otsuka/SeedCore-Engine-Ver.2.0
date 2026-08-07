@@ -83,155 +83,20 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	StructuredBuffer<ModelInstance> instances = ResourceDescriptorHeap[structured_indices.model_.instance_index_];
 	ModelInstance instance = instances[instance_index];
 
-	StructuredBuffer<CompressedModelVertex> vertices = ResourceDescriptorHeap[instance.vertex_buffer_index_];
-	StructuredBuffer<ModelMeshlet> meshlets = ResourceDescriptorHeap[instance.meshlet_buffer_index_];
-	StructuredBuffer<uint> vertex_indices = ResourceDescriptorHeap[instance.vertex_indices_buffer_index_];
-	ByteAddressBuffer primitive_indices = ResourceDescriptorHeap[instance.primitive_indices_buffer_index_];
-
-	ModelMeshlet meshlet = meshlets[meshlet_index];
-
-	/// [JP] StaticModelMS.hlsl / SkeletalModelMS.hlsl と同じ 3 バイト/三角形の
-	///      パック解除(primitive_indices はメシュレットローカルの頂点番号 0..63)。
-	uint byte_offset = meshlet.triangle_offset_ + triangle_in_meshlet_index * 3;
-	uint aligned_offset = byte_offset & ~3;
-	uint shift = (byte_offset & 3) * 8;
-
-	uint dword0 = primitive_indices.Load(aligned_offset);
-	uint packed = dword0 >> shift;
-	if (shift > 8)
-	{
-		uint dword1 = primitive_indices.Load(aligned_offset + 4);
-		packed |= dword1 << (32 - shift);
-	}
-
-	uint local_index0 = packed & 0xFF;
-	uint local_index1 = (packed >> 8) & 0xFF;
-	uint local_index2 = (packed >> 16) & 0xFF;
-
-	uint global_index0 = vertex_indices[meshlet.vertex_offset_ + local_index0];
-	uint global_index1 = vertex_indices[meshlet.vertex_offset_ + local_index1];
-	uint global_index2 = vertex_indices[meshlet.vertex_offset_ + local_index2];
-
-	ModelVertex vertex0 = DecodeModelVertex(vertices[global_index0], instance);
-	ModelVertex vertex1 = DecodeModelVertex(vertices[global_index1], instance);
-	ModelVertex vertex2 = DecodeModelVertex(vertices[global_index2], instance);
-
-	float3 local_position0 = vertex0.position_;
-	float3 local_position1 = vertex1.position_;
-	float3 local_position2 = vertex2.position_;
-	float3 local_normal0 = vertex0.normal_;
-	float3 local_normal1 = vertex1.normal_;
-	float3 local_normal2 = vertex2.normal_;
-	float3 local_tangent0 = vertex0.tangent_.xyz;
-	float3 local_tangent1 = vertex1.tangent_.xyz;
-	float3 local_tangent2 = vertex2.tangent_.xyz;
-
-	/// [JP] SkeletalModelMS.hlsl と同じリニアブレンドスキニング。
-	///      instance.skin_index_ == 0xFFFFFFFF なら静的(未スキン)。
-	if (instance.skin_index_ != 0xFFFFFFFF)
-	{
-		StructuredBuffer<ModelBoneMatrix> bone_matrices = ResourceDescriptorHeap[structured_indices.model_.bone_matrix_index_];
-		StructuredBuffer<ModelSkinVertex> skin_vertices = ResourceDescriptorHeap[instance.skin_vertex_buffer_index_];
-
-		uint4 joints0, joints1, joints2;
-		float4 weights0, weights1, weights2;
-		DecodeModelSkinVertex(skin_vertices[global_index0], joints0, weights0);
-		DecodeModelSkinVertex(skin_vertices[global_index1], joints1, weights1);
-		DecodeModelSkinVertex(skin_vertices[global_index2], joints2, weights2);
-
-		float4x4 skin_matrix0 =
-			LoadBoneMatrix(bone_matrices[instance.bone_offset_ + joints0.x]) * weights0.x +
-			LoadBoneMatrix(bone_matrices[instance.bone_offset_ + joints0.y]) * weights0.y +
-			LoadBoneMatrix(bone_matrices[instance.bone_offset_ + joints0.z]) * weights0.z +
-			LoadBoneMatrix(bone_matrices[instance.bone_offset_ + joints0.w]) * weights0.w;
-		float4x4 skin_matrix1 =
-			LoadBoneMatrix(bone_matrices[instance.bone_offset_ + joints1.x]) * weights1.x +
-			LoadBoneMatrix(bone_matrices[instance.bone_offset_ + joints1.y]) * weights1.y +
-			LoadBoneMatrix(bone_matrices[instance.bone_offset_ + joints1.z]) * weights1.z +
-			LoadBoneMatrix(bone_matrices[instance.bone_offset_ + joints1.w]) * weights1.w;
-		float4x4 skin_matrix2 =
-			LoadBoneMatrix(bone_matrices[instance.bone_offset_ + joints2.x]) * weights2.x +
-			LoadBoneMatrix(bone_matrices[instance.bone_offset_ + joints2.y]) * weights2.y +
-			LoadBoneMatrix(bone_matrices[instance.bone_offset_ + joints2.z]) * weights2.z +
-			LoadBoneMatrix(bone_matrices[instance.bone_offset_ + joints2.w]) * weights2.w;
-
-		local_position0 = mul(float4(local_position0, 1.0), skin_matrix0).xyz;
-		local_position1 = mul(float4(local_position1, 1.0), skin_matrix1).xyz;
-		local_position2 = mul(float4(local_position2, 1.0), skin_matrix2).xyz;
-		local_normal0 = normalize(mul(float4(local_normal0, 0.0), skin_matrix0).xyz);
-		local_normal1 = normalize(mul(float4(local_normal1, 0.0), skin_matrix1).xyz);
-		local_normal2 = normalize(mul(float4(local_normal2, 0.0), skin_matrix2).xyz);
-		local_tangent0 = normalize(mul(float4(local_tangent0, 0.0), skin_matrix0).xyz);
-		local_tangent1 = normalize(mul(float4(local_tangent1, 0.0), skin_matrix1).xyz);
-		local_tangent2 = normalize(mul(float4(local_tangent2, 0.0), skin_matrix2).xyz);
-	}
-
-	float3 world_position0 = mul(float4(local_position0, 1.0), instance.world_).xyz;
-	float3 world_position1 = mul(float4(local_position1, 1.0), instance.world_).xyz;
-	float3 world_position2 = mul(float4(local_position2, 1.0), instance.world_).xyz;
-
-	float4 clip0 = mul(float4(world_position0, 1.0), scene.current_view_projection_);
-	float4 clip1 = mul(float4(world_position1, 1.0), scene.current_view_projection_);
-	float4 clip2 = mul(float4(world_position2, 1.0), scene.current_view_projection_);
-
-	/// [JP] Culling.hlsli の IsBackFace と同じ NDC 空間の符号付き面積。
-	float2 ndc0 = clip0.xy / clip0.w;
-	float2 ndc1 = clip1.xy / clip1.w;
-	float2 ndc2 = clip2.xy / clip2.w;
-
+	/// [JP] 三角形の再取得・スキニング・透視正しい重心補間・表裏判定は
+	///      Model.hlsli の ResolveModelSurface に集約してある
+	///      (Model/TransparentModelPS.hlsl の OIT パスと共有 — 透明面と
+	///      不透明面が必ず同一のジオメトリから陰影付けされるようにするため)。
 	float2 pixel_ndc = (float2(pixel) + 0.5) * scene.inverse_screen_size_;
 	pixel_ndc = float2(pixel_ndc.x * 2.0 - 1.0, 1.0 - pixel_ndc.y * 2.0);
 
-	/// [JP] エッジ関数によるスクリーン空間重心座標(w0,w1,w2)。
-	float area = (ndc1.x - ndc0.x) * (ndc2.y - ndc0.y) - (ndc1.y - ndc0.y) * (ndc2.x - ndc0.x);
+	ModelSurface surface = ResolveModelSurface(instance, meshlet_index, triangle_in_meshlet_index, pixel_ndc, scene.current_view_projection_, scene.camera_position_.xyz, structured_indices.model_.bone_matrix_index_);
 
-	float edge0 = (ndc2.x - ndc1.x) * (pixel_ndc.y - ndc1.y) - (ndc2.y - ndc1.y) * (pixel_ndc.x - ndc1.x);
-	float edge1 = (ndc0.x - ndc2.x) * (pixel_ndc.y - ndc2.y) - (ndc0.y - ndc2.y) * (pixel_ndc.x - ndc2.x);
-	float edge2 = (ndc1.x - ndc0.x) * (pixel_ndc.y - ndc0.y) - (ndc1.y - ndc0.y) * (pixel_ndc.x - ndc0.x);
-	float screen_w0 = edge0 / area;
-	float screen_w1 = edge1 / area;
-	float screen_w2 = edge2 / area;
-
-	/// [JP] パースペクティブ補正: screen_wN(NDC 上で線形)を invW で重み付けし
-	///      正規化すると、属性を直接線形結合するだけで透視正しい補間になる。
-	float inverse_w0 = 1.0 / clip0.w;
-	float inverse_w1 = 1.0 / clip1.w;
-	float inverse_w2 = 1.0 / clip2.w;
-	float perspective_w0 = screen_w0 * inverse_w0;
-	float perspective_w1 = screen_w1 * inverse_w1;
-	float perspective_w2 = screen_w2 * inverse_w2;
-	float perspective_sum = perspective_w0 + perspective_w1 + perspective_w2;
-	perspective_w0 /= perspective_sum;
-	perspective_w1 /= perspective_sum;
-	perspective_w2 /= perspective_sum;
-
-	float3 world_position = perspective_w0 * world_position0 + perspective_w1 * world_position1 + perspective_w2 * world_position2;
-	float3 N = normalize(perspective_w0 * local_normal0 + perspective_w1 * local_normal1 + perspective_w2 * local_normal2);
-	float3 world_tangent_xyz = normalize(perspective_w0 * local_tangent0 + perspective_w1 * local_tangent1 + perspective_w2 * local_tangent2);
-	float tangent_sign = vertex0.tangent_.w;
-	float2 texcoord = perspective_w0 * vertex0.texcoord_ + perspective_w1 * vertex1.texcoord_ + perspective_w2 * vertex2.texcoord_;
-
-	/// [JP] StaticModelMS.hlsl 同様、法線/タンジェントはワールド変換の逆転置/通常行列を通す。
-	N = normalize(mul(float4(N, 0.0), instance.inverse_transpose_world_).xyz);
-	world_tangent_xyz = normalize(mul(float4(world_tangent_xyz, 0.0), instance.world_).xyz);
-
-	/// [JP] 表裏判定はNDC空間の巻き順符号(D3Dのラスタライザ規約)に頼らず、
-	///      ワールド空間の幾何学的な面法線とビュー方向の内積で行う - こちらは
-	///      座標系の巻き方向に依存せず一意に決まる。面法線は頂点順序依存で
-	///      符号があいまいなので、まず補間済みシェーディング法線Nと同じ向きに
-	///      揃えてから、カメラ方向との内積で表裏を判定する。
-	float3 geometric_face_normal = cross(world_position1 - world_position0, world_position2 - world_position0);
-	if (dot(geometric_face_normal, N) < 0.0)
-	{
-		geometric_face_normal = -geometric_face_normal;
-	}
-	float3 view_direction_for_facing = normalize(scene.camera_position_.xyz - world_position);
-	bool is_front_face = dot(geometric_face_normal, view_direction_for_facing) > 0.0;
-
-	if (!is_front_face)
-	{
-		N = -N;
-	}
+	float3 world_position = surface.world_position_;
+	float3 N = surface.normal_;
+	float3 world_tangent_xyz = surface.tangent_;
+	float tangent_sign = surface.tangent_sign_;
+	float2 texcoord = surface.texcoord_;
 
 	/// [JP] StaticModelPS.hlsl と同じマテリアル評価。
 	float4 base_color = instance.base_color_;
@@ -269,11 +134,7 @@ void main(uint3 dtid : SV_DispatchThreadID)
 		emissive *= emissive_texture.SampleLevel(sampler_linear_wrap, texcoord, 0).rgb;
 	}
 
-	float3 previous_world_position0 = mul(float4(local_position0, 1.0), instance.previous_world_).xyz;
-	float3 previous_world_position1 = mul(float4(local_position1, 1.0), instance.previous_world_).xyz;
-	float3 previous_world_position2 = mul(float4(local_position2, 1.0), instance.previous_world_).xyz;
-	float3 previous_world_position = perspective_w0 * previous_world_position0 + perspective_w1 * previous_world_position1 + perspective_w2 * previous_world_position2;
-	float4 previous_clip = mul(float4(previous_world_position, 1.0), scene.previous_view_projection_);
+	float4 previous_clip = mul(float4(surface.previous_world_position_, 1.0), scene.previous_view_projection_);
 
 	float4 current_clip = mul(float4(world_position, 1.0), scene.current_view_projection_);
 	float2 current_ndc = current_clip.xy / current_clip.w;

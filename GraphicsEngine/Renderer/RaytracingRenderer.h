@@ -9,6 +9,7 @@
 #include <GraphicsEngine/Renderer/AmbientOcclusionRenderer.h>
 #include <GraphicsEngine/Renderer/SubsurfaceScatteringRenderer.h>
 #include <GraphicsEngine/Renderer/ReflectionRenderer.h>
+#include <GraphicsEngine/Renderer/RefractionRenderer.h>
 #include <GraphicsEngine/Renderer/GlobalIlluminationRenderer.h>
 #include <GraphicsEngine/Renderer/VolumetricCloudScapesRenderer.h>
 #include <GraphicsEngine/Renderer/VolumetricStarRenderer.h>
@@ -155,6 +156,14 @@ namespace SeedCore
 		///      デノイズ(AO/GIと同様)になったため、こちらもビュー引数を取る —
 		///      roughness > 0 では決定論的ではなくなった。
 		void DispatchReflection(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex, RaytracingView view);
+
+		/// [EN] Same contract, for the refraction RTPSO pass. Deterministic
+		///      (Snell-refracted ray per pixel, no importance sampling/denoiser)
+		///      like SSS, so no view parameter either - one shared output.
+		/// [JP] 同じ契約の屈折 RTPSO パス用。SSSと同様に決定論的(ピクセルごと
+		///      Snell屈折レイ1本、重点サンプリング/デノイザ無し)なので、
+		///      こちらもビュー引数は無し - 共有の出力1枚。
+		void DispatchRefraction(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex);
 
 		/// [EN] Same contract, for the volumetric cloud pass. Needs no TLAS
 		///      at all (pure raymarch), so its enabled flag is the only gate.
@@ -317,6 +326,10 @@ namespace SeedCore
 		ResourcePtr<ReflectionRenderer> reflectionRenderer_;
 		ReflectionRayConstantBuffer reflectionSettings_;
 		Bool reflectionEnabled_ = false;
+
+		ResourcePtr<RefractionRenderer> refractionRenderer_;
+		RefractionRayConstantBuffer refractionSettings_;
+		Bool refractionEnabled_ = false;
 
 		ResourcePtr<GlobalIlluminationRenderer> globalIlluminationRenderer_;
 		GlobalIlluminationRayConstantBuffer globalIlluminationSettings_;
