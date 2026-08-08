@@ -17,6 +17,7 @@ SeedCore is a Windows C++ game engine (DirectX 12) split into a set of Visual St
 - There are no unit tests in this repo; there is no lint/test command to run.
 - **Do not edit `.vcxproj`/`.vcxproj.filters` files.** New files are registered into the project by the user, not by Claude — when a new source file is added, leave it out of the `.vcxproj`; don't add `<ClCompile>`/`<ClInclude>` entries yourself.
 - **Do not build the project to verify changes.** The user builds/checks compilation themselves — don't run `msbuild` (or otherwise attempt a build) just to confirm code compiles.
+- **Never run `git commit` (or `git add`+`git commit`) — the user always commits themselves.** Leave changes staged/unstaged in the working tree; don't even ask for confirmation before committing, just leave it.
 
 ## Code generation (important — read before editing components/payloads)
 

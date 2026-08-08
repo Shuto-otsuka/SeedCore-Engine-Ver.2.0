@@ -64,19 +64,6 @@ namespace SeedCore
 		Vector2 texcoord_ = { 0,0 };
 		XmUint4 joints_ = { 0,0,0,0 };
 		Vector4 weights_ = { 1,0,0,0 };
-
-		template<class T>
-		void serialize(T& archive)
-		{
-			archive(
-				cereal::make_nvp("position", position_),
-				cereal::make_nvp("normal", normal_),
-				cereal::make_nvp("tangent", tangent_),
-				cereal::make_nvp("texcoord", texcoord_),
-				cereal::make_nvp("joints", joints_),
-				cereal::make_nvp("weights", weights_)
-			);
-		}
 	};
 
 	/**
