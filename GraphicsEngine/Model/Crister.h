@@ -796,9 +796,27 @@ namespace SeedCore
 	*/
 	struct PunctualLight
 	{
+		/**
+		* [EN]
+		* Which KHR_lights_punctual light kind this PunctualLight represents.
+		* Directional is not a value here since directional lights are not
+		* represented by PunctualLight at all (see the struct comment above).
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* この PunctualLight が表す KHR_lights_punctual のライト種別。
+		* ディレクショナルは PunctualLight そのもので表現しない
+		* （上の構造体コメント参照）ため、値として存在しない。
+		*/
 		enum class Type : Uint32
 		{
+			/// [EN] Omnidirectional point light.
+			/// [JP] 全方向へ発光するポイントライト。
 			Point = 0,
+
+			/// [EN] Cone-shaped spot light (uses direction_/innerConeAngle_/outerConeAngle_).
+			/// [JP] 円錐状に発光するスポットライト（direction_/innerConeAngle_/outerConeAngle_ を使う）。
 			Spot = 1,
 		};
 
@@ -873,11 +891,18 @@ namespace SeedCore
 		}
 	};
 
-	/// [EN] Which cluster BakeCollision pulls from a SubMesh: the coarsest
-	///      cluster (same range RT already uses for its proxy geometry) or
-	///      the LOD 0 cluster.
-	/// [JP] BakeCollision が SubMesh のどのクラスタから抽出するか:
-	///      最粗クラスタ（RT のプロキシジオメトリと同じ範囲）か LOD 0 クラスタか。
+	/**
+	* [EN]
+	* Which cluster BakeCollision pulls from a SubMesh: the coarsest
+	* cluster (same range RT already uses for its proxy geometry) or
+	* the LOD 0 cluster.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* BakeCollision が SubMesh のどのクラスタから抽出するか:
+	* 最粗クラスタ（RT のプロキシジオメトリと同じ範囲）か LOD 0 クラスタか。
+	*/
 	enum class MeshCollisionDetail
 	{
 		/// [EN] Each SubMesh's coarsest cluster — same range the RT proxy
