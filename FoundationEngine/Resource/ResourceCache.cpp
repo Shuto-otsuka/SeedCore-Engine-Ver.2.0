@@ -300,8 +300,16 @@ namespace SeedCore
 			loadExecutor_ = MakePtr<JobExecutor>(1);
 		}
 
-		JobTaskflow taskflow;
-		taskflow.emplace([this, &loader, device, cmdQueue, heap, &bc7Shader]()
+		/// [EN] loadTaskflow_ is a member (see its header doc comment for why)
+		///      - Clear() it first since a rescan (Unload() resetting
+		///      loadStarted_) could otherwise re-run this on a taskflow that
+		///      still has the previous pass's already-finished task in it.
+		/// [JP] loadTaskflow_ はメンバー（理由はヘッダのドキュメントコメント
+		///      参照）- 再スキャン(Unload() が loadStarted_ をリセットした場合)
+		///      で、前回パスの完了済みタスクが残ったままの taskflow に対して
+		///      これを再実行してしまわないよう、先に Clear() する。
+		loadTaskflow_.Clear();
+		loadTaskflow_.emplace([this, &loader, device, cmdQueue, heap, &bc7Shader]()
 		{
 			while (Step(loader, device, cmdQueue, heap, bc7Shader))
 			{
@@ -309,7 +317,13 @@ namespace SeedCore
 			}
 		});
 
-		loadExecutor_->Run(std::move(taskflow));
+		/// [EN] Passed by lvalue reference (not moved) since loadExecutor_'s
+		///      JobTopology only stores a reference to this taskflow, which
+		///      must stay alive as long as loadTaskflow_ - a member - already does.
+		/// [JP] （ムーブではなく）左辺値参照で渡す - loadExecutor_ の
+		///      JobTopology はこの taskflow への参照しか持たないため、
+		///      メンバーである loadTaskflow_ と同じだけ生存させる必要がある。
+		loadExecutor_->Run(loadTaskflow_);
 	}
 
 	/**

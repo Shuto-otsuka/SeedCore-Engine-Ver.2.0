@@ -5,6 +5,7 @@
 #include <FoundationEngine/Resource/PrefabPool.h>
 #include <FoundationEngine/Resource/ScenePool.h>
 #include <FoundationEngine/Resource/AxisConvention.h>
+#include <FoundationEngine/JobSystem/JobTaskflow.h>
 
 namespace SeedCore
 {
@@ -643,6 +644,20 @@ namespace SeedCore
 		/// [EN] Whether the directory scan for the current Async() pass has finished.
 		/// [JP] 現在の Async() パスにおけるディレクトリスキャンが完了しているかどうか。
 		std::atomic<Bool> scanComplete_{ false };
+
+		/// [EN] Backing JobTaskflow for StepAsync()'s background job. Must be a
+		///      member (not a StepAsync()-local variable) because JobTopology
+		///      only ever holds a reference to the JobTaskflow it runs
+		///      (JobTopology::taskflow_) - a local would be destroyed the
+		///      moment StepAsync() returns, while the job is still running on
+		///      loadExecutor_'s worker thread, leaving that reference dangling.
+		/// [JP] StepAsync() のバックグラウンドジョブを支える JobTaskflow。
+		///      StepAsync() のローカル変数にしてはいけない - JobTopology は
+		///      実行対象の JobTaskflow への参照(JobTopology::taskflow_)しか
+		///      持たないため、ローカル変数だと StepAsync() が return した瞬間に
+		///      破棄されてしまい、loadExecutor_ のワーカースレッド上ではまだ
+		///      ジョブが実行中なのに、その参照がダングリングになる。
+		JobTaskflow loadTaskflow_;
 
 		/// [EN] Dedicated single-worker executor backing StepAsync() - lazily
 		///      created on first use, destroyed (waiting for outstanding work)
