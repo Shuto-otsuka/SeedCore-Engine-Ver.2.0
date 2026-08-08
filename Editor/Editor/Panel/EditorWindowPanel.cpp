@@ -536,8 +536,82 @@ namespace SeedCore
 			///      いないドラッグがキャプチャしないように）。解除判定は
 			///      hover 条件の外（無条件）で行い、ドラッグ中に hover 状態が
 			///      変わってもキャプチャが必ず解除されるようにする。
+			/// [EN] Ctrl+wheel over the viewport adjusts the current gizmo operation's
+			///      snap value instead of dollying the camera - EditorCameraController
+			///      skips its own wheel dolly while Ctrl is held (see its Update()).
+			/// [JP] ビューポート上での Ctrl+ホイールは、カメラのドリーではなく
+			///      現在のギズモ操作のスナップ値を変更する - EditorCameraController は
+			///      Ctrl 押下中、自身のホイールドリーをスキップする（Update() 参照）。
+			if (ImGui::IsWindowHovered() && InputSystem::KeyState(InputSystem::Key::Control) && context_.viewportContext_.guizmo_.guizmoOperation_ != 0)
+			{
+				auto& guizmo = context_.viewportContext_.guizmo_;
+
+				Float wheel = InputSystem::MouseWheelDelta();
+				if (Abs(wheel) > 0.0f)
+				{
+					if (guizmo.guizmoOperation_ == ImGuizmo::TRANSLATE)
+					{
+						guizmo.translateSnap_ = Clamp(guizmo.translateSnap_ + wheel * 0.1f, 0.01f, 100.0f);
+					}
+					else if (guizmo.guizmoOperation_ == ImGuizmo::ROTATE)
+					{
+						guizmo.rotateSnap_ = Clamp(guizmo.rotateSnap_ + wheel * 0.5f, 0.1f, 90.0f);
+					}
+					else if (guizmo.guizmoOperation_ == ImGuizmo::SCALE)
+					{
+						guizmo.scaleSnap_ = Clamp(guizmo.scaleSnap_ + wheel * 0.05f, 0.01f, 10.0f);
+					}
+				}
+
+				/// [EN] Ctrl alone (even without scrolling yet) shows the current
+				///      operation's snap value as a tooltip, so the value is visible
+				///      before/while adjusting it - it's otherwise only shown inside
+				///      the toolbar's gizmo settings popup.
+				/// [JP] Ctrl を押しているだけ（まだスクロールしていなくても）で
+				///      現在の操作のスナップ値をツールチップ表示する。ホイールで
+				///      変更する前/最中に値が見えるように - 通常はツールバーの
+				///      ギズモ設定ポップアップの中でしか見えない。
+				if (guizmo.guizmoOperation_ == ImGuizmo::TRANSLATE)
+				{
+					ImGui::SetTooltip("移動スナップ: %.2f", guizmo.translateSnap_);
+				}
+				else if (guizmo.guizmoOperation_ == ImGuizmo::ROTATE)
+				{
+					ImGui::SetTooltip("回転スナップ: %.0f\xc2\xb0", guizmo.rotateSnap_);
+				}
+				else if (guizmo.guizmoOperation_ == ImGuizmo::SCALE)
+				{
+					ImGui::SetTooltip("拡大縮小スナップ: %.2f", guizmo.scaleSnap_);
+				}
+			}
+
 			Bool editorRotateHeld = InputSystem::MouseState(InputSystem::MouseButton::Right, InputSystem::IsPressed);
 			Bool editorPanHeld = InputSystem::MouseState(InputSystem::MouseButton::Middle, InputSystem::IsPressed);
+
+			/// [EN] While right-click flying, the wheel changes move speed (see
+			///      EditorCameraController::Update). Only pop the tooltip up when
+			///      an actual wheel tick happens (not just because right-click is
+			///      held), then keep it visible for a short window afterward via
+			///      moveSpeedTooltipTimer_ so it's readable instead of a 1-frame
+			///      flash.
+			/// [JP] 右クリックでの視点移動中はホイールで移動速度が変わる
+			///      （EditorCameraController::Update 参照）。右クリック中という
+			///      だけでは出さず、実際にホイールが動いたフレームだけツール
+			///      チップを出し、その後は moveSpeedTooltipTimer_ で短時間表示を
+			///      維持する（1フレームだけの点滅で読めなくなるのを防ぐ）。
+			if (editorRotateHeld && ImGui::IsWindowHovered() && Abs(InputSystem::MouseWheelDelta()) > 0.0f)
+			{
+				moveSpeedTooltipTimer_ = 1.0f;
+			}
+			else
+			{
+				moveSpeedTooltipTimer_ = Max(0.0f, moveSpeedTooltipTimer_ - ImGui::GetIO().DeltaTime);
+			}
+
+			if (moveSpeedTooltipTimer_ > 0.0f && context_.cameraContext_.editorCameraController_)
+			{
+				ImGui::SetTooltip("移動速度: %.2f", context_.cameraContext_.editorCameraController_->MoveSpeed());
+			}
 
 			if (!ImGuizmo::IsUsing() && ImGui::IsWindowHovered() && context_.cameraContext_.editorCamera_ && context_.cameraContext_.editorCameraController_)
 			{

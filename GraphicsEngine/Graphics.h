@@ -122,7 +122,7 @@ namespace SeedCore
 
 		[[nodiscard]] EffekseerManager* GetEffekseerManager()const;
 
-		void DrawSplashScreen(Bool loadComplete);
+		void DrawSplashScreen(Bool loadComplete, Float progress, Bool showWarning, Bool showFiction);
 
 		[[nodiscard]] Bool IsSplashFinished()const;
 

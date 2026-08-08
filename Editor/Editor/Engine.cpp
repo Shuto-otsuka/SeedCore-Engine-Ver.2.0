@@ -237,7 +237,8 @@ namespace SeedCore
 					resource_->Step(*loaderSystem_, graphics_->GetContext()->GetDevice(), graphics_->GetContext()->GetDirectQueue()->GetCommandQueue(), graphics_->GetBindlessHeap(), graphics_->GetBC7CompressShader());
 
 					graphics_->Clear();
-					graphics_->DrawSplashScreen(resource_->Complete());
+					/// [JP] showWarning/showFiction は仮でtrue固定。Runtime書き出し時のチェックボックスから設定できるようにするのはこれから。
+					graphics_->DrawSplashScreen(resource_->Complete(), resource_->Progress(), true, true);
 					graphics_->End();
 					graphics_->GetSwapChain()->Present(graphics_->GetContext()->GetDevice());
 					continue;

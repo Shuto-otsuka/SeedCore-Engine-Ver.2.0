@@ -40,7 +40,8 @@ namespace SeedCore
 			}
 		}
 
-		if (!context_.selectionContext_.selectedActor_)
+		const DynamicArray<Actor*>& selectedActors = context_.selectionContext_.selectedActors_;
+		if (selectedActors.empty())
 		{
 			return;
 		}
@@ -56,7 +57,39 @@ namespace SeedCore
 			Matrix view = context_.cameraContext_.editorCamera_->View();
 			Matrix projection = Matrix::CreatePerspectiveFieldOfView(ToRadians(context_.cameraContext_.editorCamera_->Fov()), context_.cameraContext_.editorCamera_->AspectRatio(), context_.cameraContext_.editorCamera_->Near(), context_.cameraContext_.editorCamera_->Far());
 
-			Matrix worldMatrix = context_.selectionContext_.selectedActor_->GetWorldMatrix();
+			Bool isDragging = ImGuizmo::IsUsing();
+
+			/// [EN] With a single actor selected, the gizmo matrix is that actor's own
+			///      world matrix (rotate/scale pivot on the actor itself). With multiple
+			///      actors selected, the gizmo instead sits at the unrotated average of
+			///      their world positions (Unreal-style multi-select pivot) - every
+			///      selected actor is then moved by whatever delta transform the pivot
+			///      itself underwent (see Move()). Only rebuilt from the live selection
+			///      while not dragging - see pivotMatrix_'s header comment for why.
+			/// [JP] 単一選択時はギズモ行列をその actor 自身のワールド行列にする
+			///      （回転/スケールは actor 自身を中心に行う）。複数選択時は代わりに、
+			///      それらのワールド座標の（無回転の）平均位置にギズモを置く
+			///      （Unreal 風の複数選択ピボット） - 選択中の各 actor は、ピボット
+			///      自身が受けたデルタ変換で移動する（Move() 参照）。ドラッグ中でない
+			///      間だけ現在の選択から作り直す — 理由は pivotMatrix_ のヘッダの
+			///      コメント参照。
+			if (!isDragging)
+			{
+				if (selectedActors.size() == 1)
+				{
+					pivotMatrix_ = selectedActors[0]->GetWorldMatrix();
+				}
+				else
+				{
+					Vector3 averagePosition = Vector3::Zero;
+					for (Actor* actor : selectedActors)
+					{
+						averagePosition += actor->GetWorldMatrix().Translation();
+					}
+					averagePosition /= static_cast<Float>(selectedActors.size());
+					pivotMatrix_ = Matrix::CreateTranslation(averagePosition);
+				}
+			}
 
 			Float snapValues[3] = {0.0f, 0.0f, 0.0f};
 
@@ -85,62 +118,66 @@ namespace SeedCore
 			ComponentID rotationID = ComponentRegistry::GetComponentID(rotationString);
 			ComponentID scaleID = ComponentRegistry::GetComponentID(scaleString);
 
-			Entity entity = context_.selectionContext_.selectedActor_->GetEntity();
-
-			Bool isDragging = ImGuizmo::IsUsing();
-
 			if (isDragging && !wasDragging_)
 			{
-				dragEntity_ = entity;
+				dragEntities_.clear();
+				dragStartWorldMatrices_.clear();
+				dragStartPositions_.clear();
+				dragStartRotations_.clear();
+				dragStartScales_.clear();
+				dragStartPivotMatrix_ = pivotMatrix_;
 
-				Float* positionData = static_cast<Float*>(context_.worldContext_.world_->GetComponent(entity, positionID));
-				Float* rotationData = static_cast<Float*>(context_.worldContext_.world_->GetComponent(entity, rotationID));
-				Float* scaleData = static_cast<Float*>(context_.worldContext_.world_->GetComponent(entity, scaleID));
+				for (Actor* actor : selectedActors)
+				{
+					Entity entity = actor->GetEntity();
+					dragEntities_.push_back(entity);
+					dragStartWorldMatrices_.push_back(actor->GetWorldMatrix());
 
-				if (positionData)
-				{
-					dragStartPosition_ = Vector3(positionData[0], positionData[1], positionData[2]);
-				}
-				if (rotationData)
-				{
-					dragStartRotation_ = Vector3(rotationData[0], rotationData[1], rotationData[2]);
-				}
-				if (scaleData)
-				{
-					dragStartScale_ = Vector3(scaleData[0], scaleData[1], scaleData[2]);
+					Float* positionData = static_cast<Float*>(context_.worldContext_.world_->GetComponent(entity, positionID));
+					Float* rotationData = static_cast<Float*>(context_.worldContext_.world_->GetComponent(entity, rotationID));
+					Float* scaleData = static_cast<Float*>(context_.worldContext_.world_->GetComponent(entity, scaleID));
+
+					dragStartPositions_.push_back(positionData ? Vector3(positionData[0], positionData[1], positionData[2]) : Vector3::Zero);
+					dragStartRotations_.push_back(rotationData ? Vector3(rotationData[0], rotationData[1], rotationData[2]) : Vector3::Zero);
+					dragStartScales_.push_back(scaleData ? Vector3(scaleData[0], scaleData[1], scaleData[2]) : Vector3::One);
 				}
 			}
 
-			Move(view, projection, worldMatrix, context_.viewportContext_.guizmo_.guizmoOperation_, ctrlPressed ? snapValues : nullptr);
+			Move(view, projection, pivotMatrix_, context_.viewportContext_.guizmo_.guizmoOperation_, ctrlPressed ? snapValues : nullptr);
 
 			if (!isDragging && wasDragging_)
 			{
-				Float* positionData = static_cast<Float*>(context_.worldContext_.world_->GetComponent(dragEntity_, positionID));
-				Float* rotationData = static_cast<Float*>(context_.worldContext_.world_->GetComponent(dragEntity_, rotationID));
-				Float* scaleData = static_cast<Float*>(context_.worldContext_.world_->GetComponent(dragEntity_, scaleID));
+				for (Size index = 0; index < dragEntities_.size(); ++index)
+				{
+					Entity entity = dragEntities_[index];
 
-				if (positionData)
-				{
-					Vector3 newPosition(positionData[0], positionData[1], positionData[2]);
-					if (newPosition != dragStartPosition_)
+					Float* positionData = static_cast<Float*>(context_.worldContext_.world_->GetComponent(entity, positionID));
+					Float* rotationData = static_cast<Float*>(context_.worldContext_.world_->GetComponent(entity, rotationID));
+					Float* scaleData = static_cast<Float*>(context_.worldContext_.world_->GetComponent(entity, scaleID));
+
+					if (positionData)
 					{
-						context_.sceneContext_.history_.Push(MakePtr<ComponentCommand<Vector3>>(*context_.worldContext_.world_, dragEntity_, positionID, 0, dragStartPosition_, newPosition));
+						Vector3 newPosition(positionData[0], positionData[1], positionData[2]);
+						if (newPosition != dragStartPositions_[index])
+						{
+							context_.sceneContext_.history_.Push(MakePtr<ComponentCommand<Vector3>>(*context_.worldContext_.world_, entity, positionID, 0, dragStartPositions_[index], newPosition));
+						}
 					}
-				}
-				if (rotationData)
-				{
-					Vector3 newRotation(rotationData[0], rotationData[1], rotationData[2]);
-					if (newRotation != dragStartRotation_)
+					if (rotationData)
 					{
-						context_.sceneContext_.history_.Push(MakePtr<ComponentCommand<Vector3>>(*context_.worldContext_.world_, dragEntity_, rotationID, 0, dragStartRotation_, newRotation));
+						Vector3 newRotation(rotationData[0], rotationData[1], rotationData[2]);
+						if (newRotation != dragStartRotations_[index])
+						{
+							context_.sceneContext_.history_.Push(MakePtr<ComponentCommand<Vector3>>(*context_.worldContext_.world_, entity, rotationID, 0, dragStartRotations_[index], newRotation));
+						}
 					}
-				}
-				if (scaleData)
-				{
-					Vector3 newScale(scaleData[0], scaleData[1], scaleData[2]);
-					if (newScale != dragStartScale_)
+					if (scaleData)
 					{
-						context_.sceneContext_.history_.Push(MakePtr<ComponentCommand<Vector3>>(*context_.worldContext_.world_, dragEntity_, scaleID, 0, dragStartScale_, newScale));
+						Vector3 newScale(scaleData[0], scaleData[1], scaleData[2]);
+						if (newScale != dragStartScales_[index])
+						{
+							context_.sceneContext_.history_.Push(MakePtr<ComponentCommand<Vector3>>(*context_.worldContext_.world_, entity, scaleID, 0, dragStartScales_[index], newScale));
+						}
 					}
 				}
 			}
@@ -149,49 +186,92 @@ namespace SeedCore
 		}
 	}
 
-	void GuizmoPanel3D::Move(Matrix& view, Matrix& projection, Matrix& world, ImGuizmo::OPERATION operation, const Float* snap)
+	void GuizmoPanel3D::Move(Matrix& view, Matrix& projection, Matrix& pivot, ImGuizmo::OPERATION operation, const Float* snap)
 	{
-		if (ImGuizmo::Manipulate(&view._11, &projection._11, operation, currentMode_, &world._11, nullptr, snap))
+		if (ImGuizmo::Manipulate(&view._11, &projection._11, operation, currentMode_, &pivot._11, nullptr, snap))
 		{
-			Actor* parentActor = context_.selectionContext_.selectedActor_->GetParent();
-			Matrix localMatrix = (parentActor) ? world * parentActor->GetWorldMatrix().Invert() : world;
+			/// [EN] The world-space delta the pivot underwent this frame relative to
+			///      drag-start, applied identically to every dragged actor's own
+			///      drag-start world matrix (see the header comment for the math).
+			/// [JP] このフレームでピボットがドラッグ開始時から受けたワールド空間の
+			///      デルタ変換。ドラッグ対象の各actorのドラッグ開始時ワールド行列に
+			///      同じデルタを適用する（数式についてはヘッダのコメント参照）。
+			Matrix pivotDelta = dragStartPivotMatrix_.Invert() * pivot;
 
-			Vector3 position, scale;
-			Quaternion rotation;
-			if (localMatrix.Decompose(scale, rotation, position))
+			static const String positionString("Position");
+			static const String rotationString("Rotation");
+			static const String scaleString("Scale");
+
+			ComponentID positionID = ComponentRegistry::GetComponentID(positionString);
+			ComponentID rotationID = ComponentRegistry::GetComponentID(rotationString);
+			ComponentID scaleID = ComponentRegistry::GetComponentID(scaleString);
+
+			/// [EN] Scale is handled separately from translate/rotate: instead of
+			///      recomposing each actor's whole world matrix around the shared
+			///      pivot (which would also push actors apart from/together toward
+			///      the pivot as they scale), each actor's own Scale is multiplied by
+			///      the pivot's scale delta in place - Position/Rotation are left
+			///      untouched, so every selected actor scales individually around its
+			///      own origin instead of the group scaling as a block.
+			/// [JP] Scale は Translate/Rotate とは別扱いにする: 各 actor のワールド
+			///      行列全体を共有ピボット中心に組み直す（スケールに伴って actor が
+			///      ピボットから離れる/近づく）のではなく、ピボットのスケール
+			///      デルタをその場で各 actor 自身の Scale に掛け合わせる。
+			///      Position/Rotation はそのままにするので、グループ全体が1つの
+			///      ブロックとして拡縮されるのではなく、選択中の各 actor がそれぞれ
+			///      自分自身の原点を中心に個別に拡縮される。
+			if (operation == ImGuizmo::SCALE)
 			{
-				Entity entity = context_.selectionContext_.selectedActor_->GetEntity();
+				Vector3 deltaScale;
+				Vector3 deltaTranslation;
+				Quaternion deltaRotation;
+				pivotDelta.Decompose(deltaScale, deltaRotation, deltaTranslation);
 
-				static const String positionString("Position");
-				static const String rotationString("Rotation");
-				static const String scaleString("Scale");
-
-				ComponentID positionID = ComponentRegistry::GetComponentID(positionString);
-				ComponentID rotationID = ComponentRegistry::GetComponentID(rotationString);
-				ComponentID scaleID = ComponentRegistry::GetComponentID(scaleString);
-
-				Float* positionData = static_cast<Float*>(context_.worldContext_.world_->GetComponent(entity, positionID));
-				Float* rotationData = static_cast<Float*>(context_.worldContext_.world_->GetComponent(entity, rotationID));
-				Float* scaleData = static_cast<Float*>(context_.worldContext_.world_->GetComponent(entity, scaleID));
-
-				if (positionData)
+				for (Size index = 0; index < dragEntities_.size(); ++index)
 				{
-					positionData[0] = position.x;
-					positionData[1] = position.y;
-					positionData[2] = position.z;
+					Entity entity = dragEntities_[index];
+					Float* scaleData = static_cast<Float*>(context_.worldContext_.world_->GetComponent(entity, scaleID));
+					if (scaleData)
+					{
+						scaleData[0] = dragStartScales_[index].x * deltaScale.x;
+						scaleData[1] = dragStartScales_[index].y * deltaScale.y;
+						scaleData[2] = dragStartScales_[index].z * deltaScale.z;
+					}
 				}
-				if (rotationData)
+
+				return;
+			}
+
+			for (Size index = 0; index < dragEntities_.size(); ++index)
+			{
+				Entity entity = dragEntities_[index];
+				Actor* actor = context_.worldContext_.world_->GetActor(entity);
+
+				Matrix newWorldMatrix = dragStartWorldMatrices_[index] * pivotDelta;
+
+				Actor* parentActor = actor ? actor->GetParent() : nullptr;
+				Matrix localMatrix = (parentActor) ? newWorldMatrix * parentActor->GetWorldMatrix().Invert() : newWorldMatrix;
+
+				Vector3 position, scale;
+				Quaternion rotation;
+				if (localMatrix.Decompose(scale, rotation, position))
 				{
-					Vector3 euler = rotation.ToEuler();
-					rotationData[0] = ToDegrees(euler.x);
-					rotationData[1] = ToDegrees(euler.y);
-					rotationData[2] = ToDegrees(euler.z);
-				}
-				if (scaleData)
-				{
-					scaleData[0] = scale.x;
-					scaleData[1] = scale.y;
-					scaleData[2] = scale.z;
+					Float* positionData = static_cast<Float*>(context_.worldContext_.world_->GetComponent(entity, positionID));
+					Float* rotationData = static_cast<Float*>(context_.worldContext_.world_->GetComponent(entity, rotationID));
+
+					if (positionData)
+					{
+						positionData[0] = position.x;
+						positionData[1] = position.y;
+						positionData[2] = position.z;
+					}
+					if (rotationData)
+					{
+						Vector3 euler = rotation.ToEuler();
+						rotationData[0] = ToDegrees(euler.x);
+						rotationData[1] = ToDegrees(euler.y);
+						rotationData[2] = ToDegrees(euler.z);
+					}
 				}
 			}
 		}

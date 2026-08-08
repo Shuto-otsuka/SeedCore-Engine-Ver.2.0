@@ -443,7 +443,7 @@ namespace SeedCore
 		return renderer_->GetEffekseerManager();
 	}
 
-	void Graphics::DrawSplashScreen(Bool loadComplete)
+	void Graphics::DrawSplashScreen(Bool loadComplete, Float progress, Bool showWarning, Bool showFiction)
 	{
 		if (splashScreen_.IsFinished())
 		{
@@ -452,7 +452,7 @@ namespace SeedCore
 
 		auto cmdList = context_->GetDirectList()->Get();
 		auto rtvHandle = swapChain_->Handle();
-		splashScreen_.Draw(cmdList, swapChain_->BackBuffer(), rtvHandle, width_, height_, loadComplete);
+		splashScreen_.Draw(cmdList, swapChain_->BackBuffer(), rtvHandle, width_, height_, loadComplete, progress, showWarning, showFiction);
 	}
 
 	Bool Graphics::IsSplashFinished()const

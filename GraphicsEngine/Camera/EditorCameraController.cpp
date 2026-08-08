@@ -38,7 +38,9 @@ namespace SeedCore
 			initialized_ = true;
 		}
 
-		if (InputSystem::MouseState(InputSystem::MouseButton::Right, InputSystem::IsPressed))
+		Bool rightMouseHeld = InputSystem::MouseState(InputSystem::MouseButton::Right, InputSystem::IsPressed);
+
+		if (rightMouseHeld)
 		{
 			Float dx = InputSystem::MouseDeltaX();
 			Float dy = InputSystem::MouseDeltaY();
@@ -50,6 +52,18 @@ namespace SeedCore
 
 				rotation_ = pitchDelta * rotation_ * yawDelta;
 				rotation_.Normalize();
+			}
+
+			/// [EN] Unreal-style: while right-click flying, the wheel changes the
+			///      WASD move speed itself instead of dollying the camera (the
+			///      wheel-dolly block below is skipped whenever rightMouseHeld).
+			/// [JP] Unreal 風: 右クリックでの視点移動中は、ホイールでカメラを
+			///      ドリーさせるのではなく WASD の移動速度自体を変更する
+			///      （下のホイールドリー処理は rightMouseHeld 中はスキップされる）。
+			Float speedWheel = InputSystem::MouseWheelDelta();
+			if (Abs(speedWheel) > 0.0f)
+			{
+				moveSpeed_ = Clamp(moveSpeed_ * std::pow(1.1f, speedWheel), 0.1f, 1000.0f);
 			}
 
 			Vector3 forward = Vector3::Transform(Vector3::Forward, rotation_);
@@ -122,8 +136,9 @@ namespace SeedCore
 			}
 		}
 
+		/// [JP] Ctrl押下中のホイールはギズモのスナップ値変更に使うため（EditorWindowPanel::Draw参照）、右クリック押下中のホイールは移動速度変更に使うため（上記参照）、ここでのドリー移動からは除外する。
 		Float wheel = InputSystem::MouseWheelDelta();
-		if (Abs(wheel) > 0.0f)
+		if (Abs(wheel) > 0.0f && !InputSystem::KeyState(InputSystem::Key::Control) && !rightMouseHeld)
 		{
 			Vector3 forward = Vector3::Transform(Vector3::Forward, rotation_);
 			Vector3 eye = camera.Eye();

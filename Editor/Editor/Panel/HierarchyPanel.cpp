@@ -100,13 +100,56 @@ namespace SeedCore
 			{
 				marqueeActive_ = true;
 				marqueeStart_ = ImGui::GetMousePos();
+				marqueeStartScrollY_ = ImGui::GetScrollY();
 			}
 
 			if (marqueeActive_)
 			{
 				ImVec2 current = ImGui::GetMousePos();
-				ImVec2 rectMin(Min(marqueeStart_.x, current.x), Min(marqueeStart_.y, current.y));
-				ImVec2 rectMax(Max(marqueeStart_.x, current.x), Max(marqueeStart_.y, current.y));
+
+				/// [EN] Compensate marqueeStart_ for any scrolling (auto-scroll or
+				///      otherwise) that has happened since the drag began, so the
+				///      start edge tracks the row/content position originally
+				///      clicked rather than staying pinned to that fixed pixel -
+				///      see marqueeStartScrollY_'s header comment.
+				/// [JP] ドラッグ開始後に発生したスクロール（オートスクロール含む）を
+				///      marqueeStart_ に補正し、開始端が固定ピクセルではなく
+				///      最初にクリックした行/コンテンツの位置を追従するようにする —
+				///      marqueeStartScrollY_ のヘッダコメント参照。
+				ImVec2 adjustedStart(marqueeStart_.x, marqueeStart_.y - (ImGui::GetScrollY() - marqueeStartScrollY_));
+
+				/// [EN] Explorer/Unreal-style auto-scroll: while dragging the marquee
+				///      near the window's top/bottom edge, keep scrolling the hierarchy
+				///      so rows outside the current viewport can still be reached
+				///      (adjustedStart above keeps the start edge correct while this
+				///      happens). Margin is 32px and speed is in pixels/second (scaled
+				///      by DeltaTime) rather than pixels/frame, so scrolling is
+				///      frame-rate independent and fast enough to reach rows many
+				///      screens away while the mouse just sits at the edge.
+				/// [JP] エクスプローラー/Unreal 風のオートスクロール: マーキーを
+				///      ウィンドウ上端/下端付近までドラッグしている間、ヒエラルキーを
+				///      スクロールし続け、現在のビューポート外の行にも届くようにする
+				///      （その間の開始端の補正は上の adjustedStart が行う）。
+				///      マージンは32px、速度はピクセル/フレームではなくピクセル/秒
+				///      （DeltaTimeでスケール）。フレームレートに依存せず、マウスを
+				///      端に置いたままにするだけで何画面分も離れた行にも届く。
+				Float autoScrollMargin = 32.0f;
+				Float autoScrollSpeed = 900.0f;
+				ImVec2 windowMin = ImGui::GetWindowPos();
+				ImVec2 windowMax(windowMin.x + ImGui::GetWindowSize().x, windowMin.y + ImGui::GetWindowSize().y);
+				if (current.y < windowMin.y + autoScrollMargin)
+				{
+					Float depth = (windowMin.y + autoScrollMargin) - current.y;
+					ImGui::SetScrollY(ImGui::GetScrollY() - autoScrollSpeed * (depth / autoScrollMargin) * ImGui::GetIO().DeltaTime);
+				}
+				else if (current.y > windowMax.y - autoScrollMargin)
+				{
+					Float depth = current.y - (windowMax.y - autoScrollMargin);
+					ImGui::SetScrollY(ImGui::GetScrollY() + autoScrollSpeed * (depth / autoScrollMargin) * ImGui::GetIO().DeltaTime);
+				}
+
+				ImVec2 rectMin(Min(adjustedStart.x, current.x), Min(adjustedStart.y, current.y));
+				ImVec2 rectMax(Max(adjustedStart.x, current.x), Max(adjustedStart.y, current.y));
 
 				ImGui::GetWindowDrawList()->AddRectFilled(rectMin, rectMax, IM_COL32(100, 180, 255, 40));
 				ImGui::GetWindowDrawList()->AddRect(rectMin, rectMax, IM_COL32(100, 180, 255, 200));

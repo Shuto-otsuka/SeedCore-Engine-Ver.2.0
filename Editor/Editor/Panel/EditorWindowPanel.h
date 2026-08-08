@@ -24,5 +24,13 @@ namespace SeedCore
 		GuizmoPanel3D guizmoPanel_;
 
 		Bool focusedOnce_ = false;
+
+		/// [EN] Seconds remaining to keep showing the move-speed tooltip after the
+		///      last right-click+wheel tick, so it's readable instead of flashing
+		///      for a single frame - 0 (the default) means don't show it.
+		/// [JP] 右クリック+ホイールの最後の入力から、移動速度ツールチップを
+		///      表示し続ける残り秒数。1フレームだけ点滅して読めなくなるのを防ぐ
+		///      - 0（デフォルト）は非表示を意味する。
+		Float moveSpeedTooltipTimer_ = 0.0f;
 	};
 }
