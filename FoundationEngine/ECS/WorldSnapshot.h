@@ -27,13 +27,20 @@ namespace SeedCore
 		/**
 		* [EN]
 		* Clears any existing snapshot, then captures a copy of every
-		* Actor's component data currently in world.
+		* Actor's component data currently in world — both archetype-stored
+		* (via each actor's layout) and sparse-set-stored (Rigidbody,
+		* Softbody, Weather, ...; walked via the full component registry,
+		* since sparse-set storage has no per-entity layout list).
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
 		* 既存のスナップショットをクリアし、world 内の現在の全 Actor の
-		* コンポーネントデータのコピーを取得する。
+		* コンポーネントデータのコピーを取得する — アーキタイプ格納
+		* （各 actor のレイアウト経由）とスパースセット格納
+		* （Rigidbody、Softbody、Weather 等; スパースセット格納には
+		* エンティティごとのレイアウト一覧が無いため、コンポーネント
+		* レジストリ全体を走査する）の両方。
 		*/
 		void Capture(World& world);
 

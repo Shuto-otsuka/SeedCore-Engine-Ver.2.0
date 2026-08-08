@@ -13,12 +13,14 @@
 #include <FoundationEngine/ECS/Actor.h>
 #include <FoundationEngine/ECS/World.h>
 #include <GraphicsEngine/Model/Mesh.h>
+#include <FoundationEngine/ECS/Component/Bounds.h>
 #include <GraphicsEngine/Model/Animation/Animator.h>
 #include <GraphicsEngine/Model/Animation/AnimationResource.h>
 #include <PhysicsEngine/Softbody/Softbody.h>
 #include <FoundationEngine/ECS/Component/Position.h>
 #include <FoundationEngine/ECS/Component/Rotation.h>
 #include <FoundationEngine/ECS/Component/Scale.h>
+#include <FoundationEngine/ECS/ComponentRegistry.h>
 #include <cfloat>
 
 namespace SeedCore
@@ -79,6 +81,14 @@ namespace SeedCore
 		///      インスタンスはこのフレーム内で 1 つのパレットを共有できる。
 		std::unordered_map<const Crister*, Uint> cristerBoneBase;
 
+		/// [EN] Cached once per Gather() rather than looked up per instance —
+		///      see the Bounds sync below (right after resolving each
+		///      Mesh actor's Crister).
+		/// [JP] Gather() ごとに一度だけキャッシュする — インスタンスごとに
+		///      引かない（下の Bounds 同期処理参照。各 Mesh アクターの
+		///      Crister 解決直後で使う）。
+		ComponentID boundsComponentID = ComponentRegistry::GetComponentID<Bounds>();
+
 		Query<Read<Active>, Read<Mesh>> query(world);
 		query.ForEach([&](EntityID entityID, const Active& active, const Mesh& mesh)
 			{
@@ -108,6 +118,26 @@ namespace SeedCore
 				if (!actor)
 				{
 					return;
+				}
+
+				/// [EN] Overwrite this actor's Bounds (every actor already
+				///      has one — see Bounds's class comment, added in
+				///      Actor::Actor) with the resolved Crister's
+				///      local-space AABB.
+				/// [JP] このアクターの Bounds（全 actor が構築時から既に
+				///      持っている — Bounds のクラスコメント、Actor::Actor
+				///      参照）を、解決済み Crister のローカル空間 AABB で
+				///      上書きする。
+				if (boundsComponentID)
+				{
+					void* boundsRaw = world.GetComponent(entityID, boundsComponentID);
+					if (boundsRaw)
+					{
+						Bounds* bounds = static_cast<Bounds*>(boundsRaw);
+						Vector3 positionExtent = crister->PositionExtent();
+						bounds->center_ = crister->PositionMin() + positionExtent * 0.5f;
+						bounds->extent_ = positionExtent * 0.5f;
+					}
 				}
 
 				/// [EN] Softbody-bearing actors with a live Jolt body are

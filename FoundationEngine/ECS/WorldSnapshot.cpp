@@ -51,6 +51,49 @@ namespace SeedCore
 				actorData.components_.push_back(std::move(componentData));
 			}
 
+			/// [EN] world.GetLayout() only covers archetype-stored components
+			///      — sparse-set-stored ones (Rigidbody, Softbody, Weather,
+			///      ...) have no such per-entity layout list, so walk every
+			///      registered component type instead and keep the
+			///      sparse-set ones this actor actually has. Without this,
+			///      sparse-set component field values (e.g. ones a script
+			///      mutates at runtime) never got captured/restored, so
+			///      stopping Play silently left them at whatever Play left
+			///      them at instead of reverting like archetype-stored
+			///      fields (Position/Rotation/...) already do.
+			/// [JP] world.GetLayout() はアーキタイプ格納コンポーネントしか
+			///      対象にしない — スパースセット格納のもの（Rigidbody、
+			///      Softbody、Weather 等）にはエンティティごとのそうした
+			///      レイアウト一覧が無いため、代わりに登録済みの全
+			///      コンポーネント型を走査し、この actor が実際に持っている
+			///      スパースセットのものだけ残す。これが無いと、スパース
+			///      セットコンポーネントのフィールド値（例: スクリプトが
+			///      実行時に書き換えるもの）は一切キャプチャ/復元されず、
+			///      Play を止めてもアーキタイプ格納フィールド
+			///      （Position/Rotation/...）のように元に戻らず、Play が
+			///      残した値のまま静かに残ってしまっていた。
+			for (const auto& [componentName, componentID] : ComponentRegistry::GetComponentList())
+			{
+				const ComponentMetadata& meta = ComponentRegistry::Get(componentID);
+				if (meta.storage_ != ComponentStorage::SparseSet)
+				{
+					continue;
+				}
+
+				void* source = world.GetComponent(entity, componentID);
+				if (!source)
+				{
+					continue;
+				}
+
+				ComponentData componentData;
+				componentData.id_ = componentID;
+				componentData.data_.resize(meta.size_);
+				meta.copy_(componentData.data_.data(), source);
+
+				actorData.components_.push_back(std::move(componentData));
+			}
+
 			/// [EN] Also remember which of those components derive from ComponentBase, so Restore can reset their lifecycle state afterward.
 			/// [JP] それらのコンポーネントのうちどれが ComponentBase から派生しているかも記録し、Restore が後でそのライフサイクル状態をリセットできるようにする。
 			actorData.componentBaseIDs_ = actor->ComponentBaseIDList();

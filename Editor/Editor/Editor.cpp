@@ -5,6 +5,8 @@
 #include <FoundationEngine/Time/GameTimer.h>
 #include <GraphicsEngine/Model/Animation/Animator.h>
 #include <GraphicsEngine/Model/Animation/AnimatorControllerState.h>
+#include <GraphicsEngine/Camera/EditorCamera.h>
+#include <FoundationEngine/ECS/Component/Bounds.h>
 
 namespace SeedCore
 {
@@ -145,6 +147,30 @@ namespace SeedCore
 			if (ctrlPressed && ImGui::IsKeyPressed(ImGuiKey_Y))
 			{
 				context_.sceneContext_.history_.Redo();
+			}
+
+			/// [EN] Unreal-style "frame selected": Ctrl+F slides the editor
+			///      viewport camera to the currently selected actor (see
+			///      EditorCamera::FocusOn, and HierarchyPanel's
+			///      double-click, which does the same).
+			/// [JP] Unreal 風の「選択対象にフレーム」: Ctrl+F で現在選択中の
+			///      アクターへエディタビューポートのカメラがスライドする
+			///      （EditorCamera::FocusOn 参照。HierarchyPanel の
+			///      ダブルクリックも同じ処理）。
+			if (ctrlPressed && ImGui::IsKeyPressed(ImGuiKey_F) && context_.selectionContext_.selectedActor_ && context_.cameraContext_.editorCamera_)
+			{
+				Actor* selectedActor = context_.selectionContext_.selectedActor_;
+				const Matrix& worldMatrix = selectedActor->GetWorldMatrix();
+
+				Float radius = 0.0f;
+				const Bounds* bounds = selectedActor->GetComponent<Bounds>();
+				if (bounds)
+				{
+					Float worldScale = Max(Max(Vector3(worldMatrix._11, worldMatrix._12, worldMatrix._13).Length(), Vector3(worldMatrix._21, worldMatrix._22, worldMatrix._23).Length()), Vector3(worldMatrix._31, worldMatrix._32, worldMatrix._33).Length());
+					radius = bounds->extent_.Length() * worldScale;
+				}
+
+				context_.cameraContext_.editorCamera_->FocusOn(Vector3(worldMatrix._41, worldMatrix._42, worldMatrix._43), radius);
 			}
 		}
 	}

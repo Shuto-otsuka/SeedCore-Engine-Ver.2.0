@@ -7,6 +7,21 @@ namespace SeedCore
 		previousViewProjection_ = currentViewProjection_;
 		previousNonJitterViewProjection_ = nonJitterViewProjection_;
 
+		if (focusing_)
+		{
+			focusElapsed_ += elapsedTime;
+			Float t = Clamp(focusElapsed_ / focusDuration_, 0.0f, 1.0f);
+			Float smoothT = t * t * (3.0f - 2.0f * t);
+
+			eye_ = Vector3::Lerp(focusStartEye_, focusTargetEye_, smoothT);
+			focus_ = Vector3::Lerp(focusStartFocus_, focusTargetFocus_, smoothT);
+
+			if (t >= 1.0f)
+			{
+				focusing_ = false;
+			}
+		}
+
 		forward_ = focus_ - eye_;
 		if (forward_.LengthSquared() < 1e-4)
 		{
@@ -67,6 +82,40 @@ namespace SeedCore
 	void EditorCamera::Focus(Vector3 focus)
 	{
 		focus_ = focus;
+	}
+
+	void EditorCamera::FocusOn(Vector3 targetPosition, Float radius)
+	{
+		/// [EN] Preserve the current look direction always. Distance either
+		///      fits radius in view (bounds-fit dolly) or stays at the
+		///      current eye-to-focus distance (pan only) — see the header
+		///      comment.
+		/// [JP] 向きは常に保つ。距離は radius が画角に収まる値（バウンズ
+		///      フィットのドリー）か、現在の eye-focus 間距離のまま
+		///      （パンのみ）のどちらか — ヘッダのコメント参照。
+		Vector3 offset = eye_ - focus_;
+		Float currentDistance = offset.Length();
+		if (currentDistance < 1e-6f)
+		{
+			offset = Vector3(0.0f, 0.0f, -1.0f);
+			currentDistance = 1.0f;
+		}
+		Vector3 direction = offset / currentDistance;
+
+		Float distance = currentDistance;
+		if (radius > 0.0f)
+		{
+			Float halfFovRadians = ToRadians(Max(fieldOfView_, 1.0f)) * 0.5f;
+			distance = radius / std::sin(halfFovRadians);
+		}
+
+		focusStartEye_ = eye_;
+		focusStartFocus_ = focus_;
+		focusTargetFocus_ = targetPosition;
+		focusTargetEye_ = targetPosition + direction * distance;
+
+		focusElapsed_ = 0.0f;
+		focusing_ = true;
 	}
 
 	void EditorCamera::Up(Vector3 up)

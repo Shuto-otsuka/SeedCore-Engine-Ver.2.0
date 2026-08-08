@@ -321,49 +321,75 @@ namespace SeedCore
 
 		/**
 		* [EN]
-		* Returns how many entities currently have a T component, without
-		* walking every actor -- lets callers cheaply check "does any
-		* entity have this component at all" (e.g. to skip a whole system
-		* when its component is unused this frame). Only meaningful for
-		* sparse-set-stored T; returns 0 for archetype-stored T or if T's
-		* storage hasn't been created yet.
+		* Returns how many entities currently have a T component.
+		* Sparse-set-stored T resolves in O(1) without walking every actor
+		* -- lets callers cheaply check "does any entity have this
+		* component at all" (e.g. to skip a whole system when its
+		* component is unused this frame); returns 0 if T's storage hasn't
+		* been created yet. Archetype-stored T has no such index, so this
+		* instead walks every actor and counts the ones that have T (same
+		* O(N) trade-off as GetComponents<T>()).
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* 全 actor を走査せずに、現在 T コンポーネントを持つエンティティ数を
-		* 返す。「このコンポーネントを持つエンティティが1つでもあるか」を
-		* 安価に確認できる(例: 今フレーム未使用のシステム全体をスキップする)。
-		* スパースセット格納の T のみ意味を持つ。アーキタイプ格納の T、または
-		* T のストレージがまだ作られていない場合は 0 を返す。
+		* 現在 T コンポーネントを持つエンティティ数を返す。スパースセット
+		* 格納の T は全 actor を走査せず O(1) で解決する — 「このコンポーネント
+		* を持つエンティティが1つでもあるか」を安価に確認できる(例: 今フレーム
+		* 未使用のシステム全体をスキップする)。T のストレージがまだ作られて
+		* いなければ 0 を返す。アーキタイプ格納の T にはそのようなインデックス
+		* が無いため、代わりに全 actor を走査し T を持つものを数える
+		* （GetComponents<T>() と同じ O(N) のトレードオフ）。
 		*/
 		template<typename T>
 		Uint32 GetComponentCount()const
 		{
 			ComponentID id = ComponentRegistry::GetComponentID<T>();
+			const ComponentMetadata& meta = ComponentRegistry::Get(id);
 
-			auto it = sparseSet_.find(id);
-			if (it == sparseSet_.end())
+			if (meta.storage_ == ComponentStorage::SparseSet)
 			{
-				return 0;
+				auto it = sparseSet_.find(id);
+				if (it == sparseSet_.end())
+				{
+					return 0;
+				}
+
+				return static_cast<SparseSetStorage<T>*>(it->second.get())->data_.Length();
 			}
 
-			return static_cast<SparseSetStorage<T>*>(it->second.get())->data_.Length();
+			Uint32 count = 0;
+			for (const auto& actor : GetActors())
+			{
+				if (actor->HasComponent(id))
+				{
+					count++;
+				}
+			}
+			return count;
 		}
 
 		/**
 		* [EN]
 		* Returns the EntityID of every entity currently holding a T
-		* component, without walking every actor. Only meaningful for
-		* sparse-set-stored T; returns empty for archetype-stored T or if
-		* T's storage hasn't been created yet.
+		* component. Sparse-set-stored T resolves in O(1) via its dense
+		* array (returns empty if T's storage hasn't been created yet).
+		* Archetype-stored T has no such index, so this instead walks every
+		* actor and keeps the ones that have T (see the in-body comment) —
+		* fine for editor-scale actor counts; a hot per-frame path over
+		* thousands of actors should use Query<Read<T>> instead, which
+		* chunk-iterates archetypes directly.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* 現在 T コンポーネントを持つ全エンティティの EntityID を、全 actor を
-		* 走査せずに返す。スパースセット格納の T のみ意味を持つ。アーキタイプ
-		* 格納の T、または T のストレージがまだ作られていない場合は空を返す。
+		* 現在 T コンポーネントを持つ全エンティティの EntityID を返す。
+		* スパースセット格納の T は密配列経由で O(1) 解決する（T のストレージ
+		* がまだ作られていなければ空を返す）。アーキタイプ格納の T にはそのような
+		* インデックスが無いため、代わりに全 actor を走査し T を持つものだけ
+		* 残す（本体内コメント参照）— エディタ規模の actor 数なら十分。数千
+		* actor 規模の毎フレームホットパスでは、アーキタイプを直接チャンク
+		* 走査する Query<Read<T>> を使うこと。
 		*/
 		template<typename T>
 		DynamicArray<EntityID> GetComponents()const
@@ -371,18 +397,38 @@ namespace SeedCore
 			DynamicArray<EntityID> result;
 
 			ComponentID id = ComponentRegistry::GetComponentID<T>();
+			const ComponentMetadata& meta = ComponentRegistry::Get(id);
 
-			auto it = sparseSet_.find(id);
-			if (it == sparseSet_.end())
+			if (meta.storage_ == ComponentStorage::SparseSet)
 			{
-				return result;
+				auto it = sparseSet_.find(id);
+				if (it == sparseSet_.end())
+				{
+					return result;
+				}
+
+				const SparseSet<T>& sparseSet = static_cast<SparseSetStorage<T>*>(it->second.get())->data_;
+				result.reserve(sparseSet.Length());
+				for (const auto& element : sparseSet.Dense())
+				{
+					result.push_back(element.id_);
+				}
 			}
-
-			const SparseSet<T>& sparseSet = static_cast<SparseSetStorage<T>*>(it->second.get())->data_;
-			result.reserve(sparseSet.Length());
-			for (const auto& element : sparseSet.Dense())
+			else
 			{
-				result.push_back(element.id_);
+				/// [EN] No O(1) "every entity with T" index for archetype
+				///      storage — walk every actor and keep the ones that
+				///      have T.
+				/// [JP] アーキタイプ格納には「Tを持つ全エンティティ」への
+				///      O(1) インデックスが無い — 全 actor を走査し、T を
+				///      持つものだけ残す。
+				for (const auto& actor : GetActors())
+				{
+					if (actor->HasComponent(id))
+					{
+						result.push_back(static_cast<Uint32>(actor->GetEntity().GetHandle().index_));
+					}
+				}
 			}
 
 			return result;
@@ -557,17 +603,6 @@ namespace SeedCore
 		* このワールドが所有する新しい Physics リソースを生成して返す。
 		*/
 		Physics* CreatePhysics();
-
-		/**
-		* [EN]
-		* Destroys physics, releasing it back to this world's resource management.
-		*
-		* ---------------------------------------------------------------------
-		*
-		* [JP]
-		* physics を破棄し、このワールドのリソース管理へ返却する。
-		*/
-		void DestroyPhysics(Physics* physics);
 
 		/**
 		* [EN]

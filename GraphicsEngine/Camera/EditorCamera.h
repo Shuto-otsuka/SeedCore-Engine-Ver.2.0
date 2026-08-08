@@ -14,6 +14,25 @@ namespace SeedCore
 
 		void Focus(Vector3 focus);
 
+		/// [EN] Starts an animated slide of eye_/focus_ so focus_ lands on
+		///      targetPosition, keeping the camera's current look direction.
+		///      If radius > 0, also dollies to a distance that fits a sphere
+		///      of that radius in view (Unreal-style "frame selected" bounds
+		///      fit); radius <= 0 (the default) instead keeps the current
+		///      eye-to-focus distance (pan only, no dolly — used when no
+		///      Bounds is available for the target). Advances during Tick()
+		///      over focusDuration_ seconds; calling this again mid-animation
+		///      restarts it from the camera's current (in-flight) eye/focus.
+		/// [JP] eye_/focus_ をアニメーションさせながらスライドさせ、focus_ を
+		///      targetPosition に合わせる。現在のカメラの向きは保ったまま。
+		///      radius > 0 なら、その半径の球が画角に収まる距離までドリー
+		///      もする（Unreal風の「選択対象にフレーム」のバウンズフィット）。
+		///      radius <= 0（デフォルト）なら現在の eye-focus 間距離を保つ
+		///      だけ（パンのみ、ドリーなし — 対象に Bounds が無い場合に使う）。
+		///      Tick() 内で focusDuration_ 秒かけて進行する。アニメーション中に
+		///      再度呼ぶと、その時点の（進行中の）eye/focus から再スタートする。
+		void FocusOn(Vector3 targetPosition, Float radius = 0.0f);
+
 		void Up(Vector3 up);
 
 		void Near(Float nearPlane);
@@ -74,6 +93,16 @@ namespace SeedCore
 		Vector3 forward_ = { 0,0,1 };
 
 		Vector3 right_ = { 1,0,0 };
+
+		/// [EN] FocusOn's in-flight animation state — see FocusOn's comment.
+		/// [JP] FocusOn の進行中アニメーション状態 — FocusOn のコメント参照。
+		Bool focusing_ = false;
+		Vector3 focusStartEye_ = { 0,0,0 };
+		Vector3 focusStartFocus_ = { 0,0,0 };
+		Vector3 focusTargetEye_ = { 0,0,0 };
+		Vector3 focusTargetFocus_ = { 0,0,0 };
+		Float focusElapsed_ = 0.0f;
+		Float focusDuration_ = 0.35f;
 
 		Float nearPlane_ = 0.001f;
 

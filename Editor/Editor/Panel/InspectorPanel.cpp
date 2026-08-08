@@ -440,6 +440,7 @@ namespace SeedCore
 		static const String scaleString("Scale");
 		static const String velocityString("Velocity");
 		static const String activeString("Active");
+		static const String boundsString("Bounds");
 
 		ComponentID positionID = ComponentRegistry::GetComponentID(positionString);
 		ComponentID rotationID = ComponentRegistry::GetComponentID(rotationString);
@@ -501,7 +502,7 @@ namespace SeedCore
 		{
 			String componentName = ComponentRegistry::GetName(componentID);
 
-			if (componentName == nameString || componentName == positionString || componentName == rotationString || componentName == scaleString || componentName == velocityString || componentName == activeString)
+			if (componentName == nameString || componentName == positionString || componentName == rotationString || componentName == scaleString || componentName == velocityString || componentName == activeString || componentName == boundsString)
 			{
 				continue;
 			}

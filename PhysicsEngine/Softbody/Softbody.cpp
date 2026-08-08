@@ -24,22 +24,6 @@ namespace SeedCore
 
 		GetActor().GetPhysics().GetSoftbodyVertexPositions(bodyID_, vertexPositions_);
 
-		/// [EN] GetSoftbodyVertexPositions returns world-space positions
-		///      (Jolt simulates in world space so it can collide with other
-		///      world-positioned bodies). SoftbodyMesh/StaticModelMS.hlsl
-		///      expect local space — the mesh shader multiplies
-		///      vertex.position_ by instance.world_ itself — so transform
-		///      back by the actor's inverse world matrix here, otherwise
-		///      the world transform gets applied twice (visible drift from
-		///      the actor's true position, worse the further from origin).
-		/// [JP] GetSoftbodyVertexPositions はワールド空間の位置を返す
-		///      （Jolt は他のワールド座標系のボディと衝突できるようワールド
-		///      空間でシミュレートする）。SoftbodyMesh/StaticModelMS.hlsl は
-		///      ローカル空間を期待する — メッシュシェーダ自身が
-		///      vertex.position_ に instance.world_ を掛けるため — ここで
-		///      アクターの逆ワールド行列で戻さないと、ワールド変換が二重に
-		///      かかってしまう（アクターの真の位置からのズレとして見え、
-		///      原点から離れるほど大きくなる）。
 		Matrix inverseWorld = GetActor().GetWorldMatrix().Invert();
 		for (Vector3& position : vertexPositions_)
 		{

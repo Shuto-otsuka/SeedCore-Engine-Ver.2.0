@@ -8,6 +8,7 @@
 #include <FoundationEngine/ECS/Component/Scale.h>
 #include <FoundationEngine/ECS/Component/Velocity.h>
 #include <FoundationEngine/ECS/Component/Active.h>
+#include <FoundationEngine/ECS/Component/Bounds.h>
 
 namespace SeedCore
 {
@@ -16,26 +17,27 @@ namespace SeedCore
 	* Constructs an actor in world with the given display name,
 	* creating its underlying entity, physics resource, and the default
 	* transform/lifecycle components (Name/Position/Rotation/Scale/
-	* Velocity/Active).
+	* Velocity/Active/Bounds).
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
 	* 指定された表示名で world 内に actor を構築し、内部エンティティ、
 	* 物理リソース、およびデフォルトのトランスフォーム/ライフサイクル
-	* コンポーネント（Name/Position/Rotation/Scale/Velocity/Active）を
+	* コンポーネント（Name/Position/Rotation/Scale/Velocity/Active/Bounds）を
 	* 生成する。
 	*/
 	Actor::Actor(World& world, String name) : world_(world), physics_(*world.CreatePhysics()), entity_(world.CreateEntity())
 	{
-		/// [EN] Every actor gets the same baseline set of components: a display name, an identity transform, zero velocity, and active-by-default.
-		/// [JP] 全ての actor に共通するベースラインのコンポーネント一式を付与する: 表示名、単位トランスフォーム、ゼロ速度、デフォルトでアクティブ。
+		/// [EN] Every actor gets the same baseline set of components: a display name, an identity transform, zero velocity, active-by-default, and a small default-sized bounding box (see Bounds's class comment) so it is viewport-pickable even without a renderable component.
+		/// [JP] 全ての actor に共通するベースラインのコンポーネント一式を付与する: 表示名、単位トランスフォーム、ゼロ速度、デフォルトでアクティブ、そして小さいデフォルトサイズの境界ボックス（Bounds のクラスコメント参照）— 描画可能なコンポーネントが無くてもビューポートからピック選択できるようにする。
 		world_.AddComponent(entity_, Name{ name });
 		world_.AddComponent(entity_, Position{ 0.0f,0.0f,0.0f });
 		world_.AddComponent(entity_, Rotation{ 0.0f,0.0f,0.0f });
 		world_.AddComponent(entity_, Scale{ 1.0f, 1.0f, 1.0f });
 		world_.AddComponent(entity_, Velocity{ 0.0f,0.0f,0.0f });
 		world_.AddComponent(entity_, Active{ true });
+		world_.AddComponent(entity_, Bounds{ Vector3(0.0f, 0.0f, 0.0f), Vector3(0.5f, 0.5f, 0.5f) });
 	}
 
 	/**

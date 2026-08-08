@@ -45,6 +45,7 @@
     <ClInclude Include="ECS\ComponentCommand.h" />
     <ClInclude Include="ECS\ComponentLifecycleCommand.h" />
     <ClInclude Include="ECS\Component\Active.h" />
+    <ClInclude Include="ECS\Component\Bounds.h" />
     <ClInclude Include="ECS\Component\ComponentBase.h" />
     <ClInclude Include="ECS\Component\InspectorDrawable.h" />
     <ClInclude Include="ECS\Entity.h" />

@@ -195,7 +195,8 @@ namespace SeedCore
 			String("Rotation"),
 			String("Scale"),
 			String("Velocity"),
-			String("Active")
+			String("Active"),
+			String("Bounds")
 		};
 
 		for (const auto& builtin : builtinComponents)

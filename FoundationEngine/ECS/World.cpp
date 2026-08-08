@@ -137,7 +137,11 @@ namespace SeedCore
 			Bool movedToDest = false;
 			for (const ComponentID& destID : destLayout)
 			{
-				if (destID == componentID) { movedToDest = true; break; }
+				if (destID == componentID)
+				{
+					movedToDest = true; 
+					break;
+				}
 			}
 			if (movedToDest)
 			{
@@ -360,6 +364,29 @@ namespace SeedCore
 		}
 	}
 
+	/**
+	* [EN]
+	* Erases id's sparse-set storage container entirely (not just its
+	* entries), destroying it and any component data it still holds.
+	* Callers should remove every entity's component data first (e.g.
+	* via RemoveComponent per actor) so ComponentBase::OnDestroy still
+	* runs — this just drops the container itself. Intended for
+	* tearing down a component type whose code lives in a DLL that is
+	* about to be unloaded, since the storage container's own vtable
+	* would otherwise dangle. No-op if id has no sparse-set storage.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* id のスパースセットストレージコンテナ自体を(単なるエントリではなく)
+	* 消去し、破棄する。まだ保持しているコンポーネントデータもろとも破棄する。
+	* ComponentBase::OnDestroy を確実に発火させるため、呼び出し側は先に
+	* actor単位の RemoveComponent 等で各エンティティのコンポーネントデータを
+	* 削除しておくべき — これはコンテナ自体を落とすだけ。これからアンロード
+	* される DLL 内にコードがあるコンポーネント型を解体する用途を想定している
+	* — そうしないとストレージコンテナ自身の仮想関数テーブルが宙に浮いてしまう
+	* ため。id にスパースセットストレージが無い場合は何もしない。
+	*/
 	void World::UnregisterSparseSetStorage(ComponentID id)
 	{
 		sparseSet_.erase(id);
@@ -610,20 +637,6 @@ namespace SeedCore
 		}
 
 		return physics_.get();
-	}
-
-	/**
-	* [EN]
-	* Destroys physics, releasing it back to this world's resource management.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* physics を破棄し、このワールドのリソース管理へ返却する。
-	*/
-	void World::DestroyPhysics(Physics* physics)
-	{
-
 	}
 
 	/**

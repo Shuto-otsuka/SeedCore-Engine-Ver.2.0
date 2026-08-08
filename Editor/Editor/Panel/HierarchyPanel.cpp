@@ -9,6 +9,8 @@
 #include <FoundationEngine/Resource/Prefab.h>
 #include <FoundationEngine/Resource/ResourceCache.h>
 #include <FoundationEngine/File/FileDialog.h>
+#include <GraphicsEngine/Camera/EditorCamera.h>
+#include <FoundationEngine/ECS/Component/Bounds.h>
 
 namespace SeedCore
 {
@@ -221,6 +223,38 @@ namespace SeedCore
 
 		Bool opened = ImGui::TreeNodeEx("##actor", flags);
 		Bool treeClicked = ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen();
+
+		/// [EN] Unreal-style "frame selected": double-clicking an actor row
+		///      slides the editor viewport camera to it (see EditorCamera::
+		///      FocusOn). Uses the actor's cached world matrix translation
+		///      rather than its Position component so it still works for
+		///      children (world-space, parent chain composed in).
+		/// [JP] Unreal 風の「選択対象にフレーム」: アクター行をダブルクリック
+		///      するとエディタビューポートのカメラがそこへスライドする
+		///      （EditorCamera::FocusOn 参照）。Position コンポーネントでは
+		///      なくアクターのキャッシュ済みワールド行列の平行移動成分を
+		///      使うため、子アクター（親チェーン込みのワールド空間）でも
+		///      正しく動作する。
+		if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && context_.cameraContext_.editorCamera_)
+		{
+			const Matrix& worldMatrix = actor->GetWorldMatrix();
+
+			/// [EN] Bounds-fit dolly distance when this actor has a Mesh
+			///      (auto-derived Bounds — see Bounds's class comment);
+			///      otherwise FocusOn's radius<=0 default just pans in.
+			/// [JP] このアクターに Mesh があれば（自動導出された Bounds —
+			///      Bounds のクラスコメント参照）、それに合わせたドリー距離。
+			///      無ければ FocusOn の radius<=0 デフォルトでパンのみ。
+			Float radius = 0.0f;
+			const Bounds* bounds = actor->GetComponent<Bounds>();
+			if (bounds)
+			{
+				Float worldScale = Max(Max(Vector3(worldMatrix._11, worldMatrix._12, worldMatrix._13).Length(), Vector3(worldMatrix._21, worldMatrix._22, worldMatrix._23).Length()), Vector3(worldMatrix._31, worldMatrix._32, worldMatrix._33).Length());
+				radius = bounds->extent_.Length() * worldScale;
+			}
+
+			context_.cameraContext_.editorCamera_->FocusOn(Vector3(worldMatrix._41, worldMatrix._42, worldMatrix._43), radius);
+		}
 
 		rows_.push_back({ actor, ImGui::GetItemRectMin(), ImGui::GetItemRectMax() });
 

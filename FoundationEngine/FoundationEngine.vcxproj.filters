@@ -587,5 +587,8 @@
     <ClInclude Include="Interop\ColliderInstance.h">
       <Filter>Interop</Filter>
     </ClInclude>
+    <ClInclude Include="ECS\Component\Bounds.h">
+      <Filter>ESC\Component</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
