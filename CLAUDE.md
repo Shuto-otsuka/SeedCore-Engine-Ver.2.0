@@ -114,7 +114,7 @@ These were derived by reading actual source across `FoundationEngine`/`GraphicsE
   ```
 - **Empty function bodies**: write `/// No Code` inside an otherwise-empty `{ }` rather than leaving it blank (used 100+ times across the codebase, e.g. default constructors) — keep doing this rather than an empty block.
 - **Doc comments — split by what's being commented, not by comment length:**
-  - **`class`/`struct`/function declarations, and their `.cpp` definitions**: always the `/** */` block form, immediately above both the header declaration and the `.cpp` definition, bilingual English then Japanese separated by a divider:
+  - **`class`/`struct`/`enum class`/function declarations, and their `.cpp` definitions**: always the `/** */` block form, immediately above both the header declaration and the `.cpp` definition, bilingual English then Japanese separated by a divider:
     ```cpp
     /**
     * [EN]
