@@ -182,6 +182,23 @@ namespace SeedCore
 		}
 	}
 
+	/**
+	* [EN]
+	* Releases every resident streaming page (pinned included — the model
+	* itself is going away) and returns their descriptor indices to
+	* bindlessHeap_. Every GPU resource is handed to the deferred-reclaim
+	* ring rather than dying with this object, since frames still in
+	* flight may be drawing from these exact buffers and textures.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 常駐中のストリーミングページをすべて解放し（モデル自体が消えるため
+	* ピン留め込み）、ディスクリプタインデックスを bindlessHeap_ へ返す。
+	* GPU リソースはこのオブジェクトと一緒に死なせず、遅延回収リングへ
+	* 渡す — インフライトのフレームがまさにこれらのバッファやテクスチャで
+	* 描画している可能性があるため。
+	*/
 	Crister::~Crister()
 	{
 		auto found = std::find(streamingRegistry_.begin(), streamingRegistry_.end(), this);
@@ -258,6 +275,17 @@ namespace SeedCore
 	}
 
 
+	/**
+	* [EN]
+	* Allocates a bindless heap index and creates a StructuredBuffer SRV
+	* for resource at that index.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* bindless ヒープインデックスを1つ確保し、resource に対する
+	* StructuredBuffer SRV をそのインデックスへ作成する。
+	*/
 	Uint Crister::CreateStructuredShaderResourceView(ID3D12Device* device, BindlessHeap* heap, ID3D12Resource* resource, Uint elementCount, Uint stride)
 	{
 		Uint index = heap->AllocateIndex();
@@ -275,6 +303,29 @@ namespace SeedCore
 		return index;
 	}
 
+	/**
+	* [EN]
+	* DirectX::CreateStaticBuffer rejects any resource above ~128MB
+	* (D3D12_REQ_RESOURCE_SIZE_IN_MEGABYTES_EXPRESSION_A_TERM used
+	* directly as a flat byte cap by DirectXTK12's BufferHelpers.cpp,
+	* not an actual D3D12 hardware limit - real buffers can be
+	* gigabytes, bounded only by available GPU memory). High-poly
+	* meshes routinely exceed that for the flat 32-bit triangle index
+	* buffer, so this mirrors CreateStaticBuffer's own implementation
+	* without the artificial size gate.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* DirectX::CreateStaticBuffer は約128MBを超えるリソースを拒否する
+	* (DirectXTK12 の BufferHelpers.cpp が
+	* D3D12_REQ_RESOURCE_SIZE_IN_MEGABYTES_EXPRESSION_A_TERM を単純な
+	* バイト上限としてそのまま使っているだけで、実際の D3D12/GPU の
+	* ハード制限ではない - 実バッファは GPU メモリが許す限り
+	* ギガバイト単位まで作れる)。ハイポリメッシュのフラット32bit
+	* 三角形インデックスバッファはこれを普通に超えるため、
+	* CreateStaticBuffer と同じ実装からサイズ上限チェックだけ外した版。
+	*/
 	HRESULT Crister::CreateStaticBufferUnbounded(ID3D12Device* device, DirectX::ResourceUploadBatch& resourceUpload, const void* data, Uint64 count, Uint64 stride, D3D12_RESOURCE_STATES afterState, ID3D12Resource** outResource)
 	{
 		const Uint64 sizeInBytes = count * stride;
@@ -307,6 +358,23 @@ namespace SeedCore
 		return S_OK;
 	}
 
+	/**
+	* [EN]
+	* Texture counterpart to CreateStaticBufferUnbounded's byte-layout
+	* role: resolves mip dimensions/row-pitch/slice-pitch/byte-offset
+	* within Bitmap::cacheData_ for a given mip index, from the standard
+	* BC block layout (16 bytes per 4x4 texel block, mips concatenated
+	* in order with no stored per-mip offsets).
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* CreateStaticBufferUnbounded のバイトレイアウト計算に相当する
+	* テクスチャ版: Bitmap::cacheData_ 内での指定ミップの寸法/
+	* row-pitch/slice-pitch/バイトオフセットを、標準的な BC
+	* ブロックレイアウト（4x4 テクセルブロックあたり 16 バイト、
+	* ミップは順に連結・オフセット未保存）から解決する。
+	*/
 	void Crister::ComputeTextureMipLayout(const Bitmap& bitmap, Uint32 mipIndex, Uint32& outWidth, Uint32& outHeight, Uint64& outRowPitch, Uint64& outSlicePitch, Uint64& outByteOffset)
 	{
 		Uint64 offset = 0;
@@ -419,6 +487,23 @@ namespace SeedCore
 		return compressed;
 	}
 
+	/**
+	* [EN]
+	* Walks stages_[defaultStage_]'s node tree depth-first and
+	* recomputes every Node::globalTransform_ from local S/R/T.
+	* Duplicates ModelLoader::CumulateTransforms' logic so
+	* ApplyAxisConversion can recompute global transforms without a
+	* ModelLoader/glTF re-parse.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* stages_[defaultStage_]のノードツリーを深さ優先で走査し、ローカル
+	* S/R/T から全 Node::globalTransform_ を再計算する。
+	* ModelLoader::CumulateTransforms のロジックを複製したもの。
+	* ApplyAxisConversion が ModelLoader/glTF 再解析無しにグローバル
+	* トランスフォームを再計算できるようにする。
+	*/
 	void Crister::CumulateTransforms()
 	{
 		if (defaultStage_ < 0 || static_cast<Size>(defaultStage_) >= stages_.size())
@@ -1416,6 +1501,41 @@ namespace SeedCore
 		return true;
 	}
 
+	/**
+	* [EN]
+	* Creates every GPU resource this Crister needs to draw: derives each
+	* Cluster's streaming page ranges from its meshlet slice and pins the
+	* pages that must never evict (coarsest cluster per SubMesh, skinned
+	* LOD 0, the vertex pool they reference), uploads skin attributes for
+	* the pool range, flattens each SubMesh's coarsest cluster into RT
+	* proxy geometry (compressed vertices + decoded float3 positions +
+	* flat 32-bit triangle indices, deduplicated), sets up per-texture
+	* streaming state from BakeBitmap()'s BC7 mip chains (clamped to the
+	* leading run of mip levels legal as a standalone single-mip BC7
+	* resource), then registers with the shared streaming bookkeeping and
+	* brings the pinned geometry pages/texture mips resident so the model
+	* is immediately drawable at its fallback LOD/resolution. Finer
+	* pages/mips stream in later on demand (MakeClusterResident/
+	* MakeTextureMipResident, driven by ModelRenderer::Gather).
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* この Crister の描画に必要な全 GPU リソースを作成する: 各 Cluster の
+	* ストリーミングページ範囲を meshlet スライスから導出し、追い出しては
+	* いけないページ（SubMesh ごとの最粗クラスタ、スキンド LOD 0、それらが
+	* 参照する頂点プール）をピン留めする。プール範囲分のスキニング属性を
+	* アップロードし、各 SubMesh の最粗クラスタを RT プロキシジオメトリ
+	* （圧縮頂点 + デコード済み float3 位置 + 重複排除済みフラット 32bit
+	* 三角形インデックス）へ展開する。BakeBitmap() が焼いた BC7 ミップ
+	* チェーンから（「単一ミップの独立した BC7 リソース」として合法な
+	* 先頭のミップ範囲へ切り詰めた上で）テクスチャごとのストリーミング
+	* 状態を準備し、最後に共有ストリーミング管理へ登録してピン留め
+	* ジオメトリページ/テクスチャミップを常駐させ、フォールバック
+	* LOD/解像度で即座に描画可能にする。より細かいページ/ミップは後で
+	* オンデマンドにストリームインする（MakeClusterResident/
+	* MakeTextureMipResident、ModelRenderer::Gather から駆動）。
+	*/
 	void Crister::Upload(ID3D12Device* device, ID3D12CommandQueue* cmdQueue, BindlessHeap* heap)
 	{
 		HRESULT hr{ S_OK };
@@ -1702,6 +1822,19 @@ namespace SeedCore
 		}
 	}
 
+	/**
+	* [EN]
+	* Synchronously uploads the shared LOD 0 vertex pool page. No-op when
+	* already resident, when poolVertexEnd_ is 0 (no LOD 0 clusters), or
+	* when no device is bound yet.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 共有 LOD 0 頂点プールページを同期アップロードする。常駐済み、
+	* poolVertexEnd_ が 0（LOD 0 クラスタが無い）、またはまだ device が
+	* 束縛されていない場合は何もしない。
+	*/
 	void Crister::MakePoolResident()
 	{
 		if (poolResident_ || poolVertexEnd_ == 0 || !device_)
@@ -1722,6 +1855,17 @@ namespace SeedCore
 		poolResident_ = true;
 	}
 
+	/**
+	* [EN]
+	* Synchronously uploads the cluster's page (and the vertex pool if
+	* the cluster is LOD 0). No-op when already resident.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* クラスタのページを同期アップロードする（LOD 0 なら頂点プールも）。
+	* 常駐済みなら何もしない。
+	*/
 	void Crister::MakeClusterResident(Uint32 clusterIndex)
 	{
 		StreamingGeometry& page = streamingGeometry_[clusterIndex];
@@ -1827,6 +1971,26 @@ namespace SeedCore
 		page.resident_ = true;
 	}
 
+	/**
+	* [EN]
+	* Texture mip counterpart to MakeClusterResident: streams a mip level
+	* instead of a cluster (see StreamingTexture below). targetMip is
+	* uploaded directly — NOT one level at a time — so a texture reaches
+	* the resolution the camera wants in a single upload instead of
+	* converging over as many frames as there are mip levels (which left
+	* visible blur whenever the camera moved, since each step also
+	* blocks on a GPU fence).
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* MakeClusterResident のテクスチャミップ版の対。クラスタではなく
+	* ミップレベルをストリーミングする（下記 StreamingTexture 参照）。
+	* targetMip は1段ずつではなく直接アップロードする — カメラが要求する
+	* 解像度へ1回のアップロードで到達させるため。1段ずつだとミップ段数分の
+	* フレームを要し（各段が GPU フェンス待ちで同期もする）、カメラを
+	* 動かすたびにボケが残っていた。
+	*/
 	void Crister::MakeTextureMipResident(Uint32 textureIndex, Uint32 targetMip)
 	{
 		if (textureIndex >= streamingTextures_.size())
@@ -1937,6 +2101,19 @@ namespace SeedCore
 		streamingTexture.topResidentMip_ = mipIndex;
 	}
 
+	/**
+	* [EN]
+	* Frees the cluster page's GPU resources and bindless indices
+	* (deferred release, since in-flight frames may still reference
+	* them). No-op if not resident or pinned.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* クラスタページの GPU リソースと bindless インデックスを解放する
+	* （インフライトのフレームがまだ参照している可能性があるため遅延
+	* 解放）。常駐していないかピン留め済みなら何もしない。
+	*/
 	void Crister::EvictCluster(Uint32 clusterIndex)
 	{
 		StreamingGeometry& page = streamingGeometry_[clusterIndex];
@@ -1973,6 +2150,19 @@ namespace SeedCore
 		page.resident_ = false;
 	}
 
+	/**
+	* [EN]
+	* Frees the texture's current (non-pinned) mip resource, falling
+	* back to the pinned coarsest mip. No-op if not valid or already at
+	* the pinned mip.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* テクスチャの現在の（ピン留めでない）ミップリソースを解放し、
+	* ピン留めされた最粗ミップへ戻す。無効、または既にピン留めミップの
+	* 場合は何もしない。
+	*/
 	void Crister::EvictTextureMip(Uint32 textureIndex)
 	{
 		if (textureIndex >= streamingTextures_.size())
@@ -1995,6 +2185,19 @@ namespace SeedCore
 		streamingTexture.topResidentMip_ = streamingTexture.mipCount_ - 1;
 	}
 
+	/**
+	* [EN]
+	* Frees the shared LOD 0 vertex pool page's GPU resource. No-op if
+	* not resident, pinned, or still referenced by a resident cluster
+	* page (poolResidentReferences_ > 0).
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 共有 LOD 0 頂点プールページの GPU リソースを解放する。常駐していない、
+	* ピン留め済み、または常駐中のクラスタページから参照されている場合
+	* （poolResidentReferences_ > 0）は何もしない。
+	*/
 	void Crister::EvictPool()
 	{
 		if (!poolResident_ || poolPinned_ || poolResidentReferences_ > 0)
@@ -2009,11 +2212,29 @@ namespace SeedCore
 		poolResident_ = false;
 	}
 
+	/**
+	* [EN]
+	* Whether the cluster's page is currently GPU-resident.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* クラスタのページが現在 GPU に常駐しているか。
+	*/
 	Bool Crister::IsClusterResident(Uint32 clusterIndex)const
 	{
 		return streamingGeometry_[clusterIndex].resident_;
 	}
 
+	/**
+	* [EN]
+	* Whether the texture has streamed all the way in to mip 0 (its finest).
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* テクスチャがミップ 0（最も細かい）まで完全にストリームインしているか。
+	*/
 	Bool Crister::IsTextureResident(Uint32 textureIndex)const
 	{
 		if (textureIndex >= streamingTextures_.size())
@@ -2023,6 +2244,19 @@ namespace SeedCore
 		return streamingTextures_[textureIndex].topResidentMip_ == 0;
 	}
 
+	/**
+	* [EN]
+	* Marks the cluster page (and its pool, if the cluster doesn't own
+	* its own vertices) as used this frame so the eviction age guard
+	* keeps it alive while the GPU may still reference it.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* クラスタページ（頂点を自前で持たないクラスタならプールも）を
+	* 今フレーム使用中として記録し、GPU がまだ参照しうる間は追い出しの
+	* 経過フレームガードで生存させる。
+	*/
 	void Crister::TouchCluster(Uint32 clusterIndex, Uint64 frame)
 	{
 		streamingGeometry_[clusterIndex].lastUsedFrame_ = frame;
@@ -2032,6 +2266,18 @@ namespace SeedCore
 		}
 	}
 
+	/**
+	* [EN]
+	* Marks the texture's currently-resident mip as used this frame so
+	* the eviction age guard keeps it alive while the GPU may still
+	* reference it.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* テクスチャの現在常駐中のミップを今フレーム使用中として記録し、
+	* GPU がまだ参照しうる間は追い出しの経過フレームガードで生存させる。
+	*/
 	void Crister::TouchTexture(Uint32 textureIndex, Uint64 frame)
 	{
 		if (textureIndex >= streamingTextures_.size())
@@ -2041,32 +2287,90 @@ namespace SeedCore
 		streamingTextures_[textureIndex].lastUsedFrame_ = frame;
 	}
 
+	/**
+	* [EN]
+	* Bindless SRV of the cluster page's vertex buffer — its own page
+	* if it owns vertices, otherwise the shared LOD 0 pool.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* クラスタページの頂点バッファの bindless SRV — 頂点を自前で持てば
+	* 自身のページ、そうでなければ共有 LOD 0 プール。
+	*/
 	Uint Crister::ClusterVertexBufferIndex(Uint32 clusterIndex)const
 	{
 		const StreamingGeometry& page = streamingGeometry_[clusterIndex];
 		return page.ownsVertices_ ? page.vertexBufferIndex_ : poolBufferIndex_;
 	}
 
+	/**
+	* [EN]
+	* Bindless SRV of the cluster page's meshlet buffer.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* クラスタページの meshlet バッファの bindless SRV。
+	*/
 	Uint Crister::ClusterMeshletBufferIndex(Uint32 clusterIndex)const
 	{
 		return streamingGeometry_[clusterIndex].meshletBufferIndex_;
 	}
 
+	/**
+	* [EN]
+	* Bindless SRV of the cluster page's meshlet bound buffer.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* クラスタページの meshlet バウンドバッファの bindless SRV。
+	*/
 	Uint Crister::ClusterMeshletBoundBufferIndex(Uint32 clusterIndex)const
 	{
 		return streamingGeometry_[clusterIndex].meshletBoundBufferIndex_;
 	}
 
+	/**
+	* [EN]
+	* Bindless SRV of the cluster page's vertex indices buffer.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* クラスタページの頂点インデックスバッファの bindless SRV。
+	*/
 	Uint Crister::ClusterVertexIndicesBufferIndex(Uint32 clusterIndex)const
 	{
 		return streamingGeometry_[clusterIndex].vertexIndicesBufferIndex_;
 	}
 
+	/**
+	* [EN]
+	* Bindless SRV of the cluster page's primitive indices buffer.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* クラスタページのプリミティブインデックスバッファの bindless SRV。
+	*/
 	Uint Crister::ClusterPrimitiveIndicesBufferIndex(Uint32 clusterIndex)const
 	{
 		return streamingGeometry_[clusterIndex].primitiveIndicesBufferIndex_;
 	}
 
+	/**
+	* [EN]
+	* Total mip levels the texture has (baked mip chain length), or 0
+	* if textureIndex is out of range.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* テクスチャが持つ総ミップ段数（焼き込み済みミップチェーンの長さ）。
+	* textureIndex が範囲外なら 0。
+	*/
 	Uint32 Crister::TextureMipCount(Uint32 textureIndex)const
 	{
 		if (textureIndex >= streamingTextures_.size())
@@ -2076,6 +2380,17 @@ namespace SeedCore
 		return streamingTextures_[textureIndex].mipCount_;
 	}
 
+	/**
+	* [EN]
+	* Finest mip level currently GPU-resident, or 0 if textureIndex is
+	* out of range.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 現在 GPU に常駐している最も細かいミップ段。textureIndex が範囲外
+	* なら 0。
+	*/
 	Uint32 Crister::TextureTopResidentMip(Uint32 textureIndex)const
 	{
 		if (textureIndex >= streamingTextures_.size())
@@ -2085,6 +2400,19 @@ namespace SeedCore
 		return streamingTextures_[textureIndex].topResidentMip_;
 	}
 
+	/**
+	* [EN]
+	* Approximates the mip a material texture needs from the same
+	* worldScale/pixelsPerUnit metric ModelRenderer already computes for
+	* cluster LOD selection (screen coverage of the instance).
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* ModelRenderer がクラスタ LOD 選択のために既に計算している
+	* worldScale/pixelsPerUnit（インスタンスの画面被覆率）から、
+	* マテリアルテクスチャに必要なミップを近似する。
+	*/
 	Uint32 Crister::DesiredTextureMip(Uint32 textureIndex, Float worldScale, Float pixelsPerUnit)const
 	{
 		if (textureIndex >= streamingTextures_.size() || !streamingTextures_[textureIndex].valid_)
@@ -2131,6 +2459,23 @@ namespace SeedCore
 		return mipCount == 0 ? 0 : Min(desiredMip, mipCount - 1);
 	}
 
+	/**
+	* [EN]
+	* Evicts unpinned cluster pages (oldest first) across every live
+	* Crister, then unpinned/unreferenced vertex pools, until total
+	* resident geometry fits geometryBudgetBytes_. Pages must be unused
+	* for evictAgeFrames_ frames before eviction so in-flight GPU work
+	* never loses a buffer it references.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 生存中の全 Crister を対象に、未ピンのクラスタページを古い順に、
+	* 続いて未ピン/未参照の頂点プールを追い出し、常駐ジオメトリ合計を
+	* geometryBudgetBytes_ 以内に収める。インフライトの GPU 作業が
+	* 参照中のバッファを失わないよう、evictAgeFrames_ フレーム未使用の
+	* ページのみ追い出す。
+	*/
 	void Crister::EvictClusterBudget(Uint64 currentFrame)
 	{
 		if (totalResidentGeometryBytes_ <= geometryBudgetBytes_)
@@ -2184,6 +2529,19 @@ namespace SeedCore
 		}
 	}
 
+	/**
+	* [EN]
+	* Texture counterpart to EvictClusterBudget: evicts unpinned
+	* resident texture mips (oldest first) across every live Crister
+	* until total resident texture memory fits textureBudgetBytes_.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* EvictClusterBudget のテクスチャ版の対: 生存中の全 Crister を対象に、
+	* 未ピンの常駐ミップを古い順に追い出し、常駐テクスチャメモリ合計を
+	* textureBudgetBytes_ 以内に収める。
+	*/
 	void Crister::EvictTextureBudget(Uint64 currentFrame)
 	{
 		if (totalResidentTextureBytes_ <= textureBudgetBytes_)
@@ -2225,46 +2583,147 @@ namespace SeedCore
 		}
 	}
 
+	/**
+	* [EN]
+	* Returns every Stage (root-node list + name) parsed from the source
+	* glTF's scenes.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* ソース glTF の scenes から解析された、全 Stage（ルートノード一覧 +
+	* 名前）を返す。
+	*/
 	const DynamicArray<Stage>& Crister::Stages()const
 	{
 		return stages_; 
 	}
 
+	/**
+	* [EN]
+	* Returns every Node in the flattened node hierarchy, including their
+	* local S/R/T and cumulated globalTransform_.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 平坦化されたノード階層の全 Node を返す。各ノードのローカル
+	* S/R/T と、累積済みの globalTransform_ を含む。
+	*/
 	const DynamicArray<Node>& Crister::Nodes()const
 	{
 		return nodes_;
 	}
 
+	/**
+	* [EN]
+	* Returns every KHR_lights_punctual point/spot light resolved from
+	* the source glTF, in world space.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* ソース glTF から解決された、全 KHR_lights_punctual
+	* ポイント/スポットライトをワールド空間で返す。
+	*/
 	const DynamicArray<PunctualLight>& Crister::Lights()const
 	{
 		return lights_;
 	}
 
+	/**
+	* [EN]
+	* Returns every SubMesh (material + cluster range + optional skin
+	* index) this Crister is split into.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* この Crister が分割されている全 SubMesh（マテリアル + クラスタ
+	* 範囲 + 任意のスキンインデックス）を返す。
+	*/
 	const DynamicArray<SubMesh>& Crister::SubMeshes()const
-	{ 
+	{
 		return subMeshes_;
 	}
 
-	const DynamicArray<Material>& Crister::Materials()const 
-	{ 
+	/**
+	* [EN]
+	* Returns every Material (PBR factors + KHR_materials_* extensions +
+	* texture indices) parsed from the source glTF.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* ソース glTF から解析された、全 Material（PBR ファクタ +
+	* KHR_materials_* 拡張 + テクスチャインデックス）を返す。
+	*/
+	const DynamicArray<Material>& Crister::Materials()const
+	{
 		return materials_;
 	}
 
-	const DynamicArray<Skin>& Crister::Skins()const 
-	{ 
+	/**
+	* [EN]
+	* Returns every Skin (joint list + inverse-bind matrices) parsed
+	* from the source glTF.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* ソース glTF から解析された、全 Skin（ジョイント一覧 + 逆バインド
+	* 行列）を返す。
+	*/
+	const DynamicArray<Skin>& Crister::Skins()const
+	{
 		return skins_;
 	}
 
-	const DynamicArray<Cluster>& Crister::Clusters()const 
-	{ 
+	/**
+	* [EN]
+	* Returns every Cluster (one LOD level's meshlet range within a
+	* SubMesh) across all SubMeshes.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 全 SubMesh を通した、全 Cluster（SubMesh 内の1 LOD レベルぶんの
+	* meshlet 範囲）を返す。
+	*/
+	const DynamicArray<Cluster>& Crister::Clusters()const
+	{
 		return clusters_;
 	}
 
-	Int Crister::DefaultStage()const 
-	{ 
+	/**
+	* [EN]
+	* Returns the index into Stages() of the stage rendered by default
+	* when no stage is explicitly selected.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 明示的にステージが選択されていない時にデフォルトで描画される、
+	* Stages() 内のインデックスを返す。
+	*/
+	Int Crister::DefaultStage()const
+	{
 		return defaultStage_;
 	}
 
+	/**
+	* [EN]
+	* Maps a glTF image index (as stored in Material) to the bindless
+	* heap index of the uploaded GPU texture. Returns 0xFFFFFFFF when
+	* not present.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* glTF の image インデックス（Material に格納されている値）を、
+	* アップロード済み GPU テクスチャの bindless ヒープインデックスに
+	* 変換する。無ければ 0xFFFFFFFF。
+	*/
 	Uint Crister::TextureBindlessIndex(Uint32 textureIndex)const
 	{
 		if (textureIndex >= streamingTextures_.size())
@@ -2280,71 +2739,241 @@ namespace SeedCore
 		return isPinnedMip ? streamingTexture.pinnedMip_.bindlessIndex_ : streamingTexture.currentMip_.bindlessIndex_;
 	}
 
+	/**
+	* [EN]
+	* Bindless SRV of the RT proxy CompressedVertex buffer (built from
+	* each SubMesh's coarsest cluster — reflections trace against a
+	* low-poly proxy so full-detail geometry never has to be resident).
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* RT プロキシ CompressedVertex バッファの bindless SRV（各 SubMesh の
+	* 最粗クラスタから構築 — 反射は低ポリプロキシに対してトレースする
+	* ため、フル詳細ジオメトリを常駐させる必要がない）。
+	*/
 	Uint Crister::VertexBufferIndex()const
 	{
 		return vertexBufferIndex_;
 	}
 
+	/**
+	* [EN]
+	* Bindless SRV of the CompressedSkinVertex buffer, or 0xFFFFFFFF
+	* when this Crister has no skins.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* CompressedSkinVertex バッファの bindless SRV。スキンが無い
+	* Crister では 0xFFFFFFFF。
+	*/
 	Uint Crister::SkinVertexBufferIndex()const
 	{
 		return skinVertexBufferIndex_;
 	}
 
+	/**
+	* [EN]
+	* Minimum corner of the dequantisation AABB for CompressedVertex
+	* positions (see the struct comment). Passed to the shaders through
+	* ModelInstance.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* CompressedVertex 位置の逆量子化 AABB の最小コーナー（構造体コメント
+	* 参照）。ModelInstance 経由でシェーダに渡す。
+	*/
 	Vector3 Crister::PositionMin()const
 	{
 		return positionMin_;
 	}
 
+	/**
+	* [EN]
+	* Extent (max - min) of the dequantisation AABB for CompressedVertex
+	* positions. Passed to the shaders through ModelInstance.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* CompressedVertex 位置の逆量子化 AABB の大きさ（max - min）。
+	* ModelInstance 経由でシェーダに渡す。
+	*/
 	Vector3 Crister::PositionExtent()const
 	{
 		return positionExtent_;
 	}
 
+	/**
+	* [EN]
+	* Minimum corner of the dequantisation AABB for CompressedVertex
+	* texcoords. Passed to the shaders through ModelInstance.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* CompressedVertex テクスチャ座標の逆量子化 AABB の最小コーナー。
+	* ModelInstance 経由でシェーダに渡す。
+	*/
 	Vector2 Crister::TexcoordMin()const
 	{
 		return texcoordMin_;
 	}
 
+	/**
+	* [EN]
+	* Extent (max - min) of the dequantisation AABB for CompressedVertex
+	* texcoords. Passed to the shaders through ModelInstance.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* CompressedVertex テクスチャ座標の逆量子化 AABB の大きさ
+	* （max - min）。ModelInstance 経由でシェーダに渡す。
+	*/
 	Vector2 Crister::TexcoordExtent()const
 	{
 		return texcoordExtent_;
 	}
 
+	/**
+	* [EN]
+	* GPU address of the RT proxy's dedicated float3 position buffer
+	* (stride = sizeof(Vector3)) for BLAS construction, decoded on the
+	* CPU from the quantised CompressedVertex data with the same math
+	* the mesh shader uses — so BLAS positions match the rasterized ones.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* BLAS 構築用の、RT プロキシ専用 float3 位置バッファ
+	* （stride = sizeof(Vector3)）の GPU アドレス。量子化済み
+	* CompressedVertex からメッシュシェーダと同じ計算で CPU デコード
+	* するため、BLAS の位置はラスタライズ結果と一致する。
+	*/
 	D3D12_GPU_VIRTUAL_ADDRESS Crister::VertexBufferGPUAddress()const
 	{
 		return positionResource_ ? positionResource_->GetGPUVirtualAddress() : 0;
 	}
 
+	/**
+	* [EN]
+	* Vertex count of the RT proxy position buffer VertexBufferGPUAddress() points to.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* VertexBufferGPUAddress() が指す RT プロキシ位置バッファの頂点数。
+	*/
 	Uint32 Crister::VertexCount()const
 	{
 		return rtVertexCount_;
 	}
 
+	/**
+	* [EN]
+	* GPU address of the flat (non-meshlet) 32-bit triangle index buffer
+	* for BLAS construction, unpacked once at Upload() time from
+	* primitiveIndices_/vertexIndices_ in the same order the mesh shader
+	* draws them — so BLAS geometry matches the rasterized geometry
+	* exactly (no re-derived winding).
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* BLAS 構築用の、フラット（非meshlet）32bit 三角形インデックス
+	* バッファの GPU アドレス。primitiveIndices_/vertexIndices_ から
+	* Upload() 時に1度だけ、メッシュシェーダが描くのと同じ順序で展開する
+	* — BLAS のジオメトリはラスタライズされるジオメトリと完全に一致する
+	* （巻き順を再導出しない）。
+	*/
 	D3D12_GPU_VIRTUAL_ADDRESS Crister::FlatTriangleIndexBufferGPUAddress()const
 	{
 		return flatTriangleIndexResource_ ? flatTriangleIndexResource_->GetGPUVirtualAddress() : 0;
 	}
 
+	/**
+	* [EN]
+	* Triangle count of the flat index buffer FlatTriangleIndexBufferGPUAddress() points to.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* FlatTriangleIndexBufferGPUAddress() が指すフラットインデックスバッファの三角形数。
+	*/
 	Uint32 Crister::FlatTriangleIndexCount()const
 	{
 		return flatTriangleIndexCount_;
 	}
 
+	/**
+	* [EN]
+	* Bindless SRV over the flat 32-bit triangle index buffer, for
+	* raytracing closesthit shaders to re-fetch the hit triangle's
+	* vertices (PrimitiveIndex() * 3 + 0/1/2 -> vertex index).
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* フラット 32bit 三角形インデックスバッファの bindless SRV。
+	* レイトレの closesthit がヒット三角形の頂点を引き直すのに使う
+	* (PrimitiveIndex() * 3 + 0/1/2 → 頂点インデックス)。
+	*/
 	Uint Crister::FlatTriangleIndexShaderResourceViewIndex()const
 	{
 		return flatTriangleIndexShaderResourceViewIndex_;
 	}
 
+	/**
+	* [EN]
+	* Whether this Crister has RT-side skinning data (skinVertexResource_/
+	* rtSkinVertexResource_ populated), i.e. skins_ is non-empty and the
+	* RT proxy build found at least one skinned SubMesh.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* この Crister が RT 側のスキニングデータを持つか
+	* (skinVertexResource_/rtSkinVertexResource_ が構築済みか)。
+	* skins_ が空でなく、RT プロキシ構築時にスキンド SubMesh を
+	* 1つ以上見つけた場合に true。
+	*/
 	Bool Crister::HasSkinnedRTGeometry()const
 	{
 		return rtSkinVertexResource_ != nullptr;
 	}
 
+	/**
+	* [EN]
+	* GPU address of the RT proxy's decoded float3 position buffer
+	* (positionResource_) — see VertexBufferGPUAddress's comment for why
+	* RT uses a separate dedicated position buffer.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* RT プロキシのデコード済み float3 位置バッファ (positionResource_)
+	* の GPU アドレス — RT が専用の位置バッファを使う理由は
+	* VertexBufferGPUAddress のコメント参照。
+	*/
 	D3D12_GPU_VIRTUAL_ADDRESS Crister::RTPositionBufferGPUAddress()const
 	{
 		return positionResource_ ? positionResource_->GetGPUVirtualAddress() : 0;
 	}
 
+	/**
+	* [EN]
+	* GPU address of the RT proxy's skin vertex pool
+	* (rtSkinVertexResource_), or 0 when HasSkinnedRTGeometry is false.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* RT プロキシのスキン頂点プール (rtSkinVertexResource_) の
+	* GPU アドレス。HasSkinnedRTGeometry が false なら 0。
+	*/
 	D3D12_GPU_VIRTUAL_ADDRESS Crister::RTSkinVertexBufferGPUAddress()const
 	{
 		return rtSkinVertexResource_ ? rtSkinVertexResource_->GetGPUVirtualAddress() : 0;

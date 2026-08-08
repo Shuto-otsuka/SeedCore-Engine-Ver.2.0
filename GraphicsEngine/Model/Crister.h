@@ -146,6 +146,22 @@ namespace SeedCore
 		}
 	};
 
+	/**
+	* [EN]
+	* GPU meshlet-shader input: one meshlet's vertex/triangle range within
+	* its owning Cluster's page, addressed relative to vertexIndices_/
+	* primitiveIndices_ (page-local once a page is uploaded — see
+	* StreamingGeometry). A Cluster spans meshletOffset_/meshletCount_ of
+	* these.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* GPU メッシュシェーダ入力: 1 meshlet ぶんの、所属 Cluster のページ内での
+	* 頂点/三角形範囲。vertexIndices_/primitiveIndices_ を基準に指す
+	* （ページがアップロードされた後はページローカルになる — StreamingGeometry
+	* 参照）。Cluster は meshletOffset_/meshletCount_ 個ぶんのこれをまとめる。
+	*/
 	struct Meshlet
 	{
 		Uint32 vertexOffset_ = 0;
@@ -165,6 +181,19 @@ namespace SeedCore
 		}
 	};
 
+	/**
+	* [EN]
+	* Culling bound for one Meshlet: a bounding sphere (center_/radius_)
+	* plus a normal cone (coneAxis_/coneCutoff_) for backface-cluster
+	* culling. One entry per Meshlet, same indexing as meshlets_.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* Meshlet 1 つぶんのカリング用バウンド: バウンディングスフィア
+	* (center_/radius_) と、背面クラスタカリング用の法線コーン
+	* (coneAxis_/coneCutoff_)。meshlets_ と同じインデックスで 1 対 1。
+	*/
 	struct MeshletBound
 	{
 		Vector3 center_ = { 0,0,0 };
@@ -184,6 +213,25 @@ namespace SeedCore
 		}
 	};
 
+	/**
+	* [EN]
+	* One LOD level's meshlet range within a SubMesh: meshletOffset_/
+	* meshletCount_ index into meshlets_/meshletBounds_, lodLevel_ selects
+	* the detail tier (0 = most detailed), and lodError_ is the QEM
+	* simplification error used to pick which Cluster to draw for a given
+	* screen coverage. This is also the streaming granularity — see
+	* StreamingGeometry, MakeClusterResident/EvictCluster.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* SubMesh 内の 1 LOD レベルぶんの meshlet 範囲: meshletOffset_/
+	* meshletCount_ で meshlets_/meshletBounds_ を指す。lodLevel_ が
+	* 詳細度の段（0 が最も詳細）、lodError_ は QEM 簡略化誤差で、画面
+	* 被覆率に応じてどの Cluster を描画するか選ぶのに使う。これは
+	* ストリーミングの粒度でもある — StreamingGeometry、
+	* MakeClusterResident/EvictCluster 参照。
+	*/
 	struct Cluster
 	{
 		Uint32 meshletOffset_ = 0;
@@ -203,6 +251,21 @@ namespace SeedCore
 		}
 	};
 
+	/**
+	* [EN]
+	* One drawable piece of the model: a single material assignment plus
+	* clusterOffset_/clusterCount_ (all its LOD Clusters) and
+	* indexOffset_/indexCount_ (its range in the flat 32-bit triangle
+	* index buffer, for RT). Every glTF primitive becomes one SubMesh.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* モデルの描画可能な1パーツ: 単一のマテリアル割り当てと
+	* clusterOffset_/clusterCount_（全 LOD の Cluster）、
+	* indexOffset_/indexCount_（フラット 32bit 三角形インデックスバッファ
+	* 内の範囲、RT 用）。glTF の各プリミティブが1つの SubMesh になる。
+	*/
 	struct SubMesh
 	{
 		Uint32 clusterOffset_ = 0;
@@ -231,6 +294,19 @@ namespace SeedCore
 		}
 	};
 
+	/**
+	* [EN]
+	* One glTF scene: a name plus the list of its root-level node
+	* indices into nodes_. defaultStage_ selects which Stage renders by
+	* default when none is explicitly chosen.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* glTF の1シーンぶん: 名前と、nodes_ を指すルートレベルのノード
+	* インデックス一覧。defaultStage_ が、明示的な選択が無い時に
+	* デフォルトで描画される Stage を選ぶ。
+	*/
 	struct Stage
 	{
 		std::string name_;
@@ -246,11 +322,31 @@ namespace SeedCore
 		}
 	};
 
-	/// [JP] glTF の KHR_materials_* 拡張をまとめて持つ。各拡張のデフォルトは
-	///      「拡張が glTF に無い時＝中立（効果なし）」になるよう設定している。
+	/**
+	* [EN]
+	* Bundles every glTF KHR_materials_* extension a Material can carry.
+	* Each extension's default is set so that "extension absent from the
+	* glTF" and "extension present with default values" behave identically
+	* (neutral / no effect).
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* glTF の KHR_materials_* 拡張をまとめて持つ。各拡張のデフォルトは
+	* 「拡張が glTF に無い時＝中立（効果なし）」になるよう設定している。
+	*/
 	struct KHR
 	{
-		/// [JP] KHR_materials_emissive_strength: エミッシブ強度（>1 で HDR 発光）。既定 1.0＝中立。
+		/**
+		* [EN]
+		* KHR_materials_emissive_strength: emissive intensity multiplier
+		* (>1 for HDR emission). Default 1.0 = neutral.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* KHR_materials_emissive_strength: エミッシブ強度（>1 で HDR 発光）。既定 1.0＝中立。
+		*/
 		struct EmissiveStrength
 		{
 			Float emissiveStrength_ = 1.0f;
@@ -263,7 +359,17 @@ namespace SeedCore
 		};
 		EmissiveStrength emissiveStrength_;
 
-		/// [JP] KHR_materials_ior: 誘電体の屈折率。既定 1.5（glTF 既定）。F0 計算に効く。
+		/**
+		* [EN]
+		* KHR_materials_ior: dielectric index of refraction. Default 1.5
+		* (glTF's own default). Feeds the F0 (Fresnel reflectance at normal
+		* incidence) computation.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* KHR_materials_ior: 誘電体の屈折率。既定 1.5（glTF 既定）。F0 計算に効く。
+		*/
 		struct Ior
 		{
 			Float ior_ = 1.5f;
@@ -276,7 +382,16 @@ namespace SeedCore
 		};
 		Ior ior_;
 
-		/// [JP] KHR_materials_specular: スペキュラ強度と色。既定 factor=1/color=白＝フルスペキュラ（中立）。
+		/**
+		* [EN]
+		* KHR_materials_specular: specular intensity and tint. Default
+		* factor=1 / color=white = full specular (neutral).
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* KHR_materials_specular: スペキュラ強度と色。既定 factor=1/color=白＝フルスペキュラ（中立）。
+		*/
 		struct Specular
 		{
 			Float specularFactor_ = 1.0f;
@@ -298,7 +413,16 @@ namespace SeedCore
 		};
 		Specular specular_;
 
-		/// [JP] KHR_materials_clearcoat: クリアコート層。既定 factor=0＝コート無し（中立）。
+		/**
+		* [EN]
+		* KHR_materials_clearcoat: an extra clear-coat lobe. Default
+		* factor=0 = no coat (neutral).
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* KHR_materials_clearcoat: クリアコート層。既定 factor=0＝コート無し（中立）。
+		*/
 		struct ClearCoat
 		{
 			Float clearCoatFactor_ = 0.0f;
@@ -322,7 +446,16 @@ namespace SeedCore
 		};
 		ClearCoat clearCoat_;
 
-		/// [JP] KHR_materials_transmission: 透過（薄いガラス）。既定 factor=0＝不透過（中立）。
+		/**
+		* [EN]
+		* KHR_materials_transmission: thin-glass transmission. Default
+		* factor=0 = opaque (neutral).
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* KHR_materials_transmission: 透過（薄いガラス）。既定 factor=0＝不透過（中立）。
+		*/
 		struct Transmission
 		{
 			Float transmissionFactor_ = 0.0f;
@@ -340,8 +473,19 @@ namespace SeedCore
 		};
 		Transmission transmission_;
 
-		/// [JP] KHR_materials_volume: 内部ボリューム（厚み・吸収）。transmission と併用。
-		///      既定 thickness=0/attenuationDistance=∞（吸収なし）/color=白＝中立。
+		/**
+		* [EN]
+		* KHR_materials_volume: internal volume (thickness + absorption),
+		* used together with Transmission. Default thickness=0 /
+		* attenuationDistance=infinity (no absorption) / color=white =
+		* neutral.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* KHR_materials_volume: 内部ボリューム（厚み・吸収）。transmission と併用。
+		* 既定 thickness=0/attenuationDistance=∞（吸収なし）/color=白＝中立。
+		*/
 		struct Volume
 		{
 			Float thicknessFactor_ = 0.0f;
@@ -363,7 +507,16 @@ namespace SeedCore
 		};
 		Volume volume_;
 
-		/// [JP] KHR_materials_sheen: 布の光沢。既定 color=黒＝シーン無し（中立）。
+		/**
+		* [EN]
+		* KHR_materials_sheen: fabric-like sheen lobe. Default color=black =
+		* no sheen (neutral).
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* KHR_materials_sheen: 布の光沢。既定 color=黒＝シーン無し（中立）。
+		*/
 		struct Sheen
 		{
 			Float sheenColorFactor_[3] = { 0,0,0 };
@@ -385,8 +538,18 @@ namespace SeedCore
 		};
 		Sheen sheen_;
 
-		/// [JP] KHR_materials_iridescence: 虹色（シャボン玉・油膜）。既定 factor=0＝無し（中立）。
-		///      厚みは nm 単位（既定 min=100/max=400）、ior 既定 1.3。
+		/**
+		* [EN]
+		* KHR_materials_iridescence: thin-film iridescence (soap bubble /
+		* oil slick). Default factor=0 = none (neutral). Thickness is in
+		* nanometres (default min=100/max=400), ior default 1.3.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* KHR_materials_iridescence: 虹色（シャボン玉・油膜）。既定 factor=0＝無し（中立）。
+		* 厚みは nm 単位（既定 min=100/max=400）、ior 既定 1.3。
+		*/
 		struct Iridescence
 		{
 			Float iridescenceFactor_ = 0.0f;
@@ -412,8 +575,18 @@ namespace SeedCore
 		};
 		Iridescence iridescence_;
 
-		/// [JP] KHR_materials_anisotropy: 異方性スペキュラ（ヘアライン金属・髪）。
-		///      既定 strength=0＝等方（中立）。rotation はラジアン。
+		/**
+		* [EN]
+		* KHR_materials_anisotropy: anisotropic specular (brushed metal,
+		* hair). Default strength=0 = isotropic (neutral). rotation is in
+		* radians.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* KHR_materials_anisotropy: 異方性スペキュラ（ヘアライン金属・髪）。
+		* 既定 strength=0＝等方（中立）。rotation はラジアン。
+		*/
 		struct Anisotropy
 		{
 			Float anisotropyStrength_ = 0.0f;
@@ -433,7 +606,16 @@ namespace SeedCore
 		};
 		Anisotropy anisotropy_;
 
-		/// [JP] KHR_materials_unlit: ライティング無効（フラット）。存在で 1、既定 0＝通常ライティング。
+		/**
+		* [EN]
+		* KHR_materials_unlit: disables lighting (flat shading). 1 when the
+		* extension is present, default 0 = normal lighting.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* KHR_materials_unlit: ライティング無効（フラット）。存在で 1、既定 0＝通常ライティング。
+		*/
 		struct Unlit
 		{
 			Int unlit_ = 0;
@@ -464,6 +646,22 @@ namespace SeedCore
 		}
 	};
 
+	/**
+	* [EN]
+	* glTF PBR metallic-roughness material: base factors, alpha mode/
+	* cutoff/double-sidedness, bundled KHR_materials_* extensions (khr_),
+	* and bindless-heap-agnostic texture indices (resolved into actual
+	* bindless indices at Upload() time via TextureBindlessIndex).
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* glTF の PBR metallic-roughness マテリアル: 基本ファクタ、アルファ
+	* モード/カットオフ/両面描画フラグ、まとめた KHR_materials_* 拡張
+	* (khr_)、そして bindless ヒープに依存しないテクスチャインデックス
+	* （Upload() 時に TextureBindlessIndex 経由で実際の bindless
+	* インデックスへ解決される）。
+	*/
 	struct Material
 	{
 		Color baseColor_ = { 1,1,1,1 };
@@ -504,12 +702,32 @@ namespace SeedCore
 		}
 	};
 
+	/**
+	* [EN]
+	* One node in the flattened glTF node hierarchy: local S/R/T, an
+	* optional mesh_/skin_/light_ reference, and children_ indices into
+	* nodes_. globalTransform_ is cumulated top-down by
+	* CumulateTransforms()/ModelLoader::CumulateTransforms from every
+	* ancestor's local transform.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 平坦化された glTF ノード階層の1ノード: ローカル S/R/T、任意の
+	* mesh_/skin_/light_ 参照、nodes_ を指す children_ インデックス。
+	* globalTransform_ は CumulateTransforms()/
+	* ModelLoader::CumulateTransforms が全祖先のローカルトランスフォーム
+	* から上から下へ累積計算する。
+	*/
 	struct Node
 	{
 		std::string name_;
 		Int mesh_ = -1;
 		Int skin_ = -1;
-		Int light_ = -1; // KHR_lights_punctual: index into Crister::lights_, -1 if none.
+
+		/// [EN] KHR_lights_punctual: index into Crister::lights_, -1 if none.
+		/// [JP] KHR_lights_punctual: Crister::lights_ へのインデックス。無ければ -1。
+		Int light_ = -1;
 		DynamicArray<Int> children_;
 
 		Quaternion rotation_ = { 0,0,0,1 };
@@ -534,6 +752,19 @@ namespace SeedCore
 		}
 	};
 
+	/**
+	* [EN]
+	* glTF skin: the joint list (indices into nodes_) and their matching
+	* inverse-bind matrices, indexed 1:1. Referenced by Node::skin_ and
+	* SubMesh::skinIndex_.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* glTF のスキン: ジョイント一覧（nodes_ へのインデックス）と、それに
+	* 1対1対応する逆バインド行列。Node::skin_ と SubMesh::skinIndex_ から
+	* 参照される。
+	*/
 	struct Skin
 	{
 		DynamicArray<Matrix> inverseBindMatrices_;
@@ -596,18 +827,25 @@ namespace SeedCore
 		}
 	};
 
-	/// [EN] width_/height_/mipCount_ describe cacheData_ as baked by
-	///      Crister::BakeBitmap(): BC7-compressed blocks for mip 0 through
-	///      mipCount_-1, concatenated in mip order (standard BC block
-	///      layout — 16 bytes per 4x4 texel block, no explicit per-mip
-	///      offsets stored; Upload() recomputes them from width_/height_).
-	///      component_/bits_ describe the original glTF source image only.
-	/// [JP] width_/height_/mipCount_ は Crister::BakeBitmap() が焼いた
-	///      cacheData_ の内容を表す: mip 0 から mipCount_-1 までの BC7 圧縮
-	///      ブロックをミップ順に連結したもの（標準的な BC ブロックレイアウト
-	///      — 4x4 テクセルブロックあたり 16 バイト、ミップごとのオフセットは
-	///      持たず Upload() が width_/height_ から再計算する）。
-	///      component_/bits_ は元の glTF ソース画像の情報のみ。
+	/**
+	* [EN]
+	* width_/height_/mipCount_ describe cacheData_ as baked by
+	* Crister::BakeBitmap(): BC7-compressed blocks for mip 0 through
+	* mipCount_-1, concatenated in mip order (standard BC block
+	* layout — 16 bytes per 4x4 texel block, no explicit per-mip
+	* offsets stored; Upload() recomputes them from width_/height_).
+	* component_/bits_ describe the original glTF source image only.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* width_/height_/mipCount_ は Crister::BakeBitmap() が焼いた
+	* cacheData_ の内容を表す: mip 0 から mipCount_-1 までの BC7 圧縮
+	* ブロックをミップ順に連結したもの（標準的な BC ブロックレイアウト
+	* — 4x4 テクセルブロックあたり 16 バイト、ミップごとのオフセットは
+	* 持たず Upload() が width_/height_ から再計算する）。
+	* component_/bits_ は元の glTF ソース画像の情報のみ。
+	*/
 	struct Bitmap
 	{
 		std::string name_;
@@ -653,6 +891,33 @@ namespace SeedCore
 		Full,
 	};
 
+	/**
+	* [EN]
+	* GPU-resident, geometry/texture-streaming model asset: quantised
+	* mesh data (compressedVertices_ etc.), meshlet/cluster LOD hierarchy,
+	* materials/nodes/skins/lights, and the .crister-cache-backed bake
+	* pipeline (BakeMesh/BakeBitmap) that produces them. Built once by
+	* ModelLoader from a source glTF (or reloaded straight from a
+	* .crister cache), then Upload()ed to create its D3D12 resources and
+	* bindless indices. Owns its own Nanite-style streaming residency
+	* (MakeClusterResident/EvictCluster, MakeTextureMipResident/
+	* EvictTextureMip) against shared VRAM budgets tracked across every
+	* live Crister.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* GPU 常駐・ジオメトリ/テクスチャストリーミング対応のモデルアセット:
+	* 量子化済みメッシュデータ (compressedVertices_ 等)、meshlet/cluster
+	* の LOD 階層、マテリアル/ノード/スキン/ライト、そしてそれらを生成する
+	* .crister キャッシュ向けのベイクパイプライン (BakeMesh/BakeBitmap)。
+	* ModelLoader がソース glTF から一度構築する（あるいは .crister
+	* キャッシュから直接リロードする）。その後 Upload() で D3D12
+	* リソースと bindless インデックスを作成する。独自の Nanite 型
+	* ストリーミング常駐管理 (MakeClusterResident/EvictCluster、
+	* MakeTextureMipResident/EvictTextureMip) を持ち、生存中の全 Crister
+	* で共有する VRAM 予算に対して管理する。
+	*/
 	class SEEDCORE_API Crister
 	{
 	private:
@@ -697,6 +962,24 @@ namespace SeedCore
 
 	public:
 		Crister() = default;
+
+		/**
+		* [EN]
+		* Releases every resident streaming page (pinned included — the model
+		* itself is going away) and returns their descriptor indices to
+		* bindlessHeap_. Every GPU resource is handed to the deferred-reclaim
+		* ring rather than dying with this object, since frames still in
+		* flight may be drawing from these exact buffers and textures.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* 常駐中のストリーミングページをすべて解放し（モデル自体が消えるため
+		* ピン留め込み）、ディスクリプタインデックスを bindlessHeap_ へ返す。
+		* GPU リソースはこのオブジェクトと一緒に死なせず、遅延回収リングへ
+		* 渡す — インフライトのフレームがまさにこれらのバッファやテクスチャで
+		* 描画している可能性があるため。
+		*/
 		~Crister();
 
 		Crister(Crister&&)noexcept = default;
@@ -979,6 +1262,41 @@ namespace SeedCore
 		*/
 		Bool ApplyTransformConversion(Vector3 position, Vector3 rotation, Vector3 scale, Vector3 pivot, const std::filesystem::path& cristerPath);
 
+		/**
+		* [EN]
+		* Creates every GPU resource this Crister needs to draw: derives each
+		* Cluster's streaming page ranges from its meshlet slice and pins the
+		* pages that must never evict (coarsest cluster per SubMesh, skinned
+		* LOD 0, the vertex pool they reference), uploads skin attributes for
+		* the pool range, flattens each SubMesh's coarsest cluster into RT
+		* proxy geometry (compressed vertices + decoded float3 positions +
+		* flat 32-bit triangle indices, deduplicated), sets up per-texture
+		* streaming state from BakeBitmap()'s BC7 mip chains (clamped to the
+		* leading run of mip levels legal as a standalone single-mip BC7
+		* resource), then registers with the shared streaming bookkeeping and
+		* brings the pinned geometry pages/texture mips resident so the model
+		* is immediately drawable at its fallback LOD/resolution. Finer
+		* pages/mips stream in later on demand (MakeClusterResident/
+		* MakeTextureMipResident, driven by ModelRenderer::Gather).
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* この Crister の描画に必要な全 GPU リソースを作成する: 各 Cluster の
+		* ストリーミングページ範囲を meshlet スライスから導出し、追い出しては
+		* いけないページ（SubMesh ごとの最粗クラスタ、スキンド LOD 0、それらが
+		* 参照する頂点プール）をピン留めする。プール範囲分のスキニング属性を
+		* アップロードし、各 SubMesh の最粗クラスタを RT プロキシジオメトリ
+		* （圧縮頂点 + デコード済み float3 位置 + 重複排除済みフラット 32bit
+		* 三角形インデックス）へ展開する。BakeBitmap() が焼いた BC7 ミップ
+		* チェーンから（「単一ミップの独立した BC7 リソース」として合法な
+		* 先頭のミップ範囲へ切り詰めた上で）テクスチャごとのストリーミング
+		* 状態を準備し、最後に共有ストリーミング管理へ登録してピン留め
+		* ジオメトリページ/テクスチャミップを常駐させ、フォールバック
+		* LOD/解像度で即座に描画可能にする。より細かいページ/ミップは後で
+		* オンデマンドにストリームインする（MakeClusterResident/
+		* MakeTextureMipResident、ModelRenderer::Gather から駆動）。
+		*/
 		void Upload(ID3D12Device* device, ID3D12CommandQueue* cmdQueue, BindlessHeap* heap);
 
 		/**
@@ -1687,14 +2005,21 @@ namespace SeedCore
 		*/
 		static void ComputeTextureMipLayout(const Bitmap& bitmap, Uint32 mipIndex, Uint32& outWidth, Uint32& outHeight, Uint64& outRowPitch, Uint64& outSlicePitch, Uint64& outByteOffset);
 
-		/// [EN] One streamable GPU page: a Cluster's rebased slice of geometry.
-		///      Offsets stored in the page's meshlets are page-local; LOD>=1
-		///      pages own their vertex slice, LOD 0 pages reference the shared
-		///      vertex pool page instead (vertexBufferIndex_ = pool SRV).
-		/// [JP] ストリーミング可能な GPU ページ 1 つ = Cluster のリベース済み
-		///      ジオメトリスライス。ページ内 meshlet のオフセットはページ
-		///      ローカル。LOD>=1 は専用頂点スライスを所有し、LOD 0 は共有頂点
-		///      プールページを参照する（vertexBufferIndex_ = プール SRV）。
+		/**
+		* [EN]
+		* One streamable GPU page: a Cluster's rebased slice of geometry.
+		* Offsets stored in the page's meshlets are page-local; LOD>=1
+		* pages own their vertex slice, LOD 0 pages reference the shared
+		* vertex pool page instead (vertexBufferIndex_ = pool SRV).
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* ストリーミング可能な GPU ページ 1 つ = Cluster のリベース済み
+		* ジオメトリスライス。ページ内 meshlet のオフセットはページ
+		* ローカル。LOD>=1 は専用頂点スライスを所有し、LOD 0 は共有頂点
+		* プールページを参照する（vertexBufferIndex_ = プール SRV）。
+		*/
 		struct StreamingGeometry
 		{
 			/// [JP] CPU 配列内の派生レンジ（ロード時に meshlet 列から導出）。
@@ -1724,14 +2049,21 @@ namespace SeedCore
 			Uint64 lastUsedFrame_ = 0;
 		};
 
-		/// [EN] One streamable GPU mip of a Model-embedded texture: a single-mip
-		///      committed resource at that mip's own resolution. UV space is the
-		///      same regardless of which mip currently backs the SRV, so swapping
-		///      it in/out needs no shader-side change.
-		/// [JP] Model 内蔵テクスチャのストリーミング可能な GPU ミップ 1 つ。
-		///      そのミップ自身の解像度を持つ単一ミップの committed resource。
-		///      どのミップが SRV の裏にあっても UV 空間は変わらないため、
-		///      出し入れにシェーダ側の変更は不要。
+		/**
+		* [EN]
+		* One streamable GPU mip of a Model-embedded texture: a single-mip
+		* committed resource at that mip's own resolution. UV space is the
+		* same regardless of which mip currently backs the SRV, so swapping
+		* it in/out needs no shader-side change.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* Model 内蔵テクスチャのストリーミング可能な GPU ミップ 1 つ。
+		* そのミップ自身の解像度を持つ単一ミップの committed resource。
+		* どのミップが SRV の裏にあっても UV 空間は変わらないため、
+		* 出し入れにシェーダ側の変更は不要。
+		*/
 		struct TextureMipLevel
 		{
 			Microsoft::WRL::ComPtr<ID3D12Resource> resource_;
@@ -1739,34 +2071,41 @@ namespace SeedCore
 			Uint64 sizeBytes_ = 0;
 		};
 
-		/// [EN] Streaming state for one Bitmap. At most 2 mips are ever GPU-resident
-		///      at once: pinnedMip_ (mipCount_-1, the coarsest, uploaded once at
-		///      Upload() and never freed — guarantees a fallback SRV) and
-		///      currentMip_ (topResidentMip_, the best mip streamed in so far;
-		///      unused while topResidentMip_ == mipCount_-1, i.e. nothing finer
-		///      than pinned has been requested yet). TextureBindlessIndex always
-		///      returns whichever of the two is finest, so intermediate mips
-		///      never need to stay resident — only the currently sampled one.
-		///      (Keeping the whole [topResidentMip_, mipCount_-1] range resident,
-		///      as an earlier version of this did, multiplies bindless-heap and
-		///      VRAM usage by up to mipCount_ per texture once DesiredTextureMip
-		///      legitimately converges toward mip 0 — exhausted the shared
-		///      BindlessHeap and corrupted other textures' descriptors. Do not
-		///      go back to that shape without also capping resident mips.)
-		/// [JP] Bitmap 1 枚分のストリーミング状態。GPU 常駐は常に最大2ミップまで:
-		///      pinnedMip_(mipCount_-1、最粗。Upload() で一度だけアップロードし
-		///      以後解放しない — フォールバック SRV を保証する)と currentMip_
-		///      (topResidentMip_、これまでにストリームインした最良ミップ。
-		///      topResidentMip_ == mipCount_-1 の間、つまりピン留めより細かい
-		///      ミップを未要求の間は未使用)。TextureBindlessIndex は常にこの2つの
-		///      うち細かい方を返すため、中間ミップを常駐させ続ける必要はなく、
-		///      実際にサンプルされる1枚だけで済む。
-		///      (以前のバージョンのように [topResidentMip_, mipCount_-1] を丸ごと
-		///      常駐させ続けると、DesiredTextureMip が正しくミップ0へ収束する
-		///      ようになった途端、1テクスチャあたり最大 mipCount_ 個分の
-		///      bindless ヒープ/VRAM を消費し、共有 BindlessHeap を枯渇させて
-		///      他テクスチャのディスクリプタまで壊れた。常駐ミップ数を制限せずに
-		///      その形へ戻さないこと。)
+		/**
+		* [EN]
+		* Streaming state for one Bitmap. At most 2 mips are ever GPU-resident
+		* at once: pinnedMip_ (mipCount_-1, the coarsest, uploaded once at
+		* Upload() and never freed — guarantees a fallback SRV) and
+		* currentMip_ (topResidentMip_, the best mip streamed in so far;
+		* unused while topResidentMip_ == mipCount_-1, i.e. nothing finer
+		* than pinned has been requested yet). TextureBindlessIndex always
+		* returns whichever of the two is finest, so intermediate mips
+		* never need to stay resident — only the currently sampled one.
+		* (Keeping the whole [topResidentMip_, mipCount_-1] range resident,
+		* as an earlier version of this did, multiplies bindless-heap and
+		* VRAM usage by up to mipCount_ per texture once DesiredTextureMip
+		* legitimately converges toward mip 0 — exhausted the shared
+		* BindlessHeap and corrupted other textures' descriptors. Do not
+		* go back to that shape without also capping resident mips.)
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* Bitmap 1 枚分のストリーミング状態。GPU 常駐は常に最大2ミップまで:
+		* pinnedMip_(mipCount_-1、最粗。Upload() で一度だけアップロードし
+		* 以後解放しない — フォールバック SRV を保証する)と currentMip_
+		* (topResidentMip_、これまでにストリームインした最良ミップ。
+		* topResidentMip_ == mipCount_-1 の間、つまりピン留めより細かい
+		* ミップを未要求の間は未使用)。TextureBindlessIndex は常にこの2つの
+		* うち細かい方を返すため、中間ミップを常駐させ続ける必要はなく、
+		* 実際にサンプルされる1枚だけで済む。
+		* (以前のバージョンのように [topResidentMip_, mipCount_-1] を丸ごと
+		* 常駐させ続けると、DesiredTextureMip が正しくミップ0へ収束する
+		* ようになった途端、1テクスチャあたり最大 mipCount_ 個分の
+		* bindless ヒープ/VRAM を消費し、共有 BindlessHeap を枯渇させて
+		* 他テクスチャのディスクリプタまで壊れた。常駐ミップ数を制限せずに
+		* その形へ戻さないこと。)
+		*/
 		struct StreamingTexture
 		{
 			TextureMipLevel pinnedMip_;
