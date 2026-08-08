@@ -24,6 +24,8 @@ namespace SeedCore
 
 	Uint BindlessHeap::AllocateIndex()
 	{
+		std::scoped_lock lock(mutex_);
+
 		if (freeLists_.empty())
 		{
 			/// [EN] Returning 0xFFFFFFFF here would be fatal: no call site checks
@@ -58,6 +60,7 @@ namespace SeedCore
 			return;
 		}
 
+		std::scoped_lock lock(mutex_);
 		pendingIndices_[deferredSlot_].push_back(index);
 	}
 
@@ -68,11 +71,14 @@ namespace SeedCore
 			return;
 		}
 
+		std::scoped_lock lock(mutex_);
 		pendingResources_[deferredSlot_].push_back(std::move(resource));
 	}
 
 	void BindlessHeap::Retire()
 	{
+		std::scoped_lock lock(mutex_);
+
 		deferredSlot_ = (deferredSlot_ + 1) % deferredSlotCount;
 
 		/// [EN] This slot was last written deferredSlotCount frames ago, so every

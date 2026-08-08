@@ -66,6 +66,16 @@ namespace SeedCore
 		///      再利用されないようにするため。
 		static constexpr Uint deferredSlotCount = FrameRing::frameCount + 1;
 
+		/// [EN] Guards freeLists_/pendingIndices_/pendingResources_/deferredSlot_ -
+		///      AllocateIndex/FreeIndex/DeferRelease/Retire can now be called from
+		///      a background asset-loading worker (see ResourceCache::Step)
+		///      concurrently with the main thread's own allocations.
+		/// [JP] freeLists_/pendingIndices_/pendingResources_/deferredSlot_ を
+		///      保護する - AllocateIndex/FreeIndex/DeferRelease/Retire は、
+		///      バックグラウンドのアセット読み込みワーカー（ResourceCache::Step
+		///      参照）とメインスレッド自身の確保が同時に発生しうるようになった。
+		std::mutex mutex_;
+
 		ResourcePtr<DescriptorHeap> heap_;
 
 		DynamicArray<Uint> freeLists_;

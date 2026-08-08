@@ -16,6 +16,7 @@ namespace SeedCore
 	class BindlessHeap;
 	class BC7CompressShader;
 	class FontManager;
+	class JobExecutor;
 
 	class FontResource;
 	class SkymapResource;
@@ -254,6 +255,30 @@ namespace SeedCore
 		* 返す（キューが尽きた、または Async が呼ばれていない場合は false）。
 		*/
 		Bool Step(LoaderSystem& loader, ID3D12Device* device, ID3D12CommandQueue* cmdQueue, BindlessHeap* heap, BC7CompressShader& bc7Shader);
+
+		/**
+		* [EN]
+		* Starts (once per Async() pass - later calls are ignored until the
+		* pass finishes) a background job that repeatedly calls Step() on a
+		* dedicated worker thread until the pending queue is drained. Callers
+		* poll Complete()/Progress() (both atomic) from the main thread instead
+		* of calling Step() themselves, so a heavy per-asset load never blocks
+		* frame presentation. The destructor waits for this job to finish
+		* before unloading anything, so it's always safe to tear down mid-load.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* バックグラウンドジョブを開始する（Async() パスごとに1回のみ - パスが
+		* 終わるまで以降の呼び出しは無視される）。専用のワーカースレッド上で
+		* キューが尽きるまで Step() を繰り返し呼ぶ。呼び出し側は自分で Step()
+		* を呼ぶ代わりに、メインスレッドから Complete()/Progress()（どちらも
+		* atomic）をポーリングする。これにより重いアセット単位の読み込みが
+		* フレーム表示をブロックすることがなくなる。デストラクタはこの
+		* ジョブの完了を待ってから解放処理に入るので、読み込み中に破棄しても
+		* 常に安全。
+		*/
+		void StepAsync(LoaderSystem& loader, ID3D12Device* device, ID3D12CommandQueue* cmdQueue, BindlessHeap* heap, BC7CompressShader& bc7Shader);
 
 		/**
 		* [EN]
@@ -599,9 +624,13 @@ namespace SeedCore
 		/// [JP] 現在の Async() パスで読み込みを待っている、AssetType 順に並んだアセット ID 群。
 		DynamicArray<Uint32> pendingAssetIDs_;
 
-		/// [EN] Index of the next pending asset Step() will process.
+		/// [EN] Index of the next pending asset Step() will process. Atomic
+		///      since StepAsync() reads/writes it from a background worker
+		///      while Complete() may be read concurrently from the main thread.
 		/// [JP] 次に Step() が処理する、保留アセットのインデックス。
-		Size pendingIndex_ = 0;
+		///      StepAsync() がバックグラウンドワーカーから読み書きする一方、
+		///      Complete() がメインスレッドから同時に読まれうるため atomic。
+		std::atomic<Size> pendingIndex_{ 0 };
 
 		/// [EN] Total number of assets queued in the current Async() pass.
 		/// [JP] 現在の Async() パスでキューに入れられたアセットの総数。
@@ -614,6 +643,18 @@ namespace SeedCore
 		/// [EN] Whether the directory scan for the current Async() pass has finished.
 		/// [JP] 現在の Async() パスにおけるディレクトリスキャンが完了しているかどうか。
 		std::atomic<Bool> scanComplete_{ false };
+
+		/// [EN] Dedicated single-worker executor backing StepAsync() - lazily
+		///      created on first use, destroyed (waiting for outstanding work)
+		///      at the start of ~ResourceCache() before anything is unloaded.
+		/// [JP] StepAsync() を支える専用のシングルワーカーエグゼキュータ -
+		///      初回使用時に遅延生成され、~ResourceCache() の先頭で（未完了の
+		///      作業を待ってから）何かを解放するより前に破棄される。
+		ResourcePtr<JobExecutor> loadExecutor_;
+
+		/// [EN] Guards against StepAsync() starting a second background job while one from the current Async() pass is still running.
+		/// [JP] 現在の Async() パスのバックグラウンドジョブがまだ実行中の間に、StepAsync() が2つ目のジョブを開始しないようにする。
+		std::atomic<Bool> loadStarted_{ false };
 
 	private:
 		/// [EN] File extensions Scan recognizes as candidate assets.

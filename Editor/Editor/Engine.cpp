@@ -234,7 +234,19 @@ namespace SeedCore
 
 				if (!graphics_->IsSplashFinished())
 				{
-					resource_->Step(*loaderSystem_, graphics_->GetContext()->GetDevice(), graphics_->GetContext()->GetDirectQueue()->GetCommandQueue(), graphics_->GetBindlessHeap(), graphics_->GetBC7CompressShader());
+					/// [EN] Loading now runs on its own background worker (see
+					///      ResourceCache::StepAsync) instead of blocking this thread, so it
+					///      can start immediately - no more need to hold it off until the
+					///      intro finishes, since it no longer steals frame time from
+					///      anything. StepAsync() is a no-op after its first call per Async()
+					///      pass, so calling it every frame here is fine.
+					/// [JP] 読み込みは今や専用のバックグラウンドワーカー上で走る
+					///      （ResourceCache::StepAsync 参照）ので、このスレッドを
+					///      ブロックしなくなった。もうフレーム時間を奪わないので、
+					///      イントロが終わるまで遅らせる必要も無くなり、すぐ開始できる。
+					///      StepAsync() は Async() パスごとの初回呼び出し以降は
+					///      no-op なので、ここで毎フレーム呼んでも問題ない。
+					resource_->StepAsync(*loaderSystem_, graphics_->GetContext()->GetDevice(), graphics_->GetContext()->GetDirectQueue()->GetCommandQueue(), graphics_->GetBindlessHeap(), graphics_->GetBC7CompressShader());
 
 					graphics_->Clear();
 					/// [JP] showWarning/showFiction は仮でtrue固定。Runtime書き出し時のチェックボックスから設定できるようにするのはこれから。

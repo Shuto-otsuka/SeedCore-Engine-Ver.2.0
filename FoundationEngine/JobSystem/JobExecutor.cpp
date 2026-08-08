@@ -284,7 +284,7 @@ namespace SeedCore
 					worker.stickyVictim_ = id;
 					worker.rdgen_.Seed(static_cast<Uint32>(std::hash<std::thread::id>()(std::this_thread::get_id())));
 
-					if (&worker)
+					if (workerInterface)
 					{
 						workerInterface->SchedulerPrologue(worker);
 					}

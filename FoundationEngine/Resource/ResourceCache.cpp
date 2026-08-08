@@ -1,5 +1,7 @@
 #include <FoundationEngine/Resource/ResourceCache.h>
 #include <FoundationEngine/Resource/LoaderSystem.h>
+#include <FoundationEngine/JobSystem/JobExecutor.h>
+#include <FoundationEngine/JobSystem/JobTaskflow.h>
 #include <GraphicsEngine/D3D12/Descriptor/BindlessHeap.h>
 
 #include <GraphicsEngine/Texture/ImageResource.h>
@@ -134,6 +136,14 @@ namespace SeedCore
 	*/
 	ResourceCache::~ResourceCache()
 	{
+		/// [EN] Waits (via ~JobExecutor) for any outstanding StepAsync() job to
+		///      finish before touching a single resource manager, so it's
+		///      always safe to destroy this cache mid-load.
+		/// [JP] 1つでもリソースマネージャに触れる前に、未完了の StepAsync()
+		///      ジョブが終わるのを（~JobExecutor 経由で）待つ。これにより、
+		///      読み込み中にこのキャッシュを破棄しても常に安全になる。
+		loadExecutor_ = nullptr;
+
 		Unload(loader_, heap_);
 	}
 
@@ -157,6 +167,7 @@ namespace SeedCore
 		pendingIndex_ = 0;
 		totalAssetCount_.store(0, std::memory_order_release);
 		loadedAssetCount_.store(0, std::memory_order_release);
+		loadStarted_.store(false, std::memory_order_release);
 
 		Scan(String(projectRootPath_.c_str()));
 
@@ -261,6 +272,44 @@ namespace SeedCore
 
 		loadedAssetCount_.fetch_add(1, std::memory_order_acq_rel);
 		return true;
+	}
+
+	/**
+	* [EN]
+	* Starts (once per Async() pass) a background job that repeatedly calls
+	* Step() on a dedicated worker thread until the pending queue is
+	* drained. See the header doc comment for the full contract.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* バックグラウンドジョブを開始する（Async() パスごとに1回）。専用の
+	* ワーカースレッド上でキューが尽きるまで Step() を繰り返し呼ぶ。
+	* 完全な契約についてはヘッダのドキュメントコメント参照。
+	*/
+	void ResourceCache::StepAsync(LoaderSystem& loader, ID3D12Device* device, ID3D12CommandQueue* cmdQueue, BindlessHeap* heap, BC7CompressShader& bc7Shader)
+	{
+		Bool expected = false;
+		if (!loadStarted_.compare_exchange_strong(expected, true, std::memory_order_acq_rel))
+		{
+			return;
+		}
+
+		if (!loadExecutor_)
+		{
+			loadExecutor_ = MakePtr<JobExecutor>(1);
+		}
+
+		JobTaskflow taskflow;
+		taskflow.emplace([this, &loader, device, cmdQueue, heap, &bc7Shader]()
+		{
+			while (Step(loader, device, cmdQueue, heap, bc7Shader))
+			{
+				/// No Code
+			}
+		});
+
+		loadExecutor_->Run(std::move(taskflow));
 	}
 
 	/**
