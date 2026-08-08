@@ -119,6 +119,112 @@ namespace SeedCore
 		Uint elementCount_;
 	};
 
+	/**
+	* [EN]
+	* Frame-ring raw ByteAddressBuffer: same frame-ring-upload shape as
+	* ReadOnlyStructuredBuffer<T>, but the SRV is created RAW (R32_TYPELESS,
+	* D3D12_BUFFER_SRV_FLAG_RAW, StructureByteStride 0) instead of typed —
+	* for buffers an HLSL side reads via `ByteAddressBuffer` (e.g. Model.hlsli's
+	* packed 3-bytes-per-triangle primitive index buffer) rather than
+	* `StructuredBuffer<T>`. Capacity and every Update() size are in bytes and
+	* must be 4-byte aligned (raw buffers are described in 4-byte units).
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* フレームリング式の raw ByteAddressBuffer: ReadOnlyStructuredBuffer<T>
+	* と同じフレームリング アップロードの形だが、SRV は型付きではなく RAW
+	* (R32_TYPELESS、D3D12_BUFFER_SRV_FLAG_RAW、StructureByteStride 0) で
+	* 作成する — HLSL 側が `StructuredBuffer<T>` ではなく `ByteAddressBuffer`
+	* で読むバッファ用（例: Model.hlsli の三角形あたり3バイトに詰めた
+	* プリミティブインデックスバッファ）。容量と Update() のサイズは
+	* すべてバイト単位で、4バイト境界に揃っていること（raw バッファは
+	* 4バイト単位で記述されるため）。
+	*/
+	class ReadOnlyByteAddressBuffer :public NonCopyable
+	{
+	public:
+		ReadOnlyByteAddressBuffer(ID3D12Device* device, BindlessHeap* heap, Uint byteCapacity) : heap_(heap), byteCapacity_(byteCapacity)
+		{
+			D3D12_HEAP_PROPERTIES heapProperties{};
+			heapProperties.Type = D3D12_HEAP_TYPE_UPLOAD;
+			heapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+			heapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+			heapProperties.CreationNodeMask = 1;
+			heapProperties.VisibleNodeMask = 1;
+
+			D3D12_RESOURCE_DESC resourceDesc{};
+			resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+			resourceDesc.Width = static_cast<Uint64>(byteCapacity);
+			resourceDesc.Height = 1;
+			resourceDesc.DepthOrArraySize = 1;
+			resourceDesc.MipLevels = 1;
+			resourceDesc.Format = DXGI_FORMAT_UNKNOWN;
+			resourceDesc.SampleDesc.Count = 1;
+			resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+
+			for (Uint frame = 0; frame < FrameRing::frameCount; frame++)
+			{
+				HRESULT hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&resources_[frame]));
+				SC_HR_CHECK(hr, "ByteAddressBuffer の生成に失敗しました");
+
+				indices_[frame] = heap->AllocateIndex();
+				D3D12_SHADER_RESOURCE_VIEW_DESC shaderResourceViewDesc{};
+				shaderResourceViewDesc.Format = DXGI_FORMAT_R32_TYPELESS;
+				shaderResourceViewDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+				shaderResourceViewDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+				shaderResourceViewDesc.Buffer.FirstElement = 0;
+				shaderResourceViewDesc.Buffer.NumElements = byteCapacity_ / 4;
+				shaderResourceViewDesc.Buffer.StructureByteStride = 0;
+				shaderResourceViewDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_RAW;
+				device->CreateShaderResourceView(resources_[frame].Get(), &shaderResourceViewDesc, heap->CPUHandle(indices_[frame]));
+
+				resources_[frame]->Map(0, nullptr, &mappedPtrs_[frame]);
+			}
+		}
+
+		~ReadOnlyByteAddressBuffer()
+		{
+			for (Uint frame = 0; frame < FrameRing::frameCount; frame++)
+			{
+				if (resources_[frame])
+				{
+					resources_[frame]->Unmap(0, nullptr);
+				}
+				if (heap_)
+				{
+					heap_->FreeIndex(indices_[frame]);
+				}
+			}
+		}
+
+		void Update(const void* data, Uint byteSize)
+		{
+			Uint frame = FrameRing::Index();
+			memcpy(mappedPtrs_[frame], data, byteSize);
+
+			if (byteSize < lastByteSizes_[frame])
+			{
+				memset(static_cast<Byte*>(mappedPtrs_[frame]) + byteSize, 0, lastByteSizes_[frame] - byteSize);
+			}
+			lastByteSizes_[frame] = byteSize;
+		}
+
+		[[nodiscard]] Uint Index()const
+		{
+			return indices_[FrameRing::Index()];
+		}
+
+	private:
+		Microsoft::WRL::ComPtr<ID3D12Resource> resources_[FrameRing::frameCount];
+		void* mappedPtrs_[FrameRing::frameCount] = {};
+		Uint indices_[FrameRing::frameCount] = {};
+		Uint lastByteSizes_[FrameRing::frameCount] = {};
+
+		BindlessHeap* heap_;
+		Uint byteCapacity_;
+	};
+
 	template<typename T>
 	class ReadWriteStructuredBuffer :public Buffer<ReadWriteStructuredBuffer<T>>
 	{

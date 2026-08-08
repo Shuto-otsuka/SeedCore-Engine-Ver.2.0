@@ -6,6 +6,7 @@
 #include <GraphicsEngine/Model/ModelShader.h>
 #include <GraphicsEngine/Model/OITBuffer.h>
 #include <GraphicsEngine/Model/ModelInstanceData.h>
+#include <GraphicsEngine/Model/SoftbodyMesh.h>
 #include <GraphicsEngine/System/SceneSystem.h>
 
 namespace SeedCore
@@ -115,6 +116,21 @@ namespace SeedCore
 		///      なく、出現時は速度ゼロにする)。
 		std::unordered_map<EntityID, Matrix> previousWorldMatrices_;
 
+		/// [EN] One SoftbodyMesh per Softbody-bearing Actor, built once
+		///      (SoftbodyMesh::Create) the first time that Actor is seen and
+		///      re-quantised every Gather (SoftbodyMesh::Update) — see
+		///      SoftbodyMesh's class comment for why Softbody bypasses the
+		///      Crister cluster/LOD streaming pipeline entirely instead of
+		///      reusing ModelInstanceData's usual vertexBufferIndex_ path.
+		/// [JP] Softbody を持つ Actor ごとに 1 つの SoftbodyMesh。その Actor を
+		///      初めて見た時に一度だけ構築し（SoftbodyMesh::Create）、毎
+		///      Gather で再量子化する（SoftbodyMesh::Update）— Softbody が
+		///      ModelInstanceData の通常の vertexBufferIndex_ 経路
+		///      （Crister のクラスタ/LOD ストリーミングパイプライン）を
+		///      使わずに完全にバイパスする理由は SoftbodyMesh のクラス
+		///      コメント参照。
+		std::unordered_map<EntityID, ResourcePtr<SoftbodyMesh>> softbodyMeshes_;
+
 		Bool hasSkinnedOpaque_ = false;
 		Bool hasSkinnedTransparent_ = false;
 		Bool hasSelectedInstance_ = false;
@@ -124,6 +140,7 @@ namespace SeedCore
 		ModelShader modelShader_;
 		OITBuffer oitBuffer_;
 
+		ID3D12Device* device_ = nullptr;
 		BindlessHeap* bindlessHeap_ = nullptr;
 		IndicesSystem* indicesSystem_ = nullptr;
 

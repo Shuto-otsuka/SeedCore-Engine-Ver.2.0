@@ -119,6 +119,7 @@
     <ClInclude Include="Model\OITBuffer.h" />
     <ClInclude Include="Model\QuadricErrorMetrics.h" />
     <ClInclude Include="Model\SkinnedPositionShader.h" />
+    <ClInclude Include="Model\SoftbodyMesh.h" />
     <ClInclude Include="Movie\Movie.h" />
     <ClInclude Include="Movie\MovieLoader.h" />
     <ClInclude Include="Movie\MovieResource.h" />
@@ -251,6 +252,7 @@
     <ClCompile Include="Model\OITBuffer.cpp" />
     <ClCompile Include="Model\QuadricErrorMetrics.cpp" />
     <ClCompile Include="Model\SkinnedPositionShader.cpp" />
+    <ClCompile Include="Model\SoftbodyMesh.cpp" />
     <ClCompile Include="Movie\MovieLoader.cpp" />
     <ClCompile Include="Movie\MovieResource.cpp" />
     <ClCompile Include="Movie\MovieShader.cpp" />

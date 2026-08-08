@@ -23,6 +23,8 @@ namespace SeedCore
 
 		JPH::BodyInterface& GetBodyInterface();
 
+		JPH::PhysicsSystem& GetPhysicsSystem();
+
 	private:
 		JoltShapePool shapePool_;
 

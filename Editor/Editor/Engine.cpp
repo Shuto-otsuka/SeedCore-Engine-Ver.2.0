@@ -101,13 +101,6 @@ namespace SeedCore
 			{
 				editorContext_.viewportContext_.raytracing_ = DeserializeRaytracingContext(raytracingSettingsJson);
 				editorContext_.sceneContext_.currentScenePath_ = lastScenePath;
-
-				/// [JP] DLSS有効/モードはネイティブ解像度の再計算(MainLoopの
-				///      resizeRequested_ 分岐)を経て初めて反映される。シーン
-				///      読込では誰もこのフラグを立てないため、読み込んだ設定の
-				///      DLSSがずっと未適用のまま(ConfigPanelのチェックボックスを
-				///      一度触るまで)になっていた。ここで立てて次フレームの
-				///      MainLoopに拾わせる。
 				editorContext_.viewportContext_.resizeRequested_ = true;
 			}
 		}
@@ -252,10 +245,11 @@ namespace SeedCore
 
 				InputSystem::SetInputEnabled(editor_->IsGameViewImageHovered());
 
-				PhysicsSystem::ResolveMeshColliders(*loaderSystem_, *resource_, *world_);
-
 				if (gameTimer_.IsPlaying())
 				{
+					PhysicsSystem::ResolveMeshColliders(*loaderSystem_, *resource_, *world_);
+					PhysicsSystem::ResolveSoftbodies(*loaderSystem_, *resource_, *world_);
+
 					while (worldTimer_.Step())
 					{
 						joltManager_->Execute(worldTimer_.FixedDeltaTime());
@@ -284,10 +278,6 @@ namespace SeedCore
 				{
 					CelestialSystem::Advance(gameTimer_.DeltaTime(), editorContext_.viewportContext_.raytracing_.daySystem_);
 
-					/// [JP] 天候による色味の変化(WeatherSystem)より前に、時刻による
-					///      現実的な空グラデーション(夜/薄明/朝焼け夕焼け/昼)を
-					///      基準値として書き込んでおく。SunLight 無効時は太陽/月自体が
-					///      上書きされないのに合わせ、空色もここでは変えない。
 					if (editorContext_.viewportContext_.raytracing_.sunLightEnabled_)
 					{
 						CelestialResult celestial = CelestialSystem::Compute(editorContext_.viewportContext_.raytracing_.daySystem_, editorContext_.viewportContext_.raytracing_.sunLight_, editorContext_.viewportContext_.raytracing_.moonLight_);

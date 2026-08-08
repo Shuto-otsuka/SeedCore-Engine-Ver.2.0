@@ -806,6 +806,117 @@ namespace SeedCore
 
 		/**
 		* [EN]
+		* Reads this Crister's LOD 0 geometry into a CPU-side full-vertex
+		* (position/normal/tangent/texcoord)/index pair addressed by the
+		* SAME global vertex index space compressedVertices_/vertexIndices_
+		* already use — decoded from compressedVertices_ (there is no
+		* surviving full-precision source once BakeMesh() has run). Unlike
+		* BakeCollision (which compacts/dedups into its own local index
+		* space and is baked once into the cached ".collision" asset), this
+		* is not part of the bake/cache pipeline — nothing is written to
+		* disk, and Softbody calls it directly off the already-loaded
+		* Crister once, to seed both the physics simulation (positions) and
+		* the render-side SoftbodyMesh (normal_/tangent_/texcoord_, which
+		* stay at their bind pose — the simulation only ever overwrites
+		* position_ each frame; see SoftbodyMesh). outVertices is a 1:1,
+		* unfiltered copy of compressedVertices_ and outIndices reference it
+		* directly, so a physical simulation can run on the exact same
+		* vertex ordering the mesh shader reads and write simulated vertex i
+		* straight back into the render vertex buffer at index i with no
+		* remap step. Reads only the CPU-resident arrays, same as
+		* BakeCollision. Returns false when there is nothing to extract.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* この Crister の LOD 0 ジオメトリを、compressedVertices_/
+		* vertexIndices_ が既に使っているのと同じグローバル頂点インデックス
+		* 空間で、CPU 側のフル頂点（位置/法線/接線/UV）/インデックス対へ
+		* 読み出す — compressedVertices_ からのデコードになる（BakeMesh()
+		* 実行後はフル精度のソースが残っていないため）。BakeCollision
+		* （独自のローカルインデックス空間へ圧縮・重複排除し、".collision"
+		* アセットとして一度だけ焼き込む）と異なり、これはベイク/キャッシュ
+		* パイプラインの一部ではない — ディスクには何も書き込まず、
+		* Softbody が一度だけロード済みの Crister に対して直接呼び出し、
+		* 物理シミュレーション（位置）とレンダー側の SoftbodyMesh
+		* （normal_/tangent_/texcoord_ — バインドポーズのまま使い回す。
+		* シミュレーションは毎フレーム position_ だけを上書きする。
+		* SoftbodyMesh 参照）の両方の種にする。outVertices は
+		* compressedVertices_ の 1:1 な無加工コピーで、outIndices はそれを
+		* 直接参照する。これにより物理シミュレーションがメッシュシェーダと
+		* 全く同じ頂点順序で動作でき、シミュレート後の頂点 i をそのまま
+		* レンダー用頂点バッファのインデックス i へ書き戻せる（リマップ
+		* 不要）。BakeCollision と同じく CPU 常駐配列のみを読む。抽出対象が
+		* 無ければ false を返す。
+		*/
+		[[nodiscard]] Bool SoftbodyVertices(DynamicArray<Vertex>& outVertices, DynamicArray<Uint32>& outIndices)const;
+
+		/**
+		* [EN]
+		* Reads each SubMesh's coarsest cluster (same range BakeCollision's
+		* Proxy detail and the RT proxy geometry use) into a CPU-side
+		* full-vertex/index pair, compacted/deduped into its own local
+		* index space (unlike SoftbodyVertices, which keeps the full LOD 0
+		* global index space uncompacted). For a Softbody to stay real-time
+		* on a render-resolution mesh (thousands of vertices, one PBD edge/
+		* shear/bend constraint per edge — far past what Jolt's soft body
+		* solver is meant for), simulation runs on this much smaller proxy
+		* mesh instead; SoftbodyMesh binds each render vertex (from
+		* SoftbodyVertices) to its nearest proxy vertices at build time and
+		* blends their simulated displacement onto the full-resolution mesh
+		* every frame, so the mesh shader still renders full detail. Not
+		* part of the bake/cache pipeline — called live off the
+		* already-loaded Crister. Returns false when there is nothing to
+		* extract.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* 各 SubMesh の最粗クラスタ（BakeCollision の Proxy 詳細度や RT
+		* プロキシジオメトリと同じ範囲）を、CPU 側のフル頂点/インデックス対
+		* へ、自身のローカルインデックス空間に圧縮・重複排除して読み出す
+		* （LOD 0 のグローバルインデックス空間を無加工のまま保つ
+		* SoftbodyVertices とは異なる）。Softbody がレンダー解像度の
+		* メッシュ（数千頂点、辺ごとに PBD の辺/シア/曲げ拘束1つ —
+		* Jolt のソフトボディソルバーが想定する規模をはるかに超える）で
+		* リアルタイムを保つため、シミュレーションはこのずっと小さい
+		* プロキシメッシュ上で行う。SoftbodyMesh がビルド時に各レンダー
+		* 頂点（SoftbodyVertices 由来）を最も近いプロキシ頂点群へ束縛し、
+		* 毎フレームそのシミュレート済み変位をブレンドしてフル解像度
+		* メッシュへ適用するので、メッシュシェーダは引き続きフル
+		* ディテールで描画する。ベイク/キャッシュパイプラインの一部では
+		* なく、ロード済みの Crister に対してその都度呼び出す。抽出対象が
+		* 無ければ false を返す。
+		*/
+		[[nodiscard]] Bool SoftbodyProxyVertices(DynamicArray<Vertex>& outVertices, DynamicArray<Uint32>& outIndices)const;
+
+		/**
+		* [EN]
+		* Quantises a single full-precision Vertex into the 16-byte GPU
+		* format, given the position/texcoord dequantisation AABBs to
+		* quantise against. Extracted out of BakeMesh()'s per-vertex loop
+		* body so SoftbodyMesh can re-quantise a Softbody's deformed
+		* vertices every frame against a freshly computed AABB (the mesh
+		* moves, so a fixed bake-time AABB would clip) using the exact same
+		* math BakeMesh() bakes into the cache with — must stay in sync with
+		* Model.hlsli's DecodeModelVertex, same as BakeMesh().
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* フル精度の Vertex 1 つを、指定された位置/UV の逆量子化 AABB に
+		* 対して 16 バイトの GPU フォーマットへ量子化する。BakeMesh() の
+		* 頂点ループ本体から切り出したもの — SoftbodyMesh が Softbody の
+		* 変形後頂点を毎フレーム、その都度計算した AABB（メッシュが動くため
+		* 焼き込み時固定の AABB ではクリップしてしまう）に対して、
+		* BakeMesh() がキャッシュへ焼き込むのと全く同じ計算式で再量子化
+		* できるようにする — BakeMesh() と同様、Model.hlsli の
+		* DecodeModelVertex と同期を保つこと。
+		*/
+		[[nodiscard]] static CompressedVertex EncodeVertex(const Vertex& vertex, const Vector3& positionMin, const Vector3& positionExtent, const Vector2& texcoordMin, const Vector2& texcoordExtent);
+
+		/**
+		* [EN]
 		* Re-converts an already-baked Crister (no source glTF required) from
 		* one axis convention to another, in place: decodes every quantised
 		* vertex/skin back to full precision, applies deltaBasis to

@@ -8,12 +8,16 @@
 #include <PhysicsEngine/Collider/RectCollider.h>
 #include <PhysicsEngine/Collider/CircleCollider.h>
 #include <PhysicsEngine/Collider/MeshCollider.h>
+#include <PhysicsEngine/Softbody/Softbody.h>
 #include <FoundationEngine/ECS/World.h>
 #include <FoundationEngine/ECS/Actor.h>
 #include <FoundationEngine/ECS/Component/Position.h>
 #include <FoundationEngine/ECS/Component/Rotation.h>
 #include <FoundationEngine/Resource/ResourceCache.h>
 #include <GraphicsEngine/Model/Collision/MeshCollisionResource.h>
+#include <GraphicsEngine/Model/ModelResource.h>
+#include <GraphicsEngine/Model/Crister.h>
+#include <GraphicsEngine/Model/Mesh.h>
 
 namespace SeedCore
 {
@@ -79,7 +83,7 @@ namespace SeedCore
 		return dofs;
 	}
 
-	void PhysicsSystem::ApplyActorTransform(const Actor& actor, BodyDesc& desc)
+	void PhysicsSystem::ApplyActorTransform(const Actor& actor, RigidbodyDesc& desc)
 	{
 		const Position* position = actor.GetComponent<Position>();
 		const Rotation* rotation = actor.GetComponent<Rotation>();
@@ -95,13 +99,13 @@ namespace SeedCore
 			return JPH::BodyID();
 		}
 
-		BodyDesc desc;
+		RigidbodyDesc desc;
 		desc.shape_ = shape;
 		desc.motionType_ = JPH::EMotionType::Static;
 		desc.layer_ = Layers::STATIC;
 		ApplyActorTransform(actor, desc);
 
-		return actor.GetPhysics().CreateBody(desc);
+		return actor.GetPhysics().CreateRigidbody(desc);
 	}
 
 	void PhysicsSystem::DestroyColliderBody(Actor& actor, JPH::BodyID bodyID, ShapeHandle shape)
@@ -316,6 +320,50 @@ namespace SeedCore
 			}
 
 			collider->Build(*meshCollision);
+		}
+	}
+
+	void PhysicsSystem::ResolveSoftbodies(LoaderSystem& loader, ResourceCache& cache, World& world)
+	{
+		ModelResource* modelResource = cache.GetModelResource();
+		if (!modelResource)
+		{
+			return;
+		}
+
+		for (EntityID id : world.GetComponents<Softbody>())
+		{
+			Actor* actor = world.GetActor(id);
+			if (!actor)
+			{
+				continue;
+			}
+
+			Softbody* softbody = actor->GetComponent<Softbody>();
+			if (!softbody || !softbody->IsPending())
+			{
+				continue;
+			}
+
+			const Mesh* mesh = actor->GetComponent<Mesh>();
+			if (!mesh)
+			{
+				continue;
+			}
+
+			Handle<Crister> handle = modelResource->GetHandle(mesh->meshID_);
+			if (handle.empty())
+			{
+				continue;
+			}
+
+			Crister* crister = modelResource->Resolve(loader, handle);
+			if (!crister)
+			{
+				continue;
+			}
+
+			softbody->Build(*crister);
 		}
 	}
 }

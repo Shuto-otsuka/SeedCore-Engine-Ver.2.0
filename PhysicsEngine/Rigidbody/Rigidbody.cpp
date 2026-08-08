@@ -15,7 +15,7 @@ namespace SeedCore
 
 		shapeHandle_ = PhysicsSystem::FindColliderShape(actor);
 
-		BodyDesc desc;
+		RigidbodyDesc desc;
 		desc.shape_ = shapeHandle_;
 		PhysicsSystem::ApplyActorTransform(actor, desc);
 		desc.motionType_ = ToMotionType(bodyType_);
@@ -28,7 +28,7 @@ namespace SeedCore
 		desc.gravityFactor_ = useGravity_ ? gravityScale_ : 0.0f;
 		desc.allowedDOFs_ = PhysicsSystem::ToAllowedDOFs(*this);
 
-		bodyID_ = actor.GetPhysics().CreateBody(desc);
+		bodyID_ = actor.GetPhysics().CreateRigidbody(desc);
 	}
 
 	void Rigidbody::OnFixedTick(Float elapsedTime)

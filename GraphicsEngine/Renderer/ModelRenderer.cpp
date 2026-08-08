@@ -15,6 +15,7 @@
 #include <GraphicsEngine/Model/Mesh.h>
 #include <GraphicsEngine/Model/Animation/Animator.h>
 #include <GraphicsEngine/Model/Animation/AnimationResource.h>
+#include <PhysicsEngine/Softbody/Softbody.h>
 #include <FoundationEngine/ECS/Component/Position.h>
 #include <FoundationEngine/ECS/Component/Rotation.h>
 #include <FoundationEngine/ECS/Component/Scale.h>
@@ -29,6 +30,7 @@ namespace SeedCore
 
 	void ModelRenderer::Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, IndicesSystem& indicesSystem, Uint32 width, Uint32 height)
 	{
+		device_ = device;
 		bindlessHeap_ = bindlessHeap;
 		indicesSystem_ = &indicesSystem;
 		maxInstanceCount_ = 65536;
@@ -104,6 +106,34 @@ namespace SeedCore
 				///      を使う。ローカルだけで再構築すると子が親を無視してしまう。
 				Actor* actor = world.GetActor(entityID);
 				if (!actor)
+				{
+					return;
+				}
+
+				/// [EN] Softbody-bearing actors with a live Jolt body are
+				///      drawn entirely through the dedicated Softbody block
+				///      below (their own SoftbodyMesh, not this Crister's
+				///      cluster/LOD streaming path) - skip the normal path
+				///      here so they don't draw twice. A Softbody with no
+				///      body yet (not Playing, or not yet built) falls
+				///      through to the normal path instead, so the actor
+				///      renders its bind pose rather than nothing - and so
+				///      stopping Play (which destroys the body) doesn't
+				///      leave the last simulated frame's deformed shape
+				///      stuck on screen forever (see Softbody::HasBody).
+				/// [JP] 生きた Jolt ボディを持つ Softbody アクターは、下の
+				///      Softbody 専用ブロックで完全に描画される（この
+				///      Crister のクラスタ/LOD ストリーミング経路ではなく
+				///      自身の SoftbodyMesh）— 二重描画にならないようここでは
+				///      通常経路をスキップする。まだボディが無い Softbody
+				///      （Play中でない、またはまだビルドされていない）は
+				///      通常経路へフォールバックする — アクターが何も
+				///      描かれないのではなくバインドポーズで描かれるように
+				///      するため。これにより Play を止めて（ボディが破棄
+				///      されて）も、最後にシミュレートしたフレームの変形
+				///      形状が画面に残り続けない（Softbody::HasBody 参照）。
+				Softbody* softbody = actor->GetComponent<Softbody>();
+				if (softbody && softbody->HasBody())
 				{
 					return;
 				}
@@ -683,6 +713,172 @@ namespace SeedCore
 					}
 				}
 			});
+
+		/// [EN] Softbody actors: each gets exactly one ModelInstanceData
+		///      sourced from its own SoftbodyMesh (built/re-quantised below),
+		///      not from Crister's cluster/LOD streaming path — see
+		///      SoftbodyMesh's class comment for why. Walked via
+		///      World::GetComponents (SparseSet component, same as
+		///      PhysicsSystem::ResolveSoftbodies), not Query<>, since Softbody
+		///      is a SeedScript component like Animator/Rigidbody.
+		/// [JP] Softbody アクター: それぞれ自身の SoftbodyMesh（下で構築/
+		///      再量子化）から作った ModelInstanceData を1つだけ持つ —
+		///      Crister のクラスタ/LOD ストリーミング経路は使わない
+		///      （理由は SoftbodyMesh のクラスコメント参照）。SparseSet
+		///      コンポーネントのため Query<> ではなく World::GetComponents
+		///      で走査する（PhysicsSystem::ResolveSoftbodies と同じ —
+		///      Softbody は Animator/Rigidbody と同じ SeedScript コンポーネント）。
+		for (EntityID entityID : world.GetComponents<Softbody>())
+		{
+			Actor* actor = world.GetActor(entityID);
+			if (!actor)
+			{
+				continue;
+			}
+
+			const Active* active = actor->GetComponent<Active>();
+			if (active && !active->active_)
+			{
+				continue;
+			}
+
+			Softbody* softbody = actor->GetComponent<Softbody>();
+			if (!softbody || !softbody->HasBody())
+			{
+				continue;
+			}
+
+			const Mesh* mesh = actor->GetComponent<Mesh>();
+			if (!mesh)
+			{
+				continue;
+			}
+
+			Handle<Crister> cristerHandle = modelResource.GetHandle(mesh->meshID_);
+			if (cristerHandle.empty())
+			{
+				continue;
+			}
+
+			Crister* crister = modelResource.Resolve(loaderSystem, cristerHandle);
+			if (!crister)
+			{
+				continue;
+			}
+
+			ResourcePtr<SoftbodyMesh>& softbodyMesh = softbodyMeshes_[entityID];
+			if (!softbodyMesh)
+			{
+				softbodyMesh = MakePtr<SoftbodyMesh>();
+				if (!softbodyMesh->Create(device_, bindlessHeap_, *crister))
+				{
+					softbodyMeshes_.erase(entityID);
+					continue;
+				}
+			}
+
+			softbodyMesh->Update(softbody->GetVertexPositions());
+
+			Matrix worldMatrix = actor->GetWorldMatrix();
+			Matrix inverseTransposeWorld = worldMatrix.Invert().Transpose();
+
+			auto previousWorldIt = previousWorldMatrices_.find(entityID);
+			Matrix previousWorldMatrix = previousWorldIt != previousWorldMatrices_.end() ? previousWorldIt->second : worldMatrix;
+			previousWorldMatrices_[entityID] = worldMatrix;
+
+			const auto& materials = crister->Materials();
+			Material defaultMaterial;
+			const Material& material = materials.empty() ? defaultMaterial : materials[0];
+
+			constexpr Uint32 maxMeshletsPerDispatch = 32;
+			Uint32 remaining = softbodyMesh->MeshletCount();
+			Uint32 offset = 0;
+
+			while (remaining > 0)
+			{
+				Uint32 count = (remaining > maxMeshletsPerDispatch) ? maxMeshletsPerDispatch : remaining;
+
+				ModelInstanceData instanceData{};
+				instanceData.world_ = worldMatrix;
+				instanceData.inverseTransposeWorld_ = inverseTransposeWorld;
+				instanceData.previousWorld_ = previousWorldMatrix;
+
+				instanceData.baseColor_ = material.baseColor_;
+				instanceData.metallic_ = material.metallic_;
+				instanceData.roughness_ = material.roughness_;
+				instanceData.alphaCutoff_ = material.alphaMode_ == 1 ? material.alphaCutoff_ : 0.01f;
+				instanceData.emissive_ = Vector3(material.emissiveFactor_[0], material.emissiveFactor_[1], material.emissiveFactor_[2]);
+
+				instanceData.ior_ = material.khr_.ior_.ior_;
+				instanceData.emissiveStrength_ = material.khr_.emissiveStrength_.emissiveStrength_;
+				instanceData.specularFactor_ = material.khr_.specular_.specularFactor_;
+				instanceData.specularColor_ = Vector3(material.khr_.specular_.specularColorFactor_[0], material.khr_.specular_.specularColorFactor_[1], material.khr_.specular_.specularColorFactor_[2]);
+				instanceData.clearCoatFactor_ = material.khr_.clearCoat_.clearCoatFactor_;
+				instanceData.clearCoatRoughness_ = material.khr_.clearCoat_.clearCoatRoughnessFactor_;
+				instanceData.anisotropy_ = material.khr_.anisotropy_.anisotropyStrength_;
+				instanceData.transmissionFactor_ = material.khr_.transmission_.transmissionFactor_;
+				instanceData.volumeThicknessFactor_ = material.khr_.volume_.thicknessFactor_;
+				instanceData.volumeAttenuationDistance_ = material.khr_.volume_.attenuationDistance_;
+				instanceData.volumeAttenuationColor_ = Vector3(material.khr_.volume_.attenuationColor_[0], material.khr_.volume_.attenuationColor_[1], material.khr_.volume_.attenuationColor_[2]);
+				instanceData.sheenColor_ = Vector3(material.khr_.sheen_.sheenColorFactor_[0], material.khr_.sheen_.sheenColorFactor_[1], material.khr_.sheen_.sheenColorFactor_[2]);
+				instanceData.sheenRoughness_ = material.khr_.sheen_.sheenRoughnessFactor_;
+				instanceData.iridescenceFactor_ = material.khr_.iridescence_.iridescenceFactor_;
+				instanceData.iridescenceIor_ = material.khr_.iridescence_.iridescenceIor_;
+				instanceData.iridescenceThickness_ = (material.khr_.iridescence_.iridescenceThicknessMinimum_ + material.khr_.iridescence_.iridescenceThicknessMaximum_) * 0.5f;
+				instanceData.unlit_ = material.khr_.unlit_.unlit_ != 0 ? 1.0f : 0.0f;
+
+				instanceData.baseColorTextureIndex_ = crister->TextureBindlessIndex(material.baseColorTextureIndex_);
+				instanceData.normalTextureIndex_ = crister->TextureBindlessIndex(material.normalTextureIndex_);
+				instanceData.metallicRoughnessTextureIndex_ = crister->TextureBindlessIndex(material.metallicRoughnessTextureIndex_);
+				instanceData.emissiveTextureIndex_ = crister->TextureBindlessIndex(material.emissiveTextureIndex_);
+
+				/// [EN] SoftbodyMesh's own buffers, not Crister's — see
+				///      SoftbodyMesh's class comment.
+				/// [JP] Crister のではなく SoftbodyMesh 自身のバッファ —
+				///      SoftbodyMesh のクラスコメント参照。
+				instanceData.vertexBufferIndex_ = softbodyMesh->VertexBufferIndex();
+				instanceData.skinVertexBufferIndex_ = 0xFFFFFFFF;
+				instanceData.positionMin_ = softbodyMesh->PositionMin();
+				instanceData.positionExtent_ = softbodyMesh->PositionExtent();
+				instanceData.texcoordMinU_ = softbodyMesh->TexcoordMin().x;
+				instanceData.texcoordMinV_ = softbodyMesh->TexcoordMin().y;
+				instanceData.texcoordExtent_ = softbodyMesh->TexcoordExtent();
+				instanceData.meshletBufferIndex_ = softbodyMesh->MeshletBufferIndex();
+				instanceData.meshletBoundBufferIndex_ = softbodyMesh->MeshletBoundBufferIndex();
+				instanceData.vertexIndicesBufferIndex_ = softbodyMesh->VertexIndicesBufferIndex();
+				instanceData.primitiveIndicesBufferIndex_ = softbodyMesh->PrimitiveIndicesBufferIndex();
+
+				instanceData.meshletOffset_ = offset;
+				instanceData.meshletCount_ = count;
+
+				instanceData.lodError_ = 0.0f;
+				instanceData.lodErrorNext_ = FLT_MAX;
+
+				instanceData.skinIndex_ = 0xFFFFFFFF;
+				instanceData.boneOffset_ = 0;
+
+				instanceData.doubleSided_ = material.doubleSided_ ? 1 : 0;
+				instanceData.blend_ = material.alphaMode_ == 2 ? 1 : 0;
+
+				instanceData.selected_ = (selectedEntity.Exists() && actor->GetEntity() == selectedEntity) ? 1 : 0;
+				if (instanceData.selected_)
+				{
+					hasSelectedInstance_ = true;
+				}
+
+				if (material.alphaMode_ != 2)
+				{
+					opaqueInstances_.push_back(instanceData);
+				}
+				else
+				{
+					transparentInstances_.push_back(instanceData);
+				}
+
+				offset += count;
+				remaining -= count;
+			}
+		}
 
 		/// [EN] Streaming upkeep: bring in this frame's requested pages (capped
 		///      per frame so a camera cut doesn't stall a frame on uploads),

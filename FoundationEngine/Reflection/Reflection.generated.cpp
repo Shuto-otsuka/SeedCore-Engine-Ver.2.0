@@ -1710,14 +1710,6 @@ namespace SeedCore
 					Softbody& obj = *static_cast<Softbody*>(ptr);
 					{
 						FieldInfo fi;
-						fi.name_ = String("動作モード");
-						fi.offset_ = offsetof(Softbody, bodyType_);
-						fi.type_ = AttributeType::Enum;
-						fi.enum_.typeName_ = String("BodyType");
-						outInfo.push_back(std::move(fi));
-					}
-					{
-						FieldInfo fi;
 						fi.name_ = String("質量");
 						fi.offset_ = offsetof(Softbody, mass_);
 						fi.type_ = AttributeType::Float;
@@ -1824,12 +1816,6 @@ namespace SeedCore
 						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<Softbody*>(p); return o.useGravity_; };
 						outInfo.push_back(std::move(fi));
 					}
-					outInfo.push_back({ String("位置X軸固定"), offsetof(Softbody, freezePositionX_), AttributeType::Bool });
-					outInfo.push_back({ String("位置Y軸固定"), offsetof(Softbody, freezePositionY_), AttributeType::Bool });
-					outInfo.push_back({ String("位置Z軸固定"), offsetof(Softbody, freezePositionZ_), AttributeType::Bool });
-					outInfo.push_back({ String("回転X軸固定"), offsetof(Softbody, freezeRotationX_), AttributeType::Bool });
-					outInfo.push_back({ String("回転Y軸固定"), offsetof(Softbody, freezeRotationY_), AttributeType::Bool });
-					outInfo.push_back({ String("回転Z軸固定"), offsetof(Softbody, freezeRotationZ_), AttributeType::Bool });
 					{
 						FieldInfo fi;
 						fi.name_ = String("サブステップ数");
@@ -1888,9 +1874,9 @@ namespace SeedCore
 			RegisterEnum_BodyType()
 			{
 				EnumRegistry::Register(String("BodyType"), {
-					{ static_cast<Int>(Softbody::BodyType::Dynamic), String("Dynamic") },
-					{ static_cast<Int>(Softbody::BodyType::Kinematic), String("Kinematic") },
-					{ static_cast<Int>(Softbody::BodyType::Static), String("Static") },
+					{ static_cast<Int>(Rigidbody::BodyType::Dynamic), String("Dynamic") },
+					{ static_cast<Int>(Rigidbody::BodyType::Kinematic), String("Kinematic") },
+					{ static_cast<Int>(Rigidbody::BodyType::Static), String("Static") },
 				});
 			}
 		};

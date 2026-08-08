@@ -241,6 +241,10 @@
 #include <External/JoltPhysics/Jolt/Physics/Collision/Shape/ConvexShape.h>
 #include <External/JoltPhysics/Jolt/Physics/Collision/Shape/ConvexHullShape.h>
 #include <External/JoltPhysics/Jolt/Physics/Collision/Shape/RotatedTranslatedShape.h>
+#include <External/JoltPhysics/Jolt/Physics/Body/BodyLock.h>
+#include <External/JoltPhysics/Jolt/Physics/SoftBody/SoftBodySharedSettings.h>
+#include <External/JoltPhysics/Jolt/Physics/SoftBody/SoftBodyCreationSettings.h>
+#include <External/JoltPhysics/Jolt/Physics/SoftBody/SoftBodyMotionProperties.h>
 #include <External/JoltPhysics/Jolt/Renderer/DebugRendererSimple.h>
 
 #include <External/Effekseer/Include/Effekseer.h>

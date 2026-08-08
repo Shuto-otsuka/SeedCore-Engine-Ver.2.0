@@ -61,4 +61,9 @@ namespace SeedCore
 	{
 		return physicsSystem_.GetBodyInterface();
 	}
+
+	JPH::PhysicsSystem& JoltManager::GetPhysicsSystem()
+	{
+		return physicsSystem_;
+	}
 }

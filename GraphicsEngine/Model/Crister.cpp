@@ -363,19 +363,7 @@ namespace SeedCore
 		compressedVertices_.resize(vertices_.size());
 		for (Size vertexIndex = 0; vertexIndex < vertices_.size(); vertexIndex++)
 		{
-			const Vertex& vertex = vertices_[vertexIndex];
-			CompressedVertex& compressed = compressedVertices_[vertexIndex];
-
-			Uint32 quantizedX = QuantizeUnorm16((vertex.position_.x - positionMin_.x) / positionExtent_.x);
-			Uint32 quantizedY = QuantizeUnorm16((vertex.position_.y - positionMin_.y) / positionExtent_.y);
-			Uint32 quantizedZ = QuantizeUnorm16((vertex.position_.z - positionMin_.z) / positionExtent_.z);
-			Uint32 quantizedU = QuantizeUnorm16((vertex.texcoord_.x - texcoordMin_.x) / texcoordExtent_.x);
-			Uint32 quantizedV = QuantizeUnorm16((vertex.texcoord_.y - texcoordMin_.y) / texcoordExtent_.y);
-
-			compressed.positionXY_ = quantizedX | (quantizedY << 16);
-			compressed.positionZTexU_ = quantizedZ | (quantizedU << 16);
-			compressed.texVTangent_ = quantizedV | (EncodeTangent16(vertex.tangent_) << 16);
-			compressed.normal_ = EncodeOctahedral16x16(vertex.normal_);
+			compressedVertices_[vertexIndex] = EncodeVertex(vertices_[vertexIndex], positionMin_, positionExtent_, texcoordMin_, texcoordExtent_);
 		}
 
 		if (!skins_.empty())
@@ -398,6 +386,37 @@ namespace SeedCore
 
 		vertices_.clear();
 		vertices_.shrink_to_fit();
+	}
+
+	/**
+	* [EN]
+	* Quantises a single full-precision Vertex into the 16-byte GPU format
+	* against the given position/texcoord dequantisation AABBs. Extracted
+	* out of BakeMesh()'s per-vertex loop body; BakeMesh() calls this too,
+	* so there is one source of truth for the quantisation math.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* フル精度の Vertex 1 つを、指定された位置/UV の逆量子化 AABB に対して
+	* 16 バイトの GPU フォーマットへ量子化する。BakeMesh() の頂点ループ
+	* 本体から切り出したもの。BakeMesh() 自身もこれを呼ぶため、量子化
+	* 計算の実装は 1 箇所に集約される。
+	*/
+	CompressedVertex Crister::EncodeVertex(const Vertex& vertex, const Vector3& positionMin, const Vector3& positionExtent, const Vector2& texcoordMin, const Vector2& texcoordExtent)
+	{
+		Uint32 quantizedX = QuantizeUnorm16((vertex.position_.x - positionMin.x) / positionExtent.x);
+		Uint32 quantizedY = QuantizeUnorm16((vertex.position_.y - positionMin.y) / positionExtent.y);
+		Uint32 quantizedZ = QuantizeUnorm16((vertex.position_.z - positionMin.z) / positionExtent.z);
+		Uint32 quantizedU = QuantizeUnorm16((vertex.texcoord_.x - texcoordMin.x) / texcoordExtent.x);
+		Uint32 quantizedV = QuantizeUnorm16((vertex.texcoord_.y - texcoordMin.y) / texcoordExtent.y);
+
+		CompressedVertex compressed;
+		compressed.positionXY_ = quantizedX | (quantizedY << 16);
+		compressed.positionZTexU_ = quantizedZ | (quantizedU << 16);
+		compressed.texVTangent_ = quantizedV | (EncodeTangent16(vertex.tangent_) << 16);
+		compressed.normal_ = EncodeOctahedral16x16(vertex.normal_);
+		return compressed;
 	}
 
 	void Crister::CumulateTransforms()
@@ -926,6 +945,207 @@ namespace SeedCore
 							///      of pushing a duplicate position.
 							/// [JP] 既に出力済み: 位置を重複追加せず、そのコンパクト
 							///      インデックスを再利用する。
+							outIndices.push_back(found->second);
+						}
+					}
+				}
+			}
+		}
+
+		return outIndices.size() >= 3;
+	}
+
+	/**
+	* [EN]
+	* Reads this Crister's LOD 0 geometry into a CPU-side full-vertex/index
+	* pair addressed by the same global vertex index space
+	* compressedVertices_/vertexIndices_ already use. Not part of the
+	* bake/cache pipeline — called live off the already-loaded Crister.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* この Crister の LOD 0 ジオメトリを、compressedVertices_/vertexIndices_
+	* が既に使っているのと同じグローバル頂点インデックス空間で CPU 側の
+	* フル頂点/インデックス対へ読み出す。ベイク/キャッシュパイプラインの
+	* 一部ではなく、ロード済みの Crister に対してその都度呼び出す。
+	*/
+	Bool Crister::SoftbodyVertices(DynamicArray<Vertex>& outVertices, DynamicArray<Uint32>& outIndices)const
+	{
+		outVertices.clear();
+		outIndices.clear();
+
+		if (compressedVertices_.empty() || subMeshes_.empty())
+		{
+			return false;
+		}
+
+		/// [EN] Unlike BakeCollision, no remap: outVertices is a 1:1 copy of
+		///      compressedVertices_ (decoded), so a global vertex index can
+		///      be used directly as an index into it.
+		/// [JP] BakeCollision と違いリマップは行わない: outVertices は
+		///      compressedVertices_ の 1:1 コピー（デコード済み）なので、
+		///      グローバル頂点インデックスをそのままインデックスとして使える。
+		outVertices.reserve(compressedVertices_.size());
+		for (const CompressedVertex& compressed : compressedVertices_)
+		{
+			Vertex vertex;
+			vertex.position_ = DecodePosition(compressed, positionMin_, positionExtent_);
+			vertex.normal_ = DecodeNormal(compressed);
+			vertex.tangent_ = DecodeTangent(compressed);
+			vertex.texcoord_ = DecodeTexcoord(compressed, texcoordMin_, texcoordExtent_);
+			outVertices.push_back(vertex);
+		}
+
+		for (const SubMesh& subMesh : subMeshes_)
+		{
+			if (subMesh.clusterCount_ == 0)
+			{
+				continue;
+			}
+
+			/// [EN] LOD 0 is always the SubMesh's first cluster.
+			/// [JP] LOD 0 は常に SubMesh の最初のクラスタ。
+			Uint32 clusterIndex = subMesh.clusterOffset_;
+			if (clusterIndex >= clusters_.size())
+			{
+				continue;
+			}
+
+			const Cluster& cluster = clusters_[clusterIndex];
+			for (Uint32 meshletIndex = cluster.meshletOffset_; meshletIndex < cluster.meshletOffset_ + cluster.meshletCount_; meshletIndex++)
+			{
+				const Meshlet& meshlet = meshlets_[meshletIndex];
+				for (Uint32 triangleIndex = 0; triangleIndex < meshlet.triangleCount_; triangleIndex++)
+				{
+					Uint32 byteOffset = meshlet.triangleOffset_ + triangleIndex * 3;
+					for (Int corner = 0; corner < 3; corner++)
+					{
+						outIndices.push_back(vertexIndices_[meshlet.vertexOffset_ + primitiveIndices_[byteOffset + corner]]);
+					}
+				}
+			}
+		}
+
+		return outIndices.size() >= 3;
+	}
+
+	/**
+	* [EN]
+	* Reads each SubMesh's coarsest cluster into a CPU-side full-vertex/
+	* index pair, compacted into its own local index space. Not part of
+	* the bake/cache pipeline — called live off the already-loaded Crister.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 各 SubMesh の最粗クラスタを、自身のローカルインデックス空間に圧縮した
+	* CPU 側のフル頂点/インデックス対へ読み出す。ベイク/キャッシュ
+	* パイプラインの一部ではなく、ロード済みの Crister に対してその都度
+	* 呼び出す。
+	*/
+	Bool Crister::SoftbodyProxyVertices(DynamicArray<Vertex>& outVertices, DynamicArray<Uint32>& outIndices)const
+	{
+		outVertices.clear();
+		outIndices.clear();
+
+		if (compressedVertices_.empty() || subMeshes_.empty())
+		{
+			return false;
+		}
+
+		/// [EN] Maps a QUANTISED bind-pose position to its slot in
+		///      outVertices — unlike BakeCollision's remap (keyed by
+		///      original global vertex index), this welds any two corners
+		///      that land on the same position even if they came from
+		///      different global indices (e.g. UV-seam-duplicated
+		///      vertices). LOD simplification of the coarsest cluster can
+		///      otherwise leave two distinct global indices at (numerically)
+		///      the same position; feeding both into Jolt as separately
+		///      connected vertices produces a zero-length edge, which
+		///      corrupts SoftBodySharedSettings::CreateConstraints's
+		///      Dijkstra-based CalculateClosestKinematic (crashes there —
+		///      see PhysicsSystem::ResolveSoftbodies history). Quantised to
+		///      a 1e-4 world-unit grid: fine enough that legitimately
+		///      distinct vertices never collide, coarse enough to catch
+		///      float round-trip noise between originally-identical
+		///      positions.
+		/// [JP] 量子化したバインドポーズ位置を outVertices 内のスロットへ
+		///      対応付ける — BakeCollision のリマップ（元のグローバル頂点
+		///      インデックスでキー）と異なり、これは元のグローバル
+		///      インデックスが違っていても同じ位置に落ちる2つの角を溶接
+		///      する（UV継ぎ目で複製された頂点など）。最粗クラスタの LOD
+		///      簡略化は、（数値的に）同じ位置に異なる2つのグローバル
+		///      インデックスを残すことがある。両方を別々に接続された頂点
+		///      として Jolt に渡すと長さ0の辺ができ、
+		///      SoftBodySharedSettings::CreateConstraints の Dijkstra ベース
+		///      CalculateClosestKinematic を壊す（そこでクラッシュする —
+		///      PhysicsSystem::ResolveSoftbodies の経緯参照）。1e-4
+		///      ワールド単位グリッドへ量子化: 正当に別々の頂点が衝突しない
+		///      程度に細かく、元々同一だった位置間の浮動小数往復誤差を
+		///      拾える程度に粗い。
+		auto quantisedPositionKey = [](const Vector3& position) -> Uint64
+		{
+			constexpr Float gridScale = 10000.0f;
+			Int64 x = static_cast<Int64>(std::lround(position.x * gridScale));
+			Int64 y = static_cast<Int64>(std::lround(position.y * gridScale));
+			Int64 z = static_cast<Int64>(std::lround(position.z * gridScale));
+			Uint64 hash = static_cast<Uint64>(x) * 73856093ull;
+			hash ^= static_cast<Uint64>(y) * 19349663ull;
+			hash ^= static_cast<Uint64>(z) * 83492791ull;
+			return hash;
+		};
+
+		std::unordered_map<Uint64, Uint32> remap;
+
+		for (const SubMesh& subMesh : subMeshes_)
+		{
+			if (subMesh.clusterCount_ == 0)
+			{
+				continue;
+			}
+
+			/// [EN] Coarsest cluster — same range BakeCollision's Proxy
+			///      detail and the RT proxy geometry already use.
+			/// [JP] 最粗クラスタ — BakeCollision の Proxy 詳細度や RT
+			///      プロキシジオメトリが既に使っているのと同じ範囲。
+			Uint32 clusterIndex = subMesh.clusterOffset_ + subMesh.clusterCount_ - 1;
+			if (clusterIndex >= clusters_.size())
+			{
+				continue;
+			}
+
+			const Cluster& cluster = clusters_[clusterIndex];
+			for (Uint32 meshletIndex = cluster.meshletOffset_; meshletIndex < cluster.meshletOffset_ + cluster.meshletCount_; meshletIndex++)
+			{
+				const Meshlet& meshlet = meshlets_[meshletIndex];
+				for (Uint32 triangleIndex = 0; triangleIndex < meshlet.triangleCount_; triangleIndex++)
+				{
+					Uint32 byteOffset = meshlet.triangleOffset_ + triangleIndex * 3;
+					for (Int corner = 0; corner < 3; corner++)
+					{
+						Uint32 globalIndex = vertexIndices_[meshlet.vertexOffset_ + primitiveIndices_[byteOffset + corner]];
+						const CompressedVertex& compressed = compressedVertices_[globalIndex];
+
+						Vertex vertex;
+						vertex.position_ = DecodePosition(compressed, positionMin_, positionExtent_);
+
+						Uint64 key = quantisedPositionKey(vertex.position_);
+						auto found = remap.find(key);
+						if (found == remap.end())
+						{
+							Uint32 compactIndex = static_cast<Uint32>(outVertices.size());
+							remap[key] = compactIndex;
+
+							vertex.normal_ = DecodeNormal(compressed);
+							vertex.tangent_ = DecodeTangent(compressed);
+							vertex.texcoord_ = DecodeTexcoord(compressed, texcoordMin_, texcoordExtent_);
+							outVertices.push_back(vertex);
+
+							outIndices.push_back(compactIndex);
+						}
+						else
+						{
 							outIndices.push_back(found->second);
 						}
 					}

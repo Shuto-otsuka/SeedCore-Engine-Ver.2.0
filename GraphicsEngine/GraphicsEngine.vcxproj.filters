@@ -706,6 +706,9 @@
     <ClInclude Include="Model\Collision\MeshCollisionResource.h">
       <Filter>Model\Collision</Filter>
     </ClInclude>
+    <ClInclude Include="Model\SoftbodyMesh.h">
+      <Filter>Model</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="D3D12\Context\D3D12Adapter.cpp">
@@ -1177,6 +1180,9 @@
     </ClCompile>
     <ClCompile Include="Model\Collision\MeshCollisionResource.cpp">
       <Filter>Model\Collision</Filter>
+    </ClCompile>
+    <ClCompile Include="Model\SoftbodyMesh.cpp">
+      <Filter>Model</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

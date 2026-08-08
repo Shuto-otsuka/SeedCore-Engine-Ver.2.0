@@ -63,6 +63,7 @@
     <ClCompile Include="JoltPhysics\JoltManager.cpp">
     </ClCompile>
     <ClCompile Include="Rigidbody\Rigidbody.cpp" />
+    <ClCompile Include="Softbody\Softbody.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
