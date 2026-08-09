@@ -141,24 +141,29 @@ namespace SeedCore
 
 		/// [EN] The actual GPU work: dispatches ShadowRT.hlsl into the raw
 		///      texture, then (unless the last PrepareFrame() saw
-		///      denoiseMode_ == DlssRR) ShadowDenoiseCS.hlsl into this frame's
-		///      write slot (or clears both to 1.0 if tlasValid is false or the
-		///      DXR PSO is missing), leaving the write slot in
-		///      PIXEL_SHADER_RESOURCE state. When DlssRR, the denoise dispatch
-		///      and the accumulation ping-pong are skipped entirely — only the
-		///      raw texture is transitioned, since PrepareFrame() already
-		///      pointed the composite shader at it directly. Requires the
-		///      G-Buffer depth/normal/velocity to already be written.
+		///      denoiseMode_ == DlssRR) ShadowDenoiseCS.hlsl's temporal blend
+		///      into the A-Trous scratch texture, followed by 3 A-Trous
+		///      wavelet passes (step 1/2/4) that further spatially filter it,
+		///      the last of which writes into this frame's write slot (or
+		///      clears both to 1.0 if tlasValid is false or the DXR PSO is
+		///      missing), leaving the write slot in PIXEL_SHADER_RESOURCE
+		///      state. When DlssRR, the denoise/A-Trous dispatches and the
+		///      accumulation ping-pong are skipped entirely — only the raw
+		///      texture is transitioned, since PrepareFrame() already pointed
+		///      the composite shader at it directly. Requires the G-Buffer
+		///      depth/normal/velocity to already be written.
 		/// [JP] 実際の GPU 処理: ShadowRT.hlsl を raw テクスチャへ、続けて
 		///      (直近の PrepareFrame() で denoiseMode_ == DlssRR でなければ)
-		///      ShadowDenoiseCS.hlsl を今フレームの write スロットへ
-		///      ディスパッチする（tlasValid が false か DXR PSO が無ければ
-		///      両方とも 1.0 でクリア）。write スロットは
-		///      PIXEL_SHADER_RESOURCE 状態で終える。DlssRR の間はデノイズ
-		///      ディスパッチと蓄積ピンポンを丸ごとスキップする — 生テクスチャを
-		///      遷移させるだけでよい(PrepareFrame() が既に合成シェーダの
-		///      参照先をそこへ直接向けているため)。G-Buffer の深度/法線/速度が
-		///      書き込み済みであることが前提。
+		///      ShadowDenoiseCS.hlsl の時間的ブレンドを A-Trous スクラッチ
+		///      テクスチャへ、さらに3回の A-Trous ウェーブレットパス
+		///      (step 1/2/4)でさらに空間フィルタし、最後のパスが今フレームの
+		///      write スロットへ書く(tlasValid が false か DXR PSO が無ければ
+		///      両方とも 1.0 でクリア)。write スロットは
+		///      PIXEL_SHADER_RESOURCE 状態で終える。DlssRR の間はデノイズ/
+		///      A-Trous ディスパッチと蓄積ピンポンを丸ごとスキップする — 生
+		///      テクスチャを遷移させるだけでよい(PrepareFrame() が既に合成
+		///      シェーダの参照先をそこへ直接向けているため)。G-Buffer の
+		///      深度/法線/速度が書き込み済みであることが前提。
 		void Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex, Bool tlasValid, RaytracingView view);
 
 	private:
@@ -198,6 +203,20 @@ namespace SeedCore
 		D3D12_RESOURCE_STATES accumulatedVisibilityState_[viewCount][accumulationSlotCount] = {};
 		Uint32 accumulatedUnorderedAccessViewIndex_[viewCount][accumulationSlotCount] = {};
 		Uint32 accumulatedShaderResourceViewIndex_[viewCount][accumulationSlotCount] = {};
+
+		/// [EN] A-Trous ping-pong scratch, one pair per view - same shape as
+		///      GlobalIlluminationRenderer's atrousScratchResource_ (not
+		///      frame-ring double-buffered, indices registered once in
+		///      Create()/Resize() via IndicesSystem::SetEditor/GameShadowAtrousScratchIndices).
+		/// [JP] A-Trous ピンポンスクラッチ、ビューごとに1ペア -
+		///      GlobalIlluminationRenderer の atrousScratchResource_ と同じ形
+		///      (フレームリング二重化しない、インデックスは Create()/Resize() で
+		///      一度だけ IndicesSystem::SetEditor/GameShadowAtrousScratchIndices
+		///      経由で登録する)。
+		Microsoft::WRL::ComPtr<ID3D12Resource> atrousScratchResource_[viewCount][2];
+		D3D12_RESOURCE_STATES atrousScratchState_[viewCount][2] = {};
+		Uint32 atrousScratchUnorderedAccessViewIndex_[viewCount][2] = {};
+		Uint32 atrousScratchShaderResourceViewIndex_[viewCount][2] = {};
 
 		/// [EN] Which slot holds the previous frame's finished result (this
 		///      frame's history). The other slot is this frame's write

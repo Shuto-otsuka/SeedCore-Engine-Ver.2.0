@@ -263,6 +263,22 @@ namespace SeedCore
 		gameConstantIndices_.shadow_.visibilityShaderResourceViewIndex_ = visibilityShaderResourceViewIndex;
 	}
 
+	void IndicesSystem::SetEditorShadowAtrousScratchIndices(Uint scratch0ShaderResourceViewIndex, Uint scratch0UnorderedAccessViewIndex, Uint scratch1ShaderResourceViewIndex, Uint scratch1UnorderedAccessViewIndex)
+	{
+		editorConstantIndices_.shadow_.atrousScratch0ShaderResourceViewIndex_ = scratch0ShaderResourceViewIndex;
+		editorConstantIndices_.shadow_.atrousScratch0UnorderedAccessViewIndex_ = scratch0UnorderedAccessViewIndex;
+		editorConstantIndices_.shadow_.atrousScratch1ShaderResourceViewIndex_ = scratch1ShaderResourceViewIndex;
+		editorConstantIndices_.shadow_.atrousScratch1UnorderedAccessViewIndex_ = scratch1UnorderedAccessViewIndex;
+	}
+
+	void IndicesSystem::SetGameShadowAtrousScratchIndices(Uint scratch0ShaderResourceViewIndex, Uint scratch0UnorderedAccessViewIndex, Uint scratch1ShaderResourceViewIndex, Uint scratch1UnorderedAccessViewIndex)
+	{
+		gameConstantIndices_.shadow_.atrousScratch0ShaderResourceViewIndex_ = scratch0ShaderResourceViewIndex;
+		gameConstantIndices_.shadow_.atrousScratch0UnorderedAccessViewIndex_ = scratch0UnorderedAccessViewIndex;
+		gameConstantIndices_.shadow_.atrousScratch1ShaderResourceViewIndex_ = scratch1ShaderResourceViewIndex;
+		gameConstantIndices_.shadow_.atrousScratch1UnorderedAccessViewIndex_ = scratch1UnorderedAccessViewIndex;
+	}
+
 	void IndicesSystem::SetAmbientOcclusionRawUnorderedAccessViewIndex(Uint index)
 	{
 		structuredIndices_.ambientOcclusion_.rawUnorderedAccessViewIndex_ = index;
@@ -349,6 +365,22 @@ namespace SeedCore
 		gameConstantIndices_.reflection_.historyShaderResourceViewIndex_ = historyShaderResourceViewIndex;
 		gameConstantIndices_.reflection_.accumulatedUnorderedAccessViewIndex_ = accumulatedUnorderedAccessViewIndex;
 		gameConstantIndices_.reflection_.radianceShaderResourceViewIndex_ = radianceShaderResourceViewIndex;
+	}
+
+	void IndicesSystem::SetEditorReflectionAtrousScratchIndices(Uint scratch0ShaderResourceViewIndex, Uint scratch0UnorderedAccessViewIndex, Uint scratch1ShaderResourceViewIndex, Uint scratch1UnorderedAccessViewIndex)
+	{
+		editorConstantIndices_.reflection_.atrousScratch0ShaderResourceViewIndex_ = scratch0ShaderResourceViewIndex;
+		editorConstantIndices_.reflection_.atrousScratch0UnorderedAccessViewIndex_ = scratch0UnorderedAccessViewIndex;
+		editorConstantIndices_.reflection_.atrousScratch1ShaderResourceViewIndex_ = scratch1ShaderResourceViewIndex;
+		editorConstantIndices_.reflection_.atrousScratch1UnorderedAccessViewIndex_ = scratch1UnorderedAccessViewIndex;
+	}
+
+	void IndicesSystem::SetGameReflectionAtrousScratchIndices(Uint scratch0ShaderResourceViewIndex, Uint scratch0UnorderedAccessViewIndex, Uint scratch1ShaderResourceViewIndex, Uint scratch1UnorderedAccessViewIndex)
+	{
+		gameConstantIndices_.reflection_.atrousScratch0ShaderResourceViewIndex_ = scratch0ShaderResourceViewIndex;
+		gameConstantIndices_.reflection_.atrousScratch0UnorderedAccessViewIndex_ = scratch0UnorderedAccessViewIndex;
+		gameConstantIndices_.reflection_.atrousScratch1ShaderResourceViewIndex_ = scratch1ShaderResourceViewIndex;
+		gameConstantIndices_.reflection_.atrousScratch1UnorderedAccessViewIndex_ = scratch1UnorderedAccessViewIndex;
 	}
 
 	void IndicesSystem::SetEditorPostProcessIndices(const PostProcessIndices& values)

@@ -72,14 +72,14 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	// raw はビュー共有(structured_indices)、蓄積チェーンはビューごと
 	// (constant_indices)から取る。
 	Texture2D<float4> raw_reflection = ResourceDescriptorHeap[structured_indices.reflection_.output_srv_index_];
-	RWTexture2D<float4> accumulated_reflection = ResourceDescriptorHeap[constant_indices.reflection_.accumulated_uav_index_];
+	RWTexture2D<float4> scratch_output = ResourceDescriptorHeap[constant_indices.reflection_.atrous_scratch0_uav_index_];
 
 	Texture2D<float> depth_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.depth_index_];
 	float depth = depth_texture.Load(int3(pixel, 0));
 
 	if (depth == 0.0)
 	{
-		accumulated_reflection[pixel] = float4(0, 0, 0, 0);
+		scratch_output[pixel] = float4(0, 0, 0, 0);
 		return;
 	}
 
@@ -154,5 +154,71 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	Texture2D<float4> history_reflection = ResourceDescriptorHeap[constant_indices.reflection_.history_srv_index_];
 	float3 result = DenoiserTemporalBlend(history_reflection, previous_uv, clip_min, clip_max, filtered_raw, REFLECTION_TEMPORAL_BLEND_ALPHA);
 
-	accumulated_reflection[pixel] = float4(result, 1.0);
+	scratch_output[pixel] = float4(result, 1.0);
+}
+
+void AtrousPassCommon(uint2 pixel, Texture2D<float4> source, RWTexture2D<float4> dest, int step)
+{
+	SceneConstantBuffer scene = GetSceneConstantBuffer();
+
+	Texture2D<float> depth_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.depth_index_];
+	float depth = depth_texture.Load(int3(pixel, 0));
+
+	if (depth == 0.0)
+	{
+		dest[pixel] = float4(0, 0, 0, 0);
+		return;
+	}
+
+	Texture2D<float4> normal_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.index_1_];
+	float3 center_normal = OctNormalDecode(normal_texture.Load(int3(pixel, 0)).rg);
+
+	int2 screen_max = int2(scene.screen_size_) - 1;
+	float2 depth_gradient = DenoiserDepthGradient(depth_texture, int2(pixel), screen_max);
+
+	float3 filtered = DenoiserATrousPass(source, depth_texture, normal_texture, int2(pixel), screen_max, depth, depth_gradient, center_normal, step, REFLECTION_DEPTH_SHARPNESS, REFLECTION_NORMAL_POWER);
+
+	dest[pixel] = float4(filtered, 1.0);
+}
+
+[numthreads(8, 8, 1)]
+void ATrousPass1(uint3 dtid : SV_DispatchThreadID)
+{
+	SceneConstantBuffer scene = GetSceneConstantBuffer();
+	if (dtid.x >= (uint)scene.screen_size_.x || dtid.y >= (uint)scene.screen_size_.y)
+	{
+		return;
+	}
+
+	Texture2D<float4> source = ResourceDescriptorHeap[constant_indices.reflection_.atrous_scratch0_srv_index_];
+	RWTexture2D<float4> dest = ResourceDescriptorHeap[constant_indices.reflection_.atrous_scratch1_uav_index_];
+	AtrousPassCommon(dtid.xy, source, dest, 1);
+}
+
+[numthreads(8, 8, 1)]
+void ATrousPass2(uint3 dtid : SV_DispatchThreadID)
+{
+	SceneConstantBuffer scene = GetSceneConstantBuffer();
+	if (dtid.x >= (uint)scene.screen_size_.x || dtid.y >= (uint)scene.screen_size_.y)
+	{
+		return;
+	}
+
+	Texture2D<float4> source = ResourceDescriptorHeap[constant_indices.reflection_.atrous_scratch1_srv_index_];
+	RWTexture2D<float4> dest = ResourceDescriptorHeap[constant_indices.reflection_.atrous_scratch0_uav_index_];
+	AtrousPassCommon(dtid.xy, source, dest, 2);
+}
+
+[numthreads(8, 8, 1)]
+void ATrousPass3(uint3 dtid : SV_DispatchThreadID)
+{
+	SceneConstantBuffer scene = GetSceneConstantBuffer();
+	if (dtid.x >= (uint)scene.screen_size_.x || dtid.y >= (uint)scene.screen_size_.y)
+	{
+		return;
+	}
+
+	Texture2D<float4> source = ResourceDescriptorHeap[constant_indices.reflection_.atrous_scratch0_srv_index_];
+	RWTexture2D<float4> dest = ResourceDescriptorHeap[constant_indices.reflection_.accumulated_uav_index_];
+	AtrousPassCommon(dtid.xy, source, dest, 4);
 }

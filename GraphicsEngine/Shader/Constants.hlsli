@@ -126,6 +126,11 @@ struct ShadowAccumulationIndices
 	uint accumulated_uav_index_;
 	uint visibility_srv_index_;
 	uint shadow_accumulation_padding_;
+
+	uint atrous_scratch0_srv_index_;
+	uint atrous_scratch0_uav_index_;
+	uint atrous_scratch1_srv_index_;
+	uint atrous_scratch1_uav_index_;
 };
 
 // Per-view ray-traced AO accumulation chain - same scheme as
@@ -174,6 +179,11 @@ struct ReflectionAccumulationIndices
 	uint accumulated_uav_index_;
 	uint radiance_srv_index_;
 	uint reflection_accumulation_padding_;
+
+	uint atrous_scratch0_srv_index_;
+	uint atrous_scratch0_uav_index_;
+	uint atrous_scratch1_srv_index_;
+	uint atrous_scratch1_uav_index_;
 };
 
 // DLSS Ray Reconstruction's synthesized RGB=normal/A=roughness buffer for

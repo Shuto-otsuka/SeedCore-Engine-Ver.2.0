@@ -157,6 +157,11 @@ namespace SeedCore
 		Uint accumulatedUnorderedAccessViewIndex_ = 0;
 		Uint visibilityShaderResourceViewIndex_ = 0;
 		Uint shadowAccumulationPadding_ = 0;
+
+		Uint atrousScratch0ShaderResourceViewIndex_ = 0;
+		Uint atrousScratch0UnorderedAccessViewIndex_ = 0;
+		Uint atrousScratch1ShaderResourceViewIndex_ = 0;
+		Uint atrousScratch1UnorderedAccessViewIndex_ = 0;
 	};
 	static_assert(sizeof(ShadowAccumulationIndices) % 16 == 0, "ShadowAccumulationIndices が 16 バイト行の倍数ではありません");
 
@@ -206,6 +211,11 @@ namespace SeedCore
 		Uint accumulatedUnorderedAccessViewIndex_ = 0;
 		Uint radianceShaderResourceViewIndex_ = 0;
 		Uint reflectionAccumulationPadding_ = 0;
+
+		Uint atrousScratch0ShaderResourceViewIndex_ = 0;
+		Uint atrousScratch0UnorderedAccessViewIndex_ = 0;
+		Uint atrousScratch1ShaderResourceViewIndex_ = 0;
+		Uint atrousScratch1UnorderedAccessViewIndex_ = 0;
 	};
 	static_assert(sizeof(ReflectionAccumulationIndices) % 16 == 0, "ReflectionAccumulationIndices が 16 バイト行の倍数ではありません");
 
@@ -246,7 +256,7 @@ namespace SeedCore
 
 		PostProcessIndices postProcess_;
 	};
-	static_assert(sizeof(ConstantIndices) == 18 * 16, "ConstantIndices が Shader/Constants.hlsli と一致していません");
+	static_assert(sizeof(ConstantIndices) == 20 * 16, "ConstantIndices が Shader/Constants.hlsli と一致していません");
 
 	/// [EN] Mirrors Shader/Structured.hlsli. Each group is a whole number of
 	///      16-byte cbuffer rows with its padding written out explicitly, and
@@ -614,6 +624,10 @@ namespace SeedCore
 
 		void SetGameShadowIndices(Uint historyShaderResourceViewIndex, Uint accumulatedUnorderedAccessViewIndex, Uint visibilityShaderResourceViewIndex);
 
+		void SetEditorShadowAtrousScratchIndices(Uint scratch0ShaderResourceViewIndex, Uint scratch0UnorderedAccessViewIndex, Uint scratch1ShaderResourceViewIndex, Uint scratch1UnorderedAccessViewIndex);
+
+		void SetGameShadowAtrousScratchIndices(Uint scratch0ShaderResourceViewIndex, Uint scratch0UnorderedAccessViewIndex, Uint scratch1ShaderResourceViewIndex, Uint scratch1UnorderedAccessViewIndex);
+
 		void SetAmbientOcclusionRawUnorderedAccessViewIndex(Uint index);
 
 		void SetAmbientOcclusionRawShaderResourceViewIndex(Uint index);
@@ -643,6 +657,10 @@ namespace SeedCore
 		void SetEditorReflectionAccumulationIndices(Uint historyShaderResourceViewIndex, Uint accumulatedUnorderedAccessViewIndex, Uint radianceShaderResourceViewIndex);
 
 		void SetGameReflectionAccumulationIndices(Uint historyShaderResourceViewIndex, Uint accumulatedUnorderedAccessViewIndex, Uint radianceShaderResourceViewIndex);
+
+		void SetEditorReflectionAtrousScratchIndices(Uint scratch0ShaderResourceViewIndex, Uint scratch0UnorderedAccessViewIndex, Uint scratch1ShaderResourceViewIndex, Uint scratch1UnorderedAccessViewIndex);
+
+		void SetGameReflectionAtrousScratchIndices(Uint scratch0ShaderResourceViewIndex, Uint scratch0UnorderedAccessViewIndex, Uint scratch1ShaderResourceViewIndex, Uint scratch1UnorderedAccessViewIndex);
 
 		/// [EN] Registers one view's full post-process payload (resource
 		///      indices + tuning scalars) into that view's ConstantIndices.

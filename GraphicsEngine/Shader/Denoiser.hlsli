@@ -179,4 +179,38 @@ float3 DenoiserATrousPass(Texture2D<float4> source_texture, Texture2D<float> dep
 	return weight_sum > 0.0001 ? sum / weight_sum : source_texture.Load(int3(pixel, 0)).rgb;
 }
 
+// float2 overload for scalar/dual-channel signals (e.g. Shadow's directional+
+// punctual visibility) - same 5x5 B3-spline + depth/normal edge-stopping
+// weight as the float4 version above, but with no alpha-validity exclusion
+// (these signals have no "invalid" concept the way RGBA radiance does).
+float2 DenoiserATrousPass(Texture2D<float2> source_texture, Texture2D<float> depth_texture, Texture2D<float4> normal_texture, int2 pixel, int2 screen_max, float center_depth, float2 depth_gradient, float3 center_normal, int step, float depth_sharpness, float normal_power)
+{
+	float2 sum = float2(0, 0);
+	float weight_sum = 0.0;
+
+	[unroll]
+	for (int ty = -2; ty <= 2; ++ty)
+	{
+		[unroll]
+		for (int tx = -2; tx <= 2; ++tx)
+		{
+			int2 offset = int2(tx, ty) * step;
+			int2 neighbor = clamp(pixel + offset, int2(0, 0), screen_max);
+
+			float2 neighbor_sample = source_texture.Load(int3(neighbor, 0));
+			float neighbor_depth = depth_texture.Load(int3(neighbor, 0));
+			float3 neighbor_normal = OctNormalDecode(normal_texture.Load(int3(neighbor, 0)).rg);
+
+			float kernel_weight = DENOISER_ATROUS_KERNEL[tx + 2] * DENOISER_ATROUS_KERNEL[ty + 2];
+			float edge_weight = DenoiserSpatialWeight(center_depth, depth_gradient, offset, neighbor_depth, center_normal, neighbor_normal, depth_sharpness, normal_power);
+
+			float weight = kernel_weight * edge_weight;
+			sum += neighbor_sample * weight;
+			weight_sum += weight;
+		}
+	}
+
+	return weight_sum > 0.0001 ? sum / weight_sum : source_texture.Load(int3(pixel, 0));
+}
+
 #endif // __DENOISER_HLSL__

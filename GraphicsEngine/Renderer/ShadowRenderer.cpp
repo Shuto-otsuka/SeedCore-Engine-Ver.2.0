@@ -50,6 +50,22 @@ namespace SeedCore
 			shaderResourceViewDesc.Texture2D.MipLevels = 1;
 			device->CreateShaderResourceView(outResource.Get(), &shaderResourceViewDesc, bindlessHeap->CPUHandle(outShaderResourceViewIndex));
 		}
+
+		void CreateAtrousScratchTextures(ID3D12Device* device, BindlessHeap* bindlessHeap, DescriptorHeap& clearHeap, Uint32 width, Uint32 height, IndicesSystem& indicesSystem,
+			Microsoft::WRL::ComPtr<ID3D12Resource>(&outResource)[2][2], Uint32(&outUnorderedAccessViewIndex)[2][2], Uint32(&outShaderResourceViewIndex)[2][2])
+		{
+			for (Uint32 view = 0; view < 2; ++view)
+			{
+				for (Uint32 slot = 0; slot < 2; ++slot)
+				{
+					Uint32 unusedClearIndex = 0;
+					CreateVisibilityTexture(device, bindlessHeap, clearHeap, width, height, outResource[view][slot], outUnorderedAccessViewIndex[view][slot], outShaderResourceViewIndex[view][slot], unusedClearIndex);
+				}
+			}
+
+			indicesSystem.SetEditorShadowAtrousScratchIndices(outShaderResourceViewIndex[static_cast<Uint32>(RaytracingView::Editor)][0], outUnorderedAccessViewIndex[static_cast<Uint32>(RaytracingView::Editor)][0], outShaderResourceViewIndex[static_cast<Uint32>(RaytracingView::Editor)][1], outUnorderedAccessViewIndex[static_cast<Uint32>(RaytracingView::Editor)][1]);
+			indicesSystem.SetGameShadowAtrousScratchIndices(outShaderResourceViewIndex[static_cast<Uint32>(RaytracingView::Game)][0], outUnorderedAccessViewIndex[static_cast<Uint32>(RaytracingView::Game)][0], outShaderResourceViewIndex[static_cast<Uint32>(RaytracingView::Game)][1], outUnorderedAccessViewIndex[static_cast<Uint32>(RaytracingView::Game)][1]);
+		}
 	}
 
 	ShadowRenderer::ShadowRenderer(RootSignature& rootSignature, PipelineStateObject& pipelineStateObject) : shadowShader_(rootSignature, pipelineStateObject), denoiseShader_(rootSignature, pipelineStateObject)
@@ -69,7 +85,7 @@ namespace SeedCore
 
 		tuningBuffer_ = MakePtr<ConstantBuffer<ShadowRayConstantBuffer>>(device, bindlessHeap);
 
-		clearHeap_.Create(device, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1 + viewCount * accumulationSlotCount, false);
+		clearHeap_.Create(device, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1 + viewCount * accumulationSlotCount + viewCount * 2, false);
 
 		CreateVisibilityTexture(device, bindlessHeap, clearHeap_, width, height, rawVisibilityResource_, rawVisibilityUnorderedAccessViewIndex_, rawVisibilityShaderResourceViewIndex_, clearRawIndex_);
 		rawVisibilityState_ = D3D12_RESOURCE_STATE_COMMON;
@@ -80,6 +96,15 @@ namespace SeedCore
 			{
 				CreateVisibilityTexture(device, bindlessHeap, clearHeap_, width, height, accumulatedVisibilityResource_[view][slot], accumulatedUnorderedAccessViewIndex_[view][slot], accumulatedShaderResourceViewIndex_[view][slot], clearAccumulatedIndex_[view][slot]);
 				accumulatedVisibilityState_[view][slot] = D3D12_RESOURCE_STATE_COMMON;
+			}
+		}
+
+		CreateAtrousScratchTextures(device, bindlessHeap, clearHeap_, width, height, indicesSystem, atrousScratchResource_, atrousScratchUnorderedAccessViewIndex_, atrousScratchShaderResourceViewIndex_);
+		for (Uint32 view = 0; view < viewCount; ++view)
+		{
+			for (Uint32 slot = 0; slot < 2; ++slot)
+			{
+				atrousScratchState_[view][slot] = D3D12_RESOURCE_STATE_COMMON;
 			}
 		}
 	}
@@ -98,6 +123,13 @@ namespace SeedCore
 				bindlessHeap->FreeIndex(accumulatedShaderResourceViewIndex_[view][slot]);
 				accumulatedVisibilityResource_[view][slot].Reset();
 			}
+
+			for (Uint32 slot = 0; slot < 2; ++slot)
+			{
+				bindlessHeap->FreeIndex(atrousScratchUnorderedAccessViewIndex_[view][slot]);
+				bindlessHeap->FreeIndex(atrousScratchShaderResourceViewIndex_[view][slot]);
+				atrousScratchResource_[view][slot].Reset();
+			}
 		}
 	}
 
@@ -108,7 +140,7 @@ namespace SeedCore
 		width_ = width;
 		height_ = height;
 
-		clearHeap_.Create(device, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1 + viewCount * accumulationSlotCount, false);
+		clearHeap_.Create(device, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1 + viewCount * accumulationSlotCount + viewCount * 2, false);
 
 		CreateVisibilityTexture(device, bindlessHeap, clearHeap_, width, height, rawVisibilityResource_, rawVisibilityUnorderedAccessViewIndex_, rawVisibilityShaderResourceViewIndex_, clearRawIndex_);
 		rawVisibilityState_ = D3D12_RESOURCE_STATE_COMMON;
@@ -119,6 +151,15 @@ namespace SeedCore
 			{
 				CreateVisibilityTexture(device, bindlessHeap, clearHeap_, width, height, accumulatedVisibilityResource_[view][slot], accumulatedUnorderedAccessViewIndex_[view][slot], accumulatedShaderResourceViewIndex_[view][slot], clearAccumulatedIndex_[view][slot]);
 				accumulatedVisibilityState_[view][slot] = D3D12_RESOURCE_STATE_COMMON;
+			}
+		}
+
+		CreateAtrousScratchTextures(device, bindlessHeap, clearHeap_, width, height, *indicesSystem_, atrousScratchResource_, atrousScratchUnorderedAccessViewIndex_, atrousScratchShaderResourceViewIndex_);
+		for (Uint32 view = 0; view < viewCount; ++view)
+		{
+			for (Uint32 slot = 0; slot < 2; ++slot)
+			{
+				atrousScratchState_[view][slot] = D3D12_RESOURCE_STATE_COMMON;
 			}
 		}
 	}
@@ -263,13 +304,52 @@ namespace SeedCore
 				accumulatedVisibilityState_[viewIndex][historySlot_] = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
 			}
 
+			if (atrousScratchState_[viewIndex][0] != D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
+			{
+				cmdList->Barrier(atrousScratchResource_[viewIndex][0].Get(), atrousScratchState_[viewIndex][0], D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+				atrousScratchState_[viewIndex][0] = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+			}
+
+			cmd->SetPipelineState(denoisePipelineState);
+			cmd->Dispatch(groupCountX, groupCountY, 1);
+			ProfilerStats::AddDrawCall();
+
+			cmdList->Barrier(atrousScratchResource_[viewIndex][0].Get(), atrousScratchState_[viewIndex][0], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+			atrousScratchState_[viewIndex][0] = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+
+			if (atrousScratchState_[viewIndex][1] != D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
+			{
+				cmdList->Barrier(atrousScratchResource_[viewIndex][1].Get(), atrousScratchState_[viewIndex][1], D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+				atrousScratchState_[viewIndex][1] = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+			}
+
+			cmd->SetPipelineState(denoiseShader_.GetATrousPipelineState(0));
+			cmd->Dispatch(groupCountX, groupCountY, 1);
+			ProfilerStats::AddDrawCall();
+
+			cmdList->Barrier(atrousScratchResource_[viewIndex][1].Get(), atrousScratchState_[viewIndex][1], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+			atrousScratchState_[viewIndex][1] = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+
+			if (atrousScratchState_[viewIndex][0] != D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
+			{
+				cmdList->Barrier(atrousScratchResource_[viewIndex][0].Get(), atrousScratchState_[viewIndex][0], D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+				atrousScratchState_[viewIndex][0] = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+			}
+
+			cmd->SetPipelineState(denoiseShader_.GetATrousPipelineState(1));
+			cmd->Dispatch(groupCountX, groupCountY, 1);
+			ProfilerStats::AddDrawCall();
+
+			cmdList->Barrier(atrousScratchResource_[viewIndex][0].Get(), atrousScratchState_[viewIndex][0], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+			atrousScratchState_[viewIndex][0] = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+
 			if (accumulatedVisibilityState_[viewIndex][writeSlot] != D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
 			{
 				cmdList->Barrier(accumulatedVisibilityResource_[viewIndex][writeSlot].Get(), accumulatedVisibilityState_[viewIndex][writeSlot], D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 				accumulatedVisibilityState_[viewIndex][writeSlot] = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
 			}
 
-			cmd->SetPipelineState(denoisePipelineState);
+			cmd->SetPipelineState(denoiseShader_.GetATrousPipelineState(2));
 			cmd->Dispatch(groupCountX, groupCountY, 1);
 			ProfilerStats::AddDrawCall();
 

@@ -219,26 +219,30 @@ namespace SeedCore
 		void PrepareFrame(const ReflectionRayConstantBuffer& settings, Bool useDlssRayReconstruction);
 
 		/// [EN] The actual GPU work: DispatchRays into the raw texture, then
-		///      (unless useDlssRayReconstruction) ReflectionDenoiseCS.hlsl into
-		///      this frame's write slot (or clears it to 0 when there is no
-		///      TLAS / the feature is off / the RTPSO/PSO is missing), leaving
-		///      the write slot in PIXEL_SHADER_RESOURCE state. When
-		///      useDlssRayReconstruction is true, the denoise dispatch and the
-		///      accumulation ping-pong are skipped entirely — only the raw
-		///      texture is transitioned to PIXEL_SHADER_RESOURCE, since
-		///      PrepareFrame() already pointed the composite shader at it
-		///      directly. Requires the G-Buffer depth/normal/velocity to
-		///      already be written.
+		///      (unless useDlssRayReconstruction) ReflectionDenoiseCS.hlsl's
+		///      temporal blend into the A-Trous scratch texture, followed by 3
+		///      A-Trous wavelet passes (step 1/2/4) that further spatially
+		///      filter it, the last of which writes into this frame's write
+		///      slot (or clears it to 0 when there is no TLAS / the feature is
+		///      off / the RTPSO/PSO is missing), leaving the write slot in
+		///      PIXEL_SHADER_RESOURCE state. When useDlssRayReconstruction is
+		///      true, the denoise/A-Trous dispatches and the accumulation
+		///      ping-pong are skipped entirely — only the raw texture is
+		///      transitioned to PIXEL_SHADER_RESOURCE, since PrepareFrame()
+		///      already pointed the composite shader at it directly. Requires
+		///      the G-Buffer depth/normal/velocity to already be written.
 		/// [JP] 実際の GPU 処理: DispatchRays を生テクスチャへ、続けて
 		///      (useDlssRayReconstruction でなければ) ReflectionDenoiseCS.hlsl
-		///      を今フレームの write スロットへディスパッチする(TLAS が無い/
+		///      の時間的ブレンドを A-Trous スクラッチテクスチャへ、さらに3回の
+		///      A-Trous ウェーブレットパス(step 1/2/4)でさらに空間フィルタし、
+		///      最後のパスが今フレームの write スロットへ書く(TLAS が無い/
 		///      機能が無効/RTPSO・PSO が無ければ 0 でクリア)。write スロットは
 		///      PIXEL_SHADER_RESOURCE 状態で終える。useDlssRayReconstruction が
-		///      true の間はデノイズディスパッチと蓄積ピンポンを丸ごとスキップ
-		///      する — 生テクスチャを PIXEL_SHADER_RESOURCE へ遷移させるだけで
-		///      よい(PrepareFrame() が既に合成シェーダの参照先をそこへ直接
-		///      向けているため)。G-Buffer の深度/法線/速度が書き込み済みで
-		///      あることが前提。
+		///      true の間はデノイズ/A-Trous ディスパッチと蓄積ピンポンを丸ごと
+		///      スキップする — 生テクスチャを PIXEL_SHADER_RESOURCE へ遷移させる
+		///      だけでよい(PrepareFrame() が既に合成シェーダの参照先をそこへ
+		///      直接向けているため)。G-Buffer の深度/法線/速度が書き込み済み
+		///      であることが前提。
 		void Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex, Bool tlasValid, RaytracingView view, Bool useDlssRayReconstruction);
 
 	private:
@@ -273,6 +277,15 @@ namespace SeedCore
 		D3D12_RESOURCE_STATES accumulatedRadianceState_[viewCount][accumulationSlotCount] = {};
 		Uint32 accumulatedUnorderedAccessViewIndex_[viewCount][accumulationSlotCount] = {};
 		Uint32 accumulatedShaderResourceViewIndex_[viewCount][accumulationSlotCount] = {};
+
+		/// [EN] A-Trous ping-pong scratch, one pair per view - same shape as
+		///      GlobalIlluminationRenderer's atrousScratchResource_.
+		/// [JP] A-Trous ピンポンスクラッチ、ビューごとに1ペア -
+		///      GlobalIlluminationRenderer の atrousScratchResource_ と同じ形。
+		Microsoft::WRL::ComPtr<ID3D12Resource> atrousScratchResource_[viewCount][2];
+		D3D12_RESOURCE_STATES atrousScratchState_[viewCount][2] = {};
+		Uint32 atrousScratchUnorderedAccessViewIndex_[viewCount][2] = {};
+		Uint32 atrousScratchShaderResourceViewIndex_[viewCount][2] = {};
 
 		/// [EN] Which slot holds the previous frame's finished result (this
 		///      frame's history). Swapped once per frame at the top of
