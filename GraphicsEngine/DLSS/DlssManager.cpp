@@ -18,19 +18,19 @@ namespace SeedCore
 			return result;
 		}
 
-		sl::DLSSMode ToStreamlineDlssMode(DlssMode mode)
+		sl::DLSSMode ToStreamlineDlssMode(UpscaleMode mode)
 		{
 			switch (mode)
 			{
-			case DlssMode::MaxPerformance:
+			case UpscaleMode::MaxPerformance:
 				return sl::DLSSMode::eMaxPerformance;
-			case DlssMode::Balanced:
+			case UpscaleMode::Balanced:
 				return sl::DLSSMode::eBalanced;
-			case DlssMode::MaxQuality:
+			case UpscaleMode::MaxQuality:
 				return sl::DLSSMode::eMaxQuality;
-			case DlssMode::UltraPerformance:
+			case UpscaleMode::UltraPerformance:
 				return sl::DLSSMode::eUltraPerformance;
-			case DlssMode::Dlaa:
+			case UpscaleMode::Dlaa:
 				return sl::DLSSMode::eDLAA;
 			}
 			return sl::DLSSMode::eBalanced;
@@ -239,7 +239,7 @@ namespace SeedCore
 #endif
 	}
 
-	void DlssManager::EvaluateRayReconstruction(ID3D12CommandList* cmdList, const SceneConstantBuffer& scene, Uint32 viewportIndex, Uint32 outputWidth, Uint32 outputHeight, DlssMode mode)
+	void DlssManager::EvaluateRayReconstruction(ID3D12CommandList* cmdList, const SceneConstantBuffer& scene, Uint32 viewportIndex, Uint32 outputWidth, Uint32 outputHeight, UpscaleMode mode)
 	{
 #if !SC_RENDER_DOC_USAGE
 		if (!currentToken_)
@@ -276,7 +276,7 @@ namespace SeedCore
 #endif
 	}
 
-	void DlssManager::EvaluateDlss(ID3D12CommandList* cmdList, Uint32 viewportIndex, Uint32 outputWidth, Uint32 outputHeight, DlssMode mode)
+	void DlssManager::EvaluateDlss(ID3D12CommandList* cmdList, Uint32 viewportIndex, Uint32 outputWidth, Uint32 outputHeight, UpscaleMode mode)
 	{
 #if !SC_RENDER_DOC_USAGE
 		if (!currentToken_)

@@ -8,11 +8,11 @@ namespace SeedCore
 		/// [EN] On-disk shape of one action's bindings (see Input::LoadBindings/SaveBindings).
 		///      Key/SDL_GamepadButton round-trip as Int32 since cereal has no
 		///      built-in support for raw enums (same convention as GameConfig's
-		///      dlssMode_/resolution_, see Editor/Editor/Build/Config.cpp).
+		///      upscaleMode_/resolution_, see Editor/Editor/Build/Config.cpp).
 		/// [JP] 1アクション分のバインド情報のディスク上の形（Input::LoadBindings/
 		///      SaveBindings 参照）。Key/SDL_GamepadButton は cereal が生の enum を
 		///      直接扱えないため Int32 として往復させる（GameConfig の
-		///      dlssMode_/resolution_ と同じ規約、Editor/Editor/Build/Config.cpp 参照）。
+		///      upscaleMode_/resolution_ と同じ規約、Editor/Editor/Build/Config.cpp 参照）。
 		struct AxisKeysRecord
 		{
 			Int32 up_ = 0;

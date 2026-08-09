@@ -17,10 +17,15 @@ namespace SeedCore
 
 		void SetPreviewHandle(D3D12_GPU_DESCRIPTOR_HANDLE previewHandle);
 
+		void DrawDetails();
+
+		[[nodiscard]] Bool IsFocused()const { return isFocused_; }
+
 	private:
 		EditorContext& context_;
 
 		Bool show_ = false;
+		Bool isFocused_ = false;
 		Animator* target_ = nullptr;
 
 		Size selectedAnimationIndex_ = SIZE_MAX;

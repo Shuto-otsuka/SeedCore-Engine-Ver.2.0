@@ -136,6 +136,9 @@
     <Filter Include="Model\Collision">
       <UniqueIdentifier>{0b6e0942-763b-4c4a-af40-2b64ad4da33b}</UniqueIdentifier>
     </Filter>
+    <Filter Include="TAAU">
+      <UniqueIdentifier>{cdaa4885-4f34-4b9b-9bcf-3ead1c9f0b08}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="D3D12\Context\D3D12Adapter.h">
@@ -709,6 +712,12 @@
     <ClInclude Include="Model\SoftbodyMesh.h">
       <Filter>Model</Filter>
     </ClInclude>
+    <ClInclude Include="TAAU\TaauResolveShader.h">
+      <Filter>TAAU</Filter>
+    </ClInclude>
+    <ClInclude Include="Renderer\TaauUpsamplingRenderer.h">
+      <Filter>Renderer</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="D3D12\Context\D3D12Adapter.cpp">
@@ -1184,6 +1193,12 @@
     <ClCompile Include="Model\SoftbodyMesh.cpp">
       <Filter>Model</Filter>
     </ClCompile>
+    <ClCompile Include="TAAU\TaauResolveShader.cpp">
+      <Filter>TAAU</Filter>
+    </ClCompile>
+    <ClCompile Include="Renderer\TaauUpsamplingRenderer.cpp">
+      <Filter>Renderer</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="Shader\Sampler.hlsli">
@@ -1577,6 +1592,9 @@
     </Text>
     <Text Include="Model\MaterialClassifyCS.hlsl">
       <Filter>Model</Filter>
+    </Text>
+    <Text Include="TAAU\TaauResolveCS.hlsl">
+      <Filter>TAAU</Filter>
     </Text>
   </ItemGroup>
 </Project>

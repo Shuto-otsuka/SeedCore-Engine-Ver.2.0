@@ -167,7 +167,7 @@ namespace SeedCore
 		indicesSystem_->SetGameDlssDiffuseAlbedoUnorderedAccessViewIndex(gameView_.diffuseAlbedoUnorderedAccessViewIndex_);
 	}
 
-	void DlssRayReconstructionRenderer::Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex, RaytracingView view, DlssManager* dlssManager, const SceneConstantBuffer& scene, ID3D12Resource* colorResource, ID3D12Resource* depthResource, ID3D12Resource* velocityResource, Uint32 sourceWidth, Uint32 sourceHeight, DlssMode mode)
+	void DlssRayReconstructionRenderer::Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex, RaytracingView view, DlssManager* dlssManager, const SceneConstantBuffer& scene, ID3D12Resource* colorResource, ID3D12Resource* depthResource, ID3D12Resource* velocityResource, Uint32 sourceWidth, Uint32 sourceHeight, UpscaleMode mode)
 	{
 		auto* cmd = cmdList->Get();
 		View& target = ViewFor(view);

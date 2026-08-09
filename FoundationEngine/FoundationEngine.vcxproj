@@ -115,6 +115,7 @@
     <ClInclude Include="Log\Notice.h" />
     <ClInclude Include="Log\SlFail.h" />
     <ClInclude Include="Log\Warning.h" />
+    <ClInclude Include="Math\Halton.h" />
     <ClInclude Include="Math\Random\Hash.h" />
     <ClInclude Include="Math\Random\Xorshift.h" />
     <ClCompile Include="JobSystem\Semaphore.cpp">

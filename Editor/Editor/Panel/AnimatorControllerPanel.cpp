@@ -1,6 +1,8 @@
 #include <Editor/Editor/Panel/AnimatorControllerPanel.h>
 #include <Editor/Editor/EditorContext.h>
 #include <Editor/Editor/ImGui/ImGuiCommon.h>
+#include <Editor/Editor/ImGui/ImGuiRenderer.h>
+#include <External/ImGui/Include/imgui_internal.h>
 #include <GraphicsEngine/Model/Animation/Animator.h>
 #include <FoundationEngine/Resource/ResourceCache.h>
 #include <FoundationEngine/ECS/Actor.h>
@@ -256,6 +258,7 @@ namespace SeedCore
 	void AnimatorControllerPanel::Open(Animator* target)
 	{
 		show_ = true;
+		ImGui::SetWindowFocus("アニメーターコントローラー");
 
 		if (target != target_)
 		{
@@ -268,6 +271,7 @@ namespace SeedCore
 	{
 		if (!show_)
 		{
+			isFocused_ = false;
 			return;
 		}
 
@@ -281,9 +285,11 @@ namespace SeedCore
 			selectedConditionIndex_ = SIZE_MAX;
 		}
 
+		ImGui::DockBuilderDockWindow("アニメーターコントローラー", context_.graphicsContext_.imgui_->GetDockSpaceID());
 		ImGui::SetNextWindowSize(ImVec2(1100, 650), ImGuiCond_FirstUseEver);
 
-		if (ImGui::Begin("アニメーターコントローラー", &show_))
+		isFocused_ = ImGui::Begin("アニメーターコントローラー", &show_);
+		if (isFocused_)
 		{
 			if (!target_)
 			{
@@ -319,7 +325,7 @@ namespace SeedCore
 
 		Float availableHeight = ImGui::GetContentRegionAvail().y;
 
-		ImGui::BeginChild("##graph", ImVec2(-300.0f, availableHeight), true);
+		ImGui::BeginChild("##graph", ImVec2(0.0f, availableHeight), true);
 
 		ed::Begin("AnimatorControllerEditor", ImVec2(0, 0));
 
@@ -806,10 +812,16 @@ namespace SeedCore
 		ed::SetCurrentEditor(nullptr);
 
 		ImGui::EndChild();
+	}
 
-		ImGui::SameLine();
+	void AnimatorControllerPanel::DrawDetails()
+	{
+		if (!target_)
+		{
+			ImGui::TextDisabled("対象のAnimatorがありません");
+			return;
+		}
 
-		ImGui::BeginChild("##details", ImVec2(0, availableHeight), true);
 		ImGui::TextDisabled("パラメータ");
 		ImGui::Separator();
 
@@ -1074,7 +1086,5 @@ namespace SeedCore
 		{
 			ImGui::TextDisabled("ノードを選択してください");
 		}
-
-		ImGui::EndChild();
 	}
 }

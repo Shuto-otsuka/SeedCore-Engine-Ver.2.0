@@ -30,6 +30,9 @@ namespace SeedCore
 		timelinePanel_ = MakePtr<TimelinePanel>(context_);
 		modelTransformPanel_ = MakePtr<ModelTransformPanel>(context_);
 
+		context_.panelContext_.animatorControllerPanel_ = &*animatorControllerPanel_;
+		context_.panelContext_.timelinePanel_ = &*timelinePanel_;
+
 		SC_LOG_NOTICE("エディターの初期化が完了しました");
 	}
 
@@ -113,8 +116,6 @@ namespace SeedCore
 		todoListPanel_->Draw();
 		versionPanel_->Draw();
 		configPanel_->Draw();
-		animatorControllerPanel_->Draw();
-		timelinePanel_->Draw();
 		modelTransformPanel_->Draw();
 		toolbarHeight_ = controlPanel_->Draw();
 		return toolbarHeight_;
@@ -124,6 +125,25 @@ namespace SeedCore
 	{
 		timelinePanel_->SetPreviewHandle(previewFrameBufferHandle);
 		modelTransformPanel_->SetPreviewHandle(previewFrameBufferHandle);
+
+		/// [EN] Must run after DockSpaceBegin() (called by Engine before this
+		///      function) so ImGui::DockSpace() has already created/refreshed
+		///      this frame's dock node — DockBuilderDockWindow() inside these
+		///      panels' Draw() would otherwise target a node ImGui hasn't
+		///      registered as active yet this frame and silently drop the
+		///      request (this was the actual reason forced docking never
+		///      took effect when these were called from DrawToolbar(),
+		///      which runs before DockSpaceBegin()).
+		/// [JP] (Engineがこの関数より前に呼ぶ)DockSpaceBegin()の後に実行する
+		///      必要がある — ImGui::DockSpace()が今フレームのドックノードを
+		///      生成/更新済みである前提のため。これらのパネルのDraw()内の
+		///      DockBuilderDockWindow()は、そうしないとImGuiが今フレームまだ
+		///      アクティブと認識していないノードを対象にリクエストしてしまい、
+		///      黙って無視されていた(DockSpaceBegin()より前に実行される
+		///      DrawToolbar()から呼んでいた際、強制ドッキングが一切効かなかった
+		///      本当の原因)。
+		animatorControllerPanel_->Draw();
+		timelinePanel_->Draw();
 
 		gameWindowPanel_->Draw(gameFrameBufferHandle, toolbarHeight_);
 

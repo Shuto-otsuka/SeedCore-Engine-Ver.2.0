@@ -1,6 +1,8 @@
 #include <Editor/Editor/Panel/TimelinePanel.h>
 #include <Editor/Editor/EditorContext.h>
 #include <Editor/Editor/ImGui/ImGuiCommon.h>
+#include <Editor/Editor/ImGui/ImGuiRenderer.h>
+#include <External/ImGui/Include/imgui_internal.h>
 #include <GraphicsEngine/Model/Animation/Animator.h>
 #include <GraphicsEngine/Model/Animation/AnimationResource.h>
 #include <GraphicsEngine/Model/Mesh.h>
@@ -308,6 +310,7 @@ namespace SeedCore
 	void TimelinePanel::Open()
 	{
 		show_ = true;
+		ImGui::SetWindowFocus("タイムライン");
 	}
 
 	void TimelinePanel::SetPreviewHandle(D3D12_GPU_DESCRIPTOR_HANDLE previewHandle)
@@ -321,6 +324,7 @@ namespace SeedCore
 		{
 			context_.previewContext_.previewActive_ = false;
 			isPlaying_ = false;
+			isFocused_ = false;
 			return;
 		}
 
@@ -335,9 +339,11 @@ namespace SeedCore
 
 		context_.previewContext_.previewActive_ = false;
 
+		ImGui::DockBuilderDockWindow("タイムライン", context_.graphicsContext_.imgui_->GetDockSpaceID());
 		ImGui::SetNextWindowSize(ImVec2(1280, 720), ImGuiCond_FirstUseEver);
 
-		if (ImGui::Begin("タイムライン", &show_))
+		isFocused_ = ImGui::Begin("タイムライン", &show_);
+		if (isFocused_)
 		{
 			if (!target_)
 			{
@@ -477,9 +483,7 @@ namespace SeedCore
 						DynamicArray<AnimationNotifyEvent>& events = animation->NotifyEvents();
 						DynamicArray<AnimationSpeedKeyframe>& keys = animation->SpeedCurve();
 
-						Float tracksWidth = ImGui::GetContentRegionAvail().x * 0.55f;
-
-						ImGui::BeginChild("##tracksColumn", ImVec2(tracksWidth, tracksAreaHeight), true);
+						ImGui::BeginChild("##tracksColumn", ImVec2(0.0f, tracksAreaHeight), true);
 						{
 							DrawEventTrack(events, duration, scrubTime_, selectedNotifyIndex_, speedGraphActive_);
 							DrawSpeedTrack(keys, duration, scrubTime_, speedGraphActive_, selectedNotifyIndex_);
@@ -496,55 +500,6 @@ namespace SeedCore
 									keys.erase(keys.begin() + selectedSpeedKeyIndex_);
 									selectedSpeedKeyIndex_ = SIZE_MAX;
 								}
-							}
-						}
-						ImGui::EndChild();
-
-						ImGui::SameLine();
-
-						ImGui::BeginChild("##detailsColumn", ImVec2(0.0f, tracksAreaHeight), true);
-						{
-							if (selectedNotifyIndex_ != SIZE_MAX && selectedNotifyIndex_ < events.size())
-							{
-								AnimationNotifyEvent& event = events[selectedNotifyIndex_];
-
-								ImGui::Text("Event 詳細");
-								ImGui::Spacing();
-
-								ImGui::SetNextItemWidth(-1.0f);
-								ImGui::DragFloat("時刻##notifyTime", &event.time_, 0.01f, 0.0f, duration > 0.0f ? duration : 1.0f, "%.3f 秒");
-
-								ImGui::SetNextItemWidth(-1.0f);
-								Char labelBuffer[128];
-								strncpy_s(labelBuffer, event.label_.c_str(), sizeof(labelBuffer) - 1);
-								if (ImGui::InputText("ラベル##notifyLabel", labelBuffer, sizeof(labelBuffer)))
-								{
-									event.label_ = labelBuffer;
-								}
-							}
-							else if (speedGraphActive_)
-							{
-								ImGui::Text("Speed カーブ");
-								ImGui::Spacing();
-
-								DrawSpeedGraph(keys, duration, selectedSpeedKeyIndex_, isDraggingKeyframe_);
-
-								if (selectedSpeedKeyIndex_ != SIZE_MAX && selectedSpeedKeyIndex_ < keys.size())
-								{
-									AnimationSpeedKeyframe& key = keys[selectedSpeedKeyIndex_];
-
-									ImGui::SetNextItemWidth(90.0f);
-									ImGui::DragFloat("時刻##speedTime", &key.time_, 0.01f, 0.0f, duration > 0.0f ? duration : 1.0f, "%.3f 秒");
-
-									ImGui::SameLine();
-
-									ImGui::SetNextItemWidth(120.0f);
-									ImGui::DragFloat("出力時刻##speedValue", &key.value_, 0.01f, 0.0f, duration > 0.0f ? duration : 1.0f, "%.3f 秒");
-								}
-							}
-							else
-							{
-								ImGui::TextDisabled("Event か Speed トラックをクリックしてください");
 							}
 						}
 						ImGui::EndChild();
@@ -592,5 +547,71 @@ namespace SeedCore
 			}
 		}
 		ImGui::End();
+	}
+
+	void TimelinePanel::DrawDetails()
+	{
+		if (!target_ || selectedAnimationIndex_ == SIZE_MAX || selectedAnimationIndex_ >= target_->animationIDs_.size())
+		{
+			ImGui::TextDisabled("Event か Speed トラックをクリックしてください");
+			return;
+		}
+
+		Uint32 assetId = target_->animationIDs_[selectedAnimationIndex_];
+		AnimationResource* animationResource = context_.worldContext_.resource_->GetAnimationResource();
+		Handle<Animation> handle = animationResource->Load(*context_.worldContext_.loader_, *context_.worldContext_.resource_, assetId);
+		Animation* animation = animationResource->Resolve(*context_.worldContext_.loader_, handle);
+		if (!animation)
+		{
+			ImGui::TextDisabled("Event か Speed トラックをクリックしてください");
+			return;
+		}
+
+		Float duration = animation->Duration();
+		DynamicArray<AnimationNotifyEvent>& events = animation->NotifyEvents();
+		DynamicArray<AnimationSpeedKeyframe>& keys = animation->SpeedCurve();
+
+		if (selectedNotifyIndex_ != SIZE_MAX && selectedNotifyIndex_ < events.size())
+		{
+			AnimationNotifyEvent& event = events[selectedNotifyIndex_];
+
+			ImGui::Text("Event 詳細");
+			ImGui::Spacing();
+
+			ImGui::SetNextItemWidth(-1.0f);
+			ImGui::DragFloat("時刻##notifyTime", &event.time_, 0.01f, 0.0f, duration > 0.0f ? duration : 1.0f, "%.3f 秒");
+
+			ImGui::SetNextItemWidth(-1.0f);
+			Char labelBuffer[128];
+			strncpy_s(labelBuffer, event.label_.c_str(), sizeof(labelBuffer) - 1);
+			if (ImGui::InputText("ラベル##notifyLabel", labelBuffer, sizeof(labelBuffer)))
+			{
+				event.label_ = labelBuffer;
+			}
+		}
+		else if (speedGraphActive_)
+		{
+			ImGui::Text("Speed カーブ");
+			ImGui::Spacing();
+
+			DrawSpeedGraph(keys, duration, selectedSpeedKeyIndex_, isDraggingKeyframe_);
+
+			if (selectedSpeedKeyIndex_ != SIZE_MAX && selectedSpeedKeyIndex_ < keys.size())
+			{
+				AnimationSpeedKeyframe& key = keys[selectedSpeedKeyIndex_];
+
+				ImGui::SetNextItemWidth(90.0f);
+				ImGui::DragFloat("時刻##speedTime", &key.time_, 0.01f, 0.0f, duration > 0.0f ? duration : 1.0f, "%.3f 秒");
+
+				ImGui::SameLine();
+
+				ImGui::SetNextItemWidth(120.0f);
+				ImGui::DragFloat("出力時刻##speedValue", &key.value_, 0.01f, 0.0f, duration > 0.0f ? duration : 1.0f, "%.3f 秒");
+			}
+		}
+		else
+		{
+			ImGui::TextDisabled("Event か Speed トラックをクリックしてください");
+		}
 	}
 }

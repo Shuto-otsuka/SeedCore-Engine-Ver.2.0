@@ -30,6 +30,7 @@
 #include <GraphicsEngine/Renderer/EffekseerRenderer.h>
 #include <GraphicsEngine/Renderer/PostProcessRenderer.h>
 #include <GraphicsEngine/Renderer/DlssRayReconstructionRenderer.h>
+#include <GraphicsEngine/Renderer/TaauUpsamplingRenderer.h>
 #include <GraphicsEngine/Renderer/ViewMode.h>
 #include <GraphicsEngine/DLSS/DlssManager.h>
 #include <GraphicsEngine/Effect/Effekseer/EffekseerManager.h>
@@ -255,6 +256,8 @@ namespace SeedCore
 
 		ResourcePtr<DlssRayReconstructionRenderer> dlssRayReconstructionRenderer_;
 
+		ResourcePtr<TaauUpsamplingRenderer> taauUpsamplingRenderer_;
+
 		DlssManager* dlssManager_ = nullptr;
 
 		/// [EN] Cached from the last SetRaytracingSettings() call. Read in
@@ -270,12 +273,12 @@ namespace SeedCore
 		Bool dlssRayReconstructionEnabled_ = false;
 
 		/// [EN] Cached from the last SetRaytracingSettings() call. Passed into
-		///      DlssRayReconstructionRenderer::Dispatch in EndEditorFrame/
-		///      EndGameFrame.
+		///      DlssRayReconstructionRenderer::Dispatch/TaauUpsamplingRenderer's
+		///      render-scale calculation in EndEditorFrame/EndGameFrame.
 		/// [JP] 直近の SetRaytracingSettings() 呼び出しからキャッシュ。
 		///      EndEditorFrame/EndGameFrame で DlssRayReconstructionRenderer::
-		///      Dispatch に渡す。
-		DlssMode dlssMode_ = DlssMode::Balanced;
+		///      Dispatch / TaauUpsamplingRenderer のレンダースケール計算に渡す。
+		UpscaleMode upscaleMode_ = UpscaleMode::Balanced;
 
 		/// [EN] Native (G-Buffer/render) resolution — set by Create()/Resize(),
 		///      passed as DlssRayReconstructionRenderer::Dispatch's

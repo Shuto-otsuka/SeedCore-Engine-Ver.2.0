@@ -24,6 +24,8 @@ namespace SeedCore
 	class BC7CompressShader;
 	class BindlessHeap;
 	class ImGuiRenderer;
+	class AnimatorControllerPanel;
+	class TimelinePanel;
 
 	struct WorldContext
 	{
@@ -87,6 +89,12 @@ namespace SeedCore
 		Matrix previewWorldMatrix_ = Matrix::Identity;
 	};
 
+	struct PanelContext
+	{
+		AnimatorControllerPanel* animatorControllerPanel_ = nullptr;
+		TimelinePanel* timelinePanel_ = nullptr;
+	};
+
 	struct EditorContext
 	{
 		WorldContext worldContext_;
@@ -96,6 +104,7 @@ namespace SeedCore
 		SceneContext sceneContext_;
 		ViewportContext viewportContext_;
 		PreviewContext previewContext_;
+		PanelContext panelContext_;
 
 		Uint64 uiFrame_ = 0;
 

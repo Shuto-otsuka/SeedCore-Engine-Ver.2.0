@@ -40,6 +40,24 @@ namespace SeedCore
 
 		Float FontScale()const;
 
+		/**
+		* [EN] Returns the ImGuiID of the main dockspace ("ScDockSpace"), as
+		*      resolved inside DockSpaceBegin(). ImGui::GetID(const char*)
+		*      hashes using the current window's ID stack as a seed, so any
+		*      caller outside DockSpaceBegin() re-computing ImGui::GetID(
+		*      "ScDockSpace") on its own gets a DIFFERENT ID than the real
+		*      dockspace node — panels that need to force-dock into it (e.g.
+		*      via ImGui::DockBuilderDockWindow) must use this getter instead.
+		* [JP] DockSpaceBegin() 内で解決されたメインドックスペース
+		*      ("ScDockSpace") の ImGuiID を返す。ImGui::GetID(const char*) は
+		*      カレントウィンドウの ID スタックをシードにハッシュするため、
+		*      DockSpaceBegin() の外で独自に ImGui::GetID("ScDockSpace") を
+		*      呼んでも実際のドックスペースノードとは別の ID になってしまう
+		*      ―― ImGui::DockBuilderDockWindow などで強制ドックしたいパネルは
+		*      このゲッター経由で取得すること。
+		*/
+		[[nodiscard]] ImGuiID GetDockSpaceID()const { return dockSpaceID_; }
+
 	private:
 		Bool FontConfig(ImGuiIO& io);
 		void StyleConfig();
@@ -48,5 +66,9 @@ namespace SeedCore
 		ResourcePtr<DescriptorHeap> descHeap_;
 
 		Float fontScale_ = 1.0f;
+
+		/// [EN] ID of the main dockspace, resolved each frame in DockSpaceBegin().
+		/// [JP] メインドックスペースのID。毎フレーム DockSpaceBegin() 内で解決される。
+		ImGuiID dockSpaceID_ = 0;
 	};
 }

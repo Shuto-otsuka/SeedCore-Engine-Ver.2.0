@@ -30,6 +30,7 @@ namespace SeedCore
 		effekseerManager_ = MakePtr<EffekseerManager>();
 		postProcessRenderer_ = MakePtr<PostProcessRenderer>(rootSignature_, pipelineStateObject_);
 		dlssRayReconstructionRenderer_ = MakePtr<DlssRayReconstructionRenderer>(rootSignature_, pipelineStateObject_);
+		taauUpsamplingRenderer_ = MakePtr<TaauUpsamplingRenderer>(rootSignature_, pipelineStateObject_);
 		materialResolveShader_ = MakePtr<MaterialResolveShader>(rootSignature_, pipelineStateObject_);
 	}
 
@@ -100,6 +101,7 @@ namespace SeedCore
 		previewRenderer_->Create(device, bindlessHeap, shaderCache, width, height);
 		postProcessRenderer_->Create(device, bindlessHeap, shaderCache, width, height, width, height);
 		dlssRayReconstructionRenderer_->Create(device, bindlessHeap, shaderCache, *indicesSystem_, width, height, width, height);
+		taauUpsamplingRenderer_->Create(device, bindlessHeap, shaderCache, width, height);
 		materialResolveShader_->Create(shaderCache, device);
 
 		gpuProfiler_.Create(device, commandQueue, swapBufferCount);
@@ -155,6 +157,7 @@ namespace SeedCore
 		previewRenderer_->Resize(device, bindlessHeap, nativeWidth, nativeHeight);
 		postProcessRenderer_->Resize(device, bindlessHeap, nativeWidth, nativeHeight, outputWidth, outputHeight);
 		dlssRayReconstructionRenderer_->Resize(device, bindlessHeap, *indicesSystem_, nativeWidth, nativeHeight, outputWidth, outputHeight);
+		taauUpsamplingRenderer_->Resize(device, bindlessHeap, outputWidth, outputHeight);
 	}
 
 	void Renderer::SetDlssManager(DlssManager* dlssManager)
@@ -194,14 +197,22 @@ namespace SeedCore
 		if (dlssRayReconstructionEnabled_ && dlssManager_)
 		{
 			gpuProfiler_.Begin(cmdList, GpuProfileView::Editor, GpuProfileScope::DlssRayReconstruction);
-			dlssRayReconstructionRenderer_->Dispatch(cmdList, bindlessHeap_->Heap(), indicesSystem_->EditorConstantAddress(), indicesSystem_->StructuredAddress(), RaytracingView::Editor, dlssManager_, scene, editorFrameBuffer_->ColorResource(), geometryBuffer_.DepthResource(), geometryBuffer_.ColorResource(2), nativeWidth_, nativeHeight_, dlssMode_);
+			dlssRayReconstructionRenderer_->Dispatch(cmdList, bindlessHeap_->Heap(), indicesSystem_->EditorConstantAddress(), indicesSystem_->StructuredAddress(), RaytracingView::Editor, dlssManager_, scene, editorFrameBuffer_->ColorResource(), geometryBuffer_.DepthResource(), geometryBuffer_.ColorResource(2), nativeWidth_, nativeHeight_, upscaleMode_);
 			gpuProfiler_.End(cmdList, GpuProfileView::Editor, GpuProfileScope::DlssRayReconstruction);
 
 			postProcessSource = dlssRayReconstructionRenderer_->OutputResource(RaytracingView::Editor);
 		}
+		else
+		{
+			gpuProfiler_.Begin(cmdList, GpuProfileView::Editor, GpuProfileScope::Taau);
+			taauUpsamplingRenderer_->Dispatch(cmdList, bindlessHeap_->Heap(), indicesSystem_->EditorConstantAddress(), indicesSystem_->StructuredAddress(), RaytracingView::Editor, geometryBuffer_.ColorResource(2), editorFrameBuffer_->ColorShaderResourceViewIndex(), geometryBuffer_.DepthShaderResourceViewIndex(), geometryBuffer_.ColorShaderResourceViewIndex(2), nativeWidth_, nativeHeight_);
+			gpuProfiler_.End(cmdList, GpuProfileView::Editor, GpuProfileScope::Taau);
+
+			postProcessSource = taauUpsamplingRenderer_->OutputResource(RaytracingView::Editor);
+		}
 
 		gpuProfiler_.Begin(cmdList, GpuProfileView::Editor, GpuProfileScope::PostProcess);
-		postProcessRenderer_->Dispatch(cmdList, bindlessHeap_->Heap(), indicesSystem_->EditorConstantAddress(), indicesSystem_->StructuredAddress(), RaytracingView::Editor, postProcessSource, dlssRayReconstructionEnabled_);
+		postProcessRenderer_->Dispatch(cmdList, bindlessHeap_->Heap(), indicesSystem_->EditorConstantAddress(), indicesSystem_->StructuredAddress(), RaytracingView::Editor, postProcessSource, true);
 		gpuProfiler_.End(cmdList, GpuProfileView::Editor, GpuProfileScope::PostProcess);
 
 		/// [EN] Debug overlay: draws directly onto PostProcess's tone-mapped
@@ -210,17 +221,14 @@ namespace SeedCore
 		///      exposure/tone mapping/bloom nor any RT effect alters these
 		///      colors, unlike when they used to draw into editorFrameBuffer_
 		///      inside EditorFlush (see the comment there).
-		/// [EN] The collider wireframe is depth-tested against a depth
-		///      buffer matching the display texture's own resolution:
-		///      geometryBuffer_'s native depth directly while PostProcess's
-		///      active output chain is the matching native-resolution one
-		///      (dlssRayReconstructionEnabled_ false), or
-		///      debugDepthResizeBuffer_'s point-resampled copy (see
-		///      DepthResizeCS.hlsl) while DLSS-RR is active and the display
-		///      texture is the upscaled (outputWidth_/outputHeight_) chain
-		///      instead - binding geometryBuffer_'s native depth directly
-		///      against that chain would depth-test at the wrong pixel
-		///      coordinates.
+		/// [EN] The collider wireframe is depth-tested against
+		///      debugDepthResizeBuffer_'s point-resampled copy of
+		///      geometryBuffer_'s native depth (see DepthResizeCS.hlsl) -
+		///      PostProcess's active output chain is always the upscaled
+		///      (outputWidth_/outputHeight_) one now (DLSS-RR or TAAU, see
+		///      dlssRayReconstructionEnabled_), so binding geometryBuffer_'s
+		///      native depth directly against it would depth-test at the
+		///      wrong pixel coordinates.
 		/// [EN] The selection outline's pixel shader still indexes
 		///      selectionMaskFrameBuffer_ (native resolution) with SV_Position,
 		///      but now rescales it by SceneConstantBuffer's
@@ -234,16 +242,14 @@ namespace SeedCore
 		///      露出/トーンマップ/ブルームもRTエフェクトも、これらの色には
 		///      一切影響しない。以前 EditorFlush 内で editorFrameBuffer_ へ
 		///      描画していた時とは異なる(そちらのコメント参照)。
-		/// [JP] コライダーワイヤーフレームは、表示テクスチャ自身の解像度に
-		///      一致する深度バッファに対して深度テストされる: PostProcess の
-		///      アクティブな出力チェーンが対応するネイティブ解像度版である間
-		///      (dlssRayReconstructionEnabled_ が false)は geometryBuffer_ の
-		///      ネイティブ深度をそのまま、DLSS-RR 有効時で表示テクスチャが
-		///      アップスケール版(outputWidth_/outputHeight_)になっている間は
-		///      debugDepthResizeBuffer_ がポイントリサンプルしたコピー
-		///      (DepthResizeCS.hlsl参照)を使う - そのチェーンへ
-		///      geometryBuffer_ のネイティブ深度を直接バインドすると誤った
-		///      ピクセル座標で深度テストしてしまう。
+		/// [JP] コライダーワイヤーフレームは、debugDepthResizeBuffer_ が
+		///      geometryBuffer_ のネイティブ深度をポイントリサンプルした
+		///      コピー(DepthResizeCS.hlsl参照)に対して深度テストされる -
+		///      PostProcess のアクティブな出力チェーンは(DLSS-RR/TAAUどちらでも、
+		///      dlssRayReconstructionEnabled_ 参照)常にアップスケール版
+		///      (outputWidth_/outputHeight_)になったため、そこへ geometryBuffer_
+		///      のネイティブ深度を直接バインドすると誤ったピクセル座標で
+		///      深度テストしてしまう。
 		/// [JP] 選択アウトラインのピクセルシェーダは、いまも
 		///      selectionMaskFrameBuffer_(ネイティブ解像度)をSV_Positionで
 		///      インデックスするが、まずSceneConstantBufferの
@@ -257,18 +263,9 @@ namespace SeedCore
 		D3D12_CPU_DESCRIPTOR_HANDLE debugRenderTargetView = postProcessRenderer_->OutputRenderTargetViewHandle(RaytracingView::Editor);
 		D3D12_VIEWPORT debugViewport = postProcessRenderer_->Viewport(RaytracingView::Editor);
 
-		if (dlssRayReconstructionEnabled_)
-		{
-			debugDepthResizeBuffer_.Dispatch(cmdList, bindlessHeap_->Heap(), geometryBuffer_, nativeWidth_, nativeHeight_);
-			colliderRenderer_->Draw(cmdList, debugRenderTargetView, debugDepthResizeBuffer_.DepthStencilViewHandle(), debugViewport, bindlessHeap_->Heap(), indicesSystem_->EditorConstantAddress());
-			geometryBuffer_.BeginDepth(cmdList);
-		}
-		else
-		{
-			geometryBuffer_.BeginDepth(cmdList);
-			colliderRenderer_->Draw(cmdList, debugRenderTargetView, geometryBuffer_.DepthStencilViewHandle(), debugViewport, bindlessHeap_->Heap(), indicesSystem_->EditorConstantAddress());
-			geometryBuffer_.EndDepth(cmdList);
-		}
+		debugDepthResizeBuffer_.Dispatch(cmdList, bindlessHeap_->Heap(), geometryBuffer_, nativeWidth_, nativeHeight_);
+		colliderRenderer_->Draw(cmdList, debugRenderTargetView, debugDepthResizeBuffer_.DepthStencilViewHandle(), debugViewport, bindlessHeap_->Heap(), indicesSystem_->EditorConstantAddress());
+		geometryBuffer_.BeginDepth(cmdList);
 
 		outlineRenderer_->Draw(cmdList, debugRenderTargetView, debugViewport, bindlessHeap_->Heap(), indicesSystem_->EditorConstantAddress(), indicesSystem_->StructuredAddress());
 
@@ -292,14 +289,22 @@ namespace SeedCore
 		if (dlssRayReconstructionEnabled_ && dlssManager_)
 		{
 			gpuProfiler_.Begin(cmdList, GpuProfileView::Game, GpuProfileScope::DlssRayReconstruction);
-			dlssRayReconstructionRenderer_->Dispatch(cmdList, bindlessHeap_->Heap(), indicesSystem_->GameConstantAddress(), indicesSystem_->StructuredAddress(), RaytracingView::Game, dlssManager_, scene, gameFrameBuffer_->ColorResource(), geometryBuffer_.DepthResource(), geometryBuffer_.ColorResource(2), nativeWidth_, nativeHeight_, dlssMode_);
+			dlssRayReconstructionRenderer_->Dispatch(cmdList, bindlessHeap_->Heap(), indicesSystem_->GameConstantAddress(), indicesSystem_->StructuredAddress(), RaytracingView::Game, dlssManager_, scene, gameFrameBuffer_->ColorResource(), geometryBuffer_.DepthResource(), geometryBuffer_.ColorResource(2), nativeWidth_, nativeHeight_, upscaleMode_);
 			gpuProfiler_.End(cmdList, GpuProfileView::Game, GpuProfileScope::DlssRayReconstruction);
 
 			postProcessSource = dlssRayReconstructionRenderer_->OutputResource(RaytracingView::Game);
 		}
+		else
+		{
+			gpuProfiler_.Begin(cmdList, GpuProfileView::Game, GpuProfileScope::Taau);
+			taauUpsamplingRenderer_->Dispatch(cmdList, bindlessHeap_->Heap(), indicesSystem_->GameConstantAddress(), indicesSystem_->StructuredAddress(), RaytracingView::Game, geometryBuffer_.ColorResource(2), gameFrameBuffer_->ColorShaderResourceViewIndex(), geometryBuffer_.DepthShaderResourceViewIndex(), geometryBuffer_.ColorShaderResourceViewIndex(2), nativeWidth_, nativeHeight_);
+			gpuProfiler_.End(cmdList, GpuProfileView::Game, GpuProfileScope::Taau);
+
+			postProcessSource = taauUpsamplingRenderer_->OutputResource(RaytracingView::Game);
+		}
 
 		gpuProfiler_.Begin(cmdList, GpuProfileView::Game, GpuProfileScope::PostProcess);
-		postProcessRenderer_->Dispatch(cmdList, bindlessHeap_->Heap(), indicesSystem_->GameConstantAddress(), indicesSystem_->StructuredAddress(), RaytracingView::Game, postProcessSource, dlssRayReconstructionEnabled_);
+		postProcessRenderer_->Dispatch(cmdList, bindlessHeap_->Heap(), indicesSystem_->GameConstantAddress(), indicesSystem_->StructuredAddress(), RaytracingView::Game, postProcessSource, true);
 		gpuProfiler_.End(cmdList, GpuProfileView::Game, GpuProfileScope::PostProcess);
 
 		/// [EN] Sprite/Billboard: draws directly onto PostProcess's tone-mapped
@@ -419,7 +424,7 @@ namespace SeedCore
 	{
 		raytracingRenderer_->SetRaytracingSettings(settings);
 		dlssRayReconstructionEnabled_ = settings.dlssRayReconstructionEnabled_;
-		dlssMode_ = settings.dlssMode_;
+		upscaleMode_ = settings.upscaleMode_;
 
 		daySystemEnabled_ = settings.daySystemEnabled_;
 		daySystem_ = settings.daySystem_;
@@ -476,7 +481,17 @@ namespace SeedCore
 		///      の深度/法線が存在するようになった後で行う（下記参照）。
 		raytracingRenderer_->Build(cmdList, device_, *modelRenderer_, deltaTime, celestialResult_.nightFactor_, lastCameraPosition_, skyTotalTime_, weatherState_.snowIntensity_);
 
-		postProcessRenderer_->PrepareView(*indicesSystem_, RaytracingView::Editor, dlssRayReconstructionEnabled_ ? dlssRayReconstructionRenderer_->OutputShaderResourceViewIndex(RaytracingView::Editor) : editorFrameBuffer_->ColorShaderResourceViewIndex(), dlssRayReconstructionEnabled_);
+		Uint32 editorPostProcessSourceColorIndex;
+		if (dlssRayReconstructionEnabled_)
+		{
+			editorPostProcessSourceColorIndex = dlssRayReconstructionRenderer_->OutputShaderResourceViewIndex(RaytracingView::Editor);
+		}
+		else
+		{
+			taauUpsamplingRenderer_->PrepareView(RaytracingView::Editor);
+			editorPostProcessSourceColorIndex = taauUpsamplingRenderer_->OutputShaderResourceViewIndex(RaytracingView::Editor);
+		}
+		postProcessRenderer_->PrepareView(*indicesSystem_, RaytracingView::Editor, editorPostProcessSourceColorIndex, true);
 
 		indicesSystem_->UploadEditor();
 
@@ -718,7 +733,17 @@ namespace SeedCore
 		skyRenderer_->SetIndices(*indicesSystem_);
 		lightSystem_->Upload();
 		modelRenderer_->Upload();
-		postProcessRenderer_->PrepareView(*indicesSystem_, RaytracingView::Game, dlssRayReconstructionEnabled_ ? dlssRayReconstructionRenderer_->OutputShaderResourceViewIndex(RaytracingView::Game) : gameFrameBuffer_->ColorShaderResourceViewIndex(), dlssRayReconstructionEnabled_);
+		Uint32 gamePostProcessSourceColorIndex;
+		if (dlssRayReconstructionEnabled_)
+		{
+			gamePostProcessSourceColorIndex = dlssRayReconstructionRenderer_->OutputShaderResourceViewIndex(RaytracingView::Game);
+		}
+		else
+		{
+			taauUpsamplingRenderer_->PrepareView(RaytracingView::Game);
+			gamePostProcessSourceColorIndex = taauUpsamplingRenderer_->OutputShaderResourceViewIndex(RaytracingView::Game);
+		}
+		postProcessRenderer_->PrepareView(*indicesSystem_, RaytracingView::Game, gamePostProcessSourceColorIndex, true);
 		indicesSystem_->UploadGame();
 
 		const GpuProfileView profileView = GpuProfileView::Game;

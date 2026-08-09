@@ -107,6 +107,9 @@ namespace SeedCore
 				nonJitterProjection._33 = camera.nearPlane_ / (camera.nearPlane_ - camera.farPlane_);
 				nonJitterProjection._43 = (camera.farPlane_ * camera.nearPlane_) / (camera.farPlane_ - camera.nearPlane_);
 
+				jitter_ = Halton23Jitter(frameIndex_);
+				++frameIndex_;
+
 				Matrix projection = nonJitterProjection;
 				if (jitter_.LengthSquared() > 0.0f)
 				{

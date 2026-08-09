@@ -1,6 +1,8 @@
 #include <Editor/Editor/Panel/InspectorPanel.h>
 #include <Editor/Editor/EditorContext.h>
 #include <Editor/Editor/ImGui/ImGuiTexture.h>
+#include <Editor/Editor/Panel/AnimatorControllerPanel.h>
+#include <Editor/Editor/Panel/TimelinePanel.h>
 #include <FoundationEngine/ECS/World.h>
 #include <FoundationEngine/ECS/Actor.h>
 #include <FoundationEngine/ECS/Component.h>
@@ -31,6 +33,20 @@ namespace SeedCore
 
 		if (ImGui::Begin("インスペクター"))
 		{
+			if (context_.panelContext_.animatorControllerPanel_ && context_.panelContext_.animatorControllerPanel_->IsFocused())
+			{
+				context_.panelContext_.animatorControllerPanel_->DrawDetails();
+				ImGui::End();
+				return;
+			}
+
+			if (context_.panelContext_.timelinePanel_ && context_.panelContext_.timelinePanel_->IsFocused())
+			{
+				context_.panelContext_.timelinePanel_->DrawDetails();
+				ImGui::End();
+				return;
+			}
+
 			Actor* actor = locked_ ? lockedActor_ : context_.selectionContext_.selectedActor_;
 
 			if (actor && actor->GetEntity().Exists())

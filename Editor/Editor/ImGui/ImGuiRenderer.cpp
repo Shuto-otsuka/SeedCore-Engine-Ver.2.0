@@ -90,8 +90,8 @@ namespace SeedCore
 		ImGui::Begin("MainDockSpace", nullptr, windowFlags);
 		ImGui::PopStyleVar(3);
 
-		ImGuiID dockspaceID = ImGui::GetID("ScDockSpace");
-		ImGui::DockSpace(dockspaceID, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_None);
+		dockSpaceID_ = ImGui::GetID("ScDockSpace");
+		ImGui::DockSpace(dockSpaceID_, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_None);
 	}
 
 	void ImGuiRenderer::DockSpaceEnd()

@@ -134,9 +134,9 @@ namespace SeedCore
 		///      無い必須フィールド(ゼロのままだと
 		///      eErrorMissingInputParameter)。Streamline自身のカメラ状態
 		///      構造体(sl::Constants)とDLSSDのEvaluateごとのオプションは別物。
-		void EvaluateRayReconstruction(ID3D12CommandList* cmdList, const SceneConstantBuffer& scene, Uint32 viewportIndex, Uint32 outputWidth, Uint32 outputHeight, DlssMode mode);
+		void EvaluateRayReconstruction(ID3D12CommandList* cmdList, const SceneConstantBuffer& scene, Uint32 viewportIndex, Uint32 outputWidth, Uint32 outputHeight, UpscaleMode mode);
 
-		void EvaluateDlss(ID3D12CommandList* cmdList, Uint32 viewportIndex, Uint32 outputWidth, Uint32 outputHeight, DlssMode mode);
+		void EvaluateDlss(ID3D12CommandList* cmdList, Uint32 viewportIndex, Uint32 outputWidth, Uint32 outputHeight, UpscaleMode mode);
 
 		void Finalize();
 

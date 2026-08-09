@@ -44,6 +44,7 @@ namespace SeedCore
 		Composite,
 		Transparent,
 		DlssRayReconstruction,
+		Taau,
 		PostProcess,
 		Count
 	};

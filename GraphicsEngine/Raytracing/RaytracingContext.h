@@ -102,15 +102,21 @@ namespace SeedCore
 		///      ぼけを生むため)。
 		Bool dlssRayReconstructionEnabled_ = false;
 
-		/// [EN] DLSS Ray Reconstruction's quality/performance mode, applied to
-		///      slDLSSDSetOptions each frame it runs (see
-		///      DlssManager::EvaluateRayReconstruction). Independent of
-		///      dlssRayReconstructionEnabled_, which only turns the pass on/off.
-		/// [JP] DLSS Ray Reconstruction の画質/性能モード。実行される毎フレーム
-		///      slDLSSDSetOptions に適用される(DlssManager::
-		///      EvaluateRayReconstruction 参照)。パスのON/OFFを切り替える
-		///      dlssRayReconstructionEnabled_ とは独立。
-		DlssMode dlssMode_ = DlssMode::Balanced;
+		/// [EN] Shared quality/performance mode for whichever upscale path is
+		///      active - DLSS Ray Reconstruction (applied to slDLSSDSetOptions
+		///      each frame it runs, see DlssManager::EvaluateRayReconstruction)
+		///      when dlssRayReconstructionEnabled_ is true, or TAAU's render
+		///      scale (see UpscaleRenderScale) when it's false. Independent of
+		///      dlssRayReconstructionEnabled_, which only chooses which of the
+		///      two paths consumes this mode.
+		/// [JP] 有効なアップスケール経路が使う共有の画質/性能モード -
+		///      dlssRayReconstructionEnabled_ が true なら DLSS Ray
+		///      Reconstruction(実行される毎フレーム slDLSSDSetOptions に適用、
+		///      DlssManager::EvaluateRayReconstruction 参照)、false なら TAAU の
+		///      レンダースケール(UpscaleRenderScale 参照)に使われる。
+		///      dlssRayReconstructionEnabled_ とは独立 - どちらの経路がこの
+		///      モードを消費するかを切り替えるだけ。
+		UpscaleMode upscaleMode_ = UpscaleMode::Balanced;
 
 		/// [EN] Each field is loaded/saved independently via TryLoadField (see
 		///      FoundationEngine/Utility/SerializeFallback.h) - a missing or
@@ -124,7 +130,7 @@ namespace SeedCore
 		template<class Archive>
 		void serialize(Archive& archive)
 		{
-			Int32 dlssModeValue = static_cast<Int32>(dlssMode_);
+			Int32 upscaleModeValue = static_cast<Int32>(upscaleMode_);
 
 			TryLoadField(archive, "shadowEnabled", shadowEnabled_);
 			TryLoadField(archive, "shadow", shadow_);
@@ -155,9 +161,9 @@ namespace SeedCore
 			TryLoadField(archive, "refractionEnabled", refractionEnabled_);
 			TryLoadField(archive, "refraction", refraction_);
 			TryLoadField(archive, "dlssRayReconstructionEnabled", dlssRayReconstructionEnabled_);
-			TryLoadField(archive, "dlssMode", dlssModeValue);
+			TryLoadField(archive, "upscaleMode", upscaleModeValue);
 
-			dlssMode_ = static_cast<DlssMode>(dlssModeValue);
+			upscaleMode_ = static_cast<UpscaleMode>(upscaleModeValue);
 		}
 	};
 

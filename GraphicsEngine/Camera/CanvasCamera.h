@@ -93,6 +93,8 @@ namespace SeedCore
 
 		Vector2 jitter_ = { 0.5f,0.5f };
 
+		Uint32 frameIndex_ = 0;
+
 		Matrix view_ = Matrix::Identity;
 
 		Matrix inverseView_ = Matrix::Identity;

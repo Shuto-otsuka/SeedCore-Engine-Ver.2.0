@@ -299,6 +299,8 @@ namespace SeedCore
 			return "半透明";
 		case GpuProfileScope::DlssRayReconstruction:
 			return "DLSS-RR";
+		case GpuProfileScope::Taau:
+			return "TAAU";
 		case GpuProfileScope::PostProcess:
 			return "ポストプロセス";
 		default:											

@@ -95,7 +95,7 @@ namespace SeedCore
 		///      PIXEL_SHADER_RESOURCE状態で終える。dlssManager はこの
 		///      Presentフレーム内で既に BeginFrame() 済みであること
 		///      (Graphics::Begin() 参照)。
-		void Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex, RaytracingView view, DlssManager* dlssManager, const SceneConstantBuffer& scene, ID3D12Resource* colorResource, ID3D12Resource* depthResource, ID3D12Resource* velocityResource, Uint32 sourceWidth, Uint32 sourceHeight, DlssMode mode);
+		void Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex, RaytracingView view, DlssManager* dlssManager, const SceneConstantBuffer& scene, ID3D12Resource* colorResource, ID3D12Resource* depthResource, ID3D12Resource* velocityResource, Uint32 sourceWidth, Uint32 sourceHeight, UpscaleMode mode);
 
 		/// [EN] This view's 3840x2160 denoised+upscaled linear HDR output -
 		///      what Renderer passes as PostProcessRenderer::Dispatch's

@@ -590,5 +590,8 @@
     <ClInclude Include="ECS\Component\Bounds.h">
       <Filter>ESC\Component</Filter>
     </ClInclude>
+    <ClInclude Include="Math\Halton.h">
+      <Filter>Math</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

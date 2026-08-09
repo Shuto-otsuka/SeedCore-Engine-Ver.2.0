@@ -181,6 +181,7 @@
     <ClInclude Include="Renderer\ShapeRenderer.h" />
     <ClInclude Include="Renderer\SkyRenderer.h" />
     <ClInclude Include="Renderer\SubsurfaceScatteringRenderer.h" />
+    <ClInclude Include="Renderer\TaauUpsamplingRenderer.h" />
     <ClInclude Include="Renderer\ViewMode.h" />
     <ClInclude Include="Renderer\VolumetricCloudScapesRenderer.h" />
     <ClInclude Include="Renderer\VolumetricLightRenderer.h" />
@@ -205,6 +206,7 @@
     <ClInclude Include="System\SceneSystem.h" />
     <ClInclude Include="System\SplashScreen.h" />
     <ClInclude Include="System\WeatherSystem.h" />
+    <ClInclude Include="TAAU\TaauResolveShader.h" />
     <ClInclude Include="Texture\Image.h" />
     <ClInclude Include="Texture\ImageLoader.h" />
     <ClInclude Include="Texture\ImageResource.h" />
@@ -390,6 +392,7 @@
     <ClCompile Include="Renderer\ShapeRenderer.cpp" />
     <ClCompile Include="Renderer\SkyRenderer.cpp" />
     <ClCompile Include="Renderer\SubsurfaceScatteringRenderer.cpp" />
+    <ClCompile Include="Renderer\TaauUpsamplingRenderer.cpp" />
     <ClCompile Include="Renderer\VolumetricCloudScapesRenderer.cpp" />
     <ClCompile Include="Renderer\VolumetricLightRenderer.cpp" />
     <ClCompile Include="Renderer\VolumetricStarRenderer.cpp" />
@@ -419,6 +422,7 @@
     </ClCompile>
     <ClCompile Include="System\SplashScreen.cpp" />
     <ClCompile Include="System\WeatherSystem.cpp" />
+    <ClCompile Include="TAAU\TaauResolveShader.cpp" />
     <ClCompile Include="Texture\ImageLoader.cpp" />
     <ClCompile Include="Texture\ImageResource.cpp" />
     <ClCompile Include="Texture\ImageShader.cpp" />
@@ -929,6 +933,11 @@
       <FileType>Document</FileType>
     </Text>
     <Text Include="Model\MaterialScatterCS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="TAAU\TaauResolveCS.hlsl">
       <FileType>Document</FileType>
     </Text>
   </ItemGroup>

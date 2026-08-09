@@ -24,6 +24,10 @@ namespace SeedCore
 
 		void Open(Animator* target);
 
+		void DrawDetails();
+
+		[[nodiscard]] Bool IsFocused()const { return isFocused_; }
+
 	private:
 		void DrawNodeEditor();
 
@@ -31,6 +35,7 @@ namespace SeedCore
 		EditorContext& context_;
 
 		Bool show_ = false;
+		Bool isFocused_ = false;
 		Animator* target_ = nullptr;
 		Bool needsPositionSync_ = false;
 

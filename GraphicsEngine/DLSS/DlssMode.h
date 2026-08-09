@@ -3,7 +3,7 @@
 
 namespace SeedCore
 {
-	enum class DlssMode : Int32
+	enum class UpscaleMode : Int32
 	{
 		MaxPerformance = 0,
 		Balanced = 1,
@@ -12,25 +12,27 @@ namespace SeedCore
 		Dlaa = 4,
 	};
 
-	/// [EN] Standard NVIDIA DLSS per-dimension render/output ratios. Used to
-	///      derive the native render resolution from the target output
-	///      resolution when DLSS Ray Reconstruction is enabled.
+	/// [EN] Standard NVIDIA DLSS per-dimension render/output ratios, shared by
+	///      both DLSS Ray Reconstruction and TAAU. Used to derive the native
+	///      render resolution from the target output resolution whichever of
+	///      the two upscale paths is active.
 	/// [JP] NVIDIA DLSS の標準的な次元ごとのレンダー/出力比率。DLSS Ray
-	///      Reconstruction 有効時、目標出力解像度からネイティブレンダー解像度を
+	///      Reconstruction・TAAU 双方で共有する。有効なアップスケール経路が
+	///      どちらであっても、目標出力解像度からネイティブレンダー解像度を
 	///      導出するのに使う。
-	inline Float DlssRenderScale(DlssMode mode)
+	inline Float UpscaleRenderScale(UpscaleMode mode)
 	{
 		switch (mode)
 		{
-		case DlssMode::MaxPerformance:
+		case UpscaleMode::MaxPerformance:
 			return 1.0f / 2.0f;
-		case DlssMode::Balanced:
+		case UpscaleMode::Balanced:
 			return 1.0f / 1.7f;
-		case DlssMode::MaxQuality:
+		case UpscaleMode::MaxQuality:
 			return 1.0f / 1.5f;
-		case DlssMode::UltraPerformance:
+		case UpscaleMode::UltraPerformance:
 			return 1.0f / 3.0f;
-		case DlssMode::Dlaa:
+		case UpscaleMode::Dlaa:
 			return 1.0f;
 		}
 		return 1.0f;

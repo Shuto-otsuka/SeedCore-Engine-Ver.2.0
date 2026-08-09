@@ -185,7 +185,7 @@ namespace SeedCore
 		///      ずれ得る。パネルを開く時点の実際の値で上書きし、表示を
 		///      現在の状態と一致させる。
 		gameConfig_.useDlss_ = context_.viewportContext_.raytracing_.dlssRayReconstructionEnabled_;
-		gameConfig_.dlssMode_ = context_.viewportContext_.raytracing_.dlssMode_;
+		gameConfig_.upscaleMode_ = context_.viewportContext_.raytracing_.upscaleMode_;
 		gameConfig_.resolution_ = context_.viewportContext_.outputResolution_;
 
 		std::fill(initialScenePathBuffer_.begin(), initialScenePathBuffer_.end(), '\0');
@@ -306,20 +306,18 @@ namespace SeedCore
 			context_.viewportContext_.resizeRequested_ = true;
 		}
 
-		const Char* dlssModeLabels[] = { "最高性能", "バランス", "最高画質", "超高性能", "DLAA" };
-		Int32 dlssModeIndex = static_cast<Int32>(gameConfig_.dlssMode_);
+		const Char* upscaleModeLabels[] = { "最高性能", "バランス", "最高画質", "超高性能", "DLAA" };
+		Int32 upscaleModeIndex = static_cast<Int32>(gameConfig_.upscaleMode_);
 
-		ImGui::BeginDisabled(!gameConfig_.useDlss_);
-		if (ImGui::Combo("パフォーマンス", &dlssModeIndex, dlssModeLabels, IM_ARRAYSIZE(dlssModeLabels)))
+		if (ImGui::Combo("パフォーマンス", &upscaleModeIndex, upscaleModeLabels, IM_ARRAYSIZE(upscaleModeLabels)))
 		{
-			gameConfig_.dlssMode_ = static_cast<DlssMode>(dlssModeIndex);
+			gameConfig_.upscaleMode_ = static_cast<UpscaleMode>(upscaleModeIndex);
 			changed = true;
-			context_.viewportContext_.raytracing_.dlssMode_ = gameConfig_.dlssMode_;
+			context_.viewportContext_.raytracing_.upscaleMode_ = gameConfig_.upscaleMode_;
 			context_.viewportContext_.resizeRequested_ = true;
 		}
-		ImGui::EndDisabled();
 
-		ImGui::TextDisabled("(エディターのDLSS-RRプレビューに即時反映されます。解像度も自動調整されます)");
+		ImGui::TextDisabled("(エディターのDLSS-RR/TAAUプレビューに即時反映されます。解像度も自動調整されます)");
 
 		ImGui::Spacing();
 		ImGui::Separator();

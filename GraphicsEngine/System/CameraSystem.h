@@ -1,5 +1,6 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
+#include <FoundationEngine/Math/Halton.h>
 #include <GraphicsEngine/System/SceneSystem.h>
 #include <GraphicsEngine/Camera/EditorCamera.h>
 #include <GraphicsEngine/Camera/EditorCameraController.h>
@@ -40,6 +41,7 @@ namespace SeedCore
 		Matrix previousViewProjection_ = Matrix::Identity;
 		Matrix previousNonJitterViewProjection_ = Matrix::Identity;
 		Vector2 jitter_ = { 0.5f, 0.5f };
+		Uint32 frameIndex_ = 0;
 		Bool hasActiveCamera_ = false;
 		Mode mode_ = Mode::User;
 

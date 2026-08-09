@@ -1,4 +1,5 @@
 #include <GraphicsEngine/Camera/EditorCamera.h>
+#include <FoundationEngine/Math/Halton.h>
 
 namespace SeedCore
 {
@@ -48,6 +49,9 @@ namespace SeedCore
 		nonJitterProjection_ = Matrix::CreatePerspectiveFieldOfView(ToRadians(Max(0.001f, fieldOfView_)), aspectRatio_, nearPlane_, farPlane_);
 		nonJitterProjection_._33 = nearPlane_ / (nearPlane_ - farPlane_);
 		nonJitterProjection_._43 = (farPlane_ * nearPlane_) / (farPlane_ - nearPlane_);
+
+		jitter_ = Halton23Jitter(frameIndex_);
+		++frameIndex_;
 
 		projection_ = nonJitterProjection_;
 

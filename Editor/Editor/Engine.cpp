@@ -218,14 +218,9 @@ namespace SeedCore
 					Uint32 outputWidth = static_cast<Uint32>(outputSize.Width);
 					Uint32 outputHeight = static_cast<Uint32>(outputSize.Height);
 
-					Uint32 nativeWidth = outputWidth;
-					Uint32 nativeHeight = outputHeight;
-					if (editorContext_.viewportContext_.raytracing_.dlssRayReconstructionEnabled_)
-					{
-						Float scale = DlssRenderScale(editorContext_.viewportContext_.raytracing_.dlssMode_);
-						nativeWidth = Max<Uint32>(64, static_cast<Uint32>(outputWidth * scale + 0.5f));
-						nativeHeight = Max<Uint32>(64, static_cast<Uint32>(outputHeight * scale + 0.5f));
-					}
+					Float scale = UpscaleRenderScale(editorContext_.viewportContext_.raytracing_.upscaleMode_);
+					Uint32 nativeWidth = Max<Uint32>(64, static_cast<Uint32>(outputWidth * scale + 0.5f));
+					Uint32 nativeHeight = Max<Uint32>(64, static_cast<Uint32>(outputHeight * scale + 0.5f));
 
 					graphics_->Resize(nativeWidth, nativeHeight, outputWidth, outputHeight, imgui_->GetDescriptorHeap());
 				}
