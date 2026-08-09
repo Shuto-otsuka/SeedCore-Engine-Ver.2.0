@@ -63,6 +63,7 @@ extern "C" int _force_reflection_ToneMappingSettings = 0;
 extern "C" int _force_reflection_LensFlareSettings = 0;
 extern "C" int _force_reflection_DepthOfFieldSettings = 0;
 extern "C" int _force_reflection_BokehSettings = 0;
+extern "C" int _force_reflection_SharpnessSettings = 0;
 extern "C" int _force_reflection_PostProcess = 0;
 extern "C" int _force_reflection_Image = 0;
 extern "C" int _force_reflection_BoxCollider = 0;
@@ -1368,6 +1369,28 @@ namespace SeedCore
 		};
 		static Register_BokehSettings global_BokehSettings_register;
 
+		struct Register_SharpnessSettings
+		{
+			Register_SharpnessSettings()
+			{
+				ReflectionRegistry::Register(String("SharpnessSettings"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
+					SharpnessSettings& obj = *static_cast<SharpnessSettings*>(ptr);
+					outInfo.push_back({ String("有効"), offsetof(SharpnessSettings, enabled_), AttributeType::Bool });
+					{
+						FieldInfo fi;
+						fi.name_ = String("強さ");
+						fi.offset_ = offsetof(SharpnessSettings, amount_);
+						fi.type_ = AttributeType::Float;
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<SharpnessSettings*>(p); return o.enabled_; };
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 2.0f;
+						outInfo.push_back(std::move(fi));
+					}
+				});
+			}
+		};
+		static Register_SharpnessSettings global_SharpnessSettings_register;
+
 		struct Register_PostProcess
 		{
 			Register_PostProcess()
@@ -1412,6 +1435,14 @@ namespace SeedCore
 						fi.offset_ = offsetof(PostProcess, toneMapping_);
 						fi.type_ = AttributeType::Struct;
 						fi.nestedTypeName_ = String("ToneMappingSettings");
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("シャープネス");
+						fi.offset_ = offsetof(PostProcess, sharpness_);
+						fi.type_ = AttributeType::Struct;
+						fi.nestedTypeName_ = String("SharpnessSettings");
 						outInfo.push_back(std::move(fi));
 					}
 				});

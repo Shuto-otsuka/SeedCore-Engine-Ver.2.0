@@ -10,7 +10,7 @@
 
 namespace SeedCore
 {
-	PostProcessRenderer::PostProcessRenderer(RootSignature& rootSignature, PipelineStateObject& pipelineStateObject) : autoExposureShader_(rootSignature, pipelineStateObject), toneMappingShader_(rootSignature, pipelineStateObject), lensFlareShader_(rootSignature, pipelineStateObject), depthOfFieldShader_(rootSignature, pipelineStateObject), bokehShader_(rootSignature, pipelineStateObject)
+	PostProcessRenderer::PostProcessRenderer(RootSignature& rootSignature, PipelineStateObject& pipelineStateObject) : autoExposureShader_(rootSignature, pipelineStateObject), toneMappingShader_(rootSignature, pipelineStateObject), lensFlareShader_(rootSignature, pipelineStateObject), depthOfFieldShader_(rootSignature, pipelineStateObject), bokehShader_(rootSignature, pipelineStateObject), sharpnessShader_(rootSignature, pipelineStateObject)
 	{
 		/// No Code
 	}
@@ -22,6 +22,7 @@ namespace SeedCore
 		lensFlareShader_.Create(shaderCache, device);
 		depthOfFieldShader_.Create(shaderCache, device);
 		bokehShader_.Create(shaderCache, device);
+		sharpnessShader_.Create(shaderCache, device);
 
 		CreateResources(device, bindlessHeap, width, height, outputWidth, outputHeight);
 	}
@@ -50,8 +51,9 @@ namespace SeedCore
 		///      Editor/Game で計4枠。
 		clearHeap_.Create(device, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 4, false);
 
-		/// [JP] ビューごとに SD 出力 + UHD 出力 の RTV = 2枠、Editor/Game で計4枠。
-		renderTargetViewHeap_.Create(device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 4, false);
+		/// [JP] ビューごとに SD出力+UHD出力+SDシャープネス+UHDシャープネス の
+		///      RTV = 4枠、Editor/Game で計8枠。
+		renderTargetViewHeap_.Create(device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 8, false);
 
 		CreateView(device, bindlessHeap, editorView_, width, height, outputWidth, outputHeight);
 		CreateView(device, bindlessHeap, gameView_, width, height, outputWidth, outputHeight);
@@ -122,6 +124,15 @@ namespace SeedCore
 		view.outputRenderTargetViewIndex_ = renderTargetViewHeap_.AllocateIndex();
 		device->CreateRenderTargetView(view.outputResource_.Get(), &outputRenderTargetViewDesc, renderTargetViewHeap_.CPUHandle(view.outputRenderTargetViewIndex_));
 
+		D3D12_SHADER_RESOURCE_VIEW_DESC outputShaderResourceViewDesc{};
+		outputShaderResourceViewDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		outputShaderResourceViewDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+		outputShaderResourceViewDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		outputShaderResourceViewDesc.Texture2D.MipLevels = 1;
+
+		view.outputShaderResourceViewIndex_ = bindlessHeap->AllocateIndex();
+		device->CreateShaderResourceView(view.outputResource_.Get(), &outputShaderResourceViewDesc, bindlessHeap->CPUHandle(view.outputShaderResourceViewIndex_));
+
 		// ---- 表示テクスチャ(UHD版、DLSS-RR有効時用) ----
 		D3D12_RESOURCE_DESC outputDescUpscaled{};
 		outputDescUpscaled.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
@@ -142,6 +153,30 @@ namespace SeedCore
 
 		view.outputRenderTargetViewIndexUpscaled_ = renderTargetViewHeap_.AllocateIndex();
 		device->CreateRenderTargetView(view.outputResourceUpscaled_.Get(), &outputRenderTargetViewDesc, renderTargetViewHeap_.CPUHandle(view.outputRenderTargetViewIndexUpscaled_));
+
+		view.outputShaderResourceViewIndexUpscaled_ = bindlessHeap->AllocateIndex();
+		device->CreateShaderResourceView(view.outputResourceUpscaled_.Get(), &outputShaderResourceViewDesc, bindlessHeap->CPUHandle(view.outputShaderResourceViewIndexUpscaled_));
+
+		// ---- シャープネス出力(新・最終表示チェーン、SD/UHD) ----
+		hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &outputDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&view.sharpenResource_));
+		SC_HR_CHECK(hr, "シャープネス表示テクスチャの生成に失敗しました");
+		view.sharpenState_ = D3D12_RESOURCE_STATE_COMMON;
+
+		view.sharpenUnorderedAccessViewIndex_ = bindlessHeap->AllocateIndex();
+		device->CreateUnorderedAccessView(view.sharpenResource_.Get(), nullptr, &outputUnorderedAccessViewDesc, bindlessHeap->CPUHandle(view.sharpenUnorderedAccessViewIndex_));
+
+		view.sharpenRenderTargetViewIndex_ = renderTargetViewHeap_.AllocateIndex();
+		device->CreateRenderTargetView(view.sharpenResource_.Get(), &outputRenderTargetViewDesc, renderTargetViewHeap_.CPUHandle(view.sharpenRenderTargetViewIndex_));
+
+		hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &outputDescUpscaled, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&view.sharpenResourceUpscaled_));
+		SC_HR_CHECK(hr, "シャープネス表示テクスチャ(UHD)の生成に失敗しました");
+		view.sharpenStateUpscaled_ = D3D12_RESOURCE_STATE_COMMON;
+
+		view.sharpenUnorderedAccessViewIndexUpscaled_ = bindlessHeap->AllocateIndex();
+		device->CreateUnorderedAccessView(view.sharpenResourceUpscaled_.Get(), nullptr, &outputUnorderedAccessViewDesc, bindlessHeap->CPUHandle(view.sharpenUnorderedAccessViewIndexUpscaled_));
+
+		view.sharpenRenderTargetViewIndexUpscaled_ = renderTargetViewHeap_.AllocateIndex();
+		device->CreateRenderTargetView(view.sharpenResourceUpscaled_.Get(), &outputRenderTargetViewDesc, renderTargetViewHeap_.CPUHandle(view.sharpenRenderTargetViewIndexUpscaled_));
 
 		// ---- ヒストグラムバッファ (256 x uint) ----
 		{
@@ -293,6 +328,10 @@ namespace SeedCore
 	{
 		bindlessHeap->FreeIndex(view.outputUnorderedAccessViewIndex_);
 		bindlessHeap->FreeIndex(view.outputUnorderedAccessViewIndexUpscaled_);
+		bindlessHeap->FreeIndex(view.outputShaderResourceViewIndex_);
+		bindlessHeap->FreeIndex(view.outputShaderResourceViewIndexUpscaled_);
+		bindlessHeap->FreeIndex(view.sharpenUnorderedAccessViewIndex_);
+		bindlessHeap->FreeIndex(view.sharpenUnorderedAccessViewIndexUpscaled_);
 		bindlessHeap->FreeIndex(view.histogramUnorderedAccessViewIndex_);
 		bindlessHeap->FreeIndex(view.histogramClearGpuUnorderedAccessViewIndex_);
 		bindlessHeap->FreeIndex(view.exposureUnorderedAccessViewIndex_);
@@ -304,6 +343,8 @@ namespace SeedCore
 
 		view.outputResource_.Reset();
 		view.outputResourceUpscaled_.Reset();
+		view.sharpenResource_.Reset();
+		view.sharpenResourceUpscaled_.Reset();
 		view.histogramResource_.Reset();
 		view.exposureResource_.Reset();
 		view.lensFlareResource_.Reset();
@@ -411,6 +452,11 @@ namespace SeedCore
 		values.bokeh_.highlightIntensity_ = settings.bokeh_.highlightIntensity_;
 		values.bokeh_.bladeCount_ = settings.bokeh_.bladeCount_;
 
+		values.sharpness_.enabled_ = settings.sharpness_.enabled_ ? 1 : 0;
+		values.sharpness_.amount_ = settings.sharpness_.amount_;
+		values.sharpness_.sourceShaderResourceViewIndex_ = useUpscaledOutput ? target.outputShaderResourceViewIndexUpscaled_ : target.outputShaderResourceViewIndex_;
+		values.sharpness_.destinationUnorderedAccessViewIndex_ = useUpscaledOutput ? target.sharpenUnorderedAccessViewIndexUpscaled_ : target.sharpenUnorderedAccessViewIndex_;
+
 		if (view == RaytracingView::Editor)
 		{
 			indicesSystem.SetEditorPostProcessIndices(values);
@@ -434,6 +480,8 @@ namespace SeedCore
 
 		Microsoft::WRL::ComPtr<ID3D12Resource>& outputResource = useUpscaledOutput ? target.outputResourceUpscaled_ : target.outputResource_;
 		D3D12_RESOURCE_STATES& outputState = useUpscaledOutput ? target.outputStateUpscaled_ : target.outputState_;
+		Microsoft::WRL::ComPtr<ID3D12Resource>& sharpenResource = useUpscaledOutput ? target.sharpenResourceUpscaled_ : target.sharpenResource_;
+		D3D12_RESOURCE_STATES& sharpenState = useUpscaledOutput ? target.sharpenStateUpscaled_ : target.sharpenState_;
 		Uint32 dispatchWidth = useUpscaledOutput ? outputWidth_ : width_;
 		Uint32 dispatchHeight = useUpscaledOutput ? outputHeight_ : height_;
 
@@ -474,8 +522,9 @@ namespace SeedCore
 		ID3D12PipelineState* lensFlarePipelineState = lensFlareShader_.GetPipelineState();
 		ID3D12PipelineState* depthOfFieldPipelineState = depthOfFieldShader_.GetPipelineState();
 		ID3D12PipelineState* bokehPipelineState = bokehShader_.GetPipelineState();
+		ID3D12PipelineState* sharpnessPipelineState = sharpnessShader_.GetPipelineState();
 
-		if ((!toneMappingPipelineState || !histogramPipelineState || !averagePipelineState || !lensFlarePipelineState || !depthOfFieldPipelineState || !bokehPipelineState) && !pipelineStateMissingLogged_)
+		if ((!toneMappingPipelineState || !histogramPipelineState || !averagePipelineState || !lensFlarePipelineState || !depthOfFieldPipelineState || !bokehPipelineState || !sharpnessPipelineState) && !pipelineStateMissingLogged_)
 		{
 			SC_LOG_WARNING("PostProcess のコンピュート PSO 作成に失敗しています。エディタ/ゲームビューは表示できません。");
 			pipelineStateMissingLogged_ = true;
@@ -573,8 +622,25 @@ namespace SeedCore
 			ProfilerStats::AddDrawCall();
 		}
 
-		cmdList->Barrier(outputResource.Get(), outputState, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-		outputState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+		cmdList->Barrier(outputResource.Get(), outputState, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+		outputState = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+
+		if (sharpenState != D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
+		{
+			cmdList->Barrier(sharpenResource.Get(), sharpenState, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+			sharpenState = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+		}
+
+		if (sharpnessPipelineState)
+		{
+			cmd->SetComputeRootSignature(sharpnessShader_.GetRootSignature());
+			cmd->SetPipelineState(sharpnessPipelineState);
+			cmd->Dispatch((dispatchWidth + 7) / 8, (dispatchHeight + 7) / 8, 1);
+			ProfilerStats::AddDrawCall();
+		}
+
+		cmdList->Barrier(sharpenResource.Get(), sharpenState, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+		sharpenState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
 
 		cmdList->Barrier(sourceColorResource, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 	}
@@ -582,7 +648,7 @@ namespace SeedCore
 	ID3D12Resource* PostProcessRenderer::OutputResource(RaytracingView view)const
 	{
 		const View& target = view == RaytracingView::Editor ? editorView_ : gameView_;
-		return target.activeIsUpscaled_ ? target.outputResourceUpscaled_.Get() : target.outputResource_.Get();
+		return target.activeIsUpscaled_ ? target.sharpenResourceUpscaled_.Get() : target.sharpenResource_.Get();
 	}
 
 	Vector2 PostProcessRenderer::OutputSize()const
@@ -593,7 +659,7 @@ namespace SeedCore
 	D3D12_CPU_DESCRIPTOR_HANDLE PostProcessRenderer::OutputRenderTargetViewHandle(RaytracingView view)const
 	{
 		const View& target = view == RaytracingView::Editor ? editorView_ : gameView_;
-		Uint32 index = target.activeIsUpscaled_ ? target.outputRenderTargetViewIndexUpscaled_ : target.outputRenderTargetViewIndex_;
+		Uint32 index = target.activeIsUpscaled_ ? target.sharpenRenderTargetViewIndexUpscaled_ : target.sharpenRenderTargetViewIndex_;
 		return renderTargetViewHeap_.CPUHandle(index);
 	}
 
@@ -632,11 +698,11 @@ namespace SeedCore
 	{
 		View& target = ViewFor(view);
 
-		Microsoft::WRL::ComPtr<ID3D12Resource>& outputResource = target.activeIsUpscaled_ ? target.outputResourceUpscaled_ : target.outputResource_;
-		D3D12_RESOURCE_STATES& outputState = target.activeIsUpscaled_ ? target.outputStateUpscaled_ : target.outputState_;
+		Microsoft::WRL::ComPtr<ID3D12Resource>& sharpenResource = target.activeIsUpscaled_ ? target.sharpenResourceUpscaled_ : target.sharpenResource_;
+		D3D12_RESOURCE_STATES& sharpenState = target.activeIsUpscaled_ ? target.sharpenStateUpscaled_ : target.sharpenState_;
 
-		cmdList->Barrier(outputResource.Get(), outputState, D3D12_RESOURCE_STATE_RENDER_TARGET);
-		outputState = D3D12_RESOURCE_STATE_RENDER_TARGET;
+		cmdList->Barrier(sharpenResource.Get(), sharpenState, D3D12_RESOURCE_STATE_RENDER_TARGET);
+		sharpenState = D3D12_RESOURCE_STATE_RENDER_TARGET;
 	}
 
 	/**
@@ -654,11 +720,11 @@ namespace SeedCore
 	{
 		View& target = ViewFor(view);
 
-		Microsoft::WRL::ComPtr<ID3D12Resource>& outputResource = target.activeIsUpscaled_ ? target.outputResourceUpscaled_ : target.outputResource_;
-		D3D12_RESOURCE_STATES& outputState = target.activeIsUpscaled_ ? target.outputStateUpscaled_ : target.outputState_;
+		Microsoft::WRL::ComPtr<ID3D12Resource>& sharpenResource = target.activeIsUpscaled_ ? target.sharpenResourceUpscaled_ : target.sharpenResource_;
+		D3D12_RESOURCE_STATES& sharpenState = target.activeIsUpscaled_ ? target.sharpenStateUpscaled_ : target.sharpenState_;
 
-		cmdList->Barrier(outputResource.Get(), outputState, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-		outputState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+		cmdList->Barrier(sharpenResource.Get(), sharpenState, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+		sharpenState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
 	}
 
 	void PostProcessRenderer::UnorderedAccessBarrier(D3D12CommandList* cmdList, ID3D12Resource* resource)

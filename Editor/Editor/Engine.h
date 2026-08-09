@@ -74,6 +74,8 @@ namespace SeedCore
 
 		EditorConfig editorConfig_;
 
+		GameConfig gameConfig_;
+
 		EditorContext editorContext_;
 
 		WorldTimer worldTimer_;

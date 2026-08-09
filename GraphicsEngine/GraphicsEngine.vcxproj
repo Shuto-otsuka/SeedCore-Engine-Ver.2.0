@@ -137,6 +137,7 @@
     <ClInclude Include="PostProcess\PostEffect\LensFlare.h" />
     <ClInclude Include="PostProcess\PostEffect\MotionBlur.h" />
     <ClInclude Include="PostProcess\PostEffect\RadialBlur.h" />
+    <ClInclude Include="PostProcess\PostEffect\Sharpness.h" />
     <ClInclude Include="PostProcess\PostEffect\ToneMapping.h" />
     <ClInclude Include="PostProcess\PostEffect\Vignette.h" />
     <ClInclude Include="PostProcess\PostEffect\ZoomBlur.h" />
@@ -271,6 +272,7 @@
     <ClCompile Include="PostProcess\PostEffect\LensFlare.cpp" />
     <ClCompile Include="PostProcess\PostEffect\MotionBlur.cpp" />
     <ClCompile Include="PostProcess\PostEffect\RadialBlur.cpp" />
+    <ClCompile Include="PostProcess\PostEffect\Sharpness.cpp" />
     <ClCompile Include="PostProcess\PostEffect\ToneMapping.cpp" />
     <ClCompile Include="PostProcess\PostEffect\Vignette.cpp" />
     <ClCompile Include="PostProcess\PostEffect\ZoomBlur.cpp" />
@@ -938,6 +940,11 @@
   </ItemGroup>
   <ItemGroup>
     <Text Include="TAAU\TaauResolveCS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="PostProcess\SharpnessCS.hlsl">
       <FileType>Document</FileType>
     </Text>
   </ItemGroup>

@@ -93,6 +93,12 @@ namespace SeedCore
 		editorConfig_.Load();
 		editorConfig_.Apply(editorCamera_, editorCameraController_, *imgui_);
 
+		gameConfig_.Load();
+		editorContext_.viewportContext_.outputResolution_ = gameConfig_.resolution_;
+		editorContext_.viewportContext_.raytracing_.dlssRayReconstructionEnabled_ = gameConfig_.useDlss_;
+		editorContext_.viewportContext_.raytracing_.upscaleMode_ = gameConfig_.upscaleMode_;
+		editorContext_.viewportContext_.resizeRequested_ = true;
+
 		if (!editorConfig_.lastScenePath_.str().empty())
 		{
 			std::filesystem::path lastScenePath = editorConfig_.lastScenePath_.str();

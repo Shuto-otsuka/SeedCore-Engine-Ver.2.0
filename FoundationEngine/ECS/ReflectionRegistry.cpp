@@ -31,6 +31,7 @@
 #pragma comment(linker, "/include:_force_reflection_LensFlareSettings")
 #pragma comment(linker, "/include:_force_reflection_DepthOfFieldSettings")
 #pragma comment(linker, "/include:_force_reflection_BokehSettings")
+#pragma comment(linker, "/include:_force_reflection_SharpnessSettings")
 #pragma comment(linker, "/include:_force_reflection_PostProcess")
 #pragma comment(linker, "/include:_force_reflection_Image")
 #pragma comment(linker, "/include:_force_reflection_BoxCollider")

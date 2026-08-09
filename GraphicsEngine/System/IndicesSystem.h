@@ -113,6 +113,33 @@ namespace SeedCore
 	};
 	static_assert(sizeof(BokehIndices) % 16 == 0, "BokehIndices が 16 バイト行の倍数ではありません");
 
+	/// [EN] Per-view sharpness indices/tuning. SharpnessCS.hlsl runs last,
+	///      after ToneMappingCS.hlsl - sourceShaderResourceViewIndex_ is the
+	///      bindless SRV of ToneMappingCS.hlsl's tone-mapped output (now an
+	///      intermediate buffer), destinationUnorderedAccessViewIndex_ is
+	///      this pass's own output, which becomes the new final display
+	///      texture (PostProcessRenderer::OutputResource et al. now point at
+	///      it). Runs unconditionally every frame like ToneMappingCS.hlsl;
+	///      enabled_ just gates whether the shader applies the sharpen
+	///      offset or passes the source through unchanged.
+	/// [JP] ビューごとのシャープネスインデックス/チューニング。
+	///      SharpnessCS.hlsl は ToneMappingCS.hlsl の後、最後に走る -
+	///      sourceShaderResourceViewIndex_ は ToneMappingCS.hlsl のトーンマップ
+	///      済み出力(今は中間バッファ)の bindless SRV、
+	///      destinationUnorderedAccessViewIndex_ はこのパス自身の出力で、
+	///      新しい最終表示テクスチャになる(PostProcessRenderer::
+	///      OutputResource 等がこちらを指すようになる)。ToneMappingCS.hlsl と
+	///      同様に毎フレーム無条件で走る。enabled_ はシェーダがシャープ
+	///      オフセットを適用するか、ソースをそのまま通すかを切り替えるだけ。
+	struct SharpnessIndices
+	{
+		Uint sourceShaderResourceViewIndex_ = 0;
+		Uint destinationUnorderedAccessViewIndex_ = 0;
+		Uint enabled_ = 0;
+		Float amount_ = 0.0f;
+	};
+	static_assert(sizeof(SharpnessIndices) % 16 == 0, "SharpnessIndices が 16 バイト行の倍数ではありません");
+
 	/// [EN] Mirrors Shader/Constants.hlsli's PostProcessIndices. Per-view (not
 	///      StructuredIndices) for the same reason the shadow/AO accumulation
 	///      chains are: the histogram/persistent-exposure buffers and the
@@ -140,8 +167,9 @@ namespace SeedCore
 		LensFlareIndices lensFlare_;
 		DepthOfFieldIndices depthOfField_;
 		BokehIndices bokeh_;
+		SharpnessIndices sharpness_;
 	};
-	static_assert(sizeof(PostProcessIndices) == 176, "PostProcessIndices が Shader/Constants.hlsli と一致していません");
+	static_assert(sizeof(PostProcessIndices) == 192, "PostProcessIndices が Shader/Constants.hlsli と一致していません");
 
 	/// [EN] Per-view ray-traced shadow accumulation indices — see
 	///      Shader/Constants.hlsli for why these are per-view instead of in
@@ -256,7 +284,7 @@ namespace SeedCore
 
 		PostProcessIndices postProcess_;
 	};
-	static_assert(sizeof(ConstantIndices) == 20 * 16, "ConstantIndices が Shader/Constants.hlsli と一致していません");
+	static_assert(sizeof(ConstantIndices) == 21 * 16, "ConstantIndices が Shader/Constants.hlsli と一致していません");
 
 	/// [EN] Mirrors Shader/Structured.hlsli. Each group is a whole number of
 	///      16-byte cbuffer rows with its padding written out explicitly, and

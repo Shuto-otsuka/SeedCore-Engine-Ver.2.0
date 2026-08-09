@@ -6,6 +6,7 @@
 #include <GraphicsEngine/PostProcess/PostEffect/LensFlare.h>
 #include <GraphicsEngine/PostProcess/PostEffect/DepthOfField.h>
 #include <GraphicsEngine/PostProcess/PostEffect/Bokeh.h>
+#include <GraphicsEngine/PostProcess/PostEffect/Sharpness.h>
 #include <GraphicsEngine/PostProcess/PostProcess.h>
 #include <GraphicsEngine/Raytracing/RaytracingView.h>
 #include <GraphicsEngine/D3D12/SwapChain/GraphicsResolution.h>
@@ -207,6 +208,8 @@ namespace SeedCore
 			Uint32 outputUnorderedAccessViewIndex_ = 0;
 			Uint32 outputRenderTargetViewIndex_ = 0;
 
+			Uint32 outputShaderResourceViewIndex_ = 0;
+
 			/// [EN] UHD (3840x2160) counterpart of outputResource_ above, used
 			///      only when DLSS Ray Reconstruction is active — fed by
 			///      DlssRayReconstructionRenderer's upscaled output instead of
@@ -224,6 +227,18 @@ namespace SeedCore
 			D3D12_RESOURCE_STATES outputStateUpscaled_ = D3D12_RESOURCE_STATE_COMMON;
 			Uint32 outputUnorderedAccessViewIndexUpscaled_ = 0;
 			Uint32 outputRenderTargetViewIndexUpscaled_ = 0;
+
+			Uint32 outputShaderResourceViewIndexUpscaled_ = 0;
+
+			Microsoft::WRL::ComPtr<ID3D12Resource> sharpenResource_;
+			D3D12_RESOURCE_STATES sharpenState_ = D3D12_RESOURCE_STATE_COMMON;
+			Uint32 sharpenUnorderedAccessViewIndex_ = 0;
+			Uint32 sharpenRenderTargetViewIndex_ = 0;
+
+			Microsoft::WRL::ComPtr<ID3D12Resource> sharpenResourceUpscaled_;
+			D3D12_RESOURCE_STATES sharpenStateUpscaled_ = D3D12_RESOURCE_STATE_COMMON;
+			Uint32 sharpenUnorderedAccessViewIndexUpscaled_ = 0;
+			Uint32 sharpenRenderTargetViewIndexUpscaled_ = 0;
 
 			/// [EN] Which chain the most recent PrepareView() selected - what
 			///      OutputResource() reports back to Renderer for ImGui.
@@ -387,6 +402,7 @@ namespace SeedCore
 		LensFlare lensFlareShader_;
 		DepthOfField depthOfFieldShader_;
 		Bokeh bokehShader_;
+		Sharpness sharpnessShader_;
 
 		View editorView_;
 		View gameView_;
@@ -403,13 +419,14 @@ namespace SeedCore
 		/// [JP] ビューごとに2枠(ヒストグラム+露出)で計4枠。
 		DescriptorHeap clearHeap_;
 
-		/// [EN] Two slots per view (SD output + UHD output), so 4 total.
-		///      Non-shader-visible RTV heap, distinct from bindlessHeap_ (SRV/
-		///      UAV/CBV) and clearHeap_ (also CBV_SRV_UAV) - RTV descriptors
-		///      require their own heap type.
-		/// [JP] ビューごとに2枠(SD出力+UHD出力)で計4枠。非シェーダ可視の
-		///      RTVヒープ。bindlessHeap_(SRV/UAV/CBV)やclearHeap_(同じく
-		///      CBV_SRV_UAV)とは別 — RTV記述子は専用のヒープ種別を要する。
+		/// [EN] Four slots per view (SD output + UHD output + SD sharpen + UHD
+		///      sharpen), so 8 total. Non-shader-visible RTV heap, distinct
+		///      from bindlessHeap_ (SRV/UAV/CBV) and clearHeap_ (also
+		///      CBV_SRV_UAV) - RTV descriptors require their own heap type.
+		/// [JP] ビューごとに4枠(SD出力+UHD出力+SDシャープネス+UHDシャープネス)
+		///      で計8枠。非シェーダ可視のRTVヒープ。bindlessHeap_(SRV/UAV/CBV)
+		///      やclearHeap_(同じくCBV_SRV_UAV)とは別 — RTV記述子は専用の
+		///      ヒープ種別を要する。
 		DescriptorHeap renderTargetViewHeap_;
 
 		BindlessHeap* bindlessHeap_ = nullptr;

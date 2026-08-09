@@ -88,16 +88,33 @@ struct BokehIndices
 	uint blade_count_;
 };
 
-// Per-view post-process indices (11 rows / 176 bytes). Lives inside
+// Per-view sharpness indices/tuning (1 row / 16 bytes). SharpnessCS.hlsl runs
+// last, after ToneMappingCS.hlsl - source_srv_index_ is the bindless SRV of
+// ToneMappingCS.hlsl's tone-mapped/sRGB-encoded output (now an intermediate
+// buffer rather than the final display texture), destination_uav_index_ is
+// this pass's own output, which becomes the new final display texture
+// (PostProcessRenderer::OutputResource et al. now point at it). Runs
+// unconditionally every frame like ToneMappingCS.hlsl; enabled_ just gates
+// whether the shader applies the sharpen offset or passes the source through
+// unchanged.
+struct SharpnessIndices
+{
+	uint source_srv_index_;
+	uint destination_uav_index_;
+	uint enabled_;
+	float amount_;
+};
+
+// Per-view post-process indices (12 rows / 192 bytes). Lives inside
 // ConstantIndices, not StructuredIndices, for the same reason the shadow/AO
 // accumulation chains do: the histogram/persistent-exposure buffers and the
 // display output texture are genuinely per-camera state (editor and game can
 // be looking at wildly different scenes with independently-adapting
 // exposure), and StructuredIndices is one buffer shared by every view. Each
 // effect gets its own group struct (ExposureIndices/ToneMappingIndices/
-// LensFlareIndices/DepthOfFieldIndices/BokehIndices above) instead of flat
-// fields here, matching the Shadow/AmbientOcclusion/GlobalIllumination/Dlss
-// grouping convention below.
+// LensFlareIndices/DepthOfFieldIndices/BokehIndices/SharpnessIndices above)
+// instead of flat fields here, matching the Shadow/AmbientOcclusion/
+// GlobalIllumination/Dlss grouping convention below.
 struct PostProcessIndices
 {
 	uint output_uav_index_;
@@ -110,6 +127,7 @@ struct PostProcessIndices
 	LensFlareIndices lens_flare_;
 	DepthOfFieldIndices depth_of_field_;
 	BokehIndices bokeh_;
+	SharpnessIndices sharpness_;
 };
 
 // Ray-traced shadow accumulation buffers. These live inside ConstantIndices

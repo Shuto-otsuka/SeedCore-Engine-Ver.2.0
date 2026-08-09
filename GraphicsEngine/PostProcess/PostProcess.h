@@ -293,6 +293,35 @@ namespace SeedCore
 
 	/**
 	* [EN]
+	* Sharpness (unsharp mask) settings for the final display pass
+	* (SharpnessCS.hlsl). Runs after ToneMappingSettings, sampling a 5-tap
+	* cross around each pixel of the tone-mapped/sRGB-encoded output and
+	* pushing each pixel away from its neighborhood average by amount_ - the
+	* classic unsharp-mask edge enhancement, applied in the same LDR space
+	* most engines apply CAS/sharpen filters in.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 最終表示パス向けのシャープネス(アンシャープマスク)設定
+	* (SharpnessCS.hlsl)。ToneMappingSettings の後に走り、トーンマップ/
+	* sRGBエンコード済み出力の各ピクセル周囲を5タップの十字でサンプルし、
+	* 近傍平均から amount_ ぶん引き離す — 典型的なアンシャープマスクによる
+	* 輪郭強調。多くのエンジンがCAS等のシャープフィルタを適用するのと同じ
+	* LDR空間で適用する。
+	*/
+	struct SharpnessSettings
+	{
+		SC_REFLECTION_FIELD_EX("有効")
+		Bool enabled_ = false;
+
+		SC_REFLECTION_FIELD_CONDITION(enabled_)
+		SC_REFLECTION_CLAMPED_EX("強さ", 0.0f, 2.0f)
+		Float amount_ = 0.5f;
+	};
+
+	/**
+	* [EN]
 	* Post-process settings, authored as a component on an entity (the same
 	* shape as Unreal's PostProcessVolume or Unity's Post Process Volume). The
 	* renderer gathers it with Query<Read<Active>, Read<PostProcess>> and runs
@@ -300,12 +329,13 @@ namespace SeedCore
 	* entity carries one, the renderer falls back to this struct's defaults so
 	* a scene without a post-process entity still tonemaps.
 	*
-	* Only exposure, lens flare, depth of field, bokeh, and tone mapping are
-	* implemented so far - the other files under PostEffect/ are empty stubs.
-	* Each new effect gets its own reflected Settings struct (see
-	* ToneMappingSettings/ExposureSettings above) plus one field here and its
-	* own class under PostEffect/, so this component stays the single
-	* authoring surface without turning into a flat pile of unrelated fields.
+	* Only exposure, lens flare, depth of field, bokeh, tone mapping, and
+	* sharpness are implemented so far - the other files under PostEffect/
+	* are empty stubs. Each new effect gets its own reflected Settings struct
+	* (see ToneMappingSettings/ExposureSettings above) plus one field here
+	* and its own class under PostEffect/, so this component stays the
+	* single authoring surface without turning into a flat pile of unrelated
+	* fields.
 	*
 	* ---------------------------------------------------------------------
 	*
@@ -317,11 +347,11 @@ namespace SeedCore
 	* も持っていない場合はこの構造体の既定値へフォールバックするので、
 	* ポストプロセス用エンティティが無いシーンでもトーンマップは掛かる。
 	*
-	* 現状は露出・レンズフレア・被写界深度・ボケ・トーンマップのみ実装 —
-	* PostEffect/ の他のファイルは空スタブ。エフェクトを増やすときは上の
-	* ToneMappingSettings/ExposureSettings のような専用のリフレクション対象
-	* 構造体を作り、ここにフィールドを1つ足し、PostEffect/ にクラスを足す —
-	* 無関係なフィールドの寄せ集めにしない。
+	* 現状は露出・レンズフレア・被写界深度・ボケ・トーンマップ・シャープネス
+	* のみ実装 — PostEffect/ の他のファイルは空スタブ。エフェクトを増やす
+	* ときは上の ToneMappingSettings/ExposureSettings のような専用の
+	* リフレクション対象構造体を作り、ここにフィールドを1つ足し、
+	* PostEffect/ にクラスを足す — 無関係なフィールドの寄せ集めにしない。
 	*/
 	struct PostProcess
 	{
@@ -339,6 +369,9 @@ namespace SeedCore
 
 		SC_REFLECTION_FIELD_EX("トーンマップ")
 		ToneMappingSettings toneMapping_;
+
+		SC_REFLECTION_FIELD_EX("シャープネス")
+		SharpnessSettings sharpness_;
 	};
 	REGISTER_COMPONENT(PostProcess, "PostProcess");
 }

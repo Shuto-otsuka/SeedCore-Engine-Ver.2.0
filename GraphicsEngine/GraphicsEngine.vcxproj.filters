@@ -718,6 +718,9 @@
     <ClInclude Include="Renderer\TaauUpsamplingRenderer.h">
       <Filter>Renderer</Filter>
     </ClInclude>
+    <ClInclude Include="PostProcess\PostEffect\Sharpness.h">
+      <Filter>PostProcess\PostEffect</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="D3D12\Context\D3D12Adapter.cpp">
@@ -1199,6 +1202,9 @@
     <ClCompile Include="Renderer\TaauUpsamplingRenderer.cpp">
       <Filter>Renderer</Filter>
     </ClCompile>
+    <ClCompile Include="PostProcess\PostEffect\Sharpness.cpp">
+      <Filter>PostProcess\PostEffect</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="Shader\Sampler.hlsli">
@@ -1595,6 +1601,9 @@
     </Text>
     <Text Include="TAAU\TaauResolveCS.hlsl">
       <Filter>TAAU</Filter>
+    </Text>
+    <Text Include="PostProcess\SharpnessCS.hlsl">
+      <Filter>PostProcess</Filter>
     </Text>
   </ItemGroup>
 </Project>
