@@ -6,6 +6,7 @@
 #include <GraphicsEngine/D3D12/Descriptor/BindlessHeap.h>
 #include <GraphicsEngine/D3D12/PipelineState/PipelineStateObject.h>
 #include <GraphicsEngine/System/IndicesSystem.h>
+#include <GraphicsEngine/D3D12/SwapChain/GraphicsResolution.h>
 #include <FoundationEngine/ECS/Query.h>
 #include <FoundationEngine/ECS/Component/Active.h>
 
@@ -32,12 +33,14 @@ namespace SeedCore
 		indicesSystem.SetImageBillboardIndex(billboardBuffer_->Index());
 	}
 
-	void ImageRenderer::Gather(LoaderSystem& loader, ImageResource& resource, World& world, Entity selectedEntity)
+	void ImageRenderer::Gather(LoaderSystem& loader, ImageResource& resource, World& world, Vector2 nativeScreenSize, Entity selectedEntity)
 	{
 		spriteInstances_.clear();
 		billboardInstances_.clear();
 		hasSelectedSpriteInstance_ = false;
 		hasSelectedBillboardInstance_ = false;
+
+		Float spriteReferenceScale = (ScResolution::SC_HD.Height > 0.0f) ? (nativeScreenSize.y / ScResolution::SC_HD.Height) : 1.0f;
 
 		Query<Read<Active>, Read<Image>> query(world);
 		query.ForEach([&](EntityID entityID, const Active& active, const Image& image)
@@ -99,7 +102,7 @@ namespace SeedCore
 					Vector2 scale = Vector2(worldScale.x, worldScale.y);
 
 					ImageSpriteInstance instance{};
-					instance.position_ = position;
+					instance.position_ = position * spriteReferenceScale;
 					instance.rotation_ = rotationAngle;
 					instance.scale_ = scale;
 					instance.textureSize_ = textureSize;
@@ -112,6 +115,24 @@ namespace SeedCore
 					instance.motionType_ = motionType;
 					instance.selected_ = selected;
 					spriteInstances_.push_back(instance);
+
+					hasSelectedBillboardInstance_ = hasSelectedBillboardInstance_ || selected != 0;
+
+					ImageBillboardInstance canvasInstance{};
+					canvasInstance.position_ = Vector3(100000.0f + position.x, 100000.0f + (ScResolution::SC_HD.Height - position.y), 100000.0f);
+					canvasInstance.rotation_ = Vector3(0.0f, 0.0f, rotationAngle);
+					canvasInstance.scale_ = Vector2(scale.x * textureSize.x, scale.y * textureSize.y);
+					canvasInstance.textureSize_ = textureSize;
+					canvasInstance.texturePosition_ = Vector2(image.texturePosition_.x, image.texturePosition_.y);
+					canvasInstance.pivot_ = Vector2(image.pivot_.x, image.pivot_.y);
+					canvasInstance.color_ = image.color_;
+					canvasInstance.textureIndex_ = textureIndex;
+					canvasInstance.scrollSpeed_ = image.scrollSpeed_;
+					canvasInstance.scrollDirection_ = image.scrollDirection_;
+					canvasInstance.motionType_ = motionType;
+					canvasInstance.faceCamera_ = 1;
+					canvasInstance.selected_ = selected;
+					billboardInstances_.push_back(canvasInstance);
 				}
 				else
 				{

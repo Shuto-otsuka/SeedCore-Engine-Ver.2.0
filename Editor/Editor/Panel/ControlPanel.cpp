@@ -64,6 +64,7 @@ namespace SeedCore
 				context_.sceneContext_.worldSnapshot_.Capture(*context_.worldContext_.world_);
 				context_.worldContext_.gameTimer_->Play();
 				isPlaying = true;
+				ImGui::SetWindowFocus("ゲームビュー");
 			}
 			if (isPlaying && ImGui::IsKeyPressed(ImGuiKey_F7))
 			{
@@ -71,6 +72,7 @@ namespace SeedCore
 				context_.sceneContext_.worldSnapshot_.Restore(*context_.worldContext_.world_);
 				isPlaying = false;
 				EndPlayMemCheck();
+				ImGui::SetWindowFocus("エディタービュー");
 			}
 			if (isPlaying && ImGui::IsKeyPressed(ImGuiKey_F6))
 			{
@@ -107,6 +109,7 @@ namespace SeedCore
 					BeginPlayMemCheck();
 					context_.sceneContext_.worldSnapshot_.Capture(*context_.worldContext_.world_);
 					context_.worldContext_.gameTimer_->Play();
+					ImGui::SetWindowFocus("ゲームビュー");
 				}
 			}
 
@@ -150,6 +153,7 @@ namespace SeedCore
 					context_.worldContext_.gameTimer_->Stop();
 					context_.sceneContext_.worldSnapshot_.Restore(*context_.worldContext_.world_);
 					EndPlayMemCheck();
+					ImGui::SetWindowFocus("エディタービュー");
 				}
 			}
 

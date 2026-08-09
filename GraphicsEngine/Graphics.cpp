@@ -244,11 +244,14 @@ namespace SeedCore
 	{
 		cameraSystem_.Update(world, timer, static_cast<Float>(nativeWidth_), static_cast<Float>(nativeHeight_));
 
+		SceneConstantBuffer gameSceneConstantBuffer = cameraSystem_.GetSceneConstantBuffer();
+		gameSceneConstantBuffer.displaySize_ = renderer_->IsDlssRayReconstructionEnabled() ? renderer_->PostProcessOutputSize() : gameSceneConstantBuffer.screenSize_;
+
 		renderer_->BeginGameFrame(context_->GetDirectList());
 
 		if (cameraSystem_.HasActiveCamera())
 		{
-			gameSceneSystem_->Upload(cameraSystem_.GetSceneConstantBuffer());
+			gameSceneSystem_->Upload(gameSceneConstantBuffer);
 			renderer_->GameFlush(context_->GetDirectList(), gameSceneSystem_.get(), timer.DeltaTime());
 		}
 
@@ -260,7 +263,7 @@ namespace SeedCore
 		///      を返す — DLSS-RR はこのフレームだけ多少不正確なリプロジェクション
 		///      になり得るが、そもそも表示するゲーム画面が無い状況なので実害は
 		///      無い。
-		renderer_->EndGameFrame(context_->GetDirectList(), cameraSystem_.GetSceneConstantBuffer());
+		renderer_->EndGameFrame(context_->GetDirectList(), gameSceneConstantBuffer);
 	}
 
 	void Graphics::CanvasRender(WorldTimer& timer, const CanvasCamera& canvasCamera, LoaderSystem& loaderSystem, ResourceCache& resourceCache, World& world)

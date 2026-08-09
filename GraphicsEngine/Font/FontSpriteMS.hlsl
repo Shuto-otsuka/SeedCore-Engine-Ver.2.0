@@ -27,8 +27,8 @@ void main(in payload FontASPayload payload, uint gtid : SV_GroupThreadID, uint g
 		float2 world_pixel = glyph.position + corners[gtid] * glyph.size;
 
 		float2 clip;
-		clip.x = world_pixel.x * scene_constant.inverse_screen_size_.x * 2.0f - 1.0f;
-		clip.y = 1.0f - world_pixel.y * scene_constant.inverse_screen_size_.y * 2.0f;
+		clip.x = world_pixel.x / scene_constant.display_size_.x * 2.0f - 1.0f;
+		clip.y = 1.0f - world_pixel.y / scene_constant.display_size_.y * 2.0f;
 
 		output[gtid].position = float4(clip, 0.0f, 1.0f);
 		output[gtid].uv = lerp(glyph.uv_min, glyph.uv_max, corners[gtid]);

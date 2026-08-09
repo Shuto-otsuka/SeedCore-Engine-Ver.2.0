@@ -39,8 +39,18 @@ namespace SeedCore
 
 	void CanvasCamera::Resize(Float width, Float height)
 	{
+		Bool resolutionChanged = (width != width_) || (height != height_);
+
 		width_ = width;
 		height_ = height;
+
+		baseViewHeight_ = height;
+
+		if (resolutionChanged)
+		{
+			focus_ = { 100000.0f + width * 0.5f, 100000.0f + height * 0.5f, 100000.0f };
+			eye_ = { focus_.x, focus_.y, focus_.z - 10.0f };
+		}
 	}
 
 	void CanvasCamera::Eye(Vector3 eye)

@@ -22,5 +22,9 @@ namespace SeedCore
 		ImGuiTexture& imguiTexture_;
 
 		GuizmoPanel2D guizmoPanel_;
+
+		Bool isPanning_ = false;
+
+		Bool isResettingView_ = false;
 	};
 }

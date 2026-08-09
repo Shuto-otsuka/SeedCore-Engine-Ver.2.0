@@ -52,7 +52,13 @@ void main(in payload ImageASPayload payload, uint gtid : SV_GroupThreadID, uint 
 		{
 			float3 camera_right = scene_constant.inverse_view_[0].xyz;
 			float3 camera_up = scene_constant.inverse_view_[1].xyz;
-			world_position = billboard.position + camera_right * scaled.x + camera_up * scaled.y;
+
+			float cos_r = cos(billboard.rotation.z);
+			float sin_r = sin(billboard.rotation.z);
+			float roll_x = scaled.x * cos_r + scaled.y * sin_r;
+			float roll_y = -scaled.x * sin_r + scaled.y * cos_r;
+
+			world_position = billboard.position + camera_right * roll_x + camera_up * roll_y;
 		}
 		else
 		{

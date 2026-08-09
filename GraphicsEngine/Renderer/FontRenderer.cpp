@@ -6,6 +6,7 @@
 #include <GraphicsEngine/D3D12/Descriptor/BindlessHeap.h>
 #include <GraphicsEngine/D3D12/PipelineState/PipelineStateObject.h>
 #include <GraphicsEngine/System/IndicesSystem.h>
+#include <GraphicsEngine/D3D12/SwapChain/GraphicsResolution.h>
 #include <FoundationEngine/ECS/Query.h>
 #include <FoundationEngine/ECS/Component/Active.h>
 
@@ -37,10 +38,12 @@ namespace SeedCore
 
 	}
 
-	void FontRenderer::Gather(FontResource& fontResource, World& world, Entity selectedEntity)
+	void FontRenderer::Gather(FontResource& fontResource, World& world, Vector2 nativeScreenSize, Entity selectedEntity)
 	{
 		spriteInstances_.clear();
 		billboardInstances_.clear();
+
+		Float spriteReferenceScale = (ScResolution::SC_HD.Height > 0.0f) ? (nativeScreenSize.y / ScResolution::SC_HD.Height) : 1.0f;
 
 		Query<Read<Active>, Read<Text>> query(world);
 		query.ForEach([&](EntityID entityID, const Active& active, const Text& text)
@@ -148,7 +151,7 @@ namespace SeedCore
 									instance.glowPower_ = text.glowPower_;
 									instance.unitRange_ = unitRange;
 
-									const Vector2 basePosition = Vector2(position.x - text.pivot_.x + glyphLeft * scale.x, position.y - text.pivot_.y + glyphTop * scale.y);
+									const Vector2 basePosition = Vector2(position.x * spriteReferenceScale - text.pivot_.x + glyphLeft * scale.x, position.y * spriteReferenceScale - text.pivot_.y + glyphTop * scale.y);
 
 									if (text.shadowEnable_)
 									{
@@ -164,6 +167,24 @@ namespace SeedCore
 									instance.position_ = basePosition;
 									instance.selected_ = selected;
 									spriteInstances_.push_back(instance);
+
+									FontBillboardInstance canvasInstance{};
+									canvasInstance.position_ = Vector3(100000.0f + position.x, 100000.0f + (ScResolution::SC_HD.Height - position.y), 100000.0f);
+									canvasInstance.rotation_ = Vector3::Zero;
+									canvasInstance.localPosition_ = Vector2((glyphLeft - text.pivot_.x) * scale.x, (text.pivot_.y - glyphTop - glyphHeight) * scale.y);
+									canvasInstance.localSize_ = Vector2(glyphWidth * scale.x, glyphHeight * scale.y);
+									canvasInstance.uvMin_ = uvMin;
+									canvasInstance.uvMax_ = uvMax;
+									canvasInstance.color_ = text.color_;
+									canvasInstance.outlineColor_ = text.outlineColor_;
+									canvasInstance.glowColor_ = text.glowColor_;
+									canvasInstance.textureIndex_ = font->GetAtlasTextureIndex();
+									canvasInstance.outlineWidth_ = text.outlineWidth_;
+									canvasInstance.glowPower_ = text.glowPower_;
+									canvasInstance.unitRange_ = unitRange;
+									canvasInstance.faceCamera_ = 1;
+									canvasInstance.selected_ = selected;
+									billboardInstances_.push_back(canvasInstance);
 								}
 								else
 								{

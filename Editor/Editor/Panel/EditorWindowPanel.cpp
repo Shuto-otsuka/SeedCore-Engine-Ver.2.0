@@ -8,7 +8,6 @@
 #include <FoundationEngine/ECS/World.h>
 #include <FoundationEngine/ECS/Actor.h>
 #include <FoundationEngine/ECS/ComponentRegistry.h>
-#include <cfloat>
 
 namespace SeedCore
 {

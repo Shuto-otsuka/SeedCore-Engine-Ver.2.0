@@ -284,6 +284,8 @@ namespace SeedCore
 				imgui_->NewFrame();
 
 				editorCamera_.Tick(window_->GetTimer().Delta());
+
+				canvasCamera_.Resize(ScResolution::SC_HD.Width, ScResolution::SC_HD.Height);
 				canvasCamera_.Tick(window_->GetTimer().Delta());
 				previewCamera_.Tick(window_->GetTimer().Delta());
 

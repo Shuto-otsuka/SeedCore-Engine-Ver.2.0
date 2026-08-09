@@ -52,7 +52,7 @@ namespace SeedCore
 			psokey.pixelShader_ = shaderCache.GetPixelShader(billboardPixelShader_)->Bytecode();
 			psokey.rasterizerDesc_ = RasterizerState::Get(RasterizerStateType::SolidNoneLHS);
 			psokey.blendDesc_ = BlendState::Get(BlendStateType::Alpha);
-			psokey.depthStencilDesc_ = DepthStencilState::Get(DepthStencilStateType::DepthOnWriteOnReverseZ);
+			psokey.depthStencilDesc_ = DepthStencilState::Get(DepthStencilStateType::DepthOnWriteOffReverseZ);
 			psokey.renderTargetViewFormat_[0] = DXGI_FORMAT_R16G16B16A16_FLOAT;
 			psokey.renderTargetViewCount_ = 1;
 			psokey.depthStencilViewFormat_ = DXGI_FORMAT_D32_FLOAT;

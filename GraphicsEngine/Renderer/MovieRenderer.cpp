@@ -5,6 +5,7 @@
 #include <GraphicsEngine/D3D12/Descriptor/BindlessHeap.h>
 #include <GraphicsEngine/D3D12/PipelineState/PipelineStateObject.h>
 #include <GraphicsEngine/System/IndicesSystem.h>
+#include <GraphicsEngine/D3D12/SwapChain/GraphicsResolution.h>
 #include <FoundationEngine/ECS/Query.h>
 #include <FoundationEngine/ECS/Component/Active.h>
 
@@ -33,13 +34,15 @@ namespace SeedCore
 		indicesSystem.SetMovieFullscreenIndex(fullscreenBuffer_->Index());
 	}
 
-	void MovieRenderer::Gather(MovieResource& movieResource, World& world, Entity selectedEntity)
+	void MovieRenderer::Gather(MovieResource& movieResource, World& world, Vector2 nativeScreenSize, Entity selectedEntity)
 	{
 		spriteInstances_.clear();
 		billboardInstances_.clear();
 		fullscreenInstances_.clear();
 		hasSelectedSpriteInstance_ = false;
 		hasSelectedBillboardInstance_ = false;
+
+		Float spriteReferenceScale = (ScResolution::SC_HD.Height > 0.0f) ? (nativeScreenSize.y / ScResolution::SC_HD.Height) : 1.0f;
 
 		Query<Read<Active>, Read<Movie>> query(world);
 		query.ForEach([&](EntityID entityID, const Active& active, const Movie& movie)
@@ -98,7 +101,7 @@ namespace SeedCore
 					hasSelectedSpriteInstance_ = hasSelectedSpriteInstance_ || selected != 0;
 
 					MovieSpriteInstance instance{};
-					instance.position_ = Vector2(worldTranslation.x, worldTranslation.y);
+					instance.position_ = Vector2(worldTranslation.x, worldTranslation.y) * spriteReferenceScale;
 					instance.rotation_ = worldRotation.ToEuler().x;
 					instance.scale_ = Vector2(worldScale.x, worldScale.y);
 					instance.size_ = size;
@@ -107,6 +110,20 @@ namespace SeedCore
 					instance.textureIndex_ = textureIndex;
 					instance.selected_ = selected;
 					spriteInstances_.push_back(instance);
+
+					hasSelectedBillboardInstance_ = hasSelectedBillboardInstance_ || selected != 0;
+
+					MovieBillboardInstance canvasInstance{};
+					canvasInstance.position_ = Vector3(100000.0f + worldTranslation.x, 100000.0f + (ScResolution::SC_HD.Height - worldTranslation.y), 100000.0f);
+					canvasInstance.rotation_ = Vector3::Zero;
+					canvasInstance.scale_ = Vector2(worldScale.x * size.x, worldScale.y * size.y);
+					canvasInstance.size_ = size;
+					canvasInstance.pivot_ = movie.pivot_;
+					canvasInstance.color_ = movie.color_;
+					canvasInstance.textureIndex_ = textureIndex;
+					canvasInstance.faceCamera_ = 1;
+					canvasInstance.selected_ = selected;
+					billboardInstances_.push_back(canvasInstance);
 				}
 				else
 				{

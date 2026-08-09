@@ -302,6 +302,49 @@ namespace SeedCore
 		postProcessRenderer_->Dispatch(cmdList, bindlessHeap_->Heap(), indicesSystem_->GameConstantAddress(), indicesSystem_->StructuredAddress(), RaytracingView::Game, postProcessSource, dlssRayReconstructionEnabled_);
 		gpuProfiler_.End(cmdList, GpuProfileView::Game, GpuProfileScope::PostProcess);
 
+		/// [EN] Sprite/Billboard: draws directly onto PostProcess's tone-mapped
+		///      display texture, after DLSS Ray Reconstruction and PostProcess
+		///      have both already run - so DLSS-RR's temporal reprojection
+		///      never sees these pixels (they carry no motion vectors, so
+		///      DLSS-RR would otherwise ghost them whenever the camera or the
+		///      sprite itself moves). Same pattern as EditorFlush's debug
+		///      overlay (collider wireframe/selection outline) - see
+		///      EndEditorFrame.
+		/// [JP] Sprite/Billboard: DLSS Ray ReconstructionとPostProcessが両方
+		///      既に実行された後、PostProcessのトーンマップ済み表示テクスチャへ
+		///      直接描画する - こうすることでDLSS-RRの時間的再投影がこれらの
+		///      ピクセルを一切見ない(モーションベクターを持たないため、
+		///      そのままだとカメラやSprite自身が動くたびにゴーストしていた)。
+		///      EditorFlushのデバッグオーバーレイ(コライダーワイヤーフレーム/
+		///      選択アウトライン)と同じパターン - EndEditorFrame参照。
+		postProcessRenderer_->BeginDebugOverlay(cmdList, RaytracingView::Game);
+
+		D3D12_CPU_DESCRIPTOR_HANDLE gameDisplayRenderTargetView = postProcessRenderer_->OutputRenderTargetViewHandle(RaytracingView::Game);
+		D3D12_VIEWPORT gameDisplayViewport = postProcessRenderer_->Viewport(RaytracingView::Game);
+		cmdList->Get()->OMSetRenderTargets(1, &gameDisplayRenderTargetView, FALSE, nullptr);
+		cmdList->Get()->RSSetViewports(1, &gameDisplayViewport);
+		D3D12_RECT gameDisplayScissorRect = { 0, 0, static_cast<LONG>(gameDisplayViewport.Width), static_cast<LONG>(gameDisplayViewport.Height) };
+		cmdList->Get()->RSSetScissorRects(1, &gameDisplayScissorRect);
+
+		ID3D12DescriptorHeap* spriteHeap = bindlessHeap_->Heap();
+		D3D12_GPU_VIRTUAL_ADDRESS spriteConstantAddr = indicesSystem_->GameConstantAddress();
+		D3D12_GPU_VIRTUAL_ADDRESS spriteStructuredAddr = indicesSystem_->StructuredAddress();
+
+		imageRenderer_->Upload();
+		imageRenderer_->DrawSprite(cmdList->Get(), spriteHeap, spriteConstantAddr, spriteStructuredAddr);
+		imageRenderer_->DrawBillboard(cmdList->Get(), spriteHeap, spriteConstantAddr, spriteStructuredAddr);
+
+		fontRenderer_->Upload();
+		fontRenderer_->DrawSprite(cmdList->Get(), spriteHeap, spriteConstantAddr, spriteStructuredAddr);
+		fontRenderer_->DrawBillboard(cmdList->Get(), spriteHeap, spriteConstantAddr, spriteStructuredAddr);
+
+		movieRenderer_->Upload();
+		movieRenderer_->DrawBillboard(cmdList->Get(), spriteHeap, spriteConstantAddr, spriteStructuredAddr);
+		movieRenderer_->DrawSprite(cmdList->Get(), spriteHeap, spriteConstantAddr, spriteStructuredAddr);
+		movieRenderer_->DrawFullscreen(cmdList->Get(), spriteHeap, spriteConstantAddr, spriteStructuredAddr);
+
+		postProcessRenderer_->EndDebugOverlay(cmdList, RaytracingView::Game);
+
 		RefreshImGuiOutputView(RaytracingView::Game);
 	}
 
@@ -342,13 +385,14 @@ namespace SeedCore
 		raytracingRenderer_->Gather(loaderSystem, *modelResource, world, *modelRenderer_);
 
 		ImageResource* imageResource = resourceCache.GetImageResource();
-		imageRenderer_->Gather(loaderSystem, *imageResource, world, selectedEntity);
+		Vector2 gameDisplaySize = dlssRayReconstructionEnabled_ ? PostProcessOutputSize() : scene.screenSize_;
+		imageRenderer_->Gather(loaderSystem, *imageResource, world, gameDisplaySize, selectedEntity);
 
 		FontResource* fontResource = resourceCache.GetFontResource();
-		fontRenderer_->Gather(*fontResource, world, selectedEntity);
+		fontRenderer_->Gather(*fontResource, world, gameDisplaySize, selectedEntity);
 
 		MovieResource* movieResource = resourceCache.GetMovieResource();
-		movieRenderer_->Gather(*movieResource, world, selectedEntity);
+		movieRenderer_->Gather(*movieResource, world, gameDisplaySize, selectedEntity);
 
 		celestialResult_ = CelestialSystem::Compute(daySystem_, sunLight_, moonLight_);
 		Bool sunOverride = daySystemEnabled_ && sunLightEnabled_;
@@ -820,19 +864,6 @@ namespace SeedCore
 
 		effekseerManager_->Update(deltaTime);
 		effekseerRenderer_->Draw(cmdList, *effekseerManager_);
-
-		imageRenderer_->Upload();
-		imageRenderer_->DrawSprite(cmdList->Get(), heap, constantAddr, structuredAddr);
-		imageRenderer_->DrawBillboard(cmdList->Get(), heap, constantAddr, structuredAddr);
-
-		fontRenderer_->Upload();
-		fontRenderer_->DrawSprite(cmdList->Get(), heap, constantAddr, structuredAddr);
-		fontRenderer_->DrawBillboard(cmdList->Get(), heap, constantAddr, structuredAddr);
-
-		movieRenderer_->Upload();
-		movieRenderer_->DrawBillboard(cmdList->Get(), heap, constantAddr, structuredAddr);
-		movieRenderer_->DrawSprite(cmdList->Get(), heap, constantAddr, structuredAddr);
-		movieRenderer_->DrawFullscreen(cmdList->Get(), heap, constantAddr, structuredAddr);
 	}
 
 	void Renderer::CanvasFlush(D3D12CommandList* cmdList, SceneSystem* sceneSystem)
@@ -845,24 +876,20 @@ namespace SeedCore
 		indicesSystem_->UploadCanvas();
 
 		imageRenderer_->Upload();
-		imageRenderer_->DrawSprite(cmdList->Get(), heap, constantAddr, structuredAddr);
+		imageRenderer_->DrawBillboard(cmdList->Get(), heap, constantAddr, structuredAddr);
 
-		/// [JP] Font の Sprite（2D UI テキスト）のみ。Billboard は EditorFlush 専用。
 		fontRenderer_->Upload();
-		fontRenderer_->DrawSprite(cmdList->Get(), heap, constantAddr, structuredAddr);
+		fontRenderer_->DrawBillboard(cmdList->Get(), heap, constantAddr, structuredAddr);
 
 		movieRenderer_->Upload();
-		movieRenderer_->DrawSprite(cmdList->Get(), heap, constantAddr, structuredAddr);
+		movieRenderer_->DrawBillboard(cmdList->Get(), heap, constantAddr, structuredAddr);
 		movieRenderer_->DrawFullscreen(cmdList->Get(), heap, constantAddr, structuredAddr);
 
-		/// [JP] 選択アウトライン: Sprite/Font-Sprite は CanvasFlush でのみ実際に
-		///      描画されるので、ここで同じ共有マスクを使い回して合成する
-		///      （EditorFlush 側の Model/Billboard 用マスク描画とは時間的に分離）。
 		selectionMaskFrameBuffer_->Begin(cmdList);
 		selectionMaskFrameBuffer_->Clear(cmdList, 0.0f, 0.0f, 0.0f, 0.0f);
-		imageRenderer_->DrawSelectionMaskSprite(cmdList->Get(), heap, constantAddr, structuredAddr);
-		fontRenderer_->DrawSelectionMaskSprite(cmdList->Get(), heap, constantAddr, structuredAddr);
-		movieRenderer_->DrawSelectionMaskSprite(cmdList->Get(), heap, constantAddr, structuredAddr);
+		imageRenderer_->DrawSelectionMaskBillboard(cmdList->Get(), heap, constantAddr, structuredAddr);
+		fontRenderer_->DrawSelectionMaskBillboard(cmdList->Get(), heap, constantAddr, structuredAddr);
+		movieRenderer_->DrawSelectionMaskBillboard(cmdList->Get(), heap, constantAddr, structuredAddr);
 		selectionMaskFrameBuffer_->End(cmdList);
 
 		outlineRenderer_->Draw(cmdList, canvasFrameBuffer_->RenderTargetViewHandle(), canvasFrameBuffer_->GetViewport(), heap, constantAddr, structuredAddr);

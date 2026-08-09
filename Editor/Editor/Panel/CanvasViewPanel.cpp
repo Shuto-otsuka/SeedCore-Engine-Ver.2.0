@@ -2,6 +2,8 @@
 #include <Editor/Editor/EditorContext.h>
 #include <Editor/Editor/ImGui/ImGuiTexture.h>
 #include <GraphicsEngine/Camera/CanvasCamera.h>
+#include <GraphicsEngine/D3D12/SwapChain/GraphicsResolution.h>
+#include <FoundationEngine/Input/InputSystem.h>
 
 namespace SeedCore
 {
@@ -134,13 +136,122 @@ namespace SeedCore
 				ImGui::Image(ImTextureID(frameBufferHandle.ptr), ImVec2(imageWidth, imageHeight));
 				ImGui::PopStyleVar();
 
-				ImVec2 borderMin = ImVec2(screenPosition.x - 1.0f, screenPosition.y - 1.0f);
-				ImVec2 borderMax = ImVec2(screenPosition.x + imageWidth + 1.0f, screenPosition.y + imageHeight + 1.0f);
-				ImGui::GetWindowDrawList()->AddRect(borderMin, borderMax, ImGui::GetColorU32(ImGuiCol_Border));
+				Bool canvasHovered = ImGui::IsItemHovered();
+				Bool panHeld = InputSystem::MouseState(InputSystem::MouseButton::Right, InputSystem::IsPressed);
+
+				if (canvasHovered && panHeld && !isPanning_)
+				{
+					isPanning_ = true;
+					isResettingView_ = false;
+					InputSystem::BeginMouseCapture();
+				}
+
+				if (isPanning_ && panHeld && context_.cameraContext_.canvasCamera_)
+				{
+					CanvasCamera& canvasCamera = *context_.cameraContext_.canvasCamera_;
+
+					Float worldPerPixel = canvasCamera.VisibleHeight() / imageHeight;
+					Float deltaX = -InputSystem::MouseDeltaX() * worldPerPixel;
+					Float deltaY = InputSystem::MouseDeltaY() * worldPerPixel;
+
+					Vector3 eye = canvasCamera.Eye();
+					Vector3 focus = canvasCamera.Focus();
+					eye.x += deltaX;
+					eye.y += deltaY;
+					focus.x += deltaX;
+					focus.y += deltaY;
+					canvasCamera.Eye(eye);
+					canvasCamera.Focus(focus);
+				}
+
+				if (isPanning_ && !panHeld)
+				{
+					isPanning_ = false;
+					InputSystem::EndMouseCapture();
+				}
+
+				if (canvasHovered && InputSystem::MouseState(InputSystem::MouseButton::Middle, InputSystem::TriggerMode::RISING_EDGE))
+				{
+					isResettingView_ = true;
+				}
+
+				if (isResettingView_ && context_.cameraContext_.canvasCamera_)
+				{
+					CanvasCamera& canvasCamera = *context_.cameraContext_.canvasCamera_;
+
+					Vector3 targetFocus = Vector3(100000.0f + ScResolution::SC_HD.Width * 0.5f, 100000.0f + ScResolution::SC_HD.Height * 0.5f, 100000.0f);
+					Vector3 targetEye = Vector3(100000.0f + ScResolution::SC_HD.Width * 0.5f, 100000.0f + ScResolution::SC_HD.Height * 0.5f, 99990.0f);
+
+					Float lerpAmount = Clamp(ImGui::GetIO().DeltaTime * 10.0f, 0.0f, 1.0f);
+					Vector3 newFocus = Vector3::Lerp(canvasCamera.Focus(), targetFocus, lerpAmount);
+					Vector3 newEye = Vector3::Lerp(canvasCamera.Eye(), targetEye, lerpAmount);
+					canvasCamera.Focus(newFocus);
+					canvasCamera.Eye(newEye);
+
+					if (Vector3::DistanceSquared(newFocus, targetFocus) < 0.01f)
+					{
+						canvasCamera.Focus(targetFocus);
+						canvasCamera.Eye(targetEye);
+						isResettingView_ = false;
+					}
+				}
+
+				if (context_.cameraContext_.canvasCamera_)
+				{
+					CanvasCamera& canvasCamera = *context_.cameraContext_.canvasCamera_;
+
+					Float worldPerPixel = canvasCamera.VisibleHeight() / imageHeight;
+					Vector3 focus = canvasCamera.Focus();
+					Float centerScreenX = screenPosition.x + imageWidth * 0.5f;
+					Float centerScreenY = screenPosition.y + imageHeight * 0.5f;
+
+					constexpr Float gridSpacing = 100.0f;
+					Float worldMinX = focus.x - imageWidth * 0.5f * worldPerPixel;
+					Float worldMaxX = focus.x + imageWidth * 0.5f * worldPerPixel;
+					Float worldMinY = focus.y - imageHeight * 0.5f * worldPerPixel;
+					Float worldMaxY = focus.y + imageHeight * 0.5f * worldPerPixel;
+
+					ImGui::PushClipRect(ImVec2(screenPosition.x, screenPosition.y), ImVec2(screenPosition.x + imageWidth, screenPosition.y + imageHeight), true);
+
+					Int gridStartX = static_cast<Int>(std::floor(worldMinX / gridSpacing));
+					Int gridEndX = static_cast<Int>(std::ceil(worldMaxX / gridSpacing));
+					for (Int gridIndex = gridStartX; gridIndex <= gridEndX; gridIndex++)
+					{
+						Float worldX = static_cast<Float>(gridIndex) * gridSpacing;
+						Float lineScreenX = centerScreenX + (worldX - focus.x) / worldPerPixel;
+						ImGui::GetWindowDrawList()->AddLine(ImVec2(lineScreenX, screenPosition.y), ImVec2(lineScreenX, screenPosition.y + imageHeight), IM_COL32(255, 255, 255, 30));
+					}
+
+					Int gridStartY = static_cast<Int>(std::floor(worldMinY / gridSpacing));
+					Int gridEndY = static_cast<Int>(std::ceil(worldMaxY / gridSpacing));
+					for (Int gridIndex = gridStartY; gridIndex <= gridEndY; gridIndex++)
+					{
+						Float worldY = static_cast<Float>(gridIndex) * gridSpacing;
+						Float lineScreenY = centerScreenY - (worldY - focus.y) / worldPerPixel;
+						ImGui::GetWindowDrawList()->AddLine(ImVec2(screenPosition.x, lineScreenY), ImVec2(screenPosition.x + imageWidth, lineScreenY), IM_COL32(255, 255, 255, 30));
+					}
+
+					ImGui::PopClipRect();
+
+					Float landmarkMinX = centerScreenX + (100000.0f - focus.x) / worldPerPixel;
+					Float landmarkMaxX = centerScreenX + (100000.0f + ScResolution::SC_HD.Width - focus.x) / worldPerPixel;
+					Float landmarkMinY = centerScreenY - (100000.0f + ScResolution::SC_HD.Height - focus.y) / worldPerPixel;
+					Float landmarkMaxY = centerScreenY - (100000.0f - focus.y) / worldPerPixel;
+
+					ImVec2 landmarkMin = ImVec2(landmarkMinX, landmarkMinY);
+					ImVec2 landmarkMax = ImVec2(landmarkMaxX, landmarkMaxY);
+
+					ImGui::PushClipRect(ImVec2(screenPosition.x, screenPosition.y), ImVec2(screenPosition.x + imageWidth, screenPosition.y + imageHeight), true);
+					ImGui::GetWindowDrawList()->AddRect(landmarkMin, landmarkMax, IM_COL32(0, 255, 255, 255), 0.0f, 0, 2.0f);
+					ImGui::PopClipRect();
+				}
 
 				Vector2 cachePosition = { screenPosition.x, screenPosition.y };
 				Vector2 cacheSize = { imageWidth, imageHeight };
+
+				ImGui::PushClipRect(ImVec2(screenPosition.x, screenPosition.y), ImVec2(screenPosition.x + imageWidth, screenPosition.y + imageHeight), true);
 				guizmoPanel_.Draw(cachePosition, cacheSize);
+				ImGui::PopClipRect();
 			}
 		}
 

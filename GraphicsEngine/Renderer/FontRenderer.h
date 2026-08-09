@@ -69,7 +69,7 @@ namespace SeedCore
 
 		void Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, IndicesSystem& indicesSystem);
 
-		void Gather(FontResource& fontResource, World& world, Entity selectedEntity = Entity::Null());
+		void Gather(FontResource& fontResource, World& world, Vector2 nativeScreenSize, Entity selectedEntity = Entity::Null());
 
 		void Upload();
 

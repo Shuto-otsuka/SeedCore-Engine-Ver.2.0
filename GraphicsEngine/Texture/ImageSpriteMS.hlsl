@@ -52,8 +52,8 @@ void main(in payload ImageASPayload payload, uint gtid : SV_GroupThreadID, uint 
 		float2 world_pixel = rotated * sprite.scale + sprite.position;
 
 		float2 clip;
-		clip.x = world_pixel.x * scene_constant.inverse_screen_size_.x * 2.0f - 1.0f;
-		clip.y = 1.0f - world_pixel.y * scene_constant.inverse_screen_size_.y * 2.0f;
+		clip.x = world_pixel.x / scene_constant.display_size_.x * 2.0f - 1.0f;
+		clip.y = 1.0f - world_pixel.y / scene_constant.display_size_.y * 2.0f;
 
 		output[gtid].position = float4(clip, 0.0f, 1.0f);
 		output[gtid].uv = (sprite.texture_position + uvs[gtid] * sprite.texture_size) / texture_dimentions + uv_offset;

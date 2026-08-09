@@ -61,7 +61,7 @@ namespace SeedCore
 
 		void Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, IndicesSystem& indicesSystem);
 
-		void Gather(LoaderSystem& loader, ImageResource& resource, World& world, Entity selectedEntity = Entity::Null());
+		void Gather(LoaderSystem& loader, ImageResource& resource, World& world, Vector2 nativeScreenSize, Entity selectedEntity = Entity::Null());
 
 		void Upload();
 

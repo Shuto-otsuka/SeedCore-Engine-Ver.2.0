@@ -3,6 +3,7 @@
 #include <FoundationEngine/ECS/Actor.h>
 #include <FoundationEngine/ECS/World.h>
 #include <GraphicsEngine/D3D12/SwapChain/GraphicsResolution.h>
+#include <GraphicsEngine/Camera/CanvasCamera.h>
 
 namespace SeedCore
 {
@@ -44,6 +45,11 @@ namespace SeedCore
 			return;
 		}
 
+		if (!context_.cameraContext_.canvasCamera_)
+		{
+			return;
+		}
+
 		if (context_.viewportContext_.guizmo_.showGuizmo_)
 		{
 			ImGuizmo::SetDrawlist();
@@ -55,8 +61,12 @@ namespace SeedCore
 			Float renderWidth = ScResolution::SC_HD.Width;
 			Float renderHeight = ScResolution::SC_HD.Height;
 
+			Vector3 canvasFocus = context_.cameraContext_.canvasCamera_->Focus();
+			Float panX = canvasFocus.x - (100000.0f + renderWidth * 0.5f);
+			Float panY = (100000.0f + renderHeight * 0.5f) - canvasFocus.y;
+
 			Matrix view = Matrix::Identity;
-			Matrix projection = Matrix::CreateOrthographicOffCenter(0.0f, renderWidth, renderHeight, 0.0f, 0.01f, 100.0f);
+			Matrix projection = Matrix::CreateOrthographicOffCenter(panX, renderWidth + panX, renderHeight + panY, panY, 0.01f, 100.0f);
 
 			Entity entity = context_.selectionContext_.selectedActor_->GetEntity();
 			static const String positionString("Position");
@@ -134,18 +144,18 @@ namespace SeedCore
 				Float* rotationData = static_cast<Float*>(context_.worldContext_.world_->GetComponent(entity, rotationID));
 				Float* scaleData = static_cast<Float*>(context_.worldContext_.world_->GetComponent(entity, scaleID));
 
-				if (positionData)
+				if (positionData && (operation & ImGuizmo::TRANSLATE))
 				{
 					positionData[0] = position.x;
 					positionData[1] = position.y;
 					positionData[2] = position.z;
 				}
-				if (rotationData)
+				if (rotationData && (operation & ImGuizmo::ROTATE))
 				{
 					Vector3 euler = rotation.ToEuler();
 					rotationData[0] = ToDegrees(euler.z);
 				}
-				if (scaleData)
+				if (scaleData && (operation & ImGuizmo::SCALE))
 				{
 					scaleData[0] = scale.x;
 					scaleData[1] = scale.y;

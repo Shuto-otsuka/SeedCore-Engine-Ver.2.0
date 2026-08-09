@@ -69,9 +69,9 @@ namespace SeedCore
 		Matrix NonJitterViewProjection()const;
 
 	private:
-		Vector3 eye_ = { 0,0,-10 };
+		Vector3 eye_ = { 100640,100360,99990 };
 
-		Vector3 focus_ = { 0,0,0 };
+		Vector3 focus_ = { 100640,100360,100000 };
 
 		Vector3 up_ = { 0,1,0 };
 
@@ -87,7 +87,7 @@ namespace SeedCore
 
 		Float zoom_ = 1.0f;
 
-		Float baseViewHeight_ = 10.0f;
+		Float baseViewHeight_ = 720.0f;
 
 		Float aspectRatio_ = 16.0f / 9.0f;
 
@@ -111,8 +111,8 @@ namespace SeedCore
 
 		Matrix nonJitterViewProjection_ = Matrix::Identity;
 
-		Float width_ = 1280.0f;
+		Float width_ = 0.0f;
 
-		Float height_ = 720.0f;
+		Float height_ = 0.0f;
 	};
 }

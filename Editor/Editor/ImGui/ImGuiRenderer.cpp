@@ -153,19 +153,6 @@ namespace SeedCore
 		fontConfig.OversampleV = 1;
 		fontConfig.PixelSnapH = false;
 
-		/// [JP] GetGlyphRangesJapanese() は常用漢字中心の約2999字に絞ったレンジ
-		///      なので、※(U+203B)や芒のような常用外の漢字/記号がアトラスに
-		///      焼かれず豆腐になっていた。GetGlyphRangesChineseFull() は
-		///      ひらがな/カタカナ+半角form+CJK統合漢字を約21000字フルカバーする
-		///      ので、フォント自体(Noto Sans JP)が持つグリフはこれでほぼ
-		///      すべて出せるようになる。OversampleH/V は 1(無補間)に落として
-		///      アトラス面積を抑えている(22px前後のUIテキストなら画質差は
-		///      ほぼ気にならない)。
-		///
-		///      Medium/Light/Bold は以前から読み込んでいたが、エディタ内に
-		///      ImGui::PushFont の呼び出しが一つも無く選択されることが無かった
-		///      ので削除した(Regular のみが常にデフォルトとして使われている)。
-		///      ウェイト切り替え UI を追加する時は、そのタイミングで戻せばよい。
 		const ImWchar* japaneseFullRange = io.Fonts->GetGlyphRangesChineseFull();
 		io.Fonts->AddFontFromFileTTF("../External/ImGui/Font/NotoSansJP-Regular.ttf", 22.0f, &fontConfig, japaneseFullRange);
 		return io.Fonts->Build();
