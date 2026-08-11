@@ -142,28 +142,110 @@ namespace SeedCore
 
 	/**
 	* [EN]
-	* Lightweight procedural lens flare: a six-armed diffraction-spike
-	* ("starburst") effect, not the ghost-chain approximation this struct
-	* originally held. Bright-passes the HDR source and, for every pixel,
-	* gathers along 6 fixed directions 60 degrees apart (LensFlareCS.hlsl) -
-	* opposing arms share the same axis, so each bright point gets a
-	* symmetric spike through it rather than six one-sided rays. Sample
-	* weight decays with distance out to streakLength_, with a small
-	* per-sample offset (chromaticAberration_) along the same arm for the
-	* color fringing real diffraction spikes show. Runs at a quarter of the
-	* native resolution and is added into the HDR color (before exposure) in
-	* ToneMappingCS.hlsl.
+	* Bloom settings: the broad glow that bright parts of the scene bleed into
+	* their surroundings. Implemented (KawaseBloomCS.hlsl) as a progressive
+	* downsample chain followed by a progressive additive upsample chain over
+	* 6 levels starting at half the native resolution - the Kawase-lineage
+	* structure, using the tap patterns from Jimenez's Call of Duty: Advanced
+	* Warfare post-processing talk (13-tap downsample, 3x3 tent upsample). The
+	* first downsample additionally applies a Karis average, which is what
+	* keeps a single blown-out subpixel (easy to hit with this engine's
+	* ray-traced HDR values) from turning into a large flickering block as it
+	* propagates up the chain. threshold_/softKnee_ select what bleeds:
+	* softKnee_ widens the transition around threshold_ so pixels hovering at
+	* the cutoff fade in smoothly instead of popping. Added into the HDR color
+	* before exposure in ToneMappingCS.hlsl, the same place LensFlareSettings'
+	* contribution goes - bloom is light, so it gets exposed like light.
+	*
+	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* 軽量な手続き型レンズフレア: 6本腕の回折スパイク(スターバースト)効果。
-	* 元々このstructにあったゴースト連鎖の近似ではない。HDRソースをブライト
-	* パスし、ピクセルごとに60度間隔の6本の固定方向へゲザーする
-	* (LensFlareCS.hlsl) — 対になる腕が同じ軸に乗るので、明るい点ごとに
-	* 片側だけの光線6本ではなく対称なスパイクになる。サンプル重みは
-	* streakLength_ まで距離で減衰し、実物の回折スパイクが見せる色収差を
-	* 再現するため同じ腕上でわずかにオフセット(chromaticAberration_)して
-	* サンプルする。ネイティブ解像度の1/4で走り、ToneMappingCS.hlsl で
-	* (露出適用前の)HDRカラーへ加算合成する。
+	* ブルーム設定: シーンの明るい部分が周囲へにじみ出る広いグロー。
+	* 実装(KawaseBloomCS.hlsl)はネイティブ解像度の1/2から始まる6レベルの
+	* 段階的ダウンサンプルチェーンと、それに続く段階的な加算アップサンプル
+	* チェーン — 構造は Kawase 系列で、タップパターンは Jimenez の
+	* Call of Duty: Advanced Warfare のポストプロセス講演のもの
+	* (13タップダウンサンプル、3x3テントアップサンプル)を使う。初段の
+	* ダウンサンプルにはさらに Karis 平均を掛ける。これは1画素だけ飛び抜けて
+	* 明るい点(このエンジンのレイトレHDR値では簡単に起きる)が、チェーンを
+	* 昇るにつれて巨大なちらつくブロックに育つのを防ぐためのもの。
+	* threshold_/softKnee_ がにじむ範囲を決める: softKnee_ は threshold_
+	* 周辺の遷移を広げ、しきい値ぎりぎりの明るさの画素が突然出入りせず
+	* 滑らかにフェードするようにする。LensFlareSettings の寄与と同じく
+	* ToneMappingCS.hlsl で露出適用前のHDRカラーへ加算する — ブルームも
+	* 光なので、光として露出される。
+	*/
+	struct BloomSettings
+	{
+		SC_REFLECTION_FIELD_EX("有効")
+		Bool enabled_ = false;
+
+		SC_REFLECTION_FIELD_CONDITION(enabled_)
+		SC_REFLECTION_CLAMPED_EX("しきい値", 0.0f, 10.0f)
+		Float threshold_ = 1.0f;
+
+		SC_REFLECTION_FIELD_CONDITION(enabled_)
+		SC_REFLECTION_CLAMPED_EX("ソフトニー", 0.0f, 1.0f)
+		Float softKnee_ = 0.5f;
+
+		SC_REFLECTION_FIELD_CONDITION(enabled_)
+		SC_REFLECTION_CLAMPED_EX("強度", 0.0f, 1.0f)
+		Float intensity_ = 0.08f;
+
+		SC_REFLECTION_FIELD_CONDITION(enabled_)
+		SC_REFLECTION_CLAMPED_EX("フィルタ半径", 0.001f, 0.02f)
+		Float filterRadius_ = 0.005f;
+	};
+
+	/**
+	* [EN]
+	* Lens flare (LensFlareCS.hlsl), two effects sharing one settings block
+	* because they come from the same lens:
+	*
+	* - The aperture diffraction spikes ("starburst"). Multi-pass Kawase
+	*   directional streaks whose spike count is NOT authored here - it
+	*   follows from the iris, so it is derived from BokehSettings::
+	*   bladeCount_ (the same physical aperture that gives the bokeh its
+	*   shape). n blades give n spikes when n is even and 2n when odd,
+	*   because each blade edge diffracts perpendicular to itself and on an
+	*   even-bladed iris the opposing edges are parallel so their spikes
+	*   coincide. streakAttenuation_ is the per-texel decay along a spike and
+	*   streakLength_ scales the tap spacing; chromaticAberration_ separates
+	*   R/G/B along the spike, which is the right direction physically since
+	*   the diffraction angle grows with wavelength.
+	* - The ghost chain and halo, following John Chapman's pseudo lens flare:
+	*   bright-passed copies of the source strung through screen center to
+	*   the opposite side (ghostCount_/ghostDispersal_/ghostIntensity_) plus
+	*   a ring at haloWidth_. These are inter-element REFLECTIONS, not
+	*   diffraction, which is why they move with the light's position while
+	*   the spikes stay locked to the screen.
+	*
+	* Runs at a quarter of the native resolution and is added into the HDR
+	* color (before exposure) in ToneMappingCS.hlsl.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* レンズフレア(LensFlareCS.hlsl)。同じレンズが作るものなので、2つの
+	* 効果が1つの設定ブロックを共有している:
+	*
+	* - 絞りの回折スパイク(スターバースト)。多段階Kawase方向ストリークで
+	*   作るが、棘の本数はここで指定しない — 絞りから決まるものなので
+	*   BokehSettings::bladeCount_(ボケの形を決めるのと同じ物理的な絞り)
+	*   から導出する。羽根n枚で、偶数ならn本・奇数なら2n本。各羽根の
+	*   エッジがそれ自身に垂直な方向へ回折し、偶数枚だと向かい合うエッジが
+	*   平行で棘が重なるため。streakAttenuation_ は棘に沿った1テクセル
+	*   あたりの減衰、streakLength_ はタップ間隔のスケール。
+	*   chromaticAberration_ は棘に沿ってR/G/Bを分離する — 回折角は波長と
+	*   共に大きくなるので、方向としては物理どおり。
+	* - ゴーストチェーンとハロー。John Chapman の pseudo lens flare に
+	*   従う: 画面中心を通って反対側まで連なる光源のブライトパス済みコピー
+	*   (ghostCount_/ghostDispersal_/ghostIntensity_)と、haloWidth_ の輪。
+	*   これらは回折ではなくレンズ素子間の【反射】で、だから光源の位置に
+	*   応じて動く(棘が画面に固定なのと対照的)。
+	*
+	* ネイティブ解像度の1/4で走り、ToneMappingCS.hlsl で(露出適用前の)
+	* HDRカラーへ加算合成する。
 	*/
 	struct LensFlareSettings
 	{
@@ -183,8 +265,8 @@ namespace SeedCore
 		Float streakLength_ = 0.25f;
 
 		SC_REFLECTION_FIELD_CONDITION(enabled_)
-		SC_REFLECTION_CLAMPED_EX("減衰", 0.5f, 8.0f)
-		Float streakAttenuation_ = 3.0f;
+		SC_REFLECTION_CLAMPED_EX("減衰", 0.80f, 0.99f)
+		Float streakAttenuation_ = 0.93f;
 
 		SC_REFLECTION_FIELD_CONDITION(enabled_)
 		SC_REFLECTION_CLAMPED_EX("色収差", 0.0f, 0.02f)
@@ -193,6 +275,39 @@ namespace SeedCore
 		SC_REFLECTION_FIELD_CONDITION(enabled_)
 		SC_REFLECTION_CLAMPED_EX("回転", -3.14159265f, 3.14159265f)
 		Float angleOffset_ = 0.0f;
+
+		SC_REFLECTION_FIELD_CONDITION(enabled_)
+		SC_REFLECTION_CLAMPED_EX("ゴースト数", 1, 8)
+		Uint32 ghostCount_ = 4;
+
+		SC_REFLECTION_FIELD_CONDITION(enabled_)
+		SC_REFLECTION_CLAMPED_EX("ゴースト間隔", 0.0f, 1.0f)
+		Float ghostDispersal_ = 0.3f;
+
+		SC_REFLECTION_FIELD_CONDITION(enabled_)
+		SC_REFLECTION_CLAMPED_EX("ゴースト強度", 0.0f, 2.0f)
+		Float ghostIntensity_ = 0.3f;
+
+		SC_REFLECTION_FIELD_CONDITION(enabled_)
+		SC_REFLECTION_CLAMPED_EX("ハロー半径", 0.0f, 1.0f)
+		Float haloWidth_ = 0.45f;
+
+		/// [EN] Per-spike randomisation of brightness and length, keyed off
+		///      the spike index so it is stable frame to frame. NOT physics:
+		///      an ideal iris is perfectly symmetric and produces identical
+		///      spikes. Real lenses do not, because the blades are neither
+		///      identical nor perfectly aligned, and that asymmetry is most
+		///      of what separates a photographed starburst from a CG
+		///      asterisk. 0 disables it and gives the ideal symmetric star.
+		/// [JP] 棘ごとの明るさ・長さのばらつき。棘の番号から決めるので
+		///      フレーム間で安定する。【物理ではない】: 理想的な絞りは
+		///      完全に対称で、棘は全て同一になる。実際のレンズがそうならない
+		///      のは羽根が同一でも完全な位置合わせでもないからで、その
+		///      非対称性こそが実写のスターバーストとCGのアスタリスクを
+		///      分けている大部分。0で無効になり、理想的な対称の星になる。
+		SC_REFLECTION_FIELD_CONDITION(enabled_)
+		SC_REFLECTION_CLAMPED_EX("棘のばらつき", 0.0f, 1.0f)
+		Float spikeVariation_ = 0.35f;
 	};
 
 	/**
@@ -329,8 +444,8 @@ namespace SeedCore
 	* entity carries one, the renderer falls back to this struct's defaults so
 	* a scene without a post-process entity still tonemaps.
 	*
-	* Only exposure, lens flare, depth of field, bokeh, tone mapping, and
-	* sharpness are implemented so far - the other files under PostEffect/
+	* Only exposure, bloom, lens flare, depth of field, bokeh, tone mapping,
+	* and sharpness are implemented so far - the other files under PostEffect/
 	* are empty stubs. Each new effect gets its own reflected Settings struct
 	* (see ToneMappingSettings/ExposureSettings above) plus one field here
 	* and its own class under PostEffect/, so this component stays the
@@ -347,8 +462,8 @@ namespace SeedCore
 	* も持っていない場合はこの構造体の既定値へフォールバックするので、
 	* ポストプロセス用エンティティが無いシーンでもトーンマップは掛かる。
 	*
-	* 現状は露出・レンズフレア・被写界深度・ボケ・トーンマップ・シャープネス
-	* のみ実装 — PostEffect/ の他のファイルは空スタブ。エフェクトを増やす
+	* 現状は露出・ブルーム・レンズフレア・被写界深度・ボケ・トーンマップ・
+	* シャープネスのみ実装 — PostEffect/ の他のファイルは空スタブ。エフェクトを増やす
 	* ときは上の ToneMappingSettings/ExposureSettings のような専用の
 	* リフレクション対象構造体を作り、ここにフィールドを1つ足し、
 	* PostEffect/ にクラスを足す — 無関係なフィールドの寄せ集めにしない。
@@ -357,6 +472,9 @@ namespace SeedCore
 	{
 		SC_REFLECTION_FIELD_EX("露出")
 		ExposureSettings exposure_;
+
+		SC_REFLECTION_FIELD_EX("ブルーム")
+		BloomSettings bloom_;
 
 		SC_REFLECTION_FIELD_EX("レンズフレア")
 		LensFlareSettings lensFlare_;

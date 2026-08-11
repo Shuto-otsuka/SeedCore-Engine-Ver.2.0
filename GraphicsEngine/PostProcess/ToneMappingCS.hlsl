@@ -81,6 +81,19 @@ void main(uint3 dtid : SV_DispatchThreadID)
 		hdr_color += lens_flare.SampleLevel(sampler_linear_clamp, uv, 0).rgb;
 	}
 
+	// [JP] KawaseBloomCS.hlsl のチェーンの最終結果(レベル0、ネイティブの1/2解像度)を
+	//      同じく露出適用前のHDRカラーへ加算する — ブルームも「露出される光」。
+	//      lerp ではなく加算なのは、プリフィルタが閾値でシーンのエネルギーの
+	//      一部しか拾っていないため。lerp にするとシーン全体が暗くなる。
+	//      レンズフレアと同じく、enabled_ が落ちている間は前回有効だった時の
+	//      古いデータを読まないようサンプルごとスキップする。
+	if (constant_indices.post_process_.bloom_.enabled_ != 0)
+	{
+		Texture2D<float4> bloom = ResourceDescriptorHeap[constant_indices.post_process_.bloom_.level0_srv_index_];
+		float2 uv = (float2(dtid.xy) + 0.5) / float2(width, height);
+		hdr_color += bloom.SampleLevel(sampler_linear_clamp, uv, 0).rgb * constant_indices.post_process_.bloom_.intensity_;
+	}
+
 	float exposure_ev = constant_indices.post_process_.exposure_.exposure_compensation_;
 	if (constant_indices.post_process_.exposure_.auto_exposure_enabled_ != 0)
 	{

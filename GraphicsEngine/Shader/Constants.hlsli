@@ -1,6 +1,17 @@
 ﻿#ifndef __CONSTANTS_HLSL__
 #define __CONSTANTS_HLSL__
 
+// Upper bound on LensFlareCS.hlsl's independently-blurred spike axes (one
+// axis = one line = two opposing arms). Diffraction through an n-bladed
+// iris yields n spikes when n is even and 2n when n is odd, because each
+// blade edge diffracts perpendicular to itself and on an even-bladed iris
+// the opposing edges are parallel so their spikes coincide. That makes the
+// axis count n/2 for even n and n for odd n, and BokehSettings::bladeCount_
+// (the same physical iris) is clamped to 3..8, so the worst case is n = 7
+// -> 14 spikes -> 7 axes. Buffers for all 7 are always allocated; only the
+// active ones are dispatched over.
+#define LENS_FLARE_MAX_AXIS_COUNT 7
+
 // Per-view auto-exposure indices/tuning (3 rows / 48 bytes). Same
 // one-effect-one-group shape as ShadowAccumulationIndices etc. below.
 struct ExposureIndices
@@ -30,7 +41,7 @@ struct ToneMappingIndices
 	uint tone_mapping_padding_1_;
 };
 
-// Per-view lens-flare indices/tuning (3 rows / 48 bytes). unordered_access_
+// Per-view lens-flare indices/tuning (4 rows / 64 bytes). unordered_access_
 // view_index_/shader_resource_view_index_ are LensFlareCS.hlsl's quarter-res
 // write target and the bindless SRV ToneMappingCS.hlsl samples to add the
 // flare into the HDR color before exposure. enabled_ gates both: when off,
@@ -50,9 +61,88 @@ struct LensFlareIndices
 	float chromatic_aberration_;
 
 	float angle_offset_;
+	uint ghost_count_;
+	float ghost_dispersal_;
+	float ghost_intensity_;
+
+	float halo_width_;
+	uint axis_count_;
+	float spike_variation_;
 	uint lens_flare_padding_0_;
-	uint lens_flare_padding_1_;
-	uint lens_flare_padding_2_;
+};
+
+// Per-view lens-flare working buffers (8 rows / 128 bytes): one ping/pong
+// pair per spike axis (LensFlareCS.hlsl walks LensFlareIndices::axis_count_
+// axes, each a line of two opposing arms, each independently multi-pass
+// blurred), plus the shared bright_ buffer every other lens-flare pass
+// reads. bright_ is what
+// LensFlareCS.hlsl's Downsample entry point writes: a quarter-res,
+// bright-passed copy of the scene produced with a 4-tap bilinear filter
+// covering the full 4x4 source footprint. Both BlurPass1 (streaks) and
+// Ghost (ghost chain + halo) sample it instead of the full-res HDR source,
+// because point-sampling mip 0 at quarter density skips 15 of every 16
+// source pixels and so drops small bright sources entirely - the sun disc
+// (a few pixels wide, see VolumetricCloudScapes.hlsli::ProceduralSkyColor)
+// would otherwise never produce a flare. Set once per frame alongside
+// LensFlareIndices above (PostProcessRenderer::CreateView allocates them,
+// PrepareView registers the bindless indices) - not re-registered
+// mid-frame, since LensFlareCS.hlsl's BlurPass1..4 entry points read/write
+// them by a compile-time-fixed ping/pong parity per pass, not a
+// per-dispatch index.
+struct LensFlareStreakIndices
+{
+	// One row per axis: .x = ping UAV, .y = ping SRV, .z = pong UAV,
+	// .w = pong SRV. A uint4 array is used rather than flat uint fields
+	// because a uint4 array element is exactly one 16-byte cbuffer row, so
+	// this is directly indexable by a runtime axis number - flat fields
+	// would need a 7-way if-chain per lookup. LENS_FLARE_MAX_AXIS_COUNT
+	// rows are always allocated; only the first axis_count_ of them are
+	// read (see LensFlareIndices::axis_count_).
+	uint4 axis_indices_[LENS_FLARE_MAX_AXIS_COUNT];
+
+	uint bright_uav_index_;
+	uint bright_srv_index_;
+	uint lens_flare_streak_padding_0_;
+	uint lens_flare_streak_padding_1_;
+};
+
+// Per-view bloom indices/tuning (5 rows / 80 bytes). level0..5 are the 6
+// levels of KawaseBloomCS.hlsl's downsample/upsample chain, level0 being
+// half the native resolution and each subsequent level half of the one
+// before. The chain writes DOWN through the levels (DownsamplePrefilter then
+// Downsample1..5) then accumulates back UP additively (Upsample4..0), so
+// level0 ends up holding the final bloom that ToneMappingCS.hlsl samples and
+// adds into the HDR color before exposure. enabled_ gates both the dispatch
+// and that read, so a stale buffer from when bloom was last on is never
+// sampled. filter_radius_ is the 3x3 tent radius in UV used by the upsample
+// passes; soft_knee_ widens the threshold_ transition so pixels sitting at
+// the cutoff fade in instead of popping.
+struct BloomIndices
+{
+	uint level0_uav_index_;
+	uint level1_uav_index_;
+	uint level2_uav_index_;
+	uint level3_uav_index_;
+
+	uint level4_uav_index_;
+	uint level5_uav_index_;
+	uint level0_srv_index_;
+	uint level1_srv_index_;
+
+	uint level2_srv_index_;
+	uint level3_srv_index_;
+	uint level4_srv_index_;
+	uint level5_srv_index_;
+
+	uint enabled_;
+	float threshold_;
+	float soft_knee_;
+	float intensity_;
+
+	float filter_radius_;
+	uint bloom_padding_0_;
+	uint bloom_padding_1_;
+	uint bloom_padding_2_;
 };
 
 // Per-view depth-of-field indices/tuning (2 rows / 32 bytes).
@@ -105,16 +195,16 @@ struct SharpnessIndices
 	float amount_;
 };
 
-// Per-view post-process indices (12 rows / 192 bytes). Lives inside
+// Per-view post-process indices (26 rows / 416 bytes). Lives inside
 // ConstantIndices, not StructuredIndices, for the same reason the shadow/AO
 // accumulation chains do: the histogram/persistent-exposure buffers and the
 // display output texture are genuinely per-camera state (editor and game can
 // be looking at wildly different scenes with independently-adapting
 // exposure), and StructuredIndices is one buffer shared by every view. Each
 // effect gets its own group struct (ExposureIndices/ToneMappingIndices/
-// LensFlareIndices/DepthOfFieldIndices/BokehIndices/SharpnessIndices above)
-// instead of flat fields here, matching the Shadow/AmbientOcclusion/
-// GlobalIllumination/Dlss grouping convention below.
+// LensFlareIndices/LensFlareStreakIndices/BloomIndices/DepthOfFieldIndices/
+// BokehIndices/SharpnessIndices above) instead of flat fields here, matching the
+// Shadow/AmbientOcclusion/GlobalIllumination/Dlss grouping convention below.
 struct PostProcessIndices
 {
 	uint output_uav_index_;
@@ -125,6 +215,8 @@ struct PostProcessIndices
 	ExposureIndices exposure_;
 	ToneMappingIndices tone_mapping_;
 	LensFlareIndices lens_flare_;
+	LensFlareStreakIndices lens_flare_streak_;
+	BloomIndices bloom_;
 	DepthOfFieldIndices depth_of_field_;
 	BokehIndices bokeh_;
 	SharpnessIndices sharpness_;

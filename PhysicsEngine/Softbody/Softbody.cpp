@@ -82,7 +82,7 @@ namespace SeedCore
 
 		const Position* position = actor.GetComponent<Position>();
 		const Rotation* rotation = actor.GetComponent<Rotation>();
-		desc.position_ = position ? Vector3{ position->x, position->y, position->z } : Vector3{ 0.0f, 0.0f, 0.0f };
+		desc.position_ = position ? Vector3(position->x, position->y, position->z) : Vector3(0.0f, 0.0f, 0.0f);
 		desc.rotation_ = rotation ? Quaternion::CreateFromYawPitchRoll(ToRadians(rotation->y), ToRadians(rotation->x), ToRadians(rotation->z)) : Quaternion::Identity;
 
 		JPH::Ref<JPH::SoftBodySharedSettings> sharedSettings = Physics::BuildSoftbodySettings(desc);

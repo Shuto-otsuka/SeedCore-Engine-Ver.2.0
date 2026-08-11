@@ -3,11 +3,13 @@
 #include <GraphicsEngine/D3D12/Descriptor/DescriptorHeap.h>
 #include <GraphicsEngine/PostProcess/PostEffect/AutoExposure.h>
 #include <GraphicsEngine/PostProcess/PostEffect/ToneMapping.h>
+#include <GraphicsEngine/PostProcess/PostEffect/KawaseBloom.h>
 #include <GraphicsEngine/PostProcess/PostEffect/LensFlare.h>
 #include <GraphicsEngine/PostProcess/PostEffect/DepthOfField.h>
 #include <GraphicsEngine/PostProcess/PostEffect/Bokeh.h>
 #include <GraphicsEngine/PostProcess/PostEffect/Sharpness.h>
 #include <GraphicsEngine/PostProcess/PostProcess.h>
+#include <GraphicsEngine/System/IndicesSystem.h>
 #include <GraphicsEngine/Raytracing/RaytracingView.h>
 #include <GraphicsEngine/D3D12/SwapChain/GraphicsResolution.h>
 
@@ -330,6 +332,72 @@ namespace SeedCore
 			Uint32 lensFlareUnorderedAccessViewIndex_ = 0;
 			Uint32 lensFlareShaderResourceViewIndex_ = 0;
 
+			/// [EN] LensFlareCS.hlsl's per-axis ping-pong buffers
+			///      (lensFlareMaxAxisCount axes x
+			///      [ping, pong]), same resolution as lensFlareResource_ above.
+			///      BlurPass1..4 ping-pong within a given axis's pair; Compose
+			///      reads each axis's final (pong) buffer and sums into
+			///      lensFlareResource_. Bindless indices are registered once
+			///      per frame in PrepareView alongside lensFlareResource_'s -
+			///      the ping/pong role for a given pass is fixed at HLSL
+			///      compile time (see LensFlareCS.hlsl), not re-registered
+			///      mid-frame.
+			/// [JP] LensFlareCS.hlsl の軸ごとのピンポンバッファ
+			///      (lensFlareMaxAxisCount 軸 x
+			///      [ping, pong])、上の lensFlareResource_ と同じ解像度。
+			///      BlurPass1..4 が軸ごとのペア内でピンポンし、Compose が各軸の
+			///      最終(pong)バッファを読んで lensFlareResource_ へ合算する。
+			///      bindless インデックスは lensFlareResource_ と同じく
+			///      フレームに1回 PrepareView で登録する - あるパスでの
+			///      ping/pong の役割は HLSL コンパイル時に固定なので
+			///      (LensFlareCS.hlsl 参照)、フレーム中の再登録はしない。
+			Microsoft::WRL::ComPtr<ID3D12Resource> lensFlareStreakResource_[lensFlareMaxAxisCount][2];
+			D3D12_RESOURCE_STATES lensFlareStreakState_[lensFlareMaxAxisCount][2] = {};
+			Uint32 lensFlareStreakUnorderedAccessViewIndex_[lensFlareMaxAxisCount][2] = {};
+			Uint32 lensFlareStreakShaderResourceViewIndex_[lensFlareMaxAxisCount][2] = {};
+
+			/// [EN] LensFlareCS.hlsl's Downsample output: a quarter-res,
+			///      bright-passed copy of the scene that both BlurPass1
+			///      (streaks) and Ghost (ghost chain + halo) read instead of
+			///      the full-res HDR source. Its 4-tap filter covers the whole
+			///      4x4 source footprint, so small bright sources survive the
+			///      downscale - point-sampling mip 0 at quarter density skips
+			///      15 of every 16 pixels and loses the sun disc entirely.
+			/// [JP] LensFlareCS.hlsl の Downsample の出力: 1/4解像度の
+			///      ブライトパス済みシーンコピーで、BlurPass1(ストリーク)も
+			///      Ghost(ゴーストチェーン+ハロー)もフル解像度のHDRソース
+			///      ではなくこちらを読む。4タップのフィルタが4x4のソース範囲を
+			///      丸ごとカバーするため、小さく明るい光源が縮小で消えない —
+			///      1/4密度で mip 0 をポイントサンプルすると16画素中15画素を
+			///      読み飛ばし、太陽の円盤が丸ごと失われる。
+			Microsoft::WRL::ComPtr<ID3D12Resource> lensFlareBrightResource_;
+			D3D12_RESOURCE_STATES lensFlareBrightState_ = D3D12_RESOURCE_STATE_COMMON;
+			Uint32 lensFlareBrightUnorderedAccessViewIndex_ = 0;
+			Uint32 lensFlareBrightShaderResourceViewIndex_ = 0;
+
+			/// [EN] KawaseBloomCS.hlsl's 6-level chain, level 0 at half the native
+			///      resolution and each subsequent level half of the one
+			///      before. Separate committed resources per level rather than
+			///      one mipped texture, because UnorderedAccessBarrier and the
+			///      cmdList->Barrier helper both transition a whole resource -
+			///      the chain needs level N readable while level N+1 is being
+			///      written, which would need per-subresource transitions.
+			///      Level 0 holds the final result after the upsample chain
+			///      finishes; that is what ToneMappingCS.hlsl samples.
+			/// [JP] KawaseBloomCS.hlsl の6レベルチェーン。レベル0がネイティブ解像度の
+			///      1/2で、以降それぞれ半分ずつ。1枚のミップ付きテクスチャでは
+			///      なくレベルごとに独立したコミットリソースにしているのは、
+			///      UnorderedAccessBarrier も cmdList->Barrier ヘルパーも
+			///      リソース全体を遷移させるため — このチェーンはレベルNを
+			///      読みながらレベルN+1へ書く必要があり、それをやるには
+			///      サブリソース単位の遷移が要る。アップサンプルチェーンが
+			///      終わった時点で最終結果はレベル0に入っており、
+			///      ToneMappingCS.hlsl がサンプルするのはそれ。
+			Microsoft::WRL::ComPtr<ID3D12Resource> bloomResource_[6];
+			D3D12_RESOURCE_STATES bloomState_[6] = {};
+			Uint32 bloomUnorderedAccessViewIndex_[6] = {};
+			Uint32 bloomShaderResourceViewIndex_[6] = {};
+
 			/// [EN] DepthOfFieldCS.hlsl's output (BokehCS.hlsl read-modify-writes
 			///      the same resource, it has no target of its own), ALWAYS at
 			///      native resolution (width_/height_), even when DLSS-RR is
@@ -399,6 +467,7 @@ namespace SeedCore
 
 		AutoExposure autoExposureShader_;
 		ToneMapping toneMappingShader_;
+		KawaseBloom bloomShader_;
 		LensFlare lensFlareShader_;
 		DepthOfField depthOfFieldShader_;
 		Bokeh bokehShader_;

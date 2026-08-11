@@ -28,6 +28,7 @@
 #pragma comment(linker, "/include:_force_reflection_Movie")
 #pragma comment(linker, "/include:_force_reflection_ExposureSettings")
 #pragma comment(linker, "/include:_force_reflection_ToneMappingSettings")
+#pragma comment(linker, "/include:_force_reflection_BloomSettings")
 #pragma comment(linker, "/include:_force_reflection_LensFlareSettings")
 #pragma comment(linker, "/include:_force_reflection_DepthOfFieldSettings")
 #pragma comment(linker, "/include:_force_reflection_BokehSettings")

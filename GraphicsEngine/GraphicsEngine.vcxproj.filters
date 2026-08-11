@@ -1605,5 +1605,8 @@
     <Text Include="PostProcess\SharpnessCS.hlsl">
       <Filter>PostProcess</Filter>
     </Text>
+    <Text Include="PostProcess\KawaseBloomCS.hlsl">
+      <Filter>PostProcess</Filter>
+    </Text>
   </ItemGroup>
 </Project>

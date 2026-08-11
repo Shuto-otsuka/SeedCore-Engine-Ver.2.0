@@ -948,6 +948,11 @@
       <FileType>Document</FileType>
     </Text>
   </ItemGroup>
+  <ItemGroup>
+    <Text Include="PostProcess\KawaseBloomCS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>

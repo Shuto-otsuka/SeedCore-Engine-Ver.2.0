@@ -10,7 +10,7 @@
 
 namespace SeedCore
 {
-	PostProcessRenderer::PostProcessRenderer(RootSignature& rootSignature, PipelineStateObject& pipelineStateObject) : autoExposureShader_(rootSignature, pipelineStateObject), toneMappingShader_(rootSignature, pipelineStateObject), lensFlareShader_(rootSignature, pipelineStateObject), depthOfFieldShader_(rootSignature, pipelineStateObject), bokehShader_(rootSignature, pipelineStateObject), sharpnessShader_(rootSignature, pipelineStateObject)
+	PostProcessRenderer::PostProcessRenderer(RootSignature& rootSignature, PipelineStateObject& pipelineStateObject) : autoExposureShader_(rootSignature, pipelineStateObject), toneMappingShader_(rootSignature, pipelineStateObject), bloomShader_(rootSignature, pipelineStateObject), lensFlareShader_(rootSignature, pipelineStateObject), depthOfFieldShader_(rootSignature, pipelineStateObject), bokehShader_(rootSignature, pipelineStateObject), sharpnessShader_(rootSignature, pipelineStateObject)
 	{
 		/// No Code
 	}
@@ -19,6 +19,7 @@ namespace SeedCore
 	{
 		autoExposureShader_.Create(shaderCache, device);
 		toneMappingShader_.Create(shaderCache, device);
+		bloomShader_.Create(shaderCache, device);
 		lensFlareShader_.Create(shaderCache, device);
 		depthOfFieldShader_.Create(shaderCache, device);
 		bokehShader_.Create(shaderCache, device);
@@ -288,6 +289,72 @@ namespace SeedCore
 
 			view.lensFlareShaderResourceViewIndex_ = bindlessHeap->AllocateIndex();
 			device->CreateShaderResourceView(view.lensFlareResource_.Get(), &lensFlareShaderResourceViewDesc, bindlessHeap->CPUHandle(view.lensFlareShaderResourceViewIndex_));
+
+			// ---- レンズフレア軸ごとのピンポンバッファ(3軸 x [ping, pong]) ----
+			for (Uint32 axis = 0; axis < lensFlareMaxAxisCount; axis++)
+			{
+				for (Uint32 slot = 0; slot < 2; slot++)
+				{
+					hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &lensFlareDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&view.lensFlareStreakResource_[axis][slot]));
+					SC_HR_CHECK(hr, "レンズフレアストリークバッファの生成に失敗しました");
+					view.lensFlareStreakState_[axis][slot] = D3D12_RESOURCE_STATE_COMMON;
+
+					view.lensFlareStreakUnorderedAccessViewIndex_[axis][slot] = bindlessHeap->AllocateIndex();
+					device->CreateUnorderedAccessView(view.lensFlareStreakResource_[axis][slot].Get(), nullptr, &lensFlareUnorderedAccessViewDesc, bindlessHeap->CPUHandle(view.lensFlareStreakUnorderedAccessViewIndex_[axis][slot]));
+
+					view.lensFlareStreakShaderResourceViewIndex_[axis][slot] = bindlessHeap->AllocateIndex();
+					device->CreateShaderResourceView(view.lensFlareStreakResource_[axis][slot].Get(), &lensFlareShaderResourceViewDesc, bindlessHeap->CPUHandle(view.lensFlareStreakShaderResourceViewIndex_[axis][slot]));
+				}
+			}
+
+			// ---- レンズフレア共有ブライトパスバッファ(Downsample の出力) ----
+			hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &lensFlareDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&view.lensFlareBrightResource_));
+			SC_HR_CHECK(hr, "レンズフレアブライトパスバッファの生成に失敗しました");
+			view.lensFlareBrightState_ = D3D12_RESOURCE_STATE_COMMON;
+
+			view.lensFlareBrightUnorderedAccessViewIndex_ = bindlessHeap->AllocateIndex();
+			device->CreateUnorderedAccessView(view.lensFlareBrightResource_.Get(), nullptr, &lensFlareUnorderedAccessViewDesc, bindlessHeap->CPUHandle(view.lensFlareBrightUnorderedAccessViewIndex_));
+
+			view.lensFlareBrightShaderResourceViewIndex_ = bindlessHeap->AllocateIndex();
+			device->CreateShaderResourceView(view.lensFlareBrightResource_.Get(), &lensFlareShaderResourceViewDesc, bindlessHeap->CPUHandle(view.lensFlareBrightShaderResourceViewIndex_));
+		}
+
+		// ---- ブルームチェーン(6レベル、レベル0がネイティブの1/2で以降半分ずつ) ----
+		{
+			D3D12_UNORDERED_ACCESS_VIEW_DESC bloomUnorderedAccessViewDesc{};
+			bloomUnorderedAccessViewDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+			bloomUnorderedAccessViewDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+
+			D3D12_SHADER_RESOURCE_VIEW_DESC bloomShaderResourceViewDesc{};
+			bloomShaderResourceViewDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+			bloomShaderResourceViewDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+			bloomShaderResourceViewDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+			bloomShaderResourceViewDesc.Texture2D.MipLevels = 1;
+
+			for (Uint32 level = 0; level < 6; level++)
+			{
+				Uint32 levelDivisor = 2u << level;
+
+				D3D12_RESOURCE_DESC bloomDesc{};
+				bloomDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+				bloomDesc.Width = Max<Uint32>(1, width / levelDivisor);
+				bloomDesc.Height = Max<Uint32>(1, height / levelDivisor);
+				bloomDesc.DepthOrArraySize = 1;
+				bloomDesc.MipLevels = 1;
+				bloomDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+				bloomDesc.SampleDesc.Count = 1;
+				bloomDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+
+				hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &bloomDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&view.bloomResource_[level]));
+				SC_HR_CHECK(hr, "ブルームバッファの生成に失敗しました");
+				view.bloomState_[level] = D3D12_RESOURCE_STATE_COMMON;
+
+				view.bloomUnorderedAccessViewIndex_[level] = bindlessHeap->AllocateIndex();
+				device->CreateUnorderedAccessView(view.bloomResource_[level].Get(), nullptr, &bloomUnorderedAccessViewDesc, bindlessHeap->CPUHandle(view.bloomUnorderedAccessViewIndex_[level]));
+
+				view.bloomShaderResourceViewIndex_[level] = bindlessHeap->AllocateIndex();
+				device->CreateShaderResourceView(view.bloomResource_[level].Get(), &bloomShaderResourceViewDesc, bindlessHeap->CPUHandle(view.bloomShaderResourceViewIndex_[level]));
+			}
 		}
 
 		// ---- 被写界深度/ボケ出力(ネイティブ解像度) ----
@@ -338,8 +405,27 @@ namespace SeedCore
 		bindlessHeap->FreeIndex(view.exposureClearGpuUnorderedAccessViewIndex_);
 		bindlessHeap->FreeIndex(view.lensFlareUnorderedAccessViewIndex_);
 		bindlessHeap->FreeIndex(view.lensFlareShaderResourceViewIndex_);
+		bindlessHeap->FreeIndex(view.lensFlareBrightUnorderedAccessViewIndex_);
+		bindlessHeap->FreeIndex(view.lensFlareBrightShaderResourceViewIndex_);
 		bindlessHeap->FreeIndex(view.depthOfFieldUnorderedAccessViewIndex_);
 		bindlessHeap->FreeIndex(view.depthOfFieldShaderResourceViewIndex_);
+
+		for (Uint32 axis = 0; axis < lensFlareMaxAxisCount; axis++)
+		{
+			for (Uint32 slot = 0; slot < 2; slot++)
+			{
+				bindlessHeap->FreeIndex(view.lensFlareStreakUnorderedAccessViewIndex_[axis][slot]);
+				bindlessHeap->FreeIndex(view.lensFlareStreakShaderResourceViewIndex_[axis][slot]);
+				view.lensFlareStreakResource_[axis][slot].Reset();
+			}
+		}
+
+		for (Uint32 level = 0; level < 6; level++)
+		{
+			bindlessHeap->FreeIndex(view.bloomUnorderedAccessViewIndex_[level]);
+			bindlessHeap->FreeIndex(view.bloomShaderResourceViewIndex_[level]);
+			view.bloomResource_[level].Reset();
+		}
 
 		view.outputResource_.Reset();
 		view.outputResourceUpscaled_.Reset();
@@ -348,6 +434,7 @@ namespace SeedCore
 		view.histogramResource_.Reset();
 		view.exposureResource_.Reset();
 		view.lensFlareResource_.Reset();
+		view.lensFlareBrightResource_.Reset();
 		view.depthOfFieldResource_.Reset();
 
 		view.activeIsUpscaled_ = false;
@@ -439,6 +526,55 @@ namespace SeedCore
 		values.lensFlare_.streakAttenuation_ = settings.lensFlare_.streakAttenuation_;
 		values.lensFlare_.chromaticAberration_ = settings.lensFlare_.chromaticAberration_;
 		values.lensFlare_.angleOffset_ = settings.lensFlare_.angleOffset_;
+		values.lensFlare_.ghostCount_ = settings.lensFlare_.ghostCount_;
+		values.lensFlare_.ghostDispersal_ = settings.lensFlare_.ghostDispersal_;
+		values.lensFlare_.ghostIntensity_ = settings.lensFlare_.ghostIntensity_;
+		values.lensFlare_.haloWidth_ = settings.lensFlare_.haloWidth_;
+		values.lensFlare_.spikeVariation_ = settings.lensFlare_.spikeVariation_;
+
+		/// [JP] 棘の軸数は絞りの羽根枚数から決まる。羽根の各エッジが
+		///      それ自身に垂直な方向へ回折するので、羽根n枚だと棘は
+		///      偶数でn本・奇数で2n本(偶数だと向かい合うエッジが平行に
+		///      なって棘が重なるため)。軸1本が対向する腕2本なので、
+		///      軸数は偶数で n/2、奇数で n になる。羽根枚数は
+		///      BokehSettings のものをそのまま使う — ボケも棘も同じ
+		///      レンズの同じ絞りが作るものなので、別々に持つと
+		///      「ボケは五角形なのに棘は6本」という物理的にあり得ない
+		///      組み合わせが作れてしまう。
+		Uint32 bladeCount = Clamp(settings.bokeh_.bladeCount_, 3u, 8u);
+		Uint32 axisCount = (bladeCount % 2 == 0) ? bladeCount / 2 : bladeCount;
+		values.lensFlare_.axisCount_ = Min(axisCount, lensFlareMaxAxisCount);
+
+		for (Uint32 axis = 0; axis < lensFlareMaxAxisCount; axis++)
+		{
+			values.lensFlareStreak_.axisIndices_[axis][0] = target.lensFlareStreakUnorderedAccessViewIndex_[axis][0];
+			values.lensFlareStreak_.axisIndices_[axis][1] = target.lensFlareStreakShaderResourceViewIndex_[axis][0];
+			values.lensFlareStreak_.axisIndices_[axis][2] = target.lensFlareStreakUnorderedAccessViewIndex_[axis][1];
+			values.lensFlareStreak_.axisIndices_[axis][3] = target.lensFlareStreakShaderResourceViewIndex_[axis][1];
+		}
+
+		values.lensFlareStreak_.brightUnorderedAccessViewIndex_ = target.lensFlareBrightUnorderedAccessViewIndex_;
+		values.lensFlareStreak_.brightShaderResourceViewIndex_ = target.lensFlareBrightShaderResourceViewIndex_;
+
+		values.bloom_.level0UnorderedAccessViewIndex_ = target.bloomUnorderedAccessViewIndex_[0];
+		values.bloom_.level1UnorderedAccessViewIndex_ = target.bloomUnorderedAccessViewIndex_[1];
+		values.bloom_.level2UnorderedAccessViewIndex_ = target.bloomUnorderedAccessViewIndex_[2];
+		values.bloom_.level3UnorderedAccessViewIndex_ = target.bloomUnorderedAccessViewIndex_[3];
+		values.bloom_.level4UnorderedAccessViewIndex_ = target.bloomUnorderedAccessViewIndex_[4];
+		values.bloom_.level5UnorderedAccessViewIndex_ = target.bloomUnorderedAccessViewIndex_[5];
+
+		values.bloom_.level0ShaderResourceViewIndex_ = target.bloomShaderResourceViewIndex_[0];
+		values.bloom_.level1ShaderResourceViewIndex_ = target.bloomShaderResourceViewIndex_[1];
+		values.bloom_.level2ShaderResourceViewIndex_ = target.bloomShaderResourceViewIndex_[2];
+		values.bloom_.level3ShaderResourceViewIndex_ = target.bloomShaderResourceViewIndex_[3];
+		values.bloom_.level4ShaderResourceViewIndex_ = target.bloomShaderResourceViewIndex_[4];
+		values.bloom_.level5ShaderResourceViewIndex_ = target.bloomShaderResourceViewIndex_[5];
+
+		values.bloom_.enabled_ = settings.bloom_.enabled_ ? 1 : 0;
+		values.bloom_.threshold_ = settings.bloom_.threshold_;
+		values.bloom_.softKnee_ = settings.bloom_.softKnee_;
+		values.bloom_.intensity_ = settings.bloom_.intensity_;
+		values.bloom_.filterRadius_ = settings.bloom_.filterRadius_;
 
 		values.depthOfField_.enabled_ = settings.depthOfField_.enabled_ ? 1 : 0;
 		values.depthOfField_.unorderedAccessViewIndex_ = target.depthOfFieldUnorderedAccessViewIndex_;
@@ -471,6 +607,7 @@ namespace SeedCore
 	{
 		const PostProcess& settings = ResolveSettings();
 		Bool autoExposureEnabled = settings.exposure_.enabled_;
+		Bool bloomEnabled = settings.bloom_.enabled_;
 		Bool lensFlareEnabled = settings.lensFlare_.enabled_;
 		Bool depthOfFieldEnabled = settings.depthOfField_.enabled_;
 		Bool bokehEnabled = settings.depthOfField_.enabled_ && settings.bokeh_.enabled_;
@@ -519,12 +656,31 @@ namespace SeedCore
 		ID3D12PipelineState* toneMappingPipelineState = toneMappingShader_.GetPipelineState();
 		ID3D12PipelineState* histogramPipelineState = autoExposureShader_.GetHistogramPipelineState();
 		ID3D12PipelineState* averagePipelineState = autoExposureShader_.GetAveragePipelineState();
-		ID3D12PipelineState* lensFlarePipelineState = lensFlareShader_.GetPipelineState();
+		ID3D12PipelineState* bloomPrefilterPipelineState = bloomShader_.GetPrefilterPipelineState();
+		ID3D12PipelineState* bloomDownsamplePipelineState[5];
+		ID3D12PipelineState* bloomUpsamplePipelineState[5];
+		Bool bloomChainPipelineStateMissing = false;
+		for (Uint32 levelIndex = 0; levelIndex < 5; levelIndex++)
+		{
+			bloomDownsamplePipelineState[levelIndex] = bloomShader_.GetDownsamplePipelineState(levelIndex);
+			bloomUpsamplePipelineState[levelIndex] = bloomShader_.GetUpsamplePipelineState(levelIndex);
+			bloomChainPipelineStateMissing = bloomChainPipelineStateMissing || !bloomDownsamplePipelineState[levelIndex] || !bloomUpsamplePipelineState[levelIndex];
+		}
+		ID3D12PipelineState* lensFlareDownsamplePipelineState = lensFlareShader_.GetDownsamplePipelineState();
+		ID3D12PipelineState* lensFlareBlurPipelineState[4];
+		Bool lensFlareBlurPipelineStateMissing = false;
+		for (Uint32 pass = 0; pass < 4; pass++)
+		{
+			lensFlareBlurPipelineState[pass] = lensFlareShader_.GetBlurPipelineState(pass);
+			lensFlareBlurPipelineStateMissing = lensFlareBlurPipelineStateMissing || !lensFlareBlurPipelineState[pass];
+		}
+		ID3D12PipelineState* lensFlareComposePipelineState = lensFlareShader_.GetComposePipelineState();
+		ID3D12PipelineState* lensFlareGhostPipelineState = lensFlareShader_.GetGhostPipelineState();
 		ID3D12PipelineState* depthOfFieldPipelineState = depthOfFieldShader_.GetPipelineState();
 		ID3D12PipelineState* bokehPipelineState = bokehShader_.GetPipelineState();
 		ID3D12PipelineState* sharpnessPipelineState = sharpnessShader_.GetPipelineState();
 
-		if ((!toneMappingPipelineState || !histogramPipelineState || !averagePipelineState || !lensFlarePipelineState || !depthOfFieldPipelineState || !bokehPipelineState || !sharpnessPipelineState) && !pipelineStateMissingLogged_)
+		if ((!toneMappingPipelineState || !histogramPipelineState || !averagePipelineState || !bloomPrefilterPipelineState || bloomChainPipelineStateMissing || !lensFlareDownsamplePipelineState || lensFlareBlurPipelineStateMissing || !lensFlareComposePipelineState || !lensFlareGhostPipelineState || !depthOfFieldPipelineState || !bokehPipelineState || !sharpnessPipelineState) && !pipelineStateMissingLogged_)
 		{
 			SC_LOG_WARNING("PostProcess のコンピュート PSO 作成に失敗しています。エディタ/ゲームビューは表示できません。");
 			pipelineStateMissingLogged_ = true;
@@ -590,12 +746,74 @@ namespace SeedCore
 			target.depthOfFieldState_ = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
 		}
 
+		/// [JP] ブルームチェーン。レベル0(ネイティブの1/2)へプリフィルタで
+		///      落としてから、レベル5まで段階的にダウンサンプルし、そこから
+		///      レベル0まで加算で戻る。アップサンプルは書き込み先を
+		///      read-modify-write するので、下のレベルを読める状態に遷移
+		///      させつつ書き込み先はUNORDERED_ACCESSのまま保つ。
+		if (bloomEnabled && bloomPrefilterPipelineState && !bloomChainPipelineStateMissing)
+		{
+			cmd->SetComputeRootSignature(bloomShader_.GetRootSignature());
+
+			for (Uint32 level = 0; level < 6; level++)
+			{
+				if (target.bloomState_[level] != D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
+				{
+					cmdList->Barrier(target.bloomResource_[level].Get(), target.bloomState_[level], D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+					target.bloomState_[level] = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+				}
+			}
+
+			cmd->SetPipelineState(bloomPrefilterPipelineState);
+			cmd->Dispatch((Max<Uint32>(1, width_ / 2) + 7) / 8, (Max<Uint32>(1, height_ / 2) + 7) / 8, 1);
+			ProfilerStats::AddDrawCall();
+
+			for (Uint32 levelIndex = 0; levelIndex < 5; levelIndex++)
+			{
+				Uint32 sourceLevel = levelIndex;
+				Uint32 destinationLevel = levelIndex + 1;
+				Uint32 destinationDivisor = 2u << destinationLevel;
+
+				cmdList->Barrier(target.bloomResource_[sourceLevel].Get(), target.bloomState_[sourceLevel], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+				target.bloomState_[sourceLevel] = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+
+				cmd->SetPipelineState(bloomDownsamplePipelineState[levelIndex]);
+				cmd->Dispatch((Max<Uint32>(1, width_ / destinationDivisor) + 7) / 8, (Max<Uint32>(1, height_ / destinationDivisor) + 7) / 8, 1);
+				ProfilerStats::AddDrawCall();
+			}
+
+			/// [JP] Upsample4..0 の順に降りる(配列添字は書き込み先レベル)。
+			///      1つ下のレベルを読むので、そのレベルを読める状態へ、
+			///      書き込み先を UNORDERED_ACCESS へ戻してから積む。
+			for (Int32 destinationLevel = 4; destinationLevel >= 0; destinationLevel--)
+			{
+				Uint32 sourceLevel = static_cast<Uint32>(destinationLevel) + 1;
+				Uint32 destinationDivisor = 2u << static_cast<Uint32>(destinationLevel);
+
+				cmdList->Barrier(target.bloomResource_[sourceLevel].Get(), target.bloomState_[sourceLevel], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+				target.bloomState_[sourceLevel] = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+
+				if (target.bloomState_[destinationLevel] != D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
+				{
+					cmdList->Barrier(target.bloomResource_[destinationLevel].Get(), target.bloomState_[destinationLevel], D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+					target.bloomState_[destinationLevel] = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+				}
+
+				cmd->SetPipelineState(bloomUpsamplePipelineState[destinationLevel]);
+				cmd->Dispatch((Max<Uint32>(1, width_ / destinationDivisor) + 7) / 8, (Max<Uint32>(1, height_ / destinationDivisor) + 7) / 8, 1);
+				ProfilerStats::AddDrawCall();
+			}
+
+			cmdList->Barrier(target.bloomResource_[0].Get(), target.bloomState_[0], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+			target.bloomState_[0] = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+		}
+
 		/// [JP] ToneMappingCS.hlsl より前に走らせる — そちらがこのバッファを
 		///      露出適用前のHDRカラーへ加算するため。無効時はディスパッチごと
 		///      スキップする(PrepareView が values.lensFlare_.enabled_ を
 		///      落としているので、ToneMappingCS.hlsl 側も読み取りをスキップし、
 		///      古いデータが表示に混ざることはない)。
-		if (lensFlareEnabled && lensFlarePipelineState)
+		if (lensFlareEnabled && lensFlareDownsamplePipelineState && !lensFlareBlurPipelineStateMissing && lensFlareComposePipelineState && lensFlareGhostPipelineState)
 		{
 			if (target.lensFlareState_ != D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
 			{
@@ -603,10 +821,59 @@ namespace SeedCore
 				target.lensFlareState_ = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
 			}
 
-			cmd->SetComputeRootSignature(lensFlareShader_.GetRootSignature());
-			cmd->SetPipelineState(lensFlarePipelineState);
 			Uint32 lensFlareDispatchWidth = Max<Uint32>(1, width_ / 4);
 			Uint32 lensFlareDispatchHeight = Max<Uint32>(1, height_ / 4);
+
+			cmd->SetComputeRootSignature(lensFlareShader_.GetRootSignature());
+
+			/// [JP] 以降の全パスが読む共有ブライトパスバッファを最初に作る。
+			///      これを挟まずフル解像度のHDRソースを1/4密度で直接
+			///      サンプルすると、太陽の円盤のような数画素幅の光源を
+			///      読み飛ばして一切フレアが出ない。
+			if (target.lensFlareBrightState_ != D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
+			{
+				cmdList->Barrier(target.lensFlareBrightResource_.Get(), target.lensFlareBrightState_, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+				target.lensFlareBrightState_ = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+			}
+
+			cmd->SetPipelineState(lensFlareDownsamplePipelineState);
+			cmd->Dispatch((lensFlareDispatchWidth + 7) / 8, (lensFlareDispatchHeight + 7) / 8, 1);
+			ProfilerStats::AddDrawCall();
+
+			cmdList->Barrier(target.lensFlareBrightResource_.Get(), target.lensFlareBrightState_, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+			target.lensFlareBrightState_ = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+
+			for (Uint32 pass = 0; pass < 4; pass++)
+			{
+				Uint32 writeSlot = (pass % 2 == 0) ? 0 : 1;
+
+				for (Uint32 axis = 0; axis < lensFlareMaxAxisCount; axis++)
+				{
+					if (target.lensFlareStreakState_[axis][writeSlot] != D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
+					{
+						cmdList->Barrier(target.lensFlareStreakResource_[axis][writeSlot].Get(), target.lensFlareStreakState_[axis][writeSlot], D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+						target.lensFlareStreakState_[axis][writeSlot] = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+					}
+				}
+
+				cmd->SetPipelineState(lensFlareBlurPipelineState[pass]);
+				cmd->Dispatch((lensFlareDispatchWidth + 7) / 8, (lensFlareDispatchHeight + 7) / 8, 1);
+				ProfilerStats::AddDrawCall();
+
+				for (Uint32 axis = 0; axis < lensFlareMaxAxisCount; axis++)
+				{
+					cmdList->Barrier(target.lensFlareStreakResource_[axis][writeSlot].Get(), target.lensFlareStreakState_[axis][writeSlot], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+					target.lensFlareStreakState_[axis][writeSlot] = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+				}
+			}
+
+			cmd->SetPipelineState(lensFlareComposePipelineState);
+			cmd->Dispatch((lensFlareDispatchWidth + 7) / 8, (lensFlareDispatchHeight + 7) / 8, 1);
+			ProfilerStats::AddDrawCall();
+
+			UnorderedAccessBarrier(cmdList, target.lensFlareResource_.Get());
+
+			cmd->SetPipelineState(lensFlareGhostPipelineState);
 			cmd->Dispatch((lensFlareDispatchWidth + 7) / 8, (lensFlareDispatchHeight + 7) / 8, 1);
 			ProfilerStats::AddDrawCall();
 

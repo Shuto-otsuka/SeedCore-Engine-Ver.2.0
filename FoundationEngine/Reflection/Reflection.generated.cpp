@@ -60,6 +60,7 @@ extern "C" int _force_reflection_Animator = 0;
 extern "C" int _force_reflection_Movie = 0;
 extern "C" int _force_reflection_ExposureSettings = 0;
 extern "C" int _force_reflection_ToneMappingSettings = 0;
+extern "C" int _force_reflection_BloomSettings = 0;
 extern "C" int _force_reflection_LensFlareSettings = 0;
 extern "C" int _force_reflection_DepthOfFieldSettings = 0;
 extern "C" int _force_reflection_BokehSettings = 0;
@@ -1213,6 +1214,58 @@ namespace SeedCore
 		};
 		static Register_ToneMappingSettings global_ToneMappingSettings_register;
 
+		struct Register_BloomSettings
+		{
+			Register_BloomSettings()
+			{
+				ReflectionRegistry::Register(String("BloomSettings"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
+					BloomSettings& obj = *static_cast<BloomSettings*>(ptr);
+					outInfo.push_back({ String("有効"), offsetof(BloomSettings, enabled_), AttributeType::Bool });
+					{
+						FieldInfo fi;
+						fi.name_ = String("しきい値");
+						fi.offset_ = offsetof(BloomSettings, threshold_);
+						fi.type_ = AttributeType::Float;
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<BloomSettings*>(p); return o.enabled_; };
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 10.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("ソフトニー");
+						fi.offset_ = offsetof(BloomSettings, softKnee_);
+						fi.type_ = AttributeType::Float;
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<BloomSettings*>(p); return o.enabled_; };
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 1.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("強度");
+						fi.offset_ = offsetof(BloomSettings, intensity_);
+						fi.type_ = AttributeType::Float;
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<BloomSettings*>(p); return o.enabled_; };
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 1.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("フィルタ半径");
+						fi.offset_ = offsetof(BloomSettings, filterRadius_);
+						fi.type_ = AttributeType::Float;
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<BloomSettings*>(p); return o.enabled_; };
+						fi.clampMin_ = 0.001f;
+						fi.clampMax_ = 0.02f;
+						outInfo.push_back(std::move(fi));
+					}
+				});
+			}
+		};
+		static Register_BloomSettings global_BloomSettings_register;
+
 		struct Register_LensFlareSettings
 		{
 			Register_LensFlareSettings()
@@ -1256,8 +1309,8 @@ namespace SeedCore
 						fi.offset_ = offsetof(LensFlareSettings, streakAttenuation_);
 						fi.type_ = AttributeType::Float;
 						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<LensFlareSettings*>(p); return o.enabled_; };
-						fi.clampMin_ = 0.5f;
-						fi.clampMax_ = 8.0f;
+						fi.clampMin_ = 0.80f;
+						fi.clampMax_ = 0.99f;
 						outInfo.push_back(std::move(fi));
 					}
 					{
@@ -1278,6 +1331,56 @@ namespace SeedCore
 						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<LensFlareSettings*>(p); return o.enabled_; };
 						fi.clampMin_ = -3.14159265f;
 						fi.clampMax_ = 3.14159265f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("ゴースト数");
+						fi.offset_ = offsetof(LensFlareSettings, ghostCount_);
+						fi.type_ = AttributeType::Int;
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<LensFlareSettings*>(p); return o.enabled_; };
+						fi.clampMin_ = 1;
+						fi.clampMax_ = 8;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("ゴースト間隔");
+						fi.offset_ = offsetof(LensFlareSettings, ghostDispersal_);
+						fi.type_ = AttributeType::Float;
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<LensFlareSettings*>(p); return o.enabled_; };
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 1.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("ゴースト強度");
+						fi.offset_ = offsetof(LensFlareSettings, ghostIntensity_);
+						fi.type_ = AttributeType::Float;
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<LensFlareSettings*>(p); return o.enabled_; };
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 2.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("ハロー半径");
+						fi.offset_ = offsetof(LensFlareSettings, haloWidth_);
+						fi.type_ = AttributeType::Float;
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<LensFlareSettings*>(p); return o.enabled_; };
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 1.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("棘のばらつき");
+						fi.offset_ = offsetof(LensFlareSettings, spikeVariation_);
+						fi.type_ = AttributeType::Float;
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<LensFlareSettings*>(p); return o.enabled_; };
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 1.0f;
 						outInfo.push_back(std::move(fi));
 					}
 				});
@@ -1403,6 +1506,14 @@ namespace SeedCore
 						fi.offset_ = offsetof(PostProcess, exposure_);
 						fi.type_ = AttributeType::Struct;
 						fi.nestedTypeName_ = String("ExposureSettings");
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("ブルーム");
+						fi.offset_ = offsetof(PostProcess, bloom_);
+						fi.type_ = AttributeType::Struct;
+						fi.nestedTypeName_ = String("BloomSettings");
 						outInfo.push_back(std::move(fi));
 					}
 					{

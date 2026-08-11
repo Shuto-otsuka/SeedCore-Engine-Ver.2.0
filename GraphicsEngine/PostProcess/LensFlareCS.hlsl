@@ -3,38 +3,98 @@
 
 /**
 * [EN]
-* Six-armed diffraction-spike ("starburst") lens flare. Runs at a quarter of
-* the native resolution, writing an additive RGB contribution that
-* ToneMappingCS.hlsl samples and adds into the HDR color before exposure.
+* Reference:
+* - https://john-chapman.github.io/2017/11/05/pseudo-lens-flare.html
+* - https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare/
 *
-* For every output pixel, gathers bright-pass samples of the same HDR source
-* ToneMappingCS.hlsl reads along STAR_ARM_COUNT fixed directions spaced
-* 2*pi/STAR_ARM_COUNT apart - with 6 arms that is 60 degrees, so opposing
-* arms fall on the same axis and each bright point ends up with a symmetric
-* spike through it rather than six one-sided rays. Sample weight decays
-* exponentially with distance (streak_attenuation_) out to streak_length_.
-* Each channel is sampled at a slightly different distance along the arm
-* (chromatic_aberration_) for the color fringing real diffraction spikes
-* show.
+* Aperture diffraction-spike ("starburst") lens flare, built as a
+* multi-pass Kawase-style directional blur (the same technique described in
+* Call of Duty: Advanced Warfare's next-gen post-processing talk) instead of
+* a single-dispatch sparse gather.
+*
+* The spike pattern follows the physics of an n-bladed iris: each blade
+* edge diffracts light perpendicular to itself, and one edge produces a
+* single LINE (two opposing arms 180 degrees apart), so an even-bladed iris
+* shows n spikes - opposing edges are parallel and their lines coincide -
+* while an odd-bladed one shows 2n. That makes the axis count n/2 for even
+* n and n for odd n; PostProcessRenderer::PrepareView derives it from
+* BokehSettings::bladeCount_ (the same physical iris the bokeh shape comes
+* from) into axis_count_, and the axes are spread evenly over half a turn.
+* Each axis is blurred independently and bidirectionally across 4 passes
+* (BlurPass1..4), ping-ponging between that axis's two dedicated buffers
+* (LensFlareStreakIndices).
+*
+* Each pass takes 3 taps per side at a texel spacing of 4^(pass-1)
+* (1, 4, 16, 64) and weights a tap `d` texels out by
+* streak_attenuation_^d - Kawase's a^(b*s) formula. That exponential decay
+* IS the spike's falloff: it is what makes an arm taper and fade toward its
+* tip. An equal-weight box average over the same taps produces no falloff
+* at all, so every arm stays as bright at its tip as at its root and reads
+* as a hard solid bar rather than light. The per-pass result is normalized
+* by the weight sum, because without that each pass multiplies brightness
+* by up to 7 and four passes blow out to a saturated white cross;
+* intensity_ is the knob for overall brightness, not the kernel gain.
+*
+* Because each pass reads the PREVIOUS pass's already-filtered result
+* rather than the raw HDR source, the streak comes out continuous even when
+* the underlying bright source is large (e.g. a close point light's soft
+* specular highlight) - a single-dispatch sparse gather would instead
+* reproduce separate copies of that source at each sample position, visible
+* as a chain of overlapping circles ("beads on a string").
+* BlurPass1 also performs the bright-pass extraction (from the same HDR
+* source ToneMappingCS.hlsl reads); Compose reads each axis's final
+* (post-pass-6) buffer, applies the color-fringing chromatic_aberration_
+* offset and intensity_ once, and writes the summed result directly into
+* LensFlareIndices' output texture that ToneMappingCS.hlsl samples and adds
+* into the HDR color before exposure. A final Ghost pass adds the classic
+* "ghost chain" - bright-passed copies of the source strung out through
+* screen center to the opposite side, fading with distance from screen
+* center and with ghost index - on top of the streak result via a single
+* gather dispatch that read-modify-writes the same output texture.
 *
 * ---------------------------------------------------------------------
 *
 * [JP]
-* 6本腕の回折スパイク(スターバースト)型レンズフレア。ネイティブ解像度の
-* 1/4で走り、加算合成用のRGB寄与を書き込む — ToneMappingCS.hlsl がそれを
-* サンプルして露出適用前のHDRカラーへ加算する。
+* 絞りの回折スパイク(スターバースト)型レンズフレア。1回のディスパッチで
+* 疎にゲザーする方式ではなく、多段階Kawase式ディレクショナルブラー
+* (Call of Duty: Advanced Warfareの次世代ポストプロセス講演で知られる手法)
+* として構築する。
 *
-* 出力ピクセルごとに、ToneMappingCS.hlsl が読むのと同じHDRソースの
-* ブライトパスを、2*pi/STAR_ARM_COUNT 間隔(6本なら60度間隔)の固定方向に
-* 沿ってゲザーする — 対になる腕が同じ軸に乗るので、明るい点ごとに片側だけの
-* 光線6本ではなく対称なスパイクになる。サンプル重みは距離
-* (streak_attenuation_)に応じて指数的に減衰し、streak_length_ まで届く。
-* 実物の回折スパイクが見せる色収差を再現するため、同じ腕上でチャンネルごとに
-* 少しずつ異なる距離(chromatic_aberration_)でサンプルする。
+* 棘の並びは羽根n枚の絞りの物理に従う: 各羽根のエッジはそれ自身に垂直な
+* 方向へ回折し、1つのエッジが【直線1本】(180°対向する腕2本)を作る。
+* よって偶数枚の絞りでは棘がn本にしか見えず(向かい合うエッジが平行で
+* 直線が重なるため)、奇数枚では2n本になる。軸数は偶数で n/2、奇数で n。
+* PostProcessRenderer::PrepareView が BokehSettings::bladeCount_
+* (ボケの形を決めるのと同じ物理的な絞り)から計算して axis_count_ に
+* 入れ、軸は半周に等間隔で並ぶ。各軸を独立に、4パス(BlurPass1..4)
+* かけて双方向にブラーする。その軸専用の2枚のバッファ
+* (LensFlareStreakIndices)間でピンポンする。
+*
+* 各パスは片側3タップずつを 4^(パス番号-1) テクセル間隔(1, 4, 16, 64)で
+* 取り、d テクセル先のタップの重みを streak_attenuation_^d にする —
+* Kawase の a^(b*s) の式そのもの。この指数減衰が【棘の減衰そのもの】で、
+* 腕が先端へ向かって細く暗くなるのはこれによる。同じタップを等重みで
+* 箱平均すると減衰が一切起きず、どの腕も先端まで根元と同じ明るさの
+* 硬いバーになって光に見えない。パスごとの結果は重みの合計で正規化する。
+* しないと1パスあたり最大7倍のゲインが掛かり、4パスで飽和した白い十字に
+* なる。全体の明るさを決めるのはカーネルのゲインではなく intensity_。
+*
+* 各パスが生のHDRソースではなく【前パスの既にフィルタ済みの結果】を
+* 読むため、元の明るい光源が大きい場合(近距離のポイントライトの柔らかい
+* スペキュラハイライトなど)でも連続した線になる — 1回ディスパッチの
+* 疎なゲザーは、少数のサンプル位置ごとにその光源の独立したコピーを
+* 複製してしまい、重なり合った円の数珠つなぎ(ビーズ状)に見えていた。
+* BlurPass1はブライトパス抽出も兼ねる
+* (ToneMappingCS.hlsl が読むのと同じHDRソースから)。Compose は各軸の
+* 最終(パス4後)バッファを読み、色収差(chromatic_aberration_)オフセットと
+* intensity_ を1回だけ適用し、合計結果を LensFlareIndices の出力
+* テクスチャ(ToneMappingCS.hlsl がサンプルして露出適用前のHDRカラーへ
+* 加算する)へ直接書き込む。最後に Ghost パスが古典的な「ゴーストチェーン」
+* (画面中心を通り抜けて反対側まで連なる光源のブライトパス済みコピー、
+* 画面中心からの距離とゴーストのインデックスに応じてフェードする)を
+* ストリークの結果へ加算する — 1回のゲザーディスパッチで同じ出力
+* テクスチャを読み書きする。
 */
-
-#define STAR_ARM_COUNT 6
-#define STAR_STEP_COUNT 10
 
 float3 BrightPass(float3 color, float threshold)
 {
@@ -43,8 +103,242 @@ float3 BrightPass(float3 color, float threshold)
 	return color * weight;
 }
 
+// [JP] 棘の軸の向き。軸1本が「直線1本 = 対向する腕2本」なので、軸を
+//      半周(π)に等間隔で並べる。これは絞りの回折そのもので、羽根の各
+//      エッジがそれ自身に垂直な方向へ回折し、羽根n枚なら偶数でn本、
+//      奇数で2n本の棘になる — 軸数はそれぞれ n/2、n。軸数はC++側
+//      (PostProcessRenderer::PrepareView)が BokehSettings::bladeCount_
+//      から計算して axis_count_ に入れる。羽根6枚なら3軸60°間隔で、
+//      これは以前ハードコードされていた値と一致する。
+float2 AxisDirection(uint axis, float angle_offset, uint axis_count)
+{
+	float angle = angle_offset + (3.14159265 / float(axis_count)) * float(axis);
+	return float2(cos(angle), sin(angle));
+}
+
+uint AxisPingUnorderedAccessViewIndex(uint axis)
+{
+	return constant_indices.post_process_.lens_flare_streak_.axis_indices_[axis].x;
+}
+
+uint AxisPingShaderResourceViewIndex(uint axis)
+{
+	return constant_indices.post_process_.lens_flare_streak_.axis_indices_[axis].y;
+}
+
+uint AxisPongUnorderedAccessViewIndex(uint axis)
+{
+	return constant_indices.post_process_.lens_flare_streak_.axis_indices_[axis].z;
+}
+
+uint AxisPongShaderResourceViewIndex(uint axis)
+{
+	return constant_indices.post_process_.lens_flare_streak_.axis_indices_[axis].w;
+}
+
+// [JP] 4パス目の最終結果は常に pong 側に着地する(2/4パス目が pong へ
+//      書くため)。Compose はここだけを読めばよい。
+uint AxisFinalShaderResourceViewIndex(uint axis)
+{
+	return AxisPongShaderResourceViewIndex(axis);
+}
+
+// [JP] 棘ごとのばらつき係数。軸番号から決定論的に作るのでフレーム間で
+//      安定し、時間的なちらつきにならない。variation が0なら常に1.0を
+//      返して理想的な対称の星になる。物理ではなく演出 — 理想的な絞りは
+//      完全に対称で、実物が不揃いなのは羽根の製造誤差と組み付けのずれ。
+float AxisVariation(uint axis, float variation, float phase)
+{
+	float noise = frac(sin(float(axis) * 12.9898 + phase) * 43758.5453);
+	return 1.0 - variation * noise;
+}
+
+// [JP] Downsample: 全レンズフレアパスが共有する入力バッファを作る。
+//      フル解像度のHDRソース(またはDOF出力)をブライトパス抽出しながら
+//      1/4解像度へ落とす。4タップのバイリニアサンプルをソーステクセル
+//      ±1に置くことで、各タップが2x2を平均し、4タップ合計で4x4のソース
+//      範囲を丸ごとカバーする — 単純に1/4解像度でmip 0をサンプルすると
+//      16画素中15画素を読み飛ばすため、太陽の円盤のような数画素幅の
+//      光源が丸ごと消えてしまう(これが「太陽にフレアが出ない」原因)。
+//      ブライトパスはタップごとに平均の【前】に掛ける — 後に掛けると
+//      小さな光源が平均で薄まった後にしきい値で消えてしまうため。
 [numthreads(8, 8, 1)]
-void main(uint3 dtid : SV_DispatchThreadID)
+void Downsample(uint3 dtid : SV_DispatchThreadID)
+{
+	RWTexture2D<float4> destination = ResourceDescriptorHeap[constant_indices.post_process_.lens_flare_streak_.bright_uav_index_];
+
+	uint width, height;
+	destination.GetDimensions(width, height);
+	if (dtid.x >= width || dtid.y >= height)
+	{
+		return;
+	}
+
+	uint source_index = constant_indices.post_process_.depth_of_field_.enabled_ != 0 ? constant_indices.post_process_.depth_of_field_.shader_resource_view_index_ : constant_indices.post_process_.source_color_index_;
+	Texture2D<float4> source = ResourceDescriptorHeap[source_index];
+
+	uint source_width, source_height;
+	source.GetDimensions(source_width, source_height);
+	float2 source_texel = 1.0 / float2(source_width, source_height);
+
+	float2 uv = (float2(dtid.xy) + 0.5) / float2(width, height);
+	float threshold = constant_indices.post_process_.lens_flare_.threshold_;
+
+	float3 result = BrightPass(source.SampleLevel(sampler_linear_clamp, uv + float2(-1.0, -1.0) * source_texel, 0).rgb, threshold);
+	result += BrightPass(source.SampleLevel(sampler_linear_clamp, uv + float2(1.0, -1.0) * source_texel, 0).rgb, threshold);
+	result += BrightPass(source.SampleLevel(sampler_linear_clamp, uv + float2(-1.0, 1.0) * source_texel, 0).rgb, threshold);
+	result += BrightPass(source.SampleLevel(sampler_linear_clamp, uv + float2(1.0, 1.0) * source_texel, 0).rgb, threshold);
+
+	destination[dtid.xy] = float4(result * 0.25, 1.0);
+}
+
+// [JP] Kawaseのライトストリークのカーネル本体。中心1タップ + 軸方向の
+//      両側3タップずつの計7タップを取り、重みは attenuation^(テクセル距離)
+//      — 距離に対する指数減衰そのもの。これが棘が先端へ向かって細く暗く
+//      なる理由で、等重みの箱型平均だと減衰が一切起きず、根元から先端まで
+//      同じ明るさの硬いバーになってしまう(実際そうなっていた)。
+//
+//      spacing はパスごとに4倍になるテクセル間隔(1, 4, 16, 64)。重みが
+//      距離の指数なので、間隔が広いパスほど側タップの寄与が急速に小さく
+//      なり、少ないパス数で長い筋を作りつつ先端が自然に消える。
+//
+//      重みの合計で割って正規化する。割らないとパスごとに最大7倍の
+//      ゲインが掛かり、4パスで数千倍になって飽和する。明るさの調整は
+//      intensity_ の役目。
+float3 StreakGather(Texture2D<float4> source, float2 uv, float2 step_vector, float spacing, float attenuation)
+{
+	// [JP] 減衰は必ず1未満に抑える。1を超えると pow が減衰ではなく指数
+	//      【増加】になり、テクセル距離が最大 64*3 = 192 まで伸びるため
+	//      pow(1.5, 192) の時点で Inf になる。するとこの関数の最後の
+	//      sum / weight_sum が Inf/Inf = NaN を返し、NaN が4パス伝播して
+	//      Compose からレンズフレアバッファへ、さらに ToneMappingCS.hlsl の
+	//      hdr_color への加算で画面全体へ広がって真っ黒になる。
+	//      CPU側のスライダー範囲(0.80-0.99)を信用してはいけない —
+	//      レンジを変更する前に保存されたシーンには旧レンジの値
+	//      (最大8.0)がそのまま入っており、実際にこれで黒画面になった。
+	float safe_attenuation = clamp(attenuation, 0.5, 0.999);
+
+	float3 sum = source.SampleLevel(sampler_linear_clamp, uv, 0).rgb;
+	float weight_sum = 1.0;
+
+	[unroll]
+	for (uint tap = 1; tap <= 3; tap++)
+	{
+		float texel_distance = spacing * float(tap);
+		float weight = pow(safe_attenuation, texel_distance);
+		float2 offset = step_vector * texel_distance;
+
+		sum += source.SampleLevel(sampler_linear_clamp, uv + offset, 0).rgb * weight;
+		sum += source.SampleLevel(sampler_linear_clamp, uv - offset, 0).rgb * weight;
+		weight_sum += weight * 2.0;
+	}
+
+	return sum / weight_sum;
+}
+
+// [JP] BlurPass1: Downsample が書いたブライトパス済みバッファを読み、
+//      軸ごとにストリークのカーネルを掛けて ping バッファへ書く
+//      (しきい値は Downsample で適用済みなのでここでは掛けない)。
+void FirstPass(uint3 dtid, float spacing)
+{
+	RWTexture2D<float4> dims_reference = ResourceDescriptorHeap[AxisPingUnorderedAccessViewIndex(0)];
+	uint width, height;
+	dims_reference.GetDimensions(width, height);
+	if (dtid.x >= width || dtid.y >= height)
+	{
+		return;
+	}
+
+	float2 uv = (float2(dtid.xy) + 0.5) / float2(width, height);
+	float2 texel = 1.0 / float2(width, height);
+	float angle_offset = constant_indices.post_process_.lens_flare_.angle_offset_;
+	float attenuation = constant_indices.post_process_.lens_flare_.streak_attenuation_;
+	float length_scale = constant_indices.post_process_.lens_flare_.streak_length_ * 4.0;
+	uint axis_count = constant_indices.post_process_.lens_flare_.axis_count_;
+	float variation = constant_indices.post_process_.lens_flare_.spike_variation_;
+
+	Texture2D<float4> source = ResourceDescriptorHeap[constant_indices.post_process_.lens_flare_streak_.bright_srv_index_];
+
+	[loop]
+	for (uint axis = 0; axis < axis_count; axis++)
+	{
+		float2 step_vector = AxisDirection(axis, angle_offset, axis_count) * texel * length_scale;
+		float axis_attenuation = attenuation * AxisVariation(axis, variation * 0.15, 0.0);
+		float3 result = StreakGather(source, uv, step_vector, spacing, axis_attenuation);
+
+		RWTexture2D<float4> dest = ResourceDescriptorHeap[AxisPingUnorderedAccessViewIndex(axis)];
+		dest[dtid.xy] = float4(result, 1.0);
+	}
+}
+
+// [JP] BlurPass2..4共通本体: read_ping が true なら ping を読んで pong へ、
+//      false なら pong を読んで ping へ書く(パスごとにコンパイル時固定)。
+void BlurPass(uint3 dtid, float spacing, bool read_ping)
+{
+	RWTexture2D<float4> dims_reference = ResourceDescriptorHeap[AxisPingUnorderedAccessViewIndex(0)];
+	uint width, height;
+	dims_reference.GetDimensions(width, height);
+	if (dtid.x >= width || dtid.y >= height)
+	{
+		return;
+	}
+
+	float2 uv = (float2(dtid.xy) + 0.5) / float2(width, height);
+	float2 texel = 1.0 / float2(width, height);
+	float angle_offset = constant_indices.post_process_.lens_flare_.angle_offset_;
+	float attenuation = constant_indices.post_process_.lens_flare_.streak_attenuation_;
+	float length_scale = constant_indices.post_process_.lens_flare_.streak_length_ * 4.0;
+	uint axis_count = constant_indices.post_process_.lens_flare_.axis_count_;
+	float variation = constant_indices.post_process_.lens_flare_.spike_variation_;
+
+	[loop]
+	for (uint axis = 0; axis < axis_count; axis++)
+	{
+		float2 step_vector = AxisDirection(axis, angle_offset, axis_count) * texel * length_scale;
+		float axis_attenuation = attenuation * AxisVariation(axis, variation * 0.15, 0.0);
+
+		uint source_index = read_ping ? AxisPingShaderResourceViewIndex(axis) : AxisPongShaderResourceViewIndex(axis);
+		Texture2D<float4> source = ResourceDescriptorHeap[source_index];
+
+		float3 result = StreakGather(source, uv, step_vector, spacing, axis_attenuation);
+
+		uint destination_index = read_ping ? AxisPongUnorderedAccessViewIndex(axis) : AxisPingUnorderedAccessViewIndex(axis);
+		RWTexture2D<float4> dest = ResourceDescriptorHeap[destination_index];
+		dest[dtid.xy] = float4(result, 1.0);
+	}
+}
+
+// [JP] パスごとのテクセル間隔は 4^(パス番号-1) = 1, 4, 16, 64。Kawase の
+//      ライトストリークが定める倍率で、1パスあたり片側3タップなので
+//      到達距離は 3 + 12 + 48 + 192 = 255 テクセル(作業解像度が
+//      ネイティブの1/4なので画面の半分以上)に届く。倍率が4なぶん
+//      2倍刻みより少ないパス数で済み、以前の6パスから4パスへ減らせた。
+[numthreads(8, 8, 1)]
+void BlurPass1(uint3 dtid : SV_DispatchThreadID)
+{
+	FirstPass(dtid, 1.0);
+}
+
+[numthreads(8, 8, 1)]
+void BlurPass2(uint3 dtid : SV_DispatchThreadID)
+{
+	BlurPass(dtid, 4.0, true);
+}
+
+[numthreads(8, 8, 1)]
+void BlurPass3(uint3 dtid : SV_DispatchThreadID)
+{
+	BlurPass(dtid, 16.0, false);
+}
+
+[numthreads(8, 8, 1)]
+void BlurPass4(uint3 dtid : SV_DispatchThreadID)
+{
+	BlurPass(dtid, 64.0, true);
+}
+
+[numthreads(8, 8, 1)]
+void Compose(uint3 dtid : SV_DispatchThreadID)
 {
 	RWTexture2D<float4> output = ResourceDescriptorHeap[constant_indices.post_process_.lens_flare_.unordered_access_view_index_];
 
@@ -55,40 +349,137 @@ void main(uint3 dtid : SV_DispatchThreadID)
 		return;
 	}
 
-	// [JP] 被写界深度が有効ならDepthOfFieldCS.hlsl(+BokehCS.hlsl)が書いた
-	//      ぼかし済みバッファを、無効なら生のHDRソースを読む。
-	uint source_index = constant_indices.post_process_.depth_of_field_.enabled_ != 0 ? constant_indices.post_process_.depth_of_field_.shader_resource_view_index_ : constant_indices.post_process_.source_color_index_;
-	Texture2D<float4> source = ResourceDescriptorHeap[source_index];
-
-	float threshold = constant_indices.post_process_.lens_flare_.threshold_;
-	float streak_length = constant_indices.post_process_.lens_flare_.streak_length_;
-	float streak_attenuation = constant_indices.post_process_.lens_flare_.streak_attenuation_;
-	float chromatic_aberration = constant_indices.post_process_.lens_flare_.chromatic_aberration_;
-	float angle_offset = constant_indices.post_process_.lens_flare_.angle_offset_;
-
 	float2 uv = (float2(dtid.xy) + 0.5) / float2(width, height);
-	float step_length = streak_length / float(STAR_STEP_COUNT);
+	float chromatic_aberration = constant_indices.post_process_.lens_flare_.chromatic_aberration_;
+	float intensity = constant_indices.post_process_.lens_flare_.intensity_;
+	float angle_offset = constant_indices.post_process_.lens_flare_.angle_offset_;
+	uint axis_count = constant_indices.post_process_.lens_flare_.axis_count_;
+	float variation = constant_indices.post_process_.lens_flare_.spike_variation_;
 
 	float3 accum = float3(0.0, 0.0, 0.0);
 
-	for (uint arm = 0; arm < STAR_ARM_COUNT; arm++)
+	[loop]
+	for (uint axis = 0; axis < axis_count; axis++)
 	{
-		float angle = angle_offset + (6.283185307 / float(STAR_ARM_COUNT)) * float(arm);
-		float2 direction = float2(cos(angle), sin(angle));
+		Texture2D<float4> axis_source = ResourceDescriptorHeap[AxisFinalShaderResourceViewIndex(axis)];
+		float2 direction = AxisDirection(axis, angle_offset, axis_count);
 
-		for (uint step = 1; step <= STAR_STEP_COUNT; step++)
-		{
-			float t = step_length * float(step);
-			float weight = exp(-streak_attenuation * (float(step) / float(STAR_STEP_COUNT)));
-			float2 fringe_offset = direction * chromatic_aberration * float(step);
+		/// [JP] 色収差は棘に沿ってR/G/Bを別位置からサンプルすることで出す。
+		///      回折角は波長に比例する(長波長ほど大きく広がる)ので、
+		///      赤が外側・青が内側にずれるのは方向として物理どおり。
+		float2 fringe = direction * chromatic_aberration;
 
-			float r = source.SampleLevel(sampler_linear_clamp, uv + direction * t + fringe_offset, 0).r;
-			float g = source.SampleLevel(sampler_linear_clamp, uv + direction * t, 0).g;
-			float b = source.SampleLevel(sampler_linear_clamp, uv + direction * t - fringe_offset, 0).b;
+		float r = axis_source.SampleLevel(sampler_linear_clamp, uv + fringe, 0).r;
+		float g = axis_source.SampleLevel(sampler_linear_clamp, uv, 0).g;
+		float b = axis_source.SampleLevel(sampler_linear_clamp, uv - fringe, 0).b;
 
-			accum += BrightPass(float3(r, g, b), threshold) * weight;
-		}
+		accum += float3(r, g, b) * AxisVariation(axis, variation, 7.0);
 	}
 
-	output[dtid.xy] = float4(accum * constant_indices.post_process_.lens_flare_.intensity_, 1.0);
+	output[dtid.xy] = float4(accum * intensity, 1.0);
+}
+
+// [JP] 半径方向に色をずらしてサンプルする(色収差)。R/G/Bをそれぞれ
+//      direction に沿った別のオフセットで読むことで、ゴーストとハローの
+//      縁に虹色のフリンジが出る。
+float3 SampleDistorted(Texture2D<float4> source, float2 uv, float2 direction, float3 distortion)
+{
+	float r = source.SampleLevel(sampler_linear_wrap, uv + direction * distortion.r, 0).r;
+	float g = source.SampleLevel(sampler_linear_wrap, uv + direction * distortion.g, 0).g;
+	float b = source.SampleLevel(sampler_linear_wrap, uv + direction * distortion.b, 0).b;
+	return float3(r, g, b);
+}
+
+// [JP] 画面中心からの正規化半径で引くレンズカラーのグラデーション。
+//      本来の実装は1DのLUTテクスチャを引くが、アセットを増やさずに
+//      済むよう位相をずらしたコサインパレットで代用する — ゴーストごとに
+//      色が変わるのがレンズフレアが「自然」に見える一番の要因なので、
+//      白のまま加算するのとは見た目が大きく変わる。
+float3 LensColor(float radius01)
+{
+	return 0.6 + 0.4 * cos(6.28318530718 * (radius01 + float3(0.0, 0.33, 0.67)));
+}
+
+// [JP] Ghost: 画面中心を挟んで反対側へ連なるボケ円のチェーン(ゴースト)と、
+//      その周りのハロー(輪)。John Chapman の "Pseudo Lens Flare" の構成を
+//      踏襲する。1回のディスパッチで完結し、多段階ピンポンは使わない。
+//
+//      要点は【UVを反転してから中心へ向かって進む】こと: 出力画素の位置を
+//      uv = 1 - uv と点対称に反転した上で中心へ向かうベクトルを刻むため、
+//      光源はその反対側にゴーストを落とす — 実際のレンズで起きるのと同じ
+//      並び方になる。反転しないと、ゴーストは光源と同じ側へ、しかも画面外へ
+//      すぐ飛び出す向きに並んでしまう。
+//
+//      サンプルは sampler_linear_wrap で読み、重みの計算にも frac() を
+//      掛けた位置を使う(ラップ後の実際のサンプル位置と重みを一致させる)。
+//      クランプサンプラだと画面外へ出たゴーストが端の画素を引き伸ばす。
+//
+//      入力は Downsample が書いたブライトパス済みバッファ。Compose が書いた
+//      ストリーク結果へ加算する(読み書きなので直前にUAVバリアが必要 —
+//      PostProcessRenderer.cpp参照)。
+[numthreads(8, 8, 1)]
+void Ghost(uint3 dtid : SV_DispatchThreadID)
+{
+	RWTexture2D<float4> output = ResourceDescriptorHeap[constant_indices.post_process_.lens_flare_.unordered_access_view_index_];
+
+	uint width, height;
+	output.GetDimensions(width, height);
+	if (dtid.x >= width || dtid.y >= height)
+	{
+		return;
+	}
+
+	Texture2D<float4> source = ResourceDescriptorHeap[constant_indices.post_process_.lens_flare_streak_.bright_srv_index_];
+
+	float2 uv = 1.0 - (float2(dtid.xy) + 0.5) / float2(width, height);
+
+	/// [JP] 半径の計算はアスペクト補正した空間で行う。そうしないとハローが
+	///      真円ではなく横長の楕円になる。
+	float2 aspect_scale = float2(float(width) / float(height), 1.0);
+	float max_radius = length(float2(0.5, 0.5) * aspect_scale);
+
+	uint ghost_count = min(constant_indices.post_process_.lens_flare_.ghost_count_, 8u);
+	float ghost_dispersal = constant_indices.post_process_.lens_flare_.ghost_dispersal_;
+	float ghost_intensity = constant_indices.post_process_.lens_flare_.ghost_intensity_;
+	float halo_width = constant_indices.post_process_.lens_flare_.halo_width_;
+	float chromatic_aberration = constant_indices.post_process_.lens_flare_.chromatic_aberration_;
+	float intensity = constant_indices.post_process_.lens_flare_.intensity_;
+
+	float3 distortion = float3(-chromatic_aberration, 0.0, chromatic_aberration);
+
+	float2 to_center = float2(0.5, 0.5) - uv;
+	float2 ghost_direction = normalize(to_center + 1e-6);
+	float2 ghost_vector = to_center * ghost_dispersal;
+
+	float3 result = float3(0.0, 0.0, 0.0);
+
+	[loop]
+	for (uint index = 0; index < ghost_count; index++)
+	{
+		float2 sample_uv = uv + ghost_vector * float(index);
+		float radius01 = length((frac(sample_uv) - 0.5) * aspect_scale) / max_radius;
+		float weight = pow(saturate(1.0 - radius01), 10.0);
+
+		result += SampleDistorted(source, sample_uv, ghost_direction, distortion) * weight;
+	}
+
+	result *= LensColor(saturate(length(to_center * aspect_scale) / max_radius));
+
+	/// [JP] ハローは中心へ向かって固定距離だけずらしてサンプルする —
+	///      半径 L にある光源が半径 L + halo_width の輪として現れる。
+	///      オフセットはアスペクト空間で作ってからUV空間へ戻すことで
+	///      画面上で真円になる。
+	if (halo_width > 0.0)
+	{
+		float2 halo_direction = normalize(to_center * aspect_scale + 1e-6) / aspect_scale;
+		float2 halo_uv = uv + halo_direction * halo_width;
+		float halo_radius01 = length((frac(halo_uv) - 0.5) * aspect_scale) / max_radius;
+		float halo_weight = pow(saturate(1.0 - halo_radius01), 5.0);
+
+		result += SampleDistorted(source, halo_uv, halo_direction, distortion) * halo_weight;
+	}
+
+	result *= ghost_intensity * intensity;
+
+	output[dtid.xy] = float4(output[dtid.xy].rgb + result, 1.0);
 }

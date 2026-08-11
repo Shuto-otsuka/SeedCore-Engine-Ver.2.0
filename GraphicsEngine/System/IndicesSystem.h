@@ -4,6 +4,27 @@
 
 namespace SeedCore
 {
+	/// [EN] Upper bound on LensFlareCS.hlsl's independently-blurred spike
+	///      axes (one axis = one line = two opposing arms). Diffraction
+	///      through an n-bladed iris yields n spikes when n is even and 2n
+	///      when n is odd, because each blade edge diffracts perpendicular
+	///      to itself and on an even-bladed iris the opposing edges are
+	///      parallel so their spikes coincide. That makes the axis count
+	///      n/2 for even n and n for odd n, and BokehSettings::bladeCount_
+	///      (the same physical iris) is clamped to 3..8, so the worst case
+	///      is n = 7 -> 14 spikes -> 7 axes. Must match
+	///      LENS_FLARE_MAX_AXIS_COUNT in Shader/Constants.hlsli.
+	/// [JP] LensFlareCS.hlsl が独立にブラーする棘の軸数の上限(軸1本 =
+	///      直線1本 = 対向する腕2本)。羽根n枚の絞りによる回折は、nが偶数
+	///      ならn本、奇数なら2n本の棘を作る — 各羽根のエッジがそれ自身に
+	///      垂直な方向へ回折し、偶数枚だと向かい合うエッジが平行になって
+	///      棘が重なるため。よって軸数は偶数なら n/2、奇数なら n。
+	///      BokehSettings::bladeCount_(同じ物理的な絞り)が3〜8に
+	///      クランプされているので、最悪ケースは n = 7 → 棘14本 → 7軸。
+	///      Shader/Constants.hlsli の LENS_FLARE_MAX_AXIS_COUNT と
+	///      一致していなければならない。
+	inline constexpr Uint32 lensFlareMaxAxisCount = 7;
+
 	/// [EN] Per-view auto-exposure indices/tuning — same one-effect-one-group
 	///      shape as ShadowAccumulationIndices etc. below.
 	/// [JP] ビューごとの自動露出インデックス/チューニング。下の
@@ -63,9 +84,131 @@ namespace SeedCore
 		Float chromaticAberration_ = 0.0f;
 
 		Float angleOffset_ = 0.0f;
-		Uint lensFlarePadding_[3] = { 0, 0, 0 };
+		Uint ghostCount_ = 4;
+		Float ghostDispersal_ = 0.3f;
+		Float ghostIntensity_ = 0.3f;
+
+		Float haloWidth_ = 0.45f;
+		Uint axisCount_ = 3;
+		Float spikeVariation_ = 0.0f;
+		Uint lensFlarePadding_ = 0;
 	};
 	static_assert(sizeof(LensFlareIndices) % 16 == 0, "LensFlareIndices が 16 バイト行の倍数ではありません");
+
+	/// [EN] Per-view lens-flare working buffers: one ping/pong pair per axis
+	///      (LensFlareCS.hlsl walks LensFlareIndices::axisCount_ axes, each a
+	///      line of two opposing arms, each independently multi-pass blurred
+	///      - the count comes from the aperture blade count, see
+	///      lensFlareMaxAxisCount above), plus the shared
+	///      bright_ buffer every other lens-flare pass reads. bright_ is what
+	///      LensFlareCS.hlsl's Downsample entry point writes: a quarter-res,
+	///      bright-passed copy of the scene produced with a 4-tap bilinear
+	///      filter covering the full 4x4 source footprint. Both BlurPass1
+	///      (streaks) and Ghost (ghost chain + halo) sample it instead of the
+	///      full-res HDR source, because point-sampling mip 0 at quarter
+	///      density skips 15 of every 16 source pixels and so drops small
+	///      bright sources entirely - the sun disc (a few pixels wide, see
+	///      VolumetricCloudScapes.hlsli::ProceduralSkyColor) would otherwise
+	///      never produce a flare. Set once per frame alongside
+	///      LensFlareIndices above (PostProcessRenderer::CreateView allocates
+	///      them, PrepareView registers the bindless indices) - not
+	///      re-registered mid-frame, since LensFlareCS.hlsl's BlurPass1..4
+	///      entry points read/write them by a compile-time-fixed ping/pong
+	///      parity per pass, not a per-dispatch index.
+	/// [JP] ビューごとのレンズフレア作業バッファ。軸ごとに1ペアのピンポン
+	///      バッファ(LensFlareCS.hlsl は LensFlareIndices::axisCount_ 軸 -
+	///      それぞれ対向する腕2本からなる直線 - を独立に多段階ブラーする。
+	///      軸数は絞りの羽根枚数から決まる、上の lensFlareMaxAxisCount 参照)
+	///      と、他の全レンズフレアパスが読む
+	///      共有の bright_ バッファ。bright_ は LensFlareCS.hlsl の Downsample
+	///      エントリポイントが書く、1/4解像度のブライトパス済みシーンコピーで、
+	///      4x4のソース範囲を丸ごとカバーする4タップのバイリニアフィルタで
+	///      生成する。BlurPass1(ストリーク)も Ghost(ゴーストチェーン+ハロー)も
+	///      フル解像度のHDRソースではなくこちらをサンプルする — 1/4密度で
+	///      mip 0 をポイントサンプルすると16画素中15画素を読み飛ばすため、
+	///      小さく明るい光源が丸ごと消えてしまうから。太陽の円盤(数画素幅、
+	///      VolumetricCloudScapes.hlsli::ProceduralSkyColor 参照)は
+	///      そうしないと一切フレアを出さない。上のLensFlareIndicesと同時に
+	///      フレームに1回だけ設定する(PostProcessRenderer::CreateView が
+	///      確保し、PrepareView が bindless インデックスを登録する) -
+	///      フレーム中に再登録はしない。LensFlareCS.hlsl の BlurPass1..4
+	///      エントリポイントはパスごとにコンパイル時固定のピンポン奇偶で
+	///      読み書きするため、ディスパッチごとのインデックスは不要。
+	struct LensFlareStreakIndices
+	{
+		/// [EN] One 16-byte row per axis: [0] ping UAV, [1] ping SRV,
+		///      [2] pong UAV, [3] pong SRV. Mirrors a uint4 array on the
+		///      HLSL side rather than flat fields, because a uint4 array
+		///      element is exactly one cbuffer row and so is directly
+		///      indexable by a runtime axis number - flat fields would need
+		///      a 7-way if-chain per lookup. All lensFlareMaxAxisCount rows
+		///      are always filled; only the first axisCount_ are read.
+		/// [JP] 軸ごとに16バイト1行: [0] ping UAV、[1] ping SRV、
+		///      [2] pong UAV、[3] pong SRV。HLSL側は uint4 配列で、フラットな
+		///      フィールドの並びにしていないのは、uint4 配列の要素が
+		///      ちょうどcbufferの1行なので実行時の軸番号でそのまま添字
+		///      アクセスできるため — フラットだと参照のたびに7分岐の
+		///      if連鎖が要る。lensFlareMaxAxisCount 行ぶん常に埋めるが、
+		///      読まれるのは先頭 axisCount_ 行だけ。
+		Uint axisIndices_[lensFlareMaxAxisCount][4] = {};
+
+		Uint brightUnorderedAccessViewIndex_ = 0;
+		Uint brightShaderResourceViewIndex_ = 0;
+		Uint lensFlareStreakPadding_[2] = { 0, 0 };
+	};
+	static_assert(sizeof(LensFlareStreakIndices) % 16 == 0, "LensFlareStreakIndices が 16 バイト行の倍数ではありません");
+
+	/// [EN] Per-view bloom indices/tuning. level0..5 are the 6 levels of
+	///      KawaseBloomCS.hlsl's downsample/upsample chain, level0 being
+	///      half the native resolution and each subsequent level half of the
+	///      one before. The chain writes DOWN through the levels
+	///      (DownsamplePrefilter then Downsample1..5) then accumulates back
+	///      UP additively (Upsample4..0), so level0 ends up holding the final
+	///      bloom that ToneMappingCS.hlsl samples and adds into the HDR color
+	///      before exposure. enabled_ gates both the dispatch and that read,
+	///      so a stale buffer from when bloom was last on is never sampled.
+	///      filterRadius_ is the 3x3 tent radius in UV used by the upsample
+	///      passes; softKnee_ widens the threshold_ transition so pixels
+	///      sitting at the cutoff fade in instead of popping.
+	/// [JP] ビューごとのブルームインデックス/チューニング。level0..5 は
+	///      KawaseBloomCS.hlsl のダウンサンプル/アップサンプルチェーンの
+	///      6レベルで、level0 がネイティブ解像度の1/2、以降それぞれ半分ずつ。
+	///      チェーンはレベルを【下って】書き
+	///      (DownsamplePrefilter → Downsample1..5)、
+	///      そこから【上って】加算で積み上げる(Upsample4..0)ため、最終的な
+	///      ブルームは level0 に入る — ToneMappingCS.hlsl がそれをサンプル
+	///      して露出適用前のHDRカラーへ加算する。enabled_ はディスパッチと
+	///      その読み取りの両方を制御するので、前回有効だった時の古い
+	///      バッファをサンプルすることはない。filterRadius_ はアップサンプル
+	///      パスが使う3x3テントの半径(UV単位)、softKnee_ は threshold_
+	///      周辺の遷移を広げ、しきい値ぎりぎりの画素が突然出入りせず
+	///      滑らかにフェードするようにする。
+	struct BloomIndices
+	{
+		Uint level0UnorderedAccessViewIndex_ = 0;
+		Uint level1UnorderedAccessViewIndex_ = 0;
+		Uint level2UnorderedAccessViewIndex_ = 0;
+		Uint level3UnorderedAccessViewIndex_ = 0;
+
+		Uint level4UnorderedAccessViewIndex_ = 0;
+		Uint level5UnorderedAccessViewIndex_ = 0;
+		Uint level0ShaderResourceViewIndex_ = 0;
+		Uint level1ShaderResourceViewIndex_ = 0;
+
+		Uint level2ShaderResourceViewIndex_ = 0;
+		Uint level3ShaderResourceViewIndex_ = 0;
+		Uint level4ShaderResourceViewIndex_ = 0;
+		Uint level5ShaderResourceViewIndex_ = 0;
+
+		Uint enabled_ = 0;
+		Float threshold_ = 0.0f;
+		Float softKnee_ = 0.0f;
+		Float intensity_ = 0.0f;
+
+		Float filterRadius_ = 0.0f;
+		Uint bloomPadding_[3] = { 0, 0, 0 };
+	};
+	static_assert(sizeof(BloomIndices) % 16 == 0, "BloomIndices が 16 バイト行の倍数ではありません");
 
 	/// [EN] Per-view depth-of-field indices/tuning. unorderedAccessViewIndex_/
 	///      shaderResourceViewIndex_ are DepthOfFieldCS.hlsl's native-res
@@ -165,11 +308,13 @@ namespace SeedCore
 		ExposureIndices exposure_;
 		ToneMappingIndices toneMapping_;
 		LensFlareIndices lensFlare_;
+		LensFlareStreakIndices lensFlareStreak_;
+		BloomIndices bloom_;
 		DepthOfFieldIndices depthOfField_;
 		BokehIndices bokeh_;
 		SharpnessIndices sharpness_;
 	};
-	static_assert(sizeof(PostProcessIndices) == 192, "PostProcessIndices が Shader/Constants.hlsli と一致していません");
+	static_assert(sizeof(PostProcessIndices) == 416, "PostProcessIndices が Shader/Constants.hlsli と一致していません");
 
 	/// [EN] Per-view ray-traced shadow accumulation indices — see
 	///      Shader/Constants.hlsli for why these are per-view instead of in
@@ -284,7 +429,7 @@ namespace SeedCore
 
 		PostProcessIndices postProcess_;
 	};
-	static_assert(sizeof(ConstantIndices) == 21 * 16, "ConstantIndices が Shader/Constants.hlsli と一致していません");
+	static_assert(sizeof(ConstantIndices) == 35 * 16, "ConstantIndices が Shader/Constants.hlsli と一致していません");
 
 	/// [EN] Mirrors Shader/Structured.hlsli. Each group is a whole number of
 	///      16-byte cbuffer rows with its padding written out explicitly, and

@@ -11,21 +11,24 @@ namespace SeedCore
 
 	/**
 	* [EN]
-	* Manages PSO creation for the lens-flare compute pass (LensFlareCS.hlsl —
-	* bright-passes the HDR scene color and accumulates a six-armed
-	* diffraction-spike ("starburst") pattern at a quarter of the native
-	* resolution; ToneMappingCS.hlsl samples the result and adds it into the
-	* HDR color before exposure). Same shape as every other single-PSO
-	* compute wrapper in this engine.
+	* Manages PSO creation for the lens-flare compute passes (LensFlareCS.hlsl
+	* — a multi-pass Kawase-style directional blur that produces the aperture
+	* diffraction-spike ("starburst") flare and ghost-chain ToneMappingCS.hlsl
+	* samples and adds into the HDR color before exposure). Compiles 7 PSOs
+	* from the same .hlsl file at different entry points (Downsample,
+	* BlurPass1..4, Compose, Ghost), same "one file, many entry points"
+	* pattern as GlobalIlluminationDenoiseShader.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* レンズフレアのコンピュートパス(LensFlareCS.hlsl — HDRシーンカラーを
-	* ブライトパスし、ネイティブ解像度の1/4で6本腕の回折スパイク
-	* (スターバースト)パターンを蓄積する。ToneMappingCS.hlsl がその結果を
-	* サンプルし、露出適用前のHDRカラーへ加算する)の PSO 管理。このエンジンの
-	* 他の単一 PSO コンピュートラッパーと同じ構成。
+	* レンズフレアのコンピュートパス(LensFlareCS.hlsl — 多段階Kawase式
+	* ディレクショナルブラーで絞りの回折スパイク(スターバースト)フレアと
+	* ゴーストチェーンを生成する。ToneMappingCS.hlsl がその結果をサンプルし、
+	* 露出適用前のHDRカラーへ加算する)の PSO 管理。同じ .hlsl ファイルの
+	* 別エントリポイント(Downsample, BlurPass1..4, Compose, Ghost)から
+	* 7個のPSOをコンパイルする、GlobalIlluminationDenoiseShader と同じ
+	* 「1ファイル複数エントリポイント」パターン。
 	*/
 	class LensFlare
 	{
@@ -35,13 +38,32 @@ namespace SeedCore
 
 		void Create(ShaderCache& shaderCache, ID3D12Device* device);
 
-		[[nodiscard]] ID3D12PipelineState* GetPipelineState()const;
+		[[nodiscard]] ID3D12PipelineState* GetDownsamplePipelineState()const;
+
+		/// [EN] passIndex is 0-3 for BlurPass1..4 respectively.
+		/// [JP] passIndex は 0-3 でそれぞれ BlurPass1..4 に対応する。
+		[[nodiscard]] ID3D12PipelineState* GetBlurPipelineState(Uint32 passIndex)const;
+
+		[[nodiscard]] ID3D12PipelineState* GetComposePipelineState()const;
+
+		[[nodiscard]] ID3D12PipelineState* GetGhostPipelineState()const;
 
 		[[nodiscard]] ID3D12RootSignature* GetRootSignature()const;
 
 	private:
-		Handle<ComputeShader> computeShader_;
-		Handle<Microsoft::WRL::ComPtr<ID3D12PipelineState>> pipelineStateHandle_;
+		static constexpr Uint32 blurPassCount = 4;
+
+		Handle<ComputeShader> downsampleComputeShader_;
+		Handle<Microsoft::WRL::ComPtr<ID3D12PipelineState>> downsamplePipelineStateHandle_;
+
+		Handle<ComputeShader> blurComputeShader_[blurPassCount];
+		Handle<Microsoft::WRL::ComPtr<ID3D12PipelineState>> blurPipelineStateHandle_[blurPassCount];
+
+		Handle<ComputeShader> composeComputeShader_;
+		Handle<Microsoft::WRL::ComPtr<ID3D12PipelineState>> composePipelineStateHandle_;
+
+		Handle<ComputeShader> ghostComputeShader_;
+		Handle<Microsoft::WRL::ComPtr<ID3D12PipelineState>> ghostPipelineStateHandle_;
 
 		Handle<RootSignature> lensFlareRootSignature_;
 
