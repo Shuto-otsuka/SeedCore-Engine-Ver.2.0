@@ -57,11 +57,8 @@ namespace SeedCore
 	* LensFlareCS.hlsl does) scaled by that pixel's CoC and boosted by
 	* highlightIntensity_ - the classic "bright out-of-focus points become
 	* visible bokeh shapes" look. Meaningless without DepthOfFieldSettings.
-	* enabled_ also being on - PostProcessRenderer::Dispatch enforces that at
-	* runtime (Reflection.py's SC_REFLECTION_FIELD_CONDITION can only
-	* reference a field on this same struct, not a sibling struct's field, so
-	* the inspector cannot nest this checkbox under DepthOfFieldSettings.
-	* enabled_).
+	* enabled_ also being on; PostProcessRenderer::Dispatch enforces that at
+	* runtime.
 	*
 	* ---------------------------------------------------------------------
 	*
@@ -76,11 +73,7 @@ namespace SeedCore
 	* highlightIntensity_ で強調して散布する — 「ピントの外れた明るい点が
 	* 目に見えるボケ形状になる」典型的な見た目。DepthOfFieldSettings.enabled_
 	* も同時に有効でなければ意味を持たない — これは実行時に
-	* PostProcessRenderer::Dispatch が担保する(Reflection.py の
-	* SC_REFLECTION_FIELD_CONDITION は同じ struct 内のフィールドしか参照
-	* できず、別の struct のフィールドは参照できないため、インスペクタ上で
-	* このチェックボックスを DepthOfFieldSettings.enabled_ の下にネストする
-	* ことはできない)。
+	* PostProcessRenderer::Dispatch が担保する。
 	*/
 	struct BokehSettings
 	{
@@ -416,14 +409,8 @@ namespace SeedCore
 
 		/// [EN] Kawase's light-streak attenuation `a`: the per-texel decay
 		///      along the streak, so a tap `d` texels out is weighted a^d.
-		///      Must stay below 1 or the weight grows instead of decaying -
-		///      AnamorphicFlareCS.hlsl clamps it regardless of what is stored
-		///      here, because a value above 1 overflows to Inf and then NaN.
 		/// [JP] Kawase のライトストリークの減衰係数 a。筋に沿った1テクセル
 		///      あたりの減衰率で、d テクセル先のタップの重みが a^d になる。
-		///      1未満でなければ減衰ではなく増加になるため、ここに何が
-		///      保存されていても AnamorphicFlareCS.hlsl 側でクランプする —
-		///      1を超えると Inf、続いて NaN になるため。
 		SC_REFLECTION_FIELD_CONDITION(enabled_)
 		SC_REFLECTION_CLAMPED_EX("減衰", 0.80f, 0.99f)
 		Float attenuation_ = 0.95f;
@@ -561,6 +548,8 @@ namespace SeedCore
 	* adaptation fields only matter when enabled_ is on, so only those carry a
 	* condition.
 	*
+	* ---------------------------------------------------------------------
+	*
 	* [JP]
 	* 露出設定。専用のリフレクション対象構造体にする理由は下の
 	* ToneMappingSettings 参照。compensation_ は手動 EV のつまみで常に効く
@@ -651,11 +640,9 @@ namespace SeedCore
 	* exposure has placed the scene there, and stops meaning anything at all
 	* after the tone curve has compressed the range.
 	*
-	* Each control is a Color so the three channels can be pushed
-	* independently, which is what makes these colour WHEELS rather than
-	* sliders - tinting the shadows blue while warming the highlights is the
-	* entire point. Neutral is 1 for saturation/contrast/gamma/gain and 0 for
-	* offset.
+	* temperature_ is the only control that touches colour; the other four
+	* are plain scalars applied uniformly across R/G/B. Neutral is 1 for
+	* saturation/contrast/gamma/gain and 0 for offset/temperature.
 	*
 	* ---------------------------------------------------------------------
 	*
@@ -673,10 +660,9 @@ namespace SeedCore
 	* シーンをそこへ置いた後だけで、トーンカーブがレンジを圧縮した後では
 	* 何の意味も持たなくなる。
 	*
-	* 各操作が Color なのは3チャンネルを独立に動かせるようにするためで、
-	* これがスライダーではなくカラー【ホイール】である所以 — シャドウを
-	* 青に振りつつハイライトを暖色へ、といったことがしたいのが全て。
-	* 中立値は彩度/コントラスト/ガンマ/ゲインが1、オフセットが0。
+	* 色に触れる操作は temperature_ だけで、残り4つはR/G/Bへ一律に掛かる
+	* 単純なスカラー。中立値は彩度/コントラスト/ガンマ/ゲインが1、
+	* オフセットと色温度が0。
 	*/
 	struct ColorGradingRangeSettings
 	{
@@ -697,7 +683,7 @@ namespace SeedCore
 		///      ホイール群より【前】に適用する。負で寒色(青)、正で暖色(琥珀)。
 		///      RGBの色被せではなく本物の色順応(CIE xy の白色点 → LMS 錐体
 		///      空間 → von Kries スケール)なので、色を塗るのではなく画像
-		///      全体の白色点that自体が動く。
+		///      全体の白色点そのものが動く。
 		///
 		///      Unreal はホワイトバランスを全体設定として持つが、階調域ごとに
 		///      持つ方が純粋に強い — シャドウを寒色に、ハイライトを暖色に、は
@@ -707,34 +693,15 @@ namespace SeedCore
 		SC_REFLECTION_CLAMPED_EX("色温度", -1.0f, 1.0f)
 		Float temperature_ = 0.0f;
 
-		/// [EN] These five are scalars, not per-channel, even though Unreal
-		///      draws them as colour wheels. Two reasons. This engine's
-		///      inspector has no colour-wheel widget: Color reflects to
-		///      ImGui::ColorEdit4, which clamps to [0,1] and shows 0-255 -
-		///      so neutral reads as "255" and gain can never exceed 1, which
-		///      is the direction you actually grade in. Vector3 avoids the
-		///      clamp but labels the channels X/Y/Z, which nobody can read as
-		///      red/green/blue on a gamma control. And the colour axis is
-		///      already covered, properly, by temperature_ above - a real
-		///      chromatic adaptation rather than three multipliers.
-		///
-		///      What this gives up is per-channel work, like lifting only
-		///      blue in the shadows. That is the rarer move, and it is the
-		///      one worth losing to make the common moves unambiguous.
-		/// [JP] この5つは Unreal がカラーホイールとして描いているものだが、
-		///      ここではチャンネル別ではなくスカラーにしている。理由は2つ。
-		///      このエンジンのインスペクタにはカラーホイールのウィジェットが
-		///      無く、Color は ImGui::ColorEdit4 になって [0,1] クランプ +
-		///      0-255 表示になる — 中立値が「255」と表示され、ゲインを1より
-		///      上げられない。実際にグレーディングする方向がそちらなのに。
-		///      Vector3 ならクランプは避けられるが、チャンネルが X/Y/Z と
-		///      表示され、ガンマの操作としてRGBには読めない。そして色方向は
-		///      上の temperature_ が既に、しかも3つの倍率ではなく本物の
-		///      色順応としてカバーしている。
-		///
-		///      引き換えに失うのは「シャドウの青だけ持ち上げる」ような
-		///      チャンネル別の作業。そちらは使用頻度の低い操作で、
-		///      よく使う操作を曖昧さなく扱えるようにするために手放す価値がある。
+		/// [EN] These five are scalars, applied uniformly across R/G/B,
+		///      rather than per-channel wheels. The colour axis is already
+		///      covered by temperature_ above as a proper chromatic
+		///      adaptation, so these five stay pure brightness/contrast
+		///      controls.
+		/// [JP] この5つはチャンネル別のホイールではなく、R/G/Bへ一律に
+		///      掛かるスカラー。色方向は上の temperature_ が本物の色順応
+		///      として担当しているので、この5つは純粋な明るさ・
+		///      コントラスト系の操作にとどめてある。
 		SC_REFLECTION_CLAMPED_EX("彩度", 0.0f, 4.0f)
 		Float saturation_ = 1.0f;
 
@@ -777,11 +744,6 @@ namespace SeedCore
 	* ColorGradingRangeSettings' comment for why the 0.18 contrast pivot
 	* forces that position.
 	*
-	* NOT implemented: Unreal's separate White Balance section (temperature
-	* and tint). It is a chromatic adaptation transform rather than one of
-	* these wheels, so it belongs in its own pass over the scene rather than
-	* bolted onto this one.
-	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
@@ -800,10 +762,6 @@ namespace SeedCore
 	* 露出の後・トーンカーブの前、シーン参照リニア空間で走る。Unreal も
 	* 同じ位置に置いている。0.18 のコントラスト軸がなぜその位置を強制するかは
 	* ColorGradingRangeSettings のコメント参照。
-	*
-	* 【未実装】: Unreal の独立したホワイトバランス項目(色温度と色かぶり)。
-	* あれはこれらのホイールとは別物の色順応変換なので、ここに継ぎ足すのでは
-	* なくシーンに対する専用パスとして持つべきもの。
 	*/
 	struct ColorGradingSettings
 	{
@@ -847,6 +805,8 @@ namespace SeedCore
 	* PostProcess itself stays a plain list of "one field per effect" instead of
 	* growing into a soup of unrelated bools and floats.
 	*
+	* ---------------------------------------------------------------------
+	*
 	* [JP]
 	* トーンマップ設定。PostProcess に直接フラットなフィールドを並べるのではなく、
 	* 独立したリフレクション対象の構造体にする — 各ポストエフェクトはこの形を1つ
@@ -859,23 +819,6 @@ namespace SeedCore
 		SC_REFLECTION_FIELD_EX("有効")
 		Bool enabled_ = true;
 
-		/// [EN] Named ToneCurve, not Mode - EnumRegistry keys enums by their
-		///      bare type name only (FlatMap<String, DynamicArray<EnumEntry>>,
-		///      no owning-struct qualification), so "Mode" collided with
-		///      CameraSystem::Mode ({Free, User}) at registration: whichever
-		///      one's static initializer ran last silently won the shared
-		///      slot, and the other's inspector dropdown showed the wrong
-		///      entries. The real fix is qualifying EnumRegistry's key by
-		///      owner type; short of that, just avoid common generic names.
-		/// [JP] Mode ではなく ToneCurve という名前にしている理由: EnumRegistry は
-		///      列挙型を裸の型名だけでキーする(FlatMap<String,
-		///      DynamicArray<EnumEntry>>、所有側構造体による修飾は無い)ため、
-		///      "Mode" が CameraSystem::Mode({Free, User})と登録時に衝突して
-		///      いた — どちらの静的初期化子が最後に走るかで共有スロットを
-		///      黙って奪い合い、負けた側のインスペクタのドロップダウンには
-		///      相手の項目が出ていた。本質的な直し方は EnumRegistry のキーを
-		///      所有側の型で修飾することだが、それをしない限りは、ありふれた
-		///      汎用名を避けるのが現実的な対処。
 		enum class ToneCurve
 		{
 			None,      // クランプのみ、カーブ無し
@@ -1004,13 +947,10 @@ namespace SeedCore
 	* entity carries one, the renderer falls back to this struct's defaults so
 	* a scene without a post-process entity still tonemaps.
 	*
-	* Only exposure, bloom, lens flare, depth of field, bokeh, tone mapping,
-	* and sharpness are implemented so far - the other files under PostEffect/
-	* are empty stubs. Each new effect gets its own reflected Settings struct
-	* (see ToneMappingSettings/ExposureSettings above) plus one field here
-	* and its own class under PostEffect/, so this component stays the
-	* single authoring surface without turning into a flat pile of unrelated
-	* fields.
+	* Each effect gets its own reflected Settings struct (see
+	* ToneMappingSettings/ExposureSettings above) plus one field here and its
+	* own class under PostEffect/, so this component stays the single
+	* authoring surface without turning into a flat pile of unrelated fields.
 	*
 	* ---------------------------------------------------------------------
 	*
@@ -1022,10 +962,8 @@ namespace SeedCore
 	* も持っていない場合はこの構造体の既定値へフォールバックするので、
 	* ポストプロセス用エンティティが無いシーンでもトーンマップは掛かる。
 	*
-	* 現状は露出・ブルーム・レンズフレア・被写界深度・ボケ・トーンマップ・
-	* シャープネスのみ実装 — PostEffect/ の他のファイルは空スタブ。エフェクトを増やす
-	* ときは上の ToneMappingSettings/ExposureSettings のような専用の
-	* リフレクション対象構造体を作り、ここにフィールドを1つ足し、
+	* 各エフェクトは上の ToneMappingSettings/ExposureSettings のような専用の
+	* リフレクション対象構造体を持ち、ここにフィールドを1つ足し、
 	* PostEffect/ にクラスを足す — 無関係なフィールドの寄せ集めにしない。
 	*/
 	struct PostProcess
@@ -1033,17 +971,9 @@ namespace SeedCore
 		/// [EN] Fields are ordered to match the order the passes actually run
 		///      in PostProcessRenderer::Dispatch, so reading the inspector
 		///      top to bottom is reading the frame in the order it is built.
-		///      Reordering these is safe for existing scenes: serialization
-		///      matches fields by NAME, not position (see
-		///      ActorSerialization.cpp's ApplyFields) - but renaming one
-		///      would silently drop whatever was saved under the old label.
 		/// [JP] フィールドの並びは PostProcessRenderer::Dispatch で実際に
 		///      パスが走る順に合わせてある。インスペクタを上から下へ読むと、
 		///      フレームが組み立てられる順に読めることになる。
-		///      並べ替え自体は保存済みシーンに対して安全 — シリアライズは
-		///      位置ではなく【名前】で照合するため(ActorSerialization.cpp の
-		///      ApplyFields 参照)。ただし表示名を変えると、旧名で保存されて
-		///      いた値が黙って捨てられる点には注意。
 
 		SC_REFLECTION_FIELD_EX("被写界深度")
 		DepthOfFieldSettings depthOfField_;
