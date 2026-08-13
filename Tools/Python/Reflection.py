@@ -415,6 +415,12 @@ def process_file(file_path, project_root, global_enums, enum_headers, enum_owner
                 lines.append(f'\t\t\t\t\t\tfi.nestedTypeName_ = String("{stripped_type}");')
                 if is_serialize_only:
                     lines.append(f'\t\t\t\t\t\tfi.editorVisible_ = false;')
+                # SC_REFLECTION_FIELD_CONDITION applies to nested struct fields too.
+                # It used to be dropped here while every other branch emitted it,
+                # so a condition on a nested struct silently did nothing and the
+                # whole group stayed editable no matter what it was gated on.
+                if condition:
+                    lines.append(f'\t\t\t\t\t\tfi.enableIf_ = [](void* p) -> Bool {{ auto& o = *static_cast<{struct_name}*>(p); return {qualify_condition(condition, struct_name, enum_defs, enum_owners, struct_own_enums.get(struct_name))}; }};')
                 lines.append(f'\t\t\t\t\t\toutInfo.push_back(std::move(fi));')
                 lines.append(f'\t\t\t\t\t}}')
 

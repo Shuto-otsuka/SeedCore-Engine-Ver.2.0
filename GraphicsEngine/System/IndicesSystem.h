@@ -210,6 +210,207 @@ namespace SeedCore
 	};
 	static_assert(sizeof(BloomIndices) % 16 == 0, "BloomIndices が 16 バイト行の倍数ではありません");
 
+	/// [EN] Per-view anamorphic-flare indices/tuning. ping_/pong_ are
+	///      AnamorphicFlareCS.hlsl's HORIZONTALLY SQUEEZED working buffers -
+	///      half the width of the other quarter-res post-process buffers, so
+	///      they carry a baked 2:1 anamorphic squeeze. That squeeze is why
+	///      the streak comes out horizontal at all: the flare is blurred as
+	///      an ordinary round shape inside the squeezed space and Compose
+	///      samples it back with normal UVs, which stretches it 2x
+	///      horizontally for free. output_ is Compose's own target, which
+	///      ToneMappingCS.hlsl samples and adds into the HDR color before
+	///      exposure. enabled_ gates both the dispatch and that read, so a
+	///      stale buffer from when the effect was last on is never sampled.
+	/// [JP] ビューごとのアナモルフィックフレアインデックス/チューニング。
+	///      ping_/pong_ は AnamorphicFlareCS.hlsl の【横に圧縮された】作業
+	///      バッファで、他の1/4解像度ポストプロセスバッファの半分の幅
+	///      = 2:1 のアナモルフィック圧縮を焼き込んである。そもそも筋が
+	///      横向きになるのはこの圧縮のおかげ: 圧縮空間の中では普通の丸い
+	///      形としてブラーし、Compose が通常のUVでサンプルして戻すことで、
+	///      横方向に2倍引き伸ばされる。output_ は Compose 自身の書き込み先で、
+	///      ToneMappingCS.hlsl がこれをサンプルして露出適用前のHDRカラーへ
+	///      加算する。enabled_ はディスパッチとその読み取りの両方を制御
+	///      するので、前回有効だった時の古いバッファを読むことはない。
+	struct AnamorphicFlareIndices
+	{
+		Uint enabled_ = 0;
+		Uint outputUnorderedAccessViewIndex_ = 0;
+		Uint outputShaderResourceViewIndex_ = 0;
+		Float threshold_ = 0.0f;
+
+		Uint pingUnorderedAccessViewIndex_ = 0;
+		Uint pingShaderResourceViewIndex_ = 0;
+		Uint pongUnorderedAccessViewIndex_ = 0;
+		Uint pongShaderResourceViewIndex_ = 0;
+
+		Float intensity_ = 0.0f;
+		Float streakLength_ = 0.0f;
+		Float attenuation_ = 0.0f;
+		Uint anamorphicFlarePadding_ = 0;
+
+		Float tint_[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+	};
+	static_assert(sizeof(AnamorphicFlareIndices) % 16 == 0, "AnamorphicFlareIndices が 16 バイト行の倍数ではありません");
+
+	/// [EN] Per-view chromatic-aberration and vignette indices/tuning. Both
+	///      are LENS stage effects: they run before auto-exposure and tone
+	///      mapping, because both describe what reaches the sensor rather
+	///      than how the sensor is developed. They chain through one shared
+	///      buffer - sourceShaderResourceViewIndex_ is resolved on the CPU in
+	///      PostProcessRenderer::PrepareView, so if chromatic aberration is
+	///      on the vignette reads its output, otherwise it reads the
+	///      depth-of-field output or the raw scene color. Vignette is a pure
+	///      per-pixel multiply and so may read and write the same texture in
+	///      place; chromatic aberration reads neighbours and may not, which
+	///      is why it always writes the shared lens-stage buffer.
+	/// [JP] ビューごとの色収差/ビネットのインデックス・チューニング。
+	///      どちらも【レンズ段】のエフェクトで、自動露出とトーンマップより
+	///      前に走る — どちらも「センサーへ何が届くか」を記述するもので
+	///      あって、「センサーをどう現像するか」ではないため。両者は1枚の
+	///      共有バッファで連鎖する: sourceShaderResourceViewIndex_ は
+	///      PostProcessRenderer::PrepareView がCPU側で解決するので、色収差が
+	///      有効ならビネットはその出力を、無効なら被写界深度の出力または
+	///      生のシーンカラーを読む。ビネットは画素ごとの単純な乗算なので
+	///      同じテクスチャを読み書きしてよいが、色収差は近傍を読むため
+	///      それができない — だから常に共有のレンズ段バッファへ書く。
+	/// [EN] One tonal range's colour grading controls, in the order they are
+	///      applied. All scalars rather than per-channel: the colour axis is
+	///      handled by temperature_ as a chromatic adaptation instead (see
+	///      ColorGradingRangeSettings in PostProcess.h for why). Neutral is 1
+	///      for saturation/contrast/gamma/gain and 0 for offset/temperature.
+	/// [JP] 1つの階調域ぶんのカラーグレーディング操作、適用される順。
+	///      チャンネル別ではなく全てスカラー — 色方向は temperature_ が
+	///      色順応として担当する(理由は PostProcess.h の
+	///      ColorGradingRangeSettings 参照)。中立値は彩度/コントラスト/
+	///      ガンマ/ゲインが1、オフセットと色温度が0。
+	struct ColorGradingRangeIndices
+	{
+		Float temperature_ = 0.0f;
+		Float saturation_ = 1.0f;
+		Float contrast_ = 1.0f;
+		Float gamma_ = 1.0f;
+
+		Float gain_ = 1.0f;
+		Float offset_ = 0.0f;
+		Uint colorGradingRangePadding_[2] = { 0, 0 };
+	};
+	static_assert(sizeof(ColorGradingRangeIndices) % 16 == 0, "ColorGradingRangeIndices が 16 バイト行の倍数ではありません");
+
+	/// [EN] Unreal-style colour grading: four tonal ranges each with their
+	///      own wheels, blended by luminance with smooth crossovers at
+	///      shadowsMax_ and highlightsMin_. Runs in scene-referred linear
+	///      space AFTER exposure and BEFORE the tone curve, which is forced
+	///      by the 0.18 contrast pivot - 0.18 only means middle grey once
+	///      exposure has placed the scene there, and means nothing after the
+	///      curve has compressed the range. Because of that position this
+	///      pass also owns the additive contributions (bloom, lens flare,
+	///      anamorphic) and the exposure multiply, which ToneMappingCS.hlsl
+	///      skips whenever enabled_ is set.
+	/// [JP] Unreal 方式のカラーグレーディング: 4つの階調域がそれぞれ
+	///      ホイールを持ち、輝度によって shadowsMax_ と highlightsMin_ の
+	///      なだらかなクロスオーバーでブレンドされる。露出の【後】、
+	///      トーンカーブの【前】、シーン参照リニア空間で走る。この位置は
+	///      0.18 のコントラスト軸が強制するもので、0.18 が中間グレーを
+	///      意味するのは露出がシーンをそこへ置いた後だけ、カーブがレンジを
+	///      圧縮した後では何の意味も持たない。この位置ゆえに、このパスは
+	///      加算寄与(ブルーム、レンズフレア、アナモルフィック)と露出の
+	///      乗算も担当し、enabled_ が立っている間 ToneMappingCS.hlsl は
+	///      それらをスキップする。
+	struct ColorGradingIndices
+	{
+		Uint enabled_ = 0;
+		Uint sourceShaderResourceViewIndex_ = 0;
+		Uint destinationUnorderedAccessViewIndex_ = 0;
+		Float shadowsMax_ = 0.0f;
+
+		Float highlightsMin_ = 0.0f;
+		Uint outputShaderResourceViewIndex_ = 0;
+		Uint colorGradingPadding_[2] = { 0, 0 };
+
+		ColorGradingRangeIndices global_;
+		ColorGradingRangeIndices shadows_;
+		ColorGradingRangeIndices midtones_;
+		ColorGradingRangeIndices highlights_;
+	};
+	static_assert(sizeof(ColorGradingIndices) % 16 == 0, "ColorGradingIndices が 16 バイト行の倍数ではありません");
+
+	/// [EN] Radial half of the Brown-Conrady distortion model, the first
+	///      stage of the lens chain since it displaces geometry. k1_
+	///      dominates, k2_ refines the corners, k3_ barely moves anything.
+	///      scale_ zooms in before distorting so barrel distortion does not
+	///      leave empty corners.
+	/// [JP] Brown-Conrady 歪曲モデルの半径方向の項。ジオメトリを変位させる
+	///      ので、レンズ連鎖の最初の段になる。k1_ が支配的、k2_ が四隅の
+	///      微調整、k3_ はほとんど動かない。scale_ は歪ませる前の拡大で、
+	///      樽型歪曲が四隅に余白を作らないようにするためのもの。
+	struct LensDistortionIndices
+	{
+		Uint enabled_ = 0;
+		Uint sourceShaderResourceViewIndex_ = 0;
+		Uint destinationUnorderedAccessViewIndex_ = 0;
+		Float k1_ = 0.0f;
+
+		Float k2_ = 0.0f;
+		Float k3_ = 0.0f;
+		Float scale_ = 1.0f;
+		Uint lensDistortionPadding_ = 0;
+	};
+	static_assert(sizeof(LensDistortionIndices) % 16 == 0, "LensDistortionIndices が 16 バイト行の倍数ではありません");
+
+	/// [EN] Film grain. Runs LAST, after SharpnessCS.hlsl, and
+	///      read-modify-writes that pass's output in place - safe because
+	///      grain is a per-pixel operation with no neighbour taps, and
+	///      deliberate so the sharpen pass does not amplify the grain it was
+	///      given. Unlike the lens-stage effects this is applied after tone
+	///      mapping: grain is the developed emulsion's density variation, so
+	///      the tonal position driving luminanceResponse_ only means anything
+	///      post-curve.
+	/// [JP] フィルムグレイン。SharpnessCS.hlsl の後、最後に走り、その出力を
+	///      その場で read-modify-write する — グレインは近傍タップの無い
+	///      画素ごとの処理なので安全であり、かつシャープパスがグレインを
+	///      増幅しないようにするための意図的な順序。レンズ段のエフェクトと
+	///      違いトーンマップの後に適用する: グレインは現像された乳剤の
+	///      濃度ムラなので、luminanceResponse_ を駆動する階調上の位置は
+	///      カーブを通した後でなければ意味を持たない。
+	struct FilmGrainIndices
+	{
+		Uint enabled_ = 0;
+		Uint destinationUnorderedAccessViewIndex_ = 0;
+		Uint colored_ = 0;
+		Float intensity_ = 0.0f;
+
+		Float size_ = 0.0f;
+		Float luminanceResponse_ = 0.0f;
+		Uint filmGrainPadding_[2] = { 0, 0 };
+	};
+	static_assert(sizeof(FilmGrainIndices) % 16 == 0, "FilmGrainIndices が 16 バイト行の倍数ではありません");
+
+	struct ChromaticAberrationIndices
+	{
+		Uint enabled_ = 0;
+		Uint sourceShaderResourceViewIndex_ = 0;
+		Uint destinationUnorderedAccessViewIndex_ = 0;
+		Float intensity_ = 0.0f;
+
+		Uint sampleCount_ = 8;
+		Uint chromaticAberrationPadding_[3] = { 0, 0, 0 };
+	};
+	static_assert(sizeof(ChromaticAberrationIndices) % 16 == 0, "ChromaticAberrationIndices が 16 バイト行の倍数ではありません");
+
+	struct VignetteIndices
+	{
+		Uint enabled_ = 0;
+		Uint sourceShaderResourceViewIndex_ = 0;
+		Uint destinationUnorderedAccessViewIndex_ = 0;
+		Float intensity_ = 0.0f;
+
+		Float exponent_ = 4.0f;
+		Uint vignettePadding_[3] = { 0, 0, 0 };
+
+		Float color_[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+	};
+	static_assert(sizeof(VignetteIndices) % 16 == 0, "VignetteIndices が 16 バイト行の倍数ではありません");
+
 	/// [EN] Per-view depth-of-field indices/tuning. unorderedAccessViewIndex_/
 	///      shaderResourceViewIndex_ are DepthOfFieldCS.hlsl's native-res
 	///      write target (BokehCS.hlsl read-modify-writes the same UAV, it
@@ -303,18 +504,38 @@ namespace SeedCore
 	{
 		Uint outputUnorderedAccessViewIndex_ = 0;
 		Uint sourceColorIndex_ = 0;
-		Uint postProcessPadding_[2] = { 0, 0 };
+
+		/// [EN] Set when the lens stage (chromatic aberration and/or
+		///      vignette) ran, in which case lensStageShaderResourceViewIndex_
+		///      is the buffer it left the scene in and ToneMappingCS.hlsl must
+		///      read that instead of sourceColorIndex_ or the depth-of-field
+		///      output. Resolved on the CPU in PrepareView so the shader needs
+		///      one branch rather than a chain of them.
+		/// [JP] レンズ段(色収差および/またはビネット)が走った時に立つ。
+		///      その場合 lensStageShaderResourceViewIndex_ がシーンの置かれた
+		///      バッファで、ToneMappingCS.hlsl は sourceColorIndex_ や
+		///      被写界深度の出力ではなくそちらを読まなければならない。
+		///      PrepareView がCPU側で解決するので、シェーダ側の分岐は
+		///      連鎖ではなく1回で済む。
+		Uint lensStageEnabled_ = 0;
+		Uint lensStageShaderResourceViewIndex_ = 0;
 
 		ExposureIndices exposure_;
 		ToneMappingIndices toneMapping_;
 		LensFlareIndices lensFlare_;
 		LensFlareStreakIndices lensFlareStreak_;
 		BloomIndices bloom_;
+		AnamorphicFlareIndices anamorphicFlare_;
+		ColorGradingIndices colorGrading_;
+		LensDistortionIndices lensDistortion_;
+		ChromaticAberrationIndices chromaticAberration_;
+		VignetteIndices vignette_;
 		DepthOfFieldIndices depthOfField_;
 		BokehIndices bokeh_;
 		SharpnessIndices sharpness_;
+		FilmGrainIndices filmGrain_;
 	};
-	static_assert(sizeof(PostProcessIndices) == 416, "PostProcessIndices が Shader/Constants.hlsli と一致していません");
+	static_assert(sizeof(PostProcessIndices) == 784, "PostProcessIndices が Shader/Constants.hlsli と一致していません");
 
 	/// [EN] Per-view ray-traced shadow accumulation indices — see
 	///      Shader/Constants.hlsli for why these are per-view instead of in
@@ -429,7 +650,7 @@ namespace SeedCore
 
 		PostProcessIndices postProcess_;
 	};
-	static_assert(sizeof(ConstantIndices) == 35 * 16, "ConstantIndices が Shader/Constants.hlsli と一致していません");
+	static_assert(sizeof(ConstantIndices) == 58 * 16, "ConstantIndices が Shader/Constants.hlsli と一致していません");
 
 	/// [EN] Mirrors Shader/Structured.hlsli. Each group is a whole number of
 	///      16-byte cbuffer rows with its padding written out explicitly, and

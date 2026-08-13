@@ -145,6 +145,34 @@ namespace SeedCore
 		*/
 		void ApplyScalarField(const FieldInfo& field, void* ptr, const SerializedField& match)
 		{
+			/// [EN] Refuse a saved value whose type no longer matches the
+			///      field's. SerializedField keeps every value kind in its own
+			///      member and records which one was written, so switching on
+			///      the CURRENT type alone reads whichever member happens to
+			///      sit there - which for a field whose type changed is the
+			///      one nothing was ever written to. A Color field later
+			///      redeclared as Float therefore loaded as 0 rather than
+			///      keeping its default, and a 0 landing in something used as
+			///      an exponent (a grading gamma, say) is enough to black out
+			///      the frame. Leaving the field alone lets its default stand,
+			///      which is the only sane answer when the saved data no
+			///      longer describes it.
+			/// [JP] 保存時の型が現在のフィールドの型と一致しない値は適用
+			///      しない。SerializedField は値の種類ごとに別のメンバを
+			///      持ち、どれに書いたかを記録しているので、現在の型だけで
+			///      分岐するとたまたまそこにあるメンバを読むことになる —
+			///      型が変わったフィールドでは、それは【一度も書かれて
+			///      いない】メンバ。Color だったフィールドを後から Float に
+			///      すると既定値を保つのではなく0が入り、その0が指数として
+			///      使われる値(グレーディングのガンマなど)だと画面全体が
+			///      黒くなるには十分だった。触らずに置けば既定値が残る。
+			///      保存データがそのフィールドを説明しなくなった以上、
+			///      それが唯一まともな答え。
+			if (match.type_ != field.type_)
+			{
+				return;
+			}
+
 			switch (field.type_)
 			{
 			case AttributeType::Int:

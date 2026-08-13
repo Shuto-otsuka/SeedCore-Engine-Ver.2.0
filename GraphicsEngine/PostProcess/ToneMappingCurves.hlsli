@@ -1,6 +1,13 @@
 #ifndef __TONE_MAPPING_CURVES_HLSL__
 #define __TONE_MAPPING_CURVES_HLSL__
 
+// Reference (one per curve, each is a port of the source below):
+// - Reinhard et al. 2002, "Photographic Tone Reproduction for Digital Images"
+//   https://www.cs.utah.edu/docs/techreports/2002/pdf/UUCS-02-001.pdf
+// - https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve/
+// - https://github.com/KhronosGroup/ToneMapping/tree/main/PBR_Neutral
+// - https://en.wikipedia.org/wiki/SRGB (piecewise OETF)
+//
 // Standard published tone-mapping curves + the sRGB OETF, shared by
 // ToneMappingCS.hlsl. Every curve here maps [0, inf) -> [0, 1] per channel;
 // the caller is responsible for exposure (multiplying the HDR color before

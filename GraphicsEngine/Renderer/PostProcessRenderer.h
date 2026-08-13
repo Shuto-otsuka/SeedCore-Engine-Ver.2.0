@@ -4,7 +4,13 @@
 #include <GraphicsEngine/PostProcess/PostEffect/AutoExposure.h>
 #include <GraphicsEngine/PostProcess/PostEffect/ToneMapping.h>
 #include <GraphicsEngine/PostProcess/PostEffect/KawaseBloom.h>
+#include <GraphicsEngine/PostProcess/PostEffect/AnamorphicFlare.h>
 #include <GraphicsEngine/PostProcess/PostEffect/LensFlare.h>
+#include <GraphicsEngine/PostProcess/PostEffect/LensDistortion.h>
+#include <GraphicsEngine/PostProcess/PostEffect/ChromaticAberration.h>
+#include <GraphicsEngine/PostProcess/PostEffect/Vignette.h>
+#include <GraphicsEngine/PostProcess/PostEffect/FilmGrain.h>
+#include <GraphicsEngine/PostProcess/PostEffect/ColorGrading.h>
 #include <GraphicsEngine/PostProcess/PostEffect/DepthOfField.h>
 #include <GraphicsEngine/PostProcess/PostEffect/Bokeh.h>
 #include <GraphicsEngine/PostProcess/PostEffect/Sharpness.h>
@@ -398,6 +404,89 @@ namespace SeedCore
 			Uint32 bloomUnorderedAccessViewIndex_[6] = {};
 			Uint32 bloomShaderResourceViewIndex_[6] = {};
 
+			/// [EN] AnamorphicFlareCS.hlsl's ping-pong working buffers, at
+			///      width/8 x height/4 - HALF the width of the other
+			///      quarter-res post-process buffers, so they carry a baked
+			///      2:1 anamorphic squeeze. Compose samples them back with
+			///      normal UVs, which stretches the result 2x horizontally
+			///      and is what turns a round flare into a horizontal
+			///      streak. The squeeze is baked into the dimensions rather
+			///      than exposed as a setting because it is a resource size:
+			///      a runtime slider would mean recreating the view. 2:1 is
+			///      the historical standard anamorphic ratio.
+			/// [JP] AnamorphicFlareCS.hlsl のピンポン作業バッファ、
+			///      width/8 x height/4 — 他の1/4解像度ポストプロセス
+			///      バッファの【半分の幅】で、2:1 のアナモルフィック圧縮を
+			///      焼き込んである。Compose が通常のUVでサンプルして戻すと
+			///      横に2倍引き伸ばされ、これが丸いフレアを横長の筋に
+			///      変える。圧縮率を設定にせず寸法へ焼き込んでいるのは、
+			///      これがリソースの寸法だから — 実行時スライダーにすると
+			///      ビューの作り直しが要る。2:1 は歴史的な標準倍率。
+			Microsoft::WRL::ComPtr<ID3D12Resource> anamorphicFlareResource_[2];
+			D3D12_RESOURCE_STATES anamorphicFlareState_[2] = {};
+			Uint32 anamorphicFlareUnorderedAccessViewIndex_[2] = {};
+			Uint32 anamorphicFlareShaderResourceViewIndex_[2] = {};
+
+			/// [EN] AnamorphicFlareCS.hlsl's Compose target, at the same
+			///      quarter resolution as lensFlareResource_ (NOT squeezed -
+			///      Compose is where the de-squeeze happens). This is what
+			///      ToneMappingCS.hlsl samples and adds into the HDR color.
+			/// [JP] AnamorphicFlareCS.hlsl の Compose の書き込み先。
+			///      lensFlareResource_ と同じ1/4解像度(圧縮【されていない】 —
+			///      圧縮を戻すのが Compose の役目)。ToneMappingCS.hlsl が
+			///      サンプルしてHDRカラーへ加算するのはこれ。
+			Microsoft::WRL::ComPtr<ID3D12Resource> anamorphicFlareOutputResource_;
+			D3D12_RESOURCE_STATES anamorphicFlareOutputState_ = D3D12_RESOURCE_STATE_COMMON;
+			Uint32 anamorphicFlareOutputUnorderedAccessViewIndex_ = 0;
+			Uint32 anamorphicFlareOutputShaderResourceViewIndex_ = 0;
+
+			/// [EN] Ping-pong native-res HDR buffers the lens stage (lens
+			///      distortion, then chromatic aberration, then vignette)
+			///      passes the scene through. Two rather than one because the
+			///      first two RESAMPLE - they read neighbours, so they cannot
+			///      read and write the same texture and have to alternate.
+			///      Vignette can and does write in place at the end, being a
+			///      pure per-pixel multiply with no neighbour taps (the same
+			///      reason BokehCS.hlsl may read-modify-write depth of
+			///      field's buffer). Which effect reads which slot, and which
+			///      slot the scene ends up in, is resolved entirely on the CPU
+			///      in PrepareView; ToneMappingCS.hlsl just reads
+			///      PostProcessIndices::lensStageShaderResourceViewIndex_
+			///      whenever lensStageEnabled_ is set.
+			/// [JP] レンズ段(レンズ歪曲 → 色収差 → ビネットの順)がシーンを
+			///      通していく、ネイティブ解像度のピンポンHDRバッファ。
+			///      1枚でなく2枚なのは、最初の2つが【再サンプル】だから —
+			///      近傍を読むので同じテクスチャを読み書きできず、交互に
+			///      使う必要がある。ビネットは近傍タップの無い画素ごとの
+			///      乗算なので最後にその場で書ける(BokehCS.hlsl が被写界
+			///      深度のバッファを read-modify-write できるのと同じ理由)。
+			///      どのエフェクトがどちらのスロットを読み、最終的に
+			///      シーンがどちらに残るかは、全て PrepareView がCPU側で
+			///      解決する。ToneMappingCS.hlsl は lensStageEnabled_ が
+			///      立っている間 PostProcessIndices::
+			///      lensStageShaderResourceViewIndex_ を読むだけでよい。
+			/// [EN] ColorGradingCS.hlsl's output: the scene composited,
+			///      light-contribution-added, exposed and graded, still
+			///      scene-referred linear because the tone curve has not run
+			///      yet. Always native resolution like the lens stage.
+			///      ToneMappingCS.hlsl reads this and applies only the curve
+			///      whenever colour grading is enabled.
+			/// [JP] ColorGradingCS.hlsl の出力。シーンを合成し、光の加算寄与を
+			///      足し、露出を掛け、グレーディングまで済ませた状態。
+			///      トーンカーブはまだなのでシーン参照リニアのまま。
+			///      レンズ段と同じく常にネイティブ解像度。カラーグレーディングが
+			///      有効な間、ToneMappingCS.hlsl はこれを読んでカーブだけを
+			///      掛ける。
+			Microsoft::WRL::ComPtr<ID3D12Resource> colorGradingResource_;
+			D3D12_RESOURCE_STATES colorGradingState_ = D3D12_RESOURCE_STATE_COMMON;
+			Uint32 colorGradingUnorderedAccessViewIndex_ = 0;
+			Uint32 colorGradingShaderResourceViewIndex_ = 0;
+
+			Microsoft::WRL::ComPtr<ID3D12Resource> lensStageResource_[2];
+			D3D12_RESOURCE_STATES lensStageState_[2] = {};
+			Uint32 lensStageUnorderedAccessViewIndex_[2] = {};
+			Uint32 lensStageShaderResourceViewIndex_[2] = {};
+
 			/// [EN] DepthOfFieldCS.hlsl's output (BokehCS.hlsl read-modify-writes
 			///      the same resource, it has no target of its own), ALWAYS at
 			///      native resolution (width_/height_), even when DLSS-RR is
@@ -468,7 +557,13 @@ namespace SeedCore
 		AutoExposure autoExposureShader_;
 		ToneMapping toneMappingShader_;
 		KawaseBloom bloomShader_;
+		AnamorphicFlare anamorphicFlareShader_;
 		LensFlare lensFlareShader_;
+		LensDistortion lensDistortionShader_;
+		ChromaticAberration chromaticAberrationShader_;
+		Vignette vignetteShader_;
+		FilmGrain filmGrainShader_;
+		ColorGrading colorGradingShader_;
 		DepthOfField depthOfFieldShader_;
 		Bokeh bokehShader_;
 		Sharpness sharpnessShader_;

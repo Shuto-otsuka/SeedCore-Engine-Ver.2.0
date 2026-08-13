@@ -953,6 +953,32 @@
       <FileType>Document</FileType>
     </Text>
   </ItemGroup>
+  <ItemGroup>
+    <Text Include="PostProcess\AnamorphicFlareCS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="PostProcess\ChromaticAberrationCS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="PostProcess\VignetteCS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="PostProcess\FilmGrainCS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="PostProcess\LensDistortionCS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="PostProcess\ColorGradingCS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>

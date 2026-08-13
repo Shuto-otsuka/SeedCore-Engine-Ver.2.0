@@ -10,7 +10,7 @@
 
 namespace SeedCore
 {
-	PostProcessRenderer::PostProcessRenderer(RootSignature& rootSignature, PipelineStateObject& pipelineStateObject) : autoExposureShader_(rootSignature, pipelineStateObject), toneMappingShader_(rootSignature, pipelineStateObject), bloomShader_(rootSignature, pipelineStateObject), lensFlareShader_(rootSignature, pipelineStateObject), depthOfFieldShader_(rootSignature, pipelineStateObject), bokehShader_(rootSignature, pipelineStateObject), sharpnessShader_(rootSignature, pipelineStateObject)
+	PostProcessRenderer::PostProcessRenderer(RootSignature& rootSignature, PipelineStateObject& pipelineStateObject) : autoExposureShader_(rootSignature, pipelineStateObject), toneMappingShader_(rootSignature, pipelineStateObject), bloomShader_(rootSignature, pipelineStateObject), anamorphicFlareShader_(rootSignature, pipelineStateObject), lensFlareShader_(rootSignature, pipelineStateObject), lensDistortionShader_(rootSignature, pipelineStateObject), chromaticAberrationShader_(rootSignature, pipelineStateObject), vignetteShader_(rootSignature, pipelineStateObject), filmGrainShader_(rootSignature, pipelineStateObject), colorGradingShader_(rootSignature, pipelineStateObject), depthOfFieldShader_(rootSignature, pipelineStateObject), bokehShader_(rootSignature, pipelineStateObject), sharpnessShader_(rootSignature, pipelineStateObject)
 	{
 		/// No Code
 	}
@@ -20,7 +20,13 @@ namespace SeedCore
 		autoExposureShader_.Create(shaderCache, device);
 		toneMappingShader_.Create(shaderCache, device);
 		bloomShader_.Create(shaderCache, device);
+		anamorphicFlareShader_.Create(shaderCache, device);
 		lensFlareShader_.Create(shaderCache, device);
+		lensDistortionShader_.Create(shaderCache, device);
+		chromaticAberrationShader_.Create(shaderCache, device);
+		vignetteShader_.Create(shaderCache, device);
+		filmGrainShader_.Create(shaderCache, device);
+		colorGradingShader_.Create(shaderCache, device);
 		depthOfFieldShader_.Create(shaderCache, device);
 		bokehShader_.Create(shaderCache, device);
 		sharpnessShader_.Create(shaderCache, device);
@@ -357,6 +363,88 @@ namespace SeedCore
 			}
 		}
 
+		// ---- アナモルフィックフレア(作業バッファは横1/8・縦1/4 = 2:1圧縮、出力は1/4) ----
+		{
+			D3D12_UNORDERED_ACCESS_VIEW_DESC anamorphicUnorderedAccessViewDesc{};
+			anamorphicUnorderedAccessViewDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+			anamorphicUnorderedAccessViewDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+
+			D3D12_SHADER_RESOURCE_VIEW_DESC anamorphicShaderResourceViewDesc{};
+			anamorphicShaderResourceViewDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+			anamorphicShaderResourceViewDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+			anamorphicShaderResourceViewDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+			anamorphicShaderResourceViewDesc.Texture2D.MipLevels = 1;
+
+			D3D12_RESOURCE_DESC anamorphicDesc{};
+			anamorphicDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+			anamorphicDesc.Width = Max<Uint32>(1, width / 8);
+			anamorphicDesc.Height = Max<Uint32>(1, height / 4);
+			anamorphicDesc.DepthOrArraySize = 1;
+			anamorphicDesc.MipLevels = 1;
+			anamorphicDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+			anamorphicDesc.SampleDesc.Count = 1;
+			anamorphicDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+
+			for (Uint32 slot = 0; slot < 2; slot++)
+			{
+				hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &anamorphicDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&view.anamorphicFlareResource_[slot]));
+				SC_HR_CHECK(hr, "アナモルフィックフレア作業バッファの生成に失敗しました");
+				view.anamorphicFlareState_[slot] = D3D12_RESOURCE_STATE_COMMON;
+
+				view.anamorphicFlareUnorderedAccessViewIndex_[slot] = bindlessHeap->AllocateIndex();
+				device->CreateUnorderedAccessView(view.anamorphicFlareResource_[slot].Get(), nullptr, &anamorphicUnorderedAccessViewDesc, bindlessHeap->CPUHandle(view.anamorphicFlareUnorderedAccessViewIndex_[slot]));
+
+				view.anamorphicFlareShaderResourceViewIndex_[slot] = bindlessHeap->AllocateIndex();
+				device->CreateShaderResourceView(view.anamorphicFlareResource_[slot].Get(), &anamorphicShaderResourceViewDesc, bindlessHeap->CPUHandle(view.anamorphicFlareShaderResourceViewIndex_[slot]));
+			}
+
+			D3D12_RESOURCE_DESC anamorphicOutputDesc = anamorphicDesc;
+			anamorphicOutputDesc.Width = Max<Uint32>(1, width / 4);
+
+			hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &anamorphicOutputDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&view.anamorphicFlareOutputResource_));
+			SC_HR_CHECK(hr, "アナモルフィックフレア出力バッファの生成に失敗しました");
+			view.anamorphicFlareOutputState_ = D3D12_RESOURCE_STATE_COMMON;
+
+			view.anamorphicFlareOutputUnorderedAccessViewIndex_ = bindlessHeap->AllocateIndex();
+			device->CreateUnorderedAccessView(view.anamorphicFlareOutputResource_.Get(), nullptr, &anamorphicUnorderedAccessViewDesc, bindlessHeap->CPUHandle(view.anamorphicFlareOutputUnorderedAccessViewIndex_));
+
+			view.anamorphicFlareOutputShaderResourceViewIndex_ = bindlessHeap->AllocateIndex();
+			device->CreateShaderResourceView(view.anamorphicFlareOutputResource_.Get(), &anamorphicShaderResourceViewDesc, bindlessHeap->CPUHandle(view.anamorphicFlareOutputShaderResourceViewIndex_));
+
+			// ---- カラーグレーディング出力(ネイティブ解像度) ----
+			D3D12_RESOURCE_DESC colorGradingDesc = anamorphicDesc;
+			colorGradingDesc.Width = width;
+			colorGradingDesc.Height = height;
+
+			hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &colorGradingDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&view.colorGradingResource_));
+			SC_HR_CHECK(hr, "カラーグレーディングバッファの生成に失敗しました");
+			view.colorGradingState_ = D3D12_RESOURCE_STATE_COMMON;
+
+			view.colorGradingUnorderedAccessViewIndex_ = bindlessHeap->AllocateIndex();
+			device->CreateUnorderedAccessView(view.colorGradingResource_.Get(), nullptr, &anamorphicUnorderedAccessViewDesc, bindlessHeap->CPUHandle(view.colorGradingUnorderedAccessViewIndex_));
+
+			view.colorGradingShaderResourceViewIndex_ = bindlessHeap->AllocateIndex();
+			device->CreateShaderResourceView(view.colorGradingResource_.Get(), &anamorphicShaderResourceViewDesc, bindlessHeap->CPUHandle(view.colorGradingShaderResourceViewIndex_));
+
+			// ---- レンズ段(歪曲→色収差→ビネット)のピンポンバッファ(ネイティブ解像度) ----
+			D3D12_RESOURCE_DESC lensStageDesc = anamorphicDesc;
+			lensStageDesc.Width = width;
+			lensStageDesc.Height = height;
+
+			for (Uint32 slot = 0; slot < 2; slot++)
+			{
+				hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &lensStageDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&view.lensStageResource_[slot]));
+				SC_HR_CHECK(hr, "レンズ段バッファの生成に失敗しました");
+				view.lensStageState_[slot] = D3D12_RESOURCE_STATE_COMMON;
+
+				view.lensStageUnorderedAccessViewIndex_[slot] = bindlessHeap->AllocateIndex();
+				device->CreateUnorderedAccessView(view.lensStageResource_[slot].Get(), nullptr, &anamorphicUnorderedAccessViewDesc, bindlessHeap->CPUHandle(view.lensStageUnorderedAccessViewIndex_[slot]));
+
+				view.lensStageShaderResourceViewIndex_[slot] = bindlessHeap->AllocateIndex();
+				device->CreateShaderResourceView(view.lensStageResource_[slot].Get(), &anamorphicShaderResourceViewDesc, bindlessHeap->CPUHandle(view.lensStageShaderResourceViewIndex_[slot]));
+			}
+		}
+
 		// ---- 被写界深度/ボケ出力(ネイティブ解像度) ----
 		{
 			D3D12_RESOURCE_DESC depthOfFieldDesc{};
@@ -426,6 +514,28 @@ namespace SeedCore
 			bindlessHeap->FreeIndex(view.bloomShaderResourceViewIndex_[level]);
 			view.bloomResource_[level].Reset();
 		}
+
+		for (Uint32 slot = 0; slot < 2; slot++)
+		{
+			bindlessHeap->FreeIndex(view.anamorphicFlareUnorderedAccessViewIndex_[slot]);
+			bindlessHeap->FreeIndex(view.anamorphicFlareShaderResourceViewIndex_[slot]);
+			view.anamorphicFlareResource_[slot].Reset();
+		}
+
+		bindlessHeap->FreeIndex(view.anamorphicFlareOutputUnorderedAccessViewIndex_);
+		bindlessHeap->FreeIndex(view.anamorphicFlareOutputShaderResourceViewIndex_);
+		view.anamorphicFlareOutputResource_.Reset();
+
+		for (Uint32 slot = 0; slot < 2; slot++)
+		{
+			bindlessHeap->FreeIndex(view.lensStageUnorderedAccessViewIndex_[slot]);
+			bindlessHeap->FreeIndex(view.lensStageShaderResourceViewIndex_[slot]);
+			view.lensStageResource_[slot].Reset();
+		}
+
+		bindlessHeap->FreeIndex(view.colorGradingUnorderedAccessViewIndex_);
+		bindlessHeap->FreeIndex(view.colorGradingShaderResourceViewIndex_);
+		view.colorGradingResource_.Reset();
 
 		view.outputResource_.Reset();
 		view.outputResourceUpscaled_.Reset();
@@ -576,6 +686,130 @@ namespace SeedCore
 		values.bloom_.intensity_ = settings.bloom_.intensity_;
 		values.bloom_.filterRadius_ = settings.bloom_.filterRadius_;
 
+		values.anamorphicFlare_.enabled_ = settings.anamorphicFlare_.enabled_ ? 1 : 0;
+		values.anamorphicFlare_.outputUnorderedAccessViewIndex_ = target.anamorphicFlareOutputUnorderedAccessViewIndex_;
+		values.anamorphicFlare_.outputShaderResourceViewIndex_ = target.anamorphicFlareOutputShaderResourceViewIndex_;
+		values.anamorphicFlare_.threshold_ = settings.anamorphicFlare_.threshold_;
+		values.anamorphicFlare_.pingUnorderedAccessViewIndex_ = target.anamorphicFlareUnorderedAccessViewIndex_[0];
+		values.anamorphicFlare_.pingShaderResourceViewIndex_ = target.anamorphicFlareShaderResourceViewIndex_[0];
+		values.anamorphicFlare_.pongUnorderedAccessViewIndex_ = target.anamorphicFlareUnorderedAccessViewIndex_[1];
+		values.anamorphicFlare_.pongShaderResourceViewIndex_ = target.anamorphicFlareShaderResourceViewIndex_[1];
+		values.anamorphicFlare_.intensity_ = settings.anamorphicFlare_.intensity_;
+		values.anamorphicFlare_.streakLength_ = settings.anamorphicFlare_.streakLength_;
+		values.anamorphicFlare_.attenuation_ = settings.anamorphicFlare_.attenuation_;
+		values.anamorphicFlare_.tint_[0] = settings.anamorphicFlare_.tint_.r;
+		values.anamorphicFlare_.tint_[1] = settings.anamorphicFlare_.tint_.g;
+		values.anamorphicFlare_.tint_[2] = settings.anamorphicFlare_.tint_.b;
+		values.anamorphicFlare_.tint_[3] = settings.anamorphicFlare_.tint_.a;
+
+		/// [JP] レンズ段(歪曲 → 色収差 → ビネット)のソース連鎖をここで
+		///      解決する。有効なエフェクトだけを順に繋ぐので、「誰が誰の
+		///      出力を読むか」は組み合わせ次第で変わる — それを全てCPU側で
+		///      決めてしまい、シェーダ側には分岐の連鎖を持ち込まない。
+		///
+		///      歪曲と色収差は再サンプル(近傍を読む)なので、同じテクスチャを
+		///      読み書きできず2枚のスロットを交互に使う。ビネットは近傍を
+		///      読まない画素ごとの乗算なので、最後にその場で書ける。
+		Uint32 currentSourceIndex = settings.depthOfField_.enabled_ ? target.depthOfFieldShaderResourceViewIndex_ : sourceColorIndex;
+		Uint32 writeSlot = 0;
+		Bool insideLensStage = false;
+
+		values.lensDistortion_.enabled_ = settings.lensDistortion_.enabled_ ? 1 : 0;
+		values.lensDistortion_.sourceShaderResourceViewIndex_ = currentSourceIndex;
+		values.lensDistortion_.destinationUnorderedAccessViewIndex_ = target.lensStageUnorderedAccessViewIndex_[writeSlot];
+		values.lensDistortion_.k1_ = settings.lensDistortion_.k1_;
+		values.lensDistortion_.k2_ = settings.lensDistortion_.k2_;
+		values.lensDistortion_.k3_ = settings.lensDistortion_.k3_;
+		values.lensDistortion_.scale_ = settings.lensDistortion_.scale_;
+
+		if (settings.lensDistortion_.enabled_)
+		{
+			currentSourceIndex = target.lensStageShaderResourceViewIndex_[writeSlot];
+			writeSlot = 1 - writeSlot;
+			insideLensStage = true;
+		}
+
+		values.chromaticAberration_.enabled_ = settings.chromaticAberration_.enabled_ ? 1 : 0;
+		values.chromaticAberration_.sourceShaderResourceViewIndex_ = currentSourceIndex;
+		values.chromaticAberration_.destinationUnorderedAccessViewIndex_ = target.lensStageUnorderedAccessViewIndex_[writeSlot];
+		values.chromaticAberration_.intensity_ = settings.chromaticAberration_.intensity_;
+		values.chromaticAberration_.sampleCount_ = settings.chromaticAberration_.sampleCount_;
+
+		if (settings.chromaticAberration_.enabled_)
+		{
+			currentSourceIndex = target.lensStageShaderResourceViewIndex_[writeSlot];
+			writeSlot = 1 - writeSlot;
+			insideLensStage = true;
+		}
+
+		/// [JP] ビネットは、前段が既にレンズ段のスロットへ書いていれば
+		///      そこをその場で読み書きする(writeSlot は次の空きなので、
+		///      直前に書かれたのは 1 - writeSlot 側)。前段が何も走って
+		///      いなければ、シーンを読んでスロット0へ書く。
+		Uint32 vignetteSlot = insideLensStage ? (1 - writeSlot) : writeSlot;
+
+		values.vignette_.enabled_ = settings.vignette_.enabled_ ? 1 : 0;
+		values.vignette_.sourceShaderResourceViewIndex_ = currentSourceIndex;
+		values.vignette_.destinationUnorderedAccessViewIndex_ = target.lensStageUnorderedAccessViewIndex_[vignetteSlot];
+		values.vignette_.intensity_ = settings.vignette_.intensity_;
+		values.vignette_.exponent_ = settings.vignette_.exponent_;
+		values.vignette_.color_[0] = settings.vignette_.color_.r;
+		values.vignette_.color_[1] = settings.vignette_.color_.g;
+		values.vignette_.color_[2] = settings.vignette_.color_.b;
+		values.vignette_.color_[3] = settings.vignette_.color_.a;
+
+		if (settings.vignette_.enabled_)
+		{
+			currentSourceIndex = target.lensStageShaderResourceViewIndex_[vignetteSlot];
+			insideLensStage = true;
+		}
+
+		values.lensStageEnabled_ = insideLensStage ? 1 : 0;
+		values.lensStageShaderResourceViewIndex_ = currentSourceIndex;
+
+		/// [JP] カラーグレーディングはレンズ段の後に走り、シーンの合成・
+		///      光の加算寄与・露出まで自前で行う(グレーディングが
+		///      「露出の後・トーンカーブの前」に居なければならないため)。
+		///      入力の選択はシェーダ側が lensStageEnabled_ を見て行うので、
+		///      ここで渡すのは書き込み先と ToneMappingCS が読むSRVだけでよい。
+		/// [JP] PSO の有無まで見てから enabled_ を立てる。他のエフェクトは
+		///      「バッファへ加算する」ので、ディスパッチが飛んでも古い/空の
+		///      バッファを足すだけで済むが、こちらは【シーンそのものを
+		///      置き換える】ため、ディスパッチが飛んだのに ToneMappingCS が
+		///      読みに行くと、一度も書かれていないバッファ = 黒を全画面に
+		///      表示してしまう。ディスパッチ側の条件と必ず一致させること。
+		Bool colorGradingReady = settings.colorGrading_.enabled_ && colorGradingShader_.GetPipelineState() != nullptr;
+
+		values.colorGrading_.enabled_ = colorGradingReady ? 1 : 0;
+		values.colorGrading_.sourceShaderResourceViewIndex_ = currentSourceIndex;
+		values.colorGrading_.destinationUnorderedAccessViewIndex_ = target.colorGradingUnorderedAccessViewIndex_;
+		values.colorGrading_.outputShaderResourceViewIndex_ = target.colorGradingShaderResourceViewIndex_;
+		values.colorGrading_.shadowsMax_ = settings.colorGrading_.shadowsMax_;
+		values.colorGrading_.highlightsMin_ = settings.colorGrading_.highlightsMin_;
+
+		const ColorGradingRangeSettings* gradingRanges[4] = { &settings.colorGrading_.global_, &settings.colorGrading_.shadows_, &settings.colorGrading_.midtones_, &settings.colorGrading_.highlights_ };
+		ColorGradingRangeIndices* gradingTargets[4] = { &values.colorGrading_.global_, &values.colorGrading_.shadows_, &values.colorGrading_.midtones_, &values.colorGrading_.highlights_ };
+
+		for (Uint32 rangeIndex = 0; rangeIndex < 4; rangeIndex++)
+		{
+			const ColorGradingRangeSettings& range = *gradingRanges[rangeIndex];
+			ColorGradingRangeIndices& destination = *gradingTargets[rangeIndex];
+
+			destination.temperature_ = range.temperature_;
+			destination.saturation_ = range.saturation_;
+			destination.contrast_ = range.contrast_;
+			destination.gamma_ = range.gamma_;
+			destination.gain_ = range.gain_;
+			destination.offset_ = range.offset_;
+		}
+
+		values.filmGrain_.enabled_ = settings.filmGrain_.enabled_ ? 1 : 0;
+		values.filmGrain_.destinationUnorderedAccessViewIndex_ = useUpscaledOutput ? target.sharpenUnorderedAccessViewIndexUpscaled_ : target.sharpenUnorderedAccessViewIndex_;
+		values.filmGrain_.colored_ = settings.filmGrain_.colored_ ? 1 : 0;
+		values.filmGrain_.intensity_ = settings.filmGrain_.intensity_;
+		values.filmGrain_.size_ = settings.filmGrain_.size_;
+		values.filmGrain_.luminanceResponse_ = settings.filmGrain_.luminanceResponse_;
+
 		values.depthOfField_.enabled_ = settings.depthOfField_.enabled_ ? 1 : 0;
 		values.depthOfField_.unorderedAccessViewIndex_ = target.depthOfFieldUnorderedAccessViewIndex_;
 		values.depthOfField_.shaderResourceViewIndex_ = target.depthOfFieldShaderResourceViewIndex_;
@@ -608,6 +842,12 @@ namespace SeedCore
 		const PostProcess& settings = ResolveSettings();
 		Bool autoExposureEnabled = settings.exposure_.enabled_;
 		Bool bloomEnabled = settings.bloom_.enabled_;
+		Bool anamorphicFlareEnabled = settings.anamorphicFlare_.enabled_;
+		Bool lensDistortionEnabled = settings.lensDistortion_.enabled_;
+		Bool chromaticAberrationEnabled = settings.chromaticAberration_.enabled_;
+		Bool vignetteEnabled = settings.vignette_.enabled_;
+		Bool filmGrainEnabled = settings.filmGrain_.enabled_;
+		Bool colorGradingEnabled = settings.colorGrading_.enabled_;
 		Bool lensFlareEnabled = settings.lensFlare_.enabled_;
 		Bool depthOfFieldEnabled = settings.depthOfField_.enabled_;
 		Bool bokehEnabled = settings.depthOfField_.enabled_ && settings.bokeh_.enabled_;
@@ -666,6 +906,15 @@ namespace SeedCore
 			bloomUpsamplePipelineState[levelIndex] = bloomShader_.GetUpsamplePipelineState(levelIndex);
 			bloomChainPipelineStateMissing = bloomChainPipelineStateMissing || !bloomDownsamplePipelineState[levelIndex] || !bloomUpsamplePipelineState[levelIndex];
 		}
+		ID3D12PipelineState* anamorphicPrefilterPipelineState = anamorphicFlareShader_.GetPrefilterPipelineState();
+		ID3D12PipelineState* anamorphicComposePipelineState = anamorphicFlareShader_.GetComposePipelineState();
+		ID3D12PipelineState* anamorphicBlurPipelineState[4];
+		Bool anamorphicBlurPipelineStateMissing = false;
+		for (Uint32 pass = 0; pass < 4; pass++)
+		{
+			anamorphicBlurPipelineState[pass] = anamorphicFlareShader_.GetBlurPipelineState(pass);
+			anamorphicBlurPipelineStateMissing = anamorphicBlurPipelineStateMissing || !anamorphicBlurPipelineState[pass];
+		}
 		ID3D12PipelineState* lensFlareDownsamplePipelineState = lensFlareShader_.GetDownsamplePipelineState();
 		ID3D12PipelineState* lensFlareBlurPipelineState[4];
 		Bool lensFlareBlurPipelineStateMissing = false;
@@ -676,11 +925,16 @@ namespace SeedCore
 		}
 		ID3D12PipelineState* lensFlareComposePipelineState = lensFlareShader_.GetComposePipelineState();
 		ID3D12PipelineState* lensFlareGhostPipelineState = lensFlareShader_.GetGhostPipelineState();
+		ID3D12PipelineState* lensDistortionPipelineState = lensDistortionShader_.GetPipelineState();
+		ID3D12PipelineState* chromaticAberrationPipelineState = chromaticAberrationShader_.GetPipelineState();
+		ID3D12PipelineState* vignettePipelineState = vignetteShader_.GetPipelineState();
+		ID3D12PipelineState* filmGrainPipelineState = filmGrainShader_.GetPipelineState();
+		ID3D12PipelineState* colorGradingPipelineState = colorGradingShader_.GetPipelineState();
 		ID3D12PipelineState* depthOfFieldPipelineState = depthOfFieldShader_.GetPipelineState();
 		ID3D12PipelineState* bokehPipelineState = bokehShader_.GetPipelineState();
 		ID3D12PipelineState* sharpnessPipelineState = sharpnessShader_.GetPipelineState();
 
-		if ((!toneMappingPipelineState || !histogramPipelineState || !averagePipelineState || !bloomPrefilterPipelineState || bloomChainPipelineStateMissing || !lensFlareDownsamplePipelineState || lensFlareBlurPipelineStateMissing || !lensFlareComposePipelineState || !lensFlareGhostPipelineState || !depthOfFieldPipelineState || !bokehPipelineState || !sharpnessPipelineState) && !pipelineStateMissingLogged_)
+		if ((!toneMappingPipelineState || !histogramPipelineState || !averagePipelineState || !bloomPrefilterPipelineState || bloomChainPipelineStateMissing || !anamorphicPrefilterPipelineState || !anamorphicComposePipelineState || anamorphicBlurPipelineStateMissing || !lensFlareDownsamplePipelineState || lensFlareBlurPipelineStateMissing || !lensFlareComposePipelineState || !lensFlareGhostPipelineState || !lensDistortionPipelineState || !chromaticAberrationPipelineState || !vignettePipelineState || !filmGrainPipelineState || !colorGradingPipelineState || !depthOfFieldPipelineState || !bokehPipelineState || !sharpnessPipelineState) && !pipelineStateMissingLogged_)
 		{
 			SC_LOG_WARNING("PostProcess のコンピュート PSO 作成に失敗しています。エディタ/ゲームビューは表示できません。");
 			pipelineStateMissingLogged_ = true;
@@ -746,6 +1000,82 @@ namespace SeedCore
 			target.depthOfFieldState_ = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
 		}
 
+		/// [JP] レンズ段(色収差 → ビネット)。どちらも「センサーへ何が届くか」
+		///      を記述するものなので、露出とトーンカーブより前に走る。
+		///      両者は共有の lensStageResource_ で連鎖し、誰が誰の出力を読むかは
+		///      PrepareView がCPU側で解決済み。ビネットが色収差の出力を読む場合
+		///      読み書き先が同じになるが、ビネットは近傍を読まない画素ごとの
+		///      乗算なので安全 — その順序保証のためだけにUAVバリアを挟む。
+		if ((lensDistortionEnabled || chromaticAberrationEnabled || vignetteEnabled) && lensDistortionPipelineState && chromaticAberrationPipelineState && vignettePipelineState)
+		{
+			Uint32 lensStageWriteSlot = 0;
+			Bool lensStageWrote = false;
+
+			for (Uint32 slot = 0; slot < 2; slot++)
+			{
+				if (target.lensStageState_[slot] != D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
+				{
+					cmdList->Barrier(target.lensStageResource_[slot].Get(), target.lensStageState_[slot], D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+					target.lensStageState_[slot] = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+				}
+			}
+
+			/// [JP] 各段の書き込み先スロットは PrepareView が決めた順序と
+			///      一致していなければならない — 有効な再サンプル段が
+			///      1つ走るごとにスロットが入れ替わる。書き終えたスロットは
+			///      次段が読めるよう NON_PIXEL_SHADER_RESOURCE へ遷移する。
+			if (lensDistortionEnabled)
+			{
+				cmd->SetComputeRootSignature(lensDistortionShader_.GetRootSignature());
+				cmd->SetPipelineState(lensDistortionPipelineState);
+				cmd->Dispatch((width_ + 7) / 8, (height_ + 7) / 8, 1);
+				ProfilerStats::AddDrawCall();
+
+				cmdList->Barrier(target.lensStageResource_[lensStageWriteSlot].Get(), target.lensStageState_[lensStageWriteSlot], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+				target.lensStageState_[lensStageWriteSlot] = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+
+				lensStageWriteSlot = 1 - lensStageWriteSlot;
+				lensStageWrote = true;
+			}
+
+			if (chromaticAberrationEnabled)
+			{
+				cmd->SetComputeRootSignature(chromaticAberrationShader_.GetRootSignature());
+				cmd->SetPipelineState(chromaticAberrationPipelineState);
+				cmd->Dispatch((width_ + 7) / 8, (height_ + 7) / 8, 1);
+				ProfilerStats::AddDrawCall();
+
+				cmdList->Barrier(target.lensStageResource_[lensStageWriteSlot].Get(), target.lensStageState_[lensStageWriteSlot], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+				target.lensStageState_[lensStageWriteSlot] = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+
+				lensStageWriteSlot = 1 - lensStageWriteSlot;
+				lensStageWrote = true;
+			}
+
+			if (vignetteEnabled)
+			{
+				/// [JP] ビネットは直前の段が書いたスロットをその場で
+				///      read-modify-write する(前段が無ければスロット0へ
+				///      新規に書く)。読み書きするので UNORDERED_ACCESS へ
+				///      戻し、SRVとして読まれる前に順序を保証する。
+				Uint32 vignetteSlot = lensStageWrote ? (1 - lensStageWriteSlot) : lensStageWriteSlot;
+
+				if (target.lensStageState_[vignetteSlot] != D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
+				{
+					cmdList->Barrier(target.lensStageResource_[vignetteSlot].Get(), target.lensStageState_[vignetteSlot], D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+					target.lensStageState_[vignetteSlot] = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+				}
+
+				cmd->SetComputeRootSignature(vignetteShader_.GetRootSignature());
+				cmd->SetPipelineState(vignettePipelineState);
+				cmd->Dispatch((width_ + 7) / 8, (height_ + 7) / 8, 1);
+				ProfilerStats::AddDrawCall();
+
+				cmdList->Barrier(target.lensStageResource_[vignetteSlot].Get(), target.lensStageState_[vignetteSlot], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+				target.lensStageState_[vignetteSlot] = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+			}
+		}
+
 		/// [JP] ブルームチェーン。レベル0(ネイティブの1/2)へプリフィルタで
 		///      落としてから、レベル5まで段階的にダウンサンプルし、そこから
 		///      レベル0まで加算で戻る。アップサンプルは書き込み先を
@@ -806,6 +1136,67 @@ namespace SeedCore
 
 			cmdList->Barrier(target.bloomResource_[0].Get(), target.bloomState_[0], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 			target.bloomState_[0] = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+		}
+
+		/// [JP] アナモルフィックフレア。作業バッファは横1/8・縦1/4で 2:1 に
+		///      圧縮されており、Prefilter → 横方向Kawase×4 をその中で行う。
+		///      最後の Compose が通常UVでサンプルして戻すことで横2倍に
+		///      引き伸ばされ、丸いフレアが横長の筋になる。
+		///      パス4は pong を読んで ping へ書くので、Compose は ping を読む。
+		if (anamorphicFlareEnabled && anamorphicPrefilterPipelineState && !anamorphicBlurPipelineStateMissing && anamorphicComposePipelineState)
+		{
+			Uint32 anamorphicDispatchWidth = Max<Uint32>(1, width_ / 8);
+			Uint32 anamorphicDispatchHeight = Max<Uint32>(1, height_ / 4);
+
+			cmd->SetComputeRootSignature(anamorphicFlareShader_.GetRootSignature());
+
+			for (Uint32 slot = 0; slot < 2; slot++)
+			{
+				if (target.anamorphicFlareState_[slot] != D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
+				{
+					cmdList->Barrier(target.anamorphicFlareResource_[slot].Get(), target.anamorphicFlareState_[slot], D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+					target.anamorphicFlareState_[slot] = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+				}
+			}
+
+			cmd->SetPipelineState(anamorphicPrefilterPipelineState);
+			cmd->Dispatch((anamorphicDispatchWidth + 7) / 8, (anamorphicDispatchHeight + 7) / 8, 1);
+			ProfilerStats::AddDrawCall();
+
+			for (Uint32 pass = 0; pass < 4; pass++)
+			{
+				Uint32 readSlot = (pass % 2 == 0) ? 0 : 1;
+				Uint32 writeSlot = 1 - readSlot;
+
+				cmdList->Barrier(target.anamorphicFlareResource_[readSlot].Get(), target.anamorphicFlareState_[readSlot], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+				target.anamorphicFlareState_[readSlot] = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+
+				if (target.anamorphicFlareState_[writeSlot] != D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
+				{
+					cmdList->Barrier(target.anamorphicFlareResource_[writeSlot].Get(), target.anamorphicFlareState_[writeSlot], D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+					target.anamorphicFlareState_[writeSlot] = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+				}
+
+				cmd->SetPipelineState(anamorphicBlurPipelineState[pass]);
+				cmd->Dispatch((anamorphicDispatchWidth + 7) / 8, (anamorphicDispatchHeight + 7) / 8, 1);
+				ProfilerStats::AddDrawCall();
+			}
+
+			cmdList->Barrier(target.anamorphicFlareResource_[0].Get(), target.anamorphicFlareState_[0], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+			target.anamorphicFlareState_[0] = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+
+			if (target.anamorphicFlareOutputState_ != D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
+			{
+				cmdList->Barrier(target.anamorphicFlareOutputResource_.Get(), target.anamorphicFlareOutputState_, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+				target.anamorphicFlareOutputState_ = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+			}
+
+			cmd->SetPipelineState(anamorphicComposePipelineState);
+			cmd->Dispatch((Max<Uint32>(1, width_ / 4) + 7) / 8, (Max<Uint32>(1, height_ / 4) + 7) / 8, 1);
+			ProfilerStats::AddDrawCall();
+
+			cmdList->Barrier(target.anamorphicFlareOutputResource_.Get(), target.anamorphicFlareOutputState_, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+			target.anamorphicFlareOutputState_ = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
 		}
 
 		/// [JP] ToneMappingCS.hlsl より前に走らせる — そちらがこのバッファを
@@ -881,6 +1272,28 @@ namespace SeedCore
 			target.lensFlareState_ = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
 		}
 
+		/// [JP] カラーグレーディングはトーンマップの直前。シーンの合成・
+		///      光の加算寄与・露出まで自前で行ってからグレーディングし、
+		///      ToneMappingCS.hlsl はその結果を読んでカーブだけを掛ける。
+		///      この分担は 0.18 のコントラスト軸が「露出の後・カーブの前」を
+		///      強制するため(ColorGradingCS.hlsl のコメント参照)。
+		if (colorGradingEnabled && colorGradingPipelineState)
+		{
+			if (target.colorGradingState_ != D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
+			{
+				cmdList->Barrier(target.colorGradingResource_.Get(), target.colorGradingState_, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+				target.colorGradingState_ = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+			}
+
+			cmd->SetComputeRootSignature(colorGradingShader_.GetRootSignature());
+			cmd->SetPipelineState(colorGradingPipelineState);
+			cmd->Dispatch((dispatchWidth + 7) / 8, (dispatchHeight + 7) / 8, 1);
+			ProfilerStats::AddDrawCall();
+
+			cmdList->Barrier(target.colorGradingResource_.Get(), target.colorGradingState_, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+			target.colorGradingState_ = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+		}
+
 		if (toneMappingPipelineState)
 		{
 			cmd->SetComputeRootSignature(toneMappingShader_.GetRootSignature());
@@ -902,6 +1315,22 @@ namespace SeedCore
 		{
 			cmd->SetComputeRootSignature(sharpnessShader_.GetRootSignature());
 			cmd->SetPipelineState(sharpnessPipelineState);
+			cmd->Dispatch((dispatchWidth + 7) / 8, (dispatchHeight + 7) / 8, 1);
+			ProfilerStats::AddDrawCall();
+		}
+
+		/// [JP] フィルムグレインは最後。シャープパスの出力をその場で
+		///      read-modify-write する — 近傍を読まない画素ごとの処理なので
+		///      安全で、かつシャープをグレインの【後】に掛けると粒が
+		///      増幅されて這い回るスペックルになるため、この順序でなければ
+		///      ならない。直前のシャープの書き込みとの順序保証にUAVバリアを
+		///      挟む。
+		if (filmGrainEnabled && filmGrainPipelineState)
+		{
+			UnorderedAccessBarrier(cmdList, sharpenResource.Get());
+
+			cmd->SetComputeRootSignature(filmGrainShader_.GetRootSignature());
+			cmd->SetPipelineState(filmGrainPipelineState);
 			cmd->Dispatch((dispatchWidth + 7) / 8, (dispatchHeight + 7) / 8, 1);
 			ProfilerStats::AddDrawCall();
 		}

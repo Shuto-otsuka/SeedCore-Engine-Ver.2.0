@@ -47,61 +47,83 @@ void main(uint3 dtid : SV_DispatchThreadID)
 		return;
 	}
 
-	// [JP] source_color_index_ は常に output と同じ解像度(DLSS-RR有効時は
-	//      アップスケール後、無効時はネイティブ)を指すのでLoadで直接読める。
-	//      一方 DepthOfFieldCS.hlsl(+BokehCS.hlsl)の出力バッファは常に
-	//      ネイティブ解像度専用(PostProcessRenderer::View::depthOfFieldResource_
-	//      のコメント参照) — DLSS-RR有効時は output の方がアップスケール後に
-	//      なり解像度が食い違うため、Loadでピクセル座標のままアクセスすると
-	//      ネイティブ解像度ぶんの領域しか埋まらず残りが黒くなる
-	//      (「FrameBufferが1/8サイズになる」不具合の原因だった)。UV経由の
-	//      SampleLevelなら解像度の違いを自動で吸収できるので、こちらだけ
-	//      LensFlareCS.hlslの出力と同じUVサンプル方式にする。
-	float3 hdr_color;
-	if (constant_indices.post_process_.depth_of_field_.enabled_ != 0)
+	float2 uv = (float2(dtid.xy) + 0.5) / float2(width, height);
+
+	// [JP] カラーグレーディングが有効なときは、シーンの合成・光の加算寄与・
+	//      露出まで ColorGradingCS.hlsl が済ませてグレーディング済みの
+	//      バッファへ書いている。グレーディングは 0.18 のコントラスト軸の
+	//      都合で「露出の後・トーンカーブの前」に居なければならず、その位置に
+	//      居る以上そこまでの工程も持つことになるため。ここはそれを読んで
+	//      カーブだけを掛ける。無効なときは従来どおりここで全部やる。
+	//
+	//      同じ工程が ColorGradingCS.hlsl 側にも書かれているが、共有の
+	//      インクルードには切り出していない — 表示パスは最後の砦なので、
+	//      他のファイルの都合でここが道連れにコンパイル不能になる依存を
+	//      増やしたくない。
+	float3 color;
+	if (constant_indices.post_process_.color_grading_.enabled_ != 0)
 	{
-		Texture2D<float4> depth_of_field_source = ResourceDescriptorHeap[constant_indices.post_process_.depth_of_field_.shader_resource_view_index_];
-		float2 source_uv = (float2(dtid.xy) + 0.5) / float2(width, height);
-		hdr_color = depth_of_field_source.SampleLevel(sampler_linear_clamp, source_uv, 0).rgb;
+		Texture2D<float4> graded_source = ResourceDescriptorHeap[constant_indices.post_process_.color_grading_.output_srv_index_];
+		color = graded_source.SampleLevel(sampler_linear_clamp, uv, 0).rgb;
 	}
 	else
 	{
-		Texture2D<float4> source = ResourceDescriptorHeap[constant_indices.post_process_.source_color_index_];
-		hdr_color = source.Load(int3(dtid.xy, 0)).rgb;
-	}
+		// [JP] レンズ段(歪曲/色収差/ビネット)が走った場合、シーンはその共有
+		//      バッファに置かれているので最優先で読む。分岐の連鎖は
+		//      PrepareView がCPU側で解決済みなので、ここは1回の判定で済む。
+		//      レンズ段と被写界深度のバッファは常にネイティブ解像度なので、
+		//      DLSS-RR有効時に output と食い違う。Load ではなく UV 経由の
+		//      SampleLevel で読むのはそのため。
+		float3 hdr_color;
+		if (constant_indices.post_process_.lens_stage_enabled_ != 0)
+		{
+			Texture2D<float4> lens_stage_source = ResourceDescriptorHeap[constant_indices.post_process_.lens_stage_srv_index_];
+			hdr_color = lens_stage_source.SampleLevel(sampler_linear_clamp, uv, 0).rgb;
+		}
+		else if (constant_indices.post_process_.depth_of_field_.enabled_ != 0)
+		{
+			Texture2D<float4> depth_of_field_source = ResourceDescriptorHeap[constant_indices.post_process_.depth_of_field_.shader_resource_view_index_];
+			hdr_color = depth_of_field_source.SampleLevel(sampler_linear_clamp, uv, 0).rgb;
+		}
+		else
+		{
+			Texture2D<float4> source = ResourceDescriptorHeap[constant_indices.post_process_.source_color_index_];
+			hdr_color = source.Load(int3(dtid.xy, 0)).rgb;
+		}
 
-	// [JP] LensFlareCS.hlsl が1/4解像度で書いた加算フレアを、露出適用前の
-	//      HDRカラーへバイリニアで足し込む(フレアも「露出される光」として
-	//      扱う)。enabled_ が立っていない間はテクスチャに古いデータが
-	//      残っている可能性があるため、サンプルごと丸ごとスキップする。
-	if (constant_indices.post_process_.lens_flare_.enabled_ != 0)
-	{
-		Texture2D<float4> lens_flare = ResourceDescriptorHeap[constant_indices.post_process_.lens_flare_.shader_resource_view_index_];
-		float2 uv = (float2(dtid.xy) + 0.5) / float2(width, height);
-		hdr_color += lens_flare.SampleLevel(sampler_linear_clamp, uv, 0).rgb;
-	}
+		// [JP] 光を「足す」エフェクト群。いずれも露出より前に加算する —
+		//      これらは光であり、光は露出されるものだから。無効な間は
+		//      バッファに前回有効だった時のデータが残っているので、
+		//      サンプルごと丸ごとスキップする。
+		if (constant_indices.post_process_.lens_flare_.enabled_ != 0)
+		{
+			Texture2D<float4> lens_flare = ResourceDescriptorHeap[constant_indices.post_process_.lens_flare_.shader_resource_view_index_];
+			hdr_color += lens_flare.SampleLevel(sampler_linear_clamp, uv, 0).rgb;
+		}
 
-	// [JP] KawaseBloomCS.hlsl のチェーンの最終結果(レベル0、ネイティブの1/2解像度)を
-	//      同じく露出適用前のHDRカラーへ加算する — ブルームも「露出される光」。
-	//      lerp ではなく加算なのは、プリフィルタが閾値でシーンのエネルギーの
-	//      一部しか拾っていないため。lerp にするとシーン全体が暗くなる。
-	//      レンズフレアと同じく、enabled_ が落ちている間は前回有効だった時の
-	//      古いデータを読まないようサンプルごとスキップする。
-	if (constant_indices.post_process_.bloom_.enabled_ != 0)
-	{
-		Texture2D<float4> bloom = ResourceDescriptorHeap[constant_indices.post_process_.bloom_.level0_srv_index_];
-		float2 uv = (float2(dtid.xy) + 0.5) / float2(width, height);
-		hdr_color += bloom.SampleLevel(sampler_linear_clamp, uv, 0).rgb * constant_indices.post_process_.bloom_.intensity_;
-	}
+		if (constant_indices.post_process_.bloom_.enabled_ != 0)
+		{
+			Texture2D<float4> bloom = ResourceDescriptorHeap[constant_indices.post_process_.bloom_.level0_srv_index_];
+			hdr_color += bloom.SampleLevel(sampler_linear_clamp, uv, 0).rgb * constant_indices.post_process_.bloom_.intensity_;
+		}
 
-	float exposure_ev = constant_indices.post_process_.exposure_.exposure_compensation_;
-	if (constant_indices.post_process_.exposure_.auto_exposure_enabled_ != 0)
-	{
-		RWStructuredBuffer<float> exposure = ResourceDescriptorHeap[constant_indices.post_process_.exposure_.exposure_uav_index_];
-		exposure_ev += exposure[0];
-	}
+		if (constant_indices.post_process_.anamorphic_flare_.enabled_ != 0)
+		{
+			Texture2D<float4> anamorphic_flare = ResourceDescriptorHeap[constant_indices.post_process_.anamorphic_flare_.output_srv_index_];
+			hdr_color += anamorphic_flare.SampleLevel(sampler_linear_clamp, uv, 0).rgb;
+		}
 
-	float3 color = hdr_color * exp2(exposure_ev);
+		// [JP] 手動EVは常に効く。自動露出のEVは有効時だけ上乗せする
+		//      (PostProcess.h の ExposureSettings 参照)。
+		float exposure_ev = constant_indices.post_process_.exposure_.exposure_compensation_;
+		if (constant_indices.post_process_.exposure_.auto_exposure_enabled_ != 0)
+		{
+			RWStructuredBuffer<float> exposure = ResourceDescriptorHeap[constant_indices.post_process_.exposure_.exposure_uav_index_];
+			exposure_ev += exposure[0];
+		}
+
+		color = hdr_color * exp2(exposure_ev);
+	}
 
 	if (constant_indices.post_process_.tone_mapping_.tone_mapping_enabled_ != 0)
 	{

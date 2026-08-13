@@ -770,6 +770,26 @@ namespace SeedCore
 					auto reflectionIt = reflectionRegistry.find(field.nestedTypeName_);
 					if (reflectionIt != reflectionRegistry.end())
 					{
+						/// [EN] Honour SC_REFLECTION_FIELD_CONDITION here too.
+						///      This branch returns via continue before ever
+						///      reaching the scalar path's enableIf_ check
+						///      below, so without this a condition on a nested
+						///      struct field silently did nothing - the group
+						///      stayed fully editable no matter what it was
+						///      conditioned on. Disabling the whole subtree
+						///      rather than hiding it matches how scalar
+						///      fields behave when their condition is false.
+						/// [JP] SC_REFLECTION_FIELD_CONDITION をここでも見る。
+						///      この分岐は下のスカラー側の enableIf_ 判定へ
+						///      到達する前に continue で抜けるため、これが
+						///      無いとネストされた構造体フィールドに付けた
+						///      条件が黙って無視され、何を条件にしていても
+						///      グループが編集可能なままだった。非表示に
+						///      せず部分木ごと無効化するのは、条件が偽の
+						///      ときのスカラーフィールドの挙動に合わせるため。
+						Bool nestedEnabled = !field.enableIf_ || field.enableIf_(baseData);
+						ImGui::BeginDisabled(!nestedEnabled);
+
 						ImGui::PushID(field.name_.c_str());
 
 						if (ImGui::TreeNodeEx(field.name_.c_str(), ImGuiTreeNodeFlags_DefaultOpen))
@@ -788,6 +808,8 @@ namespace SeedCore
 						}
 
 						ImGui::PopID();
+
+						ImGui::EndDisabled();
 					}
 
 					continue;

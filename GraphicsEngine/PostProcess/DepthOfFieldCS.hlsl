@@ -4,6 +4,10 @@
 
 /**
 * [EN]
+* Reference:
+* - https://blog.voxagon.se/2018/05/04/bokeh-depth-of-field-in-single-pass.html
+* - https://www.4rknova.com/blog/2017/01/01/vogel
+*
 * Depth-of-field gather blur. Runs at native resolution, replacing the HDR
 * scene color with a circle-of-confusion (CoC) weighted blur: pixels within
 * focus_range_ of focus_distance_ (view-space distance from the camera)

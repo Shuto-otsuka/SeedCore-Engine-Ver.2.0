@@ -4,6 +4,12 @@
 
 /**
 * [EN]
+* Reference:
+* - https://blog.voxagon.se/2018/05/04/bokeh-depth-of-field-in-single-pass.html
+*
+* (BokehPolygonRadiusScale below is plain polar geometry for a regular
+* polygon, not a published rendering technique - no reference for it.)
+*
 * Bokeh highlight pass. Runs after DepthOfFieldCS.hlsl and read-modify-writes
 * the same native-res UAV (no resources of its own) - only meaningful when
 * both DepthOfFieldIndices.enabled_ and BokehIndices.enabled_ are set (see

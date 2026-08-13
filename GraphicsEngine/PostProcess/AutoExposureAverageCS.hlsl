@@ -2,6 +2,10 @@
 
 /**
 * [EN]
+* Reference:
+* - https://bruop.github.io/exposure/
+* - https://knarkowicz.wordpress.com/2016/01/09/automatic-exposure/
+*
 * Reduces the 256-bin histogram (built by AutoExposureHistogramCS.hlsl this
 * same frame) into a target exposure value, then blends the persistent
 * smoothed exposure toward it - a single thread, dispatched (1,1,1), since

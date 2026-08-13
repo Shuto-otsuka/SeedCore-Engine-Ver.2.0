@@ -58,13 +58,20 @@ extern "C" int _force_reflection_AnimationState = 0;
 extern "C" int _force_reflection_AnimationTransition = 0;
 extern "C" int _force_reflection_Animator = 0;
 extern "C" int _force_reflection_Movie = 0;
-extern "C" int _force_reflection_ExposureSettings = 0;
-extern "C" int _force_reflection_ToneMappingSettings = 0;
-extern "C" int _force_reflection_BloomSettings = 0;
-extern "C" int _force_reflection_LensFlareSettings = 0;
 extern "C" int _force_reflection_DepthOfFieldSettings = 0;
 extern "C" int _force_reflection_BokehSettings = 0;
+extern "C" int _force_reflection_LensDistortionSettings = 0;
+extern "C" int _force_reflection_ChromaticAberrationSettings = 0;
+extern "C" int _force_reflection_VignetteSettings = 0;
+extern "C" int _force_reflection_BloomSettings = 0;
+extern "C" int _force_reflection_AnamorphicFlareSettings = 0;
+extern "C" int _force_reflection_LensFlareSettings = 0;
+extern "C" int _force_reflection_ExposureSettings = 0;
+extern "C" int _force_reflection_ColorGradingRangeSettings = 0;
+extern "C" int _force_reflection_ColorGradingSettings = 0;
+extern "C" int _force_reflection_ToneMappingSettings = 0;
 extern "C" int _force_reflection_SharpnessSettings = 0;
+extern "C" int _force_reflection_FilmGrainSettings = 0;
 extern "C" int _force_reflection_PostProcess = 0;
 extern "C" int _force_reflection_Image = 0;
 extern "C" int _force_reflection_BoxCollider = 0;
@@ -1122,97 +1129,213 @@ namespace SeedCore
 		static Register_Movie global_Movie_register;
 
 		// ---- GraphicsEngine/PostProcess/PostProcess.h ----
-		struct Register_ExposureSettings
+		struct Register_DepthOfFieldSettings
 		{
-			Register_ExposureSettings()
+			Register_DepthOfFieldSettings()
 			{
-				ReflectionRegistry::Register(String("ExposureSettings"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
-					ExposureSettings& obj = *static_cast<ExposureSettings*>(ptr);
+				ReflectionRegistry::Register(String("DepthOfFieldSettings"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
+					DepthOfFieldSettings& obj = *static_cast<DepthOfFieldSettings*>(ptr);
+					outInfo.push_back({ String("有効"), offsetof(DepthOfFieldSettings, enabled_), AttributeType::Bool });
 					{
 						FieldInfo fi;
-						fi.name_ = String("露出補正(EV)");
-						fi.offset_ = offsetof(ExposureSettings, compensation_);
+						fi.name_ = String("焦点距離");
+						fi.offset_ = offsetof(DepthOfFieldSettings, focusDistance_);
 						fi.type_ = AttributeType::Float;
-						fi.clampMin_ = -8.0f;
-						fi.clampMax_ = 8.0f;
-						outInfo.push_back(std::move(fi));
-					}
-					outInfo.push_back({ String("自動露出(ヒストグラム)を使う"), offsetof(ExposureSettings, enabled_), AttributeType::Bool });
-					{
-						FieldInfo fi;
-						fi.name_ = String("最小log輝度");
-						fi.offset_ = offsetof(ExposureSettings, minLogLuminance_);
-						fi.type_ = AttributeType::Float;
-						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<ExposureSettings*>(p); return o.enabled_; };
-						fi.clampMin_ = -16.0f;
-						fi.clampMax_ = 0.0f;
-						outInfo.push_back(std::move(fi));
-					}
-					{
-						FieldInfo fi;
-						fi.name_ = String("最大log輝度");
-						fi.offset_ = offsetof(ExposureSettings, maxLogLuminance_);
-						fi.type_ = AttributeType::Float;
-						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<ExposureSettings*>(p); return o.enabled_; };
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<DepthOfFieldSettings*>(p); return o.enabled_; };
 						fi.clampMin_ = 0.0f;
-						fi.clampMax_ = 16.0f;
+						fi.clampMax_ = 100.0f;
 						outInfo.push_back(std::move(fi));
 					}
 					{
 						FieldInfo fi;
-						fi.name_ = String("目標輝度(キー値)");
-						fi.offset_ = offsetof(ExposureSettings, keyValue_);
+						fi.name_ = String("焦点範囲");
+						fi.offset_ = offsetof(DepthOfFieldSettings, focusRange_);
 						fi.type_ = AttributeType::Float;
-						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<ExposureSettings*>(p); return o.enabled_; };
-						fi.clampMin_ = 0.001f;
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<DepthOfFieldSettings*>(p); return o.enabled_; };
+						fi.clampMin_ = 0.01f;
+						fi.clampMax_ = 50.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("最大ぼけ半径");
+						fi.offset_ = offsetof(DepthOfFieldSettings, maxBlurRadius_);
+						fi.type_ = AttributeType::Float;
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<DepthOfFieldSettings*>(p); return o.enabled_; };
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 0.05f;
+						outInfo.push_back(std::move(fi));
+					}
+				});
+			}
+		};
+		static Register_DepthOfFieldSettings global_DepthOfFieldSettings_register;
+
+		struct Register_BokehSettings
+		{
+			Register_BokehSettings()
+			{
+				ReflectionRegistry::Register(String("BokehSettings"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
+					BokehSettings& obj = *static_cast<BokehSettings*>(ptr);
+					outInfo.push_back({ String("有効"), offsetof(BokehSettings, enabled_), AttributeType::Bool });
+					{
+						FieldInfo fi;
+						fi.name_ = String("しきい値");
+						fi.offset_ = offsetof(BokehSettings, highlightThreshold_);
+						fi.type_ = AttributeType::Float;
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<BokehSettings*>(p); return o.enabled_; };
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 20.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("強度");
+						fi.offset_ = offsetof(BokehSettings, highlightIntensity_);
+						fi.type_ = AttributeType::Float;
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<BokehSettings*>(p); return o.enabled_; };
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 5.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("角形の頂点数");
+						fi.offset_ = offsetof(BokehSettings, bladeCount_);
+						fi.type_ = AttributeType::Int;
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<BokehSettings*>(p); return o.enabled_; };
+						fi.clampMin_ = 3;
+						fi.clampMax_ = 8;
+						outInfo.push_back(std::move(fi));
+					}
+				});
+			}
+		};
+		static Register_BokehSettings global_BokehSettings_register;
+
+		struct Register_LensDistortionSettings
+		{
+			Register_LensDistortionSettings()
+			{
+				ReflectionRegistry::Register(String("LensDistortionSettings"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
+					LensDistortionSettings& obj = *static_cast<LensDistortionSettings*>(ptr);
+					outInfo.push_back({ String("有効"), offsetof(LensDistortionSettings, enabled_), AttributeType::Bool });
+					{
+						FieldInfo fi;
+						fi.name_ = String("歪曲 k1");
+						fi.offset_ = offsetof(LensDistortionSettings, k1_);
+						fi.type_ = AttributeType::Float;
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<LensDistortionSettings*>(p); return o.enabled_; };
+						fi.clampMin_ = -0.5f;
+						fi.clampMax_ = 0.5f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("歪曲 k2");
+						fi.offset_ = offsetof(LensDistortionSettings, k2_);
+						fi.type_ = AttributeType::Float;
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<LensDistortionSettings*>(p); return o.enabled_; };
+						fi.clampMin_ = -0.5f;
+						fi.clampMax_ = 0.5f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("歪曲 k3");
+						fi.offset_ = offsetof(LensDistortionSettings, k3_);
+						fi.type_ = AttributeType::Float;
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<LensDistortionSettings*>(p); return o.enabled_; };
+						fi.clampMin_ = -0.5f;
+						fi.clampMax_ = 0.5f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("スケール");
+						fi.offset_ = offsetof(LensDistortionSettings, scale_);
+						fi.type_ = AttributeType::Float;
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<LensDistortionSettings*>(p); return o.enabled_; };
+						fi.clampMin_ = 0.5f;
+						fi.clampMax_ = 1.5f;
+						outInfo.push_back(std::move(fi));
+					}
+				});
+			}
+		};
+		static Register_LensDistortionSettings global_LensDistortionSettings_register;
+
+		struct Register_ChromaticAberrationSettings
+		{
+			Register_ChromaticAberrationSettings()
+			{
+				ReflectionRegistry::Register(String("ChromaticAberrationSettings"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
+					ChromaticAberrationSettings& obj = *static_cast<ChromaticAberrationSettings*>(ptr);
+					outInfo.push_back({ String("有効"), offsetof(ChromaticAberrationSettings, enabled_), AttributeType::Bool });
+					{
+						FieldInfo fi;
+						fi.name_ = String("強度");
+						fi.offset_ = offsetof(ChromaticAberrationSettings, intensity_);
+						fi.type_ = AttributeType::Float;
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<ChromaticAberrationSettings*>(p); return o.enabled_; };
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 0.05f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("サンプル数");
+						fi.offset_ = offsetof(ChromaticAberrationSettings, sampleCount_);
+						fi.type_ = AttributeType::Int;
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<ChromaticAberrationSettings*>(p); return o.enabled_; };
+						fi.clampMin_ = 3;
+						fi.clampMax_ = 16;
+						outInfo.push_back(std::move(fi));
+					}
+				});
+			}
+		};
+		static Register_ChromaticAberrationSettings global_ChromaticAberrationSettings_register;
+
+		struct Register_VignetteSettings
+		{
+			Register_VignetteSettings()
+			{
+				ReflectionRegistry::Register(String("VignetteSettings"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
+					VignetteSettings& obj = *static_cast<VignetteSettings*>(ptr);
+					outInfo.push_back({ String("有効"), offsetof(VignetteSettings, enabled_), AttributeType::Bool });
+					{
+						FieldInfo fi;
+						fi.name_ = String("強度");
+						fi.offset_ = offsetof(VignetteSettings, intensity_);
+						fi.type_ = AttributeType::Float;
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<VignetteSettings*>(p); return o.enabled_; };
+						fi.clampMin_ = 0.0f;
 						fi.clampMax_ = 1.0f;
 						outInfo.push_back(std::move(fi));
 					}
 					{
 						FieldInfo fi;
-						fi.name_ = String("明順応速度");
-						fi.offset_ = offsetof(ExposureSettings, adaptSpeedToBright_);
+						fi.name_ = String("減光指数");
+						fi.offset_ = offsetof(VignetteSettings, exponent_);
 						fi.type_ = AttributeType::Float;
-						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<ExposureSettings*>(p); return o.enabled_; };
-						fi.clampMin_ = 0.01f;
-						fi.clampMax_ = 20.0f;
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<VignetteSettings*>(p); return o.enabled_; };
+						fi.clampMin_ = 1.0f;
+						fi.clampMax_ = 8.0f;
 						outInfo.push_back(std::move(fi));
 					}
 					{
 						FieldInfo fi;
-						fi.name_ = String("暗順応速度");
-						fi.offset_ = offsetof(ExposureSettings, adaptSpeedToDark_);
-						fi.type_ = AttributeType::Float;
-						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<ExposureSettings*>(p); return o.enabled_; };
-						fi.clampMin_ = 0.01f;
-						fi.clampMax_ = 20.0f;
+						fi.name_ = String("色");
+						fi.offset_ = offsetof(VignetteSettings, color_);
+						fi.type_ = AttributeType::Color;
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<VignetteSettings*>(p); return o.enabled_; };
 						outInfo.push_back(std::move(fi));
 					}
 				});
 			}
 		};
-		static Register_ExposureSettings global_ExposureSettings_register;
-
-		struct Register_ToneMappingSettings
-		{
-			Register_ToneMappingSettings()
-			{
-				ReflectionRegistry::Register(String("ToneMappingSettings"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
-					ToneMappingSettings& obj = *static_cast<ToneMappingSettings*>(ptr);
-					outInfo.push_back({ String("有効"), offsetof(ToneMappingSettings, enabled_), AttributeType::Bool });
-					{
-						FieldInfo fi;
-						fi.name_ = String("方式");
-						fi.offset_ = offsetof(ToneMappingSettings, mode_);
-						fi.type_ = AttributeType::Enum;
-						fi.enum_.typeName_ = String("ToneCurve");
-						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<ToneMappingSettings*>(p); return o.enabled_; };
-						outInfo.push_back(std::move(fi));
-					}
-				});
-			}
-		};
-		static Register_ToneMappingSettings global_ToneMappingSettings_register;
+		static Register_VignetteSettings global_VignetteSettings_register;
 
 		struct Register_BloomSettings
 		{
@@ -1265,6 +1388,66 @@ namespace SeedCore
 			}
 		};
 		static Register_BloomSettings global_BloomSettings_register;
+
+		struct Register_AnamorphicFlareSettings
+		{
+			Register_AnamorphicFlareSettings()
+			{
+				ReflectionRegistry::Register(String("AnamorphicFlareSettings"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
+					AnamorphicFlareSettings& obj = *static_cast<AnamorphicFlareSettings*>(ptr);
+					outInfo.push_back({ String("有効"), offsetof(AnamorphicFlareSettings, enabled_), AttributeType::Bool });
+					{
+						FieldInfo fi;
+						fi.name_ = String("しきい値");
+						fi.offset_ = offsetof(AnamorphicFlareSettings, threshold_);
+						fi.type_ = AttributeType::Float;
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<AnamorphicFlareSettings*>(p); return o.enabled_; };
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 20.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("強度");
+						fi.offset_ = offsetof(AnamorphicFlareSettings, intensity_);
+						fi.type_ = AttributeType::Float;
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<AnamorphicFlareSettings*>(p); return o.enabled_; };
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 5.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("筋の長さ");
+						fi.offset_ = offsetof(AnamorphicFlareSettings, streakLength_);
+						fi.type_ = AttributeType::Float;
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<AnamorphicFlareSettings*>(p); return o.enabled_; };
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 1.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("減衰");
+						fi.offset_ = offsetof(AnamorphicFlareSettings, attenuation_);
+						fi.type_ = AttributeType::Float;
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<AnamorphicFlareSettings*>(p); return o.enabled_; };
+						fi.clampMin_ = 0.80f;
+						fi.clampMax_ = 0.99f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("色");
+						fi.offset_ = offsetof(AnamorphicFlareSettings, tint_);
+						fi.type_ = AttributeType::Color;
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<AnamorphicFlareSettings*>(p); return o.enabled_; };
+						outInfo.push_back(std::move(fi));
+					}
+				});
+			}
+		};
+		static Register_AnamorphicFlareSettings global_AnamorphicFlareSettings_register;
 
 		struct Register_LensFlareSettings
 		{
@@ -1388,89 +1571,230 @@ namespace SeedCore
 		};
 		static Register_LensFlareSettings global_LensFlareSettings_register;
 
-		struct Register_DepthOfFieldSettings
+		struct Register_ExposureSettings
 		{
-			Register_DepthOfFieldSettings()
+			Register_ExposureSettings()
 			{
-				ReflectionRegistry::Register(String("DepthOfFieldSettings"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
-					DepthOfFieldSettings& obj = *static_cast<DepthOfFieldSettings*>(ptr);
-					outInfo.push_back({ String("有効"), offsetof(DepthOfFieldSettings, enabled_), AttributeType::Bool });
+				ReflectionRegistry::Register(String("ExposureSettings"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
+					ExposureSettings& obj = *static_cast<ExposureSettings*>(ptr);
 					{
 						FieldInfo fi;
-						fi.name_ = String("焦点距離");
-						fi.offset_ = offsetof(DepthOfFieldSettings, focusDistance_);
+						fi.name_ = String("露出補正(EV)");
+						fi.offset_ = offsetof(ExposureSettings, compensation_);
 						fi.type_ = AttributeType::Float;
-						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<DepthOfFieldSettings*>(p); return o.enabled_; };
-						fi.clampMin_ = 0.0f;
-						fi.clampMax_ = 100.0f;
+						fi.clampMin_ = -8.0f;
+						fi.clampMax_ = 8.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					outInfo.push_back({ String("自動露出(ヒストグラム)を使う"), offsetof(ExposureSettings, enabled_), AttributeType::Bool });
+					{
+						FieldInfo fi;
+						fi.name_ = String("最小log輝度");
+						fi.offset_ = offsetof(ExposureSettings, minLogLuminance_);
+						fi.type_ = AttributeType::Float;
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<ExposureSettings*>(p); return o.enabled_; };
+						fi.clampMin_ = -16.0f;
+						fi.clampMax_ = 0.0f;
 						outInfo.push_back(std::move(fi));
 					}
 					{
 						FieldInfo fi;
-						fi.name_ = String("焦点範囲");
-						fi.offset_ = offsetof(DepthOfFieldSettings, focusRange_);
+						fi.name_ = String("最大log輝度");
+						fi.offset_ = offsetof(ExposureSettings, maxLogLuminance_);
 						fi.type_ = AttributeType::Float;
-						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<DepthOfFieldSettings*>(p); return o.enabled_; };
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<ExposureSettings*>(p); return o.enabled_; };
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 16.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("目標輝度(キー値)");
+						fi.offset_ = offsetof(ExposureSettings, keyValue_);
+						fi.type_ = AttributeType::Float;
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<ExposureSettings*>(p); return o.enabled_; };
+						fi.clampMin_ = 0.001f;
+						fi.clampMax_ = 1.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("明順応速度");
+						fi.offset_ = offsetof(ExposureSettings, adaptSpeedToBright_);
+						fi.type_ = AttributeType::Float;
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<ExposureSettings*>(p); return o.enabled_; };
 						fi.clampMin_ = 0.01f;
-						fi.clampMax_ = 50.0f;
-						outInfo.push_back(std::move(fi));
-					}
-					{
-						FieldInfo fi;
-						fi.name_ = String("最大ぼけ半径");
-						fi.offset_ = offsetof(DepthOfFieldSettings, maxBlurRadius_);
-						fi.type_ = AttributeType::Float;
-						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<DepthOfFieldSettings*>(p); return o.enabled_; };
-						fi.clampMin_ = 0.0f;
-						fi.clampMax_ = 0.05f;
-						outInfo.push_back(std::move(fi));
-					}
-				});
-			}
-		};
-		static Register_DepthOfFieldSettings global_DepthOfFieldSettings_register;
-
-		struct Register_BokehSettings
-		{
-			Register_BokehSettings()
-			{
-				ReflectionRegistry::Register(String("BokehSettings"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
-					BokehSettings& obj = *static_cast<BokehSettings*>(ptr);
-					outInfo.push_back({ String("有効"), offsetof(BokehSettings, enabled_), AttributeType::Bool });
-					{
-						FieldInfo fi;
-						fi.name_ = String("しきい値");
-						fi.offset_ = offsetof(BokehSettings, highlightThreshold_);
-						fi.type_ = AttributeType::Float;
-						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<BokehSettings*>(p); return o.enabled_; };
-						fi.clampMin_ = 0.0f;
 						fi.clampMax_ = 20.0f;
 						outInfo.push_back(std::move(fi));
 					}
 					{
 						FieldInfo fi;
-						fi.name_ = String("強度");
-						fi.offset_ = offsetof(BokehSettings, highlightIntensity_);
+						fi.name_ = String("暗順応速度");
+						fi.offset_ = offsetof(ExposureSettings, adaptSpeedToDark_);
 						fi.type_ = AttributeType::Float;
-						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<BokehSettings*>(p); return o.enabled_; };
-						fi.clampMin_ = 0.0f;
-						fi.clampMax_ = 5.0f;
-						outInfo.push_back(std::move(fi));
-					}
-					{
-						FieldInfo fi;
-						fi.name_ = String("角形の頂点数");
-						fi.offset_ = offsetof(BokehSettings, bladeCount_);
-						fi.type_ = AttributeType::Int;
-						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<BokehSettings*>(p); return o.enabled_; };
-						fi.clampMin_ = 3;
-						fi.clampMax_ = 8;
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<ExposureSettings*>(p); return o.enabled_; };
+						fi.clampMin_ = 0.01f;
+						fi.clampMax_ = 20.0f;
 						outInfo.push_back(std::move(fi));
 					}
 				});
 			}
 		};
-		static Register_BokehSettings global_BokehSettings_register;
+		static Register_ExposureSettings global_ExposureSettings_register;
+
+		struct Register_ColorGradingRangeSettings
+		{
+			Register_ColorGradingRangeSettings()
+			{
+				ReflectionRegistry::Register(String("ColorGradingRangeSettings"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
+					ColorGradingRangeSettings& obj = *static_cast<ColorGradingRangeSettings*>(ptr);
+					{
+						FieldInfo fi;
+						fi.name_ = String("色温度");
+						fi.offset_ = offsetof(ColorGradingRangeSettings, temperature_);
+						fi.type_ = AttributeType::Float;
+						fi.clampMin_ = -1.0f;
+						fi.clampMax_ = 1.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("彩度");
+						fi.offset_ = offsetof(ColorGradingRangeSettings, saturation_);
+						fi.type_ = AttributeType::Float;
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 4.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("コントラスト");
+						fi.offset_ = offsetof(ColorGradingRangeSettings, contrast_);
+						fi.type_ = AttributeType::Float;
+						fi.clampMin_ = 0.1f;
+						fi.clampMax_ = 4.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("ガンマ");
+						fi.offset_ = offsetof(ColorGradingRangeSettings, gamma_);
+						fi.type_ = AttributeType::Float;
+						fi.clampMin_ = 0.1f;
+						fi.clampMax_ = 4.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("ゲイン");
+						fi.offset_ = offsetof(ColorGradingRangeSettings, gain_);
+						fi.type_ = AttributeType::Float;
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 4.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("オフセット");
+						fi.offset_ = offsetof(ColorGradingRangeSettings, offset_);
+						fi.type_ = AttributeType::Float;
+						fi.clampMin_ = -1.0f;
+						fi.clampMax_ = 1.0f;
+						outInfo.push_back(std::move(fi));
+					}
+				});
+			}
+		};
+		static Register_ColorGradingRangeSettings global_ColorGradingRangeSettings_register;
+
+		struct Register_ColorGradingSettings
+		{
+			Register_ColorGradingSettings()
+			{
+				ReflectionRegistry::Register(String("ColorGradingSettings"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
+					ColorGradingSettings& obj = *static_cast<ColorGradingSettings*>(ptr);
+					outInfo.push_back({ String("有効"), offsetof(ColorGradingSettings, enabled_), AttributeType::Bool });
+					{
+						FieldInfo fi;
+						fi.name_ = String("全体");
+						fi.offset_ = offsetof(ColorGradingSettings, global_);
+						fi.type_ = AttributeType::Struct;
+						fi.nestedTypeName_ = String("ColorGradingRangeSettings");
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<ColorGradingSettings*>(p); return o.enabled_; };
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("シャドウ");
+						fi.offset_ = offsetof(ColorGradingSettings, shadows_);
+						fi.type_ = AttributeType::Struct;
+						fi.nestedTypeName_ = String("ColorGradingRangeSettings");
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<ColorGradingSettings*>(p); return o.enabled_; };
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("中間調");
+						fi.offset_ = offsetof(ColorGradingSettings, midtones_);
+						fi.type_ = AttributeType::Struct;
+						fi.nestedTypeName_ = String("ColorGradingRangeSettings");
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<ColorGradingSettings*>(p); return o.enabled_; };
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("ハイライト");
+						fi.offset_ = offsetof(ColorGradingSettings, highlights_);
+						fi.type_ = AttributeType::Struct;
+						fi.nestedTypeName_ = String("ColorGradingRangeSettings");
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<ColorGradingSettings*>(p); return o.enabled_; };
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("シャドウ上限");
+						fi.offset_ = offsetof(ColorGradingSettings, shadowsMax_);
+						fi.type_ = AttributeType::Float;
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<ColorGradingSettings*>(p); return o.enabled_; };
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 1.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("ハイライト下限");
+						fi.offset_ = offsetof(ColorGradingSettings, highlightsMin_);
+						fi.type_ = AttributeType::Float;
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<ColorGradingSettings*>(p); return o.enabled_; };
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 2.0f;
+						outInfo.push_back(std::move(fi));
+					}
+				});
+			}
+		};
+		static Register_ColorGradingSettings global_ColorGradingSettings_register;
+
+		struct Register_ToneMappingSettings
+		{
+			Register_ToneMappingSettings()
+			{
+				ReflectionRegistry::Register(String("ToneMappingSettings"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
+					ToneMappingSettings& obj = *static_cast<ToneMappingSettings*>(ptr);
+					outInfo.push_back({ String("有効"), offsetof(ToneMappingSettings, enabled_), AttributeType::Bool });
+					{
+						FieldInfo fi;
+						fi.name_ = String("方式");
+						fi.offset_ = offsetof(ToneMappingSettings, mode_);
+						fi.type_ = AttributeType::Enum;
+						fi.enum_.typeName_ = String("ToneCurve");
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<ToneMappingSettings*>(p); return o.enabled_; };
+						outInfo.push_back(std::move(fi));
+					}
+				});
+			}
+		};
+		static Register_ToneMappingSettings global_ToneMappingSettings_register;
 
 		struct Register_SharpnessSettings
 		{
@@ -1494,36 +1818,62 @@ namespace SeedCore
 		};
 		static Register_SharpnessSettings global_SharpnessSettings_register;
 
+		struct Register_FilmGrainSettings
+		{
+			Register_FilmGrainSettings()
+			{
+				ReflectionRegistry::Register(String("FilmGrainSettings"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
+					FilmGrainSettings& obj = *static_cast<FilmGrainSettings*>(ptr);
+					outInfo.push_back({ String("有効"), offsetof(FilmGrainSettings, enabled_), AttributeType::Bool });
+					{
+						FieldInfo fi;
+						fi.name_ = String("強度");
+						fi.offset_ = offsetof(FilmGrainSettings, intensity_);
+						fi.type_ = AttributeType::Float;
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<FilmGrainSettings*>(p); return o.enabled_; };
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 1.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("粒の大きさ");
+						fi.offset_ = offsetof(FilmGrainSettings, size_);
+						fi.type_ = AttributeType::Float;
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<FilmGrainSettings*>(p); return o.enabled_; };
+						fi.clampMin_ = 1.0f;
+						fi.clampMax_ = 8.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("階調応答");
+						fi.offset_ = offsetof(FilmGrainSettings, luminanceResponse_);
+						fi.type_ = AttributeType::Float;
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<FilmGrainSettings*>(p); return o.enabled_; };
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 1.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("色付き");
+						fi.offset_ = offsetof(FilmGrainSettings, colored_);
+						fi.type_ = AttributeType::Bool;
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<FilmGrainSettings*>(p); return o.enabled_; };
+						outInfo.push_back(std::move(fi));
+					}
+				});
+			}
+		};
+		static Register_FilmGrainSettings global_FilmGrainSettings_register;
+
 		struct Register_PostProcess
 		{
 			Register_PostProcess()
 			{
 				ReflectionRegistry::Register(String("PostProcess"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
 					PostProcess& obj = *static_cast<PostProcess*>(ptr);
-					{
-						FieldInfo fi;
-						fi.name_ = String("露出");
-						fi.offset_ = offsetof(PostProcess, exposure_);
-						fi.type_ = AttributeType::Struct;
-						fi.nestedTypeName_ = String("ExposureSettings");
-						outInfo.push_back(std::move(fi));
-					}
-					{
-						FieldInfo fi;
-						fi.name_ = String("ブルーム");
-						fi.offset_ = offsetof(PostProcess, bloom_);
-						fi.type_ = AttributeType::Struct;
-						fi.nestedTypeName_ = String("BloomSettings");
-						outInfo.push_back(std::move(fi));
-					}
-					{
-						FieldInfo fi;
-						fi.name_ = String("レンズフレア");
-						fi.offset_ = offsetof(PostProcess, lensFlare_);
-						fi.type_ = AttributeType::Struct;
-						fi.nestedTypeName_ = String("LensFlareSettings");
-						outInfo.push_back(std::move(fi));
-					}
 					{
 						FieldInfo fi;
 						fi.name_ = String("被写界深度");
@@ -1542,6 +1892,70 @@ namespace SeedCore
 					}
 					{
 						FieldInfo fi;
+						fi.name_ = String("レンズ歪曲");
+						fi.offset_ = offsetof(PostProcess, lensDistortion_);
+						fi.type_ = AttributeType::Struct;
+						fi.nestedTypeName_ = String("LensDistortionSettings");
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("色収差");
+						fi.offset_ = offsetof(PostProcess, chromaticAberration_);
+						fi.type_ = AttributeType::Struct;
+						fi.nestedTypeName_ = String("ChromaticAberrationSettings");
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("ビネット");
+						fi.offset_ = offsetof(PostProcess, vignette_);
+						fi.type_ = AttributeType::Struct;
+						fi.nestedTypeName_ = String("VignetteSettings");
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("ブルーム");
+						fi.offset_ = offsetof(PostProcess, bloom_);
+						fi.type_ = AttributeType::Struct;
+						fi.nestedTypeName_ = String("BloomSettings");
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("アナモルフィックフレア");
+						fi.offset_ = offsetof(PostProcess, anamorphicFlare_);
+						fi.type_ = AttributeType::Struct;
+						fi.nestedTypeName_ = String("AnamorphicFlareSettings");
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("レンズフレア");
+						fi.offset_ = offsetof(PostProcess, lensFlare_);
+						fi.type_ = AttributeType::Struct;
+						fi.nestedTypeName_ = String("LensFlareSettings");
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("露出");
+						fi.offset_ = offsetof(PostProcess, exposure_);
+						fi.type_ = AttributeType::Struct;
+						fi.nestedTypeName_ = String("ExposureSettings");
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("カラーグレーディング");
+						fi.offset_ = offsetof(PostProcess, colorGrading_);
+						fi.type_ = AttributeType::Struct;
+						fi.nestedTypeName_ = String("ColorGradingSettings");
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
 						fi.name_ = String("トーンマップ");
 						fi.offset_ = offsetof(PostProcess, toneMapping_);
 						fi.type_ = AttributeType::Struct;
@@ -1554,6 +1968,14 @@ namespace SeedCore
 						fi.offset_ = offsetof(PostProcess, sharpness_);
 						fi.type_ = AttributeType::Struct;
 						fi.nestedTypeName_ = String("SharpnessSettings");
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("フィルムグレイン");
+						fi.offset_ = offsetof(PostProcess, filmGrain_);
+						fi.type_ = AttributeType::Struct;
+						fi.nestedTypeName_ = String("FilmGrainSettings");
 						outInfo.push_back(std::move(fi));
 					}
 				});

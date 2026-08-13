@@ -145,6 +145,137 @@ struct BloomIndices
 	uint bloom_padding_2_;
 };
 
+// Per-view anamorphic-flare indices/tuning (4 rows / 64 bytes). ping_/pong_
+// are AnamorphicFlareCS.hlsl's HORIZONTALLY SQUEEZED working buffers - half
+// the width of the other quarter-res post-process buffers, so they carry a
+// baked 2:1 anamorphic squeeze. That squeeze is why the streak comes out
+// horizontal at all: the flare is blurred as an ordinary round shape inside
+// the squeezed space and Compose samples it back with normal UVs, which
+// stretches it 2x horizontally for free. output_ is Compose's own target,
+// which ToneMappingCS.hlsl samples and adds into the HDR color before
+// exposure. enabled_ gates both the dispatch and that read, so a stale
+// buffer from when the effect was last on is never sampled.
+struct AnamorphicFlareIndices
+{
+	uint enabled_;
+	uint output_uav_index_;
+	uint output_srv_index_;
+	float threshold_;
+
+	uint ping_uav_index_;
+	uint ping_srv_index_;
+	uint pong_uav_index_;
+	uint pong_srv_index_;
+
+	float intensity_;
+	float streak_length_;
+	float attenuation_;
+	uint anamorphic_flare_padding_0_;
+
+	float4 tint_;
+};
+
+// Per-view chromatic-aberration indices/tuning (2 rows / 32 bytes) and
+// vignette indices/tuning (3 rows / 48 bytes). Both are LENS stage effects:
+// they run before auto-exposure and tone mapping, because both describe
+// what reaches the sensor rather than how the sensor is developed. They
+// chain through one shared buffer - source_srv_index_ is resolved on the
+// CPU in PostProcessRenderer::PrepareView, so if chromatic aberration is on
+// the vignette reads its output, otherwise it reads the depth-of-field
+// output or the raw scene color. Vignette is a pure per-pixel multiply and
+// so may read and write the same texture in place; chromatic aberration
+// reads neighbours and may not, which is why it always writes the shared
+// lens-stage buffer.
+// One tonal range's colour grading controls (2 rows / 32 bytes), in the
+// order they are applied. All scalars rather than per-channel: the colour
+// axis is handled by temperature_ as a chromatic adaptation instead (see
+// ColorGradingRangeSettings in PostProcess.h for why). Neutral is 1 for
+// saturation/contrast/gamma/gain and 0 for offset and temperature.
+struct ColorGradingRangeIndices
+{
+	float temperature_;
+	float saturation_;
+	float contrast_;
+	float gamma_;
+
+	float gain_;
+	float offset_;
+	uint color_grading_range_padding_0_;
+	uint color_grading_range_padding_1_;
+};
+
+// Unreal-style colour grading (10 rows / 160 bytes): four tonal ranges each
+// with their own wheels, blended by luminance with smooth crossovers at
+// shadows_max_ and highlights_min_. Runs in scene-referred linear space
+// AFTER exposure and BEFORE the tone curve, which is forced by the 0.18
+// contrast pivot - 0.18 only means middle grey once exposure has placed the
+// scene there, and means nothing after the curve has compressed the range.
+// Because of that position this pass also owns the additive contributions
+// (bloom, lens flare, anamorphic) and the exposure multiply, which
+// ToneMappingCS.hlsl skips whenever enabled_ is set.
+struct ColorGradingIndices
+{
+	uint enabled_;
+	uint source_srv_index_;
+	uint destination_uav_index_;
+	float shadows_max_;
+
+	float highlights_min_;
+	uint output_srv_index_;
+	uint color_grading_padding_0_;
+	uint color_grading_padding_1_;
+
+	ColorGradingRangeIndices global_;
+	ColorGradingRangeIndices shadows_;
+	ColorGradingRangeIndices midtones_;
+	ColorGradingRangeIndices highlights_;
+};
+
+// Radial half of the Brown-Conrady distortion model (2 rows / 32 bytes),
+// the first stage of the lens chain since it displaces geometry. k1
+// dominates, k2 refines the corners, k3 barely moves anything. scale_ zooms
+// in before distorting so barrel distortion does not leave empty corners.
+struct LensDistortionIndices
+{
+	uint enabled_;
+	uint source_srv_index_;
+	uint destination_uav_index_;
+	float k1_;
+
+	float k2_;
+	float k3_;
+	float scale_;
+	uint lens_distortion_padding_0_;
+};
+
+struct ChromaticAberrationIndices
+{
+	uint enabled_;
+	uint source_srv_index_;
+	uint destination_uav_index_;
+	float intensity_;
+
+	uint sample_count_;
+	uint chromatic_aberration_padding_0_;
+	uint chromatic_aberration_padding_1_;
+	uint chromatic_aberration_padding_2_;
+};
+
+struct VignetteIndices
+{
+	uint enabled_;
+	uint source_srv_index_;
+	uint destination_uav_index_;
+	float intensity_;
+
+	float exponent_;
+	uint vignette_padding_0_;
+	uint vignette_padding_1_;
+	uint vignette_padding_2_;
+
+	float4 color_;
+};
+
 // Per-view depth-of-field indices/tuning (2 rows / 32 bytes).
 // unordered_access_view_index_/shader_resource_view_index_ are
 // DepthOfFieldCS.hlsl's native-res write target (BokehCS.hlsl
@@ -178,6 +309,26 @@ struct BokehIndices
 	uint blade_count_;
 };
 
+// Per-view film-grain indices/tuning (2 rows / 32 bytes). Runs LAST, after
+// SharpnessCS.hlsl, and read-modify-writes that pass's output in place -
+// safe because grain is a per-pixel operation with no neighbour taps, and
+// deliberate so the sharpen pass does not amplify the grain it was given.
+// Unlike the lens-stage effects this is applied after tone mapping: grain is
+// the developed emulsion's density variation, so the tonal position driving
+// luminance_response_ only means anything post-curve.
+struct FilmGrainIndices
+{
+	uint enabled_;
+	uint destination_uav_index_;
+	uint colored_;
+	float intensity_;
+
+	float size_;
+	float luminance_response_;
+	uint film_grain_padding_0_;
+	uint film_grain_padding_1_;
+};
+
 // Per-view sharpness indices/tuning (1 row / 16 bytes). SharpnessCS.hlsl runs
 // last, after ToneMappingCS.hlsl - source_srv_index_ is the bindless SRV of
 // ToneMappingCS.hlsl's tone-mapped/sRGB-encoded output (now an intermediate
@@ -195,31 +346,45 @@ struct SharpnessIndices
 	float amount_;
 };
 
-// Per-view post-process indices (26 rows / 416 bytes). Lives inside
+// Per-view post-process indices (49 rows / 784 bytes). Lives inside
 // ConstantIndices, not StructuredIndices, for the same reason the shadow/AO
 // accumulation chains do: the histogram/persistent-exposure buffers and the
 // display output texture are genuinely per-camera state (editor and game can
 // be looking at wildly different scenes with independently-adapting
 // exposure), and StructuredIndices is one buffer shared by every view. Each
 // effect gets its own group struct (ExposureIndices/ToneMappingIndices/
-// LensFlareIndices/LensFlareStreakIndices/BloomIndices/DepthOfFieldIndices/
-// BokehIndices/SharpnessIndices above) instead of flat fields here, matching the
+// LensFlareIndices/LensFlareStreakIndices/BloomIndices/AnamorphicFlareIndices/
+// DepthOfFieldIndices/BokehIndices/SharpnessIndices above) instead of flat
+// fields here, matching the
 // Shadow/AmbientOcclusion/GlobalIllumination/Dlss grouping convention below.
 struct PostProcessIndices
 {
 	uint output_uav_index_;
 	uint source_color_index_;
-	uint post_process_padding_0_;
-	uint post_process_padding_1_;
+
+	// Set when the lens stage (chromatic aberration and/or vignette) ran, in
+	// which case lens_stage_srv_index_ is the buffer it left the scene in and
+	// ToneMappingCS.hlsl must read that instead of source_color_index_ or the
+	// depth-of-field output. Resolved on the CPU in
+	// PostProcessRenderer::PrepareView so the shader needs one branch rather
+	// than a chain of them.
+	uint lens_stage_enabled_;
+	uint lens_stage_srv_index_;
 
 	ExposureIndices exposure_;
 	ToneMappingIndices tone_mapping_;
 	LensFlareIndices lens_flare_;
 	LensFlareStreakIndices lens_flare_streak_;
 	BloomIndices bloom_;
+	AnamorphicFlareIndices anamorphic_flare_;
+	ColorGradingIndices color_grading_;
+	LensDistortionIndices lens_distortion_;
+	ChromaticAberrationIndices chromatic_aberration_;
+	VignetteIndices vignette_;
 	DepthOfFieldIndices depth_of_field_;
 	BokehIndices bokeh_;
 	SharpnessIndices sharpness_;
+	FilmGrainIndices film_grain_;
 };
 
 // Ray-traced shadow accumulation buffers. These live inside ConstantIndices

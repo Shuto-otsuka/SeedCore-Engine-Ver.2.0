@@ -1608,5 +1608,23 @@
     <Text Include="PostProcess\KawaseBloomCS.hlsl">
       <Filter>PostProcess</Filter>
     </Text>
+    <Text Include="PostProcess\AnamorphicFlareCS.hlsl">
+      <Filter>PostProcess</Filter>
+    </Text>
+    <Text Include="PostProcess\ChromaticAberrationCS.hlsl">
+      <Filter>PostProcess</Filter>
+    </Text>
+    <Text Include="PostProcess\VignetteCS.hlsl">
+      <Filter>PostProcess</Filter>
+    </Text>
+    <Text Include="PostProcess\LensDistortionCS.hlsl">
+      <Filter>PostProcess</Filter>
+    </Text>
+    <Text Include="PostProcess\FilmGrainCS.hlsl">
+      <Filter>PostProcess</Filter>
+    </Text>
+    <Text Include="PostProcess\ColorGradingCS.hlsl">
+      <Filter>PostProcess</Filter>
+    </Text>
   </ItemGroup>
 </Project>

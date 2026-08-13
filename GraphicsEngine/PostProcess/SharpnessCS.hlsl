@@ -2,6 +2,18 @@
 
 /**
 * [EN]
+* Reference:
+* - https://en.wikipedia.org/wiki/Unsharp_masking
+*
+* This is the textbook unsharp mask, not a published real-time technique -
+* there is no graphics paper behind it. Worth knowing that the modern
+* real-time standard for this slot is AMD FidelityFX CAS (Contrast Adaptive
+* Sharpening, https://gpuopen.com/fidelityfx-cas/), which varies sharpening
+* strength per pixel by local contrast so flat regions do not gain noise and
+* already-contrasty edges do not ring. This pass does neither - it applies
+* amount_ uniformly. If sharpening ever needs to be pushed hard enough that
+* halos or amplified noise show up, replacing this with CAS is the fix.
+*
 * The final display pass: reads ToneMappingCS.hlsl's tone-mapped, sRGB-
 * encoded UNORM output (now an intermediate buffer, not the final display
 * texture) and applies a 5-tap cross unsharp mask, pushing each pixel away

@@ -2,13 +2,17 @@
 
 /**
 * [EN]
+* Reference:
+* - https://bruop.github.io/exposure/
+* - https://alextardif.com/HistogramLuminance.html
+*
 * Builds a 256-bin log-luminance histogram of the HDR scene color
 * (AutoExposureAverageCS.hlsl reduces it into a smoothed exposure value next
-* frame's tone map reads). Bin 0 is reserved for near-black pixels (per John
-* Chapman's classic "Post Process – Auto Exposure" scheme) and is excluded
-* from the average by the reduce pass - without that, letterboxing, a clear
-* background color, or a mostly-empty skybox would drag the average toward
-* black and the image would perpetually over-expose trying to compensate.
+* frame's tone map reads). Bin 0 is reserved for near-black pixels and is
+* excluded from the average by the reduce pass - without that, letterboxing,
+* a clear background color, or a mostly-empty skybox would drag the average
+* toward black and the image would perpetually over-expose trying to
+* compensate.
 *
 * [numthreads(16,16,1)] = exactly 256 threads per group, chosen so each thread
 * owns exactly one histogram bin during the group-shared -> global reduction
@@ -25,10 +29,10 @@
 * [JP]
 * HDR シーンカラーの 256 ビン log 輝度ヒストグラムを構築する
 * (AutoExposureAverageCS.hlsl がこれを縮約して、次フレームのトーンマップが
-* 読む平滑化露出値にする)。ビン0は「ほぼ黒」専用(John Chapman の古典的な
-* "Post Process – Auto Exposure" 方式)で、縮約パスが平均から除外する —
-* 除外しないと、レターボックスや背景クリアカラー、ほぼ空のスカイボックスが
-* 平均を黒側へ引きずり、露出が永遠にオーバーになろうとして破綻する。
+* 読む平滑化露出値にする)。ビン0は「ほぼ黒」専用で、縮約パスが平均から
+* 除外する — 除外しないと、レターボックスや背景クリアカラー、ほぼ空の
+* スカイボックスが平均を黒側へ引きずり、露出が永遠にオーバーになろうとして
+* 破綻する。
 *
 * [numthreads(16,16,1)] = グループあたりちょうど256スレッド。group-shared→
 * global の縮約段階で各スレッドがヒストグラムのビンを1つずつ受け持てるよう、
