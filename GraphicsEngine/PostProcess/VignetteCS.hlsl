@@ -92,5 +92,13 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	float angle = atan(radius);
 	float falloff = pow(saturate(cos(angle)), max(exponent, 0.0));
 
-	destination[dtid.xy] = float4(lerp(vignette_color, color, lerp(1.0, falloff, saturate(intensity))), 1.0);
+	/// [JP] intensity_ を falloff の指数として使う。intensity=1 でコサイン4乗則
+	///      そのもの(falloff^1 = falloff)、intensity=0 で無効(falloff^0 = 1)、
+	///      1を超えると falloff([0,1)の値)がさらに小さくなるので、物理カーブ
+	///      より四隅が暗くなる。falloff は atan で半画角45度相当にクランプして
+	///      あるため四隅でも厳密な0にはならず(cos(45°)≈0.707からexponent_乗した
+	///      値)、0^0 のような未定義域には触れない。
+	float blend = pow(saturate(falloff), max(intensity, 0.0));
+
+	destination[dtid.xy] = float4(lerp(vignette_color, color, blend), 1.0);
 }

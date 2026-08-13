@@ -82,6 +82,12 @@ namespace SeedCore
 		Float duration_ = 0.25f;
 
 		SC_SERIALIZE_FIELD()
+		Bool hasExitTime_ = false;
+
+		SC_SERIALIZE_FIELD()
+		Float exitTime_ = 1.0f;
+
+		SC_SERIALIZE_FIELD()
 		Float fromOffsetX_ = 0.0f;
 
 		SC_SERIALIZE_FIELD()
@@ -97,16 +103,90 @@ namespace SeedCore
 		DynamicArray<AnimationCondition> conditions_;
 	};
 
+	class ModelRenderer;
+	class AnimatorControllerPanel;
+	class TimelinePanel;
+
+	namespace ScReflection
+	{ 
+		struct Register_Animator;
+	}
+
+	namespace ScPayload 
+	{ 
+		struct Register_Animator; 
+	}
+
 	class SEEDCORE_API Animator :public SeedScript
 	{
-	public:
-		static constexpr Int ExitState = -2;
+		friend class ModelRenderer;
+		friend class AnimatorControllerPanel;
+		friend class TimelinePanel;
+		friend struct ScReflection::Register_Animator;
+		friend struct ScPayload::Register_Animator;
 
+	public:
 		SC_PAYLOAD_FIELD_EX("アニメーションID", Animation)
 		DynamicArray<Uint32> animationIDs_;
 
 		SC_REFLECTION_FIELD_EX("アニメーション速度")
 		Float animationSpeed_ = 1.0f;
+
+	public:
+		void OnTick(Float elapsedTime);
+
+		void OnInspectorGUI();
+
+	public:
+		void SetTrigger(const std::string& name);
+
+		void SetBool(const std::string& name, Bool value);
+
+		void SetFloat(const std::string& name, Float value);
+
+		void SetInt(const std::string& name, Int value);
+
+		Bool GetBool(const std::string& name)const;
+
+		Float GetFloat(const std::string& name)const;
+
+		Int GetInt(const std::string& name)const;
+
+		Int CurrentStateIndex()const;
+
+		Float CurrentTime()const;
+
+		Int PreviousStateIndex()const;
+
+		Float PreviousTime()const;
+
+		Bool Blending()const;
+
+		Float Alpha()const;
+
+	private:
+		AnimationParameter* FindParameter(const String& name);
+
+		const AnimationParameter* FindParameter(const String& name)const;
+
+		void EvaluateTransitions();
+
+		Bool EvaluateCondition(const AnimationCondition& condition)const;
+
+		Bool HasRootMotionBaseline(Int stateIndex)const;
+
+		Float RootMotionBaselineSampleTime()const;
+
+		Vector3 RootMotionBaselineTranslation()const;
+
+		void UpdateRootMotionBaseline(Int stateIndex, Float sampleTime, const Vector3& translation);
+
+		void UpdateCurrentClipDuration(Float duration);
+
+	private:
+		static constexpr Int ExitState = -2;
+
+		static constexpr Int AnyState = -3;
 
 		SC_SERIALIZE_FIELD()
 		DynamicArray<AnimationParameter> parameters_;
@@ -132,44 +212,26 @@ namespace SeedCore
 		SC_SERIALIZE_FIELD()
 		Float exitNodePositionY_ = 40.0f;
 
-	public:
-		void OnTick(Float elapsedTime);
+		SC_SERIALIZE_FIELD()
+		Float anyNodePositionX_ = -220.0f;
 
-		void OnInspectorGUI();
-
-		void SetTrigger(const std::string& name);
-
-		void SetBool(const std::string& name, Bool value);
-
-		void SetFloat(const std::string& name, Float value);
-
-		void SetInt(const std::string& name, Int value);
-
-		Int CurrentStateIndex()const;
-
-		Float CurrentTime()const;
-
-		Bool HasRootMotionBaseline(Int stateIndex)const;
-
-		Float RootMotionBaselineSampleTime()const;
-
-		Vector3 RootMotionBaselineTranslation()const;
-
-		void UpdateRootMotionBaseline(Int stateIndex, Float sampleTime, const Vector3& translation);
-
-	private:
-		AnimationParameter* FindParameter(const String& name);
-
-		const AnimationParameter* FindParameter(const String& name)const;
-
-		void EvaluateTransitions();
-
-		Bool EvaluateCondition(const AnimationCondition& condition)const;
+		SC_SERIALIZE_FIELD()
+		Float anyNodePositionY_ = 200.0f;
 
 	private:
 		Float currentTime_ = 0.0f;
 
 		Int currentStateIndex_ = -1;
+
+		Int previousStateIndex_ = -1;
+
+		Float previousStateTime_ = 0.0f;
+
+		Float blendElapsed_ = 0.0f;
+
+		Float blendDuration_ = 0.0f;
+
+		Float currentClipDuration_ = 0.0f;
 
 		Bool rootMotionBaselineValid_ = false;
 

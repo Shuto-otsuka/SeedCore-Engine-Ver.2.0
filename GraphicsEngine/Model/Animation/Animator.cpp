@@ -7,6 +7,20 @@ namespace SeedCore
 	{
 		currentTime_ += elapsedTime * animationSpeed_;
 
+		if (previousStateIndex_ >= 0)
+		{
+			previousStateTime_ += elapsedTime * animationSpeed_;
+			blendElapsed_ += elapsedTime;
+
+			if (blendElapsed_ >= blendDuration_)
+			{
+				previousStateIndex_ = -1;
+				previousStateTime_ = 0.0f;
+				blendElapsed_ = 0.0f;
+				blendDuration_ = 0.0f;
+			}
+		}
+
 		if (currentStateIndex_ < 0 && !states_.empty())
 		{
 			currentStateIndex_ = (entryStateIndex_ >= 0 && static_cast<Size>(entryStateIndex_) < states_.size()) ? entryStateIndex_ : 0;
@@ -65,6 +79,54 @@ namespace SeedCore
 		}
 	}
 
+	Bool Animator::GetBool(const std::string& name)const
+	{
+		const AnimationParameter* parameter = FindParameter(String(std::string_view(name)));
+		return parameter && parameter->value_ != 0.0f;
+	}
+
+	Float Animator::GetFloat(const std::string& name)const
+	{
+		const AnimationParameter* parameter = FindParameter(String(std::string_view(name)));
+		return parameter ? parameter->value_ : 0.0f;
+	}
+
+	Int Animator::GetInt(const std::string& name)const
+	{
+		const AnimationParameter* parameter = FindParameter(String(std::string_view(name)));
+		return parameter ? static_cast<Int>(parameter->value_) : 0;
+	}
+
+	Int Animator::CurrentStateIndex()const
+	{
+		return currentStateIndex_;
+	}
+
+	Float Animator::CurrentTime()const
+	{
+		return currentTime_;
+	}
+
+	Int Animator::PreviousStateIndex()const
+	{
+		return previousStateIndex_;
+	}
+
+	Float Animator::PreviousTime()const
+	{
+		return previousStateTime_;
+	}
+
+	Bool Animator::Blending()const
+	{
+		return previousStateIndex_ >= 0;
+	}
+
+	Float Animator::Alpha()const
+	{
+		return blendDuration_ > 0.0f ? Clamp(blendElapsed_ / blendDuration_, 0.0f, 1.0f) : 1.0f;
+	}
+
 	AnimationParameter* Animator::FindParameter(const String& name)
 	{
 		for (AnimationParameter& parameter : parameters_)
@@ -89,37 +151,72 @@ namespace SeedCore
 		return nullptr;
 	}
 
-	Int Animator::CurrentStateIndex()const
+	void Animator::EvaluateTransitions()
 	{
-		return currentStateIndex_;
-	}
+		if (currentStateIndex_ < 0 || previousStateIndex_ >= 0)
+		{
+			return;
+		}
 
-	Float Animator::CurrentTime()const
-	{
-		return currentTime_;
-	}
+		for (AnimationTransition& transition : transitions_)
+		{
+			if (transition.toState_ == ExitState)
+			{
+				continue;
+			}
 
-	Bool Animator::HasRootMotionBaseline(Int stateIndex)const
-	{
-		return rootMotionBaselineValid_ && rootMotionBaselineStateIndex_ == stateIndex;
-	}
+			Bool isFromCurrentState = transition.fromState_ == currentStateIndex_;
+			Bool isFromAnyState = transition.fromState_ == AnyState && transition.toState_ != currentStateIndex_;
 
-	Float Animator::RootMotionBaselineSampleTime()const
-	{
-		return rootMotionBaselineSampleTime_;
-	}
+			if ((!isFromCurrentState && !isFromAnyState) || (transition.conditions_.empty() && !transition.hasExitTime_))
+			{
+				continue;
+			}
 
-	Vector3 Animator::RootMotionBaselineTranslation()const
-	{
-		return rootMotionBaselineTranslation_;
-	}
+			if (transition.hasExitTime_)
+			{
+				Float normalizedTime = currentClipDuration_ > 0.0f ? currentTime_ / currentClipDuration_ : 0.0f;
+				if (normalizedTime < transition.exitTime_)
+				{
+					continue;
+				}
+			}
 
-	void Animator::UpdateRootMotionBaseline(Int stateIndex, Float sampleTime, const Vector3& translation)
-	{
-		rootMotionBaselineValid_ = true;
-		rootMotionBaselineStateIndex_ = stateIndex;
-		rootMotionBaselineSampleTime_ = sampleTime;
-		rootMotionBaselineTranslation_ = translation;
+			Bool result = true;
+			if (!transition.conditions_.empty())
+			{
+				result = EvaluateCondition(transition.conditions_[0]);
+				for (Size index = 1; index < transition.conditions_.size(); ++index)
+				{
+					Bool conditionResult = EvaluateCondition(transition.conditions_[index]);
+					result = transition.conditions_[index].isOr_ ? (result || conditionResult) : (result && conditionResult);
+				}
+			}
+
+			if (!result)
+			{
+				continue;
+			}
+
+			previousStateIndex_ = currentStateIndex_;
+			previousStateTime_ = currentTime_;
+			blendElapsed_ = 0.0f;
+			blendDuration_ = transition.duration_;
+
+			currentStateIndex_ = transition.toState_;
+			currentTime_ = 0.0f;
+
+			for (const AnimationCondition& condition : transition.conditions_)
+			{
+				AnimationParameter* parameter = FindParameter(condition.parameterName_);
+				if (parameter && parameter->type_ == AnimationParameterType::Trigger)
+				{
+					parameter->value_ = 0.0f;
+				}
+			}
+
+			return;
+		}
 	}
 
 	Bool Animator::EvaluateCondition(const AnimationCondition& condition)const
@@ -154,50 +251,31 @@ namespace SeedCore
 		}
 	}
 
-	void Animator::EvaluateTransitions()
+	Bool Animator::HasRootMotionBaseline(Int stateIndex)const
 	{
-		if (currentStateIndex_ < 0)
-		{
-			return;
-		}
+		return rootMotionBaselineValid_ && rootMotionBaselineStateIndex_ == stateIndex;
+	}
 
-		for (AnimationTransition& transition : transitions_)
-		{
-			if (transition.toState_ == ExitState)
-			{
-				continue;
-			}
+	Float Animator::RootMotionBaselineSampleTime()const
+	{
+		return rootMotionBaselineSampleTime_;
+	}
 
-			if (transition.fromState_ != currentStateIndex_ || transition.conditions_.empty())
-			{
-				continue;
-			}
+	Vector3 Animator::RootMotionBaselineTranslation()const
+	{
+		return rootMotionBaselineTranslation_;
+	}
 
-			Bool result = EvaluateCondition(transition.conditions_[0]);
-			for (Size index = 1; index < transition.conditions_.size(); ++index)
-			{
-				Bool conditionResult = EvaluateCondition(transition.conditions_[index]);
-				result = transition.conditions_[index].isOr_ ? (result || conditionResult) : (result && conditionResult);
-			}
+	void Animator::UpdateRootMotionBaseline(Int stateIndex, Float sampleTime, const Vector3& translation)
+	{
+		rootMotionBaselineValid_ = true;
+		rootMotionBaselineStateIndex_ = stateIndex;
+		rootMotionBaselineSampleTime_ = sampleTime;
+		rootMotionBaselineTranslation_ = translation;
+	}
 
-			if (!result)
-			{
-				continue;
-			}
-
-			currentStateIndex_ = transition.toState_;
-			currentTime_ = 0.0f;
-
-			for (const AnimationCondition& condition : transition.conditions_)
-			{
-				AnimationParameter* parameter = FindParameter(condition.parameterName_);
-				if (parameter && parameter->type_ == AnimationParameterType::Trigger)
-				{
-					parameter->value_ = 0.0f;
-				}
-			}
-
-			return;
-		}
+	void Animator::UpdateCurrentClipDuration(Float duration)
+	{
+		currentClipDuration_ = duration;
 	}
 }

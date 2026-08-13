@@ -232,10 +232,86 @@ namespace SeedCore
 									sampleTime = std::fmod(sampleTime, duration);
 								}
 
+								animator->UpdateCurrentClipDuration(duration);
+
 								std::unordered_map<Int, Vector3> translationOverrides;
 								std::unordered_map<Int, Quaternion> rotationOverrides;
 								std::unordered_map<Int, Vector3> scaleOverrides;
 								animation->SamplePose(sampleTime, translationOverrides, rotationOverrides, scaleOverrides);
+
+								if (animator->Blending() && static_cast<Size>(animator->PreviousStateIndex()) < animator->states_.size())
+								{
+									Int previousStateIndex = animator->PreviousStateIndex();
+									const AnimationState& previousAnimatorState = animator->states_[previousStateIndex];
+									Uint32 previousAnimationAssetId = static_cast<Uint32>(previousAnimatorState.animationID_);
+									Handle<Animation> previousAnimationHandle = animationResource.GetHandle(previousAnimationAssetId);
+									Animation* previousAnimation = previousAnimationAssetId != 0 && !previousAnimationHandle.empty() ? animationResource.Resolve(loaderSystem, previousAnimationHandle) : nullptr;
+
+									if (previousAnimation)
+									{
+										Float previousDuration = previousAnimation->Duration();
+										Float previousSampleTime = animator->PreviousTime();
+										if (previousDuration > 0.0f)
+										{
+											previousSampleTime = std::fmod(previousSampleTime, previousDuration);
+										}
+
+										std::unordered_map<Int, Vector3> previousTranslationOverrides;
+										std::unordered_map<Int, Quaternion> previousRotationOverrides;
+										std::unordered_map<Int, Vector3> previousScaleOverrides;
+										previousAnimation->SamplePose(previousSampleTime, previousTranslationOverrides, previousRotationOverrides, previousScaleOverrides);
+
+										Float alpha = animator->Alpha();
+
+										std::unordered_map<Int, Vector3> blendedTranslationOverrides;
+										for (const auto& [nodeIndex, currentValue] : translationOverrides)
+										{
+											auto previousIt = previousTranslationOverrides.find(nodeIndex);
+											Vector3 previousValue = previousIt != previousTranslationOverrides.end() ? previousIt->second : nodes[nodeIndex].translation_;
+											blendedTranslationOverrides[nodeIndex] = Vector3::Lerp(previousValue, currentValue, alpha);
+										}
+										for (const auto& [nodeIndex, previousValue] : previousTranslationOverrides)
+										{
+											if (!translationOverrides.contains(nodeIndex))
+											{
+												blendedTranslationOverrides[nodeIndex] = Vector3::Lerp(previousValue, nodes[nodeIndex].translation_, alpha);
+											}
+										}
+										translationOverrides = std::move(blendedTranslationOverrides);
+
+										std::unordered_map<Int, Quaternion> blendedRotationOverrides;
+										for (const auto& [nodeIndex, currentValue] : rotationOverrides)
+										{
+											auto previousIt = previousRotationOverrides.find(nodeIndex);
+											Quaternion previousValue = previousIt != previousRotationOverrides.end() ? previousIt->second : nodes[nodeIndex].rotation_;
+											blendedRotationOverrides[nodeIndex] = Quaternion::Slerp(previousValue, currentValue, alpha);
+										}
+										for (const auto& [nodeIndex, previousValue] : previousRotationOverrides)
+										{
+											if (!rotationOverrides.contains(nodeIndex))
+											{
+												blendedRotationOverrides[nodeIndex] = Quaternion::Slerp(previousValue, nodes[nodeIndex].rotation_, alpha);
+											}
+										}
+										rotationOverrides = std::move(blendedRotationOverrides);
+
+										std::unordered_map<Int, Vector3> blendedScaleOverrides;
+										for (const auto& [nodeIndex, currentValue] : scaleOverrides)
+										{
+											auto previousIt = previousScaleOverrides.find(nodeIndex);
+											Vector3 previousValue = previousIt != previousScaleOverrides.end() ? previousIt->second : nodes[nodeIndex].scale_;
+											blendedScaleOverrides[nodeIndex] = Vector3::Lerp(previousValue, currentValue, alpha);
+										}
+										for (const auto& [nodeIndex, previousValue] : previousScaleOverrides)
+										{
+											if (!scaleOverrides.contains(nodeIndex))
+											{
+												blendedScaleOverrides[nodeIndex] = Vector3::Lerp(previousValue, nodes[nodeIndex].scale_, alpha);
+											}
+										}
+										scaleOverrides = std::move(blendedScaleOverrides);
+									}
+								}
 
 								if (animatorState.useRootMotion_ && !skins.empty() && !skins[0].joints_.empty())
 								{

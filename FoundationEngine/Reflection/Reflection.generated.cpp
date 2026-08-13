@@ -902,6 +902,22 @@ namespace SeedCore
 					}
 					{
 						FieldInfo fi;
+						fi.name_ = String("hasExitTime_");
+						fi.offset_ = offsetof(AnimationTransition, hasExitTime_);
+						fi.type_ = AttributeType::Bool;
+						fi.editorVisible_ = false;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("exitTime_");
+						fi.offset_ = offsetof(AnimationTransition, exitTime_);
+						fi.type_ = AttributeType::Float;
+						fi.editorVisible_ = false;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
 						fi.name_ = String("fromOffsetX_");
 						fi.offset_ = offsetof(AnimationTransition, fromOffsetX_);
 						fi.type_ = AttributeType::Float;
@@ -1072,6 +1088,22 @@ namespace SeedCore
 						FieldInfo fi;
 						fi.name_ = String("exitNodePositionY_");
 						fi.offset_ = offsetof(Animator, exitNodePositionY_);
+						fi.type_ = AttributeType::Float;
+						fi.editorVisible_ = false;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("anyNodePositionX_");
+						fi.offset_ = offsetof(Animator, anyNodePositionX_);
+						fi.type_ = AttributeType::Float;
+						fi.editorVisible_ = false;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("anyNodePositionY_");
+						fi.offset_ = offsetof(Animator, anyNodePositionY_);
 						fi.type_ = AttributeType::Float;
 						fi.editorVisible_ = false;
 						outInfo.push_back(std::move(fi));
@@ -1311,7 +1343,7 @@ namespace SeedCore
 						fi.type_ = AttributeType::Float;
 						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<VignetteSettings*>(p); return o.enabled_; };
 						fi.clampMin_ = 0.0f;
-						fi.clampMax_ = 1.0f;
+						fi.clampMax_ = 8.0f;
 						outInfo.push_back(std::move(fi));
 					}
 					{

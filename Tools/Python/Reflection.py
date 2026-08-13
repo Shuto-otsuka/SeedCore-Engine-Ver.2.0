@@ -247,6 +247,18 @@ def extract_block(content, start):
     return None
 
 
+def is_forward_declaration(content, match_end, brace_pos):
+    """
+    STRUCT_START が拾った struct/class 名が前方宣言(本体を持たない
+    `struct X;`)かどうかを判定する。match_end から brace_pos までの間に
+    ';' があれば、brace_pos の '{' はこの宣言の本体ではなく、後方にある
+    無関係な別の struct/class/namespace の開き括弧を誤って拾っている
+    (例: 前方宣言の直後に別のクラス本体が続く場合)。
+    """
+    semi_pos = content.find(';', match_end)
+    return semi_pos != -1 and semi_pos < brace_pos
+
+
 # ---------------------------
 # メイン処理
 # ---------------------------
@@ -293,6 +305,8 @@ def process_file(file_path, project_root, global_enums, enum_headers, enum_owner
 
         brace_pos = content.find('{', match.end())
         if brace_pos == -1:
+            continue
+        if is_forward_declaration(content, match.end(), brace_pos):
             continue
 
         body = extract_block(content, brace_pos)
@@ -591,6 +605,8 @@ def collect_all_enums(project_root):
                     brace_pos = cleaned.find('{', struct_match.end())
                     if brace_pos == -1:
                         continue
+                    if is_forward_declaration(cleaned, struct_match.end(), brace_pos):
+                        continue
                     body = extract_block(cleaned, brace_pos)
                     if not body:
                         continue
@@ -640,6 +656,8 @@ def collect_all_reflectable_structs(project_root):
                 struct_name = match.group(2)
                 brace_pos = cleaned.find('{', match.end())
                 if brace_pos == -1:
+                    continue
+                if is_forward_declaration(cleaned, match.end(), brace_pos):
                     continue
                 body = extract_block(cleaned, brace_pos)
                 if not body:

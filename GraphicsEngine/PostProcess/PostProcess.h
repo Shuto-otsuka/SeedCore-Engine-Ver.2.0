@@ -258,10 +258,13 @@ namespace SeedCore
 		SC_REFLECTION_FIELD_EX("有効")
 		Bool enabled_ = false;
 
-		/// [EN] Blend toward the falloff curve. 1 = the full curve, 0 = none.
-		/// [JP] 減光カーブへのブレンド量。1でカーブそのまま、0で無効。
+		/// [EN] Exponent applied to the falloff curve. 1 = the physical
+		///      cosine-fourth curve as-is, 0 = no vignette, above 1 pushes
+		///      the corners darker than the physical curve.
+		/// [JP] 減光カーブに掛かる指数。1で物理どおりのコサイン4乗カーブ
+		///      そのまま、0で無効、1を超えると物理カーブより四隅が暗くなる。
 		SC_REFLECTION_FIELD_CONDITION(enabled_)
-		SC_REFLECTION_CLAMPED_EX("強度", 0.0f, 1.0f)
+		SC_REFLECTION_CLAMPED_EX("強度", 0.0f, 8.0f)
 		Float intensity_ = 0.5f;
 
 		/// [EN] 4 is the physical cosine-fourth law (see the struct comment).

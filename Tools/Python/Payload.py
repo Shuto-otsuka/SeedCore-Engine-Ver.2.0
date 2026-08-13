@@ -181,6 +181,18 @@ def extract_block(content, start):
     return None
 
 
+def is_forward_declaration(content, match_end, brace_pos):
+    """
+    STRUCT_START が拾った struct/class 名が前方宣言(本体を持たない
+    `struct X;`)かどうかを判定する。match_end から brace_pos までの間に
+    ';' があれば、brace_pos の '{' はこの宣言の本体ではなく、後方にある
+    無関係な別の struct/class/namespace の開き括弧を誤って拾っている
+    (例: 前方宣言の直後に別のクラス本体が続く場合)。
+    """
+    semi_pos = content.find(';', match_end)
+    return semi_pos != -1 and semi_pos < brace_pos
+
+
 # ---------------------------
 # Condition (enableIf_) 対応
 # ---------------------------
@@ -195,6 +207,8 @@ def build_enum_owners(content):
         struct_name = match.group(2)
         brace_pos = content.find('{', match.end())
         if brace_pos == -1:
+            continue
+        if is_forward_declaration(content, match.end(), brace_pos):
             continue
         body = extract_block(content, brace_pos)
         if not body:
@@ -232,6 +246,8 @@ def parse_payload_structs(content):
 
         brace_pos = content.find('{', match.end())
         if brace_pos == -1:
+            continue
+        if is_forward_declaration(content, match.end(), brace_pos):
             continue
 
         body = extract_block(content, brace_pos)

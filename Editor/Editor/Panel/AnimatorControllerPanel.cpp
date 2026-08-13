@@ -26,9 +26,14 @@ namespace SeedCore
 			return ed::PinId(static_cast<uintptr_t>(pinIdBase + index + 1));
 		}
 
-		ed::LinkId TransitionLinkId(Size index)
+		ed::PinId ExitPinId()
 		{
-			return ed::LinkId(static_cast<uintptr_t>(linkIdBase + index + 1));
+			return ed::PinId(static_cast<uintptr_t>(900102));
+		}
+
+		ed::PinId AnyPinId()
+		{
+			return ed::PinId(static_cast<uintptr_t>(900103));
 		}
 
 		ed::NodeId EntryNodeId()
@@ -41,14 +46,9 @@ namespace SeedCore
 			return ed::NodeId(static_cast<uintptr_t>(900002));
 		}
 
-		ed::PinId EntryPinId()
+		ed::NodeId AnyNodeId()
 		{
-			return ed::PinId(static_cast<uintptr_t>(900101));
-		}
-
-		ed::PinId ExitPinId()
-		{
-			return ed::PinId(static_cast<uintptr_t>(900102));
+			return ed::NodeId(static_cast<uintptr_t>(900003));
 		}
 
 		void DrawTransitionArrow(ImDrawList* drawList, const ImVec2& screenFrom, const ImVec2& screenTo, ImU32 color, Float thickness)
@@ -199,35 +199,6 @@ namespace SeedCore
 			}
 		}
 
-		const AnimationParameter* FindParameter(const Animator& animator, const String& name)
-		{
-			for (const AnimationParameter& parameter : animator.parameters_)
-			{
-				if (parameter.name_ == name)
-				{
-					return &parameter;
-				}
-			}
-			return nullptr;
-		}
-
-		String MakeUniqueParameterName(const Animator& animator, const String& base)
-		{
-			if (!FindParameter(animator, base))
-			{
-				return base;
-			}
-
-			for (Int suffix = 1; ; ++suffix)
-			{
-				std::string candidate = base.str() + std::to_string(suffix);
-				if (!FindParameter(animator, String(std::string_view(candidate))))
-				{
-					return String(std::string_view(candidate));
-				}
-			}
-		}
-
 		std::string AssetLabel(ResourceCache* resource, Int assetId)
 		{
 			if (assetId == 0)
@@ -247,7 +218,18 @@ namespace SeedCore
 
 	AnimatorControllerPanel::AnimatorControllerPanel(EditorContext& context) : context_(context)
 	{
-		nodeEditorContext_ = ed::CreateEditor();
+		/// [EN] The library binds the right button to both canvas navigation and
+		///      the context menu by default, and navigation consumes the click
+		///      before the menu can open. Panning moves to the middle button so
+		///      the right button is free for menus.
+		/// [JP] ライブラリの既定では右ボタンがキャンバスのパン操作とコンテキスト
+		///      メニューの両方に割り当てられており、パン側がクリックを消費して
+		///      メニューが開けない。パンを中ボタンへ移し、右ボタンをメニュー
+		///      専用にする。
+		ed::Config config;
+		config.NavigateButtonIndex = 2;
+
+		nodeEditorContext_ = ed::CreateEditor(&config);
 	}
 
 	AnimatorControllerPanel::~AnimatorControllerPanel()
@@ -329,6 +311,39 @@ namespace SeedCore
 
 		ed::Begin("AnimatorControllerEditor", ImVec2(0, 0));
 
+		/// [EN] A node covered by a pin is dragged as a link by the editor instead of
+		///      being moved, which is exactly the split we want: hold Alt and the whole
+		///      node becomes a pin so left-drag pulls a transition, release it and the
+		///      node is bare so left-drag moves it. The latch keeps the pins alive once
+		///      a drag is under way, so letting go of Alt mid-drag does not delete the
+		///      pin out from under the editor.
+		/// [JP] ピンで覆われたノードはエディタ側で移動ではなくリンクのドラッグとして
+		///      扱われる。これがまさに欲しい切り分けで、Alt を押している間だけノード
+		///      全体をピンにすれば左ドラッグは遷移を引く操作になり、離せば素のノード
+		///      に戻って左ドラッグは移動になる。ラッチはドラッグ開始後ピンを維持する
+		///      ためのもので、ドラッグ途中で Alt を離してもエディタの足元からピンが
+		///      消えないようにする。
+		if (ImGui::GetIO().KeyAlt)
+		{
+			altPinsActive_ = true;
+		}
+		else if (!ImGui::IsMouseDown(ImGuiMouseButton_Left))
+		{
+			altPinsActive_ = false;
+		}
+
+		/// [EN] Kept as an absolute canvas position because the node the drag started
+		///      from is only known once the link is accepted; it is turned into a
+		///      node-relative anchor there.
+		/// [JP] ドラッグの開始ノードはリンクが確定するまで判らないため、絶対キャンバス
+		///      座標のまま保持し、確定時にノード相対のアンカーへ変換する。
+		if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && ImGui::GetIO().KeyAlt)
+		{
+			ImVec2 pressCanvasPos = ed::ScreenToCanvas(ImGui::GetMousePos());
+			altDragOffsetX_ = pressCanvasPos.x;
+			altDragOffsetY_ = pressCanvasPos.y;
+		}
+
 		for (Size index = 0; index < target_->states_.size(); ++index)
 		{
 			AnimationState& state = target_->states_[index];
@@ -340,13 +355,22 @@ namespace SeedCore
 				ed::SetNodePosition(nodeId, ImVec2(state.nodePositionX_, state.nodePositionY_));
 			}
 
+			Bool isDefaultState = (target_->entryStateIndex_ == static_cast<Int>(index));
+			if (isDefaultState)
+			{
+				ed::PushStyleColor(ed::StyleColor_NodeBg, ImVec4(0.62f, 0.35f, 0.08f, 1.0f));
+				ed::PushStyleColor(ed::StyleColor_NodeBorder, ImVec4(1.0f, 0.68f, 0.22f, 1.0f));
+			}
+
 			ed::BeginNode(nodeId);
 			ImGui::PushID(static_cast<Int>(index));
 
-			ed::BeginPin(StatePinId(index), ed::PinKind::Output);
-
-			ed::PinPivotAlignment(ImVec2(0.0f, 0.0f));
-			ed::PinPivotSize(ImVec2(-1.0f, -1.0f));
+			if (altPinsActive_)
+			{
+				ed::BeginPin(StatePinId(index), ed::PinKind::Output);
+				ed::PinPivotAlignment(ImVec2(0.0f, 0.0f));
+				ed::PinPivotSize(ImVec2(-1.0f, -1.0f));
+			}
 
 			constexpr Float nodeWidth = 200.0f;
 
@@ -357,10 +381,19 @@ namespace SeedCore
 			ImGui::Text("%s", state.name_.c_str());
 
 			ImGui::Dummy(ImVec2(nodeWidth, 8.0f));
-			ed::EndPin();
+
+			if (altPinsActive_)
+			{
+				ed::EndPin();
+			}
 
 			ImGui::PopID();
 			ed::EndNode();
+
+			if (isDefaultState)
+			{
+				ed::PopStyleColor(2);
+			}
 
 			ImVec2 currentPosition = ed::GetNodePosition(nodeId);
 			state.nodePositionX_ = currentPosition.x;
@@ -371,6 +404,7 @@ namespace SeedCore
 		{
 			ed::SetNodePosition(EntryNodeId(), ImVec2(target_->entryNodePositionX_, target_->entryNodePositionY_));
 			ed::SetNodePosition(ExitNodeId(), ImVec2(target_->exitNodePositionX_, target_->exitNodePositionY_));
+			ed::SetNodePosition(AnyNodeId(), ImVec2(target_->anyNodePositionX_, target_->anyNodePositionY_));
 		}
 
 		constexpr Float specialNodeWidth = 100.0f;
@@ -378,15 +412,11 @@ namespace SeedCore
 		ed::PushStyleColor(ed::StyleColor_NodeBg, ImVec4(0.12f, 0.35f, 0.12f, 1.0f));
 		ed::PushStyleColor(ed::StyleColor_NodeBorder, ImVec4(0.35f, 0.9f, 0.35f, 1.0f));
 		ed::BeginNode(EntryNodeId());
-		ed::BeginPin(EntryPinId(), ed::PinKind::Output);
-		ed::PinPivotAlignment(ImVec2(0.0f, 0.0f));
-		ed::PinPivotSize(ImVec2(-1.0f, -1.0f));
 		ImGui::Dummy(ImVec2(specialNodeWidth, 8.0f));
 		Float entryTextWidth = ImGui::CalcTextSize("Entry").x;
 		ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImMax(0.0f, (specialNodeWidth - entryTextWidth) * 0.5f));
 		ImGui::Text("Entry");
 		ImGui::Dummy(ImVec2(specialNodeWidth, 8.0f));
-		ed::EndPin();
 		ed::EndNode();
 		ed::PopStyleColor(2);
 
@@ -397,15 +427,21 @@ namespace SeedCore
 		ed::PushStyleColor(ed::StyleColor_NodeBg, ImVec4(0.35f, 0.12f, 0.12f, 1.0f));
 		ed::PushStyleColor(ed::StyleColor_NodeBorder, ImVec4(0.9f, 0.35f, 0.35f, 1.0f));
 		ed::BeginNode(ExitNodeId());
-		ed::BeginPin(ExitPinId(), ed::PinKind::Output);
-		ed::PinPivotAlignment(ImVec2(0.0f, 0.0f));
-		ed::PinPivotSize(ImVec2(-1.0f, -1.0f));
+		if (altPinsActive_)
+		{
+			ed::BeginPin(ExitPinId(), ed::PinKind::Output);
+			ed::PinPivotAlignment(ImVec2(0.0f, 0.0f));
+			ed::PinPivotSize(ImVec2(-1.0f, -1.0f));
+		}
 		ImGui::Dummy(ImVec2(specialNodeWidth, 8.0f));
 		Float exitTextWidth = ImGui::CalcTextSize("Exit").x;
 		ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImMax(0.0f, (specialNodeWidth - exitTextWidth) * 0.5f));
 		ImGui::Text("Exit");
 		ImGui::Dummy(ImVec2(specialNodeWidth, 8.0f));
-		ed::EndPin();
+		if (altPinsActive_)
+		{
+			ed::EndPin();
+		}
 		ed::EndNode();
 		ed::PopStyleColor(2);
 
@@ -413,7 +449,30 @@ namespace SeedCore
 		target_->exitNodePositionX_ = exitPosition.x;
 		target_->exitNodePositionY_ = exitPosition.y;
 
-		Bool linkCreatedThisFrame = false;
+		ed::PushStyleColor(ed::StyleColor_NodeBg, ImVec4(0.12f, 0.16f, 0.35f, 1.0f));
+		ed::PushStyleColor(ed::StyleColor_NodeBorder, ImVec4(0.35f, 0.55f, 0.9f, 1.0f));
+		ed::BeginNode(AnyNodeId());
+		if (altPinsActive_)
+		{
+			ed::BeginPin(AnyPinId(), ed::PinKind::Output);
+			ed::PinPivotAlignment(ImVec2(0.0f, 0.0f));
+			ed::PinPivotSize(ImVec2(-1.0f, -1.0f));
+		}
+		ImGui::Dummy(ImVec2(specialNodeWidth, 8.0f));
+		Float anyTextWidth = ImGui::CalcTextSize("Any").x;
+		ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImMax(0.0f, (specialNodeWidth - anyTextWidth) * 0.5f));
+		ImGui::Text("Any");
+		ImGui::Dummy(ImVec2(specialNodeWidth, 8.0f));
+		if (altPinsActive_)
+		{
+			ed::EndPin();
+		}
+		ed::EndNode();
+		ed::PopStyleColor(2);
+
+		ImVec2 anyPosition = ed::GetNodePosition(AnyNodeId());
+		target_->anyNodePositionX_ = anyPosition.x;
+		target_->anyNodePositionY_ = anyPosition.y;
 
 		if (ed::BeginCreate())
 		{
@@ -425,60 +484,64 @@ namespace SeedCore
 					uintptr_t startValue = startPinId.Get();
 					uintptr_t endValue = endPinId.Get();
 
-					if (startValue == 900101 && endValue >= pinIdBase && endValue < linkIdBase)
+					Int fromState = -1;
+					Int toState = -1;
+
+					if (startValue == 900103)
 					{
-						Size toIndex = static_cast<Size>(endValue - pinIdBase - 1);
-						if (toIndex < target_->states_.size())
+						fromState = Animator::AnyState;
+					}
+					else if (startValue >= pinIdBase && startValue < linkIdBase)
+					{
+						Size candidate = static_cast<Size>(startValue - pinIdBase - 1);
+						if (candidate < target_->states_.size())
 						{
-							target_->entryStateIndex_ = static_cast<Int>(toIndex);
-							linkCreatedThisFrame = true;
+							fromState = static_cast<Int>(candidate);
 						}
 					}
-					else if (endValue == 900102 && startValue >= pinIdBase && startValue < linkIdBase)
+
+					if (endValue == 900102)
 					{
-						Size fromIndex = static_cast<Size>(startValue - pinIdBase - 1);
-						if (fromIndex < target_->states_.size())
+						toState = Animator::ExitState;
+					}
+					else if (endValue >= pinIdBase && endValue < linkIdBase)
+					{
+						Size candidate = static_cast<Size>(endValue - pinIdBase - 1);
+						if (candidate < target_->states_.size())
 						{
-							AnimationTransition& transition = target_->transitions_.emplace_back();
-							transition.fromState_ = static_cast<Int>(fromIndex);
-							transition.toState_ = Animator::ExitState;
-
-							if (pendingFromStateIndex_ == fromIndex)
-							{
-								transition.fromOffsetX_ = pendingFromOffsetX_;
-								transition.fromOffsetY_ = pendingFromOffsetY_;
-							}
-
-							ImVec2 toCanvasPos = ed::ScreenToCanvas(ImGui::GetMousePos());
-							ImVec2 toNodePos = ed::GetNodePosition(ExitNodeId());
-							transition.toOffsetX_ = toCanvasPos.x - toNodePos.x;
-							transition.toOffsetY_ = toCanvasPos.y - toNodePos.y;
-
-							linkCreatedThisFrame = true;
+							toState = static_cast<Int>(candidate);
 						}
 					}
-					else if (startValue >= pinIdBase && startValue < linkIdBase &&
-						endValue >= pinIdBase && endValue < linkIdBase)
-					{
-						Size fromIndex = static_cast<Size>(startValue - pinIdBase - 1);
-						Size toIndex = static_cast<Size>(endValue - pinIdBase - 1);
 
+					if (fromState != -1 && toState != -1 && fromState != toState)
+					{
 						AnimationTransition& transition = target_->transitions_.emplace_back();
-						transition.fromState_ = static_cast<Int>(fromIndex);
-						transition.toState_ = static_cast<Int>(toIndex);
+						transition.fromState_ = fromState;
+						transition.toState_ = toState;
 
-						if (pendingFromStateIndex_ == fromIndex)
-						{
-							transition.fromOffsetX_ = pendingFromOffsetX_;
-							transition.fromOffsetY_ = pendingFromOffsetY_;
-						}
+						ed::NodeId fromNodeId = (fromState == Animator::AnyState) ? AnyNodeId() : StateNodeId(static_cast<Size>(fromState));
+						ImVec2 fromNodePos = ed::GetNodePosition(fromNodeId);
+						ImVec2 fromNodeSize = ed::GetNodeSize(fromNodeId);
 
+						/// [EN] The press position is only meaningful when it actually
+						///      landed on the node the link starts from; if Alt went down
+						///      after the button, no press was recorded and the stale value
+						///      would produce a wild anchor. Centre it in that case.
+						/// [JP] 記録した押下位置は、それがリンクの始点ノード上だった場合
+						///      にのみ意味を持つ。ボタンより後に Alt を押した場合は押下が
+						///      記録されず、古い値のまま出鱈目なアンカーになる。その場合は
+						///      中心に置く。
+						Bool pressLandedOnSource = altDragOffsetX_ >= fromNodePos.x && altDragOffsetX_ <= fromNodePos.x + fromNodeSize.x &&
+							altDragOffsetY_ >= fromNodePos.y && altDragOffsetY_ <= fromNodePos.y + fromNodeSize.y;
+
+						transition.fromOffsetX_ = pressLandedOnSource ? (altDragOffsetX_ - fromNodePos.x) : (fromNodeSize.x * 0.5f);
+						transition.fromOffsetY_ = pressLandedOnSource ? (altDragOffsetY_ - fromNodePos.y) : (fromNodeSize.y * 0.5f);
+
+						ed::NodeId toNodeId = (toState == Animator::ExitState) ? ExitNodeId() : StateNodeId(static_cast<Size>(toState));
 						ImVec2 toCanvasPos = ed::ScreenToCanvas(ImGui::GetMousePos());
-						ImVec2 toNodePos = ed::GetNodePosition(StateNodeId(toIndex));
+						ImVec2 toNodePos = ed::GetNodePosition(toNodeId);
 						transition.toOffsetX_ = toCanvasPos.x - toNodePos.x;
 						transition.toOffsetY_ = toCanvasPos.y - toNodePos.y;
-
-						linkCreatedThisFrame = true;
 					}
 				}
 			}
@@ -490,7 +553,7 @@ namespace SeedCore
 			ed::NodeId deletedNodeId;
 			while (ed::QueryDeletedNode(&deletedNodeId))
 			{
-				if (deletedNodeId == EntryNodeId() || deletedNodeId == ExitNodeId())
+				if (deletedNodeId == EntryNodeId() || deletedNodeId == ExitNodeId() || deletedNodeId == AnyNodeId())
 				{
 					ed::RejectDeletedItem();
 					continue;
@@ -506,6 +569,19 @@ namespace SeedCore
 						{
 							target_->states_.erase(target_->states_.begin() + stateIndex);
 
+							/// [EN] Every state after the erased one shifts down an index,
+							///      so its StateNodeId changes and it would otherwise
+							///      inherit the editor-side position stored against the
+							///      previous owner of that id. Re-pushing all positions
+							///      from the state data next frame keeps the authored
+							///      layout intact.
+							/// [JP] 削除位置より後ろのステートはインデックスが1つ繰り上がる
+							///      ため StateNodeId が変わり、その id を以前使っていた
+							///      ノードのエディタ側位置を引き継いでしまう。次フレームで
+							///      ステートデータから全位置を押し直し、作成時のレイアウトを
+							///      保つ。
+							needsPositionSync_ = true;
+
 							Bool removedTransition = false;
 							for (Size transitionIndex = target_->transitions_.size(); transitionIndex > 0; --transitionIndex)
 							{
@@ -515,6 +591,27 @@ namespace SeedCore
 									target_->transitions_.erase(target_->transitions_.begin() + (transitionIndex - 1));
 									removedTransition = true;
 								}
+							}
+
+							for (AnimationTransition& transition : target_->transitions_)
+							{
+								if (transition.fromState_ > static_cast<Int>(stateIndex))
+								{
+									--transition.fromState_;
+								}
+								if (transition.toState_ > static_cast<Int>(stateIndex))
+								{
+									--transition.toState_;
+								}
+							}
+
+							if (target_->entryStateIndex_ == static_cast<Int>(stateIndex))
+							{
+								target_->entryStateIndex_ = -1;
+							}
+							else if (target_->entryStateIndex_ > static_cast<Int>(stateIndex))
+							{
+								--target_->entryStateIndex_;
 							}
 
 							if (removedTransition)
@@ -532,13 +629,18 @@ namespace SeedCore
 								--selectedStateIndex_;
 							}
 
-							if (middleDragStateIndex_ == stateIndex)
+							if (creatingTransition_ && creatingTransitionSource_ >= 0)
 							{
-								middleDragStateIndex_ = SIZE_MAX;
-							}
-							else if (middleDragStateIndex_ != SIZE_MAX && middleDragStateIndex_ > stateIndex)
-							{
-								--middleDragStateIndex_;
+								if (creatingTransitionSource_ == static_cast<Int>(stateIndex))
+								{
+									creatingTransition_ = false;
+									creatingTransitionArmed_ = false;
+									creatingTransitionSource_ = -1;
+								}
+								else if (creatingTransitionSource_ > static_cast<Int>(stateIndex))
+								{
+									--creatingTransitionSource_;
+								}
 							}
 						}
 					}
@@ -547,106 +649,200 @@ namespace SeedCore
 		}
 		ed::EndDelete();
 
-		ed::End();
+		ed::Suspend();
 
-		ed::NodeId hoveredNodeId = ed::GetHoveredNode();
-		ed::PinId hoveredPinId = ed::GetHoveredPin();
-
-		if (ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+		ed::NodeId contextNodeId;
+		if (ed::ShowNodeContextMenu(&contextNodeId))
 		{
-			uintptr_t pinValue = hoveredPinId.Get();
-			if (pinValue >= pinIdBase && pinValue < linkIdBase)
-			{
-				Size candidate = static_cast<Size>(pinValue - pinIdBase - 1);
-				if (candidate < target_->states_.size())
-				{
-					ImVec2 canvasPos = ed::ScreenToCanvas(ImGui::GetMousePos());
-					ImVec2 nodePos = ed::GetNodePosition(StateNodeId(candidate));
-					pendingFromStateIndex_ = candidate;
-					pendingFromOffsetX_ = canvasPos.x - nodePos.x;
-					pendingFromOffsetY_ = canvasPos.y - nodePos.y;
-				}
-			}
-		}
+			ImVec2 contextCanvasPos = ed::ScreenToCanvas(ImGui::GetMousePos());
+			contextMenuCanvasX_ = contextCanvasPos.x;
+			contextMenuCanvasY_ = contextCanvasPos.y;
 
-		if (ImGui::IsMouseClicked(ImGuiMouseButton_Middle))
-		{
-			if (hoveredNodeId == EntryNodeId())
+			contextMenuSource_ = -1;
+			if (contextNodeId == AnyNodeId())
 			{
-				middleDraggingEntry_ = true;
+				contextMenuSource_ = Animator::AnyState;
 			}
-			else if (hoveredNodeId == ExitNodeId())
+			else if (contextNodeId != EntryNodeId() && contextNodeId != ExitNodeId())
 			{
-				middleDraggingExit_ = true;
-			}
-			else
-			{
-				uintptr_t value = hoveredNodeId.Get();
+				uintptr_t value = contextNodeId.Get();
 				if (value >= nodeIdBase + 1)
 				{
 					Size candidate = static_cast<Size>(value - nodeIdBase - 1);
 					if (candidate < target_->states_.size())
 					{
-						middleDragStateIndex_ = candidate;
+						contextMenuSource_ = static_cast<Int>(candidate);
 					}
 				}
 			}
-		}
 
-		if (middleDraggingEntry_ || middleDraggingExit_)
+			if (contextMenuSource_ != -1)
+			{
+				ImGui::OpenPopup("##nodeContext");
+			}
+		}
+		else if (ed::ShowBackgroundContextMenu())
 		{
-			if (ImGui::IsMouseDragging(ImGuiMouseButton_Middle))
-			{
-				ed::NodeId dragNodeId = middleDraggingEntry_ ? EntryNodeId() : ExitNodeId();
-				ImVec2 currentPos = ed::GetNodePosition(dragNodeId);
-				ImVec2 delta = ImGui::GetIO().MouseDelta;
-				Float zoom = ed::GetCurrentZoom();
-				ImVec2 newPos(currentPos.x + delta.x / zoom, currentPos.y + delta.y / zoom);
+			ImVec2 contextCanvasPos = ed::ScreenToCanvas(ImGui::GetMousePos());
+			contextMenuCanvasX_ = contextCanvasPos.x;
+			contextMenuCanvasY_ = contextCanvasPos.y;
 
-				ed::SetNodePosition(dragNodeId, newPos);
-
-				if (middleDraggingEntry_)
-				{
-					target_->entryNodePositionX_ = newPos.x;
-					target_->entryNodePositionY_ = newPos.y;
-				}
-				else
-				{
-					target_->exitNodePositionX_ = newPos.x;
-					target_->exitNodePositionY_ = newPos.y;
-				}
-			}
-
-			if (ImGui::IsMouseReleased(ImGuiMouseButton_Middle))
-			{
-				middleDraggingEntry_ = false;
-				middleDraggingExit_ = false;
-			}
+			ImGui::OpenPopup("##backgroundContext");
 		}
-		else if (middleDragStateIndex_ != SIZE_MAX)
+
+		if (ImGui::BeginPopup("##backgroundContext"))
 		{
-			if (ImGui::IsMouseDragging(ImGuiMouseButton_Middle) && middleDragStateIndex_ < target_->states_.size())
+			if (ImGui::MenuItem("ステートを追加"))
 			{
-				ed::NodeId dragNodeId = StateNodeId(middleDragStateIndex_);
-				ImVec2 currentPos = ed::GetNodePosition(dragNodeId);
-				ImVec2 delta = ImGui::GetIO().MouseDelta;
-				Float zoom = ed::GetCurrentZoom();
-				ImVec2 newPos(currentPos.x + delta.x / zoom, currentPos.y + delta.y / zoom);
+				AnimationState& state = target_->states_.emplace_back();
+				state.name_ = String("State");
+				state.nodePositionX_ = contextMenuCanvasX_;
+				state.nodePositionY_ = contextMenuCanvasY_;
 
-				ed::SetNodePosition(dragNodeId, newPos);
-
-				AnimationState& draggedState = target_->states_[middleDragStateIndex_];
-				draggedState.nodePositionX_ = newPos.x;
-				draggedState.nodePositionY_ = newPos.y;
+				ed::SetNodePosition(StateNodeId(target_->states_.size() - 1), ImVec2(state.nodePositionX_, state.nodePositionY_));
 			}
 
-			if (ImGui::IsMouseReleased(ImGuiMouseButton_Middle))
+			ImGui::EndPopup();
+		}
+
+		if (ImGui::BeginPopup("##nodeContext"))
+		{
+			if (ImGui::MenuItem("遷移を作成"))
 			{
-				middleDragStateIndex_ = SIZE_MAX;
+				creatingTransition_ = true;
+
+				/// [EN] The menu item itself activates on a left release, and that
+				///      same release must not be read as the target pick. A fresh
+				///      left press has to arrive first.
+				/// [JP] メニュー項目自体が左ボタンのリリースで確定するため、その
+				///      リリースをそのまま対象選択として拾ってはいけない。改めて
+				///      左ボタンが押されるまで受け付けない。
+				creatingTransitionArmed_ = false;
+				creatingTransitionSource_ = contextMenuSource_;
+
+				ed::NodeId sourceNodeId = (contextMenuSource_ == Animator::AnyState) ? AnyNodeId() : StateNodeId(static_cast<Size>(contextMenuSource_));
+				ImVec2 sourceNodePos = ed::GetNodePosition(sourceNodeId);
+				creatingTransitionOffsetX_ = contextMenuCanvasX_ - sourceNodePos.x;
+				creatingTransitionOffsetY_ = contextMenuCanvasY_ - sourceNodePos.y;
+			}
+
+			if (contextMenuSource_ >= 0)
+			{
+				if (ImGui::MenuItem("デフォルトステートに設定"))
+				{
+					target_->entryStateIndex_ = contextMenuSource_;
+				}
+
+				ImGui::Separator();
+
+				/// [EN] Routed through the editor's own deletion queue rather than
+				///      erasing here, so the single QueryDeletedNode path stays the
+				///      only place that removes a state and fixes up the transition
+				///      indices behind it.
+				/// [JP] ここで直接消さずエディタ側の削除キューへ流す。ステートの
+				///      削除と、それに伴う遷移インデックスの詰め直しを行う場所を
+				///      QueryDeletedNode の1経路に集約しておくため。
+				if (ImGui::MenuItem("削除"))
+				{
+					ed::DeleteNode(StateNodeId(static_cast<Size>(contextMenuSource_)));
+				}
+			}
+
+			ImGui::EndPopup();
+		}
+
+		ed::Resume();
+
+		ed::End();
+
+		ed::NodeId hoveredNodeId = ed::GetHoveredNode();
+
+		Bool completedTransitionThisFrame = false;
+
+		if (creatingTransition_)
+		{
+			if (ImGui::IsKeyPressed(ImGuiKey_Escape) || ImGui::IsMouseClicked(ImGuiMouseButton_Right))
+			{
+				creatingTransition_ = false;
+				creatingTransitionArmed_ = false;
+				creatingTransitionSource_ = -1;
+			}
+			else
+			{
+				if (ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+				{
+					creatingTransitionArmed_ = true;
+				}
+
+				/// [EN] Resolved on release, which covers both interaction styles
+				///      with one path: clicking the target outright, and pressing
+				///      anywhere then dragging onto the target.
+				/// [JP] リリース時に確定させることで、対象を直接クリックする操作と、
+				///      押してから対象までドラッグする操作の両方を1つの経路で扱う。
+				if (creatingTransitionArmed_ && ImGui::IsMouseReleased(ImGuiMouseButton_Left))
+				{
+					/// [EN] Hit tested against node rects in canvas space rather than
+					///      through GetHoveredNode: the editor takes the press for its
+					///      own node drag, so its hover state is not dependable here.
+					/// [JP] GetHoveredNode ではなくキャンバス座標でノード矩形と直接
+					///      判定する。押下はエディタ側がノードドラッグとして処理して
+					///      しまい、そのホバー状態はここでは当てにできないため。
+					ImVec2 releaseCanvasPos = ed::ScreenToCanvas(ImGui::GetMousePos());
+
+					Int targetState = -1;
+
+					ImVec2 exitNodePos = ed::GetNodePosition(ExitNodeId());
+					ImVec2 exitNodeSize = ed::GetNodeSize(ExitNodeId());
+					if (releaseCanvasPos.x >= exitNodePos.x && releaseCanvasPos.x <= exitNodePos.x + exitNodeSize.x &&
+						releaseCanvasPos.y >= exitNodePos.y && releaseCanvasPos.y <= exitNodePos.y + exitNodeSize.y)
+					{
+						targetState = Animator::ExitState;
+					}
+
+					if (targetState == -1)
+					{
+						for (Size candidate = 0; candidate < target_->states_.size(); ++candidate)
+						{
+							if (static_cast<Int>(candidate) == creatingTransitionSource_)
+							{
+								continue;
+							}
+
+							ImVec2 candidateNodePos = ed::GetNodePosition(StateNodeId(candidate));
+							ImVec2 candidateNodeSize = ed::GetNodeSize(StateNodeId(candidate));
+							if (releaseCanvasPos.x >= candidateNodePos.x && releaseCanvasPos.x <= candidateNodePos.x + candidateNodeSize.x &&
+								releaseCanvasPos.y >= candidateNodePos.y && releaseCanvasPos.y <= candidateNodePos.y + candidateNodeSize.y)
+							{
+								targetState = static_cast<Int>(candidate);
+								break;
+							}
+						}
+					}
+
+					if (targetState != -1)
+					{
+						AnimationTransition& transition = target_->transitions_.emplace_back();
+						transition.fromState_ = creatingTransitionSource_;
+						transition.toState_ = targetState;
+						transition.fromOffsetX_ = creatingTransitionOffsetX_;
+						transition.fromOffsetY_ = creatingTransitionOffsetY_;
+
+						ed::NodeId targetNodeId = (targetState == Animator::ExitState) ? ExitNodeId() : StateNodeId(static_cast<Size>(targetState));
+						ImVec2 targetNodePos = ed::GetNodePosition(targetNodeId);
+						transition.toOffsetX_ = releaseCanvasPos.x - targetNodePos.x;
+						transition.toOffsetY_ = releaseCanvasPos.y - targetNodePos.y;
+
+						completedTransitionThisFrame = true;
+					}
+
+					creatingTransition_ = false;
+					creatingTransitionArmed_ = false;
+					creatingTransitionSource_ = -1;
+				}
 			}
 		}
 
-		Bool releasedOnEmpty = ImGui::IsMouseReleased(ImGuiMouseButton_Left) && !linkCreatedThisFrame && ImGui::IsWindowHovered();
+		Bool releasedOnEmpty = ImGui::IsMouseReleased(ImGuiMouseButton_Left) && !creatingTransition_ && !completedTransitionThisFrame && ImGui::IsWindowHovered();
 		ImVec2 releasePos = ImGui::GetMousePos();
 		constexpr Float transitionHitDistance = 6.0f;
 		Size hitTransitionIndex = SIZE_MAX;
@@ -656,17 +852,22 @@ namespace SeedCore
 		for (Size index = 0; index < target_->transitions_.size(); ++index)
 		{
 			const AnimationTransition& transition = target_->transitions_[index];
-			if (transition.fromState_ < 0)
+			Bool fromIsAny = (transition.fromState_ == Animator::AnyState);
+			if (transition.fromState_ < 0 && !fromIsAny)
 			{
 				continue;
 			}
 
 			Bool toIsExit = (transition.toState_ == Animator::ExitState);
 
-			Size fromIndex = static_cast<Size>(transition.fromState_);
-			if (fromIndex >= target_->states_.size())
+			Size fromIndex = 0;
+			if (!fromIsAny)
 			{
-				continue;
+				fromIndex = static_cast<Size>(transition.fromState_);
+				if (fromIndex >= target_->states_.size())
+				{
+					continue;
+				}
 			}
 
 			Size toIndex = 0;
@@ -677,24 +878,91 @@ namespace SeedCore
 					continue;
 				}
 				toIndex = static_cast<Size>(transition.toState_);
-				if (toIndex >= target_->states_.size() || fromIndex == toIndex)
+				if (toIndex >= target_->states_.size() || (!fromIsAny && fromIndex == toIndex))
 				{
 					continue;
 				}
 			}
 
+			ed::NodeId fromNodeIdForDraw = fromIsAny ? AnyNodeId() : StateNodeId(fromIndex);
 			ed::NodeId toNodeIdForDraw = toIsExit ? ExitNodeId() : StateNodeId(toIndex);
 
-			ImVec2 fromNodePos = ed::GetNodePosition(StateNodeId(fromIndex));
-			ImVec2 fromNodeSize = ed::GetNodeSize(StateNodeId(fromIndex));
+			ImVec2 fromNodePos = ed::GetNodePosition(fromNodeIdForDraw);
+			ImVec2 fromNodeSize = ed::GetNodeSize(fromNodeIdForDraw);
 			ImVec2 toNodePos = ed::GetNodePosition(toNodeIdForDraw);
 			ImVec2 toNodeSize = ed::GetNodeSize(toNodeIdForDraw);
 
 			ImVec2 fromRectMax(fromNodePos.x + fromNodeSize.x, fromNodePos.y + fromNodeSize.y);
 			ImVec2 toRectMax(toNodePos.x + toNodeSize.x, toNodePos.y + toNodeSize.y);
 
-			ImVec2 fromPoint(fromNodePos.x + transition.fromOffsetX_, fromNodePos.y + transition.fromOffsetY_);
-			ImVec2 toPoint(toNodePos.x + transition.toOffsetX_, toNodePos.y + transition.toOffsetY_);
+			/// [EN] Anchors are stored relative to their own node, so a usable one always
+			///      lands inside that node's rect. Anything outside was never captured or
+			///      has gone stale, and adding it would throw the endpoint off toward the
+			///      canvas origin — fall back to the node centre. An exact zero is the
+			///      never-set default rather than a deliberate top-left pick, so it takes
+			///      the same fallback.
+			/// [JP] アンカーは自分のノードからの相対で保存されるため、有効な値は必ず
+			///      そのノードの矩形内に収まる。範囲外の値は未取得か古くなったもので、
+			///      そのまま足すと端点がキャンバス原点の方向へ飛ぶ — ノード中心へ
+			///      フォールバックする。ちょうど0は左上を意図的に指したのではなく
+			///      未設定の既定値なので、同じくフォールバックさせる。
+			Bool fromAnchorValid = (transition.fromOffsetX_ != 0.0f || transition.fromOffsetY_ != 0.0f) &&
+				transition.fromOffsetX_ >= 0.0f && transition.fromOffsetX_ <= fromNodeSize.x &&
+				transition.fromOffsetY_ >= 0.0f && transition.fromOffsetY_ <= fromNodeSize.y;
+			Bool toAnchorValid = (transition.toOffsetX_ != 0.0f || transition.toOffsetY_ != 0.0f) &&
+				transition.toOffsetX_ >= 0.0f && transition.toOffsetX_ <= toNodeSize.x &&
+				transition.toOffsetY_ >= 0.0f && transition.toOffsetY_ <= toNodeSize.y;
+
+			ImVec2 fromPoint = fromAnchorValid ? ImVec2(fromNodePos.x + transition.fromOffsetX_, fromNodePos.y + transition.fromOffsetY_) : ImVec2(fromNodePos.x + fromNodeSize.x * 0.5f, fromNodePos.y + fromNodeSize.y * 0.5f);
+			ImVec2 toPoint = toAnchorValid ? ImVec2(toNodePos.x + transition.toOffsetX_, toNodePos.y + transition.toOffsetY_) : ImVec2(toNodePos.x + toNodeSize.x * 0.5f, toNodePos.y + toNodeSize.y * 0.5f);
+
+			Int pairLow = Min(transition.fromState_, transition.toState_);
+			Int pairHigh = Max(transition.fromState_, transition.toState_);
+			Size pairOrdinal = 0;
+			Size pairCount = 0;
+			for (Size otherIndex = 0; otherIndex < target_->transitions_.size(); ++otherIndex)
+			{
+				const AnimationTransition& otherTransition = target_->transitions_[otherIndex];
+				if (Min(otherTransition.fromState_, otherTransition.toState_) == pairLow &&
+					Max(otherTransition.fromState_, otherTransition.toState_) == pairHigh)
+				{
+					if (otherIndex < index)
+					{
+						++pairOrdinal;
+					}
+					++pairCount;
+				}
+			}
+
+			if (pairCount > 1)
+			{
+				constexpr Float parallelSpacing = 14.0f;
+				Float parallelOffset = (static_cast<Float>(pairOrdinal) - (static_cast<Float>(pairCount) - 1.0f) * 0.5f) * parallelSpacing;
+
+				/// [EN] The perpendicular flips with the line's direction, so a
+				///      reversed pair (B->A against A->B) would cancel the sign
+				///      out and land back on the same line. Negating the offset
+				///      for the reversed direction keeps both on a fixed side.
+				/// [JP] 垂線は線の向きに従って反転するため、逆向きの組(A->Bに
+				///      対するB->A)では符号が打ち消し合い同じ線上に戻ってしまう。
+				///      逆向き側のオフセットを反転させることで、両者を空間的に
+				///      固定された別々の側へ振り分ける。
+				if (transition.fromState_ > transition.toState_)
+				{
+					parallelOffset = -parallelOffset;
+				}
+
+				ImVec2 pairDirection(toPoint.x - fromPoint.x, toPoint.y - fromPoint.y);
+				Float pairLength = std::sqrt(pairDirection.x * pairDirection.x + pairDirection.y * pairDirection.y);
+				if (pairLength > 0.0001f)
+				{
+					ImVec2 pairPerpendicular(-pairDirection.y / pairLength, pairDirection.x / pairLength);
+					fromPoint.x += pairPerpendicular.x * parallelOffset;
+					fromPoint.y += pairPerpendicular.y * parallelOffset;
+					toPoint.x += pairPerpendicular.x * parallelOffset;
+					toPoint.y += pairPerpendicular.y * parallelOffset;
+				}
+			}
 
 			ImVec2 clippedFrom = ExitPointFromRect(fromPoint, toPoint, fromNodePos, fromRectMax);
 			ImVec2 clippedTo = EntryPointToRect(fromPoint, toPoint, toNodePos, toRectMax);
@@ -725,7 +993,7 @@ namespace SeedCore
 			ImVec2 midpoint((screenFrom.x + screenTo.x) * 0.5f, (screenFrom.y + screenTo.y) * 0.5f);
 
 			Bool isSelected = (selectedTransitionIndex_ == index);
-			ImU32 lineColor = isSelected ? IM_COL32(255, 176, 50, 255) : (toIsExit ? IM_COL32(230, 90, 90, 200) : IM_COL32(255, 255, 255, 180));
+			ImU32 lineColor = isSelected ? IM_COL32(255, 176, 50, 255) : (toIsExit ? IM_COL32(230, 90, 90, 200) : (fromIsAny ? IM_COL32(90, 140, 230, 200) : IM_COL32(255, 255, 255, 180)));
 
 			graphDrawList->AddLine(screenFrom, screenTo, lineColor, isSelected ? 3.0f : 2.0f);
 
@@ -771,6 +1039,21 @@ namespace SeedCore
 				ImU32 entryLineColor = IM_COL32(100, 220, 100, 220);
 				DrawTransitionArrow(graphDrawList, screenFrom, screenTo, entryLineColor, 2.0f);
 			}
+		}
+
+		if (creatingTransition_)
+		{
+			ed::NodeId sourceNodeId = (creatingTransitionSource_ == Animator::AnyState) ? AnyNodeId() : StateNodeId(static_cast<Size>(creatingTransitionSource_));
+			ImVec2 sourceNodePos = ed::GetNodePosition(sourceNodeId);
+			ImVec2 sourceNodeSize = ed::GetNodeSize(sourceNodeId);
+			ImVec2 sourceRectMax(sourceNodePos.x + sourceNodeSize.x, sourceNodePos.y + sourceNodeSize.y);
+
+			ImVec2 rubberFrom(sourceNodePos.x + creatingTransitionOffsetX_, sourceNodePos.y + creatingTransitionOffsetY_);
+			ImVec2 rubberTo = ed::ScreenToCanvas(ImGui::GetMousePos());
+
+			ImVec2 clippedRubberFrom = ExitPointFromRect(rubberFrom, rubberTo, sourceNodePos, sourceRectMax);
+
+			DrawTransitionArrow(graphDrawList, ed::CanvasToScreen(clippedRubberFrom), ed::CanvasToScreen(rubberTo), IM_COL32(255, 210, 120, 230), 2.0f);
 		}
 
 		if (releasedOnEmpty)
@@ -861,6 +1144,44 @@ namespace SeedCore
 
 				ImGui::SameLine();
 
+				ImGui::SetNextItemWidth(60.0f);
+				switch (parameter.type_)
+				{
+				case AnimationParameterType::Bool:
+				{
+					Bool boolValue = parameter.value_ != 0.0f;
+					if (ImGui::Checkbox("##parameterValue", &boolValue))
+					{
+						parameter.value_ = boolValue ? 1.0f : 0.0f;
+					}
+					break;
+				}
+				case AnimationParameterType::Trigger:
+				{
+					if (ImGui::RadioButton("##parameterValue", parameter.value_ != 0.0f))
+					{
+						parameter.value_ = (parameter.value_ != 0.0f) ? 0.0f : 1.0f;
+					}
+					break;
+				}
+				case AnimationParameterType::Int:
+				{
+					Int intValue = static_cast<Int>(parameter.value_);
+					if (ImGui::DragInt("##parameterValue", &intValue, 1.0f))
+					{
+						parameter.value_ = static_cast<Float>(intValue);
+					}
+					break;
+				}
+				default:
+				{
+					ImGui::DragFloat("##parameterValue", &parameter.value_, 0.01f);
+					break;
+				}
+				}
+
+				ImGui::SameLine();
+
 				if (ImGui::SmallButton("-"))
 				{
 					removeParameterIndex = parameterIndex;
@@ -876,7 +1197,29 @@ namespace SeedCore
 
 			if (ImGui::Button("パラメータを追加", ImVec2(-1.0f, 0.0f)))
 			{
-				String uniqueName = MakeUniqueParameterName(*target_, "Parameter");
+				String uniqueName;
+				for (Int suffix = 0; ; ++suffix)
+				{
+					std::string candidate = suffix == 0 ? std::string("Parameter") : ("Parameter" + std::to_string(suffix));
+					String candidateName = String(std::string_view(candidate));
+
+					Bool candidateExists = false;
+					for (const AnimationParameter& parameter : target_->parameters_)
+					{
+						if (parameter.name_ == candidateName)
+						{
+							candidateExists = true;
+							break;
+						}
+					}
+
+					if (!candidateExists)
+					{
+						uniqueName = candidateName;
+						break;
+					}
+				}
+
 				AnimationParameter& newParameter = target_->parameters_.emplace_back();
 				newParameter.name_ = uniqueName;
 			}
@@ -895,13 +1238,19 @@ namespace SeedCore
 
 			Size fromIndex = static_cast<Size>(transition.fromState_);
 			Size toIndex = static_cast<Size>(transition.toState_);
-			const Char* fromName = fromIndex < target_->states_.size() ? target_->states_[fromIndex].name_.c_str() : "?";
+			const Char* fromName = transition.fromState_ == Animator::AnyState ? "Any" : (fromIndex < target_->states_.size() ? target_->states_[fromIndex].name_.c_str() : "?");
 			const Char* toName = toIndex < target_->states_.size() ? target_->states_[toIndex].name_.c_str() : "?";
 
 			ImGui::Text("%s から %s", fromName, toName);
 			ImGui::Spacing();
 
 			ImGui::DragFloat("遷移時間", &transition.duration_, 0.01f, 0.0f, FLT_MAX);
+
+			ImGui::Checkbox("Exit Timeを使用", &transition.hasExitTime_);
+			if (transition.hasExitTime_)
+			{
+				ImGui::DragFloat("Exit Time", &transition.exitTime_, 0.01f, 0.0f, FLT_MAX);
+			}
 
 			ImGui::Spacing();
 			ImGui::Separator();
@@ -983,7 +1332,15 @@ namespace SeedCore
 					ImGui::EndCombo();
 				}
 
-				const AnimationParameter* parameter = FindParameter(*target_, condition.parameterName_);
+				const AnimationParameter* parameter = nullptr;
+				for (const AnimationParameter& candidateParameter : target_->parameters_)
+				{
+					if (candidateParameter.name_ == condition.parameterName_)
+					{
+						parameter = &candidateParameter;
+						break;
+					}
+				}
 				AnimationParameterType parameterType = parameter ? parameter->type_ : AnimationParameterType::Float;
 
 				if (parameterType != AnimationParameterType::Trigger)
