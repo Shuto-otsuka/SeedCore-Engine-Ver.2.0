@@ -1,4 +1,4 @@
-﻿#ifndef __GLOBAL_ILLUMINATION_HLSL__
+#ifndef __GLOBAL_ILLUMINATION_HLSL__
 #define __GLOBAL_ILLUMINATION_HLSL__
 
 // The hit-surface geometry/material table is shared with the reflection pass:

@@ -1,4 +1,4 @@
-﻿#include <GraphicsEngine/Renderer/SkyRenderer.h>
+#include <GraphicsEngine/Renderer/SkyRenderer.h>
 #include <GraphicsEngine/D3D12/Descriptor/BindlessHeap.h>
 #include <GraphicsEngine/D3D12/Context/D3D12CommandList.h>
 #include <GraphicsEngine/D3D12/PipelineState/PipelineStateObject.h>

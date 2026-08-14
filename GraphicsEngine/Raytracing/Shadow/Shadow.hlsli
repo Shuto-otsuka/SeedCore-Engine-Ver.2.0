@@ -1,4 +1,4 @@
-﻿#ifndef __SHADOW_HLSL__
+#ifndef __SHADOW_HLSL__
 #define __SHADOW_HLSL__
 
 // Shadow tuning constant buffer, read by both ShadowRT.hlsl and

@@ -1,4 +1,4 @@
-﻿#include "../../Shader/Constants.hlsli"
+#include "../../Shader/Constants.hlsli"
 #include "../../Shader/Structured.hlsli"
 #include "../Froxel/Froxel.hlsli"
 #include "../VolumetricLight/VolumetricLight.hlsli"

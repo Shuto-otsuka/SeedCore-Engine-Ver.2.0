@@ -244,39 +244,37 @@ namespace SeedCore
 		structuredIndices_.shadow_.rayConstantIndex_ = index;
 	}
 
-	void IndicesSystem::SetEditorShadowIndices(Uint historyShaderResourceViewIndex, Uint accumulatedUnorderedAccessViewIndex, Uint visibilityShaderResourceViewIndex)
+	/**
+	* [EN]
+	* Registers the editor view's shadow SVGF chain. See the declaration in
+	* IndicesSystem.h for why this takes the whole struct.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* エディタビューの影 SVGF チェーンを登録する。構造体をまるごと受け取る理由は
+	* IndicesSystem.h の宣言側を参照。
+	*/
+	void IndicesSystem::SetEditorShadowIndices(const ShadowAccumulationIndices& values)
 	{
-		editorConstantIndices_.shadow_.historyShaderResourceViewIndex_ = historyShaderResourceViewIndex;
-		editorConstantIndices_.shadow_.accumulatedUnorderedAccessViewIndex_ = accumulatedUnorderedAccessViewIndex;
-		editorConstantIndices_.shadow_.visibilityShaderResourceViewIndex_ = visibilityShaderResourceViewIndex;
+		editorConstantIndices_.shadow_ = values;
 
 		/// [JP] Canvas は影を読まないが、未定義値を残さないためエディタと同値を入れる。
-		canvasConstantIndices_.shadow_.historyShaderResourceViewIndex_ = historyShaderResourceViewIndex;
-		canvasConstantIndices_.shadow_.accumulatedUnorderedAccessViewIndex_ = accumulatedUnorderedAccessViewIndex;
-		canvasConstantIndices_.shadow_.visibilityShaderResourceViewIndex_ = visibilityShaderResourceViewIndex;
+		canvasConstantIndices_.shadow_ = values;
 	}
 
-	void IndicesSystem::SetGameShadowIndices(Uint historyShaderResourceViewIndex, Uint accumulatedUnorderedAccessViewIndex, Uint visibilityShaderResourceViewIndex)
+	/**
+	* [EN]
+	* Registers the game view's shadow SVGF chain.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* ゲームビューの影 SVGF チェーンを登録する。
+	*/
+	void IndicesSystem::SetGameShadowIndices(const ShadowAccumulationIndices& values)
 	{
-		gameConstantIndices_.shadow_.historyShaderResourceViewIndex_ = historyShaderResourceViewIndex;
-		gameConstantIndices_.shadow_.accumulatedUnorderedAccessViewIndex_ = accumulatedUnorderedAccessViewIndex;
-		gameConstantIndices_.shadow_.visibilityShaderResourceViewIndex_ = visibilityShaderResourceViewIndex;
-	}
-
-	void IndicesSystem::SetEditorShadowAtrousScratchIndices(Uint scratch0ShaderResourceViewIndex, Uint scratch0UnorderedAccessViewIndex, Uint scratch1ShaderResourceViewIndex, Uint scratch1UnorderedAccessViewIndex)
-	{
-		editorConstantIndices_.shadow_.atrousScratch0ShaderResourceViewIndex_ = scratch0ShaderResourceViewIndex;
-		editorConstantIndices_.shadow_.atrousScratch0UnorderedAccessViewIndex_ = scratch0UnorderedAccessViewIndex;
-		editorConstantIndices_.shadow_.atrousScratch1ShaderResourceViewIndex_ = scratch1ShaderResourceViewIndex;
-		editorConstantIndices_.shadow_.atrousScratch1UnorderedAccessViewIndex_ = scratch1UnorderedAccessViewIndex;
-	}
-
-	void IndicesSystem::SetGameShadowAtrousScratchIndices(Uint scratch0ShaderResourceViewIndex, Uint scratch0UnorderedAccessViewIndex, Uint scratch1ShaderResourceViewIndex, Uint scratch1UnorderedAccessViewIndex)
-	{
-		gameConstantIndices_.shadow_.atrousScratch0ShaderResourceViewIndex_ = scratch0ShaderResourceViewIndex;
-		gameConstantIndices_.shadow_.atrousScratch0UnorderedAccessViewIndex_ = scratch0UnorderedAccessViewIndex;
-		gameConstantIndices_.shadow_.atrousScratch1ShaderResourceViewIndex_ = scratch1ShaderResourceViewIndex;
-		gameConstantIndices_.shadow_.atrousScratch1UnorderedAccessViewIndex_ = scratch1UnorderedAccessViewIndex;
+		gameConstantIndices_.shadow_ = values;
 	}
 
 	void IndicesSystem::SetAmbientOcclusionRawUnorderedAccessViewIndex(Uint index)
@@ -348,39 +346,37 @@ namespace SeedCore
 		gameConstantIndices_.globalIllumination_.atrousScratch1UnorderedAccessViewIndex_ = scratch1UnorderedAccessViewIndex;
 	}
 
-	void IndicesSystem::SetEditorReflectionAccumulationIndices(Uint historyShaderResourceViewIndex, Uint accumulatedUnorderedAccessViewIndex, Uint radianceShaderResourceViewIndex)
+	/**
+	* [EN]
+	* Registers the editor view's reflection ReBLUR chain. See the declaration in
+	* IndicesSystem.h for why this takes the whole struct.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* エディタビューの反射 ReBLUR チェーンを登録する。構造体をまるごと受け取る
+	* 理由は IndicesSystem.h の宣言側を参照。
+	*/
+	void IndicesSystem::SetEditorReflectionAccumulationIndices(const ReflectionAccumulationIndices& values)
 	{
-		editorConstantIndices_.reflection_.historyShaderResourceViewIndex_ = historyShaderResourceViewIndex;
-		editorConstantIndices_.reflection_.accumulatedUnorderedAccessViewIndex_ = accumulatedUnorderedAccessViewIndex;
-		editorConstantIndices_.reflection_.radianceShaderResourceViewIndex_ = radianceShaderResourceViewIndex;
+		editorConstantIndices_.reflection_ = values;
 
 		/// [JP] Canvas は反射を読まないが、未定義値を残さないためエディタと同値を入れる。
-		canvasConstantIndices_.reflection_.historyShaderResourceViewIndex_ = historyShaderResourceViewIndex;
-		canvasConstantIndices_.reflection_.accumulatedUnorderedAccessViewIndex_ = accumulatedUnorderedAccessViewIndex;
-		canvasConstantIndices_.reflection_.radianceShaderResourceViewIndex_ = radianceShaderResourceViewIndex;
+		canvasConstantIndices_.reflection_ = values;
 	}
 
-	void IndicesSystem::SetGameReflectionAccumulationIndices(Uint historyShaderResourceViewIndex, Uint accumulatedUnorderedAccessViewIndex, Uint radianceShaderResourceViewIndex)
+	/**
+	* [EN]
+	* Registers the game view's reflection ReBLUR chain.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* ゲームビューの反射 ReBLUR チェーンを登録する。
+	*/
+	void IndicesSystem::SetGameReflectionAccumulationIndices(const ReflectionAccumulationIndices& values)
 	{
-		gameConstantIndices_.reflection_.historyShaderResourceViewIndex_ = historyShaderResourceViewIndex;
-		gameConstantIndices_.reflection_.accumulatedUnorderedAccessViewIndex_ = accumulatedUnorderedAccessViewIndex;
-		gameConstantIndices_.reflection_.radianceShaderResourceViewIndex_ = radianceShaderResourceViewIndex;
-	}
-
-	void IndicesSystem::SetEditorReflectionAtrousScratchIndices(Uint scratch0ShaderResourceViewIndex, Uint scratch0UnorderedAccessViewIndex, Uint scratch1ShaderResourceViewIndex, Uint scratch1UnorderedAccessViewIndex)
-	{
-		editorConstantIndices_.reflection_.atrousScratch0ShaderResourceViewIndex_ = scratch0ShaderResourceViewIndex;
-		editorConstantIndices_.reflection_.atrousScratch0UnorderedAccessViewIndex_ = scratch0UnorderedAccessViewIndex;
-		editorConstantIndices_.reflection_.atrousScratch1ShaderResourceViewIndex_ = scratch1ShaderResourceViewIndex;
-		editorConstantIndices_.reflection_.atrousScratch1UnorderedAccessViewIndex_ = scratch1UnorderedAccessViewIndex;
-	}
-
-	void IndicesSystem::SetGameReflectionAtrousScratchIndices(Uint scratch0ShaderResourceViewIndex, Uint scratch0UnorderedAccessViewIndex, Uint scratch1ShaderResourceViewIndex, Uint scratch1UnorderedAccessViewIndex)
-	{
-		gameConstantIndices_.reflection_.atrousScratch0ShaderResourceViewIndex_ = scratch0ShaderResourceViewIndex;
-		gameConstantIndices_.reflection_.atrousScratch0UnorderedAccessViewIndex_ = scratch0UnorderedAccessViewIndex;
-		gameConstantIndices_.reflection_.atrousScratch1ShaderResourceViewIndex_ = scratch1ShaderResourceViewIndex;
-		gameConstantIndices_.reflection_.atrousScratch1UnorderedAccessViewIndex_ = scratch1UnorderedAccessViewIndex;
+		gameConstantIndices_.reflection_ = values;
 	}
 
 	void IndicesSystem::SetEditorPostProcessIndices(const PostProcessIndices& values)

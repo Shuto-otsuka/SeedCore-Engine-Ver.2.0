@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include <FoundationEngine/Prelude.h>
 #include <FoundationEngine/ECS/ComponentRegistry.h>
 

@@ -1,4 +1,4 @@
-﻿#include "Model.hlsli"
+#include "Model.hlsli"
 #include "../Shader/Structured.hlsli"
 #include "../Shader/Sampler.hlsli"
 

@@ -38,6 +38,22 @@ namespace SeedCore
 					ImGui::EndMenu();
 				}
 
+				if (ImGui::BeginMenu("レイトレーシング"))
+				{
+					item("反射（生）", ViewMode::ReflectionRaw);
+					item("反射（デノイズ後）", ViewMode::ReflectionDenoised);
+					ImGui::Separator();
+					item("グローバルイルミネーション（生）", ViewMode::GlobalIlluminationRaw);
+					item("グローバルイルミネーション（デノイズ後）", ViewMode::GlobalIlluminationDenoised);
+					ImGui::Separator();
+					item("シャドウ（生）", ViewMode::ShadowRaw);
+					item("シャドウ（デノイズ後）", ViewMode::ShadowDenoised);
+					ImGui::Separator();
+					item("アンビエントオクルージョン（生）", ViewMode::AmbientOcclusionRaw);
+					item("アンビエントオクルージョン（デノイズ後）", ViewMode::AmbientOcclusionDenoised);
+					ImGui::EndMenu();
+				}
+
 				ImGui::EndMenu();
 			}
 

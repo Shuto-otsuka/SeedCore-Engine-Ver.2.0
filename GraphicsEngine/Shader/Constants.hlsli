@@ -1,4 +1,4 @@
-﻿#ifndef __CONSTANTS_HLSL__
+#ifndef __CONSTANTS_HLSL__
 #define __CONSTANTS_HLSL__
 
 // Upper bound on LensFlareCS.hlsl's independently-blurred spike axes (one
@@ -387,25 +387,51 @@ struct PostProcessIndices
 	FilmGrainIndices film_grain_;
 };
 
-// Ray-traced shadow accumulation buffers. These live inside ConstantIndices
-// (per-view constant buffer) instead of StructuredIndices because the editor
-// and game views each need their own temporal-accumulation chain: the shadow
-// signal is screen-space and per-camera, and StructuredIndices is a single
-// buffer shared by every view, so per-view values placed there would clobber
-// each other. history = previous frame's accumulated result (SRV),
-// accumulated = this frame's write target (UAV), visibility = the same write
-// target's SRV, sampled by DeferredLightingPS.hlsl after the denoise pass.
+// Ray-traced shadow SVGF chain (ShadowDenoiseCS.hlsl). These live inside
+// ConstantIndices (per-view constant buffer) instead of StructuredIndices
+// because the editor and game views each need their own temporal-accumulation
+// chain: the shadow signal is screen-space and per-camera, and StructuredIndices
+// is a single buffer shared by every view, so per-view values placed there
+// would clobber each other.
+//
+// history_/accumulated_ are the SVGF feedback tap (ATrousPass2's output), i.e.
+// what next frame reprojects, NOT the final image - denoised_/visibility_ is
+// the fully filtered result ATrousPass3 writes and DeferredLightingPS.hlsl
+// samples. moments_ carries (1st.x, 2nd.x, 1st.y, 2nd.y) of the two visibility
+// channels, history_length_ the accumulated frame count, and depth_normal_ a
+// packed copy of this frame's view depth / depth derivative / normal, which the
+// temporal consistency test needs from the PREVIOUS frame (the engine's
+// G-Buffer is single-buffered, so it cannot be read back).
+//
+// All of moments_/history_length_/depth_normal_ ping-pong exactly like
+// history_/accumulated_ do; atrous_scratch0_/atrous_scratch1_ are pure scratch
+// registered once in Create()/Resize().
 struct ShadowAccumulationIndices
 {
 	uint history_srv_index_;
 	uint accumulated_uav_index_;
+	uint accumulated_srv_index_;
 	uint visibility_srv_index_;
-	uint shadow_accumulation_padding_;
 
 	uint atrous_scratch0_srv_index_;
 	uint atrous_scratch0_uav_index_;
 	uint atrous_scratch1_srv_index_;
 	uint atrous_scratch1_uav_index_;
+
+	uint moments_history_srv_index_;
+	uint moments_srv_index_;
+	uint moments_uav_index_;
+	uint history_length_history_srv_index_;
+
+	uint history_length_srv_index_;
+	uint history_length_uav_index_;
+	uint depth_normal_history_srv_index_;
+	uint depth_normal_srv_index_;
+
+	uint depth_normal_uav_index_;
+	uint denoised_uav_index_;
+	uint shadow_accumulation_padding_0_;
+	uint shadow_accumulation_padding_1_;
 };
 
 // Per-view ray-traced AO accumulation chain - same scheme as
@@ -443,22 +469,52 @@ struct GlobalIlluminationAccumulationIndices
 	uint atrous_scratch1_uav_index_;
 };
 
-// Per-view ray-traced reflection accumulation chain - same scheme as
-// shadow/AO/GI above. The raw 1spp GGX-sampled radiance
-// (structured_indices.reflection_) is shared/single-buffered across views;
-// this chain is the per-view denoised (spatio-temporal) result
-// DeferredLightingPS.hlsl samples.
+// Per-view ray-traced reflection ReBLUR chain (ReflectionDenoiseCS.hlsl) -
+// same per-view reasoning as shadow/AO/GI above. The raw 1spp GGX-sampled
+// radiance (structured_indices.reflection_) is shared/single-buffered across
+// views; this chain is the per-view denoised result DeferredLightingPS.hlsl
+// samples.
+//
+// history_/accumulated_/radiance_ all refer to the ReBLUR output: rgb =
+// radiance, a = the accumulated NORMALIZED HIT DISTANCE (not a validity flag -
+// ReBLUR derives its whole blur radius from that distance, so it has to survive
+// into the history). a == 0 still means "nothing traced here", because both the
+// background branch and the renderer's disabled-path clear write 0.
+//
+// accum_speed_ is the per-pixel accumulated frame count, the state that drives
+// both the temporal blend factor and every spatial radius; depth_normal_ is a
+// packed copy of this frame's view depth / normal / roughness, needed next
+// frame by the disocclusion and virtual-motion tests. Both ping-pong like
+// history_/accumulated_ do; scratch0_/scratch1_ are pure scratch registered
+// once in Create()/Resize().
 struct ReflectionAccumulationIndices
 {
 	uint history_srv_index_;
 	uint accumulated_uav_index_;
 	uint radiance_srv_index_;
-	uint reflection_accumulation_padding_;
+	uint reflection_accumulation_padding_0_;
 
-	uint atrous_scratch0_srv_index_;
-	uint atrous_scratch0_uav_index_;
-	uint atrous_scratch1_srv_index_;
-	uint atrous_scratch1_uav_index_;
+	uint scratch0_srv_index_;
+	uint scratch0_uav_index_;
+	uint scratch1_srv_index_;
+	uint scratch1_uav_index_;
+
+	uint accum_speed_history_srv_index_;
+	uint accum_speed_srv_index_;
+	uint accum_speed_uav_index_;
+	uint depth_normal_history_srv_index_;
+
+	uint depth_normal_uav_index_;
+
+	// Short-history luma (ReBLUR's "fast history"), ping-ponged like the rest.
+	// Only the luminance is kept - that is all the clamp below needs, and it is
+	// what NRD stores too. The slow 30-frame history is clamped into this
+	// 6-frame history's local luma box every frame; without that clamp a long
+	// exponential history visibly trails the camera even when the reprojection
+	// itself is correct, because nothing ever forces it to catch up.
+	uint fast_history_history_srv_index_;
+	uint fast_history_srv_index_;
+	uint fast_history_uav_index_;
 };
 
 // DLSS Ray Reconstruction's synthesized RGB=normal/A=roughness buffer for

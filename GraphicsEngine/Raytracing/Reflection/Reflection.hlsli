@@ -1,4 +1,4 @@
-﻿#ifndef __REFLECTION_HLSL__
+#ifndef __REFLECTION_HLSL__
 #define __REFLECTION_HLSL__
 
 #include "../../Shader/Normal.hlsli"

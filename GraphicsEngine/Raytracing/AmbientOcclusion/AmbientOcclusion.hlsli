@@ -1,4 +1,4 @@
-﻿#ifndef __AMBIENT_OCCLUSION_HLSL__
+#ifndef __AMBIENT_OCCLUSION_HLSL__
 #define __AMBIENT_OCCLUSION_HLSL__
 
 // AO tuning constant buffer, read by both AmbientOcclusionRT.hlsl and

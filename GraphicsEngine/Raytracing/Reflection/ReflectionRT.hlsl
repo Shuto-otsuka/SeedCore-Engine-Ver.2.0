@@ -1,4 +1,4 @@
-﻿#include "../../Shader/Constants.hlsli"
+#include "../../Shader/Constants.hlsli"
 #include "../../Shader/Structured.hlsli"
 #include "../../Shader/Light.hlsli"
 #include "../../Shader/Normal.hlsli"
@@ -6,6 +6,7 @@
 #include "../../Sky/SkyMath.hlsli"
 #include "../../Light/ImageBasedLighting.hlsli"
 #include "../VolumetricCloudScapes/VolumetricCloudScapes.hlsli"
+#include "../../Shader/Denoiser.hlsli"
 #include "Reflection.hlsli"
 
 /**
@@ -18,7 +19,9 @@
 * instead of a fixed Hammersley set). At roughness 0 the half-vector always
 * equals the normal, so this degenerates to the old exact mirror ray with no
 * noise; roughness > 0 spreads the ray direction and needs
-* ReflectionDenoiseCS.hlsl's spatio-temporal accumulation to converge. miss
+* ReflectionDenoiseCS.hlsl's ReBLUR chain to converge - which is why the
+* payload's hit distance is written into the output alpha rather than being
+* discarded: ReBLUR derives its entire filter width from it. miss
 * samples the environment cube; closesthit re-fetches the hit triangle's
 * vertices through the per-instance table (InstanceID() -> ReflectionInstanceData)
 * and relights the hit point with the directional/punctual lights + diffuse IBL.
@@ -31,7 +34,9 @@
 * ここでは固定 Hammersley 集合ではなくピクセルごとの乱数サンプルで駆動する)。
 * roughness 0 ではハーフベクトルが常に法線と一致するため、ノイズ無しの旧・
 * 厳密ミラーレイへ縮退する。roughness > 0 ではレイ方向が広がるため、
-* ReflectionDenoiseCS.hlsl の空間+時間蓄積で収束させる必要がある。miss は
+* ReflectionDenoiseCS.hlsl の ReBLUR チェーンで収束させる必要がある — ペイロードの
+* ヒット距離を捨てず出力アルファへ書くのはそのためで、ReBLUR はフィルタ幅の全てを
+* その距離から導く。miss は
 * 環境キューブをサンプル。closesthit はインスタンステーブル(InstanceID() →
 * ReflectionInstanceData)経由でヒット三角形の頂点を引き直し、
 * ディレクショナル/ポイント/スポット/矩形ライト+拡散IBLでヒット点を
@@ -52,7 +57,8 @@ void ReflectionRayGeneration()
 	uint2 pixel = DispatchRaysIndex().xy;
 	RWTexture2D<float4> output = ResourceDescriptorHeap[structured_indices.reflection_.output_uav_index_];
 
-	// 背景(reverse-Z 遠平面=0)は反射なし。a=0 で「無効」を示す。
+	// 背景(reverse-Z 遠平面=0)は反射なし。a=0(ヒット距離ゼロ)が
+	// 「何もトレースしていない」印になる。
 	Texture2D<float> depth_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.depth_index_];
 	float depth = depth_texture.Load(int3(pixel, 0));
 
@@ -116,7 +122,17 @@ void ReflectionRayGeneration()
 	// 最近接ヒットが要るので first-hit 打ち切りフラグは付けない。
 	TraceRay(tlas, RAY_FLAG_FORCE_OPAQUE | RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES, 0xFF, 0, 0, 0, ray_desc, payload);
 
-	output[pixel] = float4(payload.radiance_, 1.0);
+	// [JP] アルファには「有効フラグ」ではなく【正規化ヒット距離】を書く。
+	//      ReflectionDenoiseCS.hlsl の ReBLUR はブラー半径・重み・仮想モーションの
+	//      全てをこの距離から導くため、これがデノイザへ渡す主要な入力になる。
+	//      正規化定数は ReBLUR 側の REFLECTION_HIT_DISTANCE_PARAMS と必ず一致
+	//      させること — ずれると距離由来の半径が全てその比率だけ狂う。
+	//      背景は上で a=0 を書いており、ここでも「何もトレースしていない」印として
+	//      0 が残るので、下流は a > 0 を有効判定に使える。
+	float4 view_position = mul(float4(world_position, 1.0), scene.view_);
+	float hit_distance_normalization = ReblurHitDistanceNormalization(abs(view_position.z), float3(3.0, 0.1, 20.0), roughness);
+
+	output[pixel] = float4(payload.radiance_, saturate(payload.hit_distance_ / hit_distance_normalization));
 }
 
 [shader("miss")]

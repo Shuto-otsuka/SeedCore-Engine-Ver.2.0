@@ -6,7 +6,11 @@ namespace SeedCore
 {
 	namespace
 	{
-		constexpr const Char* atrousEntryPoints[3] = { "ATrousPass1", "ATrousPass2", "ATrousPass3" };
+		/// [EN] Entry points of the three spatial passes, in execution order -
+		///      the index GetSpatialPipelineState() takes.
+		/// [JP] 3 つの空間パスのエントリポイント、実行順 —
+		///      GetSpatialPipelineState() が取る添字と対応。
+		constexpr const Char* spatialEntryPoints[3] = { "PrePass", "Blur", "PostBlur" };
 	}
 
 	ReflectionDenoiseShader::ReflectionDenoiseShader(RootSignature& rootSignature, PipelineStateObject& pipelineStateObject) : rootSignature_(rootSignature), pipelineStateObject_(pipelineStateObject)
@@ -28,15 +32,23 @@ namespace SeedCore
 		psokey.computeShader_ = shaderCache.GetComputeShader(computeShader_)->Bytecode();
 		pipelineStateObjectHandle_ = pipelineStateObject_.GetOrCreate(device, psokey);
 
-		for (Uint32 pass = 0; pass < atrousPassCount; pass++)
-		{
-			atrousComputeShader_[pass] = shaderCache.GetOrCreateComputeShader(filePath, String(atrousEntryPoints[pass]));
+		historyFixComputeShader_ = shaderCache.GetOrCreateComputeShader(filePath, String("HistoryFix"));
 
-			PipelineStateKey atrousKey{};
-			memset(&atrousKey, 0, sizeof(atrousKey));
-			atrousKey.rootSignature_ = rootSignature_.Get(denoiseRootSignature_)->Get();
-			atrousKey.computeShader_ = shaderCache.GetComputeShader(atrousComputeShader_[pass])->Bytecode();
-			atrousPipelineStateObjectHandle_[pass] = pipelineStateObject_.GetOrCreate(device, atrousKey);
+		PipelineStateKey historyFixKey{};
+		memset(&historyFixKey, 0, sizeof(historyFixKey));
+		historyFixKey.rootSignature_ = rootSignature_.Get(denoiseRootSignature_)->Get();
+		historyFixKey.computeShader_ = shaderCache.GetComputeShader(historyFixComputeShader_)->Bytecode();
+		historyFixPipelineStateObjectHandle_ = pipelineStateObject_.GetOrCreate(device, historyFixKey);
+
+		for (Uint32 pass = 0; pass < spatialPassCount; pass++)
+		{
+			spatialComputeShader_[pass] = shaderCache.GetOrCreateComputeShader(filePath, String(spatialEntryPoints[pass]));
+
+			PipelineStateKey spatialKey{};
+			memset(&spatialKey, 0, sizeof(spatialKey));
+			spatialKey.rootSignature_ = rootSignature_.Get(denoiseRootSignature_)->Get();
+			spatialKey.computeShader_ = shaderCache.GetComputeShader(spatialComputeShader_[pass])->Bytecode();
+			spatialPipelineStateObjectHandle_[pass] = pipelineStateObject_.GetOrCreate(device, spatialKey);
 		}
 	}
 
@@ -45,9 +57,14 @@ namespace SeedCore
 		return pipelineStateObject_.Get(pipelineStateObjectHandle_);
 	}
 
-	ID3D12PipelineState* ReflectionDenoiseShader::GetATrousPipelineState(Uint32 passIndex)const
+	ID3D12PipelineState* ReflectionDenoiseShader::GetHistoryFixPipelineState()const
 	{
-		return pipelineStateObject_.Get(atrousPipelineStateObjectHandle_[passIndex]);
+		return pipelineStateObject_.Get(historyFixPipelineStateObjectHandle_);
+	}
+
+	ID3D12PipelineState* ReflectionDenoiseShader::GetSpatialPipelineState(Uint32 passIndex)const
+	{
+		return pipelineStateObject_.Get(spatialPipelineStateObjectHandle_[passIndex]);
 	}
 
 	ID3D12RootSignature* ReflectionDenoiseShader::GetRootSignature()const

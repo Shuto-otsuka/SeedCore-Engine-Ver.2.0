@@ -240,6 +240,44 @@ namespace SeedCore
 
 	/**
 	* [EN]
+	* One glTF morph target belonging to a SubMesh: a display name plus
+	* per-vertex position deltas, one entry per vertex in that SubMesh (index
+	* i is the delta for the vertex at crister.vertices_[vertexOffset + i]
+	* during load, and stays index-aligned with the SubMesh's own vertex
+	* range afterwards). Kept as full-precision Vector3 rather than folded
+	* into CompressedVertex's shared-AABB quantisation: a morph delta's
+	* magnitude is unrelated to the mesh's own bounds and quantising it
+	* against them would misrepresent targets that move vertices far
+	* outside the rest pose.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* SubMesh に属する glTF モーフターゲット1つぶん: 表示名と、頂点ごとの
+	* 位置デルタ（そのSubMeshの頂点1つにつき1エントリ。ロード時はインデックス i が
+	* crister.vertices_[vertexOffset + i] のデルタに対応し、その後もSubMesh自身の
+	* 頂点範囲とインデックスが揃ったまま保たれる）。CompressedVertex の
+	* 共有AABB量子化には畳み込まずフル精度のVector3で保持する — モーフデルタの
+	* 大きさはメッシュ自身の境界とは無関係で、それに対して量子化すると
+	* レストポーズから大きく外れて動くターゲットを正しく表現できない。
+	*/
+	//struct Morph
+	//{
+	//	std::string name_;
+	//	DynamicArray<Vector3> positionDeltas_;
+	//
+	//	template<class T>
+	//	void serialize(T& archive)
+	//	{
+	//		archive(
+	//			cereal::make_nvp("name", name_),
+	//			cereal::make_nvp("position_deltas", positionDeltas_)
+	//		);
+	//	}
+	//};
+
+	/**
+	* [EN]
 	* One drawable piece of the model: a single material assignment plus
 	* clusterOffset_/clusterCount_ (all its LOD Clusters) and
 	* indexOffset_/indexCount_ (its range in the flat 32-bit triangle
@@ -267,6 +305,10 @@ namespace SeedCore
 		///      この SubMesh のメッシュを参照する glTF ノードから解決される。
 		Int skinIndex_ = -1;
 
+		/// [EN] Empty for a SubMesh with no glTF morph targets.
+		/// [JP] glTF モーフターゲットを持たない SubMesh では空。
+		//DynamicArray<Morph> morphs_;
+
 		template<class T>
 		void serialize(T& archive)
 		{
@@ -276,7 +318,8 @@ namespace SeedCore
 				cereal::make_nvp("material_index", materialIndex_),
 				cereal::make_nvp("index_offset", indexOffset_),
 				cereal::make_nvp("index_count", indexCount_),
-				cereal::make_nvp("skin_index", skinIndex_)
+				cereal::make_nvp("skin_index", skinIndex_)//,
+				//cereal::make_nvp("morphs", morphs_)
 			);
 		}
 	};

@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include <FoundationEngine/Prelude.h>
 #include <GraphicsEngine/D3D12/SwapChain/GraphicsResolution.h>
 #include <GraphicsEngine/DLSS/DlssMode.h>

@@ -1,4 +1,4 @@
-﻿#include "UserProject/Tutorial/ScTutorial.h"
+#include "UserProject/Tutorial/ScTutorial.h"
 //#include <FoundationEngine/ECS/World.h>
 //#include <FoundationEngine/ECS/Component/Position.h>
 //#include <FoundationEngine/ECS/Component/Rotation.h>

@@ -1,4 +1,4 @@
-﻿#include "../Shader/Constants.hlsli"
+#include "../Shader/Constants.hlsli"
 #include "../Shader/Structured.hlsli"
 
 /**

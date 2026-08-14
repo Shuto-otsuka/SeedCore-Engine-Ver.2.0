@@ -11,27 +11,25 @@ namespace SeedCore
 
 	/**
 	* [EN]
-	* Manages PSO creation for the shadow temporal-accumulation compute pass
-	* (ShadowDenoiseCS.hlsl): reprojects the previous frame's accumulated
-	* visibility via the G-Buffer velocity and blends it with this frame's raw
-	* noisy ShadowRT.hlsl output. Same shared root signature as every other
-	* pass (see ShadowShader).
-	*
-	* Also owns the 3 A-Trous wavelet pass PSOs (ATrousPass1/2/3), compiled
-	* from the same ShadowDenoiseCS.hlsl file at different entry points, same
-	* pattern as GlobalIlluminationDenoiseShader.
+	* Manages PSO creation for the shadow SVGF chain (ShadowDenoiseCS.hlsl),
+	* whose five passes all live in that one file behind different entry points
+	* (the same "one file, many entry points" pattern
+	* GlobalIlluminationDenoiseShader uses) and share the same root signature as
+	* every other pass (see ShadowShader):
+	*   main         - temporal reprojection + moment accumulation
+	*   FilterMoments - spatial variance estimate for short-history pixels
+	*   ATrousPass1/2/3 - variance-guided wavelet iterations at step 1/2/4
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* シャドウの時間積分コンピュートパス(ShadowDenoiseCS.hlsl)の PSO 管理。
-	* G-Buffer の速度バッファで前フレームの蓄積可視性をリプロジェクションし、
-	* 今フレームの ShadowRT.hlsl の生ノイズ出力とブレンドする。他の全パスと
-	* 同じ共有ルートシグネチャ(ShadowShader 参照)。
-	*
-	* 併せて 3 つの A-Trous ウェーブレットパス PSO(ATrousPass1/2/3)も持つ。
-	* 同じ ShadowDenoiseCS.hlsl ファイルの別エントリポイントからコンパイルする、
-	* GlobalIlluminationDenoiseShader と同じ方式。
+	* シャドウの SVGF チェーン(ShadowDenoiseCS.hlsl)の PSO 管理。5 つのパスは
+	* すべて同一ファイル内の別エントリポイントに置かれており
+	* (GlobalIlluminationDenoiseShader と同じ「1ファイル複数エントリポイント」
+	* 方式)、他の全パスと同じルートシグネチャを共有する(ShadowShader 参照):
+	*   main            - 時間的リプロジェクション + モーメント蓄積
+	*   FilterMoments   - 履歴の短いピクセル向けの空間的分散推定
+	*   ATrousPass1/2/3 - step 1/2/4 の分散誘導ウェーブレット反復
 	*/
 	class ShadowDenoiseShader
 	{
@@ -43,6 +41,8 @@ namespace SeedCore
 
 		[[nodiscard]] ID3D12PipelineState* GetPipelineState()const;
 
+		[[nodiscard]] ID3D12PipelineState* GetFilterMomentsPipelineState()const;
+
 		[[nodiscard]] ID3D12PipelineState* GetATrousPipelineState(Uint32 passIndex)const;
 
 		[[nodiscard]] ID3D12RootSignature* GetRootSignature()const;
@@ -52,6 +52,9 @@ namespace SeedCore
 
 		Handle<ComputeShader> computeShader_;
 		Handle<Microsoft::WRL::ComPtr<ID3D12PipelineState>> pipelineStateObjectHandle_;
+
+		Handle<ComputeShader> filterMomentsComputeShader_;
+		Handle<Microsoft::WRL::ComPtr<ID3D12PipelineState>> filterMomentsPipelineStateObjectHandle_;
 
 		Handle<ComputeShader> atrousComputeShader_[atrousPassCount];
 		Handle<Microsoft::WRL::ComPtr<ID3D12PipelineState>> atrousPipelineStateObjectHandle_[atrousPassCount];

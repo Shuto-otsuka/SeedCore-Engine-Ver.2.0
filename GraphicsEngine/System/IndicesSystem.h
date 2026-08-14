@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include <FoundationEngine/Prelude.h>
 #include <GraphicsEngine/D3D12/Buffer/ConstantBuffer.h>
 
@@ -537,25 +537,44 @@ namespace SeedCore
 	};
 	static_assert(sizeof(PostProcessIndices) == 784, "PostProcessIndices が Shader/Constants.hlsli と一致していません");
 
-	/// [EN] Per-view ray-traced shadow accumulation indices — see
+	/// [EN] Per-view ray-traced shadow SVGF chain indices — see
 	///      Shader/Constants.hlsli for why these are per-view instead of in
 	///      StructuredIndices (screen-space signal, one chain per camera;
-	///      StructuredIndices is shared by all views).
-	/// [JP] ビューごとのレイトレ影蓄積インデックス。StructuredIndices では
-	///      なくここに置く理由は Shader/Constants.hlsli 参照(影は
-	///      スクリーンスペース信号でカメラごとに1チェーン必要、
-	///      StructuredIndices は全ビュー共有のため)。
+	///      StructuredIndices is shared by all views) and for what each buffer
+	///      in the chain holds. history_/accumulated_ are SVGF's feedback tap,
+	///      NOT the final image — that is denoised_/visibility_.
+	/// [JP] ビューごとのレイトレ影 SVGF チェーンのインデックス。
+	///      StructuredIndices ではなくここに置く理由と、チェーン内の各バッファが
+	///      何を保持するかは Shader/Constants.hlsli 参照(影はスクリーンスペース
+	///      信号でカメラごとに1チェーン必要、StructuredIndices は全ビュー共有の
+	///      ため)。history_/accumulated_ は SVGF のフィードバックタップであって
+	///      最終画ではない — 最終画は denoised_/visibility_ の方。
 	struct ShadowAccumulationIndices
 	{
 		Uint historyShaderResourceViewIndex_ = 0;
 		Uint accumulatedUnorderedAccessViewIndex_ = 0;
+		Uint accumulatedShaderResourceViewIndex_ = 0;
 		Uint visibilityShaderResourceViewIndex_ = 0;
-		Uint shadowAccumulationPadding_ = 0;
 
 		Uint atrousScratch0ShaderResourceViewIndex_ = 0;
 		Uint atrousScratch0UnorderedAccessViewIndex_ = 0;
 		Uint atrousScratch1ShaderResourceViewIndex_ = 0;
 		Uint atrousScratch1UnorderedAccessViewIndex_ = 0;
+
+		Uint momentsHistoryShaderResourceViewIndex_ = 0;
+		Uint momentsShaderResourceViewIndex_ = 0;
+		Uint momentsUnorderedAccessViewIndex_ = 0;
+		Uint historyLengthHistoryShaderResourceViewIndex_ = 0;
+
+		Uint historyLengthShaderResourceViewIndex_ = 0;
+		Uint historyLengthUnorderedAccessViewIndex_ = 0;
+		Uint depthNormalHistoryShaderResourceViewIndex_ = 0;
+		Uint depthNormalShaderResourceViewIndex_ = 0;
+
+		Uint depthNormalUnorderedAccessViewIndex_ = 0;
+		Uint denoisedUnorderedAccessViewIndex_ = 0;
+		Uint shadowAccumulationPadding0_ = 0;
+		Uint shadowAccumulationPadding1_ = 0;
 	};
 	static_assert(sizeof(ShadowAccumulationIndices) % 16 == 0, "ShadowAccumulationIndices が 16 バイト行の倍数ではありません");
 
@@ -595,21 +614,39 @@ namespace SeedCore
 	};
 	static_assert(sizeof(GlobalIlluminationAccumulationIndices) % 16 == 0, "GlobalIlluminationAccumulationIndices が 16 バイト行の倍数ではありません");
 
-	/// [JP] ビューごとのレイトレ反射蓄積インデックス。GIと同じ理由でここに
-	///      置く。生の1spp GGXサンプル放射輝度(StructuredIndices::reflection_)
-	///      は全ビュー共有の単一バッファ — こちらはビューごとのデノイズ
-	///      (空間+時間)済み結果で、DeferredLightingPS.hlsl がサンプルする。
+	/// [JP] ビューごとのレイトレ反射 ReBLUR チェーンのインデックス。GIと同じ
+	///      理由でここに置く。生の1spp GGXサンプル放射輝度
+	///      (StructuredIndices::reflection_)は全ビュー共有の単一バッファ —
+	///      こちらはビューごとのデノイズ済み結果で、DeferredLightingPS.hlsl が
+	///      サンプルする。各バッファが何を保持するか(特に history_/accumulated_/
+	///      radiance_ のアルファが有効フラグではなく正規化ヒット距離であること)は
+	///      Shader/Constants.hlsli 参照。
 	struct ReflectionAccumulationIndices
 	{
 		Uint historyShaderResourceViewIndex_ = 0;
 		Uint accumulatedUnorderedAccessViewIndex_ = 0;
 		Uint radianceShaderResourceViewIndex_ = 0;
-		Uint reflectionAccumulationPadding_ = 0;
+		Uint reflectionAccumulationPadding0_ = 0;
 
-		Uint atrousScratch0ShaderResourceViewIndex_ = 0;
-		Uint atrousScratch0UnorderedAccessViewIndex_ = 0;
-		Uint atrousScratch1ShaderResourceViewIndex_ = 0;
-		Uint atrousScratch1UnorderedAccessViewIndex_ = 0;
+		Uint scratch0ShaderResourceViewIndex_ = 0;
+		Uint scratch0UnorderedAccessViewIndex_ = 0;
+		Uint scratch1ShaderResourceViewIndex_ = 0;
+		Uint scratch1UnorderedAccessViewIndex_ = 0;
+
+		Uint accumSpeedHistoryShaderResourceViewIndex_ = 0;
+		Uint accumSpeedShaderResourceViewIndex_ = 0;
+		Uint accumSpeedUnorderedAccessViewIndex_ = 0;
+		Uint depthNormalHistoryShaderResourceViewIndex_ = 0;
+
+		Uint depthNormalUnorderedAccessViewIndex_ = 0;
+
+		/// [EN] ReBLUR's short-history luma chain — see Shader/Constants.hlsli
+		///      for why the slow history is clamped into it.
+		/// [JP] ReBLUR の短期履歴ルミナンスのチェーン。遅い履歴をここへ
+		///      クランプする理由は Shader/Constants.hlsli 参照。
+		Uint fastHistoryHistoryShaderResourceViewIndex_ = 0;
+		Uint fastHistoryShaderResourceViewIndex_ = 0;
+		Uint fastHistoryUnorderedAccessViewIndex_ = 0;
 	};
 	static_assert(sizeof(ReflectionAccumulationIndices) % 16 == 0, "ReflectionAccumulationIndices が 16 バイト行の倍数ではありません");
 
@@ -650,7 +687,7 @@ namespace SeedCore
 
 		PostProcessIndices postProcess_;
 	};
-	static_assert(sizeof(ConstantIndices) == 58 * 16, "ConstantIndices が Shader/Constants.hlsli と一致していません");
+	static_assert(sizeof(ConstantIndices) == 63 * 16, "ConstantIndices が Shader/Constants.hlsli と一致していません");
 
 	/// [EN] Mirrors Shader/Structured.hlsli. Each group is a whole number of
 	///      16-byte cbuffer rows with its padding written out explicitly, and
@@ -1007,20 +1044,22 @@ namespace SeedCore
 
 		void SetShadowRayConstantIndex(Uint index);
 
-		/// [EN] Registers one view's shadow-accumulation chain into that
-		///      view's ConstantIndices. Canvas mirrors the editor values so
-		///      the fields are never left undefined (canvas never samples
-		///      them).
-		/// [JP] 指定ビューの影蓄積チェーンをそのビューの ConstantIndices へ
+		/// [EN] Registers one view's shadow SVGF chain into that view's
+		///      ConstantIndices. Canvas mirrors the editor values so the fields
+		///      are never left undefined (canvas never samples them). Takes the
+		///      whole struct rather than a scalar parameter list — SVGF needs
+		///      moments, history length and a packed depth/normal copy on top of
+		///      the illumination ping-pong, and ShadowRenderer already assembles
+		///      exactly this payload each frame.
+		/// [JP] 指定ビューの影 SVGF チェーンをそのビューの ConstantIndices へ
 		///      登録する。Canvas はエディタと同値を入れて未定義を避ける
-		///      (Canvas がこれらを読むことはない)。
-		void SetEditorShadowIndices(Uint historyShaderResourceViewIndex, Uint accumulatedUnorderedAccessViewIndex, Uint visibilityShaderResourceViewIndex);
+		///      (Canvas がこれらを読むことはない)。スカラーの羅列ではなく構造体を
+		///      まるごと受け取る — SVGF は輝度のピンポンに加えてモーメント・
+		///      履歴長・深度/法線のパック済みコピーを必要とし、ShadowRenderer が
+		///      毎フレームまさにこの形で組み立てているため。
+		void SetEditorShadowIndices(const ShadowAccumulationIndices& values);
 
-		void SetGameShadowIndices(Uint historyShaderResourceViewIndex, Uint accumulatedUnorderedAccessViewIndex, Uint visibilityShaderResourceViewIndex);
-
-		void SetEditorShadowAtrousScratchIndices(Uint scratch0ShaderResourceViewIndex, Uint scratch0UnorderedAccessViewIndex, Uint scratch1ShaderResourceViewIndex, Uint scratch1UnorderedAccessViewIndex);
-
-		void SetGameShadowAtrousScratchIndices(Uint scratch0ShaderResourceViewIndex, Uint scratch0UnorderedAccessViewIndex, Uint scratch1ShaderResourceViewIndex, Uint scratch1UnorderedAccessViewIndex);
+		void SetGameShadowIndices(const ShadowAccumulationIndices& values);
 
 		void SetAmbientOcclusionRawUnorderedAccessViewIndex(Uint index);
 
@@ -1048,13 +1087,16 @@ namespace SeedCore
 
 		void SetGameGlobalIlluminationAtrousScratchIndices(Uint scratch0ShaderResourceViewIndex, Uint scratch0UnorderedAccessViewIndex, Uint scratch1ShaderResourceViewIndex, Uint scratch1UnorderedAccessViewIndex);
 
-		void SetEditorReflectionAccumulationIndices(Uint historyShaderResourceViewIndex, Uint accumulatedUnorderedAccessViewIndex, Uint radianceShaderResourceViewIndex);
+		/// [EN] Registers one view's reflection ReBLUR chain into that view's
+		///      ConstantIndices. Takes the whole struct for the same reason the
+		///      shadow setter above does — ReBLUR carries an accumulation-speed
+		///      and a packed depth/normal chain alongside the radiance ping-pong.
+		/// [JP] 指定ビューの反射 ReBLUR チェーンをそのビューの ConstantIndices へ
+		///      登録する。構造体をまるごと受け取る理由は上の影用と同じ — ReBLUR は
+		///      放射輝度のピンポンに加えて蓄積速度と深度/法線のチェーンを持つ。
+		void SetEditorReflectionAccumulationIndices(const ReflectionAccumulationIndices& values);
 
-		void SetGameReflectionAccumulationIndices(Uint historyShaderResourceViewIndex, Uint accumulatedUnorderedAccessViewIndex, Uint radianceShaderResourceViewIndex);
-
-		void SetEditorReflectionAtrousScratchIndices(Uint scratch0ShaderResourceViewIndex, Uint scratch0UnorderedAccessViewIndex, Uint scratch1ShaderResourceViewIndex, Uint scratch1UnorderedAccessViewIndex);
-
-		void SetGameReflectionAtrousScratchIndices(Uint scratch0ShaderResourceViewIndex, Uint scratch0UnorderedAccessViewIndex, Uint scratch1ShaderResourceViewIndex, Uint scratch1UnorderedAccessViewIndex);
+		void SetGameReflectionAccumulationIndices(const ReflectionAccumulationIndices& values);
 
 		/// [EN] Registers one view's full post-process payload (resource
 		///      indices + tuning scalars) into that view's ConstantIndices.

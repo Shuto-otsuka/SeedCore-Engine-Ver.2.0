@@ -1,4 +1,4 @@
-﻿#ifndef __SUBSURFACE_SCATTERING_HLSL__
+#ifndef __SUBSURFACE_SCATTERING_HLSL__
 #define __SUBSURFACE_SCATTERING_HLSL__
 
 // SSS tuning constant buffer, read by both SubsurfaceScatteringRT.hlsl and

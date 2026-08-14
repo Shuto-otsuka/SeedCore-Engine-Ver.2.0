@@ -259,6 +259,58 @@ float4 main(CompositeOutput input) : SV_Target0
 			float2 velocity = gbuffer_velocity.Load(int3(pixel, 0));
 			return float4(velocity * 0.5 + 0.5, 0.0, 1.0);
 		}
+
+		/// [JP] 以下はレイトレ信号のバッファ可視化。生
+		///      (structured_indices 側・全ビュー共有の1sppトレース結果)と
+		///      デノイズ後(constant_indices 側・ビューごとのチェーン出力)を
+		///      それぞれそのまま出す。加工しないのは、どちらの段で信号が
+		///      失われたかを判定するのが目的だから — 見やすさのための補正を
+		///      入れると、その補正自体が判定を曇らせる。
+		case 10: // 反射（生）
+		{
+			Texture2D<float4> reflection_raw = ResourceDescriptorHeap[structured_indices.reflection_.output_srv_index_];
+			return float4(reflection_raw.Load(int3(pixel, 0)).rgb, 1.0);
+		}
+		case 11: // 反射（デノイズ後）
+		{
+			Texture2D<float4> reflection_denoised = ResourceDescriptorHeap[constant_indices.reflection_.radiance_srv_index_];
+			return float4(reflection_denoised.Load(int3(pixel, 0)).rgb, 1.0);
+		}
+		case 12: // グローバルイルミネーション（生）
+		{
+			Texture2D<float4> global_illumination_raw = ResourceDescriptorHeap[structured_indices.global_illumination_.output_srv_index_];
+			return float4(global_illumination_raw.Load(int3(pixel, 0)).rgb, 1.0);
+		}
+		case 13: // グローバルイルミネーション（デノイズ後）
+		{
+			Texture2D<float4> global_illumination_denoised = ResourceDescriptorHeap[constant_indices.global_illumination_.radiance_srv_index_];
+			return float4(global_illumination_denoised.Load(int3(pixel, 0)).rgb, 1.0);
+		}
+
+		/// [JP] シャドウは2チャンネル(r=ディレクショナル, g=確率的に選ばれた
+		///      パンクチュアル1灯)なので、そのまま R/G へ出す。両方照射なら黄色、
+		///      ディレクショナルだけ遮蔽されていれば緑、というように、どちらの
+		///      チャンネルが落ちているかが色で分かる。
+		case 14: // シャドウ（生）
+		{
+			Texture2D<float2> shadow_raw = ResourceDescriptorHeap[structured_indices.shadow_.raw_visibility_srv_index_];
+			return float4(shadow_raw.Load(int3(pixel, 0)), 0.0, 1.0);
+		}
+		case 15: // シャドウ（デノイズ後）
+		{
+			Texture2D<float2> shadow_denoised = ResourceDescriptorHeap[constant_indices.shadow_.visibility_srv_index_];
+			return float4(shadow_denoised.Load(int3(pixel, 0)), 0.0, 1.0);
+		}
+		case 16: // アンビエントオクルージョン（生）
+		{
+			Texture2D<float> ambient_occlusion_raw = ResourceDescriptorHeap[structured_indices.ambient_occlusion_.raw_srv_index_];
+			return float4(ambient_occlusion_raw.Load(int3(pixel, 0)).xxx, 1.0);
+		}
+		case 17: // アンビエントオクルージョン（デノイズ後）
+		{
+			Texture2D<float> ambient_occlusion_denoised = ResourceDescriptorHeap[constant_indices.ambient_occlusion_.openness_srv_index_];
+			return float4(ambient_occlusion_denoised.Load(int3(pixel, 0)).xxx, 1.0);
+		}
 	}
 
 	/// [JP] KHR_materials_unlit: ライティングを一切せず base_color + emissive のみ。
@@ -346,20 +398,27 @@ float4 main(CompositeOutput input) : SV_Target0
 	///      (irradiance index != 0), otherwise the flat fallback ambient.
 	/// [JP] 環境光項: スカイマップがバインドされていれば（irradiance インデックス
 	///      != 0）IBL、なければ従来のフラットな環境光にフォールバック。
-	/// [JP] レイトレ反射(ReflectionDenoiseCS.hlsl がビューごとに空間+時間
-	///      デノイズした後の放射輝度、a=1 有効)。GGX重点サンプリング
+	/// [JP] レイトレ反射(ReflectionDenoiseCS.hlsl がビューごとに ReBLUR で
+	///      デノイズした後の放射輝度)。GGX重点サンプリング
 	///      (ReflectionRT.hlsl)は roughness に応じて自然にボケる(roughness 0
 	///      は厳密ミラーへ縮退)ので、以前のように (1-roughness) で重みを
 	///      落として粗い面だけプリフィルタ済みIBLへ逃がす必要はない —
-	///      トレース結果をそのまま信頼してよい。無効時はレンダラー側が a=0
-	///      でクリアするので常に読んでよい。ここで読むのは
+	///      トレース結果をそのまま信頼してよい。ここで読むのは
 	///      structured_indices 側の生1sppではなく、GIと同じく
 	///      constant_indices 側のデノイズ済み結果。
+	///
+	///      アルファは【正規化ヒット距離】であって有効フラグではない
+	///      (ReBLUR がブラー半径を導くのに使う)。ただしトレースが走った
+	///      ピクセルはヒット距離が必ず正になり(TMin > 0、空へ抜けたレイも
+	///      遠距離として 1 に飽和する)、背景・機能無効時はシェーダ側と
+	///      レンダラー側の双方が 0 を書くので、a > 0 がそのまま有効判定に
+	///      なる。ここを a そのもので重み付けすると、遠くを映すピクセルほど
+	///      IBLスペキュラを消してしまうので必ず二値化すること。
 	Texture2D<float4> reflection_texture = ResourceDescriptorHeap[constant_indices.reflection_.radiance_srv_index_];
 	float4 traced_reflection = reflection_texture.Load(int3(pixel, 0));
 
 	ConstantBuffer<ReflectionRayConstantBuffer> reflection_tuning = ResourceDescriptorHeap[structured_indices.reflection_.ray_constant_index_];
-	float reflection_weight = traced_reflection.a * saturate(reflection_tuning.strength_);
+	float reflection_weight = (traced_reflection.a > 0.0 ? 1.0 : 0.0) * saturate(reflection_tuning.strength_);
 
 	/// [JP] レイトレGI(1バウンス拡散)。書かれているのは【入射放射輝度】で、
 	///      受け側のアルベドは掛かっていない — コサイン重み付き半球サンプリングの
