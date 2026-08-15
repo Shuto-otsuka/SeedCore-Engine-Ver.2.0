@@ -347,6 +347,24 @@ float4 main(CompositeOutput input) : SV_Target0
 	base_color = lerp(base_color, float3(0.95, 0.96, 1.0), snow);
 	roughness = lerp(roughness, 0.9, snow);
 
+	/// [JP] ラフネスの下限。ここから下は「鋭いハイライト」ではなく【破綻】になる。
+	///      GGX の法線分布はピーク(N・H=1)で D = 1/(PI * alpha^2)、alpha =
+	///      roughness^2 なので、roughness が小さいほど D は 4 乗で発散する
+	///      (roughness 0.01 で約 3.2e7、0 で Inf)。これに光源強度が掛かった値が
+	///      RGBA16F の HDR バッファ(上限 65504)へ入るので、+Inf として格納される。
+	///
+	///      そして NaN が生まれるのはここではなくブルームの Karis 平均で、
+	///      color * 1/(1+luma) が Inf * 0 になる。生まれた NaN はブルーム/
+	///      レンズフレア/アナモルフィックがそれぞれ自分のカーネル形状で広げるため、
+	///      「光源とは無関係な場所に、3種類の別々の形の黒が同時に出る」という
+	///      原因の見えにくい壊れ方をする。
+	///
+	///      0.045 は Filament/Frostbite が同じ理由(half float でのオーバーフロー
+	///      回避)で使っている値。上の水たまり(0.03)はこれを単独で下回るため、
+	///      すべての weather 補正を通した【後】に敷く必要がある。
+	const float MIN_PERCEPTUAL_ROUGHNESS = 0.045;
+	roughness = max(roughness, MIN_PERCEPTUAL_ROUGHNESS);
+
 	/// [JP] KHR_materials_ior/specular からその場で誘電体 F0 を計算。金属は base_color。
 	float dielectric = (material_instance.ior_ - 1.0) / (material_instance.ior_ + 1.0);
 	dielectric *= dielectric;
@@ -398,22 +416,18 @@ float4 main(CompositeOutput input) : SV_Target0
 	///      (irradiance index != 0), otherwise the flat fallback ambient.
 	/// [JP] 環境光項: スカイマップがバインドされていれば（irradiance インデックス
 	///      != 0）IBL、なければ従来のフラットな環境光にフォールバック。
-	/// [JP] レイトレ反射(ReflectionDenoiseCS.hlsl がビューごとに ReBLUR で
+	/// [JP] レイトレ反射(ReflectionDenoiseCS.hlsl がビューごとに SVGF で
 	///      デノイズした後の放射輝度)。GGX重点サンプリング
 	///      (ReflectionRT.hlsl)は roughness に応じて自然にボケる(roughness 0
 	///      は厳密ミラーへ縮退)ので、以前のように (1-roughness) で重みを
 	///      落として粗い面だけプリフィルタ済みIBLへ逃がす必要はない —
 	///      トレース結果をそのまま信頼してよい。ここで読むのは
-	///      structured_indices 側の生1sppではなく、GIと同じく
-	///      constant_indices 側のデノイズ済み結果。
+	///      structured_indices 側の生1sppではなく、GI/AO/Shadowと同じく
+	///      constant_indices 側のデノイズ済み結果(最後のA-Trousパスの出力)。
 	///
-	///      アルファは【正規化ヒット距離】であって有効フラグではない
-	///      (ReBLUR がブラー半径を導くのに使う)。ただしトレースが走った
-	///      ピクセルはヒット距離が必ず正になり(TMin > 0、空へ抜けたレイも
-	///      遠距離として 1 に飽和する)、背景・機能無効時はシェーダ側と
-	///      レンダラー側の双方が 0 を書くので、a > 0 がそのまま有効判定に
-	///      なる。ここを a そのもので重み付けすると、遠くを映すピクセルほど
-	///      IBLスペキュラを消してしまうので必ず二値化すること。
+	///      アルファは GI/AO と同じ単純な有効フラグ(1=有効、0=背景・機能無効)。
+	///      背景・機能無効時はシェーダ側とレンダラー側の双方が 0 を書くので、
+	///      a > 0 がそのまま有効判定になる。
 	Texture2D<float4> reflection_texture = ResourceDescriptorHeap[constant_indices.reflection_.radiance_srv_index_];
 	float4 traced_reflection = reflection_texture.Load(int3(pixel, 0));
 

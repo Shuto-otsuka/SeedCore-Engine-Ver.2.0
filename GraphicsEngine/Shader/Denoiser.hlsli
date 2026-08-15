@@ -10,22 +10,18 @@
 * - https://jo.dreggn.org/home/2010_atrous.pdf
 * - https://research.nvidia.com/publication/2017-07_spatiotemporal-variance-guided-filtering-real-time-reconstruction-path-traced
 * - https://github.com/NVIDIAGameWorks/Falcor/tree/master/Source/RenderPasses/SVGFPass
-* - https://github.com/NVIDIA-RTX/NRD
-* - https://link.springer.com/chapter/10.1007/978-1-4842-7185-8_49
 *
-* Shared building blocks for the RT spatio-temporal denoisers. Three
+* Shared building blocks for the RT spatio-temporal denoisers. Two
 * independent groups live here:
 *
 *  1. The "classic" group (AO / GI): a depth+normal weighted bilateral spatial
 *     filter, a variance-clipped temporal reprojection blend, and a multi-pass
 *     A-Trous wavelet filter.
-*  2. The SVGF group (Shadow): Schied et al. 2017's spatiotemporal
+*  2. The SVGF group (Shadow / Reflection): Schied et al. 2017's spatiotemporal
 *     variance-guided filter - moment accumulation, variance estimation and the
-*     variance-driven edge-stopping function.
-*  3. The ReBLUR group (Reflection): NVIDIA NRD's hierarchical recurrent
-*     denoiser - hit-distance-driven blur radius, accumulation-speed
-*     bookkeeping, the anisotropic world-space Poisson kernel and the specular
-*     weight family it filters with.
+*     variance-driven edge-stopping function. Reflection extends this with a
+*     dual (surface + hit-point virtual motion) reprojection - see
+*     ReflectionDenoiseCS.hlsl.
 *
 * English only, because this file is #included by other shaders and DXC does
 * not accept non-ASCII in an included translation unit.
@@ -174,6 +170,29 @@ float3 DenoiserTemporalBlend(Texture2D<float4> history_texture, float2 previous_
 	return lerp(history_value, filtered_raw, blend_alpha);
 }
 
+/// [EN] Largest value representable in FP16, the format every RT signal
+///      buffer here uses. Radiance above this stores as +Inf.
+static const float DENOISER_FP16_MAX = 65504.0;
+
+/**
+* [EN]
+* Front-end sanitization for a traced radiance sample. Not defensive padding -
+* it is required. The signal buffers are FP16, so any radiance above 65504 (a
+* bright specular highlight or an emissive surface reaches that easily) is
+* stored as +Inf. A denoiser cannot survive that: computing moments does
+* Inf - Inf and weighting a tap does Inf * 0, both of which are NaN, and
+* because the result is fed back as history the NaN is latched in rather than
+* passing. From there it leaks into the HDR target and spreads through bloom
+* and lens flare, so the visible artifact is shaped like whatever post-process
+* spread it and appears wherever a too-bright sample happens to be in frame -
+* which makes it look view-dependent and unrelated to the denoiser.
+*/
+float3 DenoiserSanitizeRadiance(float3 radiance)
+{
+	bool invalid = any(isnan(radiance)) || any(isinf(radiance));
+	return invalid ? float3(0, 0, 0) : clamp(radiance, 0.0, DENOISER_FP16_MAX);
+}
+
 /// [EN] Fixed 5-tap B3-spline kernel (Dammertz et al. 2010's standard A-Trous
 ///      weights), separable across x/y. Normalized to sum to 1 over the 1D taps
 ///      (0.0625+0.25+0.375+0.25+0.0625 = 1), so the 2D outer product used in
@@ -234,8 +253,8 @@ float3 DenoiserATrousPass(Texture2D<float4> source_texture, Texture2D<float> dep
 /**
 * [EN]
 * View-space position of a pixel from its UV and its raw (reverse-Z) depth. The
-* SVGF and ReBLUR groups below work in view/world space rather than in raw
-* depth, because the plane-distance and curvature tests they use are metric.
+* SVGF group below works in view/world space rather than in raw depth, because
+* the reprojection consistency tests it uses are metric.
 */
 float3 DenoiserViewPosition(float4x4 inverse_projection, float2 uv, float depth)
 {
@@ -264,20 +283,6 @@ float3 DenoiserWorldPosition(float4x4 inverse_view_projection, float2 uv, float 
 float2 DenoiserPreviousUv(float2 uv, float2 velocity)
 {
 	return uv - float2(velocity.x, -velocity.y);
-}
-
-/**
-* [EN]
-* Ordered dithering used to rotate the ReBLUR Poisson disk per pixel per frame,
-* so its 8 fixed taps do not bake a static pattern into the result.
-*/
-float DenoiserBayer4x4(uint2 pixel, uint frame_index)
-{
-	uint2 wrapped = pixel & 3;
-	uint a = 2068378560 * (1 - (wrapped.y >> 1)) + 1500172770 * (wrapped.y >> 1);
-	uint b = (wrapped.x + ((wrapped.y & 1) << 2)) << 2;
-	uint bayer = ((a >> b) + frame_index) & 0xF;
-	return float(bayer) / 16.0;
 }
 
 /**
@@ -387,355 +392,5 @@ float2 SvgfVarianceCenter(Texture2D<float4> source_texture, int2 pixel, int2 scr
 ///      center tap, because SVGF weights the center explicitly at 1 and never
 ///      lets edge-stopping reject it.
 static const float SVGF_ATROUS_KERNEL[3] = { 1.0, 2.0 / 3.0, 1.0 / 6.0 };
-
-/**
-* [EN]
-* ===========================================================================
-* ReBLUR - NVIDIA Real-time Denoisers' hierarchical recurrent denoiser.
-* ===========================================================================
-*
-* Where SVGF sizes its filter from measured variance, ReBLUR sizes it from
-* geometry: the blur radius of a specular pixel is derived from the distance
-* the reflection ray travelled and from how many frames of history the pixel
-* already has. A short ray means the reflected detail is close to the surface
-* and must stay sharp; a long ray means the lobe footprint is wide and can be
-* blurred. The kernel is a world-space ellipse oriented along the specular
-* dominant direction, so the blur follows the shape of the GGX lobe instead of
-* being an isotropic screen-space disk.
-*/
-
-/// [EN] "Special 8" Poisson-like tap set: 4 taps on the unit circle plus 4
-///      inner taps at half radius. z is the normalized radius, fed to
-///      ReblurGaussianWeight below.
-static const float3 REBLUR_POISSON_SAMPLES[8] =
-{
-	float3(-1.0, 0.0, 1.0),
-	float3(0.0, 1.0, 1.0),
-	float3(1.0, 0.0, 1.0),
-	float3(0.0, -1.0, 1.0),
-	float3(-0.25 * 1.41421356, 0.25 * 1.41421356, 0.5),
-	float3(0.25 * 1.41421356, 0.25 * 1.41421356, 0.5),
-	float3(0.25 * 1.41421356, -0.25 * 1.41421356, 0.5),
-	float3(-0.25 * 1.41421356, -0.25 * 1.41421356, 0.5)
-};
-
-/// [EN] Fraction of the GGX lobe volume the normal rejection width is taken
-///      from, and the tighter fraction the pre-pass radius clamp uses.
-static const float REBLUR_MAX_PERCENT_OF_LOBE_VOLUME = 0.75;
-static const float REBLUR_MAX_PERCENT_OF_LOBE_VOLUME_FOR_PRE_PASS = 0.3;
-
-/// [EN] Angular error floor of the octahedral normal encoding. Any rejection
-///      angle narrower than this would be rejecting quantization noise.
-static const float REBLUR_NORMAL_ENCODING_ERROR = 1.5 / 255.0;
-
-/// [EN] Smallest roughness delta the roughness weight can resolve - the
-///      denominator floor that keeps mirrors from accepting rough neighbors.
-static const float REBLUR_ROUGHNESS_SENSITIVITY = 0.01;
-
-/// [EN] Steepness of the exponential weight, chosen so its energy matches the
-///      smoothstep weight it is interchangeable with.
-static const float REBLUR_EXP_WEIGHT_SCALE = 3.0;
-
-static const float REBLUR_EPSILON = 1e-6;
-
-/**
-* [EN]
-* Roughness remap that governs almost every roughness-dependent quantity in
-* ReBLUR. It is ~0 for mirror-like surfaces (no blur, no relaxation of any
-* weight) and rises to 1 for fully rough ones, but unlike sqrt(roughness) it
-* stays correct below roughness 0.1, where a mirror must not be touched.
-*/
-float ReblurSpecMagicCurve(float roughness, float power)
-{
-	float f = 1.0 - exp2(-200.0 * roughness * roughness);
-	return f * pow(saturate(roughness), power);
-}
-
-/**
-* [EN]
-* Half-angle of the cone containing percent_of_volume of the GGX lobe, as a
-* tangent. Everything that has to stay "in lobe" - the pre-pass radius clamp,
-* the normal rejection width - is expressed through this.
-*/
-float ReblurSpecularLobeTanHalfAngle(float roughness, float percent_of_volume)
-{
-	percent_of_volume = saturate(percent_of_volume);
-	return saturate(roughness) * sqrt(percent_of_volume / (1.0 - percent_of_volume + REBLUR_EPSILON));
-}
-
-/**
-* [EN]
-* Karis' G2 fit for how far the GGX lobe's dominant direction leans from the
-* normal toward the mirror direction. 1 = pure mirror, 0 = pure normal.
-*/
-float ReblurSpecularDominantFactor(float normal_dot_view, float roughness)
-{
-	roughness = saturate(roughness);
-	float a = 0.298475 * log(39.4115 - 39.0029 * roughness);
-	return saturate(pow(saturate(1.0 - normal_dot_view), 10.8649) * (1.0 - a) + a);
-}
-
-/**
-* [EN]
-* Specular dominant direction: xyz = the direction itself, w = the dominant
-* factor it was built from (ReblurVirtualPosition needs the factor as an
-* elongation term, so it is returned rather than recomputed).
-*/
-float4 ReblurSpecularDominantDirection(float3 normal, float3 view, float roughness)
-{
-	float normal_dot_view = abs(dot(normal, view));
-	float dominant_factor = ReblurSpecularDominantFactor(normal_dot_view, roughness);
-	float3 reflection = reflect(-view, normal);
-
-	return float4(normalize(lerp(normal, reflection, dominant_factor)), dominant_factor);
-}
-
-/**
-* [EN]
-* Branchless orthonormal basis around n (Frisvad/Duff), rows = (T, B, N).
-*/
-float3x3 ReblurOrthoBasis(float3 n)
-{
-	float sign_z = n.z >= 0.0 ? 1.0 : -1.0;
-	float a = 1.0 / (sign_z + n.z);
-	float ya = n.y * a;
-	float b = n.x * ya;
-	float c = n.x * sign_z;
-
-	float3 tangent = float3(c * n.x * a - 1.0, sign_z * b, c);
-	float3 bitangent = float3(b, n.y * ya - sign_z, n.y);
-
-	return float3x3(tangent, bitangent, n);
-}
-
-/**
-* [EN]
-* Kernel basis for the spatial filter: the tangent is put PERPENDICULAR to the
-* reflected direction and the bitangent along it, so scaling the two axes apart
-* (see the skew factor at the call site) stretches the sampling ellipse along
-* the direction the specular lobe is actually elongated in at grazing angles.
-* Falls back to an arbitrary basis when the direction is (anti)parallel to the
-* normal, where the lobe is rotationally symmetric and orientation is
-* meaningless.
-*/
-float2x3 ReblurKernelBasis(float3 direction, float3 normal)
-{
-	float3x3 basis = ReblurOrthoBasis(normal);
-	float3 tangent = basis[0];
-	float3 bitangent = basis[1];
-
-	if (abs(dot(direction, normal)) < 0.999)
-	{
-		float3 reflection = reflect(-direction, normal);
-		tangent = normalize(cross(normal, reflection));
-		bitangent = cross(reflection, tangent);
-	}
-
-	return float2x3(tangent, bitangent);
-}
-
-/**
-* [EN]
-* World units a single pixel spans per unit of view depth, derived from the
-* projection. Every pixel-space radius in the ReBLUR passes goes through this to
-* become a world-space kernel axis.
-*/
-float ReblurUnproject(float projection_m11, float screen_height)
-{
-	return 1.0 / (0.5 * screen_height * projection_m11);
-}
-
-/**
-* [EN]
-* World-space size of a pixel_radius-wide disk at view_z.
-*/
-float ReblurPixelRadiusToWorld(float unproject, float pixel_radius, float view_z)
-{
-	return pixel_radius * unproject * view_z;
-}
-
-/**
-* [EN]
-* World-space size of the view frustum at view_z, the yardstick the hit distance
-* and the plane-distance tolerance are both measured against.
-*/
-float ReblurFrustumSize(float unproject, float2 screen_size, float view_z)
-{
-	return min(screen_size.x, screen_size.y) * unproject * view_z;
-}
-
-/**
-* [EN]
-* Hit distances are stored normalized to [0;1] so they survive an FP16 alpha
-* channel at any scene scale. The normalization is depth- and roughness-aware:
-* params.x is a constant floor in world units, params.y scales it with view
-* depth, and params.z stretches the range for low roughness, where a mirror
-* legitimately reflects things very far away.
-*/
-float ReblurHitDistanceNormalization(float view_z, float3 hit_distance_params, float roughness)
-{
-	float smc = ReblurSpecMagicCurve(roughness, 0.5);
-	return (hit_distance_params.x + abs(view_z) * hit_distance_params.y) * lerp(hit_distance_params.z, 1.0, smc);
-}
-
-/**
-* [EN]
-* How large the reflection's footprint is relative to the view frustum at this
-* depth. This is the primary driver of the blur radius: a ray that travelled a
-* distance comparable to the frustum reflects something far away and blurry.
-*/
-float ReblurHitDistFactor(float hit_distance, float frustum_size)
-{
-	return saturate(hit_distance / frustum_size);
-}
-
-/**
-* [EN]
-* Plane-distance rejection parameters. Measures how far a neighbor is from the
-* center pixel's TANGENT PLANE rather than from its depth, so coplanar neighbors
-* on a slanted surface are kept and only genuinely different surfaces are
-* rejected. Returns (a, b) for the |x * a + b| form the weight evaluators take.
-*/
-float2 ReblurGeometryWeightParams(float plane_distance_sensitivity, float frustum_size, float3 view_position, float3 view_normal)
-{
-	float a = 1.0 / (plane_distance_sensitivity * frustum_size);
-	return float2(a, -dot(view_normal, view_position) * a);
-}
-
-/**
-* [EN]
-* Normal rejection width, expressed as the reciprocal of an angle taken from the
-* GGX lobe itself. It widens as history shortens (non_linear_accum_speed -> 1),
-* because a pixel with no history needs neighbors more than it needs precision.
-*/
-float ReblurNormalWeightParam(float non_linear_accum_speed, float lobe_angle_fraction, float roughness)
-{
-	float percent_of_volume = REBLUR_MAX_PERCENT_OF_LOBE_VOLUME * lerp(saturate(lobe_angle_fraction), 1.0, non_linear_accum_speed);
-	float tan_half_angle = ReblurSpecularLobeTanHalfAngle(roughness, percent_of_volume);
-
-	return 1.0 / max(atan(tan_half_angle), REBLUR_NORMAL_ENCODING_ERROR);
-}
-
-/**
-* [EN]
-* Roughness rejection parameters - keeps a mirror from borrowing a rough
-* neighbor's wide highlight and vice versa.
-*/
-float2 ReblurRoughnessWeightParams(float roughness, float fraction)
-{
-	float a = 1.0 / lerp(REBLUR_ROUGHNESS_SENSITIVITY, 1.0, saturate(roughness * fraction));
-	return float2(a, -roughness * a);
-}
-
-/**
-* [EN]
-* Hit-distance rejection parameters. The tolerance is the reciprocal of the
-* non-linear accumulation speed, so a converged pixel demands neighbors that
-* reflect something at nearly the same distance, while a fresh one accepts
-* anything.
-*/
-float2 ReblurHitDistanceWeightParams(float hit_distance, float non_linear_accum_speed)
-{
-	float a = 1.0 / non_linear_accum_speed;
-	return float2(a, -hit_distance * a);
-}
-
-/**
-* [EN]
-* Smoothstep-shaped weight, for data that is not noisy (normals, roughness,
-* geometry) - it reaches exactly 0 at the rejection threshold instead of
-* trailing off, which keeps unrelated surfaces fully out.
-*/
-float ReblurComputeWeight(float x, float px, float py)
-{
-	return smoothstep(0.0, 1.0, saturate(1.0 - abs(x * px + py)));
-}
-
-/**
-* [EN]
-* Exponential weight, for noisy data (hit distances). Uses the standard rational
-* approximation of exp, valid for the negative arguments used here.
-*/
-float ReblurComputeExponentialWeight(float x, float px, float py)
-{
-	float t = -REBLUR_EXP_WEIGHT_SCALE * abs(x * px + py);
-	return rcp(t * t - t + 1.0);
-}
-
-/**
-* [EN]
-* Radial falloff across the Poisson disk, applied to each tap's normalized
-* radius so the outer ring contributes less than the inner one.
-*/
-float ReblurGaussianWeight(float radius)
-{
-	return exp(-0.66 * radius * radius);
-}
-
-/**
-* [EN]
-* Mirrors a UV back inside [0;1] instead of clamping it, so taps that fall off
-* screen land on real neighboring data rather than all collapsing onto the same
-* edge texel.
-*/
-float2 ReblurMirrorUv(float2 uv)
-{
-	return min(1.0 - abs(1.0 - frac(uv * 0.5) * 2.0), 0.99999);
-}
-
-/**
-* [EN]
-* Projects one kernel tap (a world-space offset along the ellipse axes) back to
-* screen UV. Sampling in view space and projecting is what makes the kernel
-* foreshorten correctly on surfaces seen at an angle. rotator is
-* (cos angle, sin angle) of the per-pixel disk rotation.
-*/
-float2 ReblurKernelSampleUv(float4x4 view_to_clip, float3 offset, float3 view_position, float3 tangent, float3 bitangent, float2 rotator)
-{
-	float2 rotated = float2(offset.x * rotator.x - offset.y * rotator.y, offset.x * rotator.y + offset.y * rotator.x);
-
-	float3 sample_position = view_position + tangent * rotated.x + bitangent * rotated.y;
-	float4 clip = mul(float4(sample_position, 1.0), view_to_clip);
-
-	float2 ndc = clip.xy / max(clip.w, REBLUR_EPSILON);
-	return float2(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5);
-}
-
-/**
-* [EN]
-* Where the reflected image APPEARS to live, via the thin-lens equation with the
-* surface acting as a mirror of the given curvature. Reflections do not move
-* with the surface they sit on - they move with the reflected geometry - so
-* reprojecting them along the G-Buffer motion vector alone smears them under
-* camera motion. ReBLUR reprojects a virtual point behind/in front of the mirror
-* instead, which is what keeps specular history aligned.
-*/
-float3 ReblurVirtualPosition(float hit_distance, float curvature, float3 world_position, float3 previous_world_position, float3 normal, float3 view, float roughness)
-{
-	float4 dominant = ReblurSpecularDominantDirection(normal, view, roughness);
-	float3 reflection_ray = dominant.xyz * hit_distance;
-
-	float3x3 reflector_basis = ReblurOrthoBasis(normal);
-	float3 object_position = mul(reflector_basis, reflection_ray);
-	object_position.z = -object_position.z;
-
-	float magnification = 1.0 / (2.0 * curvature * object_position.z - 1.0);
-
-	/// [EN] Convex silhouettes magnify without bound, which smears the history
-	///      across the object's edge - damp the magnification there.
-	float normal_dot_view = abs(dot(normal, view));
-	float damping = length(world_position) * saturate(1.0 - normal_dot_view) * max(curvature, 0.0);
-	magnification *= 1.0 / (1.0 + damping);
-
-	float3 image_position = object_position * magnification;
-	float elongation = dominant.w * length(image_position);
-
-	/// [EN] When the virtual image focuses back onto the surface, surface motion
-	///      is the better estimate of where it went - blend toward it.
-	float closeness_to_surface = saturate(elongation / (hit_distance + REBLUR_EPSILON));
-	float3 anchor = lerp(previous_world_position, world_position, closeness_to_surface);
-
-	return anchor + view * elongation * (magnification >= 0.0 ? 1.0 : -1.0);
-}
 
 #endif // __DENOISER_HLSL__

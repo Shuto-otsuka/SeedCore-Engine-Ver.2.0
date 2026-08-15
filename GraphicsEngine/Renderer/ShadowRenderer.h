@@ -1,5 +1,6 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
+#include <FoundationEngine/Utility/SerializeFallback.h>
 #include <GraphicsEngine/D3D12/Buffer/ConstantBuffer.h>
 #include <GraphicsEngine/D3D12/Descriptor/DescriptorHeap.h>
 #include <GraphicsEngine/Raytracing/Shadow/ShadowShader.h>
@@ -77,13 +78,12 @@ namespace SeedCore
 		template<class Archive>
 		void serialize(Archive& archive)
 		{
-			archive(
-				cereal::make_nvp("rayTMax", rayTMax_),
-				cereal::make_nvp("normalBias", normalBias_),
-				cereal::make_nvp("shadowStrength", shadowStrength_),
-				cereal::make_nvp("sunAngularRadius", sunAngularRadius_),
-				cereal::make_nvp("punctualLightRadius", punctualLightRadius_),
-				cereal::make_nvp("denoiseMode", denoiseMode_));
+			TryLoadField(archive, "rayTMax", rayTMax_);
+			TryLoadField(archive, "normalBias", normalBias_);
+			TryLoadField(archive, "shadowStrength", shadowStrength_);
+			TryLoadField(archive, "sunAngularRadius", sunAngularRadius_);
+			TryLoadField(archive, "punctualLightRadius", punctualLightRadius_);
+			TryLoadField(archive, "denoiseMode", denoiseMode_);
 		}
 	};
 
@@ -304,6 +304,20 @@ namespace SeedCore
 		Uint32 clearRawIndex_ = 0;
 		Uint32 clearDenoisedIndex_[viewCount] = {};
 		Uint32 clearHistoryLengthIndex_[viewCount][accumulationSlotCount] = {};
+		Uint32 clearAccumulatedIndex_[viewCount][accumulationSlotCount] = {};
+		Uint32 clearMomentsIndex_[viewCount][accumulationSlotCount] = {};
+		Uint32 clearDepthNormalIndex_[viewCount][accumulationSlotCount] = {};
+
+		/// [EN] Whether the history chain has been zeroed since it was created.
+		///      D3D12 does not guarantee a freshly created committed resource
+		///      reads as zero, and every buffer here feeds back into itself the
+		///      next frame - an uninitialized texel latches in permanently
+		///      rather than clearing after a frame.
+		/// [JP] 生成以降に履歴チェーンを 0 で埋めたかどうか。D3D12 は生成直後の
+		///      committed リソースが 0 で読める保証をせず、ここのバッファは全て
+		///      翌フレーム自分自身へ戻る — 未初期化テクセルは 1 フレームで消えず
+		///      恒久的に焼き付く。
+		Bool historyCleared_ = false;
 
 		BindlessHeap* bindlessHeap_ = nullptr;
 		IndicesSystem* indicesSystem_ = nullptr;

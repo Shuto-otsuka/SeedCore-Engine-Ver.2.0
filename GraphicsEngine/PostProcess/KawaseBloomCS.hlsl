@@ -124,6 +124,23 @@ float KarisWeight(float3 color)
 	return 1.0 / (1.0 + Luminance(color));
 }
 
+// [JP] シーンカラーを取り込む前の検査。ブルームはチェーンの最初にシーンカラーへ
+//      触る効果なので、ここが非有限値の入口になる。しかも Karis 重みは
+//      「明るいほど小さい重み」なので、色が +Inf のとき重みは 0 になり、
+//      color * weight が Inf * 0 = NaN を生む — ファイアフライ抑制の仕組み
+//      そのものが NaN の発生源になるという、直感に反する経路。
+//
+//      生まれた NaN はダウンサンプルチェーンを上りながら広がり、同じ明部
+//      バッファを読むレンズフレアやアナモルフィックフレアへも渡るため、
+//      1点の破綻が画面上の複数の無関係な場所へ、各効果のカーネル形状で
+//      黒として現れる。値を作った側(ライティング)の対策とは別に、
+//      取り込み口でも必ず畳んでおく。
+float3 SanitizeSceneColor(float3 color)
+{
+	bool invalid = any(isnan(color)) || any(isinf(color));
+	return invalid ? float3(0, 0, 0) : max(color, 0.0);
+}
+
 // [JP] ソフトニー付きのしきい値(UE4式)。threshold_ で硬く切ると、
 //      しきい値付近を行き来する画素がフレームごとに出たり消えたりして
 //      ちらつくため、soft_knee_ の幅だけ二次曲線で滑らかに立ち上げる。
@@ -174,22 +191,22 @@ float3 Downsample13Tap(Texture2D<float4> source, float2 uv, float2 texel)
 //      以降のレベルは既に平均済みだから。
 float3 Downsample13TapKaris(Texture2D<float4> source, float2 uv, float2 texel)
 {
-	float3 a = source.SampleLevel(sampler_linear_clamp, uv + float2(-2.0, 2.0) * texel, 0).rgb;
-	float3 b = source.SampleLevel(sampler_linear_clamp, uv + float2(0.0, 2.0) * texel, 0).rgb;
-	float3 c = source.SampleLevel(sampler_linear_clamp, uv + float2(2.0, 2.0) * texel, 0).rgb;
+	float3 a = SanitizeSceneColor(source.SampleLevel(sampler_linear_clamp, uv + float2(-2.0, 2.0) * texel, 0).rgb);
+	float3 b = SanitizeSceneColor(source.SampleLevel(sampler_linear_clamp, uv + float2(0.0, 2.0) * texel, 0).rgb);
+	float3 c = SanitizeSceneColor(source.SampleLevel(sampler_linear_clamp, uv + float2(2.0, 2.0) * texel, 0).rgb);
 
-	float3 d = source.SampleLevel(sampler_linear_clamp, uv + float2(-2.0, 0.0) * texel, 0).rgb;
-	float3 e = source.SampleLevel(sampler_linear_clamp, uv, 0).rgb;
-	float3 f = source.SampleLevel(sampler_linear_clamp, uv + float2(2.0, 0.0) * texel, 0).rgb;
+	float3 d = SanitizeSceneColor(source.SampleLevel(sampler_linear_clamp, uv + float2(-2.0, 0.0) * texel, 0).rgb);
+	float3 e = SanitizeSceneColor(source.SampleLevel(sampler_linear_clamp, uv, 0).rgb);
+	float3 f = SanitizeSceneColor(source.SampleLevel(sampler_linear_clamp, uv + float2(2.0, 0.0) * texel, 0).rgb);
 
-	float3 g = source.SampleLevel(sampler_linear_clamp, uv + float2(-2.0, -2.0) * texel, 0).rgb;
-	float3 h = source.SampleLevel(sampler_linear_clamp, uv + float2(0.0, -2.0) * texel, 0).rgb;
-	float3 i = source.SampleLevel(sampler_linear_clamp, uv + float2(2.0, -2.0) * texel, 0).rgb;
+	float3 g = SanitizeSceneColor(source.SampleLevel(sampler_linear_clamp, uv + float2(-2.0, -2.0) * texel, 0).rgb);
+	float3 h = SanitizeSceneColor(source.SampleLevel(sampler_linear_clamp, uv + float2(0.0, -2.0) * texel, 0).rgb);
+	float3 i = SanitizeSceneColor(source.SampleLevel(sampler_linear_clamp, uv + float2(2.0, -2.0) * texel, 0).rgb);
 
-	float3 j = source.SampleLevel(sampler_linear_clamp, uv + float2(-1.0, 1.0) * texel, 0).rgb;
-	float3 k = source.SampleLevel(sampler_linear_clamp, uv + float2(1.0, 1.0) * texel, 0).rgb;
-	float3 l = source.SampleLevel(sampler_linear_clamp, uv + float2(-1.0, -1.0) * texel, 0).rgb;
-	float3 m = source.SampleLevel(sampler_linear_clamp, uv + float2(1.0, -1.0) * texel, 0).rgb;
+	float3 j = SanitizeSceneColor(source.SampleLevel(sampler_linear_clamp, uv + float2(-1.0, 1.0) * texel, 0).rgb);
+	float3 k = SanitizeSceneColor(source.SampleLevel(sampler_linear_clamp, uv + float2(1.0, 1.0) * texel, 0).rgb);
+	float3 l = SanitizeSceneColor(source.SampleLevel(sampler_linear_clamp, uv + float2(-1.0, -1.0) * texel, 0).rgb);
+	float3 m = SanitizeSceneColor(source.SampleLevel(sampler_linear_clamp, uv + float2(1.0, -1.0) * texel, 0).rgb);
 
 	/// [JP] 13タップを重なり合う5つの2x2グループに分け、グループごとに
 	///      Karis重みで加重平均する。COD:AW の講演どおりの分け方。

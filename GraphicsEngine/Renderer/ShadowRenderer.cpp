@@ -104,7 +104,9 @@ namespace SeedCore
 		width_ = width;
 		height_ = height;
 
-		clearHeap_.Create(device, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1 + viewCount + viewCount * accumulationSlotCount, false);
+		clearHeap_.Create(device, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1 + viewCount + viewCount * accumulationSlotCount * 4, false);
+
+		historyCleared_ = false;
 
 		CreateShadowTexture(device, bindlessHeap, clearHeap_, width, height, DXGI_FORMAT_R16G16_FLOAT, rawVisibilityResource_, rawVisibilityUnorderedAccessViewIndex_, rawVisibilityShaderResourceViewIndex_, &clearRawIndex_);
 		rawVisibilityState_ = D3D12_RESOURCE_STATE_COMMON;
@@ -113,10 +115,10 @@ namespace SeedCore
 		{
 			for (Uint32 slot = 0; slot < accumulationSlotCount; ++slot)
 			{
-				CreateShadowTexture(device, bindlessHeap, clearHeap_, width, height, DXGI_FORMAT_R16G16B16A16_FLOAT, accumulatedVisibilityResource_[view][slot], accumulatedUnorderedAccessViewIndex_[view][slot], accumulatedShaderResourceViewIndex_[view][slot], nullptr);
+				CreateShadowTexture(device, bindlessHeap, clearHeap_, width, height, DXGI_FORMAT_R16G16B16A16_FLOAT, accumulatedVisibilityResource_[view][slot], accumulatedUnorderedAccessViewIndex_[view][slot], accumulatedShaderResourceViewIndex_[view][slot], &clearAccumulatedIndex_[view][slot]);
 				accumulatedVisibilityState_[view][slot] = D3D12_RESOURCE_STATE_COMMON;
 
-				CreateShadowTexture(device, bindlessHeap, clearHeap_, width, height, DXGI_FORMAT_R16G16B16A16_FLOAT, momentsResource_[view][slot], momentsUnorderedAccessViewIndex_[view][slot], momentsShaderResourceViewIndex_[view][slot], nullptr);
+				CreateShadowTexture(device, bindlessHeap, clearHeap_, width, height, DXGI_FORMAT_R16G16B16A16_FLOAT, momentsResource_[view][slot], momentsUnorderedAccessViewIndex_[view][slot], momentsShaderResourceViewIndex_[view][slot], &clearMomentsIndex_[view][slot]);
 				momentsState_[view][slot] = D3D12_RESOURCE_STATE_COMMON;
 
 				CreateShadowTexture(device, bindlessHeap, clearHeap_, width, height, DXGI_FORMAT_R16_FLOAT, historyLengthResource_[view][slot], historyLengthUnorderedAccessViewIndex_[view][slot], historyLengthShaderResourceViewIndex_[view][slot], &clearHistoryLengthIndex_[view][slot]);
@@ -129,7 +131,7 @@ namespace SeedCore
 				///      同時に全タップ 0 へ潰れる)。SVGF の深度テストは
 				///      「勾配を単位とした差」を見る以上、深度側の分解能が
 				///      勾配より粗いと成立しない。
-				CreateShadowTexture(device, bindlessHeap, clearHeap_, width, height, DXGI_FORMAT_R32G32B32A32_FLOAT, depthNormalResource_[view][slot], depthNormalUnorderedAccessViewIndex_[view][slot], depthNormalShaderResourceViewIndex_[view][slot], nullptr);
+				CreateShadowTexture(device, bindlessHeap, clearHeap_, width, height, DXGI_FORMAT_R32G32B32A32_FLOAT, depthNormalResource_[view][slot], depthNormalUnorderedAccessViewIndex_[view][slot], depthNormalShaderResourceViewIndex_[view][slot], &clearDepthNormalIndex_[view][slot]);
 				depthNormalState_[view][slot] = D3D12_RESOURCE_STATE_COMMON;
 			}
 
@@ -266,6 +268,41 @@ namespace SeedCore
 
 		Uint32 viewIndex = static_cast<Uint32>(view);
 		Uint32 writeSlot = 1 - historySlot_;
+
+		/// [JP] 履歴チェーンの一括ゼロクリア。生成直後の1回だけ、全ビュー・全
+		///      スロットをまとめて潰す。ここを通さないと未初期化のビットパターンが
+		///      履歴として読み戻され、そのまま自己再投入されて焼き付く。
+		if (!historyCleared_)
+		{
+			historyCleared_ = true;
+
+			ID3D12DescriptorHeap* clearHeaps[] = { heap };
+			cmd->SetDescriptorHeaps(_countof(clearHeaps), clearHeaps);
+
+			const Float zeroValues[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+
+			for (Uint32 clearView = 0; clearView < viewCount; ++clearView)
+			{
+				for (Uint32 clearSlot = 0; clearSlot < accumulationSlotCount; ++clearSlot)
+				{
+					auto clearTexture = [&](Microsoft::WRL::ComPtr<ID3D12Resource>& resource, D3D12_RESOURCE_STATES& state, Uint32 unorderedAccessViewIndex, Uint32 clearIndex)
+					{
+						if (state != D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
+						{
+							cmdList->Barrier(resource.Get(), state, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+							state = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+						}
+
+						cmd->ClearUnorderedAccessViewFloat(bindlessHeap_->GPUHandle(unorderedAccessViewIndex), clearHeap_.CPUHandle(clearIndex), resource.Get(), zeroValues, 0, nullptr);
+					};
+
+					clearTexture(accumulatedVisibilityResource_[clearView][clearSlot], accumulatedVisibilityState_[clearView][clearSlot], accumulatedUnorderedAccessViewIndex_[clearView][clearSlot], clearAccumulatedIndex_[clearView][clearSlot]);
+					clearTexture(momentsResource_[clearView][clearSlot], momentsState_[clearView][clearSlot], momentsUnorderedAccessViewIndex_[clearView][clearSlot], clearMomentsIndex_[clearView][clearSlot]);
+					clearTexture(historyLengthResource_[clearView][clearSlot], historyLengthState_[clearView][clearSlot], historyLengthUnorderedAccessViewIndex_[clearView][clearSlot], clearHistoryLengthIndex_[clearView][clearSlot]);
+					clearTexture(depthNormalResource_[clearView][clearSlot], depthNormalState_[clearView][clearSlot], depthNormalUnorderedAccessViewIndex_[clearView][clearSlot], clearDepthNormalIndex_[clearView][clearSlot]);
+				}
+			}
+		}
 
 		ID3D12PipelineState* shadowPipelineState = shadowShader_.GetPipelineState();
 		ID3D12PipelineState* denoisePipelineState = denoiseShader_.GetPipelineState();

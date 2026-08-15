@@ -1,5 +1,6 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
+#include <FoundationEngine/Utility/SerializeFallback.h>
 #include <GraphicsEngine/D3D12/Buffer/ConstantBuffer.h>
 #include <GraphicsEngine/D3D12/Descriptor/DescriptorHeap.h>
 #include <GraphicsEngine/Raytracing/VolumetricLight/VolumetricLightShader.h>
@@ -73,16 +74,15 @@ namespace SeedCore
 		template<class Archive>
 		void serialize(Archive& archive)
 		{
-			archive(
-				cereal::make_nvp("density", density_),
-				cereal::make_nvp("absorption", absorption_),
-				cereal::make_nvp("heightFalloff", heightFalloff_),
-				cereal::make_nvp("heightReference", heightReference_),
-				cereal::make_nvp("fogAlbedo", fogAlbedo_),
-				cereal::make_nvp("scatteringG", scatteringG_),
-				cereal::make_nvp("rayTMax", rayTMax_),
-				cereal::make_nvp("godrayStrength", godrayStrength_),
-				cereal::make_nvp("cloudShadowEnabled", cloudShadowEnabled_));
+			TryLoadField(archive, "density", density_);
+			TryLoadField(archive, "absorption", absorption_);
+			TryLoadField(archive, "heightFalloff", heightFalloff_);
+			TryLoadField(archive, "heightReference", heightReference_);
+			TryLoadField(archive, "fogAlbedo", fogAlbedo_);
+			TryLoadField(archive, "scatteringG", scatteringG_);
+			TryLoadField(archive, "rayTMax", rayTMax_);
+			TryLoadField(archive, "godrayStrength", godrayStrength_);
+			TryLoadField(archive, "cloudShadowEnabled", cloudShadowEnabled_);
 		}
 	};
 

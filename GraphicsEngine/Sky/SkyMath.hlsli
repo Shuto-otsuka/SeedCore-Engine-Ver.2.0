@@ -63,9 +63,27 @@ float3 ImportanceSampleGgx(float2 xi, float3 normal, float roughness)
 
 	float3 half_tangent = float3(cos(phi) * sin_theta, sin(phi) * sin_theta, cos_theta);
 
-	float3 up = abs(normal.z) < 0.999 ? float3(0.0, 0.0, 1.0) : float3(1.0, 0.0, 0.0);
-	float3 tangent = normalize(cross(up, normal));
-	float3 bitangent = cross(normal, tangent);
+	// Branchless Frisvad/Duff orthonormal basis. The up-vector switch this replaces
+	// picks between two axes FIXED in world space depending on normal.z, so
+	// any surface whose normal falls near either fixed axis - not just at the
+	// exact threshold - gets a tangent frame that is nearly degenerate
+	// (cross(up, normal) close to zero before normalize renormalizes the
+	// error back up), injecting extra sampling noise there. For a sphere,
+	// that shows up as a region of visibly noisier reflection wherever the
+	// surface normal happens to pass near that fixed axis - not spread evenly
+	// over the surface, and not fixed to any particular part of the sphere as
+	// seen on screen, since it depends on the normal's direction in WORLD
+	// space rather than anything screen-relative. This construction has no
+	// such axis: it is continuous and well-conditioned for every normal
+	// direction.
+	float sign_z = normal.z >= 0.0 ? 1.0 : -1.0;
+	float a = 1.0 / (sign_z + normal.z);
+	float ya = normal.y * a;
+	float b = normal.x * ya;
+	float c = normal.x * sign_z;
+
+	float3 tangent = float3(c * normal.x * a - 1.0, sign_z * b, c);
+	float3 bitangent = float3(b, normal.y * ya - sign_z, normal.y);
 
 	return normalize(tangent * half_tangent.x + bitangent * half_tangent.y + normal * half_tangent.z);
 }

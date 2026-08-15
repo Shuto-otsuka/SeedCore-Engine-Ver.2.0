@@ -348,13 +348,13 @@ namespace SeedCore
 
 	/**
 	* [EN]
-	* Registers the editor view's reflection ReBLUR chain. See the declaration in
+	* Registers the editor view's reflection SVGF chain. See the declaration in
 	* IndicesSystem.h for why this takes the whole struct.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* エディタビューの反射 ReBLUR チェーンを登録する。構造体をまるごと受け取る
+	* エディタビューの反射 SVGF チェーンを登録する。構造体をまるごと受け取る
 	* 理由は IndicesSystem.h の宣言側を参照。
 	*/
 	void IndicesSystem::SetEditorReflectionAccumulationIndices(const ReflectionAccumulationIndices& values)
@@ -367,12 +367,12 @@ namespace SeedCore
 
 	/**
 	* [EN]
-	* Registers the game view's reflection ReBLUR chain.
+	* Registers the game view's reflection SVGF chain.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* ゲームビューの反射 ReBLUR チェーンを登録する。
+	* ゲームビューの反射 SVGF チェーンを登録する。
 	*/
 	void IndicesSystem::SetGameReflectionAccumulationIndices(const ReflectionAccumulationIndices& values)
 	{

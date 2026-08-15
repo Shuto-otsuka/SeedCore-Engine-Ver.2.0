@@ -1,5 +1,6 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
+#include <FoundationEngine/Utility/SerializeFallback.h>
 #include <GraphicsEngine/D3D12/Buffer/ConstantBuffer.h>
 #include <GraphicsEngine/D3D12/Descriptor/DescriptorHeap.h>
 #include <GraphicsEngine/Raytracing/SubsurfaceScattering/SubsurfaceScatteringShader.h>
@@ -52,12 +53,11 @@ namespace SeedCore
 		template<class Archive>
 		void serialize(Archive& archive)
 		{
-			archive(
-				cereal::make_nvp("scatterDistance", scatterDistance_),
-				cereal::make_nvp("thicknessBias", thicknessBias_),
-				cereal::make_nvp("rayTMax", rayTMax_),
-				cereal::make_nvp("strength", strength_),
-				cereal::make_nvp("subsurfaceColor", subsurfaceColor_));
+			TryLoadField(archive, "scatterDistance", scatterDistance_);
+			TryLoadField(archive, "thicknessBias", thicknessBias_);
+			TryLoadField(archive, "rayTMax", rayTMax_);
+			TryLoadField(archive, "strength", strength_);
+			TryLoadField(archive, "subsurfaceColor", subsurfaceColor_);
 		}
 	};
 

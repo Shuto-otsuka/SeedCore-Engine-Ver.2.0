@@ -1,5 +1,6 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
+#include <FoundationEngine/Utility/SerializeFallback.h>
 #include <GraphicsEngine/D3D12/Buffer/ConstantBuffer.h>
 #include <GraphicsEngine/D3D12/Descriptor/DescriptorHeap.h>
 #include <GraphicsEngine/Raytracing/AmbientOcclusion/AmbientOcclusionShader.h>
@@ -48,10 +49,9 @@ namespace SeedCore
 		template<class Archive>
 		void serialize(Archive& archive)
 		{
-			archive(
-				cereal::make_nvp("rayLength", rayLength_),
-				cereal::make_nvp("normalBias", normalBias_),
-				cereal::make_nvp("power", power_));
+			TryLoadField(archive, "rayLength", rayLength_);
+			TryLoadField(archive, "normalBias", normalBias_);
+			TryLoadField(archive, "power", power_);
 		}
 	};
 

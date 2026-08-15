@@ -614,39 +614,55 @@ namespace SeedCore
 	};
 	static_assert(sizeof(GlobalIlluminationAccumulationIndices) % 16 == 0, "GlobalIlluminationAccumulationIndices が 16 バイト行の倍数ではありません");
 
-	/// [JP] ビューごとのレイトレ反射 ReBLUR チェーンのインデックス。GIと同じ
+	/// [JP] ビューごとのレイトレ反射 SVGF チェーンのインデックス。GIと同じ
 	///      理由でここに置く。生の1spp GGXサンプル放射輝度
 	///      (StructuredIndices::reflection_)は全ビュー共有の単一バッファ —
 	///      こちらはビューごとのデノイズ済み結果で、DeferredLightingPS.hlsl が
-	///      サンプルする。各バッファが何を保持するか(特に history_/accumulated_/
-	///      radiance_ のアルファが有効フラグではなく正規化ヒット距離であること)は
-	///      Shader/Constants.hlsli 参照。
+	///      サンプルする。各バッファが何を保持するか(accumulated_ のアルファは
+	///      ShadowAccumulationIndices と同じくSVGFの分散、radiance_ が指す
+	///      denoised 出力のアルファは有効フラグ)は Shader/Constants.hlsli 参照。
+	/// [EN] Mirrors ShadowAccumulationIndices' shape exactly, for reflection's
+	///      SVGF chain (ReflectionDenoiseCS.hlsl). accumulatedShaderResourceViewIndex_
+	///      (rgb=radiance, a=variance) is the SVGF feedback tap that becomes
+	///      next frame's history; radianceShaderResourceViewIndex_ is the
+	///      FINAL image DeferredLightingPS.hlsl samples, written by the last
+	///      A-Trous pass into a separate single-buffered "denoised" texture -
+	///      never fed back, which is what lets the feedback tap stay an
+	///      earlier, sharper iteration.
+	/// [JP] ShadowAccumulationIndices と全く同じ形。反射の SVGF チェーン
+	///      (ReflectionDenoiseCS.hlsl)用。accumulatedShaderResourceViewIndex_
+	///      (rgb=放射輝度、a=分散)が次フレームの履歴になる SVGF
+	///      フィードバックタップ。radianceShaderResourceViewIndex_ は
+	///      DeferredLightingPS.hlsl がサンプルする【最終画】で、最後の
+	///      A-Trous パスが別の単一バッファ「denoised」テクスチャへ書く —
+	///      フィードバックしないので、フィードバックタップ側を早い段の
+	///      よりシャープな反復のまま保てる。
 	struct ReflectionAccumulationIndices
 	{
 		Uint historyShaderResourceViewIndex_ = 0;
 		Uint accumulatedUnorderedAccessViewIndex_ = 0;
+		Uint accumulatedShaderResourceViewIndex_ = 0;
 		Uint radianceShaderResourceViewIndex_ = 0;
-		Uint reflectionAccumulationPadding0_ = 0;
 
-		Uint scratch0ShaderResourceViewIndex_ = 0;
-		Uint scratch0UnorderedAccessViewIndex_ = 0;
-		Uint scratch1ShaderResourceViewIndex_ = 0;
-		Uint scratch1UnorderedAccessViewIndex_ = 0;
+		Uint atrousScratch0ShaderResourceViewIndex_ = 0;
+		Uint atrousScratch0UnorderedAccessViewIndex_ = 0;
+		Uint atrousScratch1ShaderResourceViewIndex_ = 0;
+		Uint atrousScratch1UnorderedAccessViewIndex_ = 0;
 
-		Uint accumSpeedHistoryShaderResourceViewIndex_ = 0;
-		Uint accumSpeedShaderResourceViewIndex_ = 0;
-		Uint accumSpeedUnorderedAccessViewIndex_ = 0;
+		Uint momentsHistoryShaderResourceViewIndex_ = 0;
+		Uint momentsShaderResourceViewIndex_ = 0;
+		Uint momentsUnorderedAccessViewIndex_ = 0;
+		Uint historyLengthHistoryShaderResourceViewIndex_ = 0;
+
+		Uint historyLengthShaderResourceViewIndex_ = 0;
+		Uint historyLengthUnorderedAccessViewIndex_ = 0;
 		Uint depthNormalHistoryShaderResourceViewIndex_ = 0;
+		Uint depthNormalShaderResourceViewIndex_ = 0;
 
 		Uint depthNormalUnorderedAccessViewIndex_ = 0;
-
-		/// [EN] ReBLUR's short-history luma chain — see Shader/Constants.hlsli
-		///      for why the slow history is clamped into it.
-		/// [JP] ReBLUR の短期履歴ルミナンスのチェーン。遅い履歴をここへ
-		///      クランプする理由は Shader/Constants.hlsli 参照。
-		Uint fastHistoryHistoryShaderResourceViewIndex_ = 0;
-		Uint fastHistoryShaderResourceViewIndex_ = 0;
-		Uint fastHistoryUnorderedAccessViewIndex_ = 0;
+		Uint denoisedUnorderedAccessViewIndex_ = 0;
+		Uint reflectionAccumulationPadding0_ = 0;
+		Uint reflectionAccumulationPadding1_ = 0;
 	};
 	static_assert(sizeof(ReflectionAccumulationIndices) % 16 == 0, "ReflectionAccumulationIndices が 16 バイト行の倍数ではありません");
 
@@ -687,7 +703,7 @@ namespace SeedCore
 
 		PostProcessIndices postProcess_;
 	};
-	static_assert(sizeof(ConstantIndices) == 63 * 16, "ConstantIndices が Shader/Constants.hlsli と一致していません");
+	static_assert(sizeof(ConstantIndices) == 64 * 16, "ConstantIndices が Shader/Constants.hlsli と一致していません");
 
 	/// [EN] Mirrors Shader/Structured.hlsli. Each group is a whole number of
 	///      16-byte cbuffer rows with its padding written out explicitly, and
@@ -1087,13 +1103,14 @@ namespace SeedCore
 
 		void SetGameGlobalIlluminationAtrousScratchIndices(Uint scratch0ShaderResourceViewIndex, Uint scratch0UnorderedAccessViewIndex, Uint scratch1ShaderResourceViewIndex, Uint scratch1UnorderedAccessViewIndex);
 
-		/// [EN] Registers one view's reflection ReBLUR chain into that view's
+		/// [EN] Registers one view's reflection SVGF chain into that view's
 		///      ConstantIndices. Takes the whole struct for the same reason the
-		///      shadow setter above does — ReBLUR carries an accumulation-speed
-		///      and a packed depth/normal chain alongside the radiance ping-pong.
-		/// [JP] 指定ビューの反射 ReBLUR チェーンをそのビューの ConstantIndices へ
-		///      登録する。構造体をまるごと受け取る理由は上の影用と同じ — ReBLUR は
-		///      放射輝度のピンポンに加えて蓄積速度と深度/法線のチェーンを持つ。
+		///      shadow setter above does — the SVGF chain carries moments and a
+		///      packed depth/normal chain alongside the radiance ping-pong.
+		/// [JP] 指定ビューの反射 SVGF チェーンをそのビューの ConstantIndices へ
+		///      登録する。構造体をまるごと受け取る理由は上の影用と同じ — SVGF
+		///      チェーンは放射輝度のピンポンに加えてモーメントと深度/法線の
+		///      チェーンを持つ。
 		void SetEditorReflectionAccumulationIndices(const ReflectionAccumulationIndices& values);
 
 		void SetGameReflectionAccumulationIndices(const ReflectionAccumulationIndices& values);
