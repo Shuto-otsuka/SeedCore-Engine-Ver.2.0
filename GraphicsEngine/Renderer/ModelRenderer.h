@@ -4,7 +4,7 @@
 #include <FoundationEngine/ECS/EcsID.h>
 #include <GraphicsEngine/D3D12/Buffer/StructuredBuffer.h>
 #include <GraphicsEngine/Model/ModelShader.h>
-#include <GraphicsEngine/Model/OITBuffer.h>
+#include <GraphicsEngine/Model/Transparent/OITBuffer.h>
 #include <GraphicsEngine/Model/ModelInstanceData.h>
 #include <GraphicsEngine/Model/SoftbodyMesh.h>
 #include <GraphicsEngine/System/SceneSystem.h>
@@ -80,6 +80,19 @@ namespace SeedCore
 
 		[[nodiscard]] Bool TryGetAnimatedBoneOffset(EntityID entityID, Uint32& outBoneOffset)const;
 
+		/// [EN] Looks up this frame's sampled morph target weights for one
+		///      node of one entity (Animation::weights_[nodeIndex], sampled
+		///      by SampleMorphWeights during Gather()). Returns false when
+		///      the entity has no Animator-driven weights this frame, or
+		///      that specific node has none.
+		/// [JP] このフレームでサンプリング済みの、あるエンティティのある
+		///      ノードに対するモーフターゲットウェイトを引く
+		///      (Animation::weights_[nodeIndex]、Gather() 中に
+		///      SampleMorphWeights でサンプリング済み)。今フレーム
+		///      Animator 駆動のウェイトが無い、またはそのノードには無い
+		///      場合 false。
+		[[nodiscard]] Bool TryGetAnimatedMorphWeights(EntityID entityID, Int nodeIndex, DynamicArray<Float>& outWeights)const;
+
 	private:
 		DynamicArray<ModelInstanceData> opaqueInstances_;
 		DynamicArray<ModelInstanceData> transparentInstances_;
@@ -97,6 +110,35 @@ namespace SeedCore
 		ResourcePtr<ReadOnlyStructuredBuffer<Matrix>> boneBuffer_;
 
 		std::unordered_map<EntityID, Uint32> animatedBoneOffsets_;
+
+		/// [EN] Shared per-frame morph target weight buffer (see Model.hlsli's
+		///      ApplyMorphBlend): rebuilt each Gather (every morphed
+		///      instance's sampled weights appended back to back) and
+		///      uploaded each Upload. A morphed ModelInstanceData indexes
+		///      into this via morphWeightOffset_.
+		/// [JP] 共有の毎フレームモーフターゲットウェイトバッファ
+		///      (Model.hlsli の ApplyMorphBlend 参照): 毎 Gather で再構築し
+		///      (モーフ付きインスタンスのサンプリング済みウェイトを連続して
+		///      詰める)、毎 Upload でアップロードする。モーフ付き
+		///      ModelInstanceData は morphWeightOffset_ でこれを参照する。
+		DynamicArray<Float> morphWeights_;
+
+		ResourcePtr<ReadOnlyStructuredBuffer<Float>> morphWeightBuffer_;
+
+		/// [EN] This frame's sampled morph target weights, keyed by entity
+		///      then by target NODE index (Animation::weights_'s own key) —
+		///      one row per that node's mesh's morph target count, in the
+		///      mesh's own target order. Rebuilt each Gather via
+		///      Animation::SampleMorphWeights; empty for an entity with no
+		///      morph-driving Animator this frame.
+		/// [JP] このフレームでサンプリング済みのモーフターゲットウェイト。
+		///      エンティティ、次に対象ノード番号(Animation::weights_ 自身の
+		///      キー)でキー付けする — そのノードのメッシュのモーフ
+		///      ターゲット数ぶん、メッシュ自身のターゲット順で1行。毎
+		///      Gather で Animation::SampleMorphWeights により再構築する。
+		///      今フレームモーフを駆動する Animator が無いエンティティでは
+		///      空。
+		std::unordered_map<EntityID, std::unordered_map<Int, DynamicArray<Float>>> animatedMorphWeights_;
 
 		/// [EN] Each entity's world matrix as of the previous Gather() call -
 		///      used to give ModelInstanceData::previousWorld_ (StaticModelMS.hlsl/
@@ -146,6 +188,7 @@ namespace SeedCore
 
 		Uint maxInstanceCount_ = 0;
 		Uint maxBoneCount_ = 0;
+		Uint maxMorphWeightCount_ = 0;
 
 		/// [EN] Geometry streaming state: frame counter for the eviction age
 		///      guard and this frame's page requests (deduplicated, capped per

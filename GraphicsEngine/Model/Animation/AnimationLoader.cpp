@@ -195,6 +195,50 @@ namespace SeedCore
 					translation.x = -translation.x;
 				}
 			}
+			else if (gltfChannel.target_path == "weights" && !animation.weights_.contains(gltfChannel.target_node))
+			{
+				/// [EN] glTF packs a "weights" channel's output accessor as
+				///      one flat SCALAR run of keyframeCount * targetCount
+				///      floats (all targets for keyframe 0, then all targets
+				///      for keyframe 1, ...) rather than nesting it per
+				///      keyframe like the vector types above. targetCount
+				///      comes from the target node's own mesh — its default
+				///      weights (Node::weights) if authored, otherwise its
+				///      first primitive's morph target count — since nothing
+				///      on the sampler itself records it.
+				/// [JP] glTF は "weights" チャンネルの出力アクセサを、上の
+				///      ベクター型のようにキーフレームごとにネストせず、
+				///      keyframeCount * targetCount 個の float の単一フラット
+				///      SCALAR 列として詰める(キーフレーム0の全ターゲット、
+				///      続いてキーフレーム1の全ターゲット、...)。targetCount
+				///      はサンプラー自体には記録されていないため、対象ノード
+				///      自身のメッシュ(記述があればそのデフォルトウェイト
+				///      Node::weights、無ければ最初のプリミティブのモーフ
+				///      ターゲット数)から取得する。
+				const tinygltf::Node& targetGltfNode = model.nodes.at(gltfChannel.target_node);
+				Size targetCount = targetGltfNode.weights.size();
+				if (targetCount == 0 && targetGltfNode.mesh >= 0)
+				{
+					const tinygltf::Mesh& targetGltfMesh = model.meshes.at(targetGltfNode.mesh);
+					if (!targetGltfMesh.primitives.empty())
+					{
+						targetCount = targetGltfMesh.primitives.front().targets.size();
+					}
+				}
+
+				if (targetCount > 0 && accessor.count % targetCount == 0)
+				{
+					Size keyframeCount = accessor.count / targetCount;
+					const Float* flatWeights = reinterpret_cast<const Float*>(data);
+
+					DynamicArray<DynamicArray<Float>>& weights = animation.weights_[gltfChannel.target_node];
+					weights.resize(keyframeCount);
+					for (Size keyframeIndex = 0; keyframeIndex < keyframeCount; ++keyframeIndex)
+					{
+						weights[keyframeIndex].assign(flatWeights + keyframeIndex * targetCount, flatWeights + (keyframeIndex + 1) * targetCount);
+					}
+				}
+			}
 		}
 
 		/// [EN] Some export pipelines keep each clip's keyframe times as

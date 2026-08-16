@@ -16,8 +16,8 @@
 #include <GraphicsEngine/D3D12/Buffer/GeometryBuffer.h>
 #include <GraphicsEngine/D3D12/Buffer/HiZBuffer.h>
 #include <GraphicsEngine/D3D12/Buffer/DepthResizeBuffer.h>
-#include <GraphicsEngine/Model/MaterialResolveShader.h>
-#include <GraphicsEngine/Model/MaterialSortBuffer.h>
+#include <GraphicsEngine/Model/Material/MaterialResolveShader.h>
+#include <GraphicsEngine/Model/Material/MaterialSortBuffer.h>
 #include <GraphicsEngine/Renderer/ImageRenderer.h>
 #include <GraphicsEngine/Renderer/FontRenderer.h>
 #include <GraphicsEngine/Renderer/MovieRenderer.h>
@@ -340,11 +340,11 @@ namespace SeedCore
 		GeometryBuffer geometryBuffer_;
 		HiZBuffer hiZBuffer_;
 
-		/// [EN] VisibilityBuffer material resolve compute pass (Model/MaterialResolveCS.hlsl)
+		/// [EN] VisibilityBuffer material resolve compute pass (Model/Material/MaterialResolveCS.hlsl)
 		///      - rewrites geometryBuffer_'s RT0/1/2/3 from RT4(visibility id)+depth.
 		///      Also owns the material sort PSOs (Classify/PrefixSum/Scatter)
 		///      that run before it - see materialSortBuffer_.
-		/// [JP] VisibilityBuffer マテリアル解決コンピュートパス(Model/MaterialResolveCS.hlsl)
+		/// [JP] VisibilityBuffer マテリアル解決コンピュートパス(Model/Material/MaterialResolveCS.hlsl)
 		///      - geometryBuffer_ の RT0/1/2/3 を RT4(visibility id)+depth から書き直す。
 		///      その前段のマテリアルソートPSO(Classify/PrefixSum/Scatter)も持つ -
 		///      materialSortBuffer_ 参照。

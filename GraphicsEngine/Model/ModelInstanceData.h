@@ -100,5 +100,34 @@ namespace SeedCore
 		Float iridescenceIor_;
 		Float iridescenceThickness_;
 		Float instancePadding7_;
+
+		/// [EN] Raster morph blend (see Model.hlsli's ApplyMorphBlend).
+		///      morphTargetCount_ == 0 disables blending entirely - always
+		///      the case for a non-morphed instance, and also for a
+		///      morphed instance drawn from an own-page (streamed-in,
+		///      non-pool) cluster: only the LOD 0 shared vertex pool range
+		///      is index-aligned with morphDeltaBufferIndex_/
+		///      vertexMorphSourceBufferIndex_'s crister-wide numbering (see
+		///      Crister::vertexMorphSource_'s comment), so ModelRenderer
+		///      leaves these zeroed for any other cluster.
+		/// [JP] ラスタのモーフブレンド(Model.hlsli の ApplyMorphBlend 参照)。
+		///      morphTargetCount_ == 0 でブレンドを完全に無効化する —
+		///      モーフ無しインスタンスでは常にこの状態。モーフ付き
+		///      インスタンスでも、自前ページ(ストリームイン済み、プール外)
+		///      クラスタから描画される場合も同様 — LOD 0 共有頂点プール
+		///      範囲だけが morphDeltaBufferIndex_/
+		///      vertexMorphSourceBufferIndex_ の Crister 全体の番号付けと
+		///      整合するため(Crister::vertexMorphSource_ のコメント参照)、
+		///      ModelRenderer はそれ以外のクラスタではこれらをゼロのまま
+		///      にする。
+		Uint morphDeltaBufferIndex_;
+		Uint vertexMorphSourceBufferIndex_;
+		Uint morphDeltaOffset_;
+		Uint morphVertexOffset_;
+
+		Uint morphVertexCount_;
+		Uint morphTargetCount_;
+		Uint morphWeightOffset_;
+		Uint instancePadding8_;
 	};
 }

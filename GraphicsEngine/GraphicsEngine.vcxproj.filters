@@ -139,6 +139,21 @@
     <Filter Include="TAAU">
       <UniqueIdentifier>{cdaa4885-4f34-4b9b-9bcf-3ead1c9f0b08}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Model\Opaque">
+      <UniqueIdentifier>{cf25155a-8a98-4e3b-8d25-40bf44cbec0d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Model\IK">
+      <UniqueIdentifier>{4ea65728-030a-4329-8dd5-64e68fd2d650}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Model\Material">
+      <UniqueIdentifier>{42e7aadc-4d9b-4f4b-8ce7-257091f6b540}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Model\Morph">
+      <UniqueIdentifier>{a813a9ca-5537-489b-836b-ce1bd96337f9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Model\Transparent">
+      <UniqueIdentifier>{43a04064-1806-428d-97fd-2327907e7139}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="D3D12\Context\D3D12Adapter.h">
@@ -337,29 +352,8 @@
     <ClInclude Include="System\CameraSystem.h">
       <Filter>System</Filter>
     </ClInclude>
-    <ClInclude Include="Model\Mesh.h">
-      <Filter>Model</Filter>
-    </ClInclude>
     <ClInclude Include="System\SplashScreen.h">
       <Filter>System</Filter>
-    </ClInclude>
-    <ClInclude Include="Model\Crister.h">
-      <Filter>Model</Filter>
-    </ClInclude>
-    <ClInclude Include="Model\ModelLoader.h">
-      <Filter>Model</Filter>
-    </ClInclude>
-    <ClInclude Include="Model\ModelResource.h">
-      <Filter>Model</Filter>
-    </ClInclude>
-    <ClInclude Include="Model\QuadricErrorMetrics.h">
-      <Filter>Model</Filter>
-    </ClInclude>
-    <ClInclude Include="Model\ModelShader.h">
-      <Filter>Model</Filter>
-    </ClInclude>
-    <ClInclude Include="Model\OITBuffer.h">
-      <Filter>Model</Filter>
     </ClInclude>
     <ClInclude Include="Renderer\ModelRenderer.h">
       <Filter>Renderer</Filter>
@@ -475,9 +469,6 @@
     <ClInclude Include="Model\Animation\AnimationResource.h">
       <Filter>Model\Animation</Filter>
     </ClInclude>
-    <ClInclude Include="Model\BC7CompressShader.h">
-      <Filter>Model</Filter>
-    </ClInclude>
     <ClInclude Include="Model\Animation\Animation.h">
       <Filter>Model\Animation</Filter>
     </ClInclude>
@@ -490,14 +481,8 @@
     <ClInclude Include="Camera\PreviewCamera.h">
       <Filter>Camera</Filter>
     </ClInclude>
-    <ClInclude Include="Model\ModelInstanceData.h">
-      <Filter>Model</Filter>
-    </ClInclude>
     <ClInclude Include="Renderer\PreviewRenderer.h">
       <Filter>Renderer</Filter>
-    </ClInclude>
-    <ClInclude Include="Model\SkinnedPositionShader.h">
-      <Filter>Model</Filter>
     </ClInclude>
     <ClInclude Include="Renderer\EffekseerRenderer.h">
       <Filter>Renderer</Filter>
@@ -691,12 +676,6 @@
     <ClInclude Include="D3D12\Buffer\DepthResizeBuffer.h">
       <Filter>D3D12\Buffer</Filter>
     </ClInclude>
-    <ClInclude Include="Model\MaterialResolveShader.h">
-      <Filter>Model</Filter>
-    </ClInclude>
-    <ClInclude Include="Model\MaterialSortBuffer.h">
-      <Filter>Model</Filter>
-    </ClInclude>
     <ClInclude Include="Raytracing\Refraction\RefractionShader.h">
       <Filter>Raytracing\Refraction</Filter>
     </ClInclude>
@@ -709,9 +688,6 @@
     <ClInclude Include="Model\Collision\MeshCollisionResource.h">
       <Filter>Model\Collision</Filter>
     </ClInclude>
-    <ClInclude Include="Model\SoftbodyMesh.h">
-      <Filter>Model</Filter>
-    </ClInclude>
     <ClInclude Include="TAAU\TaauResolveShader.h">
       <Filter>TAAU</Filter>
     </ClInclude>
@@ -720,6 +696,48 @@
     </ClInclude>
     <ClInclude Include="PostProcess\PostEffect\Sharpness.h">
       <Filter>PostProcess\PostEffect</Filter>
+    </ClInclude>
+    <ClInclude Include="Model\Material\MaterialResolveShader.h">
+      <Filter>Model\Material</Filter>
+    </ClInclude>
+    <ClInclude Include="Model\Material\MaterialSortBuffer.h">
+      <Filter>Model\Material</Filter>
+    </ClInclude>
+    <ClInclude Include="Model\Morph\MorphBlendShader.h">
+      <Filter>Model\Morph</Filter>
+    </ClInclude>
+    <ClInclude Include="Model\Transparent\OITBuffer.h">
+      <Filter>Model\Transparent</Filter>
+    </ClInclude>
+    <ClInclude Include="Model\BC7CompressShader.h">
+      <Filter>Model</Filter>
+    </ClInclude>
+    <ClInclude Include="Model\Crister.h">
+      <Filter>Model</Filter>
+    </ClInclude>
+    <ClInclude Include="Model\Mesh.h">
+      <Filter>Model</Filter>
+    </ClInclude>
+    <ClInclude Include="Model\ModelInstanceData.h">
+      <Filter>Model</Filter>
+    </ClInclude>
+    <ClInclude Include="Model\ModelLoader.h">
+      <Filter>Model</Filter>
+    </ClInclude>
+    <ClInclude Include="Model\ModelResource.h">
+      <Filter>Model</Filter>
+    </ClInclude>
+    <ClInclude Include="Model\ModelShader.h">
+      <Filter>Model</Filter>
+    </ClInclude>
+    <ClInclude Include="Model\QuadricErrorMetrics.h">
+      <Filter>Model</Filter>
+    </ClInclude>
+    <ClInclude Include="Model\SkinnedPositionShader.h">
+      <Filter>Model</Filter>
+    </ClInclude>
+    <ClInclude Include="Model\SoftbodyMesh.h">
+      <Filter>Model</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -887,27 +905,6 @@
     <ClCompile Include="System\SplashScreen.cpp">
       <Filter>System</Filter>
     </ClCompile>
-    <ClCompile Include="Model\ModelLoader.cpp">
-      <Filter>Model</Filter>
-    </ClCompile>
-    <ClCompile Include="Model\ModelResource.cpp">
-      <Filter>Model</Filter>
-    </ClCompile>
-    <ClCompile Include="Model\Crister.cpp">
-      <Filter>Model</Filter>
-    </ClCompile>
-    <ClCompile Include="Model\QuadricErrorMetrics.cpp">
-      <Filter>Model</Filter>
-    </ClCompile>
-    <ClCompile Include="Model\ModelCommon.cpp">
-      <Filter>Model</Filter>
-    </ClCompile>
-    <ClCompile Include="Model\ModelShader.cpp">
-      <Filter>Model</Filter>
-    </ClCompile>
-    <ClCompile Include="Model\OITBuffer.cpp">
-      <Filter>Model</Filter>
-    </ClCompile>
     <ClCompile Include="Renderer\ModelRenderer.cpp">
       <Filter>Renderer</Filter>
     </ClCompile>
@@ -1004,9 +1001,6 @@
     <ClCompile Include="Model\Animation\AnimationResource.cpp">
       <Filter>Model\Animation</Filter>
     </ClCompile>
-    <ClCompile Include="Model\BC7CompressShader.cpp">
-      <Filter>Model</Filter>
-    </ClCompile>
     <ClCompile Include="Model\Animation\Animation.cpp">
       <Filter>Model\Animation</Filter>
     </ClCompile>
@@ -1015,9 +1009,6 @@
     </ClCompile>
     <ClCompile Include="Camera\PreviewCamera.cpp">
       <Filter>Camera</Filter>
-    </ClCompile>
-    <ClCompile Include="Model\SkinnedPositionShader.cpp">
-      <Filter>Model</Filter>
     </ClCompile>
     <ClCompile Include="Renderer\EffekseerRenderer.cpp">
       <Filter>Renderer</Filter>
@@ -1175,12 +1166,6 @@
     <ClCompile Include="D3D12\Buffer\DepthResizeBuffer.cpp">
       <Filter>D3D12\Buffer</Filter>
     </ClCompile>
-    <ClCompile Include="Model\MaterialResolveShader.cpp">
-      <Filter>Model</Filter>
-    </ClCompile>
-    <ClCompile Include="Model\MaterialSortBuffer.cpp">
-      <Filter>Model</Filter>
-    </ClCompile>
     <ClCompile Include="Raytracing\Refraction\RefractionShader.cpp">
       <Filter>Raytracing\Refraction</Filter>
     </ClCompile>
@@ -1193,9 +1178,6 @@
     <ClCompile Include="Model\Collision\MeshCollisionResource.cpp">
       <Filter>Model\Collision</Filter>
     </ClCompile>
-    <ClCompile Include="Model\SoftbodyMesh.cpp">
-      <Filter>Model</Filter>
-    </ClCompile>
     <ClCompile Include="TAAU\TaauResolveShader.cpp">
       <Filter>TAAU</Filter>
     </ClCompile>
@@ -1204,6 +1186,45 @@
     </ClCompile>
     <ClCompile Include="PostProcess\PostEffect\Sharpness.cpp">
       <Filter>PostProcess\PostEffect</Filter>
+    </ClCompile>
+    <ClCompile Include="Model\Material\MaterialResolveShader.cpp">
+      <Filter>Model\Material</Filter>
+    </ClCompile>
+    <ClCompile Include="Model\Material\MaterialSortBuffer.cpp">
+      <Filter>Model\Material</Filter>
+    </ClCompile>
+    <ClCompile Include="Model\Morph\MorphBlendShader.cpp">
+      <Filter>Model\Morph</Filter>
+    </ClCompile>
+    <ClCompile Include="Model\Transparent\OITBuffer.cpp">
+      <Filter>Model\Transparent</Filter>
+    </ClCompile>
+    <ClCompile Include="Model\BC7CompressShader.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="Model\Crister.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="Model\ModelCommon.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="Model\ModelLoader.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="Model\ModelResource.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="Model\ModelShader.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="Model\QuadricErrorMetrics.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="Model\SkinnedPositionShader.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="Model\SoftbodyMesh.cpp">
+      <Filter>Model</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -1230,9 +1251,6 @@
     </None>
     <None Include="Shader\Normal.hlsli">
       <Filter>Shader</Filter>
-    </None>
-    <None Include="Model\Model.hlsli">
-      <Filter>Model</Filter>
     </None>
     <None Include="Light\BidirectionalReflectanceDistributionFunction.hlsli">
       <Filter>Light</Filter>
@@ -1303,6 +1321,9 @@
     <None Include="Raytracing\Refraction\Refraction.hlsli">
       <Filter>Raytracing\Refraction</Filter>
     </None>
+    <None Include="Model\Model.hlsli">
+      <Filter>Model</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include="Font\FontBillboardMS.hlsl">
@@ -1326,44 +1347,11 @@
     <Text Include="System\SplashScreenVS.hlsl">
       <Filter>System</Filter>
     </Text>
-    <Text Include="Model\ModelAS.hlsl">
-      <Filter>Model</Filter>
-    </Text>
-    <Text Include="Model\OITResolvePS.hlsl">
-      <Filter>Model</Filter>
-    </Text>
     <Text Include="Light\ClusterAssignCS.hlsl">
       <Filter>Light</Filter>
     </Text>
-    <Text Include="Model\OITResolveMS.hlsl">
-      <Filter>Model</Filter>
-    </Text>
-    <Text Include="Model\SkeletalModelMS.hlsl">
-      <Filter>Model</Filter>
-    </Text>
-    <Text Include="Model\SkeletalModelPS.hlsl">
-      <Filter>Model</Filter>
-    </Text>
-    <Text Include="Model\DepthPrepassMS.hlsl">
-      <Filter>Model</Filter>
-    </Text>
-    <Text Include="Model\StaticModelMS.hlsl">
-      <Filter>Model</Filter>
-    </Text>
-    <Text Include="Model\StaticModelPS.hlsl">
-      <Filter>Model</Filter>
-    </Text>
-    <Text Include="Model\TransparentModelPS.hlsl">
-      <Filter>Model</Filter>
-    </Text>
     <Text Include="System\FadeScreenPS.hlsl">
       <Filter>System</Filter>
-    </Text>
-    <Text Include="Model\ModelGeometryBufferAS.hlsl">
-      <Filter>Model</Filter>
-    </Text>
-    <Text Include="Model\HiZBufferCS.hlsl">
-      <Filter>Model</Filter>
     </Text>
     <Text Include="Sky\BrdfLutCS.hlsl">
       <Filter>Sky</Filter>
@@ -1382,15 +1370,6 @@
     </Text>
     <Text Include="Raytracing\GlobalIllumination\GlobalIlluminationRT.hlsl">
       <Filter>Raytracing\GlobalIllumination</Filter>
-    </Text>
-    <Text Include="Model\DepthPrepassPS.hlsl">
-      <Filter>Model</Filter>
-    </Text>
-    <Text Include="Model\WireframePS.hlsl">
-      <Filter>Model</Filter>
-    </Text>
-    <Text Include="Model\MeshletPS.hlsl">
-      <Filter>Model</Filter>
     </Text>
     <Text Include="Raytracing\VolumetricLight\VolumetricLightScatteringRT.hlsl">
       <Filter>Raytracing\VolumetricLight</Filter>
@@ -1415,12 +1394,6 @@
     </Text>
     <Text Include="Raytracing\AmbientOcclusion\AmbientOcclusionRT.hlsl">
       <Filter>Raytracing\AmbientOcclusion</Filter>
-    </Text>
-    <Text Include="Model\ModelSelectionAS.hlsl">
-      <Filter>Model</Filter>
-    </Text>
-    <Text Include="Model\SelectionMaskPS.hlsl">
-      <Filter>Model</Filter>
     </Text>
     <Text Include="Font\FontSelectionMaskPS.hlsl">
       <Filter>Font</Filter>
@@ -1454,15 +1427,6 @@
     </Text>
     <Text Include="Sky\ProceduralSkyToCubeCS.hlsl">
       <Filter>Sky</Filter>
-    </Text>
-    <Text Include="Model\ModelPreviewPS.hlsl">
-      <Filter>Model</Filter>
-    </Text>
-    <Text Include="Model\SkinnedPositionCS.hlsl">
-      <Filter>Model</Filter>
-    </Text>
-    <Text Include="Model\BC7CompressCS.hlsl">
-      <Filter>Model</Filter>
     </Text>
     <Text Include="Movie\MovieBillboardAS.hlsl">
       <Filter>Movie</Filter>
@@ -1578,27 +1542,6 @@
     <Text Include="Raytracing\Reflection\ReflectionDenoiseCS.hlsl">
       <Filter>Raytracing\Reflection</Filter>
     </Text>
-    <Text Include="Model\DepthResizeCS.hlsl">
-      <Filter>Model</Filter>
-    </Text>
-    <Text Include="Model\MaterialResolveCS.hlsl">
-      <Filter>Model</Filter>
-    </Text>
-    <Text Include="Model\DeferredLightingMS.hlsl">
-      <Filter>Model</Filter>
-    </Text>
-    <Text Include="Model\DeferredLightingPS.hlsl">
-      <Filter>Model</Filter>
-    </Text>
-    <Text Include="Model\MaterialScatterCS.hlsl">
-      <Filter>Model</Filter>
-    </Text>
-    <Text Include="Model\MaterialPrefixSumCS.hlsl">
-      <Filter>Model</Filter>
-    </Text>
-    <Text Include="Model\MaterialClassifyCS.hlsl">
-      <Filter>Model</Filter>
-    </Text>
     <Text Include="TAAU\TaauResolveCS.hlsl">
       <Filter>TAAU</Filter>
     </Text>
@@ -1625,6 +1568,90 @@
     </Text>
     <Text Include="PostProcess\ColorGradingCS.hlsl">
       <Filter>PostProcess</Filter>
+    </Text>
+    <Text Include="Model\Material\MaterialClassifyCS.hlsl">
+      <Filter>Model\Material</Filter>
+    </Text>
+    <Text Include="Model\Material\MaterialPrefixSumCS.hlsl">
+      <Filter>Model\Material</Filter>
+    </Text>
+    <Text Include="Model\Material\MaterialResolveCS.hlsl">
+      <Filter>Model\Material</Filter>
+    </Text>
+    <Text Include="Model\Material\MaterialScatterCS.hlsl">
+      <Filter>Model\Material</Filter>
+    </Text>
+    <Text Include="Model\Morph\MorphBlendCS.hlsl">
+      <Filter>Model\Morph</Filter>
+    </Text>
+    <Text Include="Model\Transparent\ModelTransparentAS.hlsl">
+      <Filter>Model\Transparent</Filter>
+    </Text>
+    <Text Include="Model\Transparent\OITResolveMS.hlsl">
+      <Filter>Model\Transparent</Filter>
+    </Text>
+    <Text Include="Model\Transparent\OITResolvePS.hlsl">
+      <Filter>Model\Transparent</Filter>
+    </Text>
+    <Text Include="Model\Opaque\DeferredLightingMS.hlsl">
+      <Filter>Model\Opaque</Filter>
+    </Text>
+    <Text Include="Model\Opaque\DeferredLightingPS.hlsl">
+      <Filter>Model\Opaque</Filter>
+    </Text>
+    <Text Include="Model\Opaque\DepthPrepassMS.hlsl">
+      <Filter>Model\Opaque</Filter>
+    </Text>
+    <Text Include="Model\Opaque\DepthPrepassPS.hlsl">
+      <Filter>Model\Opaque</Filter>
+    </Text>
+    <Text Include="Model\Opaque\ModelAS.hlsl">
+      <Filter>Model\Opaque</Filter>
+    </Text>
+    <Text Include="Model\Opaque\ModelGeometryBufferAS.hlsl">
+      <Filter>Model\Opaque</Filter>
+    </Text>
+    <Text Include="Model\Opaque\SkeletalModelMS.hlsl">
+      <Filter>Model\Opaque</Filter>
+    </Text>
+    <Text Include="Model\Opaque\SkeletalModelPS.hlsl">
+      <Filter>Model\Opaque</Filter>
+    </Text>
+    <Text Include="Model\Opaque\StaticModelMS.hlsl">
+      <Filter>Model\Opaque</Filter>
+    </Text>
+    <Text Include="Model\Opaque\StaticModelPS.hlsl">
+      <Filter>Model\Opaque</Filter>
+    </Text>
+    <Text Include="Model\BC7CompressCS.hlsl">
+      <Filter>Model</Filter>
+    </Text>
+    <Text Include="Model\DepthResizeCS.hlsl">
+      <Filter>Model</Filter>
+    </Text>
+    <Text Include="Model\HiZBufferCS.hlsl">
+      <Filter>Model</Filter>
+    </Text>
+    <Text Include="Model\MeshletPS.hlsl">
+      <Filter>Model</Filter>
+    </Text>
+    <Text Include="Model\ModelPreviewPS.hlsl">
+      <Filter>Model</Filter>
+    </Text>
+    <Text Include="Model\ModelSelectionAS.hlsl">
+      <Filter>Model</Filter>
+    </Text>
+    <Text Include="Model\SelectionMaskPS.hlsl">
+      <Filter>Model</Filter>
+    </Text>
+    <Text Include="Model\SkinnedPositionCS.hlsl">
+      <Filter>Model</Filter>
+    </Text>
+    <Text Include="Model\WireframePS.hlsl">
+      <Filter>Model</Filter>
+    </Text>
+    <Text Include="Model\Transparent\ModelTransparentPS.hlsl">
+      <Filter>Model\Transparent</Filter>
     </Text>
   </ItemGroup>
 </Project>

@@ -261,20 +261,20 @@ namespace SeedCore
 	* 大きさはメッシュ自身の境界とは無関係で、それに対して量子化すると
 	* レストポーズから大きく外れて動くターゲットを正しく表現できない。
 	*/
-	//struct Morph
-	//{
-	//	std::string name_;
-	//	DynamicArray<Vector3> positionDeltas_;
-	//
-	//	template<class T>
-	//	void serialize(T& archive)
-	//	{
-	//		archive(
-	//			cereal::make_nvp("name", name_),
-	//			cereal::make_nvp("position_deltas", positionDeltas_)
-	//		);
-	//	}
-	//};
+	struct Morph
+	{
+		std::string name_;
+		DynamicArray<Vector3> positionDeltas_;
+
+		template<class T>
+		void serialize(T& archive)
+		{
+			archive(
+				cereal::make_nvp("name", name_),
+				cereal::make_nvp("position_deltas", positionDeltas_)
+			);
+		}
+	};
 
 	/**
 	* [EN]
@@ -305,9 +305,91 @@ namespace SeedCore
 		///      この SubMesh のメッシュを参照する glTF ノードから解決される。
 		Int skinIndex_ = -1;
 
+		/// [EN] Index into the source glTF model's meshes array this SubMesh
+		///      came from (Node::mesh_ matches this same index space). Since
+		///      FetchMeshes iterates gltfMesh then its primitives in order,
+		///      every SubMesh sharing a meshIndex_ is a contiguous run in
+		///      Crister::subMeshes_. Used to route a Node's animated morph
+		///      weights (Animation::weights_, keyed by target node index) to
+		///      the SubMeshes that node's mesh produced.
+		/// [JP] この SubMesh の出所である、元 glTF モデルの meshes 配列への
+		///      インデックス(Node::mesh_ と同じインデックス空間)。
+		///      FetchMeshes は gltfMesh とそのプリミティブを順番に走査する
+		///      ため、同じ meshIndex_ を持つ SubMesh は Crister::subMeshes_
+		///      内で連続する。ノードのアニメーションモーフウェイト
+		///      (Animation::weights_、対象ノード番号がキー)を、その
+		///      ノードのメッシュが生成した SubMesh 群へ振り分けるのに使う。
+		Int meshIndex_ = -1;
+
 		/// [EN] Empty for a SubMesh with no glTF morph targets.
 		/// [JP] glTF モーフターゲットを持たない SubMesh では空。
-		//DynamicArray<Morph> morphs_;
+		DynamicArray<Morph> morphs_;
+
+		/// [EN] This SubMesh's vertex range in Crister::vertices_ as of
+		///      FetchMeshes — [vertexOffset_, vertexOffset_ + vertexCount_).
+		///      LOD-duplicated copies BuildMeshlets appends afterwards fall
+		///      outside this range. Exists solely to resolve a global vertex
+		///      index back to a local index into Morph::positionDeltas_ (see
+		///      Morph's own comment) when baking the RT morph delta buffer.
+		/// [JP] FetchMeshes 時点での、この SubMesh の Crister::vertices_
+		///      における頂点範囲 — [vertexOffset_, vertexOffset_ +
+		///      vertexCount_)。BuildMeshlets が後から追加する LOD 複製
+		///      コピーはこの範囲外。RT 用モーフデルタバッファを焼き込む際、
+		///      グローバル頂点インデックスを Morph::positionDeltas_ への
+		///      ローカルインデックスへ逆引きする(Morph 自身のコメント参照)
+		///      用途のみに存在する。
+		Uint32 vertexOffset_ = 0;
+		Uint32 vertexCount_ = 0;
+
+		/// [EN] RT proxy's compact vertex range for this SubMesh —
+		///      [rtVertexOffset_, rtVertexOffset_ + rtVertexCount_) into
+		///      Crister::positionResource_/rtMorphDeltaResource_. Runtime-only,
+		///      rebuilt every load by Crister::Upload's RT proxy pass — not
+		///      serialized.
+		/// [JP] この SubMesh の RT プロキシにおけるコンパクト頂点範囲 —
+		///      Crister::positionResource_/rtMorphDeltaResource_ 内の
+		///      [rtVertexOffset_, rtVertexOffset_ + rtVertexCount_)。実行時
+		///      のみで、Crister::Upload の RT プロキシ構築パスで毎回再構築
+		///      される — シリアライズしない。
+		Uint32 rtVertexOffset_ = 0;
+		Uint32 rtVertexCount_ = 0;
+
+		/// [EN] Offset (in units of float3) into Crister::rtMorphDeltaResource_
+		///      where this SubMesh's target-major delta block starts
+		///      ([target][local rt vertex], rtVertexCount_ deltas per
+		///      target, morphs_.size() targets), or 0xFFFFFFFF when morphs_
+		///      is empty. Runtime-only, rebuilt every load — not serialized.
+		/// [JP] Crister::rtMorphDeltaResource_ 内で、この SubMesh の
+		///      ターゲット主順デルタブロック([ターゲット][RT ローカル頂点]、
+		///      ターゲットごとに rtVertexCount_ 個、morphs_.size() ターゲット分)
+		///      が始まるオフセット(float3 単位)。morphs_ が空なら
+		///      0xFFFFFFFF。実行時のみで、シリアライズしない。
+		Uint32 rtMorphDeltaOffset_ = 0xFFFFFFFFu;
+
+		/// [EN] Offset (in units of float3) into Crister::morphDeltaResource_
+		///      where this SubMesh's target-major delta block starts
+		///      ([target][local vertex, i.e. Morph::positionDeltas_'s own
+		///      index], vertexCount_ deltas per target, morphs_.size()
+		///      targets), or 0xFFFFFFFF when morphs_ is empty. Unlike
+		///      rtMorphDeltaOffset_ above, this is baked straight from
+		///      Morph::positionDeltas_ with no RT-proxy compaction — the
+		///      raster path (SkeletalModelMS.hlsl/StaticModelMS.hlsl) reads
+		///      it via Crister::vertexMorphSource_'s per-vertex remap
+		///      instead, since raster streams every LOD (see
+		///      vertexMorphSource_'s comment). Runtime-only, rebuilt every
+		///      load — not serialized.
+		/// [JP] Crister::morphDeltaResource_ 内で、この SubMesh の
+		///      ターゲット主順デルタブロック([ターゲット][ローカル頂点、
+		///      すなわち Morph::positionDeltas_ 自身のインデックス]、
+		///      ターゲットごとに vertexCount_ 個、morphs_.size() ターゲット分)
+		///      が始まるオフセット(float3単位)。morphs_ が空なら
+		///      0xFFFFFFFF。上の rtMorphDeltaOffset_ と違い、RT プロキシの
+		///      圧縮を経ず Morph::positionDeltas_ からそのまま焼き込む —
+		///      ラスタ経路(SkeletalModelMS.hlsl/StaticModelMS.hlsl)は
+		///      Crister::vertexMorphSource_ の頂点ごとの逆引きを介して読む
+		///      (ラスタは全 LOD をストリームするため、vertexMorphSource_
+		///      のコメント参照)。実行時のみで、シリアライズしない。
+		Uint32 morphDeltaOffset_ = 0xFFFFFFFFu;
 
 		template<class T>
 		void serialize(T& archive)
@@ -318,8 +400,11 @@ namespace SeedCore
 				cereal::make_nvp("material_index", materialIndex_),
 				cereal::make_nvp("index_offset", indexOffset_),
 				cereal::make_nvp("index_count", indexCount_),
-				cereal::make_nvp("skin_index", skinIndex_)//,
-				//cereal::make_nvp("morphs", morphs_)
+				cereal::make_nvp("skin_index", skinIndex_),
+				cereal::make_nvp("mesh_index", meshIndex_),
+				cereal::make_nvp("morphs", morphs_),
+				cereal::make_nvp("vertex_offset", vertexOffset_),
+				cereal::make_nvp("vertex_count", vertexCount_)
 			);
 		}
 	};
@@ -988,6 +1073,41 @@ namespace SeedCore
 		///      compressedSkinVertices_ へ変換して空にする。
 		DynamicArray<Vertex> vertices_;
 
+		/// [EN] For each entry in vertices_/compressedVertices_ (including
+		///      LOD-duplicated copies BuildMeshlets appends), the ORIGINAL
+		///      (pre-LOD) vertex index it descends from — identity for an
+		///      original vertex, and propagated forward from the source
+		///      vertex BuildMeshlets' QEM step copied attributes from
+		///      otherwise. Only meaningful within a SubMesh's own range.
+		///      Unlike vertices_ itself, this IS serialized — it stays
+		///      index-aligned with compressedVertices_ (also serialized),
+		///      so both must survive a cache load equally; BakeMesh() does
+		///      NOT clear this alongside vertices_. Exists solely so the
+		///      raster morph blend path (SkeletalModelMS.hlsl/
+		///      StaticModelMS.hlsl, via Model.hlsli's ApplyMorphBlend) can
+		///      resolve ANY streamed LOD's vertex back to the original
+		///      vertex Morph::positionDeltas_ is index-aligned to — RT's
+		///      morph blend needs no such remap since its proxy only ever
+		///      uses each SubMesh's original (LOD-0/full-detail) cluster.
+		/// [JP] vertices_/compressedVertices_ の各要素(BuildMeshlets が
+		///      追加する LOD 複製コピーも含む)について、その元となった
+		///      (LOD 適用前の)頂点インデックス — オリジナル頂点なら恒等、
+		///      それ以外は BuildMeshlets の QEM ステップが属性をコピーした
+		///      元頂点から伝播する。SubMesh 自身の範囲内でのみ意味を持つ。
+		///      vertices_ 自身と違い、これはシリアライズする —
+		///      compressedVertices_(同じくシリアライズ)とインデックスが
+		///      整合し続ける必要があるため、両者ともキャッシュロードを
+		///      同じように生き延びる必要がある。BakeMesh() は vertices_ と
+		///      一緒にこれをクリアしない。ラスタのモーフブレンドパス
+		///      (SkeletalModelMS.hlsl/StaticModelMS.hlsl、Model.hlsli の
+		///      ApplyMorphBlend 経由)が、ストリームされたどの LOD の頂点も
+		///      Morph::positionDeltas_ がインデックス整合するオリジナル
+		///      頂点へ逆引きできるようにする用途のみに存在する — RT の
+		///      モーフブレンドは、そのプロキシが各 SubMesh のオリジナル
+		///      (LOD0/フル詳細)クラスタしか使わないため、この逆引きを
+		///      必要としない。
+		DynamicArray<Uint32> vertexMorphSource_;
+
 		/// [EN] Quantised GPU vertex format, baked by BakeMesh() and cached to
 		///      disk. Indexed the same way vertices_ was (global vertex index).
 		/// [JP] 量子化済み GPU 頂点フォーマット。BakeMesh() で焼き込みディスクに
@@ -1046,6 +1166,7 @@ namespace SeedCore
 			archive(
 				cereal::make_nvp("compressed_vertices", compressedVertices_),
 				cereal::make_nvp("compressed_skin_vertices", compressedSkinVertices_),
+				cereal::make_nvp("vertex_morph_source", vertexMorphSource_),
 				cereal::make_nvp("position_min", positionMin_),
 				cereal::make_nvp("position_extent", positionExtent_),
 				cereal::make_nvp("texcoord_min", texcoordMin_),
@@ -1408,6 +1529,25 @@ namespace SeedCore
 
 		/**
 		* [EN]
+		* Whether any SubMesh in this Crister has glTF morph targets
+		* (SubMesh::morphs_ non-empty). Cheap source-data check — unlike
+		* HasMorphedRTGeometry, this does not require the RT proxy to have
+		* been built yet. Used to decide whether sampling this Crister's
+		* animation for morph weights is worth doing at all.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* この Crister のいずれかの SubMesh が glTF モーフターゲットを持つか
+		* (SubMesh::morphs_ が空でない)。ソースデータの軽量チェック —
+		* HasMorphedRTGeometry と違い、RT プロキシが構築済みである必要は
+		* ない。この Crister のアニメーションをモーフウェイトのために
+		* サンプリングする価値があるかどうかの判断に使う。
+		*/
+		[[nodiscard]] Bool HasMorphs()const;
+
+		/**
+		* [EN]
 		* Returns every Material (PBR factors + KHR_materials_* extensions +
 		* texture indices) parsed from the source glTF.
 		*
@@ -1615,6 +1755,40 @@ namespace SeedCore
 
 		/**
 		* [EN]
+		* Bindless SRV of morphDeltaResource_ (raster-side flat morph
+		* target delta pool, target-major per SubMesh — see
+		* SubMesh::morphDeltaOffset_), or 0xFFFFFFFF when no SubMesh has
+		* morphs_.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* morphDeltaResource_(ラスタ側のフラットなモーフターゲットデルタ
+		* プール、SubMesh ごとのターゲット主順 — SubMesh::morphDeltaOffset_
+		* 参照)の bindless SRV。どの SubMesh も morphs_ を持たなければ
+		* 0xFFFFFFFF。
+		*/
+		[[nodiscard]] Uint MorphDeltaBufferIndex()const;
+
+		/**
+		* [EN]
+		* Bindless SRV of vertexMorphSourceResource_ (per-vertex remap to
+		* the original vertex morphDeltaResource_ is indexed by — see
+		* vertexMorphSource_'s comment), or 0xFFFFFFFF when no SubMesh has
+		* morphs_.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* vertexMorphSourceResource_(morphDeltaResource_ がインデックスする
+		* オリジナル頂点への、頂点ごとの逆引き — vertexMorphSource_ の
+		* コメント参照)の bindless SRV。どの SubMesh も morphs_ を持たなければ
+		* 0xFFFFFFFF。
+		*/
+		[[nodiscard]] Uint VertexMorphSourceBufferIndex()const;
+
+		/**
+		* [EN]
 		* Bindless SRV over the flat 32-bit triangle index buffer, for
 		* raytracing closesthit shaders to re-fetch the hit triangle's
 		* vertices (PrimitiveIndex() * 3 + 0/1/2 -> vertex index).
@@ -1671,6 +1845,73 @@ namespace SeedCore
 		* GPU アドレス。HasSkinnedRTGeometry が false なら 0。
 		*/
 		[[nodiscard]] D3D12_GPU_VIRTUAL_ADDRESS RTSkinVertexBufferGPUAddress()const;
+
+		/**
+		* [EN]
+		* Whether this Crister has RT-side morph delta data
+		* (rtMorphDeltaResource_ populated), i.e. at least one SubMesh has
+		* morphs_ and the RT proxy build baked its delta block.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* この Crister が RT 側のモーフデルタデータを持つか
+		* (rtMorphDeltaResource_ が構築済みか)。いずれかの SubMesh が
+		* morphs_ を持ち、RT プロキシ構築時にそのデルタブロックが
+		* 焼き込まれた場合に true。
+		*/
+		[[nodiscard]] Bool HasMorphedRTGeometry()const;
+
+		/**
+		* [EN]
+		* GPU address of the RT proxy's morph delta pool
+		* (rtMorphDeltaResource_), or 0 when HasMorphedRTGeometry is false.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* RT プロキシのモーフデルタプール (rtMorphDeltaResource_) の
+		* GPU アドレス。HasMorphedRTGeometry が false なら 0。
+		*/
+		[[nodiscard]] D3D12_GPU_VIRTUAL_ADDRESS RTMorphDeltaBufferGPUAddress()const;
+
+		/**
+		* [EN]
+		* Vertex count of the RT proxy's compact position/vertex buffers
+		* (positionResource_/vertexResource_), i.e. the size a morph-blend
+		* scratch position buffer must be allocated to.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* RT プロキシのコンパクトな位置/頂点バッファ
+		* (positionResource_/vertexResource_) の頂点数。モーフブレンド用の
+		* 一時位置バッファを確保すべきサイズでもある。
+		*/
+		[[nodiscard]] Uint32 RTVertexCount()const;
+
+		/**
+		* [EN]
+		* Copies the RT proxy's base (bind-pose) positions
+		* (positionResource_, RTVertexCount() * sizeof(Vector3) bytes) into
+		* destination, which the caller must have already transitioned to
+		* D3D12_RESOURCE_STATE_COPY_DEST. Used to seed a per-instance morph
+		* blend scratch buffer before MorphBlendCS overwrites only the
+		* vertex ranges of SubMeshes with active morph weights this frame —
+		* every other vertex must keep its base position unchanged.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* RT プロキシのベース(バインドポーズ)位置(positionResource_、
+		* RTVertexCount() * sizeof(Vector3) バイト)を destination へコピー
+		* する。呼び出し側は destination を事前に
+		* D3D12_RESOURCE_STATE_COPY_DEST へ遷移させておくこと。今フレーム
+		* 有効なモーフウェイトを持つ SubMesh の頂点範囲だけを MorphBlendCS が
+		* 上書きする前の、インスタンスごとのモーフブレンド用一時バッファの
+		* 種として使う — それ以外の頂点はベース位置のまま保つ必要がある。
+		*/
+		void CopyRTPositionsForMorph(ID3D12GraphicsCommandList* cmdList, ID3D12Resource* destination)const;
 
 		/**
 		* [EN]
@@ -1897,6 +2138,35 @@ namespace SeedCore
 		* 自身のページ、そうでなければ共有 LOD 0 プール。
 		*/
 		[[nodiscard]] Uint ClusterVertexBufferIndex(Uint32 clusterIndex)const;
+
+		/**
+		* [EN]
+		* Whether this cluster page owns its own vertex slice
+		* (streamingGeometry_[clusterIndex].ownsVertices_) rather than
+		* referencing the shared LOD 0 pool. Own-page vertex indices are
+		* rebased to page-local numbering by MakeClusterResident, so they
+		* are NOT valid indices into Crister::vertexMorphSource_/
+		* morphDeltaResource_ (which use the crister-wide numbering the
+		* shared pool preserves) — callers populating a raster morph
+		* instance must check this and leave morph fields zeroed
+		* (ModelInstanceData::morphTargetCount_ == 0) for any cluster where
+		* this returns true.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* このクラスタページが共有 LOD 0 プールを参照するのではなく、
+		* 自前の頂点スライスを持つか
+		* (streamingGeometry_[clusterIndex].ownsVertices_)。自前ページの
+		* 頂点インデックスは MakeClusterResident によってページローカルな
+		* 番号へリベースされるため、Crister::vertexMorphSource_/
+		* morphDeltaResource_(共有プールが保つ Crister 全体の番号付けを使う)
+		* への有効なインデックスでは【ない】— ラスタのモーフ用インスタンス
+		* を組み立てる側はこれを確認し、true が返るクラスタでは
+		* モーフフィールドをゼロのまま
+		* (ModelInstanceData::morphTargetCount_ == 0)にすること。
+		*/
+		[[nodiscard]] Bool ClusterOwnsVertices(Uint32 clusterIndex)const;
 
 		/**
 		* [EN]
@@ -2187,6 +2457,47 @@ namespace SeedCore
 		Microsoft::WRL::ComPtr<ID3D12Resource> flatTriangleIndexResource_;
 
 		Microsoft::WRL::ComPtr<ID3D12Resource> rtSkinVertexResource_;
+
+		/// [EN] Flat float3 morph-target delta pool for the RT proxy, target-
+		///      major within each SubMesh's compact vertex range (see
+		///      SubMesh::rtMorphDeltaOffset_/rtVertexOffset_/rtVertexCount_).
+		///      Only allocated when at least one SubMesh has morphs_.
+		/// [JP] RT プロキシ用のフラットな float3 モーフターゲットデルタ
+		///      プール。各 SubMesh のコンパクト頂点範囲内でターゲット主順
+		///      (SubMesh::rtMorphDeltaOffset_/rtVertexOffset_/
+		///      rtVertexCount_ 参照)。いずれかの SubMesh が morphs_ を
+		///      持つ場合のみ確保される。
+		Microsoft::WRL::ComPtr<ID3D12Resource> rtMorphDeltaResource_;
+
+		/// [EN] Raster-side morph support, bindless-registered (pulled via
+		///      ResourceDescriptorHeap[...] from SkeletalModelMS.hlsl/
+		///      StaticModelMS.hlsl, unlike the RT buffers above which are
+		///      bound as root SRVs). morphDeltaResource_ is target-major
+		///      per SubMesh (SubMesh::morphDeltaOffset_), baked straight
+		///      from Morph::positionDeltas_ with no RT-proxy compaction.
+		///      vertexMorphSourceResource_ mirrors vertices_/
+		///      compressedVertices_ 1:1 (baked from vertexMorphSource_) so
+		///      any streamed LOD's vertex can resolve back to the original
+		///      vertex morphDeltaResource_ is indexed by (see
+		///      vertexMorphSource_'s comment). Both allocated only when at
+		///      least one SubMesh has morphs_.
+		/// [JP] ラスタ側のモーフ対応。bindless 登録される(上の RT 用
+		///      バッファがルート SRV で束縛されるのと違い、
+		///      SkeletalModelMS.hlsl/StaticModelMS.hlsl から
+		///      ResourceDescriptorHeap[...] 経由で引く)。
+		///      morphDeltaResource_ は SubMesh ごとのターゲット主順
+		///      (SubMesh::morphDeltaOffset_)で、Morph::positionDeltas_
+		///      から RT プロキシの圧縮を経ずそのまま焼き込む。
+		///      vertexMorphSourceResource_ は vertices_/compressedVertices_
+		///      と 1:1 対応する(vertexMorphSource_ から焼き込む) —
+		///      ストリームされたどの LOD の頂点も、morphDeltaResource_ が
+		///      インデックスするオリジナル頂点へ逆引きできるようにする
+		///      (vertexMorphSource_ のコメント参照)。いずれも、いずれかの
+		///      SubMesh が morphs_ を持つ場合のみ確保される。
+		Microsoft::WRL::ComPtr<ID3D12Resource> morphDeltaResource_;
+		Microsoft::WRL::ComPtr<ID3D12Resource> vertexMorphSourceResource_;
+		Uint morphDeltaBufferIndex_ = 0xFFFFFFFF;
+		Uint vertexMorphSourceBufferIndex_ = 0xFFFFFFFF;
 
 		Uint vertexBufferIndex_ = 0xFFFFFFFF;
 		Uint skinVertexBufferIndex_ = 0xFFFFFFFF;

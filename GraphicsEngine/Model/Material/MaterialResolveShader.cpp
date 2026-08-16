@@ -1,4 +1,4 @@
-#include <GraphicsEngine/Model/MaterialResolveShader.h>
+#include <GraphicsEngine/Model/Material/MaterialResolveShader.h>
 #include <GraphicsEngine/Shader/ShaderCache.h>
 #include <GraphicsEngine/D3D12/PipelineState/ComputeShader.h>
 
@@ -15,25 +15,25 @@ namespace SeedCore
 
 		PipelineStateKey psokey{};
 
-		classifyComputeShader_ = shaderCache.GetOrCreateComputeShader(String("../GraphicsEngine/Model/MaterialClassifyCS.hlsl"));
+		classifyComputeShader_ = shaderCache.GetOrCreateComputeShader(String("../GraphicsEngine/Model/Material/MaterialClassifyCS.hlsl"));
 		memset(&psokey, 0, sizeof(psokey));
 		psokey.rootSignature_ = rootSignature_.Get(materialResolveRootSignature_)->Get();
 		psokey.computeShader_ = shaderCache.GetComputeShader(classifyComputeShader_)->Bytecode();
 		classifyPipelineStateObjectHandle_ = pipelineStateObject_.GetOrCreate(device, psokey);
 
-		prefixSumComputeShader_ = shaderCache.GetOrCreateComputeShader(String("../GraphicsEngine/Model/MaterialPrefixSumCS.hlsl"));
+		prefixSumComputeShader_ = shaderCache.GetOrCreateComputeShader(String("../GraphicsEngine/Model/Material/MaterialPrefixSumCS.hlsl"));
 		memset(&psokey, 0, sizeof(psokey));
 		psokey.rootSignature_ = rootSignature_.Get(materialResolveRootSignature_)->Get();
 		psokey.computeShader_ = shaderCache.GetComputeShader(prefixSumComputeShader_)->Bytecode();
 		prefixSumPipelineStateObjectHandle_ = pipelineStateObject_.GetOrCreate(device, psokey);
 
-		scatterComputeShader_ = shaderCache.GetOrCreateComputeShader(String("../GraphicsEngine/Model/MaterialScatterCS.hlsl"));
+		scatterComputeShader_ = shaderCache.GetOrCreateComputeShader(String("../GraphicsEngine/Model/Material/MaterialScatterCS.hlsl"));
 		memset(&psokey, 0, sizeof(psokey));
 		psokey.rootSignature_ = rootSignature_.Get(materialResolveRootSignature_)->Get();
 		psokey.computeShader_ = shaderCache.GetComputeShader(scatterComputeShader_)->Bytecode();
 		scatterPipelineStateObjectHandle_ = pipelineStateObject_.GetOrCreate(device, psokey);
 
-		computeShader_ = shaderCache.GetOrCreateComputeShader(String("../GraphicsEngine/Model/MaterialResolveCS.hlsl"));
+		computeShader_ = shaderCache.GetOrCreateComputeShader(String("../GraphicsEngine/Model/Material/MaterialResolveCS.hlsl"));
 		memset(&psokey, 0, sizeof(psokey));
 		psokey.rootSignature_ = rootSignature_.Get(materialResolveRootSignature_)->Get();
 		psokey.computeShader_ = shaderCache.GetComputeShader(computeShader_)->Bytecode();

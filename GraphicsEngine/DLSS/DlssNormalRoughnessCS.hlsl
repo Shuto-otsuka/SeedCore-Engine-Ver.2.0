@@ -9,7 +9,7 @@
 * Reconstruction expects (`DlssBufferTag::normalRoughnessBuffer_`) from the
 * G-Buffer's packed RT1 (`gbuffer1.rg` = octahedral-encoded world-space
 * normal, `gbuffer1.b` = roughness — same decode as
-* Model/DeferredLightingPS.hlsl). DLSS-RR wants a plain float normal+
+* Model/Opaque/DeferredLightingPS.hlsl). DLSS-RR wants a plain float normal+
 * roughness channel, not the engine's octahedral packing, so this is a tiny
 * full-screen decode pass run once per view right before DLSS-RR's Tag()/
 * Evaluate() for that view.
@@ -18,7 +18,7 @@
 * NVIDIA DLSS Ray Reconstruction が要求する RGB=法線 / A=ラフネスのテクスチャ
 * (`DlssBufferTag::normalRoughnessBuffer_`)を、G-Buffer のパック済み RT1
 * (`gbuffer1.rg`=八面体エンコードされたワールド空間法線、`gbuffer1.b`=
-* ラフネス — Model/DeferredLightingPS.hlsl と同じデコード)から合成する。
+* ラフネス — Model/Opaque/DeferredLightingPS.hlsl と同じデコード)から合成する。
 * DLSS-RR はエンジン独自の八面体パッキングではなく素の float 法線+ラフネス
 * チャンネルを要求するため、各ビューの DLSS-RR Tag()/Evaluate() の直前に
 * 1回だけ走る小さな全画面デコードパス。
@@ -84,7 +84,7 @@ void main(uint3 dtid : SV_DispatchThreadID)
 
 	/// [JP] KHR_materials_ior/specular はGBufferに焼き込まれていないので、
 	///      VisID(RT4)からinstance_indexを引いてModelInstanceからその場で
-	///      誘電体F0を計算する(Model/DeferredLightingPS.hlsl と同じ式)。
+	///      誘電体F0を計算する(Model/Opaque/DeferredLightingPS.hlsl と同じ式)。
 	uint2 visibility_id = gbuffer4.Load(int3(pixel, 0));
 	uint material_instance_index, material_meshlet_index, material_triangle_index;
 	UnpackVisibilityID(visibility_id, material_instance_index, material_meshlet_index, material_triangle_index);

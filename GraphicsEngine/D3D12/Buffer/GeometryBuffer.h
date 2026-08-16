@@ -39,11 +39,11 @@ namespace SeedCore
 		///      (StaticModelMS/PS, SkeletalModelMS/PS) now writes only that one
 		///      color target; RT0/1/2/3 are written afterward by the
 		///      VisibilityBuffer material resolve compute pass
-		///      (Model/MaterialResolveCS.hlsl) via UAV, not through the OM stage.
+		///      (Model/Material/MaterialResolveCS.hlsl) via UAV, not through the OM stage.
 		/// [JP] RT4(visibility id) + depth のみをバインドする — ラスタ G-Buffer
 		///      パス(StaticModelMS/PS, SkeletalModelMS/PS)はもうそのカラー
 		///      ターゲット1枚しか書かない。RT0/1/2/3 はこの後 VisibilityBuffer
-		///      マテリアル解決コンピュートパス(Model/MaterialResolveCS.hlsl)が
+		///      マテリアル解決コンピュートパス(Model/Material/MaterialResolveCS.hlsl)が
 		///      UAV 経由で書く(OM ステージを通さない)。
 		void BeginVisibility(D3D12CommandList* cmdList);
 
@@ -91,7 +91,7 @@ namespace SeedCore
 		///      them after the raster G-Buffer pass. RT2 (velocity) is patched
 		///      for background (sky/cloud) pixels by DLSS/DlssBackgroundVelocityCS.hlsl;
 		///      RT0/1/3 are patched wholesale by the VisibilityBuffer material
-		///      resolve pass (Model/MaterialResolveCS.hlsl).
+		///      resolve pass (Model/Material/MaterialResolveCS.hlsl).
 		/// [JP] RT0/1/2/3(RT4=VisibilityBuffer id を除く全て。RT4 はラスタ
 		///      G-Bufferパスが一度書くだけで、以降は読み取り専用)への bindless
 		///      UAV インデックス — これらの RT は ALLOW_RENDER_TARGET に加えて
@@ -99,7 +99,7 @@ namespace SeedCore
 		///      ラスタG-Bufferパスの後にコンピュートパスでパッチできるように
 		///      するため。RT2(velocity)は背景(空/雲)ピクセルを
 		///      DLSS/DlssBackgroundVelocityCS.hlsl がパッチし、RT0/1/3 は
-		///      VisibilityBuffer マテリアル解決パス(Model/MaterialResolveCS.hlsl)が
+		///      VisibilityBuffer マテリアル解決パス(Model/Material/MaterialResolveCS.hlsl)が
 		///      丸ごとパッチする。
 		[[nodiscard]] Uint32 ColorUnorderedAccessViewIndex(Int index)const;
 

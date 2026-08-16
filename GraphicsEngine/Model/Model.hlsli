@@ -123,7 +123,59 @@ struct ModelInstance
 	float iridescence_ior_;             // KHR_materials_iridescence (ior)
 	float iridescence_thickness_;       // KHR_materials_iridescence (thickness, nm)
 	float model_instance_padding_7_;
+
+	// Raster morph blend (see ApplyMorphBlend below). morph_target_count_ ==
+	// 0 disables blending entirely - always the case for a non-morphed
+	// instance, and also for a morphed instance drawn from an own-page
+	// (streamed-in, non-pool) cluster: only the LOD 0 shared vertex pool
+	// range is index-aligned with morph_delta_buffer_index_/
+	// vertex_morph_source_buffer_index_'s crister-wide numbering (see
+	// Crister::vertexMorphSource_'s comment), so ModelRenderer leaves these
+	// zeroed for any other cluster and that instance's coarser LOD renders
+	// its frozen bind-pose shape instead of morphing.
+	uint morph_delta_buffer_index_;
+	uint vertex_morph_source_buffer_index_;
+	uint morph_delta_offset_;      // float3 units, into morph_delta_buffer_index_
+	uint morph_vertex_offset_;     // this SubMesh's Crister::vertices_ range start
+
+	uint morph_vertex_count_;      // this SubMesh's ORIGINAL (pre-LOD) vertex count
+	uint morph_target_count_;
+	uint morph_weight_offset_;     // into the shared per-frame morph weight buffer
+	uint model_instance_padding_8_;
 };
+
+// Blends morph_target_count_ morph targets into base_position, weighted by
+// this frame's Animator-sampled weights. global_vertex_index must be the
+// SAME index used to fetch this vertex's CompressedModelVertex (i.e. an
+// index into the LOD 0 shared vertex pool - see morph_target_count_'s
+// comment on why this is a no-op for any other cluster). No-op (returns
+// base_position unchanged) when morph_target_count_ is 0. morph_weight_index
+// is structured_indices.model_.morph_weight_index_, passed in rather than
+// read directly so this header needs no additional includes (see
+// ResolveModelSurface's bone_matrix_index parameter for the same reason).
+float3 ApplyMorphBlend(float3 base_position, uint global_vertex_index, ModelInstance instance, uint morph_weight_index)
+{
+	if (instance.morph_target_count_ == 0)
+	{
+		return base_position;
+	}
+
+	StructuredBuffer<uint> vertex_morph_source = ResourceDescriptorHeap[instance.vertex_morph_source_buffer_index_];
+	StructuredBuffer<float3> morph_deltas = ResourceDescriptorHeap[instance.morph_delta_buffer_index_];
+	StructuredBuffer<float> morph_weights = ResourceDescriptorHeap[morph_weight_index];
+
+	uint source_vertex_index = vertex_morph_source[global_vertex_index];
+	uint local_vertex_index = source_vertex_index - instance.morph_vertex_offset_;
+
+	float3 position = base_position;
+	for (uint target = 0; target < instance.morph_target_count_; ++target)
+	{
+		float3 delta = morph_deltas[instance.morph_delta_offset_ + target * instance.morph_vertex_count_ + local_vertex_index];
+		float weight = morph_weights[instance.morph_weight_offset_ + target];
+		position += delta * weight;
+	}
+	return position;
+}
 
 // Dequantises a CompressedModelVertex with the instance's AABBs. Must stay in
 // exact sync with the CPU encode in Crister.cpp (Upload).
@@ -199,7 +251,7 @@ struct ModelASPayload
 // VisibilityBuffer groundwork: the G-Buffer pass PS (StaticModelPS/
 // SkeletalModelPS) only needs texcoord (for the alpha-cutout clip) plus the
 // id fields - world position/normal/tangent/velocity are no longer consumed
-// here, so the MS doesn't compute or carry them anymore. Model/MaterialResolveCS.hlsl
+// here, so the MS doesn't compute or carry them anymore. Model/Material/MaterialResolveCS.hlsl
 // recomputes all of that independently from (instance/meshlet/triangle) + the
 // same raw vertex buffers.
 struct ModelMSOutput
@@ -232,7 +284,7 @@ struct DepthPrepassOutput
 // Raster G-Buffer pass output - just the VisibilityBuffer id (see
 // GeometryBuffer::BeginVisibility). base_color/normal/roughness/material
 // extension/velocity/emissive are no longer produced here; they're rewritten
-// wholesale by the material resolve compute pass (Model/MaterialResolveCS.hlsl)
+// wholesale by the material resolve compute pass (Model/Material/MaterialResolveCS.hlsl)
 // from this id + depth.
 struct ModelPSOutput
 {
@@ -258,12 +310,12 @@ void UnpackVisibilityID(uint2 packed, out uint instance_index, out uint meshlet_
 #define OIT_INVALID_INDEX 0xFFFFFFFF
 
 // VisibilityBuffer material sort: pixels are bucketed by (instance_index %
-// MATERIAL_SORT_BUCKET_COUNT) before Model/MaterialResolveCS.hlsl runs, so
+// MATERIAL_SORT_BUCKET_COUNT) before Model/Material/MaterialResolveCS.hlsl runs, so
 // adjacent threads in a wave land on the same/nearby instance and share
 // texture indices - improving control-flow coherency and texture cache
 // locality versus resolving in raw screen order. 1024 is also the max
-// threadgroup size, so Model/MaterialPrefixSumCS.hlsl's scan fits in one
-// dispatch. See Model/MaterialClassifyCS.hlsl / MaterialPrefixSumCS.hlsl /
+// threadgroup size, so Model/Material/MaterialPrefixSumCS.hlsl's scan fits in one
+// dispatch. See Model/Material/MaterialClassifyCS.hlsl / MaterialPrefixSumCS.hlsl /
 // MaterialScatterCS.hlsl.
 #define MATERIAL_SORT_BUCKET_COUNT 1024
 #define MATERIAL_SORT_INVALID_PIXEL 0xFFFFFFFF
@@ -300,8 +352,8 @@ float4 UnpackColorRGBA8(uint packed)
 
 // Per-pixel surface rebuilt from a VisibilityBuffer-style
 // (instance, meshlet, triangle-in-meshlet) triplet. Shared by
-// Model/MaterialResolveCS.hlsl (deferred opaque resolve, which gets the triplet
-// by unpacking the VisID texture) and Model/TransparentModelPS.hlsl (OIT
+// Model/Material/MaterialResolveCS.hlsl (deferred opaque resolve, which gets the triplet
+// by unpacking the VisID texture) and Model/Transparent/ModelTransparentPS.hlsl (OIT
 // accumulation, which gets it straight from the rasterizer), so transparent and
 // opaque geometry is always shaded from identical reconstructed attributes.
 struct ModelSurface
@@ -326,9 +378,10 @@ struct ModelSurface
 };
 
 // pixel_ndc is the pixel centre in NDC (x right, y up, both in -1..1).
-// bone_matrix_index is structured_indices.model_.bone_matrix_index_, passed in
-// rather than read directly so this header needs no additional includes.
-ModelSurface ResolveModelSurface(ModelInstance instance, uint meshlet_index, uint triangle_in_meshlet_index, float2 pixel_ndc, row_major float4x4 view_projection, float3 camera_position, uint bone_matrix_index)
+// bone_matrix_index/morph_weight_index are structured_indices.model_.
+// bone_matrix_index_/morph_weight_index_, passed in rather than read
+// directly so this header needs no additional includes.
+ModelSurface ResolveModelSurface(ModelInstance instance, uint meshlet_index, uint triangle_in_meshlet_index, float2 pixel_ndc, row_major float4x4 view_projection, float3 camera_position, uint bone_matrix_index, uint morph_weight_index)
 {
 	StructuredBuffer<CompressedModelVertex> vertices = ResourceDescriptorHeap[instance.vertex_buffer_index_];
 	StructuredBuffer<ModelMeshlet> meshlets = ResourceDescriptorHeap[instance.meshlet_buffer_index_];
@@ -366,6 +419,16 @@ ModelSurface ResolveModelSurface(ModelInstance instance, uint meshlet_index, uin
 	float3 local_position0 = vertex0.position_;
 	float3 local_position1 = vertex1.position_;
 	float3 local_position2 = vertex2.position_;
+
+	// Morph composes before skin (matches StaticModelMS.hlsl/
+	// SkeletalModelMS.hlsl) - without this, the depth/VisID pass below
+	// writes morphed positions while this reconstruction used the
+	// unmorphed ones, and the mismatch corrupts the screen-space
+	// barycentric reprojection entirely (wrong/garbage triangle shape).
+	local_position0 = ApplyMorphBlend(local_position0, global_index0, instance, morph_weight_index);
+	local_position1 = ApplyMorphBlend(local_position1, global_index1, instance, morph_weight_index);
+	local_position2 = ApplyMorphBlend(local_position2, global_index2, instance, morph_weight_index);
+
 	float3 local_normal0 = vertex0.normal_;
 	float3 local_normal1 = vertex1.normal_;
 	float3 local_normal2 = vertex2.normal_;

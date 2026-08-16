@@ -218,7 +218,7 @@ namespace SeedCore
 		editorSceneConstantBuffer.deltaTime_ = timer.DeltaTime();
 		editorSceneConstantBuffer.screenSize_ = Vector2(static_cast<Float>(nativeWidth_), static_cast<Float>(nativeHeight_));
 		editorSceneConstantBuffer.inverseScreenSize_ = Vector2(1.0f / nativeWidth_, 1.0f / nativeHeight_);
-		editorSceneConstantBuffer.displaySize_ = renderer_->IsDlssRayReconstructionEnabled() ? renderer_->PostProcessOutputSize() : editorSceneConstantBuffer.screenSize_;
+		editorSceneConstantBuffer.displaySize_ = renderer_->PostProcessOutputSize();
 		editorSceneSystem_->Upload(editorSceneConstantBuffer);
 
 		resourceCache.GetFontResource()->Update(context_->GetDevice(), context_->GetDirectQueue()->GetCommandQueue(), bindlessHeap_.get());
@@ -245,7 +245,7 @@ namespace SeedCore
 		cameraSystem_.Update(world, timer, static_cast<Float>(nativeWidth_), static_cast<Float>(nativeHeight_));
 
 		SceneConstantBuffer gameSceneConstantBuffer = cameraSystem_.GetSceneConstantBuffer();
-		gameSceneConstantBuffer.displaySize_ = renderer_->IsDlssRayReconstructionEnabled() ? renderer_->PostProcessOutputSize() : gameSceneConstantBuffer.screenSize_;
+		gameSceneConstantBuffer.displaySize_ = renderer_->PostProcessOutputSize();
 
 		renderer_->BeginGameFrame(context_->GetDirectList());
 

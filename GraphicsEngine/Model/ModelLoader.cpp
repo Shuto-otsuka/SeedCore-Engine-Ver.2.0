@@ -339,11 +339,13 @@ namespace SeedCore
 		///      の materials[subMesh.materialIndex_] で範囲外アクセスを引き起こす。
 		Int defaultMaterialIndex = -1;
 
-		for (const tinygltf::Mesh& gltfMesh : model.meshes)
+		for (Size meshIndex = 0; meshIndex < model.meshes.size(); meshIndex++)
 		{
+			const tinygltf::Mesh& gltfMesh = model.meshes[meshIndex];
 			for (const tinygltf::Primitive& gltfPrimitive : gltfMesh.primitives)
 			{
 				SubMesh& subMesh = crister.subMeshes_.emplace_back();
+				subMesh.meshIndex_ = static_cast<Int>(meshIndex);
 				if (gltfPrimitive.material >= 0)
 				{
 					subMesh.materialIndex_ = static_cast<Uint32>(gltfPrimitive.material);
@@ -368,6 +370,25 @@ namespace SeedCore
 				Size vertexCount = positionAccessor.count;
 				Size baseVertex = crister.vertices_.size();
 				crister.vertices_.resize(baseVertex + vertexCount);
+
+				/// [EN] Identity-initialise this range of vertexMorphSource_:
+				///      each of these ORIGINAL vertices is its own source
+				///      (see vertexMorphSource_'s comment). BuildMeshlets
+				///      propagates this forward for any LOD-duplicated copy
+				///      it appends later.
+				/// [JP] vertexMorphSource_ のこの範囲を恒等初期化する:
+				///      これらのオリジナル頂点はそれぞれ自分自身が
+				///      ソースになる(vertexMorphSource_ のコメント参照)。
+				///      BuildMeshlets が後で追加する LOD 複製コピーへは
+				///      これを伝播する。
+				crister.vertexMorphSource_.resize(baseVertex + vertexCount);
+				for (Size index = 0; index < vertexCount; index++)
+				{
+					crister.vertexMorphSource_[baseVertex + index] = static_cast<Uint32>(baseVertex + index);
+				}
+
+				subMesh.vertexOffset_ = vertexOffset;
+				subMesh.vertexCount_ = static_cast<Uint32>(vertexCount);
 
 				/**
 				* [EN]
@@ -558,6 +579,77 @@ namespace SeedCore
 								const Uchar* data = reinterpret_cast<const Uchar*>(source + index * accessor.ByteStride(bufferView));
 								vertex.weights_ = Vector4(data[0] / 255.0f, data[1] / 255.0f, data[2] / 255.0f, data[3] / 255.0f);
 							}
+						}
+					}
+				}
+
+				/**
+				* [EN]
+				* Morph targets: gltfPrimitive.targets has one entry per morph
+				* target, each a name->accessor-index map (only "POSITION" is
+				* honoured here — normal/tangent morphing is not supported).
+				* Deltas are decoded with the same decodeComponent used for
+				* POSITION/NORMAL/TANGENT/TEXCOORD_0 above, so a quantized
+				* (KHR_mesh_quantization) morph accessor decodes correctly
+				* instead of being misread as FLOAT. Target names come from
+				* the common exporter convention mesh.extras.targetNames (a
+				* JSON array of strings, in target order, e.g. as written by
+				* Blender's glTF exporter); a target without a matching name
+				* falls back to "Morph_<index>".
+				*
+				* ---------------------------------------------------------------------
+				*
+				* [JP]
+				* モーフターゲット: gltfPrimitive.targets はモーフターゲット
+				* 1つにつき1エントリで、それぞれが name->アクセサインデックスの
+				* map ("POSITION" のみ対応 — 法線/接線のモーフィングは非対応)。
+				* デルタは上の POSITION/NORMAL/TANGENT/TEXCOORD_0 と同じ
+				* decodeComponent でデコードするため、量子化された
+				* (KHR_mesh_quantization) モーフアクセサも FLOAT として誤読
+				* されず正しくデコードされる。ターゲット名は一般的な
+				* エクスポーター慣例である mesh.extras.targetNames（ターゲット順
+				* の文字列 JSON 配列、例えば Blender の glTF エクスポーターが
+				* 出力する）から取得する。一致する名前が無いターゲットは
+				* "Morph_<index>" にフォールバックする。
+				*/
+				const tinygltf::Value& targetNames = gltfMesh.extras.Has("targetNames") ? gltfMesh.extras.Get("targetNames") : tinygltf::Value();
+				for (Size targetIndex = 0;targetIndex < gltfPrimitive.targets.size();targetIndex++)
+				{
+					const std::map<std::string, int>& target = gltfPrimitive.targets[targetIndex];
+					auto positionIt = target.find("POSITION");
+					if (positionIt == target.end())
+					{
+						continue;
+					}
+
+					Morph& morph = subMesh.morphs_.emplace_back();
+					morph.name_ = (targetNames.IsArray() && targetIndex < targetNames.ArrayLen() && targetNames.Get(static_cast<Int>(targetIndex)).IsString())
+						? targetNames.Get(static_cast<Int>(targetIndex)).Get<std::string>()
+						: "Morph_" + std::to_string(targetIndex);
+					morph.positionDeltas_.resize(vertexCount);
+
+					const tinygltf::Accessor& accessor = model.accessors.at(positionIt->second);
+					const tinygltf::BufferView& bufferView = model.bufferViews.at(accessor.bufferView);
+					const Uchar* source = model.buffers.at(bufferView.buffer).data.data() + bufferView.byteOffset + accessor.byteOffset;
+					Size sourceStride = accessor.ByteStride(bufferView);
+					Size componentByteSize = static_cast<Size>(tinygltf::GetComponentSizeInBytes(static_cast<Uint32>(accessor.componentType)));
+					Bool isPlainFloat = accessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT;
+
+					for (Size index = 0;index < vertexCount;index++)
+					{
+						const Uchar* element = source + index * sourceStride;
+						if (isPlainFloat)
+						{
+							Float delta[3];
+							memcpy(delta, element, sizeof(delta));
+							morph.positionDeltas_[index] = Vector3(delta[0], delta[1], delta[2]);
+						}
+						else
+						{
+							morph.positionDeltas_[index] = Vector3(
+								decodeComponent(element + 0 * componentByteSize, accessor.componentType, accessor.normalized),
+								decodeComponent(element + 1 * componentByteSize, accessor.componentType, accessor.normalized),
+								decodeComponent(element + 2 * componentByteSize, accessor.componentType, accessor.normalized));
 						}
 					}
 				}
@@ -1638,6 +1730,7 @@ namespace SeedCore
 				*/
 				Uint32 newVertexBase = static_cast<Uint32>(crister.vertices_.size());
 				crister.vertices_.resize(newVertexBase + result.positions.size());
+				crister.vertexMorphSource_.resize(newVertexBase + result.positions.size());
 
 				DynamicArray<Uint32> newLodVertexMap(result.vertexMap.size());
 				for (Size index = 0; index < result.positions.size(); index++)
@@ -1650,6 +1743,19 @@ namespace SeedCore
 					Vertex vertex = crister.vertices_[globalIndex];
 					vertex.position_ = result.positions[index];
 					crister.vertices_[newVertexBase + index] = vertex;
+
+					/// [EN] Propagate forward rather than pointing at
+					///      globalIndex directly - globalIndex may itself be
+					///      a previous LOD's duplicated vertex, and
+					///      vertexMorphSource_[globalIndex] already resolves
+					///      to the TRUE original ancestor in that case (see
+					///      vertexMorphSource_'s comment).
+					/// [JP] globalIndex を直接指すのではなく前方へ伝播する —
+					///      globalIndex 自体が前の LOD の複製頂点である
+					///      場合があり、その場合 vertexMorphSource_
+					///      [globalIndex] は既に真のオリジナル祖先へ解決
+					///      済み(vertexMorphSource_ のコメント参照)。
+					crister.vertexMorphSource_[newVertexBase + index] = crister.vertexMorphSource_[globalIndex];
 					newLodVertexMap[index] = newVertexBase + static_cast<Uint32>(index);
 				}
 

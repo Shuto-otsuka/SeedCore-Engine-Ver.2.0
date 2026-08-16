@@ -1,6 +1,6 @@
-#include "Model.hlsli"
-#include "../Shader/Structured.hlsli"
-#include "../Shader/Constants.hlsli"
+#include "../Model.hlsli"
+#include "../../Shader/Structured.hlsli"
+#include "../../Shader/Constants.hlsli"
 
 /**
 * [EN]

@@ -274,7 +274,6 @@ namespace SeedCore
 		}
 	}
 
-
 	/**
 	* [EN]
 	* Allocates a bindless heap index and creates a StructuredBuffer SRV
@@ -1656,9 +1655,10 @@ namespace SeedCore
 		DynamicArray<CompressedVertex> rtVertices;
 		DynamicArray<Vector3> rtPositions;
 		DynamicArray<CompressedSkinVertex> rtSkinVertices;
+		DynamicArray<Vector3> rtMorphDeltas;
 		Bool buildRTSkinVertices = skins_.size() == 1 && !compressedSkinVertices_.empty();
 		std::unordered_map<Uint32, Uint32> rtRemap;
-		for (const SubMesh& subMesh : subMeshes_)
+		for (SubMesh& subMesh : subMeshes_)
 		{
 			if (subMesh.clusterCount_ == 0)
 			{
@@ -1672,6 +1672,22 @@ namespace SeedCore
 			///      描かれる。代償として RT のフラットインデックス/位置バッファは
 			///      常に全量常駐する。ラスタ側のストリーミングは従来どおり。
 			const Cluster& cluster = clusters_[subMesh.clusterOffset_];
+
+			/// [EN] Encounter order for this SubMesh's compact vertices is
+			///      contiguous ascending indices into rtVertices (globalIndex
+			///      never collides across SubMeshes, since each owns a
+			///      disjoint range of vertices_) — so [rtVertexOffset_,
+			///      rtVertexOffset_ + rtVertexCount_) below is valid, and
+			///      submeshMorphDeltas[target] fills in that same order.
+			/// [JP] この SubMesh のコンパクト頂点の出現順は rtVertices への
+			///      連続した昇順インデックスになる(globalIndex は SubMesh間で
+			///      衝突しない、各 SubMesh が vertices_ の互いに素な範囲を
+			///      持つため) — そのため下の [rtVertexOffset_,
+			///      rtVertexOffset_ + rtVertexCount_) は正しく、
+			///      submeshMorphDeltas[target] も同じ順序で埋まる。
+			subMesh.rtVertexOffset_ = static_cast<Uint32>(rtVertices.size());
+			DynamicArray<DynamicArray<Vector3>> submeshMorphDeltas(subMesh.morphs_.size());
+
 			for (Uint32 meshletIndex = cluster.meshletOffset_; meshletIndex < cluster.meshletOffset_ + cluster.meshletCount_; meshletIndex++)
 			{
 				const Meshlet& meshlet = meshlets_[meshletIndex];
@@ -1703,12 +1719,33 @@ namespace SeedCore
 									rtSkinVertices.push_back(CompressedSkinVertex{});
 								}
 							}
+
+							if (!subMesh.morphs_.empty() && globalIndex >= subMesh.vertexOffset_)
+							{
+								Uint32 localVertexIndex = globalIndex - subMesh.vertexOffset_;
+								for (Size targetIndex = 0; targetIndex < subMesh.morphs_.size(); targetIndex++)
+								{
+									const DynamicArray<Vector3>& deltas = subMesh.morphs_[targetIndex].positionDeltas_;
+									submeshMorphDeltas[targetIndex].push_back(localVertexIndex < deltas.size() ? deltas[localVertexIndex] : Vector3::Zero);
+								}
+							}
 						}
 						else
 						{
 							flatTriangleIndices.push_back(found->second);
 						}
 					}
+				}
+			}
+
+			subMesh.rtVertexCount_ = static_cast<Uint32>(rtVertices.size()) - subMesh.rtVertexOffset_;
+
+			if (!subMesh.morphs_.empty())
+			{
+				subMesh.rtMorphDeltaOffset_ = static_cast<Uint32>(rtMorphDeltas.size());
+				for (const DynamicArray<Vector3>& targetDeltas : submeshMorphDeltas)
+				{
+					rtMorphDeltas.insert(rtMorphDeltas.end(), targetDeltas.begin(), targetDeltas.end());
 				}
 			}
 		}
@@ -1733,6 +1770,52 @@ namespace SeedCore
 				hr = CreateStaticBufferUnbounded(device, resourceUpload, rtSkinVertices.data(), rtSkinVertices.size(), sizeof(CompressedSkinVertex), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, rtSkinVertexResource_.ReleaseAndGetAddressOf());
 				SC_HR_CHECK(hr, "レイトレーシング用スキンバーテックスバッファの生成に失敗しました");
 			}
+
+			if (!rtMorphDeltas.empty())
+			{
+				hr = CreateStaticBufferUnbounded(device, resourceUpload, rtMorphDeltas.data(), rtMorphDeltas.size(), sizeof(Vector3), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, rtMorphDeltaResource_.ReleaseAndGetAddressOf());
+				SC_HR_CHECK(hr, "レイトレーシング用モーフデルタバッファの生成に失敗しました");
+			}
+		}
+
+		/// [EN] Raster morph support: unlike the RT proxy's morph delta pool
+		///      above, this is baked straight from Morph::positionDeltas_
+		///      (no compaction/remap — every SubMesh's original vertexCount_
+		///      deltas per target, back to back) since the raster path
+		///      already has its own per-vertex remap (vertexMorphSource_)
+		///      to resolve any streamed LOD's vertex back to this buffer's
+		///      indexing. See ApplyMorphBlend in Model.hlsli.
+		/// [JP] ラスタのモーフ対応: 上の RT プロキシ用モーフデルタプールと
+		///      違い、Morph::positionDeltas_ からそのまま焼き込む(圧縮/
+		///      リマップ無し — 各 SubMesh のオリジナル vertexCount_ 個の
+		///      デルタをターゲットごとに連続で)。ラスタ経路はストリーム
+		///      されたどの LOD の頂点もこのバッファの番号付けへ逆引きする
+		///      独自の頂点リマップ(vertexMorphSource_)を既に持つため。
+		///      Model.hlsli の ApplyMorphBlend 参照。
+		DynamicArray<Vector3> morphDeltas;
+		for (SubMesh& subMesh : subMeshes_)
+		{
+			if (subMesh.morphs_.empty())
+			{
+				continue;
+			}
+
+			subMesh.morphDeltaOffset_ = static_cast<Uint32>(morphDeltas.size());
+			for (const Morph& morph : subMesh.morphs_)
+			{
+				morphDeltas.insert(morphDeltas.end(), morph.positionDeltas_.begin(), morph.positionDeltas_.end());
+			}
+		}
+
+		if (!morphDeltas.empty())
+		{
+			hr = CreateStaticBufferUnbounded(device, resourceUpload, morphDeltas.data(), morphDeltas.size(), sizeof(Vector3), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, morphDeltaResource_.ReleaseAndGetAddressOf());
+			SC_HR_CHECK(hr, "ラスタ用モーフデルタバッファの生成に失敗しました");
+			morphDeltaBufferIndex_ = CreateStructuredShaderResourceView(device, heap, morphDeltaResource_.Get(), static_cast<Uint>(morphDeltas.size()), sizeof(Vector3));
+
+			hr = CreateStaticBufferUnbounded(device, resourceUpload, vertexMorphSource_.data(), vertexMorphSource_.size(), sizeof(Uint32), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, vertexMorphSourceResource_.ReleaseAndGetAddressOf());
+			SC_HR_CHECK(hr, "頂点モーフソースバッファの生成に失敗しました");
+			vertexMorphSourceBufferIndex_ = CreateStructuredShaderResourceView(device, heap, vertexMorphSourceResource_.Get(), static_cast<Uint>(vertexMorphSource_.size()), sizeof(Uint32));
 		}
 
 		/// [EN] Set up per-texture streaming state (see StreamingTexture) from
@@ -2306,6 +2389,36 @@ namespace SeedCore
 
 	/**
 	* [EN]
+	* Whether this cluster page owns its own vertex slice
+	* (streamingGeometry_[clusterIndex].ownsVertices_) rather than
+	* referencing the shared LOD 0 pool. Own-page vertex indices are
+	* rebased to page-local numbering by MakeClusterResident, so they are
+	* NOT valid indices into Crister::vertexMorphSource_/
+	* morphDeltaResource_ (which use the crister-wide numbering the shared
+	* pool preserves) — callers populating a raster morph instance must
+	* check this and leave morph fields zeroed
+	* (ModelInstanceData::morphTargetCount_ == 0) for any cluster where
+	* this returns true.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* このクラスタページが共有 LOD 0 プールを参照するのではなく、自前の
+	* 頂点スライスを持つか(streamingGeometry_[clusterIndex].ownsVertices_)。
+	* 自前ページの頂点インデックスは MakeClusterResident によってページ
+	* ローカルな番号へリベースされるため、Crister::vertexMorphSource_/
+	* morphDeltaResource_(共有プールが保つ Crister 全体の番号付けを使う)
+	* への有効なインデックスでは【ない】— ラスタのモーフ用インスタンスを
+	* 組み立てる側はこれを確認し、true が返るクラスタではモーフフィールドを
+	* ゼロのまま(ModelInstanceData::morphTargetCount_ == 0)にすること。
+	*/
+	Bool Crister::ClusterOwnsVertices(Uint32 clusterIndex)const
+	{
+		return streamingGeometry_[clusterIndex].ownsVertices_;
+	}
+
+	/**
+	* [EN]
 	* Bindless SRV of the cluster page's meshlet buffer.
 	*
 	* ---------------------------------------------------------------------
@@ -2649,6 +2762,35 @@ namespace SeedCore
 
 	/**
 	* [EN]
+	* Whether any SubMesh in this Crister has glTF morph targets
+	* (SubMesh::morphs_ non-empty). Cheap source-data check — unlike
+	* HasMorphedRTGeometry, this does not require the RT proxy to have
+	* been built yet. Used to decide whether sampling this Crister's
+	* animation for morph weights is worth doing at all.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* この Crister のいずれかの SubMesh が glTF モーフターゲットを持つか
+	* (SubMesh::morphs_ が空でない)。ソースデータの軽量チェック —
+	* HasMorphedRTGeometry と違い、RT プロキシが構築済みである必要は
+	* ない。この Crister のアニメーションをモーフウェイトのために
+	* サンプリングする価値があるかどうかの判断に使う。
+	*/
+	Bool Crister::HasMorphs()const
+	{
+		for (const SubMesh& subMesh : subMeshes_)
+		{
+			if (!subMesh.morphs_.empty())
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	* [EN]
 	* Returns every Material (PBR factors + KHR_materials_* extensions +
 	* texture indices) parsed from the source glTF.
 	*
@@ -2771,6 +2913,46 @@ namespace SeedCore
 	Uint Crister::SkinVertexBufferIndex()const
 	{
 		return skinVertexBufferIndex_;
+	}
+
+	/**
+	* [EN]
+	* Bindless SRV of morphDeltaResource_ (raster-side flat morph
+	* target delta pool, target-major per SubMesh — see
+	* SubMesh::morphDeltaOffset_), or 0xFFFFFFFF when no SubMesh has
+	* morphs_.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* morphDeltaResource_(ラスタ側のフラットなモーフターゲットデルタ
+	* プール、SubMesh ごとのターゲット主順 — SubMesh::morphDeltaOffset_
+	* 参照)の bindless SRV。どの SubMesh も morphs_ を持たなければ
+	* 0xFFFFFFFF。
+	*/
+	Uint Crister::MorphDeltaBufferIndex()const
+	{
+		return morphDeltaBufferIndex_;
+	}
+
+	/**
+	* [EN]
+	* Bindless SRV of vertexMorphSourceResource_ (per-vertex remap to
+	* the original vertex morphDeltaResource_ is indexed by — see
+	* vertexMorphSource_'s comment), or 0xFFFFFFFF when no SubMesh has
+	* morphs_.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* vertexMorphSourceResource_(morphDeltaResource_ がインデックスする
+	* オリジナル頂点への、頂点ごとの逆引き — vertexMorphSource_ の
+	* コメント参照)の bindless SRV。どの SubMesh も morphs_ を持たなければ
+	* 0xFFFFFFFF。
+	*/
+	Uint Crister::VertexMorphSourceBufferIndex()const
+	{
+		return vertexMorphSourceBufferIndex_;
 	}
 
 	/**
@@ -2977,6 +3159,89 @@ namespace SeedCore
 	D3D12_GPU_VIRTUAL_ADDRESS Crister::RTSkinVertexBufferGPUAddress()const
 	{
 		return rtSkinVertexResource_ ? rtSkinVertexResource_->GetGPUVirtualAddress() : 0;
+	}
+
+	/**
+	* [EN]
+	* Whether this Crister has RT-side morph delta data
+	* (rtMorphDeltaResource_ populated), i.e. at least one SubMesh has
+	* morphs_ and the RT proxy build baked its delta block.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* この Crister が RT 側のモーフデルタデータを持つか
+	* (rtMorphDeltaResource_ が構築済みか)。いずれかの SubMesh が
+	* morphs_ を持ち、RT プロキシ構築時にそのデルタブロックが
+	* 焼き込まれた場合に true。
+	*/
+	Bool Crister::HasMorphedRTGeometry()const
+	{
+		return rtMorphDeltaResource_ != nullptr;
+	}
+
+	/**
+	* [EN]
+	* GPU address of the RT proxy's morph delta pool
+	* (rtMorphDeltaResource_), or 0 when HasMorphedRTGeometry is false.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* RT プロキシのモーフデルタプール (rtMorphDeltaResource_) の
+	* GPU アドレス。HasMorphedRTGeometry が false なら 0。
+	*/
+	D3D12_GPU_VIRTUAL_ADDRESS Crister::RTMorphDeltaBufferGPUAddress()const
+	{
+		return rtMorphDeltaResource_ ? rtMorphDeltaResource_->GetGPUVirtualAddress() : 0;
+	}
+
+	/**
+	* [EN]
+	* Vertex count of the RT proxy's compact position/vertex buffers
+	* (positionResource_/vertexResource_), i.e. the size a morph-blend
+	* scratch position buffer must be allocated to.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* RT プロキシのコンパクトな位置/頂点バッファ
+	* (positionResource_/vertexResource_) の頂点数。モーフブレンド用の
+	* 一時位置バッファを確保すべきサイズでもある。
+	*/
+	Uint32 Crister::RTVertexCount()const
+	{
+		return rtVertexCount_;
+	}
+
+	/**
+	* [EN]
+	* Copies the RT proxy's base (bind-pose) positions
+	* (positionResource_, RTVertexCount() * sizeof(Vector3) bytes) into
+	* destination, which the caller must have already transitioned to
+	* D3D12_RESOURCE_STATE_COPY_DEST. Used to seed a per-instance morph
+	* blend scratch buffer before MorphBlendCS overwrites only the
+	* vertex ranges of SubMeshes with active morph weights this frame —
+	* every other vertex must keep its base position unchanged.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* RT プロキシのベース(バインドポーズ)位置(positionResource_、
+	* RTVertexCount() * sizeof(Vector3) バイト)を destination へコピー
+	* する。呼び出し側は destination を事前に
+	* D3D12_RESOURCE_STATE_COPY_DEST へ遷移させておくこと。今フレーム
+	* 有効なモーフウェイトを持つ SubMesh の頂点範囲だけを MorphBlendCS が
+	* 上書きする前の、インスタンスごとのモーフブレンド用一時バッファの
+	* 種として使う — それ以外の頂点はベース位置のまま保つ必要がある。
+	*/
+	void Crister::CopyRTPositionsForMorph(ID3D12GraphicsCommandList* cmdList, ID3D12Resource* destination)const
+	{
+		if (!positionResource_ || !destination || rtVertexCount_ == 0)
+		{
+			return;
+		}
+		cmdList->CopyBufferRegion(destination, 0, positionResource_.Get(), 0, static_cast<UINT64>(rtVertexCount_) * sizeof(Vector3));
 	}
 
 }

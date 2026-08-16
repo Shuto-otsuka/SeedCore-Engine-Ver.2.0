@@ -1,8 +1,8 @@
-#include "Model.hlsli"
-#include "../Shader/Structured.hlsli"
-#include "../Shader/Sampler.hlsli"
-#include "../Shader/Normal.hlsli"
-#include "../Shader/Constants.hlsli"
+#include "../Model.hlsli"
+#include "../../Shader/Structured.hlsli"
+#include "../../Shader/Sampler.hlsli"
+#include "../../Shader/Normal.hlsli"
+#include "../../Shader/Constants.hlsli"
 
 /**
 * [EN]
@@ -85,12 +85,12 @@ void main(uint3 dtid : SV_DispatchThreadID)
 
 	/// [JP] 三角形の再取得・スキニング・透視正しい重心補間・表裏判定は
 	///      Model.hlsli の ResolveModelSurface に集約してある
-	///      (Model/TransparentModelPS.hlsl の OIT パスと共有 — 透明面と
+	///      (Model/Transparent/ModelTransparentPS.hlsl の OIT パスと共有 — 透明面と
 	///      不透明面が必ず同一のジオメトリから陰影付けされるようにするため)。
 	float2 pixel_ndc = (float2(pixel) + 0.5) * scene.inverse_screen_size_;
 	pixel_ndc = float2(pixel_ndc.x * 2.0 - 1.0, 1.0 - pixel_ndc.y * 2.0);
 
-	ModelSurface surface = ResolveModelSurface(instance, meshlet_index, triangle_in_meshlet_index, pixel_ndc, scene.current_view_projection_, scene.camera_position_.xyz, structured_indices.model_.bone_matrix_index_);
+	ModelSurface surface = ResolveModelSurface(instance, meshlet_index, triangle_in_meshlet_index, pixel_ndc, scene.current_view_projection_, scene.camera_position_.xyz, structured_indices.model_.bone_matrix_index_, structured_indices.model_.morph_weight_index_);
 
 	float3 world_position = surface.world_position_;
 	float3 N = surface.normal_;

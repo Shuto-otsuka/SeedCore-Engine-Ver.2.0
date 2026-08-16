@@ -114,6 +114,11 @@ namespace SeedCore
 		structuredIndices_.model_.boneMatrixIndex_ = index;
 	}
 
+	void IndicesSystem::SetModelMorphWeightIndex(Uint index)
+	{
+		structuredIndices_.model_.morphWeightIndex_ = index;
+	}
+
 	void IndicesSystem::SetOITHeadPointerIndex(Uint index)
 	{
 		structuredIndices_.oit_.headPointerIndex_ = index;

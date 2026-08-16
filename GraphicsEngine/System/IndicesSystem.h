@@ -730,6 +730,22 @@ namespace SeedCore
 		Uint boneMatrixIndex_ = 0;
 		Uint hiZIndex_ = 0;
 		Uint selectionMaskIndex_ = 0;
+
+		/// [EN] Shared per-frame morph target weight buffer (see
+		///      Model.hlsli's ApplyMorphBlend) - one flat StructuredBuffer
+		///      of Float, every morphed instance's weights appended back
+		///      to back (ModelInstanceData::morphWeightOffset_ is that
+		///      instance's start).
+		/// [JP] 共有の毎フレームモーフターゲットウェイトバッファ
+		///      (Model.hlsli の ApplyMorphBlend 参照) — 1本のフラットな
+		///      Float の StructuredBuffer で、モーフ付きインスタンスの
+		///      ウェイトを連続して詰める
+		///      (ModelInstanceData::morphWeightOffset_ がそのインスタンスの
+		///      開始位置)。
+		Uint morphWeightIndex_ = 0;
+		Uint modelPadding0_ = 0;
+		Uint modelPadding1_ = 0;
+		Uint modelPadding2_ = 0;
 	};
 	static_assert(sizeof(ModelIndices) % 16 == 0, "ModelIndices が 16 バイト行の倍数ではありません");
 
@@ -757,10 +773,10 @@ namespace SeedCore
 		/// [JP] RT3: emissive.rgb(生値。emissive_strength_ はライティング時に適用)。
 		Uint index3_ = 0;
 		/// [EN] RT4: VisibilityBuffer id (instance/meshlet/triangle), read by
-		///      the material resolve pass (Model/MaterialResolveCS.hlsl) and
+		///      the material resolve pass (Model/Material/MaterialResolveCS.hlsl) and
 		///      by DeferredLightingPS.hlsl for KHR extension lookups.
 		/// [JP] RT4: VisibilityBuffer id(instance/meshlet/triangle)。マテリアル
-		///      解決パス(Model/MaterialResolveCS.hlsl)と、KHR拡張参照のため
+		///      解決パス(Model/Material/MaterialResolveCS.hlsl)と、KHR拡張参照のため
 		///      DeferredLightingPS.hlsl が読む。
 		Uint index4_ = 0;
 		Uint depthIndex_ = 0;
@@ -786,18 +802,18 @@ namespace SeedCore
 	struct MaterialSortIndices
 	{
 		/// [EN] Per-bucket pixel count -> exclusive-scan offset -> atomic write
-		///      cursor (Model/MaterialClassifyCS.hlsl / MaterialPrefixSumCS.hlsl /
+		///      cursor (Model/Material/MaterialClassifyCS.hlsl / MaterialPrefixSumCS.hlsl /
 		///      MaterialScatterCS.hlsl), RWStructuredBuffer<uint>[MATERIAL_SORT_BUCKET_COUNT].
 		/// [JP] バケットごとのピクセル数 → 排他的スキャンのオフセット →
-		///      atomic書き込みカーソル(Model/MaterialClassifyCS.hlsl /
+		///      atomic書き込みカーソル(Model/Material/MaterialClassifyCS.hlsl /
 		///      MaterialPrefixSumCS.hlsl / MaterialScatterCS.hlsl)。
 		///      RWStructuredBuffer<uint>[MATERIAL_SORT_BUCKET_COUNT]。
 		Uint bucketIndex_ = 0;
 		/// [EN] Material-sorted pixel list, RWStructuredBuffer<uint>[width*height].
-		///      Model/MaterialResolveCS.hlsl dispatches 1D over this instead of
+		///      Model/Material/MaterialResolveCS.hlsl dispatches 1D over this instead of
 		///      raw screen order.
 		/// [JP] マテリアルでソート済みのピクセルリスト、
-		///      RWStructuredBuffer<uint>[width*height]。Model/MaterialResolveCS.hlsl
+		///      RWStructuredBuffer<uint>[width*height]。Model/Material/MaterialResolveCS.hlsl
 		///      はスクリーン順ではなくこれを1Dディスパッチで辿る。
 		Uint sortedPixelListIndex_ = 0;
 		Uint materialSortPadding0_ = 0;
@@ -1007,6 +1023,8 @@ namespace SeedCore
 		void SetModelInstanceIndex(Uint index);
 
 		void SetModelBoneMatrixIndex(Uint index);
+
+		void SetModelMorphWeightIndex(Uint index);
 
 		void SetOITHeadPointerIndex(Uint index);
 

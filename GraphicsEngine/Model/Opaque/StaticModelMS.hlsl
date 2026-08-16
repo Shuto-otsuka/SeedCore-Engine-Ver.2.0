@@ -1,7 +1,7 @@
-#include "Model.hlsli"
-#include "../Shader/Structured.hlsli"
-#include "../Shader/Constants.hlsli"
-#include "../Shader/Culling.hlsli"
+#include "../Model.hlsli"
+#include "../../Shader/Structured.hlsli"
+#include "../../Shader/Constants.hlsli"
+#include "../../Shader/Culling.hlsli"
 
 /**
 * [EN]
@@ -83,6 +83,7 @@ void main(in payload ModelASPayload as_payload, uint gtid : SV_GroupThreadID, ui
 	{
 		uint global_vertex_index = vertex_indices[meshlet.vertex_offset_ + gtid];
 		ModelVertex vertex = DecodeModelVertex(vertices[global_vertex_index], instance);
+		vertex.position_ = ApplyMorphBlend(vertex.position_, global_vertex_index, instance, structured_indices.model_.morph_weight_index_);
 
 		float4 world_position = mul(float4(vertex.position_, 1.0), instance.world_);
 		float4 clip_position = mul(world_position, scene.current_view_projection_);

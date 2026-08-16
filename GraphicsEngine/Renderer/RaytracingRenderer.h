@@ -19,6 +19,7 @@
 #include <GraphicsEngine/D3D12/Buffer/ConstantBuffer.h>
 #include <GraphicsEngine/Raytracing/RaytracingContext.h>
 #include <GraphicsEngine/Model/SkinnedPositionShader.h>
+#include <GraphicsEngine/Model/Morph/MorphBlendShader.h>
 
 namespace SeedCore
 {
@@ -248,11 +249,45 @@ namespace SeedCore
 			EntityID entityID_ = 0;
 			Bool hasSkeletalPose_ = false;
 			Uint32 boneOffset_ = 0;
+
+			/// [EN] Sampled morph weights for this frame, indexed the same
+			///      way as crister_->SubMeshes() — morphWeights_[subMeshIndex]
+			///      is empty when that SubMesh has no morphs_ or no
+			///      Animator-driven weights this frame. hasMorphWeights_ is
+			///      true when at least one entry is non-empty, gating the
+			///      whole morph blend/BLAS path for this instance.
+			/// [JP] このフレームでサンプリング済みのモーフウェイト。
+			///      crister_->SubMeshes() と同じインデックスで
+			///      morphWeights_[subMeshIndex] を引く — その SubMesh に
+			///      morphs_ が無いか、今フレーム Animator 駆動のウェイトが
+			///      無ければ空。hasMorphWeights_ は1つでも非空のエントリが
+			///      あれば true — このインスタンスのモーフブレンド/BLAS
+			///      経路全体のゲートになる。
+			DynamicArray<DynamicArray<Float>> morphWeights_;
+			Bool hasMorphWeights_ = false;
 		};
 
 		struct SkinnedPositionBuffer
 		{
 			Microsoft::WRL::ComPtr<ID3D12Resource> resource_;
+			Uint32 capacity_ = 0;
+		};
+
+		/// [EN] Per (entity, SubMesh) UPLOAD-heap buffer of this frame's
+		///      morph target weights (one float per target, mapped once and
+		///      memcpy'd into each frame — see morphWeightBuffers_), bound
+		///      as MorphBlendCS's morph_weights SRV (root descriptor, no
+		///      bindless heap registration needed).
+		/// [JP] (エンティティ, SubMesh) ごとの、今フレームのモーフターゲット
+		///      ウェイト(ターゲットごとに float 1つ)を持つ UPLOAD ヒープ
+		///      バッファ(一度だけ Map し毎フレーム memcpy —
+		///      morphWeightBuffers_ 参照)。MorphBlendCS の morph_weights
+		///      SRV(ルートディスクリプタ、bindless ヒープ登録不要)として
+		///      束縛する。
+		struct MorphWeightBuffer
+		{
+			Microsoft::WRL::ComPtr<ID3D12Resource> resource_;
+			void* mappedPtr_ = nullptr;
 			Uint32 capacity_ = 0;
 		};
 
@@ -296,6 +331,44 @@ namespace SeedCore
 		std::unordered_map<EntityID, ResourcePtr<BottomLevelAccelerationStructure>> skinnedBlasCache_[FrameRing::frameCount];
 		std::unordered_map<EntityID, SkinnedPositionBuffer> skinnedPositionBuffers_[FrameRing::frameCount];
 		SkinnedPositionShader skinnedPositionShader_;
+
+		/// [EN] Morph blend scratch positions (base rt_positions with
+		///      active SubMeshes' vertex ranges overwritten by
+		///      MorphBlendCS), one per morphed instance per frame-ring
+		///      slot. Feeds SkinnedPositionCS's input in place of
+		///      crister_->RTPositionBufferGPUAddress() when an instance is
+		///      both morphed and skinned (morph composes before skin), and
+		///      feeds morphedBlasCache_'s BLAS build directly when an
+		///      instance is morphed but not skinned.
+		/// [JP] モーフブレンド用の一時位置(ベースの rt_positions に、
+		///      有効な SubMesh の頂点範囲だけ MorphBlendCS が上書きした
+		///      もの)。モーフのあるインスタンスごと・フレームリング
+		///      スロットごとに1つ。インスタンスがモーフとスキンの両方を
+		///      持つ場合(モーフはスキンより前に合成)、
+		///      crister_->RTPositionBufferGPUAddress() の代わりに
+		///      SkinnedPositionCS の入力として使う。モーフのみでスキン無し
+		///      の場合は、直接 morphedBlasCache_ の BLAS 構築に使う。
+		std::unordered_map<EntityID, SkinnedPositionBuffer> morphedPositionBuffers_[FrameRing::frameCount];
+
+		/// [EN] This frame's per-(entity, SubMesh) morph weight upload
+		///      buffers — outer index matches crister_->SubMeshes(), same
+		///      shape as PendingInstance::morphWeights_.
+		/// [JP] このフレームの (エンティティ, SubMesh) ごとのモーフウェイト
+		///      アップロードバッファ — 外側のインデックスは
+		///      crister_->SubMeshes() と対応し、PendingInstance::
+		///      morphWeights_ と同じ形。
+		std::unordered_map<EntityID, DynamicArray<MorphWeightBuffer>> morphWeightBuffers_[FrameRing::frameCount];
+
+		/// [EN] BLAS for a morphed-but-not-skinned instance, built directly
+		///      from morphedPositionBuffers_ (no SkinnedPositionCS pass
+		///      involved). Parallel cache to skinnedBlasCache_.
+		/// [JP] モーフはあるがスキン無しのインスタンス用 BLAS。
+		///      morphedPositionBuffers_ から直接構築する
+		///      (SkinnedPositionCS パスは介さない)。skinnedBlasCache_ と
+		///      並列のキャッシュ。
+		std::unordered_map<EntityID, ResourcePtr<BottomLevelAccelerationStructure>> morphedBlasCache_[FrameRing::frameCount];
+
+		MorphBlendShader morphBlendShader_;
 
 		/// [EN] One entry per active Mesh actor, collected by Gather(). The BLAS
 		///      address isn't resolved until Build(), once blasCache_ is caught up.
@@ -379,6 +452,7 @@ namespace SeedCore
 		Bool blasBuildFailureLogged_ = false;
 		Bool tlasBuildFailureLogged_ = false;
 		Bool skinnedBlasBuildFailureLogged_ = false;
+		Bool morphedBlasBuildFailureLogged_ = false;
 
 		/// [EN] Reports the device-removed reason once instead of every frame.
 		/// [JP] デバイス削除の理由を毎フレームでなく 1 度だけ報告する。

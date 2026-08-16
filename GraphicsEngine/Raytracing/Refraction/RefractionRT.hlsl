@@ -14,7 +14,7 @@
 * [EN]
 * Ray-traced refraction (RTPSO / DispatchRays, raygeneration only - no miss /
 * closesthit exports). Only pixels whose KHR_materials_transmission factor is
-* > 0 (read via VisID -> ModelInstance, same as Model/DeferredLightingPS.hlsl)
+* > 0 (read via VisID -> ModelInstance, same as Model/Opaque/DeferredLightingPS.hlsl)
 * trace at all; everything else writes a=0 (invalid) so DeferredLightingPS.hlsl
 * skips them. Bends the view ray through the surface with Snell's law (HLSL's
 * refract(), eta = 1/ior entering the medium), then walks the bounce chain
@@ -48,7 +48,7 @@
 * [JP]
 * レイトレ屈折(RTPSO / DispatchRays、raygenerationのみ - miss/closesthit
 * エクスポート無し)。KHR_materials_transmission の factor が 0 より大きい
-* ピクセルだけ(VisID→ModelInstance経由で判定、Model/DeferredLightingPS.hlsl
+* ピクセルだけ(VisID→ModelInstance経由で判定、Model/Opaque/DeferredLightingPS.hlsl
 * と同じ)レイを撃つ。それ以外は a=0(無効)を書き、DeferredLightingPS.hlsl
 * 側でスキップされる。視線を Snell の法則(HLSL の refract()、媒質へ入る
 * eta = 1/ior)で屈折させ、そこからバウンス連鎖を raygeneration 内の
@@ -72,7 +72,7 @@
 *
 * 各界面で反射レイもあえて撃たない(バウンスごとにレイ数が倍増するため) -
 * 屈折面自体の鏡面反射は Raytracing/Reflection/ReflectionRT.hlsl(同じiorから
-* 求めた誘電体F0)が独立して提供しており、Model/DeferredLightingPS.hlsl が
+* 求めた誘電体F0)が独立して提供しており、Model/Opaque/DeferredLightingPS.hlsl が
 * Fresnel重みで両者を合成する。
 */
 
@@ -122,7 +122,7 @@ void RefractionRayGeneration()
 
 	// VisID から instance_index を引いて ModelInstance を直接読み、
 	// KHR_materials_transmission が無いピクセルはここで抜ける
-	// (Model/DeferredLightingPS.hlsl と同じ配線 - Model/MaterialResolveCS.hlsl
+	// (Model/Opaque/DeferredLightingPS.hlsl と同じ配線 - Model/Material/MaterialResolveCS.hlsl
 	// 参照)。
 	Texture2D<uint2> visibility_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.index_4_];
 	uint2 visibility_id = visibility_texture.Load(int3(pixel, 0));

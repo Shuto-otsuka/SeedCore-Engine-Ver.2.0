@@ -1,4 +1,4 @@
-#include <GraphicsEngine/Model/MaterialSortBuffer.h>
+#include <GraphicsEngine/Model/Material/MaterialSortBuffer.h>
 #include <GraphicsEngine/D3D12/Descriptor/BindlessHeap.h>
 #include <GraphicsEngine/System/IndicesSystem.h>
 #include <FoundationEngine/Log/DxFail.h>

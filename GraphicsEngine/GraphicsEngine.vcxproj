@@ -109,17 +109,18 @@
     <ClInclude Include="Model\Collision\MeshCollisionLoader.h" />
     <ClInclude Include="Model\Collision\MeshCollisionResource.h" />
     <ClInclude Include="Model\Crister.h" />
-    <ClInclude Include="Model\MaterialResolveShader.h" />
-    <ClInclude Include="Model\MaterialSortBuffer.h" />
+    <ClInclude Include="Model\Material\MaterialResolveShader.h" />
+    <ClInclude Include="Model\Material\MaterialSortBuffer.h" />
     <ClInclude Include="Model\Mesh.h" />
     <ClInclude Include="Model\ModelInstanceData.h" />
     <ClInclude Include="Model\ModelLoader.h" />
     <ClInclude Include="Model\ModelResource.h" />
     <ClInclude Include="Model\ModelShader.h" />
-    <ClInclude Include="Model\OITBuffer.h" />
+    <ClInclude Include="Model\Morph\MorphBlendShader.h" />
     <ClInclude Include="Model\QuadricErrorMetrics.h" />
     <ClInclude Include="Model\SkinnedPositionShader.h" />
     <ClInclude Include="Model\SoftbodyMesh.h" />
+    <ClInclude Include="Model\Transparent\OITBuffer.h" />
     <ClInclude Include="Movie\Movie.h" />
     <ClInclude Include="Movie\MovieLoader.h" />
     <ClInclude Include="Movie\MovieResource.h" />
@@ -243,19 +244,17 @@
     <ClCompile Include="Model\Collision\MeshCollisionLoader.cpp" />
     <ClCompile Include="Model\Collision\MeshCollisionResource.cpp" />
     <ClCompile Include="Model\Crister.cpp" />
-    <ClCompile Include="Model\MaterialResolveShader.cpp" />
-    <ClCompile Include="Model\MaterialSortBuffer.cpp" />
-    <ClCompile Include="Model\ModelCommon.cpp">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
-    </ClCompile>
+    <ClCompile Include="Model\Material\MaterialResolveShader.cpp" />
+    <ClCompile Include="Model\Material\MaterialSortBuffer.cpp" />
+    <ClCompile Include="Model\ModelCommon.cpp" />
     <ClCompile Include="Model\ModelLoader.cpp" />
     <ClCompile Include="Model\ModelResource.cpp" />
     <ClCompile Include="Model\ModelShader.cpp" />
-    <ClCompile Include="Model\OITBuffer.cpp" />
+    <ClCompile Include="Model\Morph\MorphBlendShader.cpp" />
     <ClCompile Include="Model\QuadricErrorMetrics.cpp" />
     <ClCompile Include="Model\SkinnedPositionShader.cpp" />
     <ClCompile Include="Model\SoftbodyMesh.cpp" />
+    <ClCompile Include="Model\Transparent\OITBuffer.cpp" />
     <ClCompile Include="Movie\MovieLoader.cpp" />
     <ClCompile Include="Movie\MovieResource.cpp" />
     <ClCompile Include="Movie\MovieShader.cpp" />
@@ -584,48 +583,12 @@
     </Text>
   </ItemGroup>
   <ItemGroup>
-    <Text Include="Model\ModelAS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-  </ItemGroup>
-  <ItemGroup>
     <Text Include="Light\ClusterAssignCS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Model\OITResolveMS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Model\OITResolvePS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Model\SkeletalModelMS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Model\SkeletalModelPS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Model\DepthPrepassMS.hlsl">
-    </Text>
-    <Text Include="Model\StaticModelMS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Model\StaticModelPS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Model\TransparentModelPS.hlsl">
       <FileType>Document</FileType>
     </Text>
   </ItemGroup>
   <ItemGroup>
     <Text Include="System\FadeScreenPS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="Model\HiZBufferCS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Model\ModelGeometryBufferAS.hlsl">
       <FileType>Document</FileType>
     </Text>
   </ItemGroup>
@@ -654,21 +617,6 @@
     </Text>
   </ItemGroup>
   <ItemGroup>
-    <Text Include="Model\DepthPrepassPS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="Model\WireframePS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="Model\MeshletPS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-  </ItemGroup>
-  <ItemGroup>
     <Text Include="Raytracing\AmbientOcclusion\AmbientOcclusionRT.hlsl">
       <FileType>Document</FileType>
     </Text>
@@ -691,16 +639,6 @@
       <FileType>Document</FileType>
     </Text>
     <Text Include="Raytracing\VolumetricLight\VolumetricLightScatteringRT.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="Model\ModelSelectionAS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="Model\SelectionMaskPS.hlsl">
       <FileType>Document</FileType>
     </Text>
   </ItemGroup>
@@ -745,21 +683,6 @@
   </ItemGroup>
   <ItemGroup>
     <Text Include="Sky\ProceduralSkyToCubeCS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="Model\BC7CompressCS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="Model\ModelPreviewPS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="Model\SkinnedPositionCS.hlsl">
       <FileType>Document</FileType>
     </Text>
   </ItemGroup>
@@ -910,35 +833,6 @@
     </Text>
   </ItemGroup>
   <ItemGroup>
-    <Text Include="Model\DepthResizeCS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="Model\MaterialResolveCS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="Model\DeferredLightingMS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Model\DeferredLightingPS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="Model\MaterialClassifyCS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Model\MaterialPrefixSumCS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Model\MaterialScatterCS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-  </ItemGroup>
-  <ItemGroup>
     <Text Include="TAAU\TaauResolveCS.hlsl">
       <FileType>Document</FileType>
     </Text>
@@ -976,6 +870,102 @@
   </ItemGroup>
   <ItemGroup>
     <Text Include="PostProcess\ColorGradingCS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Model\Material\MaterialClassifyCS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Model\Material\MaterialPrefixSumCS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Model\Material\MaterialResolveCS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Model\Material\MaterialScatterCS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Model\Morph\MorphBlendCS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Model\Transparent\ModelTransparentAS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Model\Transparent\OITResolveMS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Model\Transparent\OITResolvePS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Model\Opaque\DeferredLightingMS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Model\Opaque\DeferredLightingPS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Model\Opaque\DepthPrepassMS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Model\Opaque\DepthPrepassPS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Model\Opaque\ModelAS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Model\Opaque\ModelGeometryBufferAS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Model\Opaque\SkeletalModelMS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Model\Opaque\SkeletalModelPS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Model\Opaque\StaticModelMS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Model\Opaque\StaticModelPS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Model\BC7CompressCS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Model\DepthResizeCS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Model\HiZBufferCS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Model\MeshletPS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Model\ModelPreviewPS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Model\ModelSelectionAS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Model\SelectionMaskPS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Model\SkinnedPositionCS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Model\WireframePS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Model\Transparent\ModelTransparentPS.hlsl">
       <FileType>Document</FileType>
     </Text>
   </ItemGroup>

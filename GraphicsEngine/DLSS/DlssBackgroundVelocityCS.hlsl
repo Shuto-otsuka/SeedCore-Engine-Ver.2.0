@@ -7,7 +7,7 @@
 * clouds) with a proper camera-rotation-derived motion vector. Rasterized
 * opaque geometry (StaticModelMS.hlsl etc.) already writes correct velocity
 * into RT3; background pixels are never touched by that pass, so RT3 stays
-* at its per-frame clear value (0,0) there. Since Model/DeferredLightingPS.hlsl
+* at its per-frame clear value (0,0) there. Since Model/Opaque/DeferredLightingPS.hlsl
 * draws the sky/clouds as a screen-space effect with no G-Buffer contribution
 * of its own, DLSS Ray Reconstruction previously saw "zero motion" for the
 * entire sky/cloud region even while panning the camera, causing severe
@@ -30,7 +30,7 @@
 * から導いた正しい速度でパッチする。ラスタ化される不透明ジオメトリ
 * (StaticModelMS.hlsl 等)は既に正しい速度をRT3へ書いているが、背景ピクセルは
 * そのパスが一切触れないため、毎フレームのクリア値(0,0)のまま残る。
-* Model/DeferredLightingPS.hlsl は空/雲をG-Bufferに寄与しないスクリーン
+* Model/Opaque/DeferredLightingPS.hlsl は空/雲をG-Bufferに寄与しないスクリーン
 * スペース効果として描くため、DLSS Ray Reconstruction はカメラをパンしても
 * 空/雲の領域全体を「速度ゼロ」と見なし、そこで激しいゴーストが出ていた
 * (空/雲は画面の大部分を占めるため誤差が非常に目立つ)。このパスは各背景

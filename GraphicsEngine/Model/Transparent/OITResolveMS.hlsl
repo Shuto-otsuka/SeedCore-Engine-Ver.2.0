@@ -1,4 +1,4 @@
-#include "Model.hlsli"
+#include "../Model.hlsli"
 
 /**
 * [EN]

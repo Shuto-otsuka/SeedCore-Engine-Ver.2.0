@@ -1,6 +1,6 @@
-#include "Model.hlsli"
-#include "../Shader/Structured.hlsli"
-#include "../Shader/Culling.hlsli"
+#include "../Model.hlsli"
+#include "../../Shader/Structured.hlsli"
+#include "../../Shader/Culling.hlsli"
 
 groupshared uint survived_count;
 groupshared uint local_indices[32];

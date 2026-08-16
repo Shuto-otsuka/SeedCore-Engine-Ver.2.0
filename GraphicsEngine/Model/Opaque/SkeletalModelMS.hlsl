@@ -1,7 +1,7 @@
-#include "Model.hlsli"
-#include "../Shader/Structured.hlsli"
-#include "../Shader/Constants.hlsli"
-#include "../Shader/Culling.hlsli"
+#include "../Model.hlsli"
+#include "../../Shader/Structured.hlsli"
+#include "../../Shader/Constants.hlsli"
+#include "../../Shader/Culling.hlsli"
 
 /**
 * [EN]
@@ -70,6 +70,12 @@ void main(in payload ModelASPayload as_payload, uint gtid : SV_GroupThreadID, ui
 	{
 		uint global_vertex_index = vertex_indices[meshlet.vertex_offset_ + gtid];
 		ModelVertex vertex = DecodeModelVertex(vertices[global_vertex_index], instance);
+
+		/// [EN] Morph composes before skin (matches the RT compute path -
+		///      see MorphBlendCS.hlsl).
+		/// [JP] モーフはスキンより前に合成する(RT のコンピュートパスと
+		///      同じ順序 - MorphBlendCS.hlsl 参照)。
+		vertex.position_ = ApplyMorphBlend(vertex.position_, global_vertex_index, instance, structured_indices.model_.morph_weight_index_);
 
 		StructuredBuffer<ModelSkinVertex> skin_vertices = ResourceDescriptorHeap[instance.skin_vertex_buffer_index_];
 		uint4 joints;

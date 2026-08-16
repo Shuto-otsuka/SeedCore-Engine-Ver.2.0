@@ -101,6 +101,26 @@ namespace SeedCore
 		std::unordered_map<Int, DynamicArray<Quaternion>> rotations_;
 		std::unordered_map<Int, DynamicArray<Vector3>> translations_;
 
+		/// [EN] Morph target weight keyframes for the glTF "weights" target
+		///      path, keyed by target node index like timelines_/scales_/
+		///      rotations_/translations_ above. Each entry is one row per
+		///      timelines_[nodeIndex] keyframe, and each row holds one weight
+		///      per morph target on that node's mesh, in the mesh's own
+		///      target order (Crister::SubMesh::morphs_ order) — unflattened
+		///      at import time in AnimationLoader from glTF's single flat
+		///      weights accessor (which packs keyframeCount * targetCount
+		///      scalars back to back).
+		/// [JP] glTF の "weights" ターゲットパスによるモーフターゲット
+		///      ウェイトのキーフレーム。上の timelines_/scales_/rotations_/
+		///      translations_ と同じくターゲットノード番号をキーにする。各
+		///      エントリは timelines_[nodeIndex] のキーフレームごとに1行、
+		///      各行はそのノードのメッシュが持つモーフターゲット1つにつき
+		///      1ウェイト(メッシュ自身のターゲット順、Crister::SubMesh::
+		///      morphs_ の順序)を保持する — AnimationLoader でのインポート時に
+		///      glTF の単一フラットな weights アクセサ(keyframeCount *
+		///      targetCount 個のスカラーが連続で詰まっている)から展開される。
+		std::unordered_map<Int, DynamicArray<DynamicArray<Float>>> weights_;
+
 		/// [EN] Editor-authored, not glTF-imported — see AnimationSpeedKeyframe
 		///      / AnimationNotifyEvent. TimelinePanel edits these directly
 		///      through SpeedCurve()/NotifyEvents(); kept unsorted, callers
@@ -122,6 +142,8 @@ namespace SeedCore
 		Float Duration()const;
 
 		void SamplePose(Float time, std::unordered_map<Int, Vector3>& outTranslations, std::unordered_map<Int, Quaternion>& outRotations, std::unordered_map<Int, Vector3>& outScales)const;
+
+		void SampleMorphWeights(Float time, std::unordered_map<Int, DynamicArray<Float>>& outWeights)const;
 
 		Bool HasTranslationChannel(Int nodeIndex)const;
 
@@ -145,6 +167,7 @@ namespace SeedCore
 				cereal::make_nvp("scales", scales_),
 				cereal::make_nvp("rotations", rotations_),
 				cereal::make_nvp("translations", translations_),
+				cereal::make_nvp("weights", weights_),
 				cereal::make_nvp("speed_curve", speedCurve_),
 				cereal::make_nvp("notify_events", notifyEvents_)
 			);

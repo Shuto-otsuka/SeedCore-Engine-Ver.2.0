@@ -37,6 +37,7 @@ namespace SeedCore
 		indicesSystem_ = &indicesSystem;
 		maxInstanceCount_ = 65536;
 		maxBoneCount_ = 65536;
+		maxMorphWeightCount_ = 65536;
 
 		modelShader_.Create(shaderCache, device);
 
@@ -49,6 +50,9 @@ namespace SeedCore
 
 		boneBuffer_ = MakePtr<ReadOnlyStructuredBuffer<Matrix>>(device, bindlessHeap, maxBoneCount_);
 		indicesSystem.SetModelBoneMatrixIndex(boneBuffer_->Index());
+
+		morphWeightBuffer_ = MakePtr<ReadOnlyStructuredBuffer<Float>>(device, bindlessHeap, maxMorphWeightCount_);
+		indicesSystem.SetModelMorphWeightIndex(morphWeightBuffer_->Index());
 
 		oitBuffer_.Create(device, bindlessHeap, indicesSystem, width, height);
 	}
@@ -67,6 +71,8 @@ namespace SeedCore
 		transparentInstances_.clear();
 		boneMatrices_.clear();
 		animatedBoneOffsets_.clear();
+		animatedMorphWeights_.clear();
+		morphWeights_.clear();
 		hasSkinnedOpaque_ = false;
 		hasSkinnedTransparent_ = false;
 		hasSelectedInstance_ = false;
@@ -203,7 +209,16 @@ namespace SeedCore
 				DynamicArray<Matrix> poseGlobalTransforms;
 				Bool hasPose = false;
 
-				Animator* animator = skins.empty() ? nullptr : actor->GetComponent<Animator>();
+				/// [EN] Also runs for a skin-less Actor when its Crister has morph
+				///      targets — morph weight animation (SampleMorphWeights
+				///      below) needs the sampled Animation regardless of
+				///      whether this mesh is also skinned.
+				/// [JP] Crister がモーフターゲットを持つなら、スキンの無い
+				///      Actor でも実行する — 下の SampleMorphWeights による
+				///      モーフウェイトアニメーションは、このメッシュがスキン
+				///      済みかどうかに関わらずサンプリング済みの Animation を
+				///      必要とするため。
+				Animator* animator = (skins.empty() && !crister->HasMorphs()) ? nullptr : actor->GetComponent<Animator>();
 				if (animator)
 				{
 					Int stateIndex = animator->CurrentStateIndex();
@@ -238,6 +253,11 @@ namespace SeedCore
 								std::unordered_map<Int, Quaternion> rotationOverrides;
 								std::unordered_map<Int, Vector3> scaleOverrides;
 								animation->SamplePose(sampleTime, translationOverrides, rotationOverrides, scaleOverrides);
+
+								if (crister->HasMorphs())
+								{
+									animation->SampleMorphWeights(sampleTime, animatedMorphWeights_[entityID]);
+								}
 
 								if (animator->Blending() && static_cast<Size>(animator->PreviousStateIndex()) < animator->states_.size())
 								{
@@ -647,6 +667,68 @@ namespace SeedCore
 						continue;
 					}
 
+					/// [EN] Raster morph blend (see Model.hlsli's ApplyMorphBlend):
+					///      only valid when the selected cluster references
+					///      the shared LOD 0 pool (Crister::ClusterOwnsVertices'
+					///      comment) — an own-page (streamed-in coarser) LOD
+					///      just renders its frozen bind-pose shape instead,
+					///      by leaving morphTargetCount 0. Routes this
+					///      SubMesh's weights the same way RaytracingRenderer
+					///      does: SubMesh::meshIndex_ -> the owning Node ->
+					///      animatedMorphWeights_[entityID][nodeIndex].
+					/// [JP] ラスタのモーフブレンド(Model.hlsli の
+					///      ApplyMorphBlend 参照): 選択クラスタが共有 LOD 0
+					///      プールを参照する場合のみ有効(Crister::
+					///      ClusterOwnsVertices のコメント参照) — 自前ページ
+					///      (ストリームイン済みのより粗い)LOD は
+					///      morphTargetCount を 0 のままにして、代わりに
+					///      凍結されたバインドポーズ形状を描画する。この
+					///      SubMesh のウェイトは RaytracingRenderer と同じ
+					///      経路で解決する: SubMesh::meshIndex_ → 所有 Node
+					///      → animatedMorphWeights_[entityID][nodeIndex]。
+					Uint32 morphDeltaBufferIndex = 0xFFFFFFFF;
+					Uint32 vertexMorphSourceBufferIndex = 0xFFFFFFFF;
+					Uint32 morphDeltaOffset = 0;
+					Uint32 morphVertexOffset = 0;
+					Uint32 morphVertexCount = 0;
+					Uint32 morphTargetCount = 0;
+					Uint32 morphWeightOffset = 0;
+
+					if (!subMesh.morphs_.empty() && !crister->ClusterOwnsVertices(selectedCluster))
+					{
+						Int ownerNodeIndex = -1;
+						for (Size nodeIndex = 0; nodeIndex < nodes.size(); nodeIndex++)
+						{
+							if (nodes[nodeIndex].mesh_ == subMesh.meshIndex_)
+							{
+								ownerNodeIndex = static_cast<Int>(nodeIndex);
+								break;
+							}
+						}
+
+						auto entityWeightsIt = ownerNodeIndex >= 0 ? animatedMorphWeights_.find(entityID) : animatedMorphWeights_.end();
+						if (entityWeightsIt != animatedMorphWeights_.end())
+						{
+							auto nodeWeightsIt = entityWeightsIt->second.find(ownerNodeIndex);
+							if (nodeWeightsIt != entityWeightsIt->second.end() && !nodeWeightsIt->second.empty())
+							{
+								const DynamicArray<Float>& weights = nodeWeightsIt->second;
+								if (morphWeights_.size() + weights.size() <= maxMorphWeightCount_)
+								{
+									morphWeightOffset = static_cast<Uint32>(morphWeights_.size());
+									morphWeights_.insert(morphWeights_.end(), weights.begin(), weights.end());
+
+									morphDeltaBufferIndex = crister->MorphDeltaBufferIndex();
+									vertexMorphSourceBufferIndex = crister->VertexMorphSourceBufferIndex();
+									morphDeltaOffset = subMesh.morphDeltaOffset_;
+									morphVertexOffset = subMesh.vertexOffset_;
+									morphVertexCount = subMesh.vertexCount_;
+									morphTargetCount = static_cast<Uint32>(Min(weights.size(), subMesh.morphs_.size()));
+								}
+							}
+						}
+					}
+
 					/// [EN] Keep every RESIDENT cluster of this chain warm, not just the
 					///      selected one. Only the selected cluster is emitted as an
 					///      instance (that is the dispatch-count win), but touching only
@@ -759,6 +841,14 @@ namespace SeedCore
 							instanceData.meshletBoundBufferIndex_ = crister->ClusterMeshletBoundBufferIndex(clusterIndex);
 							instanceData.vertexIndicesBufferIndex_ = crister->ClusterVertexIndicesBufferIndex(clusterIndex);
 							instanceData.primitiveIndicesBufferIndex_ = crister->ClusterPrimitiveIndicesBufferIndex(clusterIndex);
+
+							instanceData.morphDeltaBufferIndex_ = morphDeltaBufferIndex;
+							instanceData.vertexMorphSourceBufferIndex_ = vertexMorphSourceBufferIndex;
+							instanceData.morphDeltaOffset_ = morphDeltaOffset;
+							instanceData.morphVertexOffset_ = morphVertexOffset;
+							instanceData.morphVertexCount_ = morphVertexCount;
+							instanceData.morphTargetCount_ = morphTargetCount;
+							instanceData.morphWeightOffset_ = morphWeightOffset;
 
 							instanceData.meshletOffset_ = offset - cluster.meshletOffset_;
 							instanceData.meshletCount_ = count;
@@ -1051,6 +1141,7 @@ namespace SeedCore
 		/// [JP] フレームリングバッファ: 現在フレームの SRV インデックスを再登録する。
 		indicesSystem_->SetModelInstanceIndex(instanceBuffer_->Index());
 		indicesSystem_->SetModelBoneMatrixIndex(boneBuffer_->Index());
+		indicesSystem_->SetModelMorphWeightIndex(morphWeightBuffer_->Index());
 
 		if (!opaqueInstances_.empty() || !transparentInstances_.empty())
 		{
@@ -1065,6 +1156,11 @@ namespace SeedCore
 		if (!boneMatrices_.empty())
 		{
 			boneBuffer_->Update(boneMatrices_.data(), static_cast<Uint>(boneMatrices_.size()));
+		}
+
+		if (!morphWeights_.empty())
+		{
+			morphWeightBuffer_->Update(morphWeights_.data(), static_cast<Uint>(morphWeights_.size()));
 		}
 	}
 
@@ -1081,6 +1177,22 @@ namespace SeedCore
 			return false;
 		}
 		outBoneOffset = found->second;
+		return true;
+	}
+
+	Bool ModelRenderer::TryGetAnimatedMorphWeights(EntityID entityID, Int nodeIndex, DynamicArray<Float>& outWeights)const
+	{
+		auto entityIt = animatedMorphWeights_.find(entityID);
+		if (entityIt == animatedMorphWeights_.end())
+		{
+			return false;
+		}
+		auto nodeIt = entityIt->second.find(nodeIndex);
+		if (nodeIt == entityIt->second.end())
+		{
+			return false;
+		}
+		outWeights = nodeIt->second;
 		return true;
 	}
 

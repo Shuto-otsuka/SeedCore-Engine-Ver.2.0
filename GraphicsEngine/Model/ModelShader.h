@@ -21,8 +21,8 @@ namespace SeedCore
 	*   - Skeletal: ModelAS + SkeletalModelMS + SkeletalModelPS
 	*
 	* Transparent PSOs (UAV-only output for PPLL OIT):
-	*   - Static: ModelAS + StaticModelMS + TransparentModelPS
-	*   - Skeletal: ModelAS + SkeletalModelMS + TransparentModelPS
+	*   - Static: ModelAS + StaticModelMS + ModelTransparentPS
+	*   - Skeletal: ModelAS + SkeletalModelMS + ModelTransparentPS
 	*
 	* Resolve PSO (fullscreen, alpha blend over opaque):
 	*   - OITResolveMS + OITResolvePS
@@ -37,8 +37,8 @@ namespace SeedCore
 	*   - スケルタル: ModelAS + SkeletalModelMS + SkeletalModelPS
 	*
 	* 透明 PSO (PPLL OIT 用 UAV のみ出力):
-	*   - 静的: ModelAS + StaticModelMS + TransparentModelPS
-	*   - スケルタル: ModelAS + SkeletalModelMS + TransparentModelPS
+	*   - 静的: ModelAS + StaticModelMS + ModelTransparentPS
+	*   - スケルタル: ModelAS + SkeletalModelMS + ModelTransparentPS
 	*
 	* リゾルブ PSO (フルスクリーン、不透明上にアルファブレンド):
 	*   - OITResolveMS + OITResolvePS

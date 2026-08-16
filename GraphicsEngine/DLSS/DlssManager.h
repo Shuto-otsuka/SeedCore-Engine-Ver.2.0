@@ -28,13 +28,13 @@ namespace SeedCore
 		///      RTs directly: diffuse = base_color*(1-metallic), specular =
 		///      EnvBRDFApprox2(lerp(RT2.gba dielectric F0, base_color,
 		///      metallic), roughness^2, NdotV) — matching
-		///      Model/DeferredLightingPS.hlsl's own f0/diffuse_color split.
+		///      Model/Opaque/DeferredLightingPS.hlsl's own f0/diffuse_color split.
 		/// [JP] DLSS-RR は拡散/鏡面のアルベドを別々にタグ付けする必要がある
 		///      (kBufferTypeAlbedo / kBufferTypeSpecularAlbedo)。どちらも
 		///      G-Buffer RT の生値ではなく DlssNormalRoughnessCS.hlsl の出力:
 		///      拡散 = base_color*(1-metallic)、鏡面 =
 		///      EnvBRDFApprox2(lerp(RT2.gbaの誘電体F0, base_color, metallic),
-		///      roughness^2, NdotV) — Model/DeferredLightingPS.hlsl 自身の
+		///      roughness^2, NdotV) — Model/Opaque/DeferredLightingPS.hlsl 自身の
 		///      f0/diffuse_color の分岐と一致させている。
 		ID3D12Resource* specularAlbedoBuffer_ = nullptr;
 

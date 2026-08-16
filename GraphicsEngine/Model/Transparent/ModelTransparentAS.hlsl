@@ -1,6 +1,6 @@
-#include "Model.hlsli"
-#include "../Shader/Structured.hlsli"
-#include "../Shader/Culling.hlsli"
+#include "../Model.hlsli"
+#include "../../Shader/Structured.hlsli"
+#include "../../Shader/Culling.hlsli"
 
 groupshared uint survived_count;
 groupshared uint local_indices[32];
@@ -8,44 +8,25 @@ groupshared ModelASPayload payload;
 
 /**
 * [EN]
-* Reference: https://microsoft.github.io/DirectX-Specs/d3d/MeshShader.html
+* Amplification Shader for the transparent (OIT) pass.
+* Full copy of ModelAS.hlsl except that it processes only blend instances
+* (instance.blend_ == 1). Keep both files in sync when editing.
 *
-* Amplification Shader for model rendering (shared by Static & Skeletal).
-*
-* Each thread group processes one ModelInstance. Each thread within the
-* group evaluates one meshlet for visibility:
-*   1. Frustum culling via bounding sphere
-*   2. Normal cone backface culling
-*
-* Surviving meshlets are compacted into the payload and dispatched
-* to the Mesh Shader via DispatchMesh.
-*
-* Thread group size = 32, matching the maximum meshlets per dispatch.
+* Every pass dispatches the full instance list; instances belonging to the
+* opaque pass are skipped here. This keeps a single shared instance buffer
+* without needing per-dispatch offsets.
 *
 * ---------------------------------------------------------------------
 *
 * [JP]
-* モデルレンダリング用の Amplification Shader（Static と Skeletal で共有）。
+* 透過（OIT）パス用の Amplification Shader。
+* ブレンドインスタンス（instance.blend_ == 1）のみ処理する点を除いて
+* ModelAS.hlsl の完全なコピー。編集時は両ファイルの同期を保つこと。
 *
-* 各スレッドグループが 1 つの ModelInstance を処理する。グループ内の
-* 各スレッドが 1 つのメシュレットの可視性を評価する:
-*   1. 包囲球によるフラスタムカリング
-*   2. 法線コーンによるバックフェイスカリング
-*
-* 生き残ったメシュレットはペイロードに圧縮され、DispatchMesh で
-* Mesh Shader に送られる。
-*
-* スレッドグループサイズ = 32、ディスパッチあたりの最大メシュレット数に一致。
+* 各パスは全インスタンスをディスパッチし、不透明パスに属するインスタンスは
+* ここでスキップする。これによりディスパッチごとのオフセットなしで
+* 単一の共有インスタンスバッファを使える。
 */
-/// [EN] This entry handles the opaque + mask passes (G-Buffer / depth prepass)
-///      and skips blend instances — those are drawn by ModelTransparentAS.hlsl
-///      (a full copy of this shader; keep both in sync). Every pass dispatches
-///      the full instance list, so no per-dispatch offset is needed.
-/// [JP] このエントリは不透明 + マスクパス（G-Buffer / デプスプリパス）を担当し、
-///      ブレンドインスタンスはスキップする — それらは ModelTransparentAS.hlsl
-///      （本シェーダの完全コピー。編集時は同期を保つこと）が描画する。
-///      各パスは全インスタンスをディスパッチするため、ディスパッチごとの
-///      オフセットは不要。
 [numthreads(32, 1, 1)]
 void main(uint3 gtid : SV_GroupThreadID, uint3 dtid : SV_DispatchThreadID, uint3 gid : SV_GroupID)
 {
@@ -65,14 +46,10 @@ void main(uint3 gtid : SV_GroupThreadID, uint3 dtid : SV_DispatchThreadID, uint3
 	uint meshlet_local = gtid.x;
 	bool is_visible = false;
 
-	if (instance.blend_ == 0 && meshlet_local < instance.meshlet_count_)
+	if (instance.blend_ == 1 && meshlet_local < instance.meshlet_count_)
 	{
-		/// [EN] Distance-based LOD selection: only the cluster whose cumulative
-		///      screen-space error brackets the threshold survives. Must match the
-		///      G-Buffer AS exactly so prepass depth and G-Buffer geometry agree.
-		/// [JP] 距離ベース LOD 選択: 累積スクリーン誤差が閾値を挟むクラスタだけが
-		///      生き残る。プリパス深度と G-Buffer ジオメトリを一致させるため、
-		///      G-Buffer 用 AS と完全に同じ判定であること。
+		/// [EN] Distance-based LOD selection — identical to ModelAS.
+		/// [JP] 距離ベース LOD 選択 — ModelAS と同一。
 		float world_scale = max(max(length(instance.world_[0].xyz), length(instance.world_[1].xyz)), length(instance.world_[2].xyz));
 		if (IsLodSelected(instance.lod_error_, instance.lod_error_next_, instance.world_[3].xyz, world_scale, scene.camera_position_.xyz, scene.projection_._m11, scene.screen_size_.y, 1.0))
 		{
@@ -101,11 +78,7 @@ void main(uint3 gtid : SV_GroupThreadID, uint3 dtid : SV_DispatchThreadID, uint3
 		is_visible = IsVisibleInFrustum(world_center, world_radius, scene.current_view_projection_);
 
 		/// [EN] Normal cone backface culling — single-sided materials only.
-		///      doubleSided materials must keep back-facing meshlets, otherwise thin
-		///      geometry (wings, hair, cloth) gets holes when seen from behind.
 		/// [JP] 法線コーンバックフェイスカリング — 片面マテリアルのみ。
-		///      doubleSided マテリアルは背面向きメシュレットも残す必要がある。
-		///      さもないと薄いジオメトリ（翼・髪・布）を裏から見たときに穴が開く。
 		if (is_visible && instance.double_sided_ == 0 && bound.cone_cutoff_ > 0.0)
 		{
 			float3 world_cone_axis = normalize(mul(float4(bound.cone_axis_, 0.0), instance.world_).xyz);
@@ -115,6 +88,19 @@ void main(uint3 gtid : SV_GroupThreadID, uint3 dtid : SV_DispatchThreadID, uint3
 				is_visible = false;
 			}
 		}
+
+		/// [EN] Hi-Z occlusion culling deliberately removed here - transparent
+		///      objects were intermittently disappearing, and this was the only
+		///      culling step present in the transparent AS but absent from the
+		///      opaque one (ModelAS.hlsl), so it was the prime suspect. Occlusion
+		///      culling is purely a performance optimization; removing it only
+		///      costs some extra meshlet processing, never a correctness issue.
+		/// [JP] Hi-Zオクルージョンカリングをここではあえて外している - 透明
+		///      オブジェクトが断続的に消える不具合があり、これが透明用ASにだけ
+		///      存在して不透明用(ModelAS.hlsl)には無い唯一のカリング処理
+		///      だったため、真っ先に疑って外した。オクルージョンカリングは
+		///      あくまでパフォーマンス最適化で、外しても余分にメシュレットを
+		///      処理するだけで見た目の正しさには影響しない。
 		}
 		}
 	}

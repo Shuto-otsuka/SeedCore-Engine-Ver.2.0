@@ -390,7 +390,7 @@ namespace SeedCore
 		raytracingRenderer_->Gather(loaderSystem, *modelResource, world, *modelRenderer_);
 
 		ImageResource* imageResource = resourceCache.GetImageResource();
-		Vector2 gameDisplaySize = dlssRayReconstructionEnabled_ ? PostProcessOutputSize() : scene.screenSize_;
+		Vector2 gameDisplaySize = PostProcessOutputSize();
 		imageRenderer_->Gather(loaderSystem, *imageResource, world, gameDisplaySize, selectedEntity);
 
 		FontResource* fontResource = resourceCache.GetFontResource();
@@ -527,7 +527,7 @@ namespace SeedCore
 		///      シャドウ/AO/反射/GI レイトレパスと DeferredLightingPS が RT0-3 を
 		///      PIXEL_SHADER_RESOURCE として読むため、それより前に実行する。
 		///      マテリアルソート(Classify→PrefixSum→Scatter)→Resolve の4パス構成 -
-		///      Model/MaterialResolveShader.h 参照。
+		///      Model/Material/MaterialResolveShader.h 参照。
 		gpuProfiler_.Begin(cmdList, profileView, GpuProfileScope::MaterialResolve);
 		{
 			ID3D12PipelineState* classifyPipelineState = materialResolveShader_->GetClassifyPipelineState();

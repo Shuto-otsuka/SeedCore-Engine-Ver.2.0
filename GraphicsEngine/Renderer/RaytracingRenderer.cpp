@@ -53,6 +53,7 @@ namespace SeedCore
 		volumetricLightRenderer_->Create(device, bindlessHeap, shaderCache, indicesSystem, width, height);
 
 		skinnedPositionShader_.Create(shaderCache, device);
+		morphBlendShader_.Create(shaderCache, device);
 	}
 
 	void RaytracingRenderer::Resize(ID3D12Device* device, BindlessHeap* bindlessHeap, Uint32 width, Uint32 height)
@@ -111,6 +112,56 @@ namespace SeedCore
 					{
 						instance.hasSkeletalPose_ = true;
 						instance.boneOffset_ = boneOffset;
+					}
+				}
+
+				/// [EN] Route each morphed SubMesh's weights from the Animator-
+				///      sampled per-NODE map (ModelRenderer::
+				///      TryGetAnimatedMorphWeights) via SubMesh::meshIndex_ ->
+				///      the owning Node (first Node whose mesh_ matches — glTF
+				///      convention is every Node referencing a mesh shares one
+				///      weight array for it, see Animation::weights_'s comment).
+				/// [JP] Animator がサンプリング済みのノードごとのウェイト表
+				///      (ModelRenderer::TryGetAnimatedMorphWeights)から、
+				///      各モーフド SubMesh のウェイトを SubMesh::meshIndex_
+				///      経由でその所有 Node(mesh_ が一致する最初の Node —
+				///      glTF の慣例として、あるメッシュを参照する全 Node は
+				///      そのメッシュ用に1つのウェイト配列を共有する、
+				///      Animation::weights_ のコメント参照)へ振り分ける。
+				if (animator && crister->HasMorphs())
+				{
+					const auto& subMeshesForMorph = crister->SubMeshes();
+					const auto& nodesForMorph = crister->Nodes();
+					instance.morphWeights_.resize(subMeshesForMorph.size());
+
+					for (Size subMeshIndex = 0; subMeshIndex < subMeshesForMorph.size(); subMeshIndex++)
+					{
+						const SubMesh& subMesh = subMeshesForMorph[subMeshIndex];
+						if (subMesh.morphs_.empty())
+						{
+							continue;
+						}
+
+						Int ownerNodeIndex = -1;
+						for (Size nodeIndex = 0; nodeIndex < nodesForMorph.size(); nodeIndex++)
+						{
+							if (nodesForMorph[nodeIndex].mesh_ == subMesh.meshIndex_)
+							{
+								ownerNodeIndex = static_cast<Int>(nodeIndex);
+								break;
+							}
+						}
+						if (ownerNodeIndex < 0)
+						{
+							continue;
+						}
+
+						DynamicArray<Float> weights;
+						if (modelRenderer.TryGetAnimatedMorphWeights(entityID, ownerNodeIndex, weights) && !weights.empty())
+						{
+							instance.morphWeights_[subMeshIndex] = std::move(weights);
+							instance.hasMorphWeights_ = true;
+						}
 					}
 				}
 
@@ -388,6 +439,166 @@ namespace SeedCore
 
 		Uint frameIndex = FrameRing::Index();
 
+		/// [EN] Morph blend pass: composes BEFORE skinning (see
+		///      MorphBlendCS.hlsl). Seeds each morphed instance's scratch
+		///      position buffer with a full copy of the base rt_positions,
+		///      then overwrites only the vertex ranges of SubMeshes with
+		///      active weights this frame — every other vertex (including
+		///      SubMeshes with morphs_ but no active weight this frame)
+		///      keeps its base position. The skin loop below reads this
+		///      buffer instead of crister_->RTPositionBufferGPUAddress()
+		///      when both morph and skin apply; a morph-only instance
+		///      builds its BLAS directly from it further below.
+		/// [JP] モーフブレンドパス: スキニングより前に合成する
+		///      (MorphBlendCS.hlsl 参照)。モーフのある各インスタンスの
+		///      一時位置バッファへ、まずベースの rt_positions を全体コピー
+		///      し、その後、今フレーム有効なウェイトを持つ SubMesh の頂点
+		///      範囲だけを上書きする — それ以外の頂点(今フレームウェイトが
+		///      無い morphs_ 持ちの SubMesh も含む)はベース位置のまま。
+		///      下のスキンループは、モーフとスキンの両方が適用される場合
+		///      crister_->RTPositionBufferGPUAddress() の代わりにこの
+		///      バッファを読む。モーフのみのインスタンスは、さらに下で
+		///      このバッファから直接 BLAS を構築する。
+		for (const PendingInstance& pending : pendingInstances_)
+		{
+			if (!pending.hasMorphWeights_)
+			{
+				continue;
+			}
+
+			const Crister* crister = pending.crister_;
+			Uint32 rtVertexCount = crister->RTVertexCount();
+			if (rtVertexCount == 0)
+			{
+				continue;
+			}
+
+			SkinnedPositionBuffer& blendedBuffer = morphedPositionBuffers_[frameIndex][pending.entityID_];
+			if (blendedBuffer.capacity_ < rtVertexCount)
+			{
+				D3D12_HEAP_PROPERTIES heapProperties{};
+				heapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
+				heapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+				heapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+				heapProperties.CreationNodeMask = 1;
+				heapProperties.VisibleNodeMask = 1;
+
+				D3D12_RESOURCE_DESC resourceDesc{};
+				resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+				resourceDesc.Width = sizeof(Vector3) * static_cast<Uint64>(rtVertexCount);
+				resourceDesc.Height = 1;
+				resourceDesc.DepthOrArraySize = 1;
+				resourceDesc.MipLevels = 1;
+				resourceDesc.Format = DXGI_FORMAT_UNKNOWN;
+				resourceDesc.SampleDesc.Count = 1;
+				resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+				resourceDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+
+				device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(blendedBuffer.resource_.ReleaseAndGetAddressOf()));
+				blendedBuffer.resource_->SetName(L"MorphedPositionBuffer");
+				blendedBuffer.capacity_ = rtVertexCount;
+			}
+
+			D3D12_RESOURCE_BARRIER toCopyDest{};
+			toCopyDest.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+			toCopyDest.Transition.pResource = blendedBuffer.resource_.Get();
+			toCopyDest.Transition.StateBefore = D3D12_RESOURCE_STATE_COMMON;
+			toCopyDest.Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_DEST;
+			toCopyDest.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+			commandList4->ResourceBarrier(1, &toCopyDest);
+
+			crister->CopyRTPositionsForMorph(commandList4, blendedBuffer.resource_.Get());
+
+			D3D12_RESOURCE_BARRIER toUnorderedAccess{};
+			toUnorderedAccess.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+			toUnorderedAccess.Transition.pResource = blendedBuffer.resource_.Get();
+			toUnorderedAccess.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
+			toUnorderedAccess.Transition.StateAfter = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+			toUnorderedAccess.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+			commandList4->ResourceBarrier(1, &toUnorderedAccess);
+
+			const auto& subMeshesForBlend = crister->SubMeshes();
+			DynamicArray<MorphWeightBuffer>& weightBuffers = morphWeightBuffers_[frameIndex][pending.entityID_];
+			if (weightBuffers.size() < subMeshesForBlend.size())
+			{
+				weightBuffers.resize(subMeshesForBlend.size());
+			}
+
+			for (Size subMeshIndex = 0; subMeshIndex < pending.morphWeights_.size(); subMeshIndex++)
+			{
+				const DynamicArray<Float>& weights = pending.morphWeights_[subMeshIndex];
+				if (weights.empty())
+				{
+					continue;
+				}
+
+				const SubMesh& subMesh = subMeshesForBlend[subMeshIndex];
+				if (subMesh.rtMorphDeltaOffset_ == 0xFFFFFFFFu || subMesh.rtVertexCount_ == 0)
+				{
+					continue;
+				}
+
+				Uint32 targetCount = static_cast<Uint32>(subMesh.morphs_.size());
+
+				MorphWeightBuffer& weightBuffer = weightBuffers[subMeshIndex];
+				if (weightBuffer.capacity_ < targetCount)
+				{
+					if (weightBuffer.resource_)
+					{
+						weightBuffer.resource_->Unmap(0, nullptr);
+					}
+
+					D3D12_HEAP_PROPERTIES weightHeapProperties{};
+					weightHeapProperties.Type = D3D12_HEAP_TYPE_UPLOAD;
+					weightHeapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+					weightHeapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+					weightHeapProperties.CreationNodeMask = 1;
+					weightHeapProperties.VisibleNodeMask = 1;
+
+					D3D12_RESOURCE_DESC weightResourceDesc{};
+					weightResourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+					weightResourceDesc.Width = sizeof(Float) * static_cast<Uint64>(targetCount);
+					weightResourceDesc.Height = 1;
+					weightResourceDesc.DepthOrArraySize = 1;
+					weightResourceDesc.MipLevels = 1;
+					weightResourceDesc.Format = DXGI_FORMAT_UNKNOWN;
+					weightResourceDesc.SampleDesc.Count = 1;
+					weightResourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+
+					device->CreateCommittedResource(&weightHeapProperties, D3D12_HEAP_FLAG_NONE, &weightResourceDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(weightBuffer.resource_.ReleaseAndGetAddressOf()));
+					weightBuffer.resource_->SetName(L"MorphWeightBuffer");
+					weightBuffer.resource_->Map(0, nullptr, &weightBuffer.mappedPtr_);
+					weightBuffer.capacity_ = targetCount;
+				}
+
+				memcpy(weightBuffer.mappedPtr_, weights.data(), sizeof(Float) * Min(weights.size(), static_cast<Size>(targetCount)));
+
+				struct MorphBlendParams
+				{
+					Uint32 vertexOffset_;
+					Uint32 vertexCount_;
+					Uint32 targetCount_;
+					Uint32 pad0_;
+				};
+
+				MorphBlendParams params{ subMesh.rtVertexOffset_, subMesh.rtVertexCount_, targetCount, 0 };
+
+				commandList4->SetPipelineState(morphBlendShader_.GetPipelineState());
+				commandList4->SetComputeRootSignature(morphBlendShader_.GetRootSignature());
+				commandList4->SetComputeRoot32BitConstants(0, 4, &params, 0);
+				commandList4->SetComputeRootShaderResourceView(1, crister->RTPositionBufferGPUAddress());
+				commandList4->SetComputeRootShaderResourceView(2, crister->RTMorphDeltaBufferGPUAddress() + static_cast<UINT64>(subMesh.rtMorphDeltaOffset_) * sizeof(Vector3));
+				commandList4->SetComputeRootShaderResourceView(3, weightBuffer.resource_->GetGPUVirtualAddress());
+				commandList4->SetComputeRootUnorderedAccessView(4, blendedBuffer.resource_->GetGPUVirtualAddress());
+				commandList4->Dispatch((subMesh.rtVertexCount_ + 63) / 64, 1, 1);
+			}
+
+			D3D12_RESOURCE_BARRIER blendedUavBarrier{};
+			blendedUavBarrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+			blendedUavBarrier.UAV.pResource = blendedBuffer.resource_.Get();
+			commandList4->ResourceBarrier(1, &blendedUavBarrier);
+		}
+
 		for (const PendingInstance& pending : pendingInstances_)
 		{
 			if (!pending.hasSkeletalPose_)
@@ -434,10 +645,30 @@ namespace SeedCore
 
 			SkinnedPositionParams params{ vertexCount, pending.boneOffset_, 0, 0 };
 
+			/// [EN] Morph composes before skin: if this instance also has
+			///      active morph weights, its blended position buffer (built
+			///      in the morph blend pass above) is already this frame's
+			///      up-to-date base positions — skin from that instead of
+			///      the Crister's unmorphed rt_positions.
+			/// [JP] モーフはスキンより前に合成する: このインスタンスに有効な
+			///      モーフウェイトもある場合、(上のモーフブレンドパスで
+			///      構築済みの)ブレンド後位置バッファが既に今フレームの
+			///      最新ベース位置になっている — Crister の非モーフ
+			///      rt_positions ではなくそちらからスキンする。
+			D3D12_GPU_VIRTUAL_ADDRESS skinInputPositions = crister->RTPositionBufferGPUAddress();
+			if (pending.hasMorphWeights_)
+			{
+				auto morphedIt = morphedPositionBuffers_[frameIndex].find(pending.entityID_);
+				if (morphedIt != morphedPositionBuffers_[frameIndex].end())
+				{
+					skinInputPositions = morphedIt->second.resource_->GetGPUVirtualAddress();
+				}
+			}
+
 			commandList4->SetPipelineState(skinnedPositionShader_.GetPipelineState());
 			commandList4->SetComputeRootSignature(skinnedPositionShader_.GetRootSignature());
 			commandList4->SetComputeRoot32BitConstants(0, 4, &params, 0);
-			commandList4->SetComputeRootShaderResourceView(1, crister->RTPositionBufferGPUAddress());
+			commandList4->SetComputeRootShaderResourceView(1, skinInputPositions);
 			commandList4->SetComputeRootShaderResourceView(2, crister->RTSkinVertexBufferGPUAddress());
 			commandList4->SetComputeRootShaderResourceView(3, modelRenderer.BoneMatrixBufferGPUAddress());
 			commandList4->SetComputeRootUnorderedAccessView(4, skinnedBuffer.resource_->GetGPUVirtualAddress());
@@ -471,6 +702,53 @@ namespace SeedCore
 			}
 		}
 
+		/// [EN] Morph-only (not skinned) instances build their own BLAS
+		///      directly from the blended position buffer the morph pass
+		///      above produced — skinned-and-morphed instances are already
+		///      covered by the skin loop above (it read from that same
+		///      buffer instead of rt_positions).
+		/// [JP] モーフのみ(スキン無し)のインスタンスは、上のモーフパスが
+		///      作ったブレンド後位置バッファから直接自分の BLAS を構築する
+		///      — スキン付きかつモーフありのインスタンスは、上のスキン
+		///      ループが既に(rt_positions の代わりに同じバッファを読んで)
+		///      カバー済み。
+		for (const PendingInstance& pending : pendingInstances_)
+		{
+			if (!pending.hasMorphWeights_ || pending.hasSkeletalPose_)
+			{
+				continue;
+			}
+
+			const Crister* crister = pending.crister_;
+			auto morphedPositionIt = morphedPositionBuffers_[frameIndex].find(pending.entityID_);
+			if (morphedPositionIt == morphedPositionBuffers_[frameIndex].end())
+			{
+				continue;
+			}
+
+			BottomLevelGeometryDesc geometryDesc{};
+			geometryDesc.vertexBuffer_ = morphedPositionIt->second.resource_->GetGPUVirtualAddress();
+			geometryDesc.vertexCount_ = crister->RTVertexCount();
+			geometryDesc.vertexStride_ = sizeof(Vector3);
+			geometryDesc.vertexFormat_ = DXGI_FORMAT_R32G32B32_FLOAT;
+			geometryDesc.indexBuffer_ = crister->FlatTriangleIndexBufferGPUAddress();
+			geometryDesc.indexCount_ = crister->FlatTriangleIndexCount();
+			geometryDesc.indexFormat_ = DXGI_FORMAT_R32_UINT;
+			geometryDesc.opaque_ = true;
+
+			ResourcePtr<BottomLevelAccelerationStructure>& morphedBlas = morphedBlasCache_[frameIndex][pending.entityID_];
+			if (!morphedBlas)
+			{
+				morphedBlas = MakePtr<BottomLevelAccelerationStructure>();
+			}
+
+			if (!morphedBlas->Build(device5, commandList4, &geometryDesc, 1) && !morphedBlasBuildFailureLogged_)
+			{
+				SC_LOG_WARNING("モーフ付き BLAS の構築に失敗しました。対象アクターはモーフ無しの静止形状で描画されます。");
+				morphedBlasBuildFailureLogged_ = true;
+			}
+		}
+
 		if (!pendingInstances_.empty())
 		{
 			DynamicArray<TopLevelInstanceDesc> instanceDescs;
@@ -497,6 +775,36 @@ namespace SeedCore
 						continue;
 					}
 					bottomLevelAddress = found->second->Address();
+				}
+				else if (pending.hasMorphWeights_)
+				{
+					/// [EN] Unlike the skinned branch above, a morph-only
+					///      instance's Crister DOES get a blasCache_ (bind-
+					///      pose, unmorphed) entry (see Gather's
+					///      pendingBlasBuilds_ push, gated only on
+					///      !hasSkeletalPose_) — so a morphedBlasCache_ miss
+					///      this frame falls back to the unmorphed shape
+					///      instead of dropping the instance outright.
+					/// [JP] 上のスキン分岐と違い、モーフのみのインスタンスの
+					///      Crister には blasCache_(バインドポーズ、非モーフ)
+					///      エントリが存在する(Gather の pendingBlasBuilds_
+					///      への push が !hasSkeletalPose_ のみをゲートに
+					///      している点を参照) — そのため今フレーム
+					///      morphedBlasCache_ が無くても、インスタンスを
+					///      落とさず非モーフ形状へフォールバックできる。
+					auto found = morphedBlasCache_[frameIndex].find(pending.entityID_);
+					if (found != morphedBlasCache_[frameIndex].end())
+					{
+						bottomLevelAddress = found->second->Address();
+					}
+					else
+					{
+						auto fallback = blasCache_.find(pending.crister_);
+						if (fallback != blasCache_.end())
+						{
+							bottomLevelAddress = fallback->second->Address();
+						}
+					}
 				}
 				else
 				{

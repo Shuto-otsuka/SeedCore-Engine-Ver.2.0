@@ -1,12 +1,12 @@
-#include "Model.hlsli"
-#include "../Shader/Structured.hlsli"
-#include "../Shader/Sampler.hlsli"
-#include "../Shader/Constants.hlsli"
-#include "../Shader/Normal.hlsli"
-#include "../Shader/Light.hlsli"
-#include "../Light/Cluster.hlsli"
-#include "../Light/BidirectionalReflectanceDistributionFunction.hlsli"
-#include "../Raytracing/Reflection/Reflection.hlsli"
+#include "../Model.hlsli"
+#include "../../Shader/Structured.hlsli"
+#include "../../Shader/Sampler.hlsli"
+#include "../../Shader/Constants.hlsli"
+#include "../../Shader/Normal.hlsli"
+#include "../../Shader/Light.hlsli"
+#include "../../Light/Cluster.hlsli"
+#include "../../Light/BidirectionalReflectanceDistributionFunction.hlsli"
+#include "../../Raytracing/Reflection/Reflection.hlsli"
 
 /**
 * [EN]
@@ -77,7 +77,7 @@ void main(ModelMSOutput input, ModelMSPrimitiveOutput primitive)
 	float2 uv = input.position.xy * scene.inverse_screen_size_;
 	float2 pixel_ndc = float2(uv.x * 2.0 - 1.0, 1.0 - uv.y * 2.0);
 
-	ModelSurface surface = ResolveModelSurface(instance, input.meshlet_index, primitive.triangle_in_meshlet_index, pixel_ndc, scene.current_view_projection_, scene.camera_position_.xyz, structured_indices.model_.bone_matrix_index_);
+	ModelSurface surface = ResolveModelSurface(instance, input.meshlet_index, primitive.triangle_in_meshlet_index, pixel_ndc, scene.current_view_projection_, scene.camera_position_.xyz, structured_indices.model_.bone_matrix_index_, structured_indices.model_.morph_weight_index_);
 
 	float3 N = surface.normal_;
 

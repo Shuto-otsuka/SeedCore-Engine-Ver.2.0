@@ -1,7 +1,7 @@
-#include "Model.hlsli"
-#include "../Shader/Structured.hlsli"
-#include "../Shader/Constants.hlsli"
-#include "../Shader/Culling.hlsli"
+#include "../Model.hlsli"
+#include "../../Shader/Structured.hlsli"
+#include "../../Shader/Constants.hlsli"
+#include "../../Shader/Culling.hlsli"
 
 groupshared float4 clip_positions[64];
 
@@ -36,7 +36,17 @@ void main(in payload ModelASPayload as_payload, uint gtid : SV_GroupThreadID, ui
 		/// [JP] プリパスは static / skinned を 1 ディスパッチで描くため、
 		///      G-Buffer パスと深度を一致させるようここでスキニングを適用する
 		///      （分岐は wave-uniform）。
-		float3 local_position = vertex.position_;
+		/// [EN] Morph composes before skin (matches StaticModelMS.hlsl/
+		///      SkeletalModelMS.hlsl/ResolveModelSurface) - this prepass's
+		///      whole purpose is to match the G-Buffer pass's depth exactly
+		///      (comment below), so it must apply the identical morph +
+		///      skin composition.
+		/// [JP] モーフはスキンより前に合成する(StaticModelMS.hlsl/
+		///      SkeletalModelMS.hlsl/ResolveModelSurface と同じ) —
+		///      このプリパスの存在意義は G-Buffer パスと深度を完全一致
+		///      させること(下のコメント参照)なので、同一のモーフ+スキン
+		///      合成を適用する必要がある。
+		float3 local_position = ApplyMorphBlend(vertex.position_, global_vertex_index, instance, structured_indices.model_.morph_weight_index_);
 		if (instance.skin_index_ != 0xFFFFFFFF)
 		{
 			StructuredBuffer<ModelBoneMatrix> bone_matrices = ResourceDescriptorHeap[structured_indices.model_.bone_matrix_index_];

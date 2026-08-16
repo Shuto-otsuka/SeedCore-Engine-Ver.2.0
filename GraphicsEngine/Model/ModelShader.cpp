@@ -18,13 +18,13 @@ namespace SeedCore
 	{
 		modelRootSignature_ = rootSignature_.GetOrCreate(device);
 
-		amplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Model/ModelAS.hlsl"));
+		amplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Model/Opaque/ModelAS.hlsl"));
 		/// [EN] G-Buffer passes use a Hi-Z occlusion-culling variant of the AS.
 		///      The prepass keeps the plain AS because it generates the Hi-Z data.
 		/// [JP] G-Buffer パスは Hi-Z オクルージョンカリング付きの AS を使う。
 		///      プリパスは Hi-Z データを生成する側なので通常の AS のまま。
-		geometryBufferAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Model/ModelGeometryBufferAS.hlsl"));
-		transparentAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Model/ModelTransparentAS.hlsl"));
+		geometryBufferAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Model/Opaque/ModelGeometryBufferAS.hlsl"));
+		transparentAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Model/Transparent/ModelTransparentAS.hlsl"));
 
 		/// [EN] Depth prepass PSO: ModelAS + DepthPrepassMS + DepthPrepassPS (alpha-cutout
 		///      clip only), depth-only output. The PS is required so masked (alphaMode=MASK)
@@ -33,8 +33,8 @@ namespace SeedCore
 		///      clip のみ）、デプスのみ出力。カットアウト（alphaMode=MASK）の穴が深度を書いて
 		///      後ろのジオメトリを隠さないよう、PS が必須。
 		{
-			depthPrepassMeshShader_ = shaderCache.GetOrCreateMeshShader(String("../GraphicsEngine/Model/DepthPrepassMS.hlsl"));
-			depthPrepassPixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Model/DepthPrepassPS.hlsl"));
+			depthPrepassMeshShader_ = shaderCache.GetOrCreateMeshShader(String("../GraphicsEngine/Model/Opaque/DepthPrepassMS.hlsl"));
+			depthPrepassPixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Model/Opaque/DepthPrepassPS.hlsl"));
 
 			PipelineStateKey psokey{};
 			memset(&psokey, 0, sizeof(psokey));
@@ -59,13 +59,13 @@ namespace SeedCore
 
 		/// [EN] Static model PSO: ModelAS + StaticModelMS + StaticModelPS → G-Buffer
 		///      visibility id only (RT4, R32G32_UINT). RT0-3 are rewritten
-		///      afterward by Model/MaterialResolveCS.hlsl - see GeometryBuffer::BeginVisibility.
+		///      afterward by Model/Material/MaterialResolveCS.hlsl - see GeometryBuffer::BeginVisibility.
 		/// [JP] 静的モデル PSO: ModelAS + StaticModelMS + StaticModelPS →
 		///      G-Buffer visibility id のみ(RT4, R32G32_UINT)。RT0-3 はこの後
-		///      Model/MaterialResolveCS.hlsl が書き直す - GeometryBuffer::BeginVisibility 参照。
+		///      Model/Material/MaterialResolveCS.hlsl が書き直す - GeometryBuffer::BeginVisibility 参照。
 		{
-			staticMeshShader_ = shaderCache.GetOrCreateMeshShader(String("../GraphicsEngine/Model/StaticModelMS.hlsl"));
-			staticPixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Model/StaticModelPS.hlsl"));
+			staticMeshShader_ = shaderCache.GetOrCreateMeshShader(String("../GraphicsEngine/Model/Opaque/StaticModelMS.hlsl"));
+			staticPixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Model/Opaque/StaticModelPS.hlsl"));
 
 			PipelineStateKey psokey{};
 			memset(&psokey, 0, sizeof(psokey));
@@ -88,8 +88,8 @@ namespace SeedCore
 		/// [JP] スケルタルモデル PSO: ModelAS + SkeletalModelMS + SkeletalModelPS →
 		///      G-Buffer visibility id のみ(RT4, R32G32_UINT)。上の静的PSOと同様。
 		{
-			skeletalMeshShader_ = shaderCache.GetOrCreateMeshShader(String("../GraphicsEngine/Model/SkeletalModelMS.hlsl"));
-			skeletalPixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Model/SkeletalModelPS.hlsl"));
+			skeletalMeshShader_ = shaderCache.GetOrCreateMeshShader(String("../GraphicsEngine/Model/Opaque/SkeletalModelMS.hlsl"));
+			skeletalPixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Model/Opaque/SkeletalModelPS.hlsl"));
 
 			PipelineStateKey psokey{};
 			memset(&psokey, 0, sizeof(psokey));
@@ -232,7 +232,7 @@ namespace SeedCore
 		/// [EN] Transparent PSOs: UAV-only output (no RTs), depth read without write.
 		/// [JP] 透明 PSO: UAV のみ出力（RT なし）、深度読み取りのみ（書き込みなし）。
 		{
-			transparentPixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Model/TransparentModelPS.hlsl"));
+			transparentPixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Model/Transparent/ModelTransparentPS.hlsl"));
 
 			PipelineStateKey psokey{};
 			memset(&psokey, 0, sizeof(psokey));
@@ -255,8 +255,8 @@ namespace SeedCore
 		/// [EN] OIT Resolve PSO: fullscreen, alpha blend onto opaque scene.
 		/// [JP] OIT リゾルブ PSO: フルスクリーン、不透明シーン上にアルファブレンド。
 		{
-			resolveMeshShader_ = shaderCache.GetOrCreateMeshShader(String("../GraphicsEngine/Model/OITResolveMS.hlsl"));
-			resolvePixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Model/OITResolvePS.hlsl"));
+			resolveMeshShader_ = shaderCache.GetOrCreateMeshShader(String("../GraphicsEngine/Model/Transparent/OITResolveMS.hlsl"));
+			resolvePixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Model/Transparent/OITResolvePS.hlsl"));
 
 			PipelineStateKey psokey{};
 			memset(&psokey, 0, sizeof(psokey));
@@ -279,8 +279,8 @@ namespace SeedCore
 		/// [EN] Deferred lighting PSO: fullscreen, reads G-Buffer SRVs, outputs to FrameBuffer.
 		/// [JP] ディファードライティング PSO: フルスクリーン、G-Buffer SRV を読み出しフレームバッファに出力。
 		{
-			compositeMeshShader_ = shaderCache.GetOrCreateMeshShader(String("../GraphicsEngine/Model/DeferredLightingMS.hlsl"));
-			compositePixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Model/DeferredLightingPS.hlsl"));
+			compositeMeshShader_ = shaderCache.GetOrCreateMeshShader(String("../GraphicsEngine/Model/Opaque/DeferredLightingMS.hlsl"));
+			compositePixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Model/Opaque/DeferredLightingPS.hlsl"));
 
 			PipelineStateKey psokey{};
 			memset(&psokey, 0, sizeof(psokey));

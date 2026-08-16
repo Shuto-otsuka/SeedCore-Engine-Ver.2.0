@@ -1,5 +1,5 @@
-#include "Model.hlsli"
-#include "../Shader/Structured.hlsli"
+#include "../Model.hlsli"
+#include "../../Shader/Structured.hlsli"
 
 /**
 * [EN]

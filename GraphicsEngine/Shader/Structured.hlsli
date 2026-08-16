@@ -19,12 +19,21 @@ struct SpriteIndices                      // 1 row
 	uint font_billboard_index_;
 };
 
-struct ModelIndices                       // 1 row
+struct ModelIndices                       // 2 rows
 {
 	uint instance_index_;
 	uint bone_matrix_index_;
 	uint hi_z_index_;
 	uint selection_mask_index_;
+
+	// Shared per-frame morph target weight buffer (see Model.hlsli's
+	// ApplyMorphBlend) - one flat StructuredBuffer<float>, every morphed
+	// instance's weights appended back to back (ModelInstance::
+	// morph_weight_offset_ is that instance's start).
+	uint morph_weight_index_;
+	uint model_padding_0_;
+	uint model_padding_1_;
+	uint model_padding_2_;
 };
 
 struct OitIndices                         // 1 row
@@ -59,7 +68,7 @@ struct MaterialSortIndices                // 1 row
 	uint bucket_index_;
 	// RWStructuredBuffer<uint>[screen_width * screen_height] - MaterialScatterCS.hlsl
 	// writes each pixel's linear coordinate (y * width + x) into its bucket's
-	// slot range; Model/MaterialResolveCS.hlsl is dispatched 1D over this list
+	// slot range; Model/Material/MaterialResolveCS.hlsl is dispatched 1D over this list
 	// instead of raw screen order. Cleared to MATERIAL_SORT_INVALID_PIXEL each frame.
 	uint sorted_pixel_list_index_;
 	uint material_sort_padding_0_;
