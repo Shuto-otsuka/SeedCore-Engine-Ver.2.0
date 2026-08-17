@@ -41,7 +41,9 @@ struct OitIndices                         // 1 row
 	uint head_pointer_index_;
 	uint fragment_buffer_index_;
 	uint counter_index_;
-	uint oit_padding_;
+	// OITFragment elements actually allocated. Supplied by OITBuffer, not
+	// recomputed from screen size - the pool is clamped to a byte budget.
+	uint fragment_capacity_;
 };
 
 struct GBufferIndices                     // 3 rows

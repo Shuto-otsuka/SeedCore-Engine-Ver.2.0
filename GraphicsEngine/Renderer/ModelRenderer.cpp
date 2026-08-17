@@ -219,7 +219,8 @@ namespace SeedCore
 				///      モーフウェイトアニメーションは、このメッシュがスキン
 				///      済みかどうかに関わらずサンプリング済みの Animation を
 				///      必要とするため。
-				Animator* animator = (skins.empty() && !crister->HasMorphs()) ? nullptr : actor->GetComponent<Animator>();
+				Bool hasMorphs = std::any_of(crister->SubMeshes().begin(), crister->SubMeshes().end(), [](const SubMesh& subMesh) { return !subMesh.morphs_.empty(); });
+				Animator* animator = (skins.empty() && !hasMorphs) ? nullptr : actor->GetComponent<Animator>();
 				if (animator)
 				{
 					Int stateIndex = animator->CurrentStateIndex();
@@ -255,7 +256,7 @@ namespace SeedCore
 								std::unordered_map<Int, Vector3> scaleOverrides;
 								animation->SamplePose(sampleTime, translationOverrides, rotationOverrides, scaleOverrides);
 
-								if (crister->HasMorphs())
+								if (std::any_of(crister->SubMeshes().begin(), crister->SubMeshes().end(), [](const SubMesh& subMesh) { return !subMesh.morphs_.empty(); }))
 								{
 									animation->SampleMorphWeights(sampleTime, animatedMorphWeights_[entityID]);
 								}
@@ -590,14 +591,14 @@ namespace SeedCore
 
 					/// [EN] Texture streaming: same worldScale/pixelsPerUnit metric
 					///      as the cluster LOD selection above, applied per material
-					///      texture slot (Crister::DesiredTextureMip). The request
+					///      texture slot (Crister::TextureDesiredMip). The request
 					///      carries the desired mip and MakeTextureMipResident jumps
 					///      straight to it in one upload (not one level per frame);
 					///      TextureBindlessIndex always resolves to whatever is
 					///      currently resident, so there is never a missing SRV.
 					/// [JP] テクスチャストリーミング: 上のクラスタ LOD 選択と同じ
 					///      worldScale/pixelsPerUnit 指標を、マテリアルの各テクスチャ
-					///      スロットに適用する(Crister::DesiredTextureMip)。要求には
+					///      スロットに適用する(Crister::TextureDesiredMip)。要求には
 					///      目標ミップを持たせ、MakeTextureMipResident が1回の
 					///      アップロードで直接そこへ到達する(1フレーム1段ずつではない)。
 					///      TextureBindlessIndex は常にそのとき常駐しているものへ
@@ -608,8 +609,8 @@ namespace SeedCore
 						{
 							return;
 						}
-						Uint32 desiredMip = crister->DesiredTextureMip(materialTextureIndex, worldScale, pixelsPerUnit);
-						if (crister->TextureTopResidentMip(materialTextureIndex) > desiredMip)
+						Uint32 desiredMip = crister->TextureDesiredMip(materialTextureIndex, worldScale, pixelsPerUnit);
+						if (crister->TextureFinestMip(materialTextureIndex) > desiredMip)
 						{
 							textureStreamingRequests_.push_back({ crister, materialTextureIndex, desiredMip });
 						}
@@ -672,7 +673,7 @@ namespace SeedCore
 
 					/// [EN] Raster morph blend (see Model.hlsli's ApplyMorphBlend):
 					///      only valid when the selected cluster references
-					///      the shared LOD 0 pool (Crister::ClusterOwnsVertices'
+					///      the shared LOD 0 pool (Crister::StandaloneVertices'
 					///      comment) — an own-page (streamed-in coarser) LOD
 					///      just renders its frozen bind-pose shape instead,
 					///      by leaving morphTargetCount 0. Routes this
@@ -682,7 +683,7 @@ namespace SeedCore
 					/// [JP] ラスタのモーフブレンド(Model.hlsli の
 					///      ApplyMorphBlend 参照): 選択クラスタが共有 LOD 0
 					///      プールを参照する場合のみ有効(Crister::
-					///      ClusterOwnsVertices のコメント参照) — 自前ページ
+					///      StandaloneVertices のコメント参照) — 自前ページ
 					///      (ストリームイン済みのより粗い)LOD は
 					///      morphTargetCount を 0 のままにして、代わりに
 					///      凍結されたバインドポーズ形状を描画する。この
@@ -697,7 +698,7 @@ namespace SeedCore
 					Uint32 morphTargetCount = 0;
 					Uint32 morphWeightOffset = 0;
 
-					if (!subMesh.morphs_.empty() && !crister->ClusterOwnsVertices(selectedCluster))
+					if (!subMesh.morphs_.empty() && !crister->StandaloneVertices(selectedCluster))
 					{
 						Int ownerNodeIndex = -1;
 						for (Size nodeIndex = 0; nodeIndex < nodes.size(); nodeIndex++)
@@ -795,9 +796,11 @@ namespace SeedCore
 							instanceData.baseColor_ = material.baseColor_;
 							instanceData.metallic_ = material.metallic_;
 							instanceData.roughness_ = material.roughness_;
-							/// [EN] MASK materials clip at the glTF alphaCutoff; others keep a tiny epsilon.
-							/// [JP] MASK マテリアルは glTF の alphaCutoff でクリップ。それ以外は微小値のまま。
-							instanceData.alphaCutoff_ = material.alphaMode_ == 1 ? material.alphaCutoff_ : 0.01f;
+							/// [EN] MASK clips at the glTF alphaCutoff, BLEND at a tiny epsilon.
+							///      OPAQUE must be 0 - glTF ignores the alpha channel entirely there.
+							/// [JP] MASK は glTF の alphaCutoff、BLEND は微小値でクリップ。
+							///      OPAQUE は 0 — glTF ではアルファを完全に無視する規定のため。
+							instanceData.alphaCutoff_ = material.alphaMode_ == 1 ? material.alphaCutoff_ : (material.alphaMode_ == 2 ? 0.01f : 0.0f);
 							instanceData.emissive_ = Vector3(material.emissiveFactor_[0], material.emissiveFactor_[1], material.emissiveFactor_[2]);
 
 							/// [EN] KHR material extensions consumed by the deferred G-Buffer.
@@ -1005,7 +1008,7 @@ namespace SeedCore
 				instanceData.baseColor_ = material.baseColor_;
 				instanceData.metallic_ = material.metallic_;
 				instanceData.roughness_ = material.roughness_;
-				instanceData.alphaCutoff_ = material.alphaMode_ == 1 ? material.alphaCutoff_ : 0.01f;
+				instanceData.alphaCutoff_ = material.alphaMode_ == 1 ? material.alphaCutoff_ : (material.alphaMode_ == 2 ? 0.01f : 0.0f);
 				instanceData.emissive_ = Vector3(material.emissiveFactor_[0], material.emissiveFactor_[1], material.emissiveFactor_[2]);
 
 				instanceData.ior_ = material.khr_.ior_.ior_;
@@ -1114,7 +1117,7 @@ namespace SeedCore
 			{
 				break;
 			}
-			if (request.crister_->TextureTopResidentMip(request.textureIndex_) > request.desiredMip_)
+			if (request.crister_->TextureFinestMip(request.textureIndex_) > request.desiredMip_)
 			{
 				request.crister_->MakeTextureMipResident(request.textureIndex_, request.desiredMip_);
 				request.crister_->TouchTexture(request.textureIndex_, streamingFrame_);
@@ -1361,8 +1364,7 @@ namespace SeedCore
 		oitBuffer_.Clear(cmd);
 		oitBuffer_.Barrier(cmd);
 
-		D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle = geometryBuffer->DepthStencilViewHandle();
-		cmd->OMSetRenderTargets(0, nullptr, FALSE, &dsvHandle);
+		geometryBuffer->BeginDepthOnly(cmdList);
 
 		ID3D12DescriptorHeap* heaps[] = { heap };
 		cmd->SetDescriptorHeaps(_countof(heaps), heaps);

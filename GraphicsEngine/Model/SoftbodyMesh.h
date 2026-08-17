@@ -16,7 +16,7 @@ namespace SeedCore
 	* mesh shader reads). Holds its own small, non-streamed, non-LOD'd
 	* CompressedVertex/Meshlet/vertexIndices/primitiveIndices buffer set —
 	* built once from the bind-pose full-resolution render mesh
-	* (Crister::SoftbodyVertices) — that StaticModelMS.hlsl/
+	* (Crister::SoftbodyFinestVertices) — that StaticModelMS.hlsl/
 	* MaterialResolveCS.hlsl read exactly like any other Crister-owned
 	* instance, because both only ever look at the bindless buffer indices
 	* a ModelInstanceData carries, never at Crister itself.
@@ -24,7 +24,7 @@ namespace SeedCore
 	* Physics does NOT simulate this full-resolution mesh (a mesh
 	* shader-scale vertex/edge count is far past what Jolt's soft body
 	* solver is meant for — see PhysicsSystem::ResolveSoftbodies). Instead
-	* it simulates a much smaller proxy mesh (Crister::SoftbodyProxyVertices
+	* it simulates a much smaller proxy mesh (Crister::SoftbodyCoarsestVertices
 	* — each SubMesh's coarsest cluster). Create() binds every
 	* full-resolution render vertex to its bindMaxWeights_ nearest proxy
 	* vertices (by bind-pose distance, inverse-square-distance weighted),
@@ -45,7 +45,7 @@ namespace SeedCore
 	* 収まる必要がある）。自前の小さな、非ストリーミング・非LODの
 	* CompressedVertex/Meshlet/vertexIndices/primitiveIndices バッファ一式を
 	* 持つ — バインドポーズのフル解像度描画メッシュ
-	* （Crister::SoftbodyVertices）から一度だけ構築する。これは
+	* （Crister::SoftbodyFinestVertices）から一度だけ構築する。これは
 	* StaticModelMS.hlsl/MaterialResolveCS.hlsl から見れば他の
 	* Crister 所有インスタンスと全く同じに読める — どちらも
 	* ModelInstanceData が持つ bindless バッファインデックスしか見ておらず、
@@ -55,7 +55,7 @@ namespace SeedCore
 	* （メッシュシェーダ規模の頂点/辺数は Jolt のソフトボディソルバーが
 	* 想定する規模をはるかに超える — PhysicsSystem::ResolveSoftbodies
 	* 参照）。代わりにずっと小さいプロキシメッシュ
-	* （Crister::SoftbodyProxyVertices — 各 SubMesh の最粗クラスタ）を
+	* （Crister::SoftbodyCoarsestVertices — 各 SubMesh の最粗クラスタ）を
 	* シミュレートする。Create() が全てのフル解像度描画頂点を、最も近い
 	* bindMaxWeights_ 個のプロキシ頂点へ（バインドポーズ距離の逆二乗で
 	* 重み付けして）束縛し、毎 Update() がプロキシのシミュレート済み変位
@@ -79,8 +79,8 @@ namespace SeedCore
 		* [EN]
 		* Builds the (unchanging) render-mesh meshlet topology from the
 		* Crister's full-resolution bind-pose vertices/indices
-		* (Crister::SoftbodyVertices), separately reads its simulation
-		* proxy's bind pose (Crister::SoftbodyProxyVertices) and binds every
+		* (Crister::SoftbodyFinestVertices), separately reads its simulation
+		* proxy's bind pose (Crister::SoftbodyCoarsestVertices) and binds every
 		* render vertex to its nearest proxy vertices, then allocates this
 		* instance's frame-ring GPU buffers. Returns false if the Crister
 		* has no extractable render or proxy geometry.
@@ -89,9 +89,9 @@ namespace SeedCore
 		*
 		* [JP]
 		* Crister のフル解像度バインドポーズ頂点/インデックス
-		* （Crister::SoftbodyVertices）から (不変の)メシュレットトポロジーを
+		* （Crister::SoftbodyFinestVertices）から (不変の)メシュレットトポロジーを
 		* 構築し、別途シミュレーション用プロキシのバインドポーズ
-		* （Crister::SoftbodyProxyVertices）を読んで全描画頂点を最も近い
+		* （Crister::SoftbodyCoarsestVertices）を読んで全描画頂点を最も近い
 		* プロキシ頂点へ束縛した上で、このインスタンスのフレームリング
 		* GPU バッファを確保する。Crister に抽出可能な描画/プロキシ
 		* ジオメトリが無ければ false を返す。
@@ -172,12 +172,12 @@ namespace SeedCore
 		///      再量子化する基準値）。
 		DynamicArray<Vertex> bindPoseVertices_;
 
-		/// [EN] Simulation proxy's bind pose (Crister::SoftbodyProxyVertices)
+		/// [EN] Simulation proxy's bind pose (Crister::SoftbodyCoarsestVertices)
 		///      — only position_ is used, as the reference each Update()
 		///      subtracts the frame's simulated proxy position from to get
 		///      per-proxy-vertex displacement.
 		/// [JP] シミュレーション用プロキシのバインドポーズ
-		///      （Crister::SoftbodyProxyVertices）— position_ のみ使用する。
+		///      （Crister::SoftbodyCoarsestVertices）— position_ のみ使用する。
 		///      毎 Update() でその頂点のシミュレート済み位置から差し引いて
 		///      プロキシ頂点ごとの変位を求める基準値。
 		DynamicArray<Vertex> proxyBindPoseVertices_;

@@ -43,6 +43,7 @@ namespace SeedCore
 		key.rayGenExportName_ = String(rayGenExportName);
 		key.missExportName_ = String(missExportName);
 		key.closestHitExportName_ = String(closestHitExportName);
+		key.anyHitExportName_ = String(anyHitExportName);
 		key.hitGroupName_ = String(hitGroupName);
 		key.maxTraceRecursionDepth_ = 1;
 		key.maxAttributeSizeInBytes_ = 8;

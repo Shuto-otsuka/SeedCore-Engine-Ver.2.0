@@ -2,6 +2,7 @@
 #include "../../Shader/Structured.hlsli"
 #include "../../Shader/Normal.hlsli"
 #include "../../Shader/Noise.hlsli"
+#include "../Reflection/Reflection.hlsli"
 #include "AmbientOcclusion.hlsli"
 
 /**
@@ -78,9 +79,5 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	ray_desc.TMin = 0.001;
 	ray_desc.TMax = tuning.ray_length_;
 
-	RayQuery<RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_FORCE_OPAQUE | RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES> query;
-	query.TraceRayInline(tlas, RAY_FLAG_NONE, 0xFF, ray_desc);
-	query.Proceed();
-
-	raw_openness[pixel] = (query.CommittedStatus() == COMMITTED_TRIANGLE_HIT) ? 0.0 : 1.0;
+	raw_openness[pixel] = IsReflectionRayOccluded(tlas, ray_desc, structured_indices.raytracing_.instance_data_index_) ? 0.0 : 1.0;
 }

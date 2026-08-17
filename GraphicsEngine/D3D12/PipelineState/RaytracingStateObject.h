@@ -17,6 +17,9 @@ namespace SeedCore
 		String rayGenExportName_;
 		String missExportName_;
 		String closestHitExportName_;
+		/// [EN] Optional - empty means a hit group with no any-hit stage.
+		/// [JP] 省略可。空なら any-hit 無しのヒットグループになる。
+		String anyHitExportName_;
 		String hitGroupName_;
 
 		Uint32 maxTraceRecursionDepth_ = 1;

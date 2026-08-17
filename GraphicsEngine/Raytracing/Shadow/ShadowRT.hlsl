@@ -4,6 +4,7 @@
 #include "../../Shader/Normal.hlsli"
 #include "../../Shader/Noise.hlsli"
 #include "../../Light/Cluster.hlsli"
+#include "../Reflection/Reflection.hlsli"
 #include "Shadow.hlsli"
 
 /**
@@ -104,11 +105,7 @@ void main(uint3 dtid : SV_DispatchThreadID)
 			ray_desc.TMin = 0.001;
 			ray_desc.TMax = tuning.ray_t_max_;
 
-			RayQuery<RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_FORCE_OPAQUE | RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES> query;
-			query.TraceRayInline(tlas, RAY_FLAG_NONE, 0xFF, ray_desc);
-			query.Proceed();
-
-			directional_visibility = (query.CommittedStatus() == COMMITTED_TRIANGLE_HIT) ? 0.0 : 1.0;
+			directional_visibility = IsReflectionRayOccluded(tlas, ray_desc, structured_indices.raytracing_.instance_data_index_) ? 0.0 : 1.0;
 		}
 	}
 
@@ -286,11 +283,7 @@ void main(uint3 dtid : SV_DispatchThreadID)
 			ray_desc.TMin = 0.001;
 			ray_desc.TMax = max(distance_to_light - 0.01, 0.001);
 
-			RayQuery<RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_FORCE_OPAQUE | RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES> query;
-			query.TraceRayInline(tlas, RAY_FLAG_NONE, 0xFF, ray_desc);
-			query.Proceed();
-
-			punctual_visibility = (query.CommittedStatus() == COMMITTED_TRIANGLE_HIT) ? 0.0 : 1.0;
+			punctual_visibility = IsReflectionRayOccluded(tlas, ray_desc, structured_indices.raytracing_.instance_data_index_) ? 0.0 : 1.0;
 		}
 	}
 

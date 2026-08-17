@@ -180,9 +180,21 @@ void RefractionRayGeneration()
 		ray_desc.TMin = 0.001;
 		ray_desc.TMax = tuning.ray_t_max_;
 
-		RayQuery<RAY_FLAG_FORCE_OPAQUE | RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES> query;
+		/// [JP] 屈折は最近接ヒットの界面が必要なため、遮蔽判定用の
+		///      IsReflectionRayOccluded ではなく候補ループを直接回す。
+		RayQuery<RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES> query;
 		query.TraceRayInline(tlas, RAY_FLAG_NONE, 0xFF, ray_desc);
-		query.Proceed();
+
+		while (query.Proceed())
+		{
+			if (query.CandidateType() == CANDIDATE_NON_OPAQUE_TRIANGLE)
+			{
+				if (!IsReflectionMaterialPassthrough(structured_indices.raytracing_.instance_data_index_, query.CandidateInstanceID(), query.CandidatePrimitiveIndex(), query.CandidateTriangleBarycentrics()))
+				{
+					query.CommitNonOpaqueTriangleHit();
+				}
+			}
+		}
 
 		if (query.CommittedStatus() != COMMITTED_TRIANGLE_HIT)
 		{

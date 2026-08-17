@@ -35,7 +35,7 @@ void main(uint3 gtid : SV_GroupThreadID, uint3 dtid : SV_DispatchThreadID, uint3
 	uint meshlet_local = gtid.x;
 	bool is_visible = false;
 
-	if (instance.blend_ == 0 && instance.selected_ != 0 && meshlet_local < instance.meshlet_count_)
+	if (instance.selected_ != 0 && meshlet_local < instance.meshlet_count_)
 	{
 		float world_scale = max(max(length(instance.world_[0].xyz), length(instance.world_[1].xyz)), length(instance.world_[2].xyz));
 		if (IsLodSelected(instance.lod_error_, instance.lod_error_next_, instance.world_[3].xyz, world_scale, scene.camera_position_.xyz, scene.projection_._m11, scene.screen_size_.y, 1.0))
@@ -62,11 +62,6 @@ void main(uint3 gtid : SV_GroupThreadID, uint3 dtid : SV_DispatchThreadID, uint3
 			{
 				is_visible = false;
 			}
-		}
-
-		if (is_visible)
-		{
-			is_visible = IsVisibleHiZ(world_center, world_radius, scene, structured_indices.model_.hi_z_index_);
 		}
 		}
 		}

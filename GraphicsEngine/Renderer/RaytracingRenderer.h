@@ -336,7 +336,7 @@ namespace SeedCore
 		///      active SubMeshes' vertex ranges overwritten by
 		///      MorphBlendCS), one per morphed instance per frame-ring
 		///      slot. Feeds SkinnedPositionCS's input in place of
-		///      crister_->RTPositionBufferGPUAddress() when an instance is
+		///      crister_->PositionBufferAddress() when an instance is
 		///      both morphed and skinned (morph composes before skin), and
 		///      feeds morphedBlasCache_'s BLAS build directly when an
 		///      instance is morphed but not skinned.
@@ -345,7 +345,7 @@ namespace SeedCore
 		///      もの)。モーフのあるインスタンスごと・フレームリング
 		///      スロットごとに1つ。インスタンスがモーフとスキンの両方を
 		///      持つ場合(モーフはスキンより前に合成)、
-		///      crister_->RTPositionBufferGPUAddress() の代わりに
+		///      crister_->PositionBufferAddress() の代わりに
 		///      SkinnedPositionCS の入力として使う。モーフのみでスキン無し
 		///      の場合は、直接 morphedBlasCache_ の BLAS 構築に使う。
 		std::unordered_map<EntityID, SkinnedPositionBuffer> morphedPositionBuffers_[FrameRing::frameCount];

@@ -44,6 +44,7 @@ namespace SeedCore
 		static constexpr const Char* rayGenExportName = "ReflectionRayGeneration";
 		static constexpr const Char* missExportName = "ReflectionMiss";
 		static constexpr const Char* closestHitExportName = "ReflectionClosestHit";
+		static constexpr const Char* anyHitExportName = "ReflectionAnyHit";
 		static constexpr const Char* hitGroupName = "ReflectionHitGroup";
 
 	private:

@@ -342,36 +342,36 @@ namespace SeedCore
 		Uint32 vertexCount_ = 0;
 
 		/// [EN] RT proxy's compact vertex range for this SubMesh —
-		///      [rtVertexOffset_, rtVertexOffset_ + rtVertexCount_) into
-		///      Crister::positionResource_/rtMorphDeltaResource_. Runtime-only,
+		///      [raytracingVertexOffset_, raytracingVertexOffset_ + raytracingVertexCount_) into
+		///      Crister::positionResource_/raytracingMorphDeltaResource_. Runtime-only,
 		///      rebuilt every load by Crister::Upload's RT proxy pass — not
 		///      serialized.
 		/// [JP] この SubMesh の RT プロキシにおけるコンパクト頂点範囲 —
-		///      Crister::positionResource_/rtMorphDeltaResource_ 内の
-		///      [rtVertexOffset_, rtVertexOffset_ + rtVertexCount_)。実行時
+		///      Crister::positionResource_/raytracingMorphDeltaResource_ 内の
+		///      [raytracingVertexOffset_, raytracingVertexOffset_ + raytracingVertexCount_)。実行時
 		///      のみで、Crister::Upload の RT プロキシ構築パスで毎回再構築
 		///      される — シリアライズしない。
-		Uint32 rtVertexOffset_ = 0;
-		Uint32 rtVertexCount_ = 0;
+		Uint32 raytracingVertexOffset_ = 0;
+		Uint32 raytracingVertexCount_ = 0;
 
-		/// [EN] Offset (in units of float3) into Crister::rtMorphDeltaResource_
+		/// [EN] Offset (in units of float3) into Crister::raytracingMorphDeltaResource_
 		///      where this SubMesh's target-major delta block starts
-		///      ([target][local rt vertex], rtVertexCount_ deltas per
+		///      ([target][local rt vertex], raytracingVertexCount_ deltas per
 		///      target, morphs_.size() targets), or 0xFFFFFFFF when morphs_
 		///      is empty. Runtime-only, rebuilt every load — not serialized.
-		/// [JP] Crister::rtMorphDeltaResource_ 内で、この SubMesh の
+		/// [JP] Crister::raytracingMorphDeltaResource_ 内で、この SubMesh の
 		///      ターゲット主順デルタブロック([ターゲット][RT ローカル頂点]、
-		///      ターゲットごとに rtVertexCount_ 個、morphs_.size() ターゲット分)
+		///      ターゲットごとに raytracingVertexCount_ 個、morphs_.size() ターゲット分)
 		///      が始まるオフセット(float3 単位)。morphs_ が空なら
 		///      0xFFFFFFFF。実行時のみで、シリアライズしない。
-		Uint32 rtMorphDeltaOffset_ = 0xFFFFFFFFu;
+		Uint32 raytracingMorphDeltaOffset_ = 0xFFFFFFFFu;
 
 		/// [EN] Offset (in units of float3) into Crister::morphDeltaResource_
 		///      where this SubMesh's target-major delta block starts
 		///      ([target][local vertex, i.e. Morph::positionDeltas_'s own
 		///      index], vertexCount_ deltas per target, morphs_.size()
 		///      targets), or 0xFFFFFFFF when morphs_ is empty. Unlike
-		///      rtMorphDeltaOffset_ above, this is baked straight from
+		///      raytracingMorphDeltaOffset_ above, this is baked straight from
 		///      Morph::positionDeltas_ with no RT-proxy compaction — the
 		///      raster path (SkeletalModelMS.hlsl/StaticModelMS.hlsl) reads
 		///      it via Crister::vertexMorphSource_'s per-vertex remap
@@ -383,7 +383,7 @@ namespace SeedCore
 		///      すなわち Morph::positionDeltas_ 自身のインデックス]、
 		///      ターゲットごとに vertexCount_ 個、morphs_.size() ターゲット分)
 		///      が始まるオフセット(float3単位)。morphs_ が空なら
-		///      0xFFFFFFFF。上の rtMorphDeltaOffset_ と違い、RT プロキシの
+		///      0xFFFFFFFF。上の raytracingMorphDeltaOffset_ と違い、RT プロキシの
 		///      圧縮を経ず Morph::positionDeltas_ からそのまま焼き込む —
 		///      ラスタ経路(SkeletalModelMS.hlsl/StaticModelMS.hlsl)は
 		///      Crister::vertexMorphSource_ の頂点ごとの逆引きを介して読む
@@ -1318,20 +1318,20 @@ namespace SeedCore
 		* 不要）。BakeCollision と同じく CPU 常駐配列のみを読む。抽出対象が
 		* 無ければ false を返す。
 		*/
-		[[nodiscard]] Bool SoftbodyVertices(DynamicArray<Vertex>& outVertices, DynamicArray<Uint32>& outIndices)const;
+		[[nodiscard]] Bool SoftbodyFinestVertices(DynamicArray<Vertex>& outVertices, DynamicArray<Uint32>& outIndices)const;
 
 		/**
 		* [EN]
 		* Reads each SubMesh's coarsest cluster (same range BakeCollision's
 		* Proxy detail and the RT proxy geometry use) into a CPU-side
 		* full-vertex/index pair, compacted/deduped into its own local
-		* index space (unlike SoftbodyVertices, which keeps the full LOD 0
+		* index space (unlike SoftbodyFinestVertices, which keeps the full LOD 0
 		* global index space uncompacted). For a Softbody to stay real-time
 		* on a render-resolution mesh (thousands of vertices, one PBD edge/
 		* shear/bend constraint per edge — far past what Jolt's soft body
 		* solver is meant for), simulation runs on this much smaller proxy
 		* mesh instead; SoftbodyMesh binds each render vertex (from
-		* SoftbodyVertices) to its nearest proxy vertices at build time and
+		* SoftbodyFinestVertices) to its nearest proxy vertices at build time and
 		* blends their simulated displacement onto the full-resolution mesh
 		* every frame, so the mesh shader still renders full detail. Not
 		* part of the bake/cache pipeline — called live off the
@@ -1345,19 +1345,19 @@ namespace SeedCore
 		* プロキシジオメトリと同じ範囲）を、CPU 側のフル頂点/インデックス対
 		* へ、自身のローカルインデックス空間に圧縮・重複排除して読み出す
 		* （LOD 0 のグローバルインデックス空間を無加工のまま保つ
-		* SoftbodyVertices とは異なる）。Softbody がレンダー解像度の
+		* SoftbodyFinestVertices とは異なる）。Softbody がレンダー解像度の
 		* メッシュ（数千頂点、辺ごとに PBD の辺/シア/曲げ拘束1つ —
 		* Jolt のソフトボディソルバーが想定する規模をはるかに超える）で
 		* リアルタイムを保つため、シミュレーションはこのずっと小さい
 		* プロキシメッシュ上で行う。SoftbodyMesh がビルド時に各レンダー
-		* 頂点（SoftbodyVertices 由来）を最も近いプロキシ頂点群へ束縛し、
+		* 頂点（SoftbodyFinestVertices 由来）を最も近いプロキシ頂点群へ束縛し、
 		* 毎フレームそのシミュレート済み変位をブレンドしてフル解像度
 		* メッシュへ適用するので、メッシュシェーダは引き続きフル
 		* ディテールで描画する。ベイク/キャッシュパイプラインの一部では
 		* なく、ロード済みの Crister に対してその都度呼び出す。抽出対象が
 		* 無ければ false を返す。
 		*/
-		[[nodiscard]] Bool SoftbodyProxyVertices(DynamicArray<Vertex>& outVertices, DynamicArray<Uint32>& outIndices)const;
+		[[nodiscard]] Bool SoftbodyCoarsestVertices(DynamicArray<Vertex>& outVertices, DynamicArray<Uint32>& outIndices)const;
 
 		/**
 		* [EN]
@@ -1383,6 +1383,55 @@ namespace SeedCore
 		* DecodeModelVertex と同期を保つこと。
 		*/
 		[[nodiscard]] static CompressedVertex EncodeVertex(const Vertex& vertex, const Vector3& positionMin, const Vector3& positionExtent, const Vector2& texcoordMin, const Vector2& texcoordExtent);
+
+		/**
+		* [EN]
+		* Inverse of EncodeVertex: dequantises a CompressedVertex back into a
+		* full-precision Vertex, against this Crister's own quantisation AABBs
+		* (positionMin_/positionExtent_/texcoordMin_/texcoordExtent_) — unlike
+		* EncodeVertex, not static, since every call site decodes this
+		* Crister's own compressedVertices_.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* EncodeVertex の逆。CompressedVertex を、この Crister 自身の量子化
+		* AABB（positionMin_/positionExtent_/texcoordMin_/texcoordExtent_）に
+		* 対してフル精度の Vertex へ逆量子化する。EncodeVertex と異なり
+		* static ではない — どの呼び出し元もこの Crister 自身の
+		* compressedVertices_ をデコードするため。
+		*/
+		[[nodiscard]] Vertex DecodeVertex(const CompressedVertex& compressed)const;
+
+		/**
+		* [EN]
+		* Packs a unit direction into the 16+16-bit octahedral encoding
+		* (Shader/Normal.hlsli::OctNormalEncode's CPU-side counterpart).
+		* Static for the same reason as EncodeVertex: SoftbodyMesh calls this
+		* indirectly via EncodeVertex with its own bounds, not this Crister's.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* 単位方向ベクトルを 16+16bit のオクタヘドラル符号化へ詰める
+		* （Shader/Normal.hlsli::OctNormalEncode の CPU 側対応）。EncodeVertex
+		* と同じ理由で static — SoftbodyMesh が EncodeVertex 経由で、この
+		* Crister とは別の自身の境界を使って間接的に呼ぶため。
+		*/
+		[[nodiscard]] static Uint32 EncodeOctahedralNormal(Vector3 direction);
+
+		/**
+		* [EN]
+		* Inverse of EncodeOctahedralNormal (Shader/Normal.hlsli::OctNormalDecode's
+		* CPU-side counterpart). Not static, matching DecodeVertex.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* EncodeOctahedralNormal の逆（Shader/Normal.hlsli::OctNormalDecode の
+		* CPU 側対応）。DecodeVertex と同じく static ではない。
+		*/
+		[[nodiscard]] Vector3 DecodeOctahedralNormal(Uint32 packed)const;
 
 		/**
 		* [EN]
@@ -1539,25 +1588,6 @@ namespace SeedCore
 
 		/**
 		* [EN]
-		* Whether any SubMesh in this Crister has glTF morph targets
-		* (SubMesh::morphs_ non-empty). Cheap source-data check — unlike
-		* HasMorphedRTGeometry, this does not require the RT proxy to have
-		* been built yet. Used to decide whether sampling this Crister's
-		* animation for morph weights is worth doing at all.
-		*
-		* ---------------------------------------------------------------------
-		*
-		* [JP]
-		* この Crister のいずれかの SubMesh が glTF モーフターゲットを持つか
-		* (SubMesh::morphs_ が空でない)。ソースデータの軽量チェック —
-		* HasMorphedRTGeometry と違い、RT プロキシが構築済みである必要は
-		* ない。この Crister のアニメーションをモーフウェイトのために
-		* サンプリングする価値があるかどうかの判断に使う。
-		*/
-		[[nodiscard]] Bool HasMorphs()const;
-
-		/**
-		* [EN]
 		* Returns every Material (PBR factors + KHR_materials_* extensions +
 		* texture indices) parsed from the source glTF.
 		*
@@ -1691,16 +1721,21 @@ namespace SeedCore
 		* CompressedVertex からメッシュシェーダと同じ計算で CPU デコード
 		* するため、BLAS の位置はラスタライズ結果と一致する。
 		*/
-		[[nodiscard]] D3D12_GPU_VIRTUAL_ADDRESS VertexBufferGPUAddress()const;
+		[[nodiscard]] D3D12_GPU_VIRTUAL_ADDRESS PositionBufferAddress()const;
 
 		/**
 		* [EN]
-		* Vertex count of the RT proxy position buffer VertexBufferGPUAddress() points to.
+		* Vertex count of the RT proxy's compact position/vertex buffers
+		* (positionResource_/vertexResource_) PositionBufferAddress() points
+		* to, i.e. the size a morph-blend scratch position buffer must be
+		* allocated to.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* VertexBufferGPUAddress() が指す RT プロキシ位置バッファの頂点数。
+		* PositionBufferAddress() が指す RT プロキシのコンパクトな位置/
+		* 頂点バッファ(positionResource_/vertexResource_)の頂点数。
+		* モーフブレンド用の一時位置バッファを確保すべきサイズでもある。
 		*/
 		[[nodiscard]] Uint32 VertexCount()const;
 
@@ -1721,18 +1756,18 @@ namespace SeedCore
 		* — BLAS のジオメトリはラスタライズされるジオメトリと完全に一致する
 		* （巻き順を再導出しない）。
 		*/
-		[[nodiscard]] D3D12_GPU_VIRTUAL_ADDRESS FlatTriangleIndexBufferGPUAddress()const;
+		[[nodiscard]] D3D12_GPU_VIRTUAL_ADDRESS IndexBufferAddress()const;
 
 		/**
 		* [EN]
-		* Triangle count of the flat index buffer FlatTriangleIndexBufferGPUAddress() points to.
+		* Triangle count of the flat index buffer IndexBufferAddress() points to.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* FlatTriangleIndexBufferGPUAddress() が指すフラットインデックスバッファの三角形数。
+		* IndexBufferAddress() が指すフラットインデックスバッファの三角形数。
 		*/
-		[[nodiscard]] Uint32 FlatTriangleIndexCount()const;
+		[[nodiscard]] Uint32 IndexCount()const;
 
 
 		/**
@@ -1764,6 +1799,21 @@ namespace SeedCore
 		* ため、フル詳細ジオメトリを常駐させる必要がない）。
 		*/
 		[[nodiscard]] Uint VertexBufferIndex()const;
+
+		/**
+		* [EN]
+		* Bindless SRV over the flat 32-bit triangle index buffer, for
+		* raytracing closesthit shaders to re-fetch the hit triangle's
+		* vertices (PrimitiveIndex() * 3 + 0/1/2 -> vertex index).
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* フラット 32bit 三角形インデックスバッファの bindless SRV。
+		* レイトレの closesthit がヒット三角形の頂点を引き直すのに使う
+		* (PrimitiveIndex() * 3 + 0/1/2 → 頂点インデックス)。
+		*/
+		[[nodiscard]] Uint IndexBufferIndex()const;
 
 		/**
 		* [EN]
@@ -1814,111 +1864,66 @@ namespace SeedCore
 
 		/**
 		* [EN]
-		* Bindless SRV over the flat 32-bit triangle index buffer, for
-		* raytracing closesthit shaders to re-fetch the hit triangle's
-		* vertices (PrimitiveIndex() * 3 + 0/1/2 -> vertex index).
-		*
-		* ---------------------------------------------------------------------
-		*
-		* [JP]
-		* フラット 32bit 三角形インデックスバッファの bindless SRV。
-		* レイトレの closesthit がヒット三角形の頂点を引き直すのに使う
-		* (PrimitiveIndex() * 3 + 0/1/2 → 頂点インデックス)。
-		*/
-		[[nodiscard]] Uint FlatTriangleIndexShaderResourceViewIndex()const;
-
-		/**
-		* [EN]
 		* Whether this Crister has RT-side skinning data (skinVertexResource_/
-		* rtSkinVertexResource_ populated), i.e. skins_ is non-empty and the
+		* raytracingSkinVertexResource_ populated), i.e. skins_ is non-empty and the
 		* RT proxy build found at least one skinned SubMesh.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
 		* この Crister が RT 側のスキニングデータを持つか
-		* (skinVertexResource_/rtSkinVertexResource_ が構築済みか)。
+		* (skinVertexResource_/raytracingSkinVertexResource_ が構築済みか)。
 		* skins_ が空でなく、RT プロキシ構築時にスキンド SubMesh を
 		* 1つ以上見つけた場合に true。
 		*/
-		[[nodiscard]] Bool HasSkinnedRTGeometry()const;
-
-		/**
-		* [EN]
-		* GPU address of the RT proxy's decoded float3 position buffer
-		* (positionResource_) — see VertexBufferGPUAddress's comment for why
-		* RT uses a separate dedicated position buffer.
-		*
-		* ---------------------------------------------------------------------
-		*
-		* [JP]
-		* RT プロキシのデコード済み float3 位置バッファ (positionResource_)
-		* の GPU アドレス — RT が専用の位置バッファを使う理由は
-		* VertexBufferGPUAddress のコメント参照。
-		*/
-		[[nodiscard]] D3D12_GPU_VIRTUAL_ADDRESS RTPositionBufferGPUAddress()const;
+		[[nodiscard]] Bool IsProxySkinned()const;
 
 		/**
 		* [EN]
 		* GPU address of the RT proxy's skin vertex pool
-		* (rtSkinVertexResource_), or 0 when HasSkinnedRTGeometry is false.
+		* (raytracingSkinVertexResource_), or 0 when IsProxySkinned is false.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* RT プロキシのスキン頂点プール (rtSkinVertexResource_) の
-		* GPU アドレス。HasSkinnedRTGeometry が false なら 0。
+		* RT プロキシのスキン頂点プール (raytracingSkinVertexResource_) の
+		* GPU アドレス。IsProxySkinned が false なら 0。
 		*/
-		[[nodiscard]] D3D12_GPU_VIRTUAL_ADDRESS RTSkinVertexBufferGPUAddress()const;
+		[[nodiscard]] D3D12_GPU_VIRTUAL_ADDRESS ProxySkinVertexBufferAddress()const;
 
 		/**
 		* [EN]
 		* Whether this Crister has RT-side morph delta data
-		* (rtMorphDeltaResource_ populated), i.e. at least one SubMesh has
+		* (raytracingMorphDeltaResource_ populated), i.e. at least one SubMesh has
 		* morphs_ and the RT proxy build baked its delta block.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
 		* この Crister が RT 側のモーフデルタデータを持つか
-		* (rtMorphDeltaResource_ が構築済みか)。いずれかの SubMesh が
+		* (raytracingMorphDeltaResource_ が構築済みか)。いずれかの SubMesh が
 		* morphs_ を持ち、RT プロキシ構築時にそのデルタブロックが
 		* 焼き込まれた場合に true。
 		*/
-		[[nodiscard]] Bool HasMorphedRTGeometry()const;
+		[[nodiscard]] Bool IsProxyMorphed()const;
 
 		/**
 		* [EN]
 		* GPU address of the RT proxy's morph delta pool
-		* (rtMorphDeltaResource_), or 0 when HasMorphedRTGeometry is false.
+		* (raytracingMorphDeltaResource_), or 0 when IsProxyMorphed is false.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* RT プロキシのモーフデルタプール (rtMorphDeltaResource_) の
-		* GPU アドレス。HasMorphedRTGeometry が false なら 0。
+		* RT プロキシのモーフデルタプール (raytracingMorphDeltaResource_) の
+		* GPU アドレス。IsProxyMorphed が false なら 0。
 		*/
-		[[nodiscard]] D3D12_GPU_VIRTUAL_ADDRESS RTMorphDeltaBufferGPUAddress()const;
-
-		/**
-		* [EN]
-		* Vertex count of the RT proxy's compact position/vertex buffers
-		* (positionResource_/vertexResource_), i.e. the size a morph-blend
-		* scratch position buffer must be allocated to.
-		*
-		* ---------------------------------------------------------------------
-		*
-		* [JP]
-		* RT プロキシのコンパクトな位置/頂点バッファ
-		* (positionResource_/vertexResource_) の頂点数。モーフブレンド用の
-		* 一時位置バッファを確保すべきサイズでもある。
-		*/
-		[[nodiscard]] Uint32 RTVertexCount()const;
+		[[nodiscard]] D3D12_GPU_VIRTUAL_ADDRESS ProxyMorphDeltaBufferAddress()const;
 
 		/**
 		* [EN]
 		* Copies the RT proxy's base (bind-pose) positions
-		* (positionResource_, RTVertexCount() * sizeof(Vector3) bytes) into
+		* (positionResource_, VertexCount() * sizeof(Vector3) bytes) into
 		* destination, which the caller must have already transitioned to
 		* D3D12_RESOURCE_STATE_COPY_DEST. Used to seed a per-instance morph
 		* blend scratch buffer before MorphBlendCS overwrites only the
@@ -1929,14 +1934,14 @@ namespace SeedCore
 		*
 		* [JP]
 		* RT プロキシのベース(バインドポーズ)位置(positionResource_、
-		* RTVertexCount() * sizeof(Vector3) バイト)を destination へコピー
+		* VertexCount() * sizeof(Vector3) バイト)を destination へコピー
 		* する。呼び出し側は destination を事前に
 		* D3D12_RESOURCE_STATE_COPY_DEST へ遷移させておくこと。今フレーム
 		* 有効なモーフウェイトを持つ SubMesh の頂点範囲だけを MorphBlendCS が
 		* 上書きする前の、インスタンスごとのモーフブレンド用一時バッファの
 		* 種として使う — それ以外の頂点はベース位置のまま保つ必要がある。
 		*/
-		void CopyRTPositionsForMorph(ID3D12GraphicsCommandList* cmdList, ID3D12Resource* destination)const;
+		void CopyMorph(ID3D12GraphicsCommandList* cmdList, ID3D12Resource* destination)const;
 
 		/**
 		* [EN]
@@ -2166,35 +2171,6 @@ namespace SeedCore
 
 		/**
 		* [EN]
-		* Whether this cluster page owns its own vertex slice
-		* (streamingGeometry_[clusterIndex].ownsVertices_) rather than
-		* referencing the shared LOD 0 pool. Own-page vertex indices are
-		* rebased to page-local numbering by MakeClusterResident, so they
-		* are NOT valid indices into Crister::vertexMorphSource_/
-		* morphDeltaResource_ (which use the crister-wide numbering the
-		* shared pool preserves) — callers populating a raster morph
-		* instance must check this and leave morph fields zeroed
-		* (ModelInstanceData::morphTargetCount_ == 0) for any cluster where
-		* this returns true.
-		*
-		* ---------------------------------------------------------------------
-		*
-		* [JP]
-		* このクラスタページが共有 LOD 0 プールを参照するのではなく、
-		* 自前の頂点スライスを持つか
-		* (streamingGeometry_[clusterIndex].ownsVertices_)。自前ページの
-		* 頂点インデックスは MakeClusterResident によってページローカルな
-		* 番号へリベースされるため、Crister::vertexMorphSource_/
-		* morphDeltaResource_(共有プールが保つ Crister 全体の番号付けを使う)
-		* への有効なインデックスでは【ない】— ラスタのモーフ用インスタンス
-		* を組み立てる側はこれを確認し、true が返るクラスタでは
-		* モーフフィールドをゼロのまま
-		* (ModelInstanceData::morphTargetCount_ == 0)にすること。
-		*/
-		[[nodiscard]] Bool ClusterOwnsVertices(Uint32 clusterIndex)const;
-
-		/**
-		* [EN]
 		* Bindless SRV of the cluster page's meshlet buffer.
 		*
 		* ---------------------------------------------------------------------
@@ -2239,16 +2215,32 @@ namespace SeedCore
 
 		/**
 		* [EN]
-		* Total mip levels the texture has (baked mip chain length), or 0
-		* if textureIndex is out of range.
+		* Whether this cluster page owns its own vertex slice
+		* (streamingGeometry_[clusterIndex].ownsVertices_) rather than
+		* referencing the shared LOD 0 pool. Own-page vertex indices are
+		* rebased to page-local numbering by MakeClusterResident, so they
+		* are NOT valid indices into Crister::vertexMorphSource_/
+		* morphDeltaResource_ (which use the crister-wide numbering the
+		* shared pool preserves) — callers populating a raster morph
+		* instance must check this and leave morph fields zeroed
+		* (ModelInstanceData::morphTargetCount_ == 0) for any cluster where
+		* this returns true.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* テクスチャが持つ総ミップ段数（焼き込み済みミップチェーンの長さ）。
-		* textureIndex が範囲外なら 0。
+		* このクラスタページが共有 LOD 0 プールを参照するのではなく、
+		* 自前の頂点スライスを持つか
+		* (streamingGeometry_[clusterIndex].ownsVertices_)。自前ページの
+		* 頂点インデックスは MakeClusterResident によってページローカルな
+		* 番号へリベースされるため、Crister::vertexMorphSource_/
+		* morphDeltaResource_(共有プールが保つ Crister 全体の番号付けを使う)
+		* への有効なインデックスでは【ない】— ラスタのモーフ用インスタンス
+		* を組み立てる側はこれを確認し、true が返るクラスタでは
+		* モーフフィールドをゼロのまま
+		* (ModelInstanceData::morphTargetCount_ == 0)にすること。
 		*/
-		[[nodiscard]] Uint32 TextureMipCount(Uint32 textureIndex)const;
+		[[nodiscard]] Bool StandaloneVertices(Uint32 clusterIndex)const;
 
 		/**
 		* [EN]
@@ -2261,7 +2253,7 @@ namespace SeedCore
 		* 現在 GPU に常駐している最も細かいミップ段。textureIndex が範囲外
 		* なら 0。
 		*/
-		[[nodiscard]] Uint32 TextureTopResidentMip(Uint32 textureIndex)const;
+		[[nodiscard]] Uint32 TextureFinestMip(Uint32 textureIndex)const;
 
 		/**
 		* [EN]
@@ -2276,7 +2268,7 @@ namespace SeedCore
 		* worldScale/pixelsPerUnit（インスタンスの画面被覆率）から、
 		* マテリアルテクスチャに必要なミップを近似する。
 		*/
-		[[nodiscard]] Uint32 DesiredTextureMip(Uint32 textureIndex, Float worldScale, Float pixelsPerUnit)const;
+		[[nodiscard]] Uint32 TextureDesiredMip(Uint32 textureIndex, Float worldScale, Float pixelsPerUnit)const;
 
 	private:
 		/**
@@ -2357,6 +2349,137 @@ namespace SeedCore
 
 		/**
 		* [EN]
+		* Dequantises just the position field of a CompressedVertex, against
+		* this Crister's own positionMin_/positionExtent_. A separate function
+		* from DecodeVertex because some callers only need position (deduping
+		* by position, or building a position-only buffer) and would otherwise
+		* pay for decoding normal/tangent/texcoord they never use.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* CompressedVertex の position フィールドだけを、この Crister 自身の
+		* positionMin_/positionExtent_ に対して逆量子化する。DecodeVertex とは
+		* 別関数にしてあるのは、呼び出し元の一部が position だけを必要とする
+		* （position で重複排除する、position だけのバッファを作る）ため —
+		* そうしないと使わない normal/tangent/texcoord のデコードまで払うことになる。
+		*/
+		[[nodiscard]] Vector3 DecodePosition(const CompressedVertex& compressed)const;
+
+		/**
+		* [EN]
+		* Dequantises just the texcoord field of a CompressedVertex, against
+		* this Crister's own texcoordMin_/texcoordExtent_.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* CompressedVertex の texcoord フィールドだけを、この Crister 自身の
+		* texcoordMin_/texcoordExtent_ に対して逆量子化する。
+		*/
+		[[nodiscard]] Vector2 DecodeTexcoord(const CompressedVertex& compressed)const;
+
+		/**
+		* [EN]
+		* Dequantises just the tangent field (xyz direction + handedness sign
+		* in .w) of a CompressedVertex.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* CompressedVertex の tangent フィールド（xyz 方向 + .w の利き手符号）
+		* だけを逆量子化する。
+		*/
+		[[nodiscard]] Vector4 DecodeTangent(const CompressedVertex& compressed)const;
+
+		/**
+		* [EN]
+		* Dequantises the joint indices and renormalised weights of a
+		* CompressedSkinVertex. Weights are renormalised because four 8-bit
+		* UNORM values rarely sum to exactly one.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* CompressedSkinVertex のジョイントインデックスと再正規化済み
+		* ウェイトを逆量子化する。4つの 8bit UNORM 値は合計がちょうど1に
+		* なることが稀なため再正規化する。
+		*/
+		void DecodeSkin(const CompressedSkinVertex& compressed, XmUint4& outJoints, Vector4& outWeights)const;
+
+		/**
+		* [EN]
+		* Change-of-basis for a position: transforms vector in place by basis.
+		* Duplicates ModelLoader's ConvertPositionByBasis (private to
+		* ModelLoader) so ApplyAxisConversion can re-convert without a
+		* ModelLoader/glTF re-parse.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* 位置の基底変換。vector を basis でその場変換する。ModelLoader の
+		* ConvertPositionByBasis（ModelLoader 限定 private）を複製し、
+		* ApplyAxisConversion が ModelLoader/glTF 再解析無しに再変換できる
+		* ようにする。
+		*/
+		void ConvertPositionByBasis(Vector3& vector, const Matrix& basis)const;
+
+		/**
+		* [EN]
+		* Change-of-basis for a rotation: transforms quaternion in place by basis.
+		* Duplicates ModelLoader's ConvertRotationByBasis (private to ModelLoader).
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* 回転の基底変換。quaternion を basis でその場変換する。ModelLoader の
+		* ConvertRotationByBasis（ModelLoader 限定 private）を複製する。
+		*/
+		void ConvertRotationByBasis(Quaternion& quaternion, const Matrix& basis)const;
+
+		/**
+		* [EN]
+		* Change-of-basis for a matrix: transforms matrix in place by basis.
+		* Duplicates ModelLoader's ConvertMatrixByBasis (private to ModelLoader).
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* 行列の基底変換。matrix を basis でその場変換する。ModelLoader の
+		* ConvertMatrixByBasis（ModelLoader 限定 private）を複製する。
+		*/
+		void ConvertMatrixByBasis(Matrix& matrix, const Matrix& basis)const;
+
+		/**
+		* [EN]
+		* Quantises a [0,1] float to a 16-bit UNORM, clamping out-of-range
+		* input first. Shared by EncodeVertex (position/texcoord) and
+		* EncodeOctahedralNormal.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* [0,1] の float を 16bit UNORM へ量子化する。範囲外の入力は先に
+		* クランプする。EncodeVertex（position/texcoord）と
+		* EncodeOctahedralNormal が共有する。
+		*/
+		[[nodiscard]] static Uint32 QuantizeUnorm16(Float value01);
+
+		/**
+		* [EN]
+		* Quantises a [0,1] float to an 8-bit UNORM, clamping out-of-range
+		* input first. Used by BakeMesh for skin weights.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* [0,1] の float を 8bit UNORM へ量子化する。範囲外の入力は先に
+		* クランプする。BakeMesh がスキンウェイトに使う。
+		*/
+		[[nodiscard]] static Uint32 QuantizeUnorm8(Float value01);
+
+		/**
+		* [EN]
 		* One streamable GPU page: a Cluster's rebased slice of geometry.
 		* Offsets stored in the page's meshlets are page-local; LOD>=1
 		* pages own their vertex slice, LOD 0 pages reference the shared
@@ -2433,7 +2556,7 @@ namespace SeedCore
 		* never need to stay resident — only the currently sampled one.
 		* (Keeping the whole [topResidentMip_, mipCount_-1] range resident,
 		* as an earlier version of this did, multiplies bindless-heap and
-		* VRAM usage by up to mipCount_ per texture once DesiredTextureMip
+		* VRAM usage by up to mipCount_ per texture once TextureDesiredMip
 		* legitimately converges toward mip 0 — exhausted the shared
 		* BindlessHeap and corrupted other textures' descriptors. Do not
 		* go back to that shape without also capping resident mips.)
@@ -2450,7 +2573,7 @@ namespace SeedCore
 		* うち細かい方を返すため、中間ミップを常駐させ続ける必要はなく、
 		* 実際にサンプルされる1枚だけで済む。
 		* (以前のバージョンのように [topResidentMip_, mipCount_-1] を丸ごと
-		* 常駐させ続けると、DesiredTextureMip が正しくミップ0へ収束する
+		* 常駐させ続けると、TextureDesiredMip が正しくミップ0へ収束する
 		* ようになった途端、1テクスチャあたり最大 mipCount_ 個分の
 		* bindless ヒープ/VRAM を消費し、共有 BindlessHeap を枯渇させて
 		* 他テクスチャのディスクリプタまで壊れた。常駐ミップ数を制限せずに
@@ -2479,20 +2602,20 @@ namespace SeedCore
 		Microsoft::WRL::ComPtr<ID3D12Resource> vertexResource_;
 		Microsoft::WRL::ComPtr<ID3D12Resource> positionResource_;
 		Microsoft::WRL::ComPtr<ID3D12Resource> skinVertexResource_;
-		Microsoft::WRL::ComPtr<ID3D12Resource> flatTriangleIndexResource_;
+		Microsoft::WRL::ComPtr<ID3D12Resource> indexResource_;
 
-		Microsoft::WRL::ComPtr<ID3D12Resource> rtSkinVertexResource_;
+		Microsoft::WRL::ComPtr<ID3D12Resource> raytracingSkinVertexResource_;
 
 		/// [EN] Flat float3 morph-target delta pool for the RT proxy, target-
 		///      major within each SubMesh's compact vertex range (see
-		///      SubMesh::rtMorphDeltaOffset_/rtVertexOffset_/rtVertexCount_).
+		///      SubMesh::raytracingMorphDeltaOffset_/raytracingVertexOffset_/raytracingVertexCount_).
 		///      Only allocated when at least one SubMesh has morphs_.
 		/// [JP] RT プロキシ用のフラットな float3 モーフターゲットデルタ
 		///      プール。各 SubMesh のコンパクト頂点範囲内でターゲット主順
-		///      (SubMesh::rtMorphDeltaOffset_/rtVertexOffset_/
-		///      rtVertexCount_ 参照)。いずれかの SubMesh が morphs_ を
+		///      (SubMesh::raytracingMorphDeltaOffset_/raytracingVertexOffset_/
+		///      raytracingVertexCount_ 参照)。いずれかの SubMesh が morphs_ を
 		///      持つ場合のみ確保される。
-		Microsoft::WRL::ComPtr<ID3D12Resource> rtMorphDeltaResource_;
+		Microsoft::WRL::ComPtr<ID3D12Resource> raytracingMorphDeltaResource_;
 
 		/// [EN] Raster-side morph support, bindless-registered (pulled via
 		///      ResourceDescriptorHeap[...] from SkeletalModelMS.hlsl/
@@ -2526,9 +2649,9 @@ namespace SeedCore
 
 		Uint vertexBufferIndex_ = 0xFFFFFFFF;
 		Uint skinVertexBufferIndex_ = 0xFFFFFFFF;
-		Uint flatTriangleIndexShaderResourceViewIndex_ = 0;
-		Uint32 flatTriangleIndexCount_ = 0;
-		Uint32 rtVertexCount_ = 0;
+		Uint indexBufferIndex_ = 0;
+		Uint32 triangleIndexCount_ = 0;
+		Uint32 proxyVertexCount_ = 0;
 
 		/// [EN] Shared LOD 0 vertex pool page (referenced by LOD 0 cluster pages).
 		/// [JP] 共有 LOD 0 頂点プールページ（LOD 0 クラスタページが参照する）。

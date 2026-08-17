@@ -140,7 +140,7 @@ void ReflectionRayGeneration()
 		payload.hit_distance_ = 0.0;
 
 		// 最近接ヒットが要るので first-hit 打ち切りフラグは付けない。
-		TraceRay(tlas, RAY_FLAG_FORCE_OPAQUE | RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES, 0xFF, 0, 0, 0, ray_desc, payload);
+		TraceRay(tlas, RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES, 0xFF, 0, 0, 0, ray_desc, payload);
 
 		radiance_sum += payload.radiance_;
 		hit_distance_sum += payload.hit_distance_;
@@ -199,6 +199,15 @@ void ReflectionMiss(inout ReflectionPayload payload)
 		}
 	}
 	payload.hit_distance_ = 100000.0;
+}
+
+[shader("anyhit")]
+void ReflectionAnyHit(inout ReflectionPayload payload, in BuiltInTriangleIntersectionAttributes attributes)
+{
+	if (IsReflectionMaterialPassthrough(structured_indices.raytracing_.instance_data_index_, InstanceID(), PrimitiveIndex(), attributes.barycentrics))
+	{
+		IgnoreHit();
+	}
 }
 
 [shader("closesthit")]
@@ -289,11 +298,7 @@ void ReflectionClosestHit(inout ReflectionPayload payload, in BuiltInTriangleInt
 			shadow_ray.TMin = 0.001;
 			shadow_ray.TMax = tuning.ray_t_max_;
 
-			RayQuery<RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_FORCE_OPAQUE | RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES> shadow_query;
-			shadow_query.TraceRayInline(tlas, RAY_FLAG_NONE, 0xFF, shadow_ray);
-			shadow_query.Proceed();
-
-			if (shadow_query.CommittedStatus() == COMMITTED_TRIANGLE_HIT)
+			if (IsReflectionRayOccluded(tlas, shadow_ray, structured_indices.raytracing_.instance_data_index_))
 			{
 				sun_visibility = 0.0;
 			}

@@ -49,11 +49,18 @@ namespace SeedCore
 			device->CreateUnorderedAccessView(headPointerTexture_.Get(), nullptr, &unorderedAccessViewDesc, clearHeap_.CPUHandle(clearHeadPointerIndex_));
 		}
 
-		/// [EN] Fragment Buffer: RWStructuredBuffer, width * height * maxLayers elements.
-		/// [JP] フラグメントバッファ: RWStructuredBuffer、width * height * maxLayers 要素。
+		/// [EN] Fragment Buffer: RWStructuredBuffer, width * height * poolLayers
+		///      elements, capped at poolByteBudget_.
+		/// [JP] フラグメントバッファ: RWStructuredBuffer、width * height *
+		///      poolLayers 要素（poolByteBudget_ で上限クランプ）。
 		{
-			static constexpr Uint fragmentStride = 12;
-			Uint64 fragmentCount = static_cast<Uint64>(width) * height * maxLayers_;
+			static constexpr Uint fragmentStride = 16;
+			Uint64 fragmentCount = static_cast<Uint64>(width) * height * poolLayers_;
+			Uint64 budgetFragmentCount = poolByteBudget_ / fragmentStride;
+			if (fragmentCount > budgetFragmentCount)
+			{
+				fragmentCount = budgetFragmentCount;
+			}
 			Uint64 bufferSize = fragmentCount * fragmentStride;
 
 			D3D12_RESOURCE_DESC resourceDesc{};
@@ -85,6 +92,8 @@ namespace SeedCore
 			unorderedAccessViewDesc.Buffer.CounterOffsetInBytes = 0;
 			unorderedAccessViewDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
 			device->CreateUnorderedAccessView(fragmentBuffer_.Get(), nullptr, &unorderedAccessViewDesc, bindlessHeap->CPUHandle(fragmentBufferUAVIndex_));
+
+			fragmentCapacity_ = static_cast<Uint>(fragmentCount);
 		}
 
 		/// [EN] Counter Buffer: RWByteAddressBuffer, 4 bytes.
@@ -127,6 +136,7 @@ namespace SeedCore
 		indicesSystem.SetOITHeadPointerIndex(headPointerUAVIndex_);
 		indicesSystem.SetOITFragmentBufferIndex(fragmentBufferUAVIndex_);
 		indicesSystem.SetOITCounterIndex(counterUAVIndex_);
+		indicesSystem.SetOITFragmentCapacity(fragmentCapacity_);
 	}
 
 	void OITBuffer::Destroy(BindlessHeap* bindlessHeap)

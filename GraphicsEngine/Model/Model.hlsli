@@ -307,6 +307,7 @@ void UnpackVisibilityID(uint2 packed, out uint instance_index, out uint meshlet_
 }
 
 #define OIT_MAX_LAYERS 8
+#define OIT_MAX_WALK 32
 #define OIT_INVALID_INDEX 0xFFFFFFFF
 
 // VisibilityBuffer material sort: pixels are bucketed by (instance_index %
@@ -320,9 +321,11 @@ void UnpackVisibilityID(uint2 packed, out uint instance_index, out uint meshlet_
 #define MATERIAL_SORT_BUCKET_COUNT 1024
 #define MATERIAL_SORT_INVALID_PIXEL 0xFFFFFFFF
 
+// 16 bytes - must match the fragmentStride in Model/Transparent/OITBuffer.cpp.
 struct OITFragment
 {
-	uint packed_color_;
+	uint packed_color_rg_;
+	uint packed_color_ba_;
 	float depth_;
 	uint next_;
 };
@@ -332,22 +335,20 @@ struct OITResolveOutput
 	float4 position : SV_Position;
 };
 
-uint PackColorRGBA8(float4 color)
+uint2 PackColorHalf4(float4 color)
 {
-	return uint(saturate(color.r) * 255.0) |
-		  (uint(saturate(color.g) * 255.0) << 8) |
-		  (uint(saturate(color.b) * 255.0) << 16) |
-		  (uint(saturate(color.a) * 255.0) << 24);
+	return uint2(
+		f32tof16(color.r) | (f32tof16(color.g) << 16),
+		f32tof16(color.b) | (f32tof16(color.a) << 16));
 }
 
-float4 UnpackColorRGBA8(uint packed)
+float4 UnpackColorHalf4(uint2 packed)
 {
 	return float4(
-		float(packed & 0xFF) / 255.0,
-		float((packed >> 8) & 0xFF) / 255.0,
-		float((packed >> 16) & 0xFF) / 255.0,
-		float((packed >> 24) & 0xFF) / 255.0
-	);
+		f16tof32(packed.x & 0xFFFF),
+		f16tof32(packed.x >> 16),
+		f16tof32(packed.y & 0xFFFF),
+		f16tof32(packed.y >> 16));
 }
 
 // Per-pixel surface rebuilt from a VisibilityBuffer-style

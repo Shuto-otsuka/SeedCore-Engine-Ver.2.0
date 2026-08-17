@@ -52,6 +52,7 @@ namespace SeedCore
 		static constexpr const Char* rayGenExportName = "GlobalIlluminationRayGeneration";
 		static constexpr const Char* missExportName = "GlobalIlluminationMiss";
 		static constexpr const Char* closestHitExportName = "GlobalIlluminationClosestHit";
+		static constexpr const Char* anyHitExportName = "GlobalIlluminationAnyHit";
 		static constexpr const Char* hitGroupName = "GlobalIlluminationHitGroup";
 
 	private:

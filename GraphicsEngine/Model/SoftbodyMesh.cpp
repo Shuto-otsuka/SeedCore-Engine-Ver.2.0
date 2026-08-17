@@ -195,13 +195,13 @@ namespace SeedCore
 	Bool SoftbodyMesh::Create(ID3D12Device* device, BindlessHeap* bindlessHeap, const Crister& crister)
 	{
 		DynamicArray<Uint32> indices;
-		if (!crister.SoftbodyVertices(bindPoseVertices_, indices))
+		if (!crister.SoftbodyFinestVertices(bindPoseVertices_, indices))
 		{
 			return false;
 		}
 
 		DynamicArray<Uint32> proxyIndices;
-		if (!crister.SoftbodyProxyVertices(proxyBindPoseVertices_, proxyIndices))
+		if (!crister.SoftbodyCoarsestVertices(proxyBindPoseVertices_, proxyIndices))
 		{
 			return false;
 		}

@@ -88,6 +88,17 @@ namespace SeedCore
 		Float transmissionFactor_ = 0.0f;
 		Float volumeAttenuationColor_[3] = { 1.0f, 1.0f, 1.0f };
 		Float volumeAttenuationDistance_ = FLT_MAX;
+
+		/// [EN] glTF alphaMode (0 OPAQUE / 1 MASK / 2 BLEND), alphaCutoff and
+		///      baseColorFactor.a - read by Reflection.hlsli's
+		///      IsReflectionMaterialPassthrough.
+		/// [JP] glTF の alphaMode(0 OPAQUE / 1 MASK / 2 BLEND)、alphaCutoff、
+		///      baseColorFactor.a — Reflection.hlsli の
+		///      IsReflectionMaterialPassthrough が読む。
+		Uint32 alphaMode_ = 0;
+		Float alphaCutoff_ = 0.5f;
+		Float baseColorAlpha_ = 1.0f;
+		Float materialPadding_ = 0.0f;
 	};
 
 	/// [EN] Mirrors Reflection.hlsli's ReflectionInstanceData — one entry per

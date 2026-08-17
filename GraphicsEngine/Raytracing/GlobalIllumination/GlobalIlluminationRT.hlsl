@@ -6,6 +6,7 @@
 #include "../../Shader/Sampler.hlsli"
 #include "../../Light/ImageBasedLighting.hlsli"
 #include "../VolumetricCloudScapes/VolumetricCloudScapes.hlsli"
+#include "../Reflection/Reflection.hlsli"
 #include "GlobalIllumination.hlsli"
 
 /**
@@ -75,7 +76,7 @@ void GlobalIlluminationRayGeneration()
 	payload.hit_distance_ = 0.0;
 
 	// 最近接ヒットの面を再ライティングするので first-hit 打ち切りは付けない。
-	TraceRay(tlas, RAY_FLAG_FORCE_OPAQUE | RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES, 0xFF, 0, 0, 0, ray_desc, payload);
+	TraceRay(tlas, RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES, 0xFF, 0, 0, 0, ray_desc, payload);
 
 	/// [JP] モンテカルロ推定量の正規化について。
 	///      拡散の反射方程式は Lo = ∫ (albedo/PI) * Li * cos dω。
@@ -120,6 +121,15 @@ void GlobalIlluminationMiss(inout GlobalIlluminationPayload payload)
 	}
 
 	payload.hit_distance_ = 100000.0;
+}
+
+[shader("anyhit")]
+void GlobalIlluminationAnyHit(inout GlobalIlluminationPayload payload, in BuiltInTriangleIntersectionAttributes attributes)
+{
+	if (IsReflectionMaterialPassthrough(structured_indices.raytracing_.instance_data_index_, InstanceID(), PrimitiveIndex(), attributes.barycentrics))
+	{
+		IgnoreHit();
+	}
 }
 
 [shader("closesthit")]
@@ -208,11 +218,7 @@ void GlobalIlluminationClosestHit(inout GlobalIlluminationPayload payload, in Bu
 			shadow_ray.TMin = 0.001;
 			shadow_ray.TMax = tuning.ray_t_max_;
 
-			RayQuery<RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_FORCE_OPAQUE | RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES> shadow_query;
-			shadow_query.TraceRayInline(tlas, RAY_FLAG_NONE, 0xFF, shadow_ray);
-			shadow_query.Proceed();
-
-			if (shadow_query.CommittedStatus() == COMMITTED_TRIANGLE_HIT)
+			if (IsReflectionRayOccluded(tlas, shadow_ray, structured_indices.raytracing_.instance_data_index_))
 			{
 				sun_visibility = 0.0;
 			}

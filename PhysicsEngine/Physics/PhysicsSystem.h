@@ -70,7 +70,7 @@ namespace SeedCore
 		///      component's meshID_ and, once that Model asset is loaded
 		///      (via ResourceCache::GetModelResource), resolves it to a
 		///      Crister and builds the Jolt soft body right there — off the
-		///      coarsest cluster (Crister::SoftbodyProxyVertices), not the
+		///      coarsest cluster (Crister::SoftbodyCoarsestVertices), not the
 		///      full render-resolution mesh, since a mesh shader-scale
 		///      vertex/edge count is far past what Jolt's soft body solver
 		///      is meant for. SoftbodyMesh binds this proxy back onto the
@@ -87,7 +87,7 @@ namespace SeedCore
 		///      ロード済み（ResourceCache::GetModelResource 経由）になった
 		///      時点でその場で Crister へ解決し Jolt のソフトボディを構築
 		///      する — フル解像度の描画メッシュではなく最粗クラスタ
-		///      （Crister::SoftbodyProxyVertices）から。メッシュシェーダ
+		///      （Crister::SoftbodyCoarsestVertices）から。メッシュシェーダ
 		///      規模の頂点/辺数は Jolt のソフトボディソルバーが想定する
 		///      規模をはるかに超えるため。SoftbodyMesh がこのプロキシを
 		///      フル解像度の描画メッシュへ束縛し直す（クラスコメント

@@ -3,6 +3,7 @@
 
 #include "../../Shader/Normal.hlsli"
 #include "../../Shader/Constants.hlsli"
+#include "../../Shader/Sampler.hlsli"
 #include "../../Shader/Light.hlsli"
 #include "../../Light/Cluster.hlsli"
 
@@ -48,6 +49,12 @@ struct ReflectionMaterialData
 	float transmission_factor_;
 	float3 volume_attenuation_color_;
 	float volume_attenuation_distance_;
+
+	// glTF alphaMode in the loader's encoding: 0 OPAQUE, 1 MASK, 2 BLEND.
+	uint alpha_mode_;
+	float alpha_cutoff_;
+	float base_color_alpha_;
+	float material_padding_;
 };
 
 // One entry per TLAS instance, indexed by InstanceID() in the closesthit
@@ -125,6 +132,79 @@ float2 DecodeReflectionVertexTexcoord(ReflectionVertex vertex, float2 texcoord_m
 {
 	float2 texcoord01 = float2(vertex.position_z_texu_ >> 16, vertex.texv_tangent_ & 0xFFFF) / 65535.0;
 	return texcoord_min + texcoord01 * texcoord_extent;
+}
+
+// True when a ray should pass THROUGH this candidate triangle: OPAQUE always
+// blocks, MASK blocks only where base color alpha reaches alphaCutoff, BLEND
+// never blocks (the PPLL in Model/Transparent draws those surfaces instead).
+// Only reached on meshes declared non-opaque by Crister::HasNonOpaqueMaterial.
+// instance_data_index is structured_indices.raytracing_.instance_data_index_,
+// passed in so this header needs no extra includes.
+bool IsReflectionMaterialPassthrough(uint instance_data_index, uint instance_id, uint primitive_index, float2 barycentrics)
+{
+	StructuredBuffer<ReflectionInstanceData> instances = ResourceDescriptorHeap[instance_data_index];
+	ReflectionInstanceData instance = instances[instance_id];
+
+	ReflectionMaterialData material = ResolveReflectionMaterial(instance, primitive_index);
+
+	if (material.alpha_mode_ == 0)
+	{
+		return false;
+	}
+
+	if (material.alpha_mode_ == 2)
+	{
+		return true;
+	}
+
+	float alpha = material.base_color_alpha_;
+
+	if (material.base_color_texture_index_ != 0xFFFFFFFF)
+	{
+		StructuredBuffer<uint> triangle_indices = ResourceDescriptorHeap[instance.index_buffer_index_];
+		StructuredBuffer<ReflectionVertex> vertices = ResourceDescriptorHeap[instance.vertex_buffer_index_];
+
+		uint base_index = primitive_index * 3;
+		ReflectionVertex vertex0 = vertices[triangle_indices[base_index + 0]];
+		ReflectionVertex vertex1 = vertices[triangle_indices[base_index + 1]];
+		ReflectionVertex vertex2 = vertices[triangle_indices[base_index + 2]];
+
+		float weight0 = 1.0 - barycentrics.x - barycentrics.y;
+		float weight1 = barycentrics.x;
+		float weight2 = barycentrics.y;
+
+		float2 texcoord =
+			DecodeReflectionVertexTexcoord(vertex0, instance.texcoord_min_, instance.texcoord_extent_) * weight0 +
+			DecodeReflectionVertexTexcoord(vertex1, instance.texcoord_min_, instance.texcoord_extent_) * weight1 +
+			DecodeReflectionVertexTexcoord(vertex2, instance.texcoord_min_, instance.texcoord_extent_) * weight2;
+
+		Texture2D<float4> base_color_texture = ResourceDescriptorHeap[material.base_color_texture_index_];
+		alpha *= base_color_texture.SampleLevel(sampler_linear_wrap, texcoord, 0).a;
+	}
+
+	return alpha < material.alpha_cutoff_;
+}
+
+// Occlusion query with the alpha test above applied per candidate hit. Inline
+// raytracing has no any-hit stage, so the candidate loop is the only place a
+// RayQuery can run it.
+bool IsReflectionRayOccluded(RaytracingAccelerationStructure tlas, RayDesc ray_desc, uint instance_data_index)
+{
+	RayQuery<RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES> query;
+	query.TraceRayInline(tlas, RAY_FLAG_NONE, 0xFF, ray_desc);
+
+	while (query.Proceed())
+	{
+		if (query.CandidateType() == CANDIDATE_NON_OPAQUE_TRIANGLE)
+		{
+			if (!IsReflectionMaterialPassthrough(instance_data_index, query.CandidateInstanceID(), query.CandidatePrimitiveIndex(), query.CandidateTriangleBarycentrics()))
+			{
+				query.CommitNonOpaqueTriangleHit();
+			}
+		}
+	}
+
+	return query.CommittedStatus() == COMMITTED_TRIANGLE_HIT;
 }
 
 // Sums the Lambertian contribution of every point/spot/rect light in the hit

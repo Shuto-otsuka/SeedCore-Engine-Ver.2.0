@@ -4,19 +4,18 @@
 /**
 * [EN]
 * OIT Resolve Pixel Shader.
-* Walks the Per-Pixel Linked List for the current pixel, collects
-* up to OIT_MAX_LAYERS (4) fragments, sorts them front-to-back by
-* depth, then blends back-to-front to produce the final transparent
-* color with alpha. The output is composited over the opaque scene
-* via alpha blending in the PSO.
+* Walks the Per-Pixel Linked List for the current pixel, keeps the nearest
+* OIT_MAX_LAYERS fragments, sorts them by depth, then blends back-to-front
+* to produce the final transparent color with alpha. The output is
+* composited over the opaque scene via alpha blending in the PSO.
 *
 * ---------------------------------------------------------------------
 *
 * [JP]
 * OIT リゾルブ ピクセルシェーダー。
-* 現在のピクセルの Per-Pixel Linked List を走査し、最大 OIT_MAX_LAYERS (4)
-* フラグメントを収集、深度でフロントからバックにソートした後、
-* バックからフロントにブレンドして最終的な透明色 + アルファを出力する。
+* 現在のピクセルの Per-Pixel Linked List を走査し、最も手前の
+* OIT_MAX_LAYERS 枚を残して深度でソートした後、奥から手前へブレンドして
+* 最終的な透明色 + アルファを出力する。
 * 出力は PSO のアルファブレンドで不透明シーン上に合成される。
 */
 float4 main(OITResolveOutput input) : SV_Target0
@@ -35,12 +34,36 @@ float4 main(OITResolveOutput input) : SV_Target0
 	OITFragment fragments[OIT_MAX_LAYERS];
 	uint count = 0;
 
-	[unroll(OIT_MAX_LAYERS)]
-	while (index != OIT_INVALID_INDEX && count < OIT_MAX_LAYERS)
+	/// [JP] フラグメントはラスタライズ順に先頭へ繋がれるため、単純に打ち切ると
+	///      最後に書かれた分が残り、層の深いピクセルがフレームごとにちらつく。
+	///      OIT_MAX_WALK 件まで辿って最も奥のものを追い出し、常に最も手前の
+	///      OIT_MAX_LAYERS 枚を残す。
+	[loop]
+	for (uint walk = 0; walk < OIT_MAX_WALK && index != OIT_INVALID_INDEX; walk++)
 	{
-		fragments[count] = fragment_buffer[index];
-		index = fragments[count].next_;
-		count++;
+		OITFragment fragment = fragment_buffer[index];
+		index = fragment.next_;
+
+		if (count < OIT_MAX_LAYERS)
+		{
+			fragments[count] = fragment;
+			count++;
+			continue;
+		}
+
+		uint farthest = 0;
+		for (uint slot = 1; slot < OIT_MAX_LAYERS; slot++)
+		{
+			if (fragments[slot].depth_ < fragments[farthest].depth_)
+			{
+				farthest = slot;
+			}
+		}
+
+		if (fragment.depth_ > fragments[farthest].depth_)
+		{
+			fragments[farthest] = fragment;
+		}
 	}
 
 	/// [EN] Insertion sort by ascending depth. This engine uses REVERSE-Z
@@ -84,7 +107,7 @@ float4 main(OITResolveOutput input) : SV_Target0
 	{
 		for (uint index = 0; index < count; index++)
 		{
-			float4 color = UnpackColorRGBA8(fragments[index].packed_color_);
+			float4 color = UnpackColorHalf4(uint2(fragments[index].packed_color_rg_, fragments[index].packed_color_ba_));
 			result.rgb = color.rgb * color.a + result.rgb * (1.0 - color.a);
 			result.a = color.a + result.a * (1.0 - color.a);
 		}

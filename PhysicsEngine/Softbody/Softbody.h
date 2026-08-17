@@ -88,13 +88,13 @@ namespace SeedCore
 		Bool HasBody()const;
 
 		/// [EN] This frame's simulated vertex positions — of the coarse
-		///      simulation proxy (Crister::SoftbodyProxyVertices), not the
+		///      simulation proxy (Crister::SoftbodyCoarsestVertices), not the
 		///      full-resolution render mesh (see PhysicsSystem::
 		///      ResolveSoftbodies for why). SoftbodyMesh binds the
 		///      full-resolution mesh to this proxy at build time and blends
 		///      these positions' displacement back onto it every frame.
 		/// [JP] このフレームのシミュレート済み頂点位置 — 粗いシミュレーション
-		///      用プロキシ（Crister::SoftbodyProxyVertices）のもので、
+		///      用プロキシ（Crister::SoftbodyCoarsestVertices）のもので、
 		///      フル解像度の描画メッシュのものではない（理由は
 		///      PhysicsSystem::ResolveSoftbodies 参照）。SoftbodyMesh が
 		///      ビルド時にフル解像度メッシュをこのプロキシへ束縛し、毎フレーム

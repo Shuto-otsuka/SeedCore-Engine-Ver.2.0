@@ -23,6 +23,7 @@ namespace SeedCore
 		std::wstring rayGenName = key.rayGenExportName_.w_str();
 		std::wstring missName = key.missExportName_.w_str();
 		std::wstring closesHitName = key.closestHitExportName_.w_str();
+		std::wstring anyHitName = key.anyHitExportName_.w_str();
 		std::wstring hitGroupName = key.hitGroupName_.w_str();
 
 		D3D12_DXIL_LIBRARY_DESC dxilDesc{};
@@ -41,6 +42,10 @@ namespace SeedCore
 		{
 			exports.push_back({ closesHitName.c_str(), nullptr, D3D12_EXPORT_FLAG_NONE });
 		}
+		if (!anyHitName.empty())
+		{
+			exports.push_back({ anyHitName.c_str(), nullptr, D3D12_EXPORT_FLAG_NONE });
+		}
 
 		dxilDesc.NumExports = static_cast<Uint>(exports.size());
 		dxilDesc.pExports = exports.data();
@@ -55,9 +60,13 @@ namespace SeedCore
 		{
 			hitGroupDesc.HitGroupExport = hitGroupName.c_str();
 			hitGroupDesc.Type = D3D12_HIT_GROUP_TYPE_TRIANGLES;
-			if (!hitGroupName.empty())
+			if (!closesHitName.empty())
 			{
 				hitGroupDesc.ClosestHitShaderImport = closesHitName.c_str();
+			}
+			if (!anyHitName.empty())
+			{
+				hitGroupDesc.AnyHitShaderImport = anyHitName.c_str();
 			}
 
 			D3D12_STATE_SUBOBJECT hitGroupSub{};

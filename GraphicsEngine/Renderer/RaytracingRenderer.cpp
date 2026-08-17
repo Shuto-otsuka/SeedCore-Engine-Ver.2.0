@@ -88,7 +88,7 @@ namespace SeedCore
 				}
 
 				Crister* crister = modelResource.Resolve(loaderSystem, cristerHandle);
-				if (!crister || crister->FlatTriangleIndexCount() == 0)
+				if (!crister || crister->IndexCount() == 0)
 				{
 					return;
 				}
@@ -105,7 +105,7 @@ namespace SeedCore
 				instance.entityID_ = entityID;
 
 				const Animator* animator = actor->GetComponent<Animator>();
-				if (animator && crister->HasSkinnedRTGeometry())
+				if (animator && crister->IsProxySkinned())
 				{
 					Uint32 boneOffset = 0;
 					if (modelRenderer.TryGetAnimatedBoneOffset(entityID, boneOffset))
@@ -128,7 +128,7 @@ namespace SeedCore
 				///      glTF の慣例として、あるメッシュを参照する全 Node は
 				///      そのメッシュ用に1つのウェイト配列を共有する、
 				///      Animation::weights_ のコメント参照)へ振り分ける。
-				if (animator && crister->HasMorphs())
+				if (animator && std::any_of(crister->SubMeshes().begin(), crister->SubMeshes().end(), [](const SubMesh& subMesh) { return !subMesh.morphs_.empty(); }))
 				{
 					const auto& subMeshesForMorph = crister->SubMeshes();
 					const auto& nodesForMorph = crister->Nodes();
@@ -249,6 +249,9 @@ namespace SeedCore
 					entry.volumeAttenuationColor_[1] = material.khr_.volume_.attenuationColor_[1];
 					entry.volumeAttenuationColor_[2] = material.khr_.volume_.attenuationColor_[2];
 					entry.volumeAttenuationDistance_ = material.khr_.volume_.attenuationDistance_;
+					entry.alphaMode_ = static_cast<Uint32>(material.alphaMode_);
+					entry.alphaCutoff_ = material.alphaCutoff_;
+					entry.baseColorAlpha_ = material.baseColor_.A();
 					materialData.push_back(entry);
 				}
 			}
@@ -285,7 +288,7 @@ namespace SeedCore
 
 		// ---- 三角形→マテリアルインデックス ----
 		{
-			Uint32 triangleCount = Max(crister->FlatTriangleIndexCount() / 3, 1u);
+			Uint32 triangleCount = Max(crister->IndexCount() / 3, 1u);
 
 			/// [JP] SubMesh で埋まらない三角形(あり得ないはずだが)は 0
 			///      (=先頭マテリアル)へフォールバックする。
@@ -411,14 +414,14 @@ namespace SeedCore
 		for (const Crister* crister : pendingBlasBuilds_)
 		{
 			BottomLevelGeometryDesc geometryDesc{};
-			geometryDesc.vertexBuffer_ = crister->VertexBufferGPUAddress();
+			geometryDesc.vertexBuffer_ = crister->PositionBufferAddress();
 			geometryDesc.vertexCount_ = crister->VertexCount();
 			geometryDesc.vertexStride_ = sizeof(Vector3);
 			geometryDesc.vertexFormat_ = DXGI_FORMAT_R32G32B32_FLOAT;
-			geometryDesc.indexBuffer_ = crister->FlatTriangleIndexBufferGPUAddress();
-			geometryDesc.indexCount_ = crister->FlatTriangleIndexCount();
+			geometryDesc.indexBuffer_ = crister->IndexBufferAddress();
+			geometryDesc.indexCount_ = crister->IndexCount();
 			geometryDesc.indexFormat_ = DXGI_FORMAT_R32_UINT;
-			geometryDesc.opaque_ = true;
+			geometryDesc.opaque_ = std::all_of(crister->Materials().begin(), crister->Materials().end(), [](const Material& material) { return material.alphaMode_ == 0; });
 
 			ResourcePtr<BottomLevelAccelerationStructure> blas = MakePtr<BottomLevelAccelerationStructure>();
 			if (blas->Build(device5, commandList4, &geometryDesc, 1))
@@ -446,7 +449,7 @@ namespace SeedCore
 		///      active weights this frame — every other vertex (including
 		///      SubMeshes with morphs_ but no active weight this frame)
 		///      keeps its base position. The skin loop below reads this
-		///      buffer instead of crister_->RTPositionBufferGPUAddress()
+		///      buffer instead of crister_->PositionBufferAddress()
 		///      when both morph and skin apply; a morph-only instance
 		///      builds its BLAS directly from it further below.
 		/// [JP] モーフブレンドパス: スキニングより前に合成する
@@ -456,7 +459,7 @@ namespace SeedCore
 		///      範囲だけを上書きする — それ以外の頂点(今フレームウェイトが
 		///      無い morphs_ 持ちの SubMesh も含む)はベース位置のまま。
 		///      下のスキンループは、モーフとスキンの両方が適用される場合
-		///      crister_->RTPositionBufferGPUAddress() の代わりにこの
+		///      crister_->PositionBufferAddress() の代わりにこの
 		///      バッファを読む。モーフのみのインスタンスは、さらに下で
 		///      このバッファから直接 BLAS を構築する。
 		for (const PendingInstance& pending : pendingInstances_)
@@ -467,14 +470,14 @@ namespace SeedCore
 			}
 
 			const Crister* crister = pending.crister_;
-			Uint32 rtVertexCount = crister->RTVertexCount();
-			if (rtVertexCount == 0)
+			Uint32 raytracingVertexCount = crister->VertexCount();
+			if (raytracingVertexCount == 0)
 			{
 				continue;
 			}
 
 			SkinnedPositionBuffer& blendedBuffer = morphedPositionBuffers_[frameIndex][pending.entityID_];
-			if (blendedBuffer.capacity_ < rtVertexCount)
+			if (blendedBuffer.capacity_ < raytracingVertexCount)
 			{
 				D3D12_HEAP_PROPERTIES heapProperties{};
 				heapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
@@ -485,7 +488,7 @@ namespace SeedCore
 
 				D3D12_RESOURCE_DESC resourceDesc{};
 				resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-				resourceDesc.Width = sizeof(Vector3) * static_cast<Uint64>(rtVertexCount);
+				resourceDesc.Width = sizeof(Vector3) * static_cast<Uint64>(raytracingVertexCount);
 				resourceDesc.Height = 1;
 				resourceDesc.DepthOrArraySize = 1;
 				resourceDesc.MipLevels = 1;
@@ -496,7 +499,7 @@ namespace SeedCore
 
 				device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(blendedBuffer.resource_.ReleaseAndGetAddressOf()));
 				blendedBuffer.resource_->SetName(L"MorphedPositionBuffer");
-				blendedBuffer.capacity_ = rtVertexCount;
+				blendedBuffer.capacity_ = raytracingVertexCount;
 			}
 
 			D3D12_RESOURCE_BARRIER toCopyDest{};
@@ -507,7 +510,7 @@ namespace SeedCore
 			toCopyDest.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 			commandList4->ResourceBarrier(1, &toCopyDest);
 
-			crister->CopyRTPositionsForMorph(commandList4, blendedBuffer.resource_.Get());
+			crister->CopyMorph(commandList4, blendedBuffer.resource_.Get());
 
 			D3D12_RESOURCE_BARRIER toUnorderedAccess{};
 			toUnorderedAccess.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
@@ -533,7 +536,7 @@ namespace SeedCore
 				}
 
 				const SubMesh& subMesh = subMeshesForBlend[subMeshIndex];
-				if (subMesh.rtMorphDeltaOffset_ == 0xFFFFFFFFu || subMesh.rtVertexCount_ == 0)
+				if (subMesh.raytracingMorphDeltaOffset_ == 0xFFFFFFFFu || subMesh.raytracingVertexCount_ == 0)
 				{
 					continue;
 				}
@@ -581,16 +584,16 @@ namespace SeedCore
 					Uint32 pad0_;
 				};
 
-				MorphBlendParams params{ subMesh.rtVertexOffset_, subMesh.rtVertexCount_, targetCount, 0 };
+				MorphBlendParams params{ subMesh.raytracingVertexOffset_, subMesh.raytracingVertexCount_, targetCount, 0 };
 
 				commandList4->SetPipelineState(morphBlendShader_.GetPipelineState());
 				commandList4->SetComputeRootSignature(morphBlendShader_.GetRootSignature());
 				commandList4->SetComputeRoot32BitConstants(0, 4, &params, 0);
-				commandList4->SetComputeRootShaderResourceView(1, crister->RTPositionBufferGPUAddress());
-				commandList4->SetComputeRootShaderResourceView(2, crister->RTMorphDeltaBufferGPUAddress() + static_cast<UINT64>(subMesh.rtMorphDeltaOffset_) * sizeof(Vector3));
+				commandList4->SetComputeRootShaderResourceView(1, crister->PositionBufferAddress());
+				commandList4->SetComputeRootShaderResourceView(2, crister->ProxyMorphDeltaBufferAddress() + static_cast<UINT64>(subMesh.raytracingMorphDeltaOffset_) * sizeof(Vector3));
 				commandList4->SetComputeRootShaderResourceView(3, weightBuffer.resource_->GetGPUVirtualAddress());
 				commandList4->SetComputeRootUnorderedAccessView(4, blendedBuffer.resource_->GetGPUVirtualAddress());
-				commandList4->Dispatch((subMesh.rtVertexCount_ + 63) / 64, 1, 1);
+				commandList4->Dispatch((subMesh.raytracingVertexCount_ + 63) / 64, 1, 1);
 			}
 
 			D3D12_RESOURCE_BARRIER blendedUavBarrier{};
@@ -655,7 +658,7 @@ namespace SeedCore
 			///      構築済みの)ブレンド後位置バッファが既に今フレームの
 			///      最新ベース位置になっている — Crister の非モーフ
 			///      rt_positions ではなくそちらからスキンする。
-			D3D12_GPU_VIRTUAL_ADDRESS skinInputPositions = crister->RTPositionBufferGPUAddress();
+			D3D12_GPU_VIRTUAL_ADDRESS skinInputPositions = crister->PositionBufferAddress();
 			if (pending.hasMorphWeights_)
 			{
 				auto morphedIt = morphedPositionBuffers_[frameIndex].find(pending.entityID_);
@@ -669,7 +672,7 @@ namespace SeedCore
 			commandList4->SetComputeRootSignature(skinnedPositionShader_.GetRootSignature());
 			commandList4->SetComputeRoot32BitConstants(0, 4, &params, 0);
 			commandList4->SetComputeRootShaderResourceView(1, skinInputPositions);
-			commandList4->SetComputeRootShaderResourceView(2, crister->RTSkinVertexBufferGPUAddress());
+			commandList4->SetComputeRootShaderResourceView(2, crister->ProxySkinVertexBufferAddress());
 			commandList4->SetComputeRootShaderResourceView(3, modelRenderer.BoneMatrixBufferGPUAddress());
 			commandList4->SetComputeRootUnorderedAccessView(4, skinnedBuffer.resource_->GetGPUVirtualAddress());
 			commandList4->Dispatch((vertexCount + 63) / 64, 1, 1);
@@ -684,10 +687,10 @@ namespace SeedCore
 			geometryDesc.vertexCount_ = vertexCount;
 			geometryDesc.vertexStride_ = sizeof(Vector3);
 			geometryDesc.vertexFormat_ = DXGI_FORMAT_R32G32B32_FLOAT;
-			geometryDesc.indexBuffer_ = crister->FlatTriangleIndexBufferGPUAddress();
-			geometryDesc.indexCount_ = crister->FlatTriangleIndexCount();
+			geometryDesc.indexBuffer_ = crister->IndexBufferAddress();
+			geometryDesc.indexCount_ = crister->IndexCount();
 			geometryDesc.indexFormat_ = DXGI_FORMAT_R32_UINT;
-			geometryDesc.opaque_ = true;
+			geometryDesc.opaque_ = std::all_of(crister->Materials().begin(), crister->Materials().end(), [](const Material& material) { return material.alphaMode_ == 0; });
 
 			ResourcePtr<BottomLevelAccelerationStructure>& skinnedBlas = skinnedBlasCache_[frameIndex][pending.entityID_];
 			if (!skinnedBlas)
@@ -728,13 +731,13 @@ namespace SeedCore
 
 			BottomLevelGeometryDesc geometryDesc{};
 			geometryDesc.vertexBuffer_ = morphedPositionIt->second.resource_->GetGPUVirtualAddress();
-			geometryDesc.vertexCount_ = crister->RTVertexCount();
+			geometryDesc.vertexCount_ = crister->VertexCount();
 			geometryDesc.vertexStride_ = sizeof(Vector3);
 			geometryDesc.vertexFormat_ = DXGI_FORMAT_R32G32B32_FLOAT;
-			geometryDesc.indexBuffer_ = crister->FlatTriangleIndexBufferGPUAddress();
-			geometryDesc.indexCount_ = crister->FlatTriangleIndexCount();
+			geometryDesc.indexBuffer_ = crister->IndexBufferAddress();
+			geometryDesc.indexCount_ = crister->IndexCount();
 			geometryDesc.indexFormat_ = DXGI_FORMAT_R32_UINT;
-			geometryDesc.opaque_ = true;
+			geometryDesc.opaque_ = std::all_of(crister->Materials().begin(), crister->Materials().end(), [](const Material& material) { return material.alphaMode_ == 0; });
 
 			ResourcePtr<BottomLevelAccelerationStructure>& morphedBlas = morphedBlasCache_[frameIndex][pending.entityID_];
 			if (!morphedBlas)
@@ -840,7 +843,7 @@ namespace SeedCore
 
 				ReflectionInstanceData reflectionInstance{};
 				reflectionInstance.vertexBufferIndex_ = pending.crister_->VertexBufferIndex();
-				reflectionInstance.indexBufferIndex_ = pending.crister_->FlatTriangleIndexShaderResourceViewIndex();
+				reflectionInstance.indexBufferIndex_ = pending.crister_->IndexBufferIndex();
 
 				/// [JP] マテリアルは三角形ごとに BuildReflectionMaterialTable が
 				///      焼いたテーブル経由で解決する(pendingBlasBuilds_ で

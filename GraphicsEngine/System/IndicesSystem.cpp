@@ -134,6 +134,11 @@ namespace SeedCore
 		structuredIndices_.oit_.counterIndex_ = index;
 	}
 
+	void IndicesSystem::SetOITFragmentCapacity(Uint capacity)
+	{
+		structuredIndices_.oit_.fragmentCapacity_ = capacity;
+	}
+
 	void IndicesSystem::SetHiZIndex(Uint index)
 	{
 		structuredIndices_.model_.hiZIndex_ = index;

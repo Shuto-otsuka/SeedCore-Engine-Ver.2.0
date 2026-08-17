@@ -58,7 +58,7 @@ namespace SeedCore
 
 		DynamicArray<Vertex> vertices;
 		SoftbodyDesc desc;
-		if (!crister.SoftbodyProxyVertices(vertices, desc.indices_))
+		if (!crister.SoftbodyCoarsestVertices(vertices, desc.indices_))
 		{
 			return;
 		}

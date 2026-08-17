@@ -6,182 +6,6 @@
 
 namespace SeedCore
 {
-	namespace
-	{
-		/// [EN] CPU-side quantisation/decode helpers, shared by BakeMesh() (encode)
-		///      and Upload()/ApplyAxisConversion() (decode). Must stay in exact
-		///      sync with the HLSL decode (Model.hlsli::DecodeModelVertex,
-		///      Shader/Normal.hlsli::OctNormalDecode).
-		/// [JP] CPU 側の量子化/デコードヘルパ。BakeMesh()（エンコード）と
-		///      Upload()/ApplyAxisConversion()（デコード）で共有する。HLSL 側の
-		///      デコード(Model.hlsli::DecodeModelVertex,
-		///      Shader/Normal.hlsli::OctNormalDecode)と厳密に同期させること。
-
-		Uint32 QuantizeUnorm16(Float value01)
-		{
-			Float clamped = value01 < 0.0f ? 0.0f : (value01 > 1.0f ? 1.0f : value01);
-			return static_cast<Uint32>(clamped * 65535.0f + 0.5f);
-		}
-
-		Uint32 EncodeOctahedral16x16(Vector3 direction)
-		{
-			Float sum = std::abs(direction.x) + std::abs(direction.y) + std::abs(direction.z);
-			if (sum < 1e-8f)
-			{
-				direction = Vector3(0, 0, 1);
-				sum = 1.0f;
-			}
-
-			Float x = direction.x / sum;
-			Float y = direction.y / sum;
-			if (direction.z < 0.0f)
-			{
-				Float foldedX = (1.0f - std::abs(y)) * (x >= 0.0f ? 1.0f : -1.0f);
-				Float foldedY = (1.0f - std::abs(x)) * (y >= 0.0f ? 1.0f : -1.0f);
-				x = foldedX;
-				y = foldedY;
-			}
-
-			return QuantizeUnorm16(x * 0.5f + 0.5f) | (QuantizeUnorm16(y * 0.5f + 0.5f) << 16);
-		}
-
-		/// [JP] タンジェントは 8+7bit octahedral + 利き手符号 1bit。法線マップの
-		///      接空間回転誤差は法線本体より知覚されにくいため粗くて足りる。
-		Uint32 EncodeTangent16(const Vector4& tangent)
-		{
-			Uint32 oct = EncodeOctahedral16x16(Vector3(tangent.x, tangent.y, tangent.z));
-			Uint32 octX8 = ((oct & 0xFFFF) * 255 + 32767) / 65535;
-			Uint32 octY7 = ((oct >> 16) * 127 + 32767) / 65535;
-			Uint32 sign = tangent.w >= 0.0f ? 1u : 0u;
-			return octX8 | (octY7 << 8) | (sign << 15);
-		}
-
-		Uint32 QuantizeUnorm8(Float value01)
-		{
-			Float clamped = value01 < 0.0f ? 0.0f : (value01 > 1.0f ? 1.0f : value01);
-			return static_cast<Uint32>(clamped * 255.0f + 0.5f);
-		}
-
-		/// [EN] CPU-side inverse of Shader/Normal.hlsli::OctNormalDecode.
-		/// [JP] Shader/Normal.hlsli::OctNormalDecode の CPU 側逆変換。
-		Vector3 DecodeOctahedralNormal(Uint32 packed)
-		{
-			Float ex = static_cast<Float>(packed & 0xFFFF) / 65535.0f * 2.0f - 1.0f;
-			Float ey = static_cast<Float>(packed >> 16) / 65535.0f * 2.0f - 1.0f;
-
-			Vector3 n(ex, ey, 1.0f - std::abs(ex) - std::abs(ey));
-			if (n.z < 0.0f)
-			{
-				Float nx = (1.0f - std::abs(n.y)) * (n.x >= 0.0f ? 1.0f : -1.0f);
-				Float ny = (1.0f - std::abs(n.x)) * (n.y >= 0.0f ? 1.0f : -1.0f);
-				n.x = nx;
-				n.y = ny;
-			}
-			n.Normalize();
-			return n;
-		}
-
-		Vector3 DecodePosition(const CompressedVertex& compressed, const Vector3& positionMin, const Vector3& positionExtent)
-		{
-			return positionMin + Vector3(
-				static_cast<Float>(compressed.positionXY_ & 0xFFFF) / 65535.0f * positionExtent.x,
-				static_cast<Float>(compressed.positionXY_ >> 16) / 65535.0f * positionExtent.y,
-				static_cast<Float>(compressed.positionZTexU_ & 0xFFFF) / 65535.0f * positionExtent.z);
-		}
-
-		Vector2 DecodeTexcoord(const CompressedVertex& compressed, const Vector2& texcoordMin, const Vector2& texcoordExtent)
-		{
-			return texcoordMin + Vector2(
-				static_cast<Float>(compressed.positionZTexU_ >> 16) / 65535.0f * texcoordExtent.x,
-				static_cast<Float>(compressed.texVTangent_ & 0xFFFF) / 65535.0f * texcoordExtent.y);
-		}
-
-		Vector3 DecodeNormal(const CompressedVertex& compressed)
-		{
-			return DecodeOctahedralNormal(compressed.normal_);
-		}
-
-		Vector4 DecodeTangent(const CompressedVertex& compressed)
-		{
-			Uint32 tangentBits = compressed.texVTangent_ >> 16;
-			Uint32 octX16 = static_cast<Uint32>(static_cast<Float>(tangentBits & 0xFF) / 255.0f * 65535.0f + 0.5f);
-			Uint32 octY16 = static_cast<Uint32>(static_cast<Float>((tangentBits >> 8) & 0x7F) / 127.0f * 65535.0f + 0.5f);
-			Float sign = (tangentBits >> 15) ? 1.0f : -1.0f;
-
-			Vector3 xyz = DecodeOctahedralNormal(octX16 | (octY16 << 16));
-			return Vector4(xyz.x, xyz.y, xyz.z, sign);
-		}
-
-		void DecodeSkin(const CompressedSkinVertex& compressed, XmUint4& joints, Vector4& weights)
-		{
-			joints.x = compressed.jointsXY_ & 0xFFFF;
-			joints.y = compressed.jointsXY_ >> 16;
-			joints.z = compressed.jointsZW_ & 0xFFFF;
-			joints.w = compressed.jointsZW_ >> 16;
-
-			weights = Vector4(static_cast<Float>(compressed.weights_ & 0xFF), static_cast<Float>((compressed.weights_ >> 8) & 0xFF), static_cast<Float>((compressed.weights_ >> 16) & 0xFF), static_cast<Float>(compressed.weights_ >> 24)) / 255.0f;
-
-			Float weightSum = weights.x + weights.y + weights.z + weights.w;
-			weights /= Max(weightSum, 1e-6f);
-		}
-
-		/// [EN] Computes the quantisation AABBs (position + texcoord) over vertices,
-		///      matching Crister::BakeMesh()'s own AABB loop exactly.
-		/// [JP] vertices に対する量子化 AABB（position + texcoord）を計算する。
-		///      Crister::BakeMesh() 自身の AABB 計算ループと完全に一致させる。
-		void ComputeQuantizationAABBs(const DynamicArray<Vertex>& vertices, Vector3& positionMin, Vector3& positionExtent, Vector2& texcoordMin, Vector2& texcoordExtent)
-		{
-			Vector3 positionMax = Vector3(0, 0, 0);
-			Vector2 texcoordMax = Vector2(0, 0);
-			positionMin = Vector3(0, 0, 0);
-			texcoordMin = Vector2(0, 0);
-
-			if (!vertices.empty())
-			{
-				positionMin = vertices[0].position_;
-				positionMax = vertices[0].position_;
-				texcoordMin = vertices[0].texcoord_;
-				texcoordMax = vertices[0].texcoord_;
-				for (const Vertex& vertex : vertices)
-				{
-					positionMin = Vector3::Min(positionMin, vertex.position_);
-					positionMax = Vector3::Max(positionMax, vertex.position_);
-					texcoordMin = Vector2::Min(texcoordMin, vertex.texcoord_);
-					texcoordMax = Vector2::Max(texcoordMax, vertex.texcoord_);
-				}
-			}
-
-			positionExtent = Vector3::Max(positionMax - positionMin, Vector3(1e-6f, 1e-6f, 1e-6f));
-			texcoordExtent = Vector2::Max(texcoordMax - texcoordMin, Vector2(1e-6f, 1e-6f));
-		}
-
-		/// [EN] Change-of-basis helpers for ApplyAxisConversion. Duplicate
-		///      ModelLoader's ConvertPositionByBasis/ConvertRotationByBasis/
-		///      ConvertMatrixByBasis (private to ModelLoader) so Crister can
-		///      re-convert without a ModelLoader/glTF re-parse.
-		/// [JP] ApplyAxisConversion 用の基底変換ヘルパ。ModelLoader の
-		///      ConvertPositionByBasis/ConvertRotationByBasis/
-		///      ConvertMatrixByBasis（ModelLoader 限定 private）を複製し、
-		///      Crister が ModelLoader/glTF 再解析無しに再変換できるようにする。
-
-		void ConvertPositionByBasis(Vector3& vector, const Matrix& basis)
-		{
-			vector = Vector3::Transform(vector, basis);
-		}
-
-		void ConvertRotationByBasis(Quaternion& quaternion, const Matrix& basis)
-		{
-			Matrix rotation = Matrix::CreateFromQuaternion(quaternion);
-			Matrix converted = basis.Transpose() * rotation * basis;
-			quaternion = Quaternion::CreateFromRotationMatrix(converted);
-		}
-
-		void ConvertMatrixByBasis(Matrix& matrix, const Matrix& basis)
-		{
-			matrix = basis.Transpose() * matrix * basis;
-		}
-	}
-
 	/**
 	* [EN]
 	* Releases every resident streaming page (pinned included — the model
@@ -276,129 +100,6 @@ namespace SeedCore
 
 	/**
 	* [EN]
-	* Allocates a bindless heap index and creates a StructuredBuffer SRV
-	* for resource at that index.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* bindless ヒープインデックスを1つ確保し、resource に対する
-	* StructuredBuffer SRV をそのインデックスへ作成する。
-	*/
-	Uint Crister::CreateStructuredShaderResourceView(ID3D12Device* device, BindlessHeap* heap, ID3D12Resource* resource, Uint elementCount, Uint stride)
-	{
-		Uint index = heap->AllocateIndex();
-
-		D3D12_SHADER_RESOURCE_VIEW_DESC shaderResourceViewDesc{};
-		shaderResourceViewDesc.Format = DXGI_FORMAT_UNKNOWN;
-		shaderResourceViewDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-		shaderResourceViewDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-		shaderResourceViewDesc.Buffer.FirstElement = 0;
-		shaderResourceViewDesc.Buffer.NumElements = elementCount;
-		shaderResourceViewDesc.Buffer.StructureByteStride = stride;
-		shaderResourceViewDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
-		device->CreateShaderResourceView(resource, &shaderResourceViewDesc, heap->CPUHandle(index));
-
-		return index;
-	}
-
-	/**
-	* [EN]
-	* DirectX::CreateStaticBuffer rejects any resource above ~128MB
-	* (D3D12_REQ_RESOURCE_SIZE_IN_MEGABYTES_EXPRESSION_A_TERM used
-	* directly as a flat byte cap by DirectXTK12's BufferHelpers.cpp,
-	* not an actual D3D12 hardware limit - real buffers can be
-	* gigabytes, bounded only by available GPU memory). High-poly
-	* meshes routinely exceed that for the flat 32-bit triangle index
-	* buffer, so this mirrors CreateStaticBuffer's own implementation
-	* without the artificial size gate.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* DirectX::CreateStaticBuffer は約128MBを超えるリソースを拒否する
-	* (DirectXTK12 の BufferHelpers.cpp が
-	* D3D12_REQ_RESOURCE_SIZE_IN_MEGABYTES_EXPRESSION_A_TERM を単純な
-	* バイト上限としてそのまま使っているだけで、実際の D3D12/GPU の
-	* ハード制限ではない - 実バッファは GPU メモリが許す限り
-	* ギガバイト単位まで作れる)。ハイポリメッシュのフラット32bit
-	* 三角形インデックスバッファはこれを普通に超えるため、
-	* CreateStaticBuffer と同じ実装からサイズ上限チェックだけ外した版。
-	*/
-	HRESULT Crister::CreateStaticBufferUnbounded(ID3D12Device* device, DirectX::ResourceUploadBatch& resourceUpload, const void* data, Uint64 count, Uint64 stride, D3D12_RESOURCE_STATES afterState, ID3D12Resource** outResource)
-	{
-		const Uint64 sizeInBytes = count * stride;
-
-		D3D12_HEAP_PROPERTIES heapProperties{};
-		heapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
-
-		D3D12_RESOURCE_DESC resourceDesc{};
-		resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-		resourceDesc.Width = sizeInBytes;
-		resourceDesc.Height = 1;
-		resourceDesc.DepthOrArraySize = 1;
-		resourceDesc.MipLevels = 1;
-		resourceDesc.Format = DXGI_FORMAT_UNKNOWN;
-		resourceDesc.SampleDesc.Count = 1;
-		resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-
-		Microsoft::WRL::ComPtr<ID3D12Resource> resource;
-		HRESULT hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(resource.GetAddressOf()));
-		if (FAILED(hr))
-		{
-			return hr;
-		}
-
-		D3D12_SUBRESOURCE_DATA subresourceData{ data, 0, 0 };
-		resourceUpload.Upload(resource.Get(), 0, &subresourceData, 1);
-		resourceUpload.Transition(resource.Get(), D3D12_RESOURCE_STATE_COPY_DEST, afterState);
-
-		*outResource = resource.Detach();
-		return S_OK;
-	}
-
-	/**
-	* [EN]
-	* Texture counterpart to CreateStaticBufferUnbounded's byte-layout
-	* role: resolves mip dimensions/row-pitch/slice-pitch/byte-offset
-	* within Bitmap::cacheData_ for a given mip index, from the standard
-	* BC block layout (16 bytes per 4x4 texel block, mips concatenated
-	* in order with no stored per-mip offsets).
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* CreateStaticBufferUnbounded のバイトレイアウト計算に相当する
-	* テクスチャ版: Bitmap::cacheData_ 内での指定ミップの寸法/
-	* row-pitch/slice-pitch/バイトオフセットを、標準的な BC
-	* ブロックレイアウト（4x4 テクセルブロックあたり 16 バイト、
-	* ミップは順に連結・オフセット未保存）から解決する。
-	*/
-	void Crister::ComputeTextureMipLayout(const Bitmap& bitmap, Uint32 mipIndex, Uint32& outWidth, Uint32& outHeight, Uint64& outRowPitch, Uint64& outSlicePitch, Uint64& outByteOffset)
-	{
-		Uint64 offset = 0;
-		Int mipWidth = bitmap.width_;
-		Int mipHeight = bitmap.height_;
-		for (Uint32 mip = 0; mip < mipIndex; mip++)
-		{
-			Uint64 blockWidth = Max<Uint64>(1, (static_cast<Uint64>(mipWidth) + 3) / 4);
-			Uint64 blockHeight = Max<Uint64>(1, (static_cast<Uint64>(mipHeight) + 3) / 4);
-			offset += blockWidth * 16 * blockHeight;
-			mipWidth = Max(1, mipWidth / 2);
-			mipHeight = Max(1, mipHeight / 2);
-		}
-
-		Uint64 blockWidth = Max<Uint64>(1, (static_cast<Uint64>(mipWidth) + 3) / 4);
-		Uint64 blockHeight = Max<Uint64>(1, (static_cast<Uint64>(mipHeight) + 3) / 4);
-		outWidth = static_cast<Uint32>(mipWidth);
-		outHeight = static_cast<Uint32>(mipHeight);
-		outRowPitch = blockWidth * 16;
-		outSlicePitch = outRowPitch * blockHeight;
-		outByteOffset = offset;
-	}
-
-	/**
-	* [EN]
 	* Computes the quantisation AABB and bakes vertices_ (and, if
 	* skinned, skin attributes) into compressedVertices_ /
 	* compressedSkinVertices_, then frees vertices_. Must run after
@@ -425,7 +126,30 @@ namespace SeedCore
 		///      から離してクランプし、平坦な軸でも共通の min 値へ正しく逆量子化
 		///      されるようにする。QEM が LOD ごとに新頂点を追加するため、
 		///      BuildMeshlets の後に実行すること。
-		ComputeQuantizationAABBs(vertices_, positionMin_, positionExtent_, texcoordMin_, texcoordExtent_);
+		{
+			Vector3 positionMax = Vector3(0, 0, 0);
+			Vector2 texcoordMax = Vector2(0, 0);
+			positionMin_ = Vector3(0, 0, 0);
+			texcoordMin_ = Vector2(0, 0);
+
+			if (!vertices_.empty())
+			{
+				positionMin_ = vertices_[0].position_;
+				positionMax = vertices_[0].position_;
+				texcoordMin_ = vertices_[0].texcoord_;
+				texcoordMax = vertices_[0].texcoord_;
+				for (const Vertex& vertex : vertices_)
+				{
+					positionMin_ = Vector3::Min(positionMin_, vertex.position_);
+					positionMax = Vector3::Max(positionMax, vertex.position_);
+					texcoordMin_ = Vector2::Min(texcoordMin_, vertex.texcoord_);
+					texcoordMax = Vector2::Max(texcoordMax, vertex.texcoord_);
+				}
+			}
+
+			positionExtent_ = Vector3::Max(positionMax - positionMin_, Vector3(1e-6f, 1e-6f, 1e-6f));
+			texcoordExtent_ = Vector2::Max(texcoordMax - texcoordMin_, Vector2(1e-6f, 1e-6f));
+		}
 
 		compressedVertices_.resize(vertices_.size());
 		for (Size vertexIndex = 0; vertexIndex < vertices_.size(); vertexIndex++)
@@ -453,93 +177,6 @@ namespace SeedCore
 
 		vertices_.clear();
 		vertices_.shrink_to_fit();
-	}
-
-	/**
-	* [EN]
-	* Quantises a single full-precision Vertex into the 16-byte GPU format
-	* against the given position/texcoord dequantisation AABBs. Extracted
-	* out of BakeMesh()'s per-vertex loop body; BakeMesh() calls this too,
-	* so there is one source of truth for the quantisation math.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* フル精度の Vertex 1 つを、指定された位置/UV の逆量子化 AABB に対して
-	* 16 バイトの GPU フォーマットへ量子化する。BakeMesh() の頂点ループ
-	* 本体から切り出したもの。BakeMesh() 自身もこれを呼ぶため、量子化
-	* 計算の実装は 1 箇所に集約される。
-	*/
-	CompressedVertex Crister::EncodeVertex(const Vertex& vertex, const Vector3& positionMin, const Vector3& positionExtent, const Vector2& texcoordMin, const Vector2& texcoordExtent)
-	{
-		Uint32 quantizedX = QuantizeUnorm16((vertex.position_.x - positionMin.x) / positionExtent.x);
-		Uint32 quantizedY = QuantizeUnorm16((vertex.position_.y - positionMin.y) / positionExtent.y);
-		Uint32 quantizedZ = QuantizeUnorm16((vertex.position_.z - positionMin.z) / positionExtent.z);
-		Uint32 quantizedU = QuantizeUnorm16((vertex.texcoord_.x - texcoordMin.x) / texcoordExtent.x);
-		Uint32 quantizedV = QuantizeUnorm16((vertex.texcoord_.y - texcoordMin.y) / texcoordExtent.y);
-
-		CompressedVertex compressed;
-		compressed.positionXY_ = quantizedX | (quantizedY << 16);
-		compressed.positionZTexU_ = quantizedZ | (quantizedU << 16);
-		compressed.texVTangent_ = quantizedV | (EncodeTangent16(vertex.tangent_) << 16);
-		compressed.normal_ = EncodeOctahedral16x16(vertex.normal_);
-		return compressed;
-	}
-
-	/**
-	* [EN]
-	* Walks stages_[defaultStage_]'s node tree depth-first and
-	* recomputes every Node::globalTransform_ from local S/R/T.
-	* Duplicates ModelLoader::CumulateTransforms' logic so
-	* ApplyAxisConversion can recompute global transforms without a
-	* ModelLoader/glTF re-parse.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* stages_[defaultStage_]のノードツリーを深さ優先で走査し、ローカル
-	* S/R/T から全 Node::globalTransform_ を再計算する。
-	* ModelLoader::CumulateTransforms のロジックを複製したもの。
-	* ApplyAxisConversion が ModelLoader/glTF 再解析無しにグローバル
-	* トランスフォームを再計算できるようにする。
-	*/
-	void Crister::CumulateTransforms()
-	{
-		if (defaultStage_ < 0 || static_cast<Size>(defaultStage_) >= stages_.size())
-		{
-			return;
-		}
-
-		std::stack<Matrix> parentGlobalTransforms;
-		std::function<void(Int)> traverse = [&](Int nodeIndex)
-			{
-				if (nodeIndex < 0 || static_cast<Size>(nodeIndex) >= nodes_.size())
-				{
-					return;
-				}
-
-				Node& node = nodes_[nodeIndex];
-				Matrix scale = Matrix::CreateScale(node.scale_.x, node.scale_.y, node.scale_.z);
-				Matrix rotation = Matrix::CreateFromQuaternion(node.rotation_);
-				Matrix translation = Matrix::CreateTranslation(node.translation_.x, node.translation_.y, node.translation_.z);
-
-				Matrix localTransform = scale * rotation * translation;
-				node.globalTransform_ = localTransform * parentGlobalTransforms.top();
-
-				for (Int childIndex : node.children_)
-				{
-					parentGlobalTransforms.push(node.globalTransform_);
-					traverse(childIndex);
-					parentGlobalTransforms.pop();
-				}
-			};
-
-		for (Int nodeIndex : stages_[defaultStage_].nodes_)
-		{
-			parentGlobalTransforms.push(Matrix::Identity);
-			traverse(nodeIndex);
-			parentGlobalTransforms.pop();
-		}
 	}
 
 	/**
@@ -1020,7 +657,7 @@ namespace SeedCore
 							///      角のためにコンパクトインデックスを記憶する。
 							Uint32 compactIndex = static_cast<Uint32>(outPositions.size());
 							remap[globalIndex] = compactIndex;
-							outPositions.push_back(DecodePosition(compressedVertices_[globalIndex], positionMin_, positionExtent_));
+							outPositions.push_back(DecodePosition(compressedVertices_[globalIndex]));
 							outIndices.push_back(compactIndex);
 						}
 						else
@@ -1054,7 +691,7 @@ namespace SeedCore
 	* フル頂点/インデックス対へ読み出す。ベイク/キャッシュパイプラインの
 	* 一部ではなく、ロード済みの Crister に対してその都度呼び出す。
 	*/
-	Bool Crister::SoftbodyVertices(DynamicArray<Vertex>& outVertices, DynamicArray<Uint32>& outIndices)const
+	Bool Crister::SoftbodyFinestVertices(DynamicArray<Vertex>& outVertices, DynamicArray<Uint32>& outIndices)const
 	{
 		outVertices.clear();
 		outIndices.clear();
@@ -1073,12 +710,7 @@ namespace SeedCore
 		outVertices.reserve(compressedVertices_.size());
 		for (const CompressedVertex& compressed : compressedVertices_)
 		{
-			Vertex vertex;
-			vertex.position_ = DecodePosition(compressed, positionMin_, positionExtent_);
-			vertex.normal_ = DecodeNormal(compressed);
-			vertex.tangent_ = DecodeTangent(compressed);
-			vertex.texcoord_ = DecodeTexcoord(compressed, texcoordMin_, texcoordExtent_);
-			outVertices.push_back(vertex);
+			outVertices.push_back(DecodeVertex(compressed));
 		}
 
 		for (const SubMesh& subMesh : subMeshes_)
@@ -1128,7 +760,7 @@ namespace SeedCore
 	* パイプラインの一部ではなく、ロード済みの Crister に対してその都度
 	* 呼び出す。
 	*/
-	Bool Crister::SoftbodyProxyVertices(DynamicArray<Vertex>& outVertices, DynamicArray<Uint32>& outIndices)const
+	Bool Crister::SoftbodyCoarsestVertices(DynamicArray<Vertex>& outVertices, DynamicArray<Uint32>& outIndices)const
 	{
 		outVertices.clear();
 		outIndices.clear();
@@ -1212,7 +844,7 @@ namespace SeedCore
 						const CompressedVertex& compressed = compressedVertices_[globalIndex];
 
 						Vertex vertex;
-						vertex.position_ = DecodePosition(compressed, positionMin_, positionExtent_);
+						vertex.position_ = DecodePosition(compressed);
 
 						Uint64 key = quantisedPositionKey(vertex.position_);
 						auto found = remap.find(key);
@@ -1221,9 +853,9 @@ namespace SeedCore
 							Uint32 compactIndex = static_cast<Uint32>(outVertices.size());
 							remap[key] = compactIndex;
 
-							vertex.normal_ = DecodeNormal(compressed);
+							vertex.normal_ = DecodeOctahedralNormal(compressed.normal_);
 							vertex.tangent_ = DecodeTangent(compressed);
-							vertex.texcoord_ = DecodeTexcoord(compressed, texcoordMin_, texcoordExtent_);
+							vertex.texcoord_ = DecodeTexcoord(compressed);
 							outVertices.push_back(vertex);
 
 							outIndices.push_back(compactIndex);
@@ -1238,6 +870,131 @@ namespace SeedCore
 		}
 
 		return outIndices.size() >= 3;
+	}
+
+	/**
+	* [EN]
+	* Quantises a single full-precision Vertex into the 16-byte GPU format
+	* against the given position/texcoord dequantisation AABBs. Extracted
+	* out of BakeMesh()'s per-vertex loop body; BakeMesh() calls this too,
+	* so there is one source of truth for the quantisation math.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* フル精度の Vertex 1 つを、指定された位置/UV の逆量子化 AABB に対して
+	* 16 バイトの GPU フォーマットへ量子化する。BakeMesh() の頂点ループ
+	* 本体から切り出したもの。BakeMesh() 自身もこれを呼ぶため、量子化
+	* 計算の実装は 1 箇所に集約される。
+	*/
+	CompressedVertex Crister::EncodeVertex(const Vertex& vertex, const Vector3& positionMin, const Vector3& positionExtent, const Vector2& texcoordMin, const Vector2& texcoordExtent)
+	{
+		Uint32 quantizedX = QuantizeUnorm16((vertex.position_.x - positionMin.x) / positionExtent.x);
+		Uint32 quantizedY = QuantizeUnorm16((vertex.position_.y - positionMin.y) / positionExtent.y);
+		Uint32 quantizedZ = QuantizeUnorm16((vertex.position_.z - positionMin.z) / positionExtent.z);
+		Uint32 quantizedU = QuantizeUnorm16((vertex.texcoord_.x - texcoordMin.x) / texcoordExtent.x);
+		Uint32 quantizedV = QuantizeUnorm16((vertex.texcoord_.y - texcoordMin.y) / texcoordExtent.y);
+
+		/// [JP] タンジェントは 8+7bit octahedral + 利き手符号 1bit。法線マップの
+		///      接空間回転誤差は法線本体より知覚されにくいため粗くて足りる。
+		Uint32 tangentOctahedral = EncodeOctahedralNormal(Vector3(vertex.tangent_.x, vertex.tangent_.y, vertex.tangent_.z));
+		Uint32 tangentOctX8 = ((tangentOctahedral & 0xFFFF) * 255 + 32767) / 65535;
+		Uint32 tangentOctY7 = ((tangentOctahedral >> 16) * 127 + 32767) / 65535;
+		Uint32 tangentSign = vertex.tangent_.w >= 0.0f ? 1u : 0u;
+		Uint32 quantizedTangent = tangentOctX8 | (tangentOctY7 << 8) | (tangentSign << 15);
+
+		CompressedVertex compressed;
+		compressed.positionXY_ = quantizedX | (quantizedY << 16);
+		compressed.positionZTexU_ = quantizedZ | (quantizedU << 16);
+		compressed.texVTangent_ = quantizedV | (quantizedTangent << 16);
+		compressed.normal_ = EncodeOctahedralNormal(vertex.normal_);
+		return compressed;
+	}
+
+	/**
+	* [EN]
+	* Inverse of EncodeVertex: dequantises a CompressedVertex back into a
+	* full-precision Vertex, against this Crister's own quantisation AABBs.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* EncodeVertex の逆。CompressedVertex を、この Crister 自身の量子化 AABB
+	* に対してフル精度の Vertex へ逆量子化する。
+	*/
+	Vertex Crister::DecodeVertex(const CompressedVertex& compressed)const
+	{
+		Vertex vertex;
+		vertex.position_ = DecodePosition(compressed);
+		vertex.normal_ = DecodeOctahedralNormal(compressed.normal_);
+		vertex.tangent_ = DecodeTangent(compressed);
+		vertex.texcoord_ = DecodeTexcoord(compressed);
+		return vertex;
+	}
+
+	/**
+	* [EN]
+	* Packs a unit direction into the 16+16-bit octahedral encoding
+	* (Shader/Normal.hlsli::OctNormalEncode's CPU-side counterpart). Static
+	* for the same reason as EncodeVertex: SoftbodyMesh calls this indirectly
+	* via EncodeVertex with its own bounds, not this Crister's.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 単位方向ベクトルを 16+16bit のオクタヘドラル符号化へ詰める
+	* （Shader/Normal.hlsli::OctNormalEncode の CPU 側対応）。EncodeVertex と
+	* 同じ理由で static — SoftbodyMesh が EncodeVertex 経由で、この Crister
+	* とは別の自身の境界を使って間接的に呼ぶため。
+	*/
+	Uint32 Crister::EncodeOctahedralNormal(Vector3 direction)
+	{
+		Float sum = std::abs(direction.x) + std::abs(direction.y) + std::abs(direction.z);
+		if (sum < 1e-8f)
+		{
+			direction = Vector3(0, 0, 1);
+			sum = 1.0f;
+		}
+
+		Float x = direction.x / sum;
+		Float y = direction.y / sum;
+		if (direction.z < 0.0f)
+		{
+			Float foldedX = (1.0f - std::abs(y)) * (x >= 0.0f ? 1.0f : -1.0f);
+			Float foldedY = (1.0f - std::abs(x)) * (y >= 0.0f ? 1.0f : -1.0f);
+			x = foldedX;
+			y = foldedY;
+		}
+
+		return QuantizeUnorm16(x * 0.5f + 0.5f) | (QuantizeUnorm16(y * 0.5f + 0.5f) << 16);
+	}
+
+	/**
+	* [EN]
+	* Inverse of EncodeOctahedralNormal (Shader/Normal.hlsli::OctNormalDecode's
+	* CPU-side counterpart). Not static, matching DecodeVertex.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* EncodeOctahedralNormal の逆（Shader/Normal.hlsli::OctNormalDecode の
+	* CPU 側対応）。DecodeVertex と同じく static ではない。
+	*/
+	Vector3 Crister::DecodeOctahedralNormal(Uint32 packed)const
+	{
+		Float ex = static_cast<Float>(packed & 0xFFFF) / 65535.0f * 2.0f - 1.0f;
+		Float ey = static_cast<Float>(packed >> 16) / 65535.0f * 2.0f - 1.0f;
+
+		Vector3 n(ex, ey, 1.0f - std::abs(ex) - std::abs(ey));
+		if (n.z < 0.0f)
+		{
+			Float nx = (1.0f - std::abs(n.y)) * (n.x >= 0.0f ? 1.0f : -1.0f);
+			Float ny = (1.0f - std::abs(n.x)) * (n.y >= 0.0f ? 1.0f : -1.0f);
+			n.x = nx;
+			n.y = ny;
+		}
+		n.Normalize();
+		return n;
 	}
 
 	/**
@@ -1291,13 +1048,13 @@ namespace SeedCore
 			const CompressedVertex& compressed = compressedVertices_[vertexIndex];
 			Vertex& vertex = transformedVertices[vertexIndex];
 
-			vertex.position_ = Vector3::Transform(DecodePosition(compressed, positionMin_, positionExtent_), deltaBasis);
-			vertex.texcoord_ = DecodeTexcoord(compressed, texcoordMin_, texcoordExtent_);
-			vertex.normal_ = Vector3::Transform(DecodeNormal(compressed), deltaBasis);
+			Vertex decoded = DecodeVertex(compressed);
+			vertex.position_ = Vector3::Transform(decoded.position_, deltaBasis);
+			vertex.texcoord_ = decoded.texcoord_;
+			vertex.normal_ = Vector3::Transform(decoded.normal_, deltaBasis);
 
-			Vector4 tangent = DecodeTangent(compressed);
-			Vector3 tangentXyz = Vector3::Transform(Vector3(tangent.x, tangent.y, tangent.z), deltaBasis);
-			vertex.tangent_ = Vector4(tangentXyz.x, tangentXyz.y, tangentXyz.z, tangent.w * tangentSign);
+			Vector3 tangentXyz = Vector3::Transform(Vector3(decoded.tangent_.x, decoded.tangent_.y, decoded.tangent_.z), deltaBasis);
+			vertex.tangent_ = Vector4(tangentXyz.x, tangentXyz.y, tangentXyz.z, decoded.tangent_.w * tangentSign);
 
 			if (!compressedSkinVertices_.empty())
 			{
@@ -1425,15 +1182,15 @@ namespace SeedCore
 			const CompressedVertex& compressed = compressedVertices_[vertexIndex];
 			Vertex& vertex = transformedVertices[vertexIndex];
 
-			vertex.position_ = Vector3::Transform(DecodePosition(compressed, positionMin_, positionExtent_), fullTransform);
-			vertex.texcoord_ = DecodeTexcoord(compressed, texcoordMin_, texcoordExtent_);
-			vertex.normal_ = Vector3::TransformNormal(DecodeNormal(compressed), normalBasis);
+			Vertex decoded = DecodeVertex(compressed);
+			vertex.position_ = Vector3::Transform(decoded.position_, fullTransform);
+			vertex.texcoord_ = decoded.texcoord_;
+			vertex.normal_ = Vector3::TransformNormal(decoded.normal_, normalBasis);
 			vertex.normal_.Normalize();
 
-			Vector4 tangent = DecodeTangent(compressed);
-			Vector3 tangentXyz = Vector3::TransformNormal(Vector3(tangent.x, tangent.y, tangent.z), linearBasis);
+			Vector3 tangentXyz = Vector3::TransformNormal(Vector3(decoded.tangent_.x, decoded.tangent_.y, decoded.tangent_.z), linearBasis);
 			tangentXyz.Normalize();
-			vertex.tangent_ = Vector4(tangentXyz.x, tangentXyz.y, tangentXyz.z, tangent.w * tangentSign);
+			vertex.tangent_ = Vector4(tangentXyz.x, tangentXyz.y, tangentXyz.z, decoded.tangent_.w * tangentSign);
 
 			if (!compressedSkinVertices_.empty())
 			{
@@ -1652,12 +1409,12 @@ namespace SeedCore
 		///      常駐させ続ける必要がない。位置はシェーダデコードと同じ計算で
 		///      CPU デコードする。
 		DynamicArray<Uint32> flatTriangleIndices;
-		DynamicArray<CompressedVertex> rtVertices;
-		DynamicArray<Vector3> rtPositions;
-		DynamicArray<CompressedSkinVertex> rtSkinVertices;
-		DynamicArray<Vector3> rtMorphDeltas;
-		Bool buildRTSkinVertices = skins_.size() == 1 && !compressedSkinVertices_.empty();
-		std::unordered_map<Uint32, Uint32> rtRemap;
+		DynamicArray<CompressedVertex> raytracingVertices;
+		DynamicArray<Vector3> raytracingPositions;
+		DynamicArray<CompressedSkinVertex> raytracingSkinVertices;
+		DynamicArray<Vector3> raytracingMorphDeltas;
+		Bool buildRaytracingSkinVertices = skins_.size() == 1 && !compressedSkinVertices_.empty();
+		std::unordered_map<Uint32, Uint32> raytracingRemap;
 		for (SubMesh& subMesh : subMeshes_)
 		{
 			if (subMesh.clusterCount_ == 0)
@@ -1674,18 +1431,18 @@ namespace SeedCore
 			const Cluster& cluster = clusters_[subMesh.clusterOffset_];
 
 			/// [EN] Encounter order for this SubMesh's compact vertices is
-			///      contiguous ascending indices into rtVertices (globalIndex
+			///      contiguous ascending indices into raytracingVertices (globalIndex
 			///      never collides across SubMeshes, since each owns a
-			///      disjoint range of vertices_) — so [rtVertexOffset_,
-			///      rtVertexOffset_ + rtVertexCount_) below is valid, and
+			///      disjoint range of vertices_) — so [raytracingVertexOffset_,
+			///      raytracingVertexOffset_ + raytracingVertexCount_) below is valid, and
 			///      submeshMorphDeltas[target] fills in that same order.
-			/// [JP] この SubMesh のコンパクト頂点の出現順は rtVertices への
+			/// [JP] この SubMesh のコンパクト頂点の出現順は raytracingVertices への
 			///      連続した昇順インデックスになる(globalIndex は SubMesh間で
 			///      衝突しない、各 SubMesh が vertices_ の互いに素な範囲を
-			///      持つため) — そのため下の [rtVertexOffset_,
-			///      rtVertexOffset_ + rtVertexCount_) は正しく、
+			///      持つため) — そのため下の [raytracingVertexOffset_,
+			///      raytracingVertexOffset_ + raytracingVertexCount_) は正しく、
 			///      submeshMorphDeltas[target] も同じ順序で埋まる。
-			subMesh.rtVertexOffset_ = static_cast<Uint32>(rtVertices.size());
+			subMesh.raytracingVertexOffset_ = static_cast<Uint32>(raytracingVertices.size());
 			DynamicArray<DynamicArray<Vector3>> submeshMorphDeltas(subMesh.morphs_.size());
 
 			for (Uint32 meshletIndex = cluster.meshletOffset_; meshletIndex < cluster.meshletOffset_ + cluster.meshletCount_; meshletIndex++)
@@ -1697,26 +1454,26 @@ namespace SeedCore
 					for (Int corner = 0; corner < 3; corner++)
 					{
 						Uint32 globalIndex = vertexIndices_[meshlet.vertexOffset_ + primitiveIndices_[byteOffset + corner]];
-						auto found = rtRemap.find(globalIndex);
-						if (found == rtRemap.end())
+						auto found = raytracingRemap.find(globalIndex);
+						if (found == raytracingRemap.end())
 						{
-							Uint32 compactIndex = static_cast<Uint32>(rtVertices.size());
-							rtRemap[globalIndex] = compactIndex;
+							Uint32 compactIndex = static_cast<Uint32>(raytracingVertices.size());
+							raytracingRemap[globalIndex] = compactIndex;
 
 							const CompressedVertex& compressed = compressedVertices_[globalIndex];
-							rtVertices.push_back(compressed);
-							rtPositions.push_back(DecodePosition(compressed, positionMin_, positionExtent_));
+							raytracingVertices.push_back(compressed);
+							raytracingPositions.push_back(DecodePosition(compressed));
 							flatTriangleIndices.push_back(compactIndex);
 
-							if (buildRTSkinVertices)
+							if (buildRaytracingSkinVertices)
 							{
 								if (subMesh.skinIndex_ >= 0 && globalIndex < compressedSkinVertices_.size())
 								{
-									rtSkinVertices.push_back(compressedSkinVertices_[globalIndex]);
+									raytracingSkinVertices.push_back(compressedSkinVertices_[globalIndex]);
 								}
 								else
 								{
-									rtSkinVertices.push_back(CompressedSkinVertex{});
+									raytracingSkinVertices.push_back(CompressedSkinVertex{});
 								}
 							}
 
@@ -1738,42 +1495,42 @@ namespace SeedCore
 				}
 			}
 
-			subMesh.rtVertexCount_ = static_cast<Uint32>(rtVertices.size()) - subMesh.rtVertexOffset_;
+			subMesh.raytracingVertexCount_ = static_cast<Uint32>(raytracingVertices.size()) - subMesh.raytracingVertexOffset_;
 
 			if (!subMesh.morphs_.empty())
 			{
-				subMesh.rtMorphDeltaOffset_ = static_cast<Uint32>(rtMorphDeltas.size());
+				subMesh.raytracingMorphDeltaOffset_ = static_cast<Uint32>(raytracingMorphDeltas.size());
 				for (const DynamicArray<Vector3>& targetDeltas : submeshMorphDeltas)
 				{
-					rtMorphDeltas.insert(rtMorphDeltas.end(), targetDeltas.begin(), targetDeltas.end());
+					raytracingMorphDeltas.insert(raytracingMorphDeltas.end(), targetDeltas.begin(), targetDeltas.end());
 				}
 			}
 		}
 
 		if (!flatTriangleIndices.empty())
 		{
-			hr = CreateStaticBufferUnbounded(device, resourceUpload, rtVertices.data(), rtVertices.size(), sizeof(CompressedVertex), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, vertexResource_.ReleaseAndGetAddressOf());
+			hr = CreateStaticBufferUnbounded(device, resourceUpload, raytracingVertices.data(), raytracingVertices.size(), sizeof(CompressedVertex), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, vertexResource_.ReleaseAndGetAddressOf());
 			SC_HR_CHECK(hr, "レイトレーシング用バーテックスバッファの生成に失敗しました");
-			vertexBufferIndex_ = CreateStructuredShaderResourceView(device, heap, vertexResource_.Get(), static_cast<Uint>(rtVertices.size()), sizeof(CompressedVertex));
-			rtVertexCount_ = static_cast<Uint32>(rtVertices.size());
+			vertexBufferIndex_ = CreateStructuredShaderResourceView(device, heap, vertexResource_.Get(), static_cast<Uint>(raytracingVertices.size()), sizeof(CompressedVertex));
+			proxyVertexCount_ = static_cast<Uint32>(raytracingVertices.size());
 
-			hr = CreateStaticBufferUnbounded(device, resourceUpload, rtPositions.data(), rtPositions.size(), sizeof(Vector3), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, positionResource_.ReleaseAndGetAddressOf());
+			hr = CreateStaticBufferUnbounded(device, resourceUpload, raytracingPositions.data(), raytracingPositions.size(), sizeof(Vector3), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, positionResource_.ReleaseAndGetAddressOf());
 			SC_HR_CHECK(hr, "レイトレーシング用ポジションバッファの生成に失敗しました");
 
-			hr = CreateStaticBufferUnbounded(device, resourceUpload, flatTriangleIndices.data(), flatTriangleIndices.size(), sizeof(Uint32), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, flatTriangleIndexResource_.ReleaseAndGetAddressOf());
+			hr = CreateStaticBufferUnbounded(device, resourceUpload, flatTriangleIndices.data(), flatTriangleIndices.size(), sizeof(Uint32), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, indexResource_.ReleaseAndGetAddressOf());
 			SC_HR_CHECK(hr, "レイトレーシング用インデックスバッファの生成に失敗しました");
-			flatTriangleIndexCount_ = static_cast<Uint32>(flatTriangleIndices.size());
-			flatTriangleIndexShaderResourceViewIndex_ = CreateStructuredShaderResourceView(device, heap, flatTriangleIndexResource_.Get(), flatTriangleIndexCount_, sizeof(Uint32));
+			triangleIndexCount_ = static_cast<Uint32>(flatTriangleIndices.size());
+			indexBufferIndex_ = CreateStructuredShaderResourceView(device, heap, indexResource_.Get(), triangleIndexCount_, sizeof(Uint32));
 
-			if (buildRTSkinVertices && rtSkinVertices.size() == rtVertices.size())
+			if (buildRaytracingSkinVertices && raytracingSkinVertices.size() == raytracingVertices.size())
 			{
-				hr = CreateStaticBufferUnbounded(device, resourceUpload, rtSkinVertices.data(), rtSkinVertices.size(), sizeof(CompressedSkinVertex), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, rtSkinVertexResource_.ReleaseAndGetAddressOf());
+				hr = CreateStaticBufferUnbounded(device, resourceUpload, raytracingSkinVertices.data(), raytracingSkinVertices.size(), sizeof(CompressedSkinVertex), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, raytracingSkinVertexResource_.ReleaseAndGetAddressOf());
 				SC_HR_CHECK(hr, "レイトレーシング用スキンバーテックスバッファの生成に失敗しました");
 			}
 
-			if (!rtMorphDeltas.empty())
+			if (!raytracingMorphDeltas.empty())
 			{
-				hr = CreateStaticBufferUnbounded(device, resourceUpload, rtMorphDeltas.data(), rtMorphDeltas.size(), sizeof(Vector3), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, rtMorphDeltaResource_.ReleaseAndGetAddressOf());
+				hr = CreateStaticBufferUnbounded(device, resourceUpload, raytracingMorphDeltas.data(), raytracingMorphDeltas.size(), sizeof(Vector3), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, raytracingMorphDeltaResource_.ReleaseAndGetAddressOf());
 				SC_HR_CHECK(hr, "レイトレーシング用モーフデルタバッファの生成に失敗しました");
 			}
 		}
@@ -1907,35 +1664,515 @@ namespace SeedCore
 
 	/**
 	* [EN]
-	* Synchronously uploads the shared LOD 0 vertex pool page. No-op when
-	* already resident, when poolVertexEnd_ is 0 (no LOD 0 clusters), or
-	* when no device is bound yet.
+	* Returns every Stage (root-node list + name) parsed from the source
+	* glTF's scenes.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* 共有 LOD 0 頂点プールページを同期アップロードする。常駐済み、
-	* poolVertexEnd_ が 0（LOD 0 クラスタが無い）、またはまだ device が
-	* 束縛されていない場合は何もしない。
+	* ソース glTF の scenes から解析された、全 Stage（ルートノード一覧 +
+	* 名前）を返す。
 	*/
-	void Crister::MakePoolResident()
+	const DynamicArray<Stage>& Crister::Stages()const
 	{
-		if (poolResident_ || poolVertexEnd_ == 0 || !device_)
+		return stages_; 
+	}
+
+	/**
+	* [EN]
+	* Returns every Node in the flattened node hierarchy, including their
+	* local S/R/T and cumulated globalTransform_.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 平坦化されたノード階層の全 Node を返す。各ノードのローカル
+	* S/R/T と、累積済みの globalTransform_ を含む。
+	*/
+	const DynamicArray<Node>& Crister::Nodes()const
+	{
+		return nodes_;
+	}
+
+	/**
+	* [EN]
+	* Returns every KHR_lights_punctual point/spot light resolved from
+	* the source glTF, in world space.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* ソース glTF から解決された、全 KHR_lights_punctual
+	* ポイント/スポットライトをワールド空間で返す。
+	*/
+	const DynamicArray<PunctualLight>& Crister::Lights()const
+	{
+		return lights_;
+	}
+
+	/**
+	* [EN]
+	* Returns every SubMesh (material + cluster range + optional skin
+	* index) this Crister is split into.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* この Crister が分割されている全 SubMesh（マテリアル + クラスタ
+	* 範囲 + 任意のスキンインデックス）を返す。
+	*/
+	const DynamicArray<SubMesh>& Crister::SubMeshes()const
+	{
+		return subMeshes_;
+	}
+
+	/**
+	* [EN]
+	* Returns every Material (PBR factors + KHR_materials_* extensions +
+	* texture indices) parsed from the source glTF.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* ソース glTF から解析された、全 Material（PBR ファクタ +
+	* KHR_materials_* 拡張 + テクスチャインデックス）を返す。
+	*/
+	const DynamicArray<Material>& Crister::Materials()const
+	{
+		return materials_;
+	}
+
+	/**
+	* [EN]
+	* Returns every Skin (joint list + inverse-bind matrices) parsed
+	* from the source glTF.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* ソース glTF から解析された、全 Skin（ジョイント一覧 + 逆バインド
+	* 行列）を返す。
+	*/
+	const DynamicArray<Skin>& Crister::Skins()const
+	{
+		return skins_;
+	}
+
+	/**
+	* [EN]
+	* Returns every Cluster (one LOD level's meshlet range within a
+	* SubMesh) across all SubMeshes.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 全 SubMesh を通した、全 Cluster（SubMesh 内の1 LOD レベルぶんの
+	* meshlet 範囲）を返す。
+	*/
+	const DynamicArray<Cluster>& Crister::Clusters()const
+	{
+		return clusters_;
+	}
+
+	/**
+	* [EN]
+	* Returns the index into Stages() of the stage rendered by default
+	* when no stage is explicitly selected.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 明示的にステージが選択されていない時にデフォルトで描画される、
+	* Stages() 内のインデックスを返す。
+	*/
+	Int Crister::DefaultStage()const
+	{
+		return defaultStage_;
+	}
+
+	/**
+	* [EN]
+	* Linear search for the first Node whose name_ matches name, or -1
+	* if none does. glTF node names are not guaranteed unique, so this
+	* returns the first match in nodes_ order.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* name_ が name と一致する最初の Node を線形探索する、無ければ -1。
+	* glTF のノード名は一意性が保証されないため、nodes_ の順で最初に
+	* 見つかったものを返す。
+	*/
+	Int Crister::FindNodeIndex(const std::string& name)const
+	{
+		for (Size nodeIndex = 0; nodeIndex < nodes_.size(); nodeIndex++)
+		{
+			if (nodes_[nodeIndex].name_ == name)
+			{
+				return static_cast<Int>(nodeIndex);
+			}
+		}
+		return -1;
+	}
+
+	/**
+	* [EN]
+	* Minimum corner of the dequantisation AABB for CompressedVertex
+	* positions (see the struct comment). Passed to the shaders through
+	* ModelInstance.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* CompressedVertex 位置の逆量子化 AABB の最小コーナー（構造体コメント
+	* 参照）。ModelInstance 経由でシェーダに渡す。
+	*/
+	Vector3 Crister::PositionMin()const
+	{
+		return positionMin_;
+	}
+
+	/**
+	* [EN]
+	* Extent (max - min) of the dequantisation AABB for CompressedVertex
+	* positions. Passed to the shaders through ModelInstance.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* CompressedVertex 位置の逆量子化 AABB の大きさ（max - min）。
+	* ModelInstance 経由でシェーダに渡す。
+	*/
+	Vector3 Crister::PositionExtent()const
+	{
+		return positionExtent_;
+	}
+
+	/**
+	* [EN]
+	* Minimum corner of the dequantisation AABB for CompressedVertex
+	* texcoords. Passed to the shaders through ModelInstance.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* CompressedVertex テクスチャ座標の逆量子化 AABB の最小コーナー。
+	* ModelInstance 経由でシェーダに渡す。
+	*/
+	Vector2 Crister::TexcoordMin()const
+	{
+		return texcoordMin_;
+	}
+
+	/**
+	* [EN]
+	* Extent (max - min) of the dequantisation AABB for CompressedVertex
+	* texcoords. Passed to the shaders through ModelInstance.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* CompressedVertex テクスチャ座標の逆量子化 AABB の大きさ
+	* （max - min）。ModelInstance 経由でシェーダに渡す。
+	*/
+	Vector2 Crister::TexcoordExtent()const
+	{
+		return texcoordExtent_;
+	}
+
+	/**
+	* [EN]
+	* GPU address of the RT proxy's dedicated float3 position buffer
+	* (stride = sizeof(Vector3)) for BLAS construction, decoded on the
+	* CPU from the quantised CompressedVertex data with the same math
+	* the mesh shader uses — so BLAS positions match the rasterized ones.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* BLAS 構築用の、RT プロキシ専用 float3 位置バッファ
+	* （stride = sizeof(Vector3)）の GPU アドレス。量子化済み
+	* CompressedVertex からメッシュシェーダと同じ計算で CPU デコード
+	* するため、BLAS の位置はラスタライズ結果と一致する。
+	*/
+	D3D12_GPU_VIRTUAL_ADDRESS Crister::PositionBufferAddress()const
+	{
+		return positionResource_ ? positionResource_->GetGPUVirtualAddress() : 0;
+	}
+
+	/**
+	* [EN]
+	* Vertex count of the RT proxy's compact position/vertex buffers
+	* (positionResource_/vertexResource_) PositionBufferAddress() points
+	* to, i.e. the size a morph-blend scratch position buffer must be
+	* allocated to.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* PositionBufferAddress() が指す RT プロキシのコンパクトな位置/
+	* 頂点バッファ(positionResource_/vertexResource_)の頂点数。
+	* モーフブレンド用の一時位置バッファを確保すべきサイズでもある。
+	*/
+	Uint32 Crister::VertexCount()const
+	{
+		return proxyVertexCount_;
+	}
+
+	/**
+	* [EN]
+	* GPU address of the flat (non-meshlet) 32-bit triangle index buffer
+	* for BLAS construction, unpacked once at Upload() time from
+	* primitiveIndices_/vertexIndices_ in the same order the mesh shader
+	* draws them — so BLAS geometry matches the rasterized geometry
+	* exactly (no re-derived winding).
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* BLAS 構築用の、フラット（非meshlet）32bit 三角形インデックス
+	* バッファの GPU アドレス。primitiveIndices_/vertexIndices_ から
+	* Upload() 時に1度だけ、メッシュシェーダが描くのと同じ順序で展開する
+	* — BLAS のジオメトリはラスタライズされるジオメトリと完全に一致する
+	* （巻き順を再導出しない）。
+	*/
+	D3D12_GPU_VIRTUAL_ADDRESS Crister::IndexBufferAddress()const
+	{
+		return indexResource_ ? indexResource_->GetGPUVirtualAddress() : 0;
+	}
+
+	/**
+	* [EN]
+	* Triangle count of the flat index buffer IndexBufferAddress() points to.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* IndexBufferAddress() が指すフラットインデックスバッファの三角形数。
+	*/
+	Uint32 Crister::IndexCount()const
+	{
+		return triangleIndexCount_;
+	}
+
+	/**
+	* [EN]
+	* Maps a glTF image index (as stored in Material) to the bindless
+	* heap index of the uploaded GPU texture. Returns 0xFFFFFFFF when
+	* not present.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* glTF の image インデックス（Material に格納されている値）を、
+	* アップロード済み GPU テクスチャの bindless ヒープインデックスに
+	* 変換する。無ければ 0xFFFFFFFF。
+	*/
+	Uint Crister::TextureBindlessIndex(Uint32 textureIndex)const
+	{
+		if (textureIndex >= streamingTextures_.size())
+		{
+			return 0xFFFFFFFF;
+		}
+		const StreamingTexture& streamingTexture = streamingTextures_[textureIndex];
+		if (!streamingTexture.valid_ || streamingTexture.topResidentMip_ >= streamingTexture.mipCount_)
+		{
+			return 0xFFFFFFFF;
+		}
+		Bool isPinnedMip = streamingTexture.topResidentMip_ == streamingTexture.mipCount_ - 1;
+		return isPinnedMip ? streamingTexture.pinnedMip_.bindlessIndex_ : streamingTexture.currentMip_.bindlessIndex_;
+	}
+
+	/**
+	* [EN]
+	* Bindless SRV of the RT proxy CompressedVertex buffer (built from
+	* each SubMesh's coarsest cluster — reflections trace against a
+	* low-poly proxy so full-detail geometry never has to be resident).
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* RT プロキシ CompressedVertex バッファの bindless SRV（各 SubMesh の
+	* 最粗クラスタから構築 — 反射は低ポリプロキシに対してトレースする
+	* ため、フル詳細ジオメトリを常駐させる必要がない）。
+	*/
+	Uint Crister::VertexBufferIndex()const
+	{
+		return vertexBufferIndex_;
+	}
+
+	/**
+	* [EN]
+	* Bindless SRV over the flat 32-bit triangle index buffer, for
+	* raytracing closesthit shaders to re-fetch the hit triangle's
+	* vertices (PrimitiveIndex() * 3 + 0/1/2 -> vertex index).
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* フラット 32bit 三角形インデックスバッファの bindless SRV。
+	* レイトレの closesthit がヒット三角形の頂点を引き直すのに使う
+	* (PrimitiveIndex() * 3 + 0/1/2 → 頂点インデックス)。
+	*/
+	Uint Crister::IndexBufferIndex()const
+	{
+		return indexBufferIndex_;
+	}
+
+	/**
+	* [EN]
+	* Bindless SRV of the CompressedSkinVertex buffer, or 0xFFFFFFFF
+	* when this Crister has no skins.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* CompressedSkinVertex バッファの bindless SRV。スキンが無い
+	* Crister では 0xFFFFFFFF。
+	*/
+	Uint Crister::SkinVertexBufferIndex()const
+	{
+		return skinVertexBufferIndex_;
+	}
+
+	/**
+	* [EN]
+	* Bindless SRV of morphDeltaResource_ (raster-side flat morph
+	* target delta pool, target-major per SubMesh — see
+	* SubMesh::morphDeltaOffset_), or 0xFFFFFFFF when no SubMesh has
+	* morphs_.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* morphDeltaResource_(ラスタ側のフラットなモーフターゲットデルタ
+	* プール、SubMesh ごとのターゲット主順 — SubMesh::morphDeltaOffset_
+	* 参照)の bindless SRV。どの SubMesh も morphs_ を持たなければ
+	* 0xFFFFFFFF。
+	*/
+	Uint Crister::MorphDeltaBufferIndex()const
+	{
+		return morphDeltaBufferIndex_;
+	}
+
+	/**
+	* [EN]
+	* Bindless SRV of vertexMorphSourceResource_ (per-vertex remap to
+	* the original vertex morphDeltaResource_ is indexed by — see
+	* vertexMorphSource_'s comment), or 0xFFFFFFFF when no SubMesh has
+	* morphs_.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* vertexMorphSourceResource_(morphDeltaResource_ がインデックスする
+	* オリジナル頂点への、頂点ごとの逆引き — vertexMorphSource_ の
+	* コメント参照)の bindless SRV。どの SubMesh も morphs_ を持たなければ
+	* 0xFFFFFFFF。
+	*/
+	Uint Crister::VertexMorphSourceBufferIndex()const
+	{
+		return vertexMorphSourceBufferIndex_;
+	}
+
+	/**
+	* [EN]
+	* Whether this Crister has RT-side skinning data (skinVertexResource_/
+	* raytracingSkinVertexResource_ populated), i.e. skins_ is non-empty and the
+	* RT proxy build found at least one skinned SubMesh.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* この Crister が RT 側のスキニングデータを持つか
+	* (skinVertexResource_/raytracingSkinVertexResource_ が構築済みか)。
+	* skins_ が空でなく、RT プロキシ構築時にスキンド SubMesh を
+	* 1つ以上見つけた場合に true。
+	*/
+	Bool Crister::IsProxySkinned()const
+	{
+		return raytracingSkinVertexResource_ != nullptr;
+	}
+
+	/**
+	* [EN]
+	* GPU address of the RT proxy's skin vertex pool
+	* (raytracingSkinVertexResource_), or 0 when IsProxySkinned is false.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* RT プロキシのスキン頂点プール (raytracingSkinVertexResource_) の
+	* GPU アドレス。IsProxySkinned が false なら 0。
+	*/
+	D3D12_GPU_VIRTUAL_ADDRESS Crister::ProxySkinVertexBufferAddress()const
+	{
+		return raytracingSkinVertexResource_ ? raytracingSkinVertexResource_->GetGPUVirtualAddress() : 0;
+	}
+
+	/**
+	* [EN]
+	* Whether this Crister has RT-side morph delta data
+	* (raytracingMorphDeltaResource_ populated), i.e. at least one SubMesh has
+	* morphs_ and the RT proxy build baked its delta block.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* この Crister が RT 側のモーフデルタデータを持つか
+	* (raytracingMorphDeltaResource_ が構築済みか)。いずれかの SubMesh が
+	* morphs_ を持ち、RT プロキシ構築時にそのデルタブロックが
+	* 焼き込まれた場合に true。
+	*/
+	Bool Crister::IsProxyMorphed()const
+	{
+		return raytracingMorphDeltaResource_ != nullptr;
+	}
+
+	/**
+	* [EN]
+	* GPU address of the RT proxy's morph delta pool
+	* (raytracingMorphDeltaResource_), or 0 when IsProxyMorphed is false.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* RT プロキシのモーフデルタプール (raytracingMorphDeltaResource_) の
+	* GPU アドレス。IsProxyMorphed が false なら 0。
+	*/
+	D3D12_GPU_VIRTUAL_ADDRESS Crister::ProxyMorphDeltaBufferAddress()const
+	{
+		return raytracingMorphDeltaResource_ ? raytracingMorphDeltaResource_->GetGPUVirtualAddress() : 0;
+	}
+
+	/**
+	* [EN]
+	* Copies the RT proxy's base (bind-pose) positions
+	* (positionResource_, VertexCount() * sizeof(Vector3) bytes) into
+	* destination, which the caller must have already transitioned to
+	* D3D12_RESOURCE_STATE_COPY_DEST. Used to seed a per-instance morph
+	* blend scratch buffer before MorphBlendCS overwrites only the
+	* vertex ranges of SubMeshes with active morph weights this frame —
+	* every other vertex must keep its base position unchanged.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* RT プロキシのベース(バインドポーズ)位置(positionResource_、
+	* VertexCount() * sizeof(Vector3) バイト)を destination へコピー
+	* する。呼び出し側は destination を事前に
+	* D3D12_RESOURCE_STATE_COPY_DEST へ遷移させておくこと。今フレーム
+	* 有効なモーフウェイトを持つ SubMesh の頂点範囲だけを MorphBlendCS が
+	* 上書きする前の、インスタンスごとのモーフブレンド用一時バッファの
+	* 種として使う — それ以外の頂点はベース位置のまま保つ必要がある。
+	*/
+	void Crister::CopyMorph(ID3D12GraphicsCommandList* cmdList, ID3D12Resource* destination)const
+	{
+		if (!positionResource_ || !destination || proxyVertexCount_ == 0)
 		{
 			return;
 		}
-
-		DirectX::ResourceUploadBatch resourceUpload(device_);
-		resourceUpload.Begin();
-		HRESULT hr = CreateStaticBufferUnbounded(device_, resourceUpload, compressedVertices_.data(), poolVertexEnd_, sizeof(CompressedVertex), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, poolResource_.ReleaseAndGetAddressOf());
-		SC_HR_CHECK(hr, "頂点プールバッファの生成に失敗しました");
-		poolBufferIndex_ = CreateStructuredShaderResourceView(device_, bindlessHeap_, poolResource_.Get(), poolVertexEnd_, sizeof(CompressedVertex));
-		auto finished = resourceUpload.End(uploadQueue_);
-		finished.wait();
-
-		poolSizeBytes_ = static_cast<Uint64>(poolVertexEnd_) * sizeof(CompressedVertex);
-		totalResidentGeometryBytes_ += poolSizeBytes_;
-		poolResident_ = true;
+		cmdList->CopyBufferRegion(destination, 0, positionResource_.Get(), 0, static_cast<UINT64>(proxyVertexCount_) * sizeof(Vector3));
 	}
 
 	/**
@@ -2186,6 +2423,39 @@ namespace SeedCore
 
 	/**
 	* [EN]
+	* Synchronously uploads the shared LOD 0 vertex pool page. No-op when
+	* already resident, when poolVertexEnd_ is 0 (no LOD 0 clusters), or
+	* when no device is bound yet.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 共有 LOD 0 頂点プールページを同期アップロードする。常駐済み、
+	* poolVertexEnd_ が 0（LOD 0 クラスタが無い）、またはまだ device が
+	* 束縛されていない場合は何もしない。
+	*/
+	void Crister::MakePoolResident()
+	{
+		if (poolResident_ || poolVertexEnd_ == 0 || !device_)
+		{
+			return;
+		}
+
+		DirectX::ResourceUploadBatch resourceUpload(device_);
+		resourceUpload.Begin();
+		HRESULT hr = CreateStaticBufferUnbounded(device_, resourceUpload, compressedVertices_.data(), poolVertexEnd_, sizeof(CompressedVertex), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, poolResource_.ReleaseAndGetAddressOf());
+		SC_HR_CHECK(hr, "頂点プールバッファの生成に失敗しました");
+		poolBufferIndex_ = CreateStructuredShaderResourceView(device_, bindlessHeap_, poolResource_.Get(), poolVertexEnd_, sizeof(CompressedVertex));
+		auto finished = resourceUpload.End(uploadQueue_);
+		finished.wait();
+
+		poolSizeBytes_ = static_cast<Uint64>(poolVertexEnd_) * sizeof(CompressedVertex);
+		totalResidentGeometryBytes_ += poolSizeBytes_;
+		poolResident_ = true;
+	}
+
+	/**
+	* [EN]
 	* Frees the cluster page's GPU resources and bindless indices
 	* (deferred release, since in-flight frames may still reference
 	* them). No-op if not resident or pinned.
@@ -2297,38 +2567,6 @@ namespace SeedCore
 
 	/**
 	* [EN]
-	* Whether the cluster's page is currently GPU-resident.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* クラスタのページが現在 GPU に常駐しているか。
-	*/
-	Bool Crister::IsClusterResident(Uint32 clusterIndex)const
-	{
-		return streamingGeometry_[clusterIndex].resident_;
-	}
-
-	/**
-	* [EN]
-	* Whether the texture has streamed all the way in to mip 0 (its finest).
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* テクスチャがミップ 0（最も細かい）まで完全にストリームインしているか。
-	*/
-	Bool Crister::IsTextureResident(Uint32 textureIndex)const
-	{
-		if (textureIndex >= streamingTextures_.size())
-		{
-			return false;
-		}
-		return streamingTextures_[textureIndex].topResidentMip_ == 0;
-	}
-
-	/**
-	* [EN]
 	* Marks the cluster page (and its pool, if the cluster doesn't own
 	* its own vertices) as used this frame so the eviction age guard
 	* keeps it alive while the GPU may still reference it.
@@ -2372,204 +2610,34 @@ namespace SeedCore
 
 	/**
 	* [EN]
-	* Bindless SRV of the cluster page's vertex buffer — its own page
-	* if it owns vertices, otherwise the shared LOD 0 pool.
+	* Whether the cluster's page is currently GPU-resident.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* クラスタページの頂点バッファの bindless SRV — 頂点を自前で持てば
-	* 自身のページ、そうでなければ共有 LOD 0 プール。
+	* クラスタのページが現在 GPU に常駐しているか。
 	*/
-	Uint Crister::ClusterVertexBufferIndex(Uint32 clusterIndex)const
+	Bool Crister::IsClusterResident(Uint32 clusterIndex)const
 	{
-		const StreamingGeometry& page = streamingGeometry_[clusterIndex];
-		return page.ownsVertices_ ? page.vertexBufferIndex_ : poolBufferIndex_;
+		return streamingGeometry_[clusterIndex].resident_;
 	}
 
 	/**
 	* [EN]
-	* Whether this cluster page owns its own vertex slice
-	* (streamingGeometry_[clusterIndex].ownsVertices_) rather than
-	* referencing the shared LOD 0 pool. Own-page vertex indices are
-	* rebased to page-local numbering by MakeClusterResident, so they are
-	* NOT valid indices into Crister::vertexMorphSource_/
-	* morphDeltaResource_ (which use the crister-wide numbering the shared
-	* pool preserves) — callers populating a raster morph instance must
-	* check this and leave morph fields zeroed
-	* (ModelInstanceData::morphTargetCount_ == 0) for any cluster where
-	* this returns true.
+	* Whether the texture has streamed all the way in to mip 0 (its finest).
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* このクラスタページが共有 LOD 0 プールを参照するのではなく、自前の
-	* 頂点スライスを持つか(streamingGeometry_[clusterIndex].ownsVertices_)。
-	* 自前ページの頂点インデックスは MakeClusterResident によってページ
-	* ローカルな番号へリベースされるため、Crister::vertexMorphSource_/
-	* morphDeltaResource_(共有プールが保つ Crister 全体の番号付けを使う)
-	* への有効なインデックスでは【ない】— ラスタのモーフ用インスタンスを
-	* 組み立てる側はこれを確認し、true が返るクラスタではモーフフィールドを
-	* ゼロのまま(ModelInstanceData::morphTargetCount_ == 0)にすること。
+	* テクスチャがミップ 0（最も細かい）まで完全にストリームインしているか。
 	*/
-	Bool Crister::ClusterOwnsVertices(Uint32 clusterIndex)const
-	{
-		return streamingGeometry_[clusterIndex].ownsVertices_;
-	}
-
-	/**
-	* [EN]
-	* Bindless SRV of the cluster page's meshlet buffer.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* クラスタページの meshlet バッファの bindless SRV。
-	*/
-	Uint Crister::ClusterMeshletBufferIndex(Uint32 clusterIndex)const
-	{
-		return streamingGeometry_[clusterIndex].meshletBufferIndex_;
-	}
-
-	/**
-	* [EN]
-	* Bindless SRV of the cluster page's meshlet bound buffer.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* クラスタページの meshlet バウンドバッファの bindless SRV。
-	*/
-	Uint Crister::ClusterMeshletBoundBufferIndex(Uint32 clusterIndex)const
-	{
-		return streamingGeometry_[clusterIndex].meshletBoundBufferIndex_;
-	}
-
-	/**
-	* [EN]
-	* Bindless SRV of the cluster page's vertex indices buffer.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* クラスタページの頂点インデックスバッファの bindless SRV。
-	*/
-	Uint Crister::ClusterVertexIndicesBufferIndex(Uint32 clusterIndex)const
-	{
-		return streamingGeometry_[clusterIndex].vertexIndicesBufferIndex_;
-	}
-
-	/**
-	* [EN]
-	* Bindless SRV of the cluster page's primitive indices buffer.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* クラスタページのプリミティブインデックスバッファの bindless SRV。
-	*/
-	Uint Crister::ClusterPrimitiveIndicesBufferIndex(Uint32 clusterIndex)const
-	{
-		return streamingGeometry_[clusterIndex].primitiveIndicesBufferIndex_;
-	}
-
-	/**
-	* [EN]
-	* Total mip levels the texture has (baked mip chain length), or 0
-	* if textureIndex is out of range.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* テクスチャが持つ総ミップ段数（焼き込み済みミップチェーンの長さ）。
-	* textureIndex が範囲外なら 0。
-	*/
-	Uint32 Crister::TextureMipCount(Uint32 textureIndex)const
+	Bool Crister::IsTextureResident(Uint32 textureIndex)const
 	{
 		if (textureIndex >= streamingTextures_.size())
 		{
-			return 0;
+			return false;
 		}
-		return streamingTextures_[textureIndex].mipCount_;
-	}
-
-	/**
-	* [EN]
-	* Finest mip level currently GPU-resident, or 0 if textureIndex is
-	* out of range.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* 現在 GPU に常駐している最も細かいミップ段。textureIndex が範囲外
-	* なら 0。
-	*/
-	Uint32 Crister::TextureTopResidentMip(Uint32 textureIndex)const
-	{
-		if (textureIndex >= streamingTextures_.size())
-		{
-			return 0;
-		}
-		return streamingTextures_[textureIndex].topResidentMip_;
-	}
-
-	/**
-	* [EN]
-	* Approximates the mip a material texture needs from the same
-	* worldScale/pixelsPerUnit metric ModelRenderer already computes for
-	* cluster LOD selection (screen coverage of the instance).
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* ModelRenderer がクラスタ LOD 選択のために既に計算している
-	* worldScale/pixelsPerUnit（インスタンスの画面被覆率）から、
-	* マテリアルテクスチャに必要なミップを近似する。
-	*/
-	Uint32 Crister::DesiredTextureMip(Uint32 textureIndex, Float worldScale, Float pixelsPerUnit)const
-	{
-		if (textureIndex >= streamingTextures_.size() || !streamingTextures_[textureIndex].valid_)
-		{
-			return 0;
-		}
-
-		/// [EN] worldScale is the transform's scale factor, NOT the model's size:
-		///      an unscaled 10-unit building and an unscaled 0.1-unit prop both
-		///      report 1.0. Using it alone underestimates screen coverage by the
-		///      model's extent and picks a far too coarse mip (this is what made
-		///      everything look soft). Scale it by the quantisation AABB's
-		///      diagonal, which is the model's actual world-space size, to get
-		///      the real on-screen pixel span.
-		///      texelsPerScreenPixel is then how many mip-0 texels crowd into one
-		///      screen pixel; each doubling costs exactly one mip level. Assumes
-		///      the texture maps roughly once across the model — there is no
-		///      per-mesh texel-density data to do better, so bias toward sharp
-		///      (round down) rather than risk over-blurring.
-		/// [JP] worldScale はトランスフォームの倍率でありモデルの大きさではない:
-		///      等倍の 10 ユニットの建物も等倍の 0.1 ユニットの小物も 1.0 を返す。
-		///      これだけで判断するとモデルの実寸分だけ画面被覆を過小評価し、
-		///      粗すぎるミップを選んでしまう(これが全体が眠く見えた原因)。
-		///      モデルの実ワールドサイズである量子化 AABB の対角長を掛けて、
-		///      実際の画面上のピクセル幅を求める。
-		///      texelsPerScreenPixel は画面 1 ピクセルに詰め込まれる mip 0 の
-		///      テクセル数で、2 倍になるごとにちょうど 1 ミップ粗くできる。
-		///      テクスチャがモデル全体におよそ 1 回貼られる前提(メッシュごとの
-		///      テクセル密度データが無いためこれ以上詰められない)。ぼやけ過ぎる
-		///      リスクを避けるため切り捨てて鮮明側に倒す。
-		Vector3 extent = positionExtent_;
-		Float modelSize = Max(Max(extent.x, extent.y), extent.z);
-		Float screenPixels = Max(worldScale * modelSize * pixelsPerUnit, 1.0f);
-		Float textureWidth = static_cast<Float>(bitmaps_[textureIndex].width_);
-
-		Uint32 desiredMip = 0;
-		Float texelsPerScreenPixel = textureWidth / screenPixels;
-		if (texelsPerScreenPixel > 1.0f)
-		{
-			desiredMip = static_cast<Uint32>(std::log2(texelsPerScreenPixel));
-		}
-
-		Uint32 mipCount = streamingTextures_[textureIndex].mipCount_;
-		return mipCount == 0 ? 0 : Min(desiredMip, mipCount - 1);
+		return streamingTextures_[textureIndex].topResidentMip_ == 0;
 	}
 
 	/**
@@ -2698,575 +2766,537 @@ namespace SeedCore
 
 	/**
 	* [EN]
-	* Returns every Stage (root-node list + name) parsed from the source
-	* glTF's scenes.
+	* Bindless SRV of the cluster page's vertex buffer — its own page
+	* if it owns vertices, otherwise the shared LOD 0 pool.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* ソース glTF の scenes から解析された、全 Stage（ルートノード一覧 +
-	* 名前）を返す。
+	* クラスタページの頂点バッファの bindless SRV — 頂点を自前で持てば
+	* 自身のページ、そうでなければ共有 LOD 0 プール。
 	*/
-	const DynamicArray<Stage>& Crister::Stages()const
+	Uint Crister::ClusterVertexBufferIndex(Uint32 clusterIndex)const
 	{
-		return stages_; 
+		const StreamingGeometry& page = streamingGeometry_[clusterIndex];
+		return page.ownsVertices_ ? page.vertexBufferIndex_ : poolBufferIndex_;
 	}
 
 	/**
 	* [EN]
-	* Returns every Node in the flattened node hierarchy, including their
-	* local S/R/T and cumulated globalTransform_.
+	* Bindless SRV of the cluster page's meshlet buffer.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* 平坦化されたノード階層の全 Node を返す。各ノードのローカル
-	* S/R/T と、累積済みの globalTransform_ を含む。
+	* クラスタページの meshlet バッファの bindless SRV。
 	*/
-	const DynamicArray<Node>& Crister::Nodes()const
+	Uint Crister::ClusterMeshletBufferIndex(Uint32 clusterIndex)const
 	{
-		return nodes_;
+		return streamingGeometry_[clusterIndex].meshletBufferIndex_;
 	}
 
 	/**
 	* [EN]
-	* Returns every KHR_lights_punctual point/spot light resolved from
-	* the source glTF, in world space.
+	* Bindless SRV of the cluster page's meshlet bound buffer.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* ソース glTF から解決された、全 KHR_lights_punctual
-	* ポイント/スポットライトをワールド空間で返す。
+	* クラスタページの meshlet バウンドバッファの bindless SRV。
 	*/
-	const DynamicArray<PunctualLight>& Crister::Lights()const
+	Uint Crister::ClusterMeshletBoundBufferIndex(Uint32 clusterIndex)const
 	{
-		return lights_;
+		return streamingGeometry_[clusterIndex].meshletBoundBufferIndex_;
 	}
 
 	/**
 	* [EN]
-	* Returns every SubMesh (material + cluster range + optional skin
-	* index) this Crister is split into.
+	* Bindless SRV of the cluster page's vertex indices buffer.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* この Crister が分割されている全 SubMesh（マテリアル + クラスタ
-	* 範囲 + 任意のスキンインデックス）を返す。
+	* クラスタページの頂点インデックスバッファの bindless SRV。
 	*/
-	const DynamicArray<SubMesh>& Crister::SubMeshes()const
+	Uint Crister::ClusterVertexIndicesBufferIndex(Uint32 clusterIndex)const
 	{
-		return subMeshes_;
+		return streamingGeometry_[clusterIndex].vertexIndicesBufferIndex_;
 	}
 
 	/**
 	* [EN]
-	* Whether any SubMesh in this Crister has glTF morph targets
-	* (SubMesh::morphs_ non-empty). Cheap source-data check — unlike
-	* HasMorphedRTGeometry, this does not require the RT proxy to have
-	* been built yet. Used to decide whether sampling this Crister's
-	* animation for morph weights is worth doing at all.
+	* Bindless SRV of the cluster page's primitive indices buffer.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* この Crister のいずれかの SubMesh が glTF モーフターゲットを持つか
-	* (SubMesh::morphs_ が空でない)。ソースデータの軽量チェック —
-	* HasMorphedRTGeometry と違い、RT プロキシが構築済みである必要は
-	* ない。この Crister のアニメーションをモーフウェイトのために
-	* サンプリングする価値があるかどうかの判断に使う。
+	* クラスタページのプリミティブインデックスバッファの bindless SRV。
 	*/
-	Bool Crister::HasMorphs()const
+	Uint Crister::ClusterPrimitiveIndicesBufferIndex(Uint32 clusterIndex)const
 	{
-		for (const SubMesh& subMesh : subMeshes_)
-		{
-			if (!subMesh.morphs_.empty())
-			{
-				return true;
-			}
-		}
-		return false;
+		return streamingGeometry_[clusterIndex].primitiveIndicesBufferIndex_;
 	}
 
 	/**
 	* [EN]
-	* Returns every Material (PBR factors + KHR_materials_* extensions +
-	* texture indices) parsed from the source glTF.
+	* Whether this cluster page owns its own vertex slice
+	* (streamingGeometry_[clusterIndex].ownsVertices_) rather than
+	* referencing the shared LOD 0 pool. Own-page vertex indices are
+	* rebased to page-local numbering by MakeClusterResident, so they are
+	* NOT valid indices into Crister::vertexMorphSource_/
+	* morphDeltaResource_ (which use the crister-wide numbering the shared
+	* pool preserves) — callers populating a raster morph instance must
+	* check this and leave morph fields zeroed
+	* (ModelInstanceData::morphTargetCount_ == 0) for any cluster where
+	* this returns true.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* ソース glTF から解析された、全 Material（PBR ファクタ +
-	* KHR_materials_* 拡張 + テクスチャインデックス）を返す。
+	* このクラスタページが共有 LOD 0 プールを参照するのではなく、自前の
+	* 頂点スライスを持つか(streamingGeometry_[clusterIndex].ownsVertices_)。
+	* 自前ページの頂点インデックスは MakeClusterResident によってページ
+	* ローカルな番号へリベースされるため、Crister::vertexMorphSource_/
+	* morphDeltaResource_(共有プールが保つ Crister 全体の番号付けを使う)
+	* への有効なインデックスでは【ない】— ラスタのモーフ用インスタンスを
+	* 組み立てる側はこれを確認し、true が返るクラスタではモーフフィールドを
+	* ゼロのまま(ModelInstanceData::morphTargetCount_ == 0)にすること。
 	*/
-	const DynamicArray<Material>& Crister::Materials()const
+	Bool Crister::StandaloneVertices(Uint32 clusterIndex)const
 	{
-		return materials_;
+		return streamingGeometry_[clusterIndex].ownsVertices_;
 	}
 
 	/**
 	* [EN]
-	* Returns every Skin (joint list + inverse-bind matrices) parsed
-	* from the source glTF.
+	* Finest mip level currently GPU-resident, or 0 if textureIndex is
+	* out of range.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* ソース glTF から解析された、全 Skin（ジョイント一覧 + 逆バインド
-	* 行列）を返す。
+	* 現在 GPU に常駐している最も細かいミップ段。textureIndex が範囲外
+	* なら 0。
 	*/
-	const DynamicArray<Skin>& Crister::Skins()const
-	{
-		return skins_;
-	}
-
-	/**
-	* [EN]
-	* Returns every Cluster (one LOD level's meshlet range within a
-	* SubMesh) across all SubMeshes.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* 全 SubMesh を通した、全 Cluster（SubMesh 内の1 LOD レベルぶんの
-	* meshlet 範囲）を返す。
-	*/
-	const DynamicArray<Cluster>& Crister::Clusters()const
-	{
-		return clusters_;
-	}
-
-	/**
-	* [EN]
-	* Returns the index into Stages() of the stage rendered by default
-	* when no stage is explicitly selected.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* 明示的にステージが選択されていない時にデフォルトで描画される、
-	* Stages() 内のインデックスを返す。
-	*/
-	Int Crister::DefaultStage()const
-	{
-		return defaultStage_;
-	}
-
-	/**
-	* [EN]
-	* Linear search for the first Node whose name_ matches name, or -1
-	* if none does. glTF node names are not guaranteed unique, so this
-	* returns the first match in nodes_ order.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* name_ が name と一致する最初の Node を線形探索する、無ければ -1。
-	* glTF のノード名は一意性が保証されないため、nodes_ の順で最初に
-	* 見つかったものを返す。
-	*/
-	Int Crister::FindNodeIndex(const std::string& name)const
-	{
-		for (Size nodeIndex = 0; nodeIndex < nodes_.size(); nodeIndex++)
-		{
-			if (nodes_[nodeIndex].name_ == name)
-			{
-				return static_cast<Int>(nodeIndex);
-			}
-		}
-		return -1;
-	}
-
-	/**
-	* [EN]
-	* Maps a glTF image index (as stored in Material) to the bindless
-	* heap index of the uploaded GPU texture. Returns 0xFFFFFFFF when
-	* not present.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* glTF の image インデックス（Material に格納されている値）を、
-	* アップロード済み GPU テクスチャの bindless ヒープインデックスに
-	* 変換する。無ければ 0xFFFFFFFF。
-	*/
-	Uint Crister::TextureBindlessIndex(Uint32 textureIndex)const
+	Uint32 Crister::TextureFinestMip(Uint32 textureIndex)const
 	{
 		if (textureIndex >= streamingTextures_.size())
 		{
-			return 0xFFFFFFFF;
+			return 0;
 		}
-		const StreamingTexture& streamingTexture = streamingTextures_[textureIndex];
-		if (!streamingTexture.valid_ || streamingTexture.topResidentMip_ >= streamingTexture.mipCount_)
+		return streamingTextures_[textureIndex].topResidentMip_;
+	}
+
+	/**
+	* [EN]
+	* Approximates the mip a material texture needs from the same
+	* worldScale/pixelsPerUnit metric ModelRenderer already computes for
+	* cluster LOD selection (screen coverage of the instance).
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* ModelRenderer がクラスタ LOD 選択のために既に計算している
+	* worldScale/pixelsPerUnit（インスタンスの画面被覆率）から、
+	* マテリアルテクスチャに必要なミップを近似する。
+	*/
+	Uint32 Crister::TextureDesiredMip(Uint32 textureIndex, Float worldScale, Float pixelsPerUnit)const
+	{
+		if (textureIndex >= streamingTextures_.size() || !streamingTextures_[textureIndex].valid_)
 		{
-			return 0xFFFFFFFF;
+			return 0;
 		}
-		Bool isPinnedMip = streamingTexture.topResidentMip_ == streamingTexture.mipCount_ - 1;
-		return isPinnedMip ? streamingTexture.pinnedMip_.bindlessIndex_ : streamingTexture.currentMip_.bindlessIndex_;
+
+		/// [EN] worldScale is the transform's scale factor, NOT the model's size:
+		///      an unscaled 10-unit building and an unscaled 0.1-unit prop both
+		///      report 1.0. Using it alone underestimates screen coverage by the
+		///      model's extent and picks a far too coarse mip (this is what made
+		///      everything look soft). Scale it by the quantisation AABB's
+		///      diagonal, which is the model's actual world-space size, to get
+		///      the real on-screen pixel span.
+		///      texelsPerScreenPixel is then how many mip-0 texels crowd into one
+		///      screen pixel; each doubling costs exactly one mip level. Assumes
+		///      the texture maps roughly once across the model — there is no
+		///      per-mesh texel-density data to do better, so bias toward sharp
+		///      (round down) rather than risk over-blurring.
+		/// [JP] worldScale はトランスフォームの倍率でありモデルの大きさではない:
+		///      等倍の 10 ユニットの建物も等倍の 0.1 ユニットの小物も 1.0 を返す。
+		///      これだけで判断するとモデルの実寸分だけ画面被覆を過小評価し、
+		///      粗すぎるミップを選んでしまう(これが全体が眠く見えた原因)。
+		///      モデルの実ワールドサイズである量子化 AABB の対角長を掛けて、
+		///      実際の画面上のピクセル幅を求める。
+		///      texelsPerScreenPixel は画面 1 ピクセルに詰め込まれる mip 0 の
+		///      テクセル数で、2 倍になるごとにちょうど 1 ミップ粗くできる。
+		///      テクスチャがモデル全体におよそ 1 回貼られる前提(メッシュごとの
+		///      テクセル密度データが無いためこれ以上詰められない)。ぼやけ過ぎる
+		///      リスクを避けるため切り捨てて鮮明側に倒す。
+		Vector3 extent = positionExtent_;
+		Float modelSize = Max(Max(extent.x, extent.y), extent.z);
+		Float screenPixels = Max(worldScale * modelSize * pixelsPerUnit, 1.0f);
+		Float textureWidth = static_cast<Float>(bitmaps_[textureIndex].width_);
+
+		Uint32 desiredMip = 0;
+		Float texelsPerScreenPixel = textureWidth / screenPixels;
+		if (texelsPerScreenPixel > 1.0f)
+		{
+			desiredMip = static_cast<Uint32>(std::log2(texelsPerScreenPixel));
+		}
+
+		Uint32 mipCount = streamingTextures_[textureIndex].mipCount_;
+		return mipCount == 0 ? 0 : Min(desiredMip, mipCount - 1);
 	}
 
 	/**
 	* [EN]
-	* Bindless SRV of the RT proxy CompressedVertex buffer (built from
-	* each SubMesh's coarsest cluster — reflections trace against a
-	* low-poly proxy so full-detail geometry never has to be resident).
+	* Walks stages_[defaultStage_]'s node tree depth-first and
+	* recomputes every Node::globalTransform_ from local S/R/T.
+	* Duplicates ModelLoader::CumulateTransforms' logic so
+	* ApplyAxisConversion can recompute global transforms without a
+	* ModelLoader/glTF re-parse.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* RT プロキシ CompressedVertex バッファの bindless SRV（各 SubMesh の
-	* 最粗クラスタから構築 — 反射は低ポリプロキシに対してトレースする
-	* ため、フル詳細ジオメトリを常駐させる必要がない）。
+	* stages_[defaultStage_]のノードツリーを深さ優先で走査し、ローカル
+	* S/R/T から全 Node::globalTransform_ を再計算する。
+	* ModelLoader::CumulateTransforms のロジックを複製したもの。
+	* ApplyAxisConversion が ModelLoader/glTF 再解析無しにグローバル
+	* トランスフォームを再計算できるようにする。
 	*/
-	Uint Crister::VertexBufferIndex()const
+	void Crister::CumulateTransforms()
 	{
-		return vertexBufferIndex_;
-	}
-
-	/**
-	* [EN]
-	* Bindless SRV of the CompressedSkinVertex buffer, or 0xFFFFFFFF
-	* when this Crister has no skins.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* CompressedSkinVertex バッファの bindless SRV。スキンが無い
-	* Crister では 0xFFFFFFFF。
-	*/
-	Uint Crister::SkinVertexBufferIndex()const
-	{
-		return skinVertexBufferIndex_;
-	}
-
-	/**
-	* [EN]
-	* Bindless SRV of morphDeltaResource_ (raster-side flat morph
-	* target delta pool, target-major per SubMesh — see
-	* SubMesh::morphDeltaOffset_), or 0xFFFFFFFF when no SubMesh has
-	* morphs_.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* morphDeltaResource_(ラスタ側のフラットなモーフターゲットデルタ
-	* プール、SubMesh ごとのターゲット主順 — SubMesh::morphDeltaOffset_
-	* 参照)の bindless SRV。どの SubMesh も morphs_ を持たなければ
-	* 0xFFFFFFFF。
-	*/
-	Uint Crister::MorphDeltaBufferIndex()const
-	{
-		return morphDeltaBufferIndex_;
-	}
-
-	/**
-	* [EN]
-	* Bindless SRV of vertexMorphSourceResource_ (per-vertex remap to
-	* the original vertex morphDeltaResource_ is indexed by — see
-	* vertexMorphSource_'s comment), or 0xFFFFFFFF when no SubMesh has
-	* morphs_.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* vertexMorphSourceResource_(morphDeltaResource_ がインデックスする
-	* オリジナル頂点への、頂点ごとの逆引き — vertexMorphSource_ の
-	* コメント参照)の bindless SRV。どの SubMesh も morphs_ を持たなければ
-	* 0xFFFFFFFF。
-	*/
-	Uint Crister::VertexMorphSourceBufferIndex()const
-	{
-		return vertexMorphSourceBufferIndex_;
-	}
-
-	/**
-	* [EN]
-	* Minimum corner of the dequantisation AABB for CompressedVertex
-	* positions (see the struct comment). Passed to the shaders through
-	* ModelInstance.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* CompressedVertex 位置の逆量子化 AABB の最小コーナー（構造体コメント
-	* 参照）。ModelInstance 経由でシェーダに渡す。
-	*/
-	Vector3 Crister::PositionMin()const
-	{
-		return positionMin_;
-	}
-
-	/**
-	* [EN]
-	* Extent (max - min) of the dequantisation AABB for CompressedVertex
-	* positions. Passed to the shaders through ModelInstance.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* CompressedVertex 位置の逆量子化 AABB の大きさ（max - min）。
-	* ModelInstance 経由でシェーダに渡す。
-	*/
-	Vector3 Crister::PositionExtent()const
-	{
-		return positionExtent_;
-	}
-
-	/**
-	* [EN]
-	* Minimum corner of the dequantisation AABB for CompressedVertex
-	* texcoords. Passed to the shaders through ModelInstance.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* CompressedVertex テクスチャ座標の逆量子化 AABB の最小コーナー。
-	* ModelInstance 経由でシェーダに渡す。
-	*/
-	Vector2 Crister::TexcoordMin()const
-	{
-		return texcoordMin_;
-	}
-
-	/**
-	* [EN]
-	* Extent (max - min) of the dequantisation AABB for CompressedVertex
-	* texcoords. Passed to the shaders through ModelInstance.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* CompressedVertex テクスチャ座標の逆量子化 AABB の大きさ
-	* （max - min）。ModelInstance 経由でシェーダに渡す。
-	*/
-	Vector2 Crister::TexcoordExtent()const
-	{
-		return texcoordExtent_;
-	}
-
-	/**
-	* [EN]
-	* GPU address of the RT proxy's dedicated float3 position buffer
-	* (stride = sizeof(Vector3)) for BLAS construction, decoded on the
-	* CPU from the quantised CompressedVertex data with the same math
-	* the mesh shader uses — so BLAS positions match the rasterized ones.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* BLAS 構築用の、RT プロキシ専用 float3 位置バッファ
-	* （stride = sizeof(Vector3)）の GPU アドレス。量子化済み
-	* CompressedVertex からメッシュシェーダと同じ計算で CPU デコード
-	* するため、BLAS の位置はラスタライズ結果と一致する。
-	*/
-	D3D12_GPU_VIRTUAL_ADDRESS Crister::VertexBufferGPUAddress()const
-	{
-		return positionResource_ ? positionResource_->GetGPUVirtualAddress() : 0;
-	}
-
-	/**
-	* [EN]
-	* Vertex count of the RT proxy position buffer VertexBufferGPUAddress() points to.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* VertexBufferGPUAddress() が指す RT プロキシ位置バッファの頂点数。
-	*/
-	Uint32 Crister::VertexCount()const
-	{
-		return rtVertexCount_;
-	}
-
-	/**
-	* [EN]
-	* GPU address of the flat (non-meshlet) 32-bit triangle index buffer
-	* for BLAS construction, unpacked once at Upload() time from
-	* primitiveIndices_/vertexIndices_ in the same order the mesh shader
-	* draws them — so BLAS geometry matches the rasterized geometry
-	* exactly (no re-derived winding).
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* BLAS 構築用の、フラット（非meshlet）32bit 三角形インデックス
-	* バッファの GPU アドレス。primitiveIndices_/vertexIndices_ から
-	* Upload() 時に1度だけ、メッシュシェーダが描くのと同じ順序で展開する
-	* — BLAS のジオメトリはラスタライズされるジオメトリと完全に一致する
-	* （巻き順を再導出しない）。
-	*/
-	D3D12_GPU_VIRTUAL_ADDRESS Crister::FlatTriangleIndexBufferGPUAddress()const
-	{
-		return flatTriangleIndexResource_ ? flatTriangleIndexResource_->GetGPUVirtualAddress() : 0;
-	}
-
-	/**
-	* [EN]
-	* Triangle count of the flat index buffer FlatTriangleIndexBufferGPUAddress() points to.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* FlatTriangleIndexBufferGPUAddress() が指すフラットインデックスバッファの三角形数。
-	*/
-	Uint32 Crister::FlatTriangleIndexCount()const
-	{
-		return flatTriangleIndexCount_;
-	}
-
-	/**
-	* [EN]
-	* Bindless SRV over the flat 32-bit triangle index buffer, for
-	* raytracing closesthit shaders to re-fetch the hit triangle's
-	* vertices (PrimitiveIndex() * 3 + 0/1/2 -> vertex index).
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* フラット 32bit 三角形インデックスバッファの bindless SRV。
-	* レイトレの closesthit がヒット三角形の頂点を引き直すのに使う
-	* (PrimitiveIndex() * 3 + 0/1/2 → 頂点インデックス)。
-	*/
-	Uint Crister::FlatTriangleIndexShaderResourceViewIndex()const
-	{
-		return flatTriangleIndexShaderResourceViewIndex_;
-	}
-
-	/**
-	* [EN]
-	* Whether this Crister has RT-side skinning data (skinVertexResource_/
-	* rtSkinVertexResource_ populated), i.e. skins_ is non-empty and the
-	* RT proxy build found at least one skinned SubMesh.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* この Crister が RT 側のスキニングデータを持つか
-	* (skinVertexResource_/rtSkinVertexResource_ が構築済みか)。
-	* skins_ が空でなく、RT プロキシ構築時にスキンド SubMesh を
-	* 1つ以上見つけた場合に true。
-	*/
-	Bool Crister::HasSkinnedRTGeometry()const
-	{
-		return rtSkinVertexResource_ != nullptr;
-	}
-
-	/**
-	* [EN]
-	* GPU address of the RT proxy's decoded float3 position buffer
-	* (positionResource_) — see VertexBufferGPUAddress's comment for why
-	* RT uses a separate dedicated position buffer.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* RT プロキシのデコード済み float3 位置バッファ (positionResource_)
-	* の GPU アドレス — RT が専用の位置バッファを使う理由は
-	* VertexBufferGPUAddress のコメント参照。
-	*/
-	D3D12_GPU_VIRTUAL_ADDRESS Crister::RTPositionBufferGPUAddress()const
-	{
-		return positionResource_ ? positionResource_->GetGPUVirtualAddress() : 0;
-	}
-
-	/**
-	* [EN]
-	* GPU address of the RT proxy's skin vertex pool
-	* (rtSkinVertexResource_), or 0 when HasSkinnedRTGeometry is false.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* RT プロキシのスキン頂点プール (rtSkinVertexResource_) の
-	* GPU アドレス。HasSkinnedRTGeometry が false なら 0。
-	*/
-	D3D12_GPU_VIRTUAL_ADDRESS Crister::RTSkinVertexBufferGPUAddress()const
-	{
-		return rtSkinVertexResource_ ? rtSkinVertexResource_->GetGPUVirtualAddress() : 0;
-	}
-
-	/**
-	* [EN]
-	* Whether this Crister has RT-side morph delta data
-	* (rtMorphDeltaResource_ populated), i.e. at least one SubMesh has
-	* morphs_ and the RT proxy build baked its delta block.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* この Crister が RT 側のモーフデルタデータを持つか
-	* (rtMorphDeltaResource_ が構築済みか)。いずれかの SubMesh が
-	* morphs_ を持ち、RT プロキシ構築時にそのデルタブロックが
-	* 焼き込まれた場合に true。
-	*/
-	Bool Crister::HasMorphedRTGeometry()const
-	{
-		return rtMorphDeltaResource_ != nullptr;
-	}
-
-	/**
-	* [EN]
-	* GPU address of the RT proxy's morph delta pool
-	* (rtMorphDeltaResource_), or 0 when HasMorphedRTGeometry is false.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* RT プロキシのモーフデルタプール (rtMorphDeltaResource_) の
-	* GPU アドレス。HasMorphedRTGeometry が false なら 0。
-	*/
-	D3D12_GPU_VIRTUAL_ADDRESS Crister::RTMorphDeltaBufferGPUAddress()const
-	{
-		return rtMorphDeltaResource_ ? rtMorphDeltaResource_->GetGPUVirtualAddress() : 0;
-	}
-
-	/**
-	* [EN]
-	* Vertex count of the RT proxy's compact position/vertex buffers
-	* (positionResource_/vertexResource_), i.e. the size a morph-blend
-	* scratch position buffer must be allocated to.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* RT プロキシのコンパクトな位置/頂点バッファ
-	* (positionResource_/vertexResource_) の頂点数。モーフブレンド用の
-	* 一時位置バッファを確保すべきサイズでもある。
-	*/
-	Uint32 Crister::RTVertexCount()const
-	{
-		return rtVertexCount_;
-	}
-
-	/**
-	* [EN]
-	* Copies the RT proxy's base (bind-pose) positions
-	* (positionResource_, RTVertexCount() * sizeof(Vector3) bytes) into
-	* destination, which the caller must have already transitioned to
-	* D3D12_RESOURCE_STATE_COPY_DEST. Used to seed a per-instance morph
-	* blend scratch buffer before MorphBlendCS overwrites only the
-	* vertex ranges of SubMeshes with active morph weights this frame —
-	* every other vertex must keep its base position unchanged.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* RT プロキシのベース(バインドポーズ)位置(positionResource_、
-	* RTVertexCount() * sizeof(Vector3) バイト)を destination へコピー
-	* する。呼び出し側は destination を事前に
-	* D3D12_RESOURCE_STATE_COPY_DEST へ遷移させておくこと。今フレーム
-	* 有効なモーフウェイトを持つ SubMesh の頂点範囲だけを MorphBlendCS が
-	* 上書きする前の、インスタンスごとのモーフブレンド用一時バッファの
-	* 種として使う — それ以外の頂点はベース位置のまま保つ必要がある。
-	*/
-	void Crister::CopyRTPositionsForMorph(ID3D12GraphicsCommandList* cmdList, ID3D12Resource* destination)const
-	{
-		if (!positionResource_ || !destination || rtVertexCount_ == 0)
+		if (defaultStage_ < 0 || static_cast<Size>(defaultStage_) >= stages_.size())
 		{
 			return;
 		}
-		cmdList->CopyBufferRegion(destination, 0, positionResource_.Get(), 0, static_cast<UINT64>(rtVertexCount_) * sizeof(Vector3));
+
+		std::stack<Matrix> parentGlobalTransforms;
+		std::function<void(Int)> traverse = [&](Int nodeIndex)
+			{
+				if (nodeIndex < 0 || static_cast<Size>(nodeIndex) >= nodes_.size())
+				{
+					return;
+				}
+
+				Node& node = nodes_[nodeIndex];
+				Matrix scale = Matrix::CreateScale(node.scale_.x, node.scale_.y, node.scale_.z);
+				Matrix rotation = Matrix::CreateFromQuaternion(node.rotation_);
+				Matrix translation = Matrix::CreateTranslation(node.translation_.x, node.translation_.y, node.translation_.z);
+
+				Matrix localTransform = scale * rotation * translation;
+				node.globalTransform_ = localTransform * parentGlobalTransforms.top();
+
+				for (Int childIndex : node.children_)
+				{
+					parentGlobalTransforms.push(node.globalTransform_);
+					traverse(childIndex);
+					parentGlobalTransforms.pop();
+				}
+			};
+
+		for (Int nodeIndex : stages_[defaultStage_].nodes_)
+		{
+			parentGlobalTransforms.push(Matrix::Identity);
+			traverse(nodeIndex);
+			parentGlobalTransforms.pop();
+		}
+	}
+
+	/**
+	* [EN]
+	* Allocates a bindless heap index and creates a StructuredBuffer SRV
+	* for resource at that index.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* bindless ヒープインデックスを1つ確保し、resource に対する
+	* StructuredBuffer SRV をそのインデックスへ作成する。
+	*/
+	Uint Crister::CreateStructuredShaderResourceView(ID3D12Device* device, BindlessHeap* heap, ID3D12Resource* resource, Uint elementCount, Uint stride)
+	{
+		Uint index = heap->AllocateIndex();
+
+		D3D12_SHADER_RESOURCE_VIEW_DESC shaderResourceViewDesc{};
+		shaderResourceViewDesc.Format = DXGI_FORMAT_UNKNOWN;
+		shaderResourceViewDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+		shaderResourceViewDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		shaderResourceViewDesc.Buffer.FirstElement = 0;
+		shaderResourceViewDesc.Buffer.NumElements = elementCount;
+		shaderResourceViewDesc.Buffer.StructureByteStride = stride;
+		shaderResourceViewDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+		device->CreateShaderResourceView(resource, &shaderResourceViewDesc, heap->CPUHandle(index));
+
+		return index;
+	}
+
+	/**
+	* [EN]
+	* DirectX::CreateStaticBuffer rejects any resource above ~128MB
+	* (D3D12_REQ_RESOURCE_SIZE_IN_MEGABYTES_EXPRESSION_A_TERM used
+	* directly as a flat byte cap by DirectXTK12's BufferHelpers.cpp,
+	* not an actual D3D12 hardware limit - real buffers can be
+	* gigabytes, bounded only by available GPU memory). High-poly
+	* meshes routinely exceed that for the flat 32-bit triangle index
+	* buffer, so this mirrors CreateStaticBuffer's own implementation
+	* without the artificial size gate.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* DirectX::CreateStaticBuffer は約128MBを超えるリソースを拒否する
+	* (DirectXTK12 の BufferHelpers.cpp が
+	* D3D12_REQ_RESOURCE_SIZE_IN_MEGABYTES_EXPRESSION_A_TERM を単純な
+	* バイト上限としてそのまま使っているだけで、実際の D3D12/GPU の
+	* ハード制限ではない - 実バッファは GPU メモリが許す限り
+	* ギガバイト単位まで作れる)。ハイポリメッシュのフラット32bit
+	* 三角形インデックスバッファはこれを普通に超えるため、
+	* CreateStaticBuffer と同じ実装からサイズ上限チェックだけ外した版。
+	*/
+	HRESULT Crister::CreateStaticBufferUnbounded(ID3D12Device* device, DirectX::ResourceUploadBatch& resourceUpload, const void* data, Uint64 count, Uint64 stride, D3D12_RESOURCE_STATES afterState, ID3D12Resource** outResource)
+	{
+		const Uint64 sizeInBytes = count * stride;
+
+		D3D12_HEAP_PROPERTIES heapProperties{};
+		heapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
+
+		D3D12_RESOURCE_DESC resourceDesc{};
+		resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+		resourceDesc.Width = sizeInBytes;
+		resourceDesc.Height = 1;
+		resourceDesc.DepthOrArraySize = 1;
+		resourceDesc.MipLevels = 1;
+		resourceDesc.Format = DXGI_FORMAT_UNKNOWN;
+		resourceDesc.SampleDesc.Count = 1;
+		resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+
+		Microsoft::WRL::ComPtr<ID3D12Resource> resource;
+		HRESULT hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(resource.GetAddressOf()));
+		if (FAILED(hr))
+		{
+			return hr;
+		}
+
+		D3D12_SUBRESOURCE_DATA subresourceData{ data, 0, 0 };
+		resourceUpload.Upload(resource.Get(), 0, &subresourceData, 1);
+		resourceUpload.Transition(resource.Get(), D3D12_RESOURCE_STATE_COPY_DEST, afterState);
+
+		*outResource = resource.Detach();
+		return S_OK;
+	}
+
+	/**
+	* [EN]
+	* Texture counterpart to CreateStaticBufferUnbounded's byte-layout
+	* role: resolves mip dimensions/row-pitch/slice-pitch/byte-offset
+	* within Bitmap::cacheData_ for a given mip index, from the standard
+	* BC block layout (16 bytes per 4x4 texel block, mips concatenated
+	* in order with no stored per-mip offsets).
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* CreateStaticBufferUnbounded のバイトレイアウト計算に相当する
+	* テクスチャ版: Bitmap::cacheData_ 内での指定ミップの寸法/
+	* row-pitch/slice-pitch/バイトオフセットを、標準的な BC
+	* ブロックレイアウト（4x4 テクセルブロックあたり 16 バイト、
+	* ミップは順に連結・オフセット未保存）から解決する。
+	*/
+	void Crister::ComputeTextureMipLayout(const Bitmap& bitmap, Uint32 mipIndex, Uint32& outWidth, Uint32& outHeight, Uint64& outRowPitch, Uint64& outSlicePitch, Uint64& outByteOffset)
+	{
+		Uint64 offset = 0;
+		Int mipWidth = bitmap.width_;
+		Int mipHeight = bitmap.height_;
+		for (Uint32 mip = 0; mip < mipIndex; mip++)
+		{
+			Uint64 blockWidth = Max<Uint64>(1, (static_cast<Uint64>(mipWidth) + 3) / 4);
+			Uint64 blockHeight = Max<Uint64>(1, (static_cast<Uint64>(mipHeight) + 3) / 4);
+			offset += blockWidth * 16 * blockHeight;
+			mipWidth = Max(1, mipWidth / 2);
+			mipHeight = Max(1, mipHeight / 2);
+		}
+
+		Uint64 blockWidth = Max<Uint64>(1, (static_cast<Uint64>(mipWidth) + 3) / 4);
+		Uint64 blockHeight = Max<Uint64>(1, (static_cast<Uint64>(mipHeight) + 3) / 4);
+		outWidth = static_cast<Uint32>(mipWidth);
+		outHeight = static_cast<Uint32>(mipHeight);
+		outRowPitch = blockWidth * 16;
+		outSlicePitch = outRowPitch * blockHeight;
+		outByteOffset = offset;
+	}
+
+	/**
+	* [EN]
+	* Dequantises just the position field of a CompressedVertex, against this
+	* Crister's own positionMin_/positionExtent_.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* CompressedVertex の position フィールドだけを、この Crister 自身の
+	* positionMin_/positionExtent_ に対して逆量子化する。
+	*/
+	Vector3 Crister::DecodePosition(const CompressedVertex& compressed)const
+	{
+		return positionMin_ + Vector3(
+			static_cast<Float>(compressed.positionXY_ & 0xFFFF) / 65535.0f * positionExtent_.x,
+			static_cast<Float>(compressed.positionXY_ >> 16) / 65535.0f * positionExtent_.y,
+			static_cast<Float>(compressed.positionZTexU_ & 0xFFFF) / 65535.0f * positionExtent_.z);
+	}
+
+	/**
+	* [EN]
+	* Dequantises just the texcoord field of a CompressedVertex, against this
+	* Crister's own texcoordMin_/texcoordExtent_.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* CompressedVertex の texcoord フィールドだけを、この Crister 自身の
+	* texcoordMin_/texcoordExtent_ に対して逆量子化する。
+	*/
+	Vector2 Crister::DecodeTexcoord(const CompressedVertex& compressed)const
+	{
+		return texcoordMin_ + Vector2(
+			static_cast<Float>(compressed.positionZTexU_ >> 16) / 65535.0f * texcoordExtent_.x,
+			static_cast<Float>(compressed.texVTangent_ & 0xFFFF) / 65535.0f * texcoordExtent_.y);
+	}
+
+	/**
+	* [EN]
+	* Dequantises just the tangent field (xyz direction + handedness sign in
+	* .w) of a CompressedVertex.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* CompressedVertex の tangent フィールド（xyz 方向 + .w の利き手符号）だけ
+	* を逆量子化する。
+	*/
+	Vector4 Crister::DecodeTangent(const CompressedVertex& compressed)const
+	{
+		Uint32 tangentBits = compressed.texVTangent_ >> 16;
+		Uint32 octX16 = static_cast<Uint32>(static_cast<Float>(tangentBits & 0xFF) / 255.0f * 65535.0f + 0.5f);
+		Uint32 octY16 = static_cast<Uint32>(static_cast<Float>((tangentBits >> 8) & 0x7F) / 127.0f * 65535.0f + 0.5f);
+		Float sign = (tangentBits >> 15) ? 1.0f : -1.0f;
+
+		Vector3 xyz = DecodeOctahedralNormal(octX16 | (octY16 << 16));
+		return Vector4(xyz.x, xyz.y, xyz.z, sign);
+	}
+
+	/**
+	* [EN]
+	* Dequantises the joint indices and renormalised weights of a
+	* CompressedSkinVertex. Weights are renormalised because four 8-bit
+	* UNORM values rarely sum to exactly one.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* CompressedSkinVertex のジョイントインデックスと再正規化済み
+	* ウェイトを逆量子化する。4つの 8bit UNORM 値は合計がちょうど1に
+	* なることが稀なため再正規化する。
+	*/
+	void Crister::DecodeSkin(const CompressedSkinVertex& compressed, XmUint4& outJoints, Vector4& outWeights)const
+	{
+		outJoints.x = compressed.jointsXY_ & 0xFFFF;
+		outJoints.y = compressed.jointsXY_ >> 16;
+		outJoints.z = compressed.jointsZW_ & 0xFFFF;
+		outJoints.w = compressed.jointsZW_ >> 16;
+
+		outWeights = Vector4(static_cast<Float>(compressed.weights_ & 0xFF), static_cast<Float>((compressed.weights_ >> 8) & 0xFF), static_cast<Float>((compressed.weights_ >> 16) & 0xFF), static_cast<Float>(compressed.weights_ >> 24)) / 255.0f;
+
+		Float weightSum = outWeights.x + outWeights.y + outWeights.z + outWeights.w;
+		outWeights /= Max(weightSum, 1e-6f);
+	}
+
+	/**
+	* [EN]
+	* Change-of-basis for a position: transforms vector in place by basis.
+	* Duplicates ModelLoader's ConvertPositionByBasis (private to
+	* ModelLoader) so ApplyAxisConversion can re-convert without a
+	* ModelLoader/glTF re-parse.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 位置の基底変換。vector を basis でその場変換する。ModelLoader の
+	* ConvertPositionByBasis（ModelLoader 限定 private）を複製し、
+	* ApplyAxisConversion が ModelLoader/glTF 再解析無しに再変換できる
+	* ようにする。
+	*/
+	void Crister::ConvertPositionByBasis(Vector3& vector, const Matrix& basis)const
+	{
+		vector = Vector3::Transform(vector, basis);
+	}
+
+	/**
+	* [EN]
+	* Change-of-basis for a rotation: transforms quaternion in place by basis.
+	* Duplicates ModelLoader's ConvertRotationByBasis (private to ModelLoader).
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 回転の基底変換。quaternion を basis でその場変換する。ModelLoader の
+	* ConvertRotationByBasis（ModelLoader 限定 private）を複製する。
+	*/
+	void Crister::ConvertRotationByBasis(Quaternion& quaternion, const Matrix& basis)const
+	{
+		Matrix rotation = Matrix::CreateFromQuaternion(quaternion);
+		Matrix converted = basis.Transpose() * rotation * basis;
+		quaternion = Quaternion::CreateFromRotationMatrix(converted);
+	}
+
+	/**
+	* [EN]
+	* Change-of-basis for a matrix: transforms matrix in place by basis.
+	* Duplicates ModelLoader's ConvertMatrixByBasis (private to ModelLoader).
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 行列の基底変換。matrix を basis でその場変換する。ModelLoader の
+	* ConvertMatrixByBasis（ModelLoader 限定 private）を複製する。
+	*/
+	void Crister::ConvertMatrixByBasis(Matrix& matrix, const Matrix& basis)const
+	{
+		matrix = basis.Transpose() * matrix * basis;
+	}
+
+	/**
+	* [EN]
+	* Quantises a [0,1] float to a 16-bit UNORM, clamping out-of-range input
+	* first. Shared by EncodeVertex (position/texcoord) and
+	* EncodeOctahedralNormal.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* [0,1] の float を 16bit UNORM へ量子化する。範囲外の入力は先にクランプ
+	* する。EncodeVertex（position/texcoord）と EncodeOctahedralNormal が共有する。
+	*/
+	Uint32 Crister::QuantizeUnorm16(Float value01)
+	{
+		Float clamped = value01 < 0.0f ? 0.0f : (value01 > 1.0f ? 1.0f : value01);
+		return static_cast<Uint32>(clamped * 65535.0f + 0.5f);
+	}
+
+	/**
+	* [EN]
+	* Quantises a [0,1] float to an 8-bit UNORM, clamping out-of-range input
+	* first. Used by BakeMesh for skin weights.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* [0,1] の float を 8bit UNORM へ量子化する。範囲外の入力は先にクランプ
+	* する。BakeMesh がスキンウェイトに使う。
+	*/
+	Uint32 Crister::QuantizeUnorm8(Float value01)
+	{
+		Float clamped = value01 < 0.0f ? 0.0f : (value01 > 1.0f ? 1.0f : value01);
+		return static_cast<Uint32>(clamped * 255.0f + 0.5f);
 	}
 
 }

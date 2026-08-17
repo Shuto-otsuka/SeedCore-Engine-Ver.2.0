@@ -239,7 +239,7 @@ namespace SeedCore
 					instanceData.baseColor_ = material.baseColor_;
 					instanceData.metallic_ = material.metallic_;
 					instanceData.roughness_ = material.roughness_;
-					instanceData.alphaCutoff_ = material.alphaMode_ == 1 ? material.alphaCutoff_ : 0.01f;
+					instanceData.alphaCutoff_ = material.alphaMode_ == 1 ? material.alphaCutoff_ : (material.alphaMode_ == 2 ? 0.01f : 0.0f);
 					instanceData.emissive_ = Vector3(material.emissiveFactor_[0], material.emissiveFactor_[1], material.emissiveFactor_[2]);
 
 					instanceData.ior_ = material.khr_.ior_.ior_;

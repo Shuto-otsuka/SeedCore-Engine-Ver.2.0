@@ -4,6 +4,7 @@
 #include "../../Shader/Sampler.hlsli"
 #include "../Froxel/Froxel.hlsli"
 #include "../VolumetricCloudScapes/VolumetricCloudScapes.hlsli"
+#include "../Reflection/Reflection.hlsli"
 #include "VolumetricLight.hlsli"
 
 /**
@@ -80,11 +81,7 @@ void main(uint3 dtid : SV_DispatchThreadID)
 			ray_desc.TMin = 0.001;
 			ray_desc.TMax = tuning.ray_t_max_;
 
-			RayQuery<RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_FORCE_OPAQUE | RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES> query;
-			query.TraceRayInline(tlas, RAY_FLAG_NONE, 0xFF, ray_desc);
-			query.Proceed();
-
-			if (query.CommittedStatus() == COMMITTED_TRIANGLE_HIT)
+			if (IsReflectionRayOccluded(tlas, ray_desc, structured_indices.raytracing_.instance_data_index_))
 			{
 				visibility = 0.0;
 			}

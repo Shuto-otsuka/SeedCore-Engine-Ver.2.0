@@ -754,7 +754,9 @@ namespace SeedCore
 		Uint headPointerIndex_ = 0;
 		Uint fragmentBufferIndex_ = 0;
 		Uint counterIndex_ = 0;
-		Uint oitPadding_ = 0;
+		/// [EN] OITFragment elements actually allocated - see OITBuffer::Create.
+		/// [JP] 実際に確保した OITFragment 要素数 — OITBuffer::Create 参照。
+		Uint fragmentCapacity_ = 0;
 	};
 	static_assert(sizeof(OitIndices) % 16 == 0, "OitIndices が 16 バイト行の倍数ではありません");
 
@@ -1031,6 +1033,8 @@ namespace SeedCore
 		void SetOITFragmentBufferIndex(Uint index);
 
 		void SetOITCounterIndex(Uint index);
+
+		void SetOITFragmentCapacity(Uint capacity);
 
 		void SetHiZIndex(Uint index);
 
