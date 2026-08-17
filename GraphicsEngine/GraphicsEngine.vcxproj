@@ -109,6 +109,11 @@
     <ClInclude Include="Model\Collision\MeshCollisionLoader.h" />
     <ClInclude Include="Model\Collision\MeshCollisionResource.h" />
     <ClInclude Include="Model\Crister.h" />
+    <ClInclude Include="Model\IK\FABRIK.h" />
+    <ClInclude Include="Model\IK\FullBodyIK.h" />
+    <ClInclude Include="Model\IK\IKPose.h" />
+    <ClInclude Include="Model\IK\TreeFABRIK.h" />
+    <ClInclude Include="Model\IK\TwoBoneIK.h" />
     <ClInclude Include="Model\Material\MaterialResolveShader.h" />
     <ClInclude Include="Model\Material\MaterialSortBuffer.h" />
     <ClInclude Include="Model\Mesh.h" />
@@ -244,6 +249,11 @@
     <ClCompile Include="Model\Collision\MeshCollisionLoader.cpp" />
     <ClCompile Include="Model\Collision\MeshCollisionResource.cpp" />
     <ClCompile Include="Model\Crister.cpp" />
+    <ClCompile Include="Model\IK\FABRIK.cpp" />
+    <ClCompile Include="Model\IK\FullBodyIK.cpp" />
+    <ClCompile Include="Model\IK\IKPose.cpp" />
+    <ClCompile Include="Model\IK\TreeFABRIK.cpp" />
+    <ClCompile Include="Model\IK\TwoBoneIK.cpp" />
     <ClCompile Include="Model\Material\MaterialResolveShader.cpp" />
     <ClCompile Include="Model\Material\MaterialSortBuffer.cpp" />
     <ClCompile Include="Model\ModelCommon.cpp" />

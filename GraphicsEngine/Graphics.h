@@ -37,6 +37,8 @@ namespace SeedCore
 
 		void Finalize();
 
+		void WaitForGpuIdle();
+
 		/// [EN] Drains the GPU (all three queues) then resizes every
 		///      resolution-dependent render resource. nativeWidth/nativeHeight
 		///      is the G-Buffer/render resolution; outputWidth/outputHeight is
@@ -148,9 +150,6 @@ namespace SeedCore
 		* が null コンテキストでクラッシュする。
 		*/
 		static void SetImGuiContext(ImGuiContext* context);
-
-	private:
-		void WaitForGpuIdle();
 
 	private:
 		Float width_ = ScResolution::SC_HD.Width;

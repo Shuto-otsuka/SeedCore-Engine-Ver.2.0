@@ -16,6 +16,7 @@
 #include <FoundationEngine/ECS/Component/Bounds.h>
 #include <GraphicsEngine/Model/Animation/Animator.h>
 #include <GraphicsEngine/Model/Animation/AnimationResource.h>
+#include <GraphicsEngine/Model/IK/FullBodyIK.h>
 #include <PhysicsEngine/Softbody/Softbody.h>
 #include <FoundationEngine/ECS/Component/Position.h>
 #include <FoundationEngine/ECS/Component/Rotation.h>
@@ -436,6 +437,8 @@ namespace SeedCore
 								{
 									traverse(rootNodeIndex, Matrix::Identity);
 								}
+
+								FullBodyIK::Apply(*crister, *animator, poseGlobalTransforms);
 
 								hasPose = true;
 							}

@@ -281,6 +281,18 @@ namespace SeedCore
 				}
 			}
 		}
+
+		for (Size nodeIndex = 0; nodeIndex < crister.nodes_.size(); nodeIndex++)
+		{
+			for (Int childIndex : crister.nodes_[nodeIndex].children_)
+			{
+				if (childIndex >= 0 && static_cast<Size>(childIndex) < crister.nodes_.size())
+				{
+					crister.nodes_[childIndex].parentIndex_ = static_cast<Int>(nodeIndex);
+				}
+			}
+		}
+
 		CumulateTransforms(crister);
 	}
 

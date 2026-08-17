@@ -28,6 +28,28 @@ namespace SeedCore
 		}
 
 		EvaluateTransitions();
+
+		constexpr Float ikTargetDecayPerSecond = 6.0f;
+		for (auto it = ikTargets_.begin(); it != ikTargets_.end();)
+		{
+			if (it->second.refreshedThisFrame_)
+			{
+				it->second.refreshedThisFrame_ = false;
+				++it;
+			}
+			else
+			{
+				it->second.weight_ -= ikTargetDecayPerSecond * elapsedTime;
+				if (it->second.weight_ <= 0.001f)
+				{
+					it = ikTargets_.erase(it);
+				}
+				else
+				{
+					++it;
+				}
+			}
+		}
 	}
 
 	void Animator::OnInspectorGUI()
@@ -125,6 +147,49 @@ namespace SeedCore
 	Float Animator::Alpha()const
 	{
 		return blendDuration_ > 0.0f ? Clamp(blendElapsed_ / blendDuration_, 0.0f, 1.0f) : 1.0f;
+	}
+
+	void Animator::SetIKTarget(const std::string& effectorBoneName, const Vector3& targetPosition, Float weight)
+	{
+		IKTarget& target = ikTargets_[effectorBoneName];
+		target.targetPosition_ = targetPosition;
+		target.hasRotation_ = false;
+		target.weight_ = weight;
+		target.refreshedThisFrame_ = true;
+	}
+
+	void Animator::SetIKTarget(const std::string& effectorBoneName, const Vector3& targetPosition, const Quaternion& targetRotation, Float weight)
+	{
+		IKTarget& target = ikTargets_[effectorBoneName];
+		target.targetPosition_ = targetPosition;
+		target.targetRotation_ = targetRotation;
+		target.hasRotation_ = true;
+		target.weight_ = weight;
+		target.refreshedThisFrame_ = true;
+	}
+
+	void Animator::SetJointConstraint(const std::string& boneName, const Vector3& axis, const Vector3& swingAxis, Float swingAngle1, Float swingAngle2)
+	{
+		JointConstraint& constraint = jointConstraints_[boneName];
+		constraint.axis_ = axis;
+		constraint.swingAxis_ = swingAxis;
+		constraint.swingAngle1_ = swingAngle1;
+		constraint.swingAngle2_ = swingAngle2;
+	}
+
+	Bool Animator::HasIK()const
+	{
+		return currentStateIndex_ >= 0 && static_cast<Size>(currentStateIndex_) < states_.size() && states_[currentStateIndex_].useIK_;
+	}
+
+	const std::unordered_map<std::string, IKTarget>& Animator::GetIKTarget()const
+	{
+		return ikTargets_;
+	}
+
+	const std::unordered_map<std::string, JointConstraint>& Animator::GetJointConstraint()const
+	{
+		return jointConstraints_;
 	}
 
 	AnimationParameter* Animator::FindParameter(const String& name)

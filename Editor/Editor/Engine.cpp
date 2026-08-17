@@ -116,6 +116,11 @@ namespace SeedCore
 
 	void Engine::Shutdown()
 	{
+		if (graphics_)
+		{
+			graphics_->WaitForGpuIdle();
+		}
+
 		if (imgui_)
 		{
 			editorConfig_.Capture(editorCamera_, editorCameraController_, *imgui_, editorContext_.sceneContext_.currentScenePath_);

@@ -2855,6 +2855,31 @@ namespace SeedCore
 
 	/**
 	* [EN]
+	* Linear search for the first Node whose name_ matches name, or -1
+	* if none does. glTF node names are not guaranteed unique, so this
+	* returns the first match in nodes_ order.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* name_ が name と一致する最初の Node を線形探索する、無ければ -1。
+	* glTF のノード名は一意性が保証されないため、nodes_ の順で最初に
+	* 見つかったものを返す。
+	*/
+	Int Crister::FindNodeIndex(const std::string& name)const
+	{
+		for (Size nodeIndex = 0; nodeIndex < nodes_.size(); nodeIndex++)
+		{
+			if (nodes_[nodeIndex].name_ == name)
+			{
+				return static_cast<Int>(nodeIndex);
+			}
+		}
+		return -1;
+	}
+
+	/**
+	* [EN]
 	* Maps a glTF image index (as stored in Material) to the bindless
 	* heap index of the uploaded GPU texture. Returns 0xFFFFFFFF when
 	* not present.

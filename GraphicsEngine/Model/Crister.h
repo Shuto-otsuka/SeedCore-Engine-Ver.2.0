@@ -845,6 +845,16 @@ namespace SeedCore
 		Int light_ = -1;
 		DynamicArray<Int> children_;
 
+		/// [EN] Index into Crister::nodes_ of this node's parent, -1 for a
+		///      root node. Fully derivable from every node's children_, so
+		///      not serialized — ModelLoader::FetchNodes recomputes it every
+		///      load in a pass over the already-populated children_ arrays.
+		/// [JP] この Node の親への Crister::nodes_ インデックス、ルートなら
+		///      -1。全ノードの children_ から完全に導出できるためシリアライズ
+		///      しない — ModelLoader::FetchNodes が、埋め終わった children_
+		///      配列を走査して毎ロード再計算する。
+		Int parentIndex_ = -1;
+
 		Quaternion rotation_ = { 0,0,0,1 };
 		Vector3 scale_ = { 1,1,1 };
 		Vector3 translation_ = { 0,0,0 };
@@ -1597,6 +1607,21 @@ namespace SeedCore
 		* Stages() 内のインデックスを返す。
 		*/
 		[[nodiscard]] Int DefaultStage()const;
+
+		/**
+		* [EN]
+		* Linear search for the first Node whose name_ matches name, or -1
+		* if none does. glTF node names are not guaranteed unique, so this
+		* returns the first match in nodes_ order.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* name_ が name と一致する最初の Node を線形探索する、無ければ -1。
+		* glTF のノード名は一意性が保証されないため、nodes_ の順で最初に
+		* 見つかったものを返す。
+		*/
+		[[nodiscard]] Int FindNodeIndex(const std::string& name)const;
 
 		/**
 		* [EN]

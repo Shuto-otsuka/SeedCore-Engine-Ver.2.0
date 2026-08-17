@@ -103,6 +103,23 @@ namespace SeedCore
 		DynamicArray<AnimationCondition> conditions_;
 	};
 
+	struct IKTarget
+	{
+		Vector3 targetPosition_ = Vector3::Zero;
+		Quaternion targetRotation_ = Quaternion::Identity;
+		Bool hasRotation_ = false;
+		Float weight_ = 0.0f;
+		Bool refreshedThisFrame_ = false;
+	};
+
+	struct JointConstraint
+	{
+		Vector3 axis_ = Vector3::Forward;
+		Vector3 swingAxis_ = Vector3::Right;
+		Float swingAngle1_ = 45.0f;
+		Float swingAngle2_ = 45.0f;
+	};
+
 	class ModelRenderer;
 	class AnimatorControllerPanel;
 	class TimelinePanel;
@@ -163,6 +180,19 @@ namespace SeedCore
 		Bool Blending()const;
 
 		Float Alpha()const;
+
+	public:
+		void SetIKTarget(const std::string& effectorBoneName, const Vector3& targetPosition, Float weight = 1.0f);
+
+		void SetIKTarget(const std::string& effectorBoneName, const Vector3& targetPosition, const Quaternion& targetRotation, Float weight = 1.0f);
+
+		void SetJointConstraint(const std::string& boneName, const Vector3& axis, const Vector3& swingAxis, Float swingAngle1, Float swingAngle2);
+
+		[[nodiscard]] Bool HasIK()const;
+
+		[[nodiscard]] const std::unordered_map<std::string, IKTarget>& GetIKTarget()const;
+
+		[[nodiscard]] const std::unordered_map<std::string, JointConstraint>& GetJointConstraint()const;
 
 	private:
 		AnimationParameter* FindParameter(const String& name);
@@ -240,6 +270,10 @@ namespace SeedCore
 		Float rootMotionBaselineSampleTime_ = 0.0f;
 
 		Vector3 rootMotionBaselineTranslation_ = Vector3::Zero;
+
+		std::unordered_map<std::string, IKTarget> ikTargets_;
+
+		std::unordered_map<std::string, JointConstraint> jointConstraints_;
 	};
 	REGISTER_COMPONENT(Animator, "Animation");
 }

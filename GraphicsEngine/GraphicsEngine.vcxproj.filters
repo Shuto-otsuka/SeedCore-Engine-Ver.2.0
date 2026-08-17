@@ -739,6 +739,21 @@
     <ClInclude Include="Model\SoftbodyMesh.h">
       <Filter>Model</Filter>
     </ClInclude>
+    <ClInclude Include="Model\IK\FullBodyIK.h">
+      <Filter>Model\IK</Filter>
+    </ClInclude>
+    <ClInclude Include="Model\IK\IKPose.h">
+      <Filter>Model\IK</Filter>
+    </ClInclude>
+    <ClInclude Include="Model\IK\TwoBoneIK.h">
+      <Filter>Model\IK</Filter>
+    </ClInclude>
+    <ClInclude Include="Model\IK\FABRIK.h">
+      <Filter>Model\IK</Filter>
+    </ClInclude>
+    <ClInclude Include="Model\IK\TreeFABRIK.h">
+      <Filter>Model\IK</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="D3D12\Context\D3D12Adapter.cpp">
@@ -1225,6 +1240,21 @@
     </ClCompile>
     <ClCompile Include="Model\SoftbodyMesh.cpp">
       <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="Model\IK\FullBodyIK.cpp">
+      <Filter>Model\IK</Filter>
+    </ClCompile>
+    <ClCompile Include="Model\IK\IKPose.cpp">
+      <Filter>Model\IK</Filter>
+    </ClCompile>
+    <ClCompile Include="Model\IK\TwoBoneIK.cpp">
+      <Filter>Model\IK</Filter>
+    </ClCompile>
+    <ClCompile Include="Model\IK\FABRIK.cpp">
+      <Filter>Model\IK</Filter>
+    </ClCompile>
+    <ClCompile Include="Model\IK\TreeFABRIK.cpp">
+      <Filter>Model\IK</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
