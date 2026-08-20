@@ -19,6 +19,8 @@
 #include <Editor/Editor/Panel/ConfigPanel.h>
 #include <Editor/Editor/Panel/AnimatorControllerPanel.h>
 #include <Editor/Editor/Panel/TimelinePanel.h>
+#include <Editor/Editor/Panel/BoneControllerPanel.h>
+#include <Editor/Editor/Panel/MaterialPanel.h>
 #include <Editor/Editor/Panel/ModelTransformPanel.h>
 
 namespace SeedCore
@@ -37,7 +39,7 @@ namespace SeedCore
 		/// [JP] gpuProfiler は ToolPanel → ProfilerPanel へ受け渡す。EditorContext
 		///      に持たせずに引数で通すことで、パネルがレンダラーに依存している
 		///      ことをシグネチャに出しておく。
-		void Draw(D3D12_GPU_DESCRIPTOR_HANDLE editorFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE gameFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE canvasFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE previewFrameBufferHandle, const GpuProfiler& gpuProfiler);
+		void Draw(D3D12_GPU_DESCRIPTOR_HANDLE editorFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE gameFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE canvasFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE timelinePreviewFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE modelTransformPreviewFrameBufferHandle, const GpuProfiler& gpuProfiler);
 
 		[[nodiscard]] ViewMode GetViewMode()const;
 
@@ -70,6 +72,8 @@ namespace SeedCore
 		ResourcePtr<ConfigPanel> configPanel_;
 		ResourcePtr<AnimatorControllerPanel> animatorControllerPanel_;
 		ResourcePtr<TimelinePanel> timelinePanel_;
+		ResourcePtr<BoneControllerPanel> boneControllerPanel_;
+		ResourcePtr<MaterialPanel> materialPanel_;
 		ResourcePtr<ModelTransformPanel> modelTransformPanel_;
 	};
 }

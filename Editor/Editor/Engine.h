@@ -16,6 +16,7 @@
 #include <GraphicsEngine/Camera/EditorCameraController.h>
 #include <GraphicsEngine/Camera/CanvasCamera.h>
 #include <GraphicsEngine/Camera/PreviewCamera.h>
+#include <GraphicsEngine/Camera/PreviewCameraController.h>
 #include <GraphicsEngine/System/CelestialSystem.h>
 #include <GraphicsEngine/System/WeatherSystem.h>
 #include <Editor/Editor/Window.h>
@@ -88,7 +89,10 @@ namespace SeedCore
 
 		CanvasCamera canvasCamera_;
 
-		PreviewCamera previewCamera_;
+		PreviewCamera timelineCamera_;
+		PreviewCamera modelTransformCamera_;
+		PreviewCameraController timelineCameraController_;
+		PreviewCameraController modelTransformCameraController_;
 
 		WeatherSystem weatherSystem_;
 	};

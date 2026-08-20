@@ -23,19 +23,20 @@ namespace SeedCore
 
 	/**
 	* [EN]
-	* Fully self-contained single-model preview renderer for the Timeline
-	* panel's 3D viewport. Deliberately shares NOTHING with ModelRenderer or
-	* IndicesSystem — its own instance/bone StructuredBuffers, its own
-	* FrameBuffer, its own SceneSystem, and its own ConstantIndices/
-	* StructuredIndices constant buffers. This is not an optimization choice:
-	* those buffers are frame-ring (one physical slot per frame, re-written by
-	* every Update() call that frame), and the GPU only reads their contents
-	* at draw-execution time — after the whole frame's command list has been
-	* recorded. Reusing Editor/Game/Canvas's shared slots would mean whichever
-	* view's Update() runs last (Preview, since it renders after Editor/Game/
-	* Canvas) silently overwrites what EVERY view's already-recorded draw
-	* calls read when the GPU actually executes them, corrupting Editor/Game/
-	* Canvas's camera and model-instance data for that frame.
+	* Fully self-contained single-model preview renderer for the Model
+	* Transform panel's 3D viewport. Deliberately shares NOTHING with
+	* ModelRenderer, IndicesSystem, or TimelineRenderer — its own
+	* instance/bone StructuredBuffers, its own FrameBuffer, its own
+	* SceneSystem, and its own ConstantIndices/StructuredIndices constant
+	* buffers. This is not an optimization choice: those buffers are
+	* frame-ring (one physical slot per frame, re-written by every Update()
+	* call that frame), and the GPU only reads their contents at
+	* draw-execution time — after the whole frame's command list has been
+	* recorded. Reusing Editor/Game/Canvas's shared slots would mean
+	* whichever view's Update() runs last silently overwrites what EVERY
+	* view's already-recorded draw calls read when the GPU actually executes
+	* them, corrupting Editor/Game/Canvas's camera and model-instance data
+	* for that frame.
 	*
 	* Uses the unlit ModelPreviewPS (base color + emissive only) via
 	* ModelShader::GetPipelineStatePreviewStatic/Skeletal — so it also never
@@ -44,28 +45,28 @@ namespace SeedCore
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* Timelineパネルの3Dビューポート用、完全に自己完結した単体モデル
-	* プレビューレンダラー。ModelRendererやIndicesSystemとは意図的に何も
-	* 共有しない — instance/boneのStructuredBuffer、FrameBuffer、SceneSystem、
+	* モデル変換パネルの3Dビューポート用、完全に自己完結した単体モデル
+	* プレビューレンダラー。ModelRenderer、IndicesSystem、
+	* TimelineRendererとは意図的に何も共有しない —
+	* instance/boneのStructuredBuffer、FrameBuffer、SceneSystem、
 	* ConstantIndices/StructuredIndices定数バッファ、すべて専有する。これは
 	* 最適化上の選択ではない: これらのバッファはフレームリング(フレームあたり
 	* 物理スロット1つで、そのフレーム中のUpdate()呼び出しのたびに上書きされる)
 	* であり、GPUはフレーム全体のコマンドリストが記録し終わった後の描画実行
 	* タイミングで初めて中身を読む。Editor/Game/Canvasの共有スロットを再利用
-	* すると、最後にUpdate()を呼んだビュー(PreviewはEditor/Game/Canvasの後に
-	* 描画するので最後になる)が、全ビューの記録済み描画コマンドがGPU実行時に
-	* 読む内容を黙って上書きしてしまい、そのフレームのEditor/Game/Canvasの
-	* カメラやモデルインスタンスデータが壊れる。
+	* すると、最後にUpdate()を呼んだビューが、全ビューの記録済み描画コマンドが
+	* GPU実行時に読む内容を黙って上書きしてしまい、そのフレームの
+	* Editor/Game/Canvasのカメラやモデルインスタンスデータが壊れる。
 	*
 	* アンリットのModelPreviewPS(baseColor + emissiveのみ)を
 	* ModelShader::GetPipelineStatePreviewStatic/Skeletal経由で使うため、
 	* 共有LightSystem/空IBLの状態も読む必要が無い。
 	*/
-	class SEEDCORE_API PreviewRenderer :public NonCopyable
+	class SEEDCORE_API ModelTransformRenderer :public NonCopyable
 	{
 	public:
-		PreviewRenderer(RootSignature& rootSignature, PipelineStateObject& pipelineStateObject);
-		~PreviewRenderer();
+		ModelTransformRenderer(RootSignature& rootSignature, PipelineStateObject& pipelineStateObject);
+		~ModelTransformRenderer();
 
 		void Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, Uint32 width, Uint32 height);
 

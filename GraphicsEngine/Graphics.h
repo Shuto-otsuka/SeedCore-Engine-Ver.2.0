@@ -80,7 +80,17 @@ namespace SeedCore
 		///      EditorRenderが収集したインスタンス一覧は再利用しない —
 		///      meshAssetId/animationAssetId/timeでモデル+ポーズを1つだけ
 		///      指定する。ライブのWorld/ECSに依存しない。
-		void PreviewRender(WorldTimer& timer, const PreviewCamera& previewCamera, LoaderSystem& loaderSystem, ResourceCache& resourceCache, Uint32 meshAssetId, Uint32 animationAssetId, Float time, const Matrix& worldMatrix);
+		void TimelineRender(WorldTimer& timer, const PreviewCamera& timelineCamera, LoaderSystem& loaderSystem, ResourceCache& resourceCache, Uint32 meshAssetId, Uint32 animationAssetId, Float time, const Matrix& worldMatrix);
+
+		/// [EN] Isolated single-model preview (Model Transform panel). Unlike
+		///      CanvasRender, does not reuse EditorRender's gathered instance
+		///      list — meshAssetId/animationAssetId/time select exactly one
+		///      model+pose, independent of the live World/ECS.
+		/// [JP] 単体モデルプレビュー(モデル変換パネル)。CanvasRenderと異なり
+		///      EditorRenderが収集したインスタンス一覧は再利用しない —
+		///      meshAssetId/animationAssetId/timeでモデル+ポーズを1つだけ
+		///      指定する。ライブのWorld/ECSに依存しない。
+		void ModelTransformRender(WorldTimer& timer, const PreviewCamera& modelTransformCamera, LoaderSystem& loaderSystem, ResourceCache& resourceCache, Uint32 meshAssetId, Uint32 animationAssetId, Float time, const Matrix& worldMatrix);
 
 		void Begin();
 
@@ -118,7 +128,9 @@ namespace SeedCore
 
 		[[nodiscard]] D3D12_GPU_DESCRIPTOR_HANDLE CanvasImGuiGPUHandle()const;
 
-		[[nodiscard]] D3D12_GPU_DESCRIPTOR_HANDLE PreviewImGuiGPUHandle()const;
+		[[nodiscard]] D3D12_GPU_DESCRIPTOR_HANDLE TimelineImGuiGPUHandle()const;
+
+		[[nodiscard]] D3D12_GPU_DESCRIPTOR_HANDLE ModelTransformImGuiGPUHandle()const;
 
 		CameraSystem& GetCameraSystem();
 

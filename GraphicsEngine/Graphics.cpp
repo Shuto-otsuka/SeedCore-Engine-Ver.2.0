@@ -295,34 +295,64 @@ namespace SeedCore
 		renderer_->EndCanvasFrame(context_->GetDirectList());
 	}
 
-	void Graphics::PreviewRender(WorldTimer& timer, const PreviewCamera& previewCamera, LoaderSystem& loaderSystem, ResourceCache& resourceCache, Uint32 meshAssetId, Uint32 animationAssetId, Float time, const Matrix& worldMatrix)
+	void Graphics::TimelineRender(WorldTimer& timer, const PreviewCamera& timelineCamera, LoaderSystem& loaderSystem, ResourceCache& resourceCache, Uint32 meshAssetId, Uint32 animationAssetId, Float time, const Matrix& worldMatrix)
 	{
-		renderer_->GatherPreview(loaderSystem, resourceCache, meshAssetId, animationAssetId, time, worldMatrix);
+		renderer_->GatherTimelinePreview(loaderSystem, resourceCache, meshAssetId, animationAssetId, time, worldMatrix);
 
 		SceneConstantBuffer previewSceneConstantBuffer{};
-		previewSceneConstantBuffer.view_ = previewCamera.View();
-		previewSceneConstantBuffer.inverseView_ = previewCamera.InverseView();
-		previewSceneConstantBuffer.projection_ = previewCamera.Projection();
-		previewSceneConstantBuffer.inverseProjection_ = previewCamera.InverseProjection();
-		previewSceneConstantBuffer.nonJitterProjection_ = previewCamera.NonJitterProjection();
-		previewSceneConstantBuffer.currentViewProjection_ = previewCamera.CurrentViewProjection();
-		previewSceneConstantBuffer.previousViewProjection_ = previewCamera.PreviousViewProjection();
-		previewSceneConstantBuffer.inverseViewProjection_ = previewCamera.InverseViewProjection();
-		previewSceneConstantBuffer.nonJitterViewProjection_ = previewCamera.NonJitterViewProjection();
-		previewSceneConstantBuffer.cameraPosition_ = Vector4(previewCamera.Eye().x, previewCamera.Eye().y, previewCamera.Eye().z, 1.0f);
-		previewSceneConstantBuffer.cameraFocus_ = Vector4(previewCamera.Focus().x, previewCamera.Focus().y, previewCamera.Focus().z, 1.0f);
-		previewSceneConstantBuffer.fieldOfView_ = previewCamera.Fov();
-		previewSceneConstantBuffer.nearPlane_ = previewCamera.Near();
-		previewSceneConstantBuffer.farPlane_ = previewCamera.Far();
+		previewSceneConstantBuffer.view_ = timelineCamera.View();
+		previewSceneConstantBuffer.inverseView_ = timelineCamera.InverseView();
+		previewSceneConstantBuffer.projection_ = timelineCamera.Projection();
+		previewSceneConstantBuffer.inverseProjection_ = timelineCamera.InverseProjection();
+		previewSceneConstantBuffer.nonJitterProjection_ = timelineCamera.NonJitterProjection();
+		previewSceneConstantBuffer.currentViewProjection_ = timelineCamera.CurrentViewProjection();
+		previewSceneConstantBuffer.previousViewProjection_ = timelineCamera.PreviousViewProjection();
+		previewSceneConstantBuffer.inverseViewProjection_ = timelineCamera.InverseViewProjection();
+		previewSceneConstantBuffer.nonJitterViewProjection_ = timelineCamera.NonJitterViewProjection();
+		previewSceneConstantBuffer.cameraPosition_ = Vector4(timelineCamera.Eye().x, timelineCamera.Eye().y, timelineCamera.Eye().z, 1.0f);
+		previewSceneConstantBuffer.cameraFocus_ = Vector4(timelineCamera.Focus().x, timelineCamera.Focus().y, timelineCamera.Focus().z, 1.0f);
+		previewSceneConstantBuffer.fieldOfView_ = timelineCamera.Fov();
+		previewSceneConstantBuffer.nearPlane_ = timelineCamera.Near();
+		previewSceneConstantBuffer.farPlane_ = timelineCamera.Far();
 		previewSceneConstantBuffer.totalTime_ = timer.TotalTime();
 		previewSceneConstantBuffer.deltaTime_ = timer.DeltaTime();
 		previewSceneConstantBuffer.screenSize_ = Vector2(static_cast<Float>(nativeWidth_), static_cast<Float>(nativeHeight_));
 		previewSceneConstantBuffer.inverseScreenSize_ = Vector2(1.0f / nativeWidth_, 1.0f / nativeHeight_);
 		previewSceneConstantBuffer.displaySize_ = previewSceneConstantBuffer.screenSize_;
 
-		renderer_->BeginPreviewFrame(context_->GetDirectList());
-		renderer_->PreviewFlush(context_->GetDirectList(), previewSceneConstantBuffer);
-		renderer_->EndPreviewFrame(context_->GetDirectList());
+		renderer_->BeginTimelineFrame(context_->GetDirectList());
+		renderer_->TimelineFlush(context_->GetDirectList(), previewSceneConstantBuffer);
+		renderer_->EndTimelineFrame(context_->GetDirectList());
+	}
+
+	void Graphics::ModelTransformRender(WorldTimer& timer, const PreviewCamera& modelTransformCamera, LoaderSystem& loaderSystem, ResourceCache& resourceCache, Uint32 meshAssetId, Uint32 animationAssetId, Float time, const Matrix& worldMatrix)
+	{
+		renderer_->GatherModelTransformPreview(loaderSystem, resourceCache, meshAssetId, animationAssetId, time, worldMatrix);
+
+		SceneConstantBuffer previewSceneConstantBuffer{};
+		previewSceneConstantBuffer.view_ = modelTransformCamera.View();
+		previewSceneConstantBuffer.inverseView_ = modelTransformCamera.InverseView();
+		previewSceneConstantBuffer.projection_ = modelTransformCamera.Projection();
+		previewSceneConstantBuffer.inverseProjection_ = modelTransformCamera.InverseProjection();
+		previewSceneConstantBuffer.nonJitterProjection_ = modelTransformCamera.NonJitterProjection();
+		previewSceneConstantBuffer.currentViewProjection_ = modelTransformCamera.CurrentViewProjection();
+		previewSceneConstantBuffer.previousViewProjection_ = modelTransformCamera.PreviousViewProjection();
+		previewSceneConstantBuffer.inverseViewProjection_ = modelTransformCamera.InverseViewProjection();
+		previewSceneConstantBuffer.nonJitterViewProjection_ = modelTransformCamera.NonJitterViewProjection();
+		previewSceneConstantBuffer.cameraPosition_ = Vector4(modelTransformCamera.Eye().x, modelTransformCamera.Eye().y, modelTransformCamera.Eye().z, 1.0f);
+		previewSceneConstantBuffer.cameraFocus_ = Vector4(modelTransformCamera.Focus().x, modelTransformCamera.Focus().y, modelTransformCamera.Focus().z, 1.0f);
+		previewSceneConstantBuffer.fieldOfView_ = modelTransformCamera.Fov();
+		previewSceneConstantBuffer.nearPlane_ = modelTransformCamera.Near();
+		previewSceneConstantBuffer.farPlane_ = modelTransformCamera.Far();
+		previewSceneConstantBuffer.totalTime_ = timer.TotalTime();
+		previewSceneConstantBuffer.deltaTime_ = timer.DeltaTime();
+		previewSceneConstantBuffer.screenSize_ = Vector2(static_cast<Float>(nativeWidth_), static_cast<Float>(nativeHeight_));
+		previewSceneConstantBuffer.inverseScreenSize_ = Vector2(1.0f / nativeWidth_, 1.0f / nativeHeight_);
+		previewSceneConstantBuffer.displaySize_ = previewSceneConstantBuffer.screenSize_;
+
+		renderer_->BeginModelTransformFrame(context_->GetDirectList());
+		renderer_->ModelTransformFlush(context_->GetDirectList(), previewSceneConstantBuffer);
+		renderer_->EndModelTransformFrame(context_->GetDirectList());
 	}
 
 	void Graphics::Begin()
@@ -431,9 +461,14 @@ namespace SeedCore
 		return renderer_->CanvasImGuiGPUHandle();
 	}
 
-	D3D12_GPU_DESCRIPTOR_HANDLE Graphics::PreviewImGuiGPUHandle()const
+	D3D12_GPU_DESCRIPTOR_HANDLE Graphics::TimelineImGuiGPUHandle()const
 	{
-		return renderer_->PreviewImGuiGPUHandle();
+		return renderer_->TimelineImGuiGPUHandle();
+	}
+
+	D3D12_GPU_DESCRIPTOR_HANDLE Graphics::ModelTransformImGuiGPUHandle()const
+	{
+		return renderer_->ModelTransformImGuiGPUHandle();
 	}
 
 	CameraSystem& Graphics::GetCameraSystem()

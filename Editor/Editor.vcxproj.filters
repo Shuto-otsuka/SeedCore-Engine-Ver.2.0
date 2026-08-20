@@ -124,6 +124,12 @@
     <ClCompile Include="Editor\Panel\EnvironmentMenuPanel.cpp">
       <Filter>Editor\Panel</Filter>
     </ClCompile>
+    <ClCompile Include="Editor\Panel\BoneControllerPanel.cpp">
+      <Filter>Editor\Panel</Filter>
+    </ClCompile>
+    <ClCompile Include="Editor\Panel\MaterialPanel.cpp">
+      <Filter>Editor\Panel</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Editor\ImGui\ImGuiCommon.h">
@@ -238,6 +244,12 @@
       <Filter>Editor\Panel</Filter>
     </ClInclude>
     <ClInclude Include="Editor\Panel\EnvironmentMenuPanel.h">
+      <Filter>Editor\Panel</Filter>
+    </ClInclude>
+    <ClInclude Include="Editor\Panel\BoneControllerPanel.h">
+      <Filter>Editor\Panel</Filter>
+    </ClInclude>
+    <ClInclude Include="Editor\Panel\MaterialPanel.h">
       <Filter>Editor\Panel</Filter>
     </ClInclude>
   </ItemGroup>

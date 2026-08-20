@@ -131,6 +131,14 @@ namespace SeedCore
 				{
 					timelineRequested_ = true;
 				}
+				if (ImGui::MenuItem("ボーンコントローラー"))
+				{
+					boneControllerRequested_ = true;
+				}
+				if (ImGui::MenuItem("マテリアル"))
+				{
+					materialRequested_ = true;
+				}
 				if (ImGui::MenuItem("モデル変換"))
 				{
 					modelTransformRequested_ = true;
@@ -329,6 +337,26 @@ namespace SeedCore
 		if (timelineRequested_)
 		{
 			timelineRequested_ = false;
+			return true;
+		}
+		return false;
+	}
+
+	Bool MenuBarPanel::ConsumeBoneControllerRequest()
+	{
+		if (boneControllerRequested_)
+		{
+			boneControllerRequested_ = false;
+			return true;
+		}
+		return false;
+	}
+
+	Bool MenuBarPanel::ConsumeMaterialRequest()
+	{
+		if (materialRequested_)
+		{
+			materialRequested_ = false;
 			return true;
 		}
 		return false;

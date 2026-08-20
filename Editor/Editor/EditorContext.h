@@ -19,6 +19,7 @@ namespace SeedCore
 	class EditorCameraController;
 	class CanvasCamera;
 	class PreviewCamera;
+	class PreviewCameraController;
 	class CameraSystem;
 	struct LoaderSystem;
 	class BC7CompressShader;
@@ -52,7 +53,10 @@ namespace SeedCore
 		EditorCamera* editorCamera_ = nullptr;
 		EditorCameraController* editorCameraController_ = nullptr;
 		CanvasCamera* canvasCamera_ = nullptr;
-		PreviewCamera* previewCamera_ = nullptr;
+		PreviewCamera* timelineCamera_ = nullptr;
+		PreviewCamera* modelTransformCamera_ = nullptr;
+		PreviewCameraController* timelineCameraController_ = nullptr;
+		PreviewCameraController* modelTransformCameraController_ = nullptr;
 		CameraSystem* cameraSystem_ = nullptr;
 	};
 
@@ -80,12 +84,18 @@ namespace SeedCore
 		Bool resizeRequested_ = false;
 	};
 
-	struct PreviewContext
+	struct TimelinePreviewContext
 	{
 		Bool previewActive_ = false;
 		Uint32 previewMeshAssetId_ = 0;
 		Uint32 previewAnimationAssetId_ = 0;
 		Float previewTime_ = 0.0f;
+	};
+
+	struct ModelTransformPreviewContext
+	{
+		Bool previewActive_ = false;
+		Uint32 previewMeshAssetId_ = 0;
 		Matrix previewWorldMatrix_ = Matrix::Identity;
 	};
 
@@ -103,7 +113,8 @@ namespace SeedCore
 		SelectionContext selectionContext_;
 		SceneContext sceneContext_;
 		ViewportContext viewportContext_;
-		PreviewContext previewContext_;
+		TimelinePreviewContext timelinePreviewContext_;
+		ModelTransformPreviewContext modelTransformPreviewContext_;
 		PanelContext panelContext_;
 
 		Uint64 uiFrame_ = 0;

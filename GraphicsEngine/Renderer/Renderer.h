@@ -26,7 +26,8 @@
 #include <GraphicsEngine/Renderer/ColliderRenderer.h>
 #include <GraphicsEngine/Renderer/RaytracingRenderer.h>
 #include <GraphicsEngine/Renderer/SkyRenderer.h>
-#include <GraphicsEngine/Renderer/PreviewRenderer.h>
+#include <GraphicsEngine/Renderer/TimelineRenderer.h>
+#include <GraphicsEngine/Renderer/ModelTransformRenderer.h>
 #include <GraphicsEngine/Renderer/EffekseerRenderer.h>
 #include <GraphicsEngine/Renderer/PostProcessRenderer.h>
 #include <GraphicsEngine/Renderer/DlssRayReconstructionRenderer.h>
@@ -90,9 +91,13 @@ namespace SeedCore
 
 		void EndCanvasFrame(D3D12CommandList* cmdList);
 
-		void BeginPreviewFrame(D3D12CommandList* cmdList);
+		void BeginTimelineFrame(D3D12CommandList* cmdList);
 
-		void EndPreviewFrame(D3D12CommandList* cmdList);
+		void EndTimelineFrame(D3D12CommandList* cmdList);
+
+		void BeginModelTransformFrame(D3D12CommandList* cmdList);
+
+		void EndModelTransformFrame(D3D12CommandList* cmdList);
 
 		/// [EN] colliderInstances is gathered by the caller (Editor: it alone
 		///      links both PhysicsEngine and GraphicsEngine, so it is the only
@@ -107,10 +112,16 @@ namespace SeedCore
 		void Gather(LoaderSystem& loaderSystem, ResourceCache& resourceCache, World& world, const SceneConstantBuffer& scene, const DynamicArray<ColliderInstance>& colliderInstances, Entity selectedEntity = Entity::Null());
 
 		/// [EN] Isolated single-model preview gather (Timeline panel), fully
-		///      independent of ModelRenderer/World — see PreviewRenderer.
+		///      independent of ModelRenderer/World — see TimelineRenderer.
 		/// [JP] 単体モデルプレビュー用の独立した gather(Timelineパネル)。
-		///      ModelRenderer/World と完全に独立 — PreviewRenderer 参照。
-		void GatherPreview(LoaderSystem& loaderSystem, ResourceCache& resourceCache, Uint32 meshAssetId, Uint32 animationAssetId, Float time, const Matrix& worldMatrix);
+		///      ModelRenderer/World と完全に独立 — TimelineRenderer 参照。
+		void GatherTimelinePreview(LoaderSystem& loaderSystem, ResourceCache& resourceCache, Uint32 meshAssetId, Uint32 animationAssetId, Float time, const Matrix& worldMatrix);
+
+		/// [EN] Isolated single-model preview gather (Model Transform panel),
+		///      fully independent of ModelRenderer/World — see ModelTransformRenderer.
+		/// [JP] 単体モデルプレビュー用の独立した gather(モデル変換パネル)。
+		///      ModelRenderer/World と完全に独立 — ModelTransformRenderer 参照。
+		void GatherModelTransformPreview(LoaderSystem& loaderSystem, ResourceCache& resourceCache, Uint32 meshAssetId, Uint32 animationAssetId, Float time, const Matrix& worldMatrix);
 
 		/// [EN] Stored on Renderer (not threaded through Flush's parameters) so
 		///      adding future tunables — for this or other raytraced effects —
@@ -151,16 +162,27 @@ namespace SeedCore
 
 		void CanvasFlush(D3D12CommandList* cmdList, SceneSystem* sceneSystem);
 
-		/// [EN] Draws the preview instances using PreviewRenderer's own
+		/// [EN] Draws the preview instances using TimelineRenderer's own
 		///      ConstantIndices/StructuredIndices buffers — never touches
 		///      IndicesSystem, so it cannot corrupt what Editor/Game/Canvas's
 		///      already-recorded draw calls read from their shared, per-frame
 		///      -ring constant buffers when the GPU actually executes them.
-		/// [JP] PreviewRenderer 自身の ConstantIndices/StructuredIndices
+		/// [JP] TimelineRenderer 自身の ConstantIndices/StructuredIndices
 		///      バッファで描画する — IndicesSystem には一切触れないため、
 		///      Editor/Game/Canvas が既に記録済みの描画コマンドが GPU 実行時に
 		///      読む共有・フレームリング定数バッファを壊すことがない。
-		void PreviewFlush(D3D12CommandList* cmdList, const SceneConstantBuffer& scene);
+		void TimelineFlush(D3D12CommandList* cmdList, const SceneConstantBuffer& scene);
+
+		/// [EN] Draws the preview instances using ModelTransformRenderer's own
+		///      ConstantIndices/StructuredIndices buffers — never touches
+		///      IndicesSystem, so it cannot corrupt what Editor/Game/Canvas's
+		///      already-recorded draw calls read from their shared, per-frame
+		///      -ring constant buffers when the GPU actually executes them.
+		/// [JP] ModelTransformRenderer 自身の ConstantIndices/StructuredIndices
+		///      バッファで描画する — IndicesSystem には一切触れないため、
+		///      Editor/Game/Canvas が既に記録済みの描画コマンドが GPU 実行時に
+		///      読む共有・フレームリング定数バッファを壊すことがない。
+		void ModelTransformFlush(D3D12CommandList* cmdList, const SceneConstantBuffer& scene);
 
 		/// [EN] Per-pass GPU times for the profiler panel. Values lag the current
 		///      frame by a couple of frames (see GpuProfiler).
@@ -188,7 +210,9 @@ namespace SeedCore
 
 		[[nodiscard]] D3D12_GPU_DESCRIPTOR_HANDLE CanvasImGuiGPUHandle()const;
 
-		[[nodiscard]] D3D12_GPU_DESCRIPTOR_HANDLE PreviewImGuiGPUHandle()const;
+		[[nodiscard]] D3D12_GPU_DESCRIPTOR_HANDLE TimelineImGuiGPUHandle()const;
+
+		[[nodiscard]] D3D12_GPU_DESCRIPTOR_HANDLE ModelTransformImGuiGPUHandle()const;
 
 		[[nodiscard]] EffekseerManager* GetEffekseerManager()const;
 
@@ -246,7 +270,9 @@ namespace SeedCore
 
 		ResourcePtr<SkyRenderer> skyRenderer_;
 
-		ResourcePtr<PreviewRenderer> previewRenderer_;
+		ResourcePtr<TimelineRenderer> timelineRenderer_;
+
+		ResourcePtr<ModelTransformRenderer> modelTransformRenderer_;
 
 		ResourcePtr<EffekseerRenderer> effekseerRenderer_;
 

@@ -34,6 +34,10 @@ namespace SeedCore
 
 		Bool ConsumeTimelineRequest();
 
+		Bool ConsumeBoneControllerRequest();
+
+		Bool ConsumeMaterialRequest();
+
 		Bool ConsumeModelTransformRequest();
 
 		[[nodiscard]] ViewMode GetViewMode()const;
@@ -74,6 +78,8 @@ namespace SeedCore
 		Bool configRequested_ = false;
 		Bool animatorControllerRequested_ = false;
 		Bool timelineRequested_ = false;
+		Bool boneControllerRequested_ = false;
+		Bool materialRequested_ = false;
 		Bool modelTransformRequested_ = false;
 
 		GraphicsMenuPanel graphicsMenuPanel_;

@@ -1,10 +1,14 @@
 #include <Editor/Editor/Panel/ModelTransformPanel.h>
 #include <Editor/Editor/EditorContext.h>
 #include <Editor/Editor/ImGui/ImGuiCommon.h>
+#include <Editor/Editor/ImGui/ImGuiRenderer.h>
+#include <External/ImGui/Include/imgui_internal.h>
 #include <GraphicsEngine/Model/Crister.h>
 #include <GraphicsEngine/Model/ModelResource.h>
 #include <GraphicsEngine/Model/Mesh.h>
 #include <GraphicsEngine/Camera/PreviewCamera.h>
+#include <GraphicsEngine/Camera/PreviewCameraController.h>
+#include <FoundationEngine/Input/InputSystem.h>
 #include <FoundationEngine/Resource/ResourceCache.h>
 #include <FoundationEngine/Resource/LoaderSystem.h>
 #include <FoundationEngine/ECS/Actor.h>
@@ -78,14 +82,15 @@ namespace SeedCore
 	{
 		if (!show_)
 		{
-			context_.previewContext_.previewActive_ = false;
-			context_.previewContext_.previewWorldMatrix_ = Matrix::Identity;
+			context_.modelTransformPreviewContext_.previewActive_ = false;
+			context_.modelTransformPreviewContext_.previewWorldMatrix_ = Matrix::Identity;
 			return;
 		}
 
-		context_.previewContext_.previewActive_ = false;
-		context_.previewContext_.previewWorldMatrix_ = Matrix::Identity;
+		context_.modelTransformPreviewContext_.previewActive_ = false;
+		context_.modelTransformPreviewContext_.previewWorldMatrix_ = Matrix::Identity;
 
+		ImGui::DockBuilderDockWindow("モデル変換", context_.graphicsContext_.imgui_->GetDockSpaceID());
 		ImGui::SetNextWindowSize(ImVec2(1280, 720), ImGuiCond_FirstUseEver);
 
 		if (ImGui::Begin("モデル変換", &show_))
@@ -142,38 +147,54 @@ namespace SeedCore
 
 	void ModelTransformPanel::DrawPreview()
 	{
-		context_.previewContext_.previewActive_ = true;
-		context_.previewContext_.previewMeshAssetId_ = targetMeshAssetId_;
-		context_.previewContext_.previewAnimationAssetId_ = 0;
-		context_.previewContext_.previewTime_ = 0.0f;
+		context_.modelTransformPreviewContext_.previewActive_ = true;
+		context_.modelTransformPreviewContext_.previewMeshAssetId_ = targetMeshAssetId_;
 
 		/// [EN] Mirrors Crister::ApplyTransformConversion's fullTransform exactly,
 		///      so the preview is a WYSIWYG of what 適用 will bake.
 		/// [JP] Crister::ApplyTransformConversion の fullTransform と厳密に一致
 		///      させる。適用 が焼き込む結果をそのままプレビューできるように。
 		Matrix baseTransformLinearBasis = Matrix::CreateScale(baseTransformScale_.x, baseTransformScale_.y, baseTransformScale_.z) * Matrix::CreateFromYawPitchRoll(ToRadians(baseTransformRotation_.y), ToRadians(baseTransformRotation_.x), ToRadians(baseTransformRotation_.z));
-		context_.previewContext_.previewWorldMatrix_ = Matrix::CreateTranslation(-baseTransformPivot_) * baseTransformLinearBasis * Matrix::CreateTranslation(baseTransformPivot_ + baseTransformPosition_);
+		context_.modelTransformPreviewContext_.previewWorldMatrix_ = Matrix::CreateTranslation(-baseTransformPivot_) * baseTransformLinearBasis * Matrix::CreateTranslation(baseTransformPivot_ + baseTransformPosition_);
 
 		ImVec2 previewSize = ImGui::GetContentRegionAvail();
-		if (context_.cameraContext_.previewCamera_)
+		previewSize.y = Max(previewSize.y - ImGui::GetFrameHeightWithSpacing(), 100.0f);
+		if (context_.cameraContext_.modelTransformCamera_)
 		{
-			context_.cameraContext_.previewCamera_->Resize(previewSize.x, previewSize.y);
+			context_.cameraContext_.modelTransformCamera_->Resize(previewSize.x, previewSize.y);
 		}
 
 		ImVec2 imagePosition = ImGui::GetCursorScreenPos();
 		ImGui::Image(ImTextureID(previewHandle_.ptr), previewSize);
 
-		if (context_.cameraContext_.previewCamera_ && ImGui::IsItemHovered() && ImGui::GetIO().MouseWheel != 0.0f)
+		/// [EN] Orbit-style preview navigation: left-click drag orbits around
+		///      Focus(), middle-click drag pans, wheel dollies - see
+		///      PreviewCameraController. Gated on hovering the image (not the
+		///      whole child window, so the operation radio buttons below don't
+		///      trigger it) and disabled while a gizmo handle is hovered/being
+		///      dragged so the two don't fight over the left mouse button.
+		/// [JP] オービット式のプレビュー操作: 左クリックドラッグでFocus()を
+		///      中心に回転、中クリックドラッグでパン、ホイールでドリー -
+		///      PreviewCameraController参照。画像自体のホバーでゲートする
+		///      (子ウィンドウ全体ではないので、下の操作モードラジオボタンでは
+		///      発火しない)。ギズモのハンドルにホバー/ドラッグ中は左ボタンを
+		///      取り合わないよう無効化する。
+		Bool orbitHeld = InputSystem::MouseState(InputSystem::MouseButton::Left, InputSystem::IsPressed);
+		Bool panHeld = InputSystem::MouseState(InputSystem::MouseButton::Middle, InputSystem::IsPressed);
+
+		if (!ImGuizmo::IsUsing() && !ImGuizmo::IsOver() && ImGui::IsItemHovered() && context_.cameraContext_.modelTransformCamera_ && context_.cameraContext_.modelTransformCameraController_)
 		{
-			Vector3 eye = context_.cameraContext_.previewCamera_->Eye();
-			Vector3 focus = context_.cameraContext_.previewCamera_->Focus();
-			Vector3 toEye = eye - focus;
-			Float distance = toEye.Length();
-			if (distance > 0.0001f)
+			if ((orbitHeld || panHeld) && !InputSystem::IsMouseCaptured())
 			{
-				Float newDistance = Max(0.1f, distance - ImGui::GetIO().MouseWheel * distance * 0.1f);
-				context_.cameraContext_.previewCamera_->Eye(focus + toEye / distance * newDistance);
+				InputSystem::BeginMouseCapture();
 			}
+
+			context_.cameraContext_.modelTransformCameraController_->Update(*context_.cameraContext_.modelTransformCamera_, ImGui::GetIO().DeltaTime);
+		}
+
+		if (!orbitHeld && !panHeld && InputSystem::IsMouseCaptured())
+		{
+			InputSystem::EndMouseCapture();
 		}
 
 		if (ImGui::IsKeyPressed(ImGuiKey_W))
@@ -204,15 +225,15 @@ namespace SeedCore
 			baseTransformGizmoOperation_ = ImGuizmo::SCALE;
 		}
 
-		if (context_.cameraContext_.previewCamera_)
+		if (context_.cameraContext_.modelTransformCamera_)
 		{
 			ImGuizmo::SetDrawlist();
 			ImGuizmo::SetRect(imagePosition.x, imagePosition.y, previewSize.x, previewSize.y);
 			ImGuizmo::SetOrthographic(false);
 			ImGuizmo::AllowAxisFlip(false);
 
-			Matrix view = context_.cameraContext_.previewCamera_->View();
-			Matrix projection = context_.cameraContext_.previewCamera_->Projection();
+			Matrix view = context_.cameraContext_.modelTransformCamera_->View();
+			Matrix projection = context_.cameraContext_.modelTransformCamera_->Projection();
 
 			/// [EN] The anchor: pivot/position/rotation/scale collapsed into the
 			///      single matrix ImGuizmo manipulates, placed at pivot+position

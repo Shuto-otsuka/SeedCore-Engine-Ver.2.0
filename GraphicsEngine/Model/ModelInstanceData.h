@@ -87,7 +87,11 @@ namespace SeedCore
 		/// [JP] KHR_materials_volume(吸収色。thicknessFactor_ぶん媒質を通過した
 		///      光を着色する)。
 		Vector3 volumeAttenuationColor_;
-		Float instancePadding6_;
+		/// [EN] ShadingModel - which lighting response DeferredLightingPS.hlsl
+		///      evaluates this instance with (see Crister.h's ShadingModel).
+		/// [JP] ShadingModel - DeferredLightingPS.hlslがこのインスタンスを
+		///      どのライティング応答で評価するか(Crister.hのShadingModel参照)。
+		Uint shadingModel_;
 
 		/// [EN] KHR_materials_sheen.
 		/// [JP] KHR_materials_sheen。

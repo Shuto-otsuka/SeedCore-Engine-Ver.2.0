@@ -481,9 +481,6 @@
     <ClInclude Include="Camera\PreviewCamera.h">
       <Filter>Camera</Filter>
     </ClInclude>
-    <ClInclude Include="Renderer\PreviewRenderer.h">
-      <Filter>Renderer</Filter>
-    </ClInclude>
     <ClInclude Include="Renderer\EffekseerRenderer.h">
       <Filter>Renderer</Filter>
     </ClInclude>
@@ -754,6 +751,15 @@
     <ClInclude Include="Model\IK\TreeFABRIK.h">
       <Filter>Model\IK</Filter>
     </ClInclude>
+    <ClInclude Include="Renderer\ModelTransformRenderer.h">
+      <Filter>Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Renderer\TimelineRenderer.h">
+      <Filter>Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Camera\PreviewCameraController.h">
+      <Filter>Camera</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="D3D12\Context\D3D12Adapter.cpp">
@@ -1019,9 +1025,6 @@
     <ClCompile Include="Model\Animation\Animation.cpp">
       <Filter>Model\Animation</Filter>
     </ClCompile>
-    <ClCompile Include="Renderer\PreviewRenderer.cpp">
-      <Filter>Renderer</Filter>
-    </ClCompile>
     <ClCompile Include="Camera\PreviewCamera.cpp">
       <Filter>Camera</Filter>
     </ClCompile>
@@ -1256,6 +1259,15 @@
     <ClCompile Include="Model\IK\TreeFABRIK.cpp">
       <Filter>Model\IK</Filter>
     </ClCompile>
+    <ClCompile Include="Renderer\ModelTransformRenderer.cpp">
+      <Filter>Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="Renderer\TimelineRenderer.cpp">
+      <Filter>Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="Camera\PreviewCameraController.cpp">
+      <Filter>Camera</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="Shader\Sampler.hlsli">
@@ -1353,6 +1365,15 @@
     </None>
     <None Include="Model\Model.hlsli">
       <Filter>Model</Filter>
+    </None>
+    <None Include="Model\Opaque\PbrShading.hlsli">
+      <Filter>Model\Opaque</Filter>
+    </None>
+    <None Include="Model\Opaque\PhongShading.hlsli">
+      <Filter>Model\Opaque</Filter>
+    </None>
+    <None Include="Model\Opaque\ToonShading.hlsli">
+      <Filter>Model\Opaque</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>

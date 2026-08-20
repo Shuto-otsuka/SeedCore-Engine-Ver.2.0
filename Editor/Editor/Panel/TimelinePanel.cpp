@@ -7,6 +7,8 @@
 #include <GraphicsEngine/Model/Animation/AnimationResource.h>
 #include <GraphicsEngine/Model/Mesh.h>
 #include <GraphicsEngine/Camera/PreviewCamera.h>
+#include <GraphicsEngine/Camera/PreviewCameraController.h>
+#include <FoundationEngine/Input/InputSystem.h>
 #include <FoundationEngine/Resource/ResourceCache.h>
 #include <FoundationEngine/Resource/LoaderSystem.h>
 #include <FoundationEngine/ECS/Actor.h>
@@ -114,7 +116,7 @@ namespace SeedCore
 			ImVec2 end(origin.x + size.x, origin.y + size.y);
 
 			ImGui::InvisibleButton("##eventTrack", size);
-			Bool hovered = ImGui::IsMouseHoveringRect(origin, end);
+			Bool hovered = ImGui::IsItemHovered();
 
 			Float safeDuration = DrawTimelineBackground(origin, end, duration, !speedGraphActive);
 			ImDrawList* drawList = ImGui::GetWindowDrawList();
@@ -180,7 +182,7 @@ namespace SeedCore
 			ImVec2 end(origin.x + size.x, origin.y + size.y);
 
 			ImGui::InvisibleButton("##speedTrack", size);
-			Bool hovered = ImGui::IsMouseHoveringRect(origin, end);
+			Bool hovered = ImGui::IsItemHovered();
 
 			Float safeDuration = DrawTimelineBackground(origin, end, duration, speedGraphActive);
 			ImDrawList* drawList = ImGui::GetWindowDrawList();
@@ -221,14 +223,15 @@ namespace SeedCore
 		void DrawSpeedGraph(DynamicArray<AnimationSpeedKeyframe>& speedKeys, Float duration, Size& selectedSpeedIndex, Bool& isDragging)
 		{
 			constexpr Float graphHeight = 160.0f;
-			constexpr Float hitRadius = 8.0f;
+			constexpr Float hitRadius = 16.0f;
 
 			ImVec2 origin = ImGui::GetCursorScreenPos();
 			ImVec2 size(ImGui::GetContentRegionAvail().x, graphHeight);
 			ImVec2 end(origin.x + size.x, origin.y + size.y);
 
 			ImGui::InvisibleButton("##speedGraph", size);
-			Bool hovered = ImGui::IsMouseHoveringRect(origin, end);
+			Bool hovered = ImGui::IsItemHovered();
+			Bool active = ImGui::IsItemActive();
 
 			Float safeDuration = DrawTimelineBackground(origin, end, duration);
 			ImDrawList* drawList = ImGui::GetWindowDrawList();
@@ -255,7 +258,6 @@ namespace SeedCore
 
 			ImVec2 mouse = ImGui::GetIO().MousePos;
 			Bool mouseClicked = hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left);
-			Bool mouseDown = ImGui::IsMouseDown(ImGuiMouseButton_Left);
 
 			if (mouseClicked)
 			{
@@ -277,12 +279,12 @@ namespace SeedCore
 				isDragging = (best != SIZE_MAX);
 			}
 
-			if (!mouseDown)
+			if (!active)
 			{
 				isDragging = false;
 			}
 
-			if (isDragging && mouseDown && selectedSpeedIndex != SIZE_MAX && selectedSpeedIndex < speedKeys.size())
+			if (isDragging && active && selectedSpeedIndex != SIZE_MAX && selectedSpeedIndex < speedKeys.size())
 			{
 				speedKeys[selectedSpeedIndex].time_ = xToTime(mouse.x);
 				speedKeys[selectedSpeedIndex].value_ = yToValue(mouse.y);
@@ -322,7 +324,7 @@ namespace SeedCore
 	{
 		if (!show_)
 		{
-			context_.previewContext_.previewActive_ = false;
+			context_.timelinePreviewContext_.previewActive_ = false;
 			isPlaying_ = false;
 			isFocused_ = false;
 			return;
@@ -337,7 +339,7 @@ namespace SeedCore
 			isPlaying_ = false;
 		}
 
-		context_.previewContext_.previewActive_ = false;
+		context_.timelinePreviewContext_.previewActive_ = false;
 
 		ImGui::DockBuilderDockWindow("タイムライン", context_.graphicsContext_.imgui_->GetDockSpaceID());
 		ImGui::SetNextWindowSize(ImVec2(1280, 720), ImGuiCond_FirstUseEver);
@@ -404,29 +406,51 @@ namespace SeedCore
 				const Mesh* mesh = context_.selectionContext_.selectedActor_ ? context_.selectionContext_.selectedActor_->GetComponent<Mesh>() : nullptr;
 				if (mesh && mesh->meshID_ != 0)
 				{
-					context_.previewContext_.previewActive_ = true;
-					context_.previewContext_.previewMeshAssetId_ = mesh->meshID_;
-					context_.previewContext_.previewAnimationAssetId_ = assetId;
-					context_.previewContext_.previewTime_ = animation ? EvaluateTimeRemap(animation->SpeedCurve(), scrubTime_) : scrubTime_;
+					context_.timelinePreviewContext_.previewActive_ = true;
+					context_.timelinePreviewContext_.previewMeshAssetId_ = mesh->meshID_;
+					context_.timelinePreviewContext_.previewAnimationAssetId_ = assetId;
+					context_.timelinePreviewContext_.previewTime_ = animation ? EvaluateTimeRemap(animation->SpeedCurve(), scrubTime_) : scrubTime_;
 
 					Float unit = ImGui::GetFrameHeightWithSpacing();
 					Float separatorHeight = ImGui::GetStyle().ItemSpacing.y * 2.0f + 1.0f;
 
 					Float reservedHeight = separatorHeight + unit * 2.0f;
-					if (animation)
-					{
-						reservedHeight += separatorHeight + unit * 2.0f + tracksAreaHeight + separatorHeight + unit;
-					}
 
 					ImVec2 previewSize = ImGui::GetContentRegionAvail();
 					previewSize.y = Max(previewSize.y - reservedHeight, 100.0f);
 
-					if (context_.cameraContext_.previewCamera_)
+					if (context_.cameraContext_.timelineCamera_)
 					{
-						context_.cameraContext_.previewCamera_->Resize(previewSize.x, previewSize.y);
+						context_.cameraContext_.timelineCamera_->Resize(previewSize.x, previewSize.y);
 					}
 
 					ImGui::Image(ImTextureID(previewHandle_.ptr), previewSize);
+
+					/// [EN] Orbit-style preview navigation: left-click drag orbits around
+					///      Focus(), middle-click drag pans, wheel dollies - see
+					///      PreviewCameraController. Gated on hovering the image so
+					///      the playback/track controls below don't trigger it.
+					/// [JP] オービット式のプレビュー操作: 左クリックドラッグでFocus()を
+					///      中心に回転、中クリックドラッグでパン、ホイールでドリー -
+					///      PreviewCameraController参照。画像自体のホバーでゲートする
+					///      (下の再生/トラック操作では発火しない)。
+					Bool orbitHeld = InputSystem::MouseState(InputSystem::MouseButton::Left, InputSystem::IsPressed);
+					Bool panHeld = InputSystem::MouseState(InputSystem::MouseButton::Middle, InputSystem::IsPressed);
+
+					if (ImGui::IsItemHovered() && context_.cameraContext_.timelineCamera_ && context_.cameraContext_.timelineCameraController_)
+					{
+						if ((orbitHeld || panHeld) && !InputSystem::IsMouseCaptured())
+						{
+							InputSystem::BeginMouseCapture();
+						}
+
+						context_.cameraContext_.timelineCameraController_->Update(*context_.cameraContext_.timelineCamera_, ImGui::GetIO().DeltaTime);
+					}
+
+					if (!orbitHeld && !panHeld && InputSystem::IsMouseCaptured())
+					{
+						InputSystem::EndMouseCapture();
+					}
 
 					ImGui::Spacing();
 					ImGui::Separator();
@@ -450,99 +474,6 @@ namespace SeedCore
 
 						ImGui::Text("再生時間: %.3f 秒", duration);
 					}
-
-					if (animation)
-					{
-						ImGui::Spacing();
-						ImGui::Separator();
-						ImGui::Spacing();
-
-						ImGui::Text("トラック (クリックで選択/シーク、点はドラッグで移動、Deleteで削除)");
-
-						if (ImGui::Button("通知イベントを追加"))
-						{
-							AnimationNotifyEvent& event = animation->NotifyEvents().emplace_back();
-							event.time_ = scrubTime_;
-							event.label_ = "Event";
-							selectedNotifyIndex_ = animation->NotifyEvents().size() - 1;
-							speedGraphActive_ = false;
-						}
-
-						ImGui::SameLine();
-
-						if (ImGui::Button("速度キーフレームを追加"))
-						{
-							AnimationSpeedKeyframe& key = animation->SpeedCurve().emplace_back();
-							key.time_ = scrubTime_;
-							key.value_ = scrubTime_;
-							selectedSpeedKeyIndex_ = animation->SpeedCurve().size() - 1;
-							selectedNotifyIndex_ = SIZE_MAX;
-							speedGraphActive_ = true;
-						}
-
-						DynamicArray<AnimationNotifyEvent>& events = animation->NotifyEvents();
-						DynamicArray<AnimationSpeedKeyframe>& keys = animation->SpeedCurve();
-
-						ImGui::BeginChild("##tracksColumn", ImVec2(0.0f, tracksAreaHeight), true);
-						{
-							DrawEventTrack(events, duration, scrubTime_, selectedNotifyIndex_, speedGraphActive_);
-							DrawSpeedTrack(keys, duration, scrubTime_, speedGraphActive_, selectedNotifyIndex_);
-
-							if (ImGui::IsWindowFocused() && ImGui::IsKeyPressed(ImGuiKey_Delete))
-							{
-								if (selectedNotifyIndex_ != SIZE_MAX && selectedNotifyIndex_ < events.size())
-								{
-									events.erase(events.begin() + selectedNotifyIndex_);
-									selectedNotifyIndex_ = SIZE_MAX;
-								}
-								else if (speedGraphActive_ && selectedSpeedKeyIndex_ != SIZE_MAX && selectedSpeedKeyIndex_ < keys.size())
-								{
-									keys.erase(keys.begin() + selectedSpeedKeyIndex_);
-									selectedSpeedKeyIndex_ = SIZE_MAX;
-								}
-							}
-						}
-						ImGui::EndChild();
-
-						ImGui::Spacing();
-						ImGui::Separator();
-						ImGui::Spacing();
-
-						Asset* asset = context_.worldContext_.resource_->GetAsset(assetId);
-
-						if (ImGui::Button("上書き保存") && asset)
-						{
-							std::filesystem::path overwritePath(asset->fullpath_.c_str());
-							if (context_.worldContext_.loader_->animationLoader_->Save(*animation, overwritePath))
-							{
-								SC_LOG_NOTICE("アニメーションを上書き保存しました: {}", overwritePath.string());
-							}
-							else
-							{
-								SC_LOG_WARNING("アニメーションの上書き保存に失敗しました: {}", overwritePath.string());
-							}
-						}
-
-						ImGui::SameLine();
-
-						if (ImGui::Button("名前を付けて保存") && asset)
-						{
-							std::filesystem::path initialDir = std::filesystem::path(asset->fullpath_.c_str()).parent_path();
-
-							std::filesystem::path savePath;
-							if (FileDialog::SaveFile(savePath, initialDir, L"Animation Files (*.animation)", L"*.animation", L"animation"))
-							{
-								if (context_.worldContext_.loader_->animationLoader_->Save(*animation, savePath))
-								{
-									SC_LOG_NOTICE("アニメーションを保存しました: {}", savePath.string());
-								}
-								else
-								{
-									SC_LOG_WARNING("アニメーションの保存に失敗しました: {}", savePath.string());
-								}
-							}
-						}
-					}
 				}
 			}
 		}
@@ -553,7 +484,7 @@ namespace SeedCore
 	{
 		if (!target_ || selectedAnimationIndex_ == SIZE_MAX || selectedAnimationIndex_ >= target_->animationIDs_.size())
 		{
-			ImGui::TextDisabled("Event か Speed トラックをクリックしてください");
+			ImGui::TextDisabled("アニメーションを選択してください");
 			return;
 		}
 
@@ -563,13 +494,96 @@ namespace SeedCore
 		Animation* animation = animationResource->Resolve(*context_.worldContext_.loader_, handle);
 		if (!animation)
 		{
-			ImGui::TextDisabled("Event か Speed トラックをクリックしてください");
+			ImGui::TextDisabled("アニメーションを選択してください");
 			return;
 		}
 
 		Float duration = animation->Duration();
 		DynamicArray<AnimationNotifyEvent>& events = animation->NotifyEvents();
 		DynamicArray<AnimationSpeedKeyframe>& keys = animation->SpeedCurve();
+
+		ImGui::TextWrapped("トラック (クリックで選択/シーク、点はドラッグで移動、Deleteで削除)");
+
+		if (ImGui::Button("通知イベントを追加"))
+		{
+			AnimationNotifyEvent& event = events.emplace_back();
+			event.time_ = scrubTime_;
+			event.label_ = "Event";
+			selectedNotifyIndex_ = events.size() - 1;
+			speedGraphActive_ = false;
+		}
+
+		if (ImGui::Button("速度キーフレームを追加"))
+		{
+			AnimationSpeedKeyframe& key = keys.emplace_back();
+			key.time_ = scrubTime_;
+			key.value_ = scrubTime_;
+			selectedSpeedKeyIndex_ = keys.size() - 1;
+			selectedNotifyIndex_ = SIZE_MAX;
+			speedGraphActive_ = true;
+		}
+
+		ImGui::BeginChild("##tracksColumn", ImVec2(0.0f, tracksAreaHeight), true);
+		{
+			DrawEventTrack(events, duration, scrubTime_, selectedNotifyIndex_, speedGraphActive_);
+			DrawSpeedTrack(keys, duration, scrubTime_, speedGraphActive_, selectedNotifyIndex_);
+
+			if (ImGui::IsWindowFocused() && ImGui::IsKeyPressed(ImGuiKey_Delete))
+			{
+				if (selectedNotifyIndex_ != SIZE_MAX && selectedNotifyIndex_ < events.size())
+				{
+					events.erase(events.begin() + selectedNotifyIndex_);
+					selectedNotifyIndex_ = SIZE_MAX;
+				}
+				else if (speedGraphActive_ && selectedSpeedKeyIndex_ != SIZE_MAX && selectedSpeedKeyIndex_ < keys.size())
+				{
+					keys.erase(keys.begin() + selectedSpeedKeyIndex_);
+					selectedSpeedKeyIndex_ = SIZE_MAX;
+				}
+			}
+		}
+		ImGui::EndChild();
+
+		ImGui::Spacing();
+		ImGui::Separator();
+		ImGui::Spacing();
+
+		Asset* asset = context_.worldContext_.resource_->GetAsset(assetId);
+
+		if (ImGui::Button("上書き保存") && asset)
+		{
+			std::filesystem::path overwritePath(asset->fullpath_.c_str());
+			if (context_.worldContext_.loader_->animationLoader_->Save(*animation, overwritePath))
+			{
+				SC_LOG_NOTICE("アニメーションを上書き保存しました: {}", overwritePath.string());
+			}
+			else
+			{
+				SC_LOG_WARNING("アニメーションの上書き保存に失敗しました: {}", overwritePath.string());
+			}
+		}
+
+		if (ImGui::Button("名前を付けて保存") && asset)
+		{
+			std::filesystem::path initialDir = std::filesystem::path(asset->fullpath_.c_str()).parent_path();
+
+			std::filesystem::path savePath;
+			if (FileDialog::SaveFile(savePath, initialDir, L"Animation Files (*.animation)", L"*.animation", L"animation"))
+			{
+				if (context_.worldContext_.loader_->animationLoader_->Save(*animation, savePath))
+				{
+					SC_LOG_NOTICE("アニメーションを保存しました: {}", savePath.string());
+				}
+				else
+				{
+					SC_LOG_WARNING("アニメーションの保存に失敗しました: {}", savePath.string());
+				}
+			}
+		}
+
+		ImGui::Spacing();
+		ImGui::Separator();
+		ImGui::Spacing();
 
 		if (selectedNotifyIndex_ != SIZE_MAX && selectedNotifyIndex_ < events.size())
 		{

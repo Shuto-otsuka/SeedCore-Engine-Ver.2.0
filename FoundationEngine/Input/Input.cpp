@@ -1,5 +1,5 @@
 #include <FoundationEngine/Input/Input.h>
-#include <FoundationEngine/Utility/SerializeFallback.h>
+#include <FoundationEngine/Serialization/SerializeFallback.h>
 
 namespace SeedCore
 {

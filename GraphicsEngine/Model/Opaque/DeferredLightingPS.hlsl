@@ -4,7 +4,7 @@
 #include "../../Shader/Normal.hlsli"
 #include "../../Shader/Light.hlsli"
 #include "../../Light/Cluster.hlsli"
-#include "../../Light/BidirectionalReflectanceDistributionFunction.hlsli"
+#include "../../Light/ImageBasedLighting.hlsli"
 #include "../../Raytracing/Shadow/Shadow.hlsli"
 #include "../../Raytracing/AmbientOcclusion/AmbientOcclusion.hlsli"
 #include "../../Raytracing/SubsurfaceScattering/SubsurfaceScattering.hlsli"
@@ -15,6 +15,9 @@
 #include "../../Raytracing/VolumetricLight/VolumetricLight.hlsli"
 #include "../../Shader/Noise.hlsli"
 #include "../../Shader/Precipitation.hlsli"
+#include "PbrShading.hlsli"
+#include "PhongShading.hlsli"
+#include "ToonShading.hlsli"
 
 /// [JP] Froxel フォグ/体積光の積分ボリューム(rgb=累積散乱、a=透過率)を
 ///      uv+ビュー空間Zでサンプルしてシーン色へ合成する。無効時はレンダラーが
@@ -47,108 +50,25 @@ float3 ReconstructWorldPosition(float2 uv, float depth)
 	return world_position.xyz / world_position.w;
 }
 
-/// [JP] KHR_materials_sheen 用の Charlie NDF(布特有のグレージング角ハイライト)。
-///      sin(theta_h) は sqrt(1 - cos^2) で求める。
-float CharlieDistribution(float roughness, float normal_dot_half)
+/// [JP] マテリアルのシェーディングモデルに応じて、直接光1灯ぶんの応答を
+///      計算する関数を切り替える。IBL/シャドウ/AO/反射/GI/フォグ/天候などの
+///      周辺インフラは main() 側で全モデル共有のまま - ここで変わるのは
+///      「直接光をどう陰影付けするか」だけ。
+float3 EvalDirectLightDispatch(uint shading_model, float3 normal, float3 view, float3 light_direction, float3 diffuse_color, float3 f0, float roughness, float clearcoat, float clearcoat_roughness, float3 clearcoat_normal, float3 sheen_color, float sheen_roughness, float3 anisotropy_tangent, float3 anisotropy_bitangent, float anisotropy_strength)
 {
-	const float PI = 3.14159265358979;
-	float alpha = max(roughness, 0.001);
-	float inv_alpha = 1.0 / alpha;
-	float cos2h = normal_dot_half * normal_dot_half;
-	float sin2h = max(1.0 - cos2h, 0.0078125);
-	return (2.0 + inv_alpha) * pow(sin2h, inv_alpha * 0.5) / (2.0 * PI);
-}
-
-/// [JP] KHR_materials_sheen 用の Ashikhmin 可視性項。
-float AshikhminVisibility(float normal_dot_light, float normal_dot_view)
-{
-	return 1.0 / max(4.0 * (normal_dot_light + normal_dot_view - normal_dot_light * normal_dot_view), 1e-4);
-}
-
-float3 EvalDirectLight(float3 normal, float3 view, float3 light_direction, float3 diffuse_color, float3 f0, float roughness, float clearcoat, float clearcoat_roughness, float3 clearcoat_normal, float3 sheen_color, float sheen_roughness, float3 anisotropy_tangent, float3 anisotropy_bitangent, float anisotropy_strength)
-{
-	float normal_dot_light = max(dot(normal, light_direction), 0.0);
-	if (normal_dot_light <= 0.0)
+	if (shading_model == SHADING_MODEL_PHONG)
 	{
-		return float3(0, 0, 0);
+		float shininess = lerp(128.0, 2.0, roughness);
+		return EvalDirectLightPhong(normal, view, light_direction, diffuse_color, f0, shininess);
 	}
 
-	float normal_dot_view = max(dot(normal, view), 0.001);
-	float3 half_vector = normalize(view + light_direction);
-	float normal_dot_half = max(dot(normal, half_vector), 0.0);
-	float view_dot_half = max(dot(view, half_vector), 0.0);
-
-	float alpha_roughness = roughness * roughness;
-	float3 f90 = float3(1.0, 1.0, 1.0);
-
-	float3 diffuse = BrdfLambertian(f0, f90, diffuse_color, view_dot_half);
-
-	/// [EN] KHR_materials_anisotropy stretches the highlight along the tangent
-	///      frame. Splits the single roughness into a tangent/bitangent pair;
-	///      strength 0 leaves them equal, which is exactly the isotropic lobe,
-	///      so the branch only costs the materials that actually opt in.
-	/// [JP] KHR_materials_anisotropy はタンジェント基底に沿ってハイライトを
-	///      引き伸ばす。単一のラフネスをタンジェント/バイタンジェントの対へ
-	///      分ける。強度0なら両者が等しくなり等方ローブと完全に一致するので、
-	///      分岐のコストは実際に使うマテリアルだけが払う。
-	float3 specular;
-	if (abs(anisotropy_strength) > 0.0)
+	if (shading_model == SHADING_MODEL_TOON)
 	{
-		float anisotropy_clamped = clamp(anisotropy_strength, -0.99, 0.99);
-		float alpha_tangent = max(alpha_roughness * (1.0 + anisotropy_clamped), 0.001);
-		float alpha_bitangent = max(alpha_roughness * (1.0 - anisotropy_clamped), 0.001);
-
-		specular = BrdfSpecularGgxAnisotropic(f0, f90, alpha_tangent, alpha_bitangent, view_dot_half,
-			normal_dot_light, normal_dot_view, normal_dot_half,
-			dot(anisotropy_tangent, light_direction), dot(anisotropy_bitangent, light_direction),
-			dot(anisotropy_tangent, view), dot(anisotropy_bitangent, view),
-			dot(anisotropy_tangent, half_vector), dot(anisotropy_bitangent, half_vector));
-	}
-	else
-	{
-		specular = BrdfSpecularGgx(f0, f90, alpha_roughness, view_dot_half, normal_dot_light, normal_dot_view, normal_dot_half);
+		float shininess = lerp(64.0, 4.0, roughness);
+		return EvalDirectLightToon(normal, view, light_direction, diffuse_color, f0, shininess);
 	}
 
-	float3 base = diffuse + specular;
-
-	/// [EN] Clearcoat: a second GGX lobe with a fixed dielectric F0 (IOR ~1.5 -> 0.04)
-	///      layered on top; the base layer is attenuated by the coat Fresnel.
-	if (clearcoat > 0.0)
-	{
-		/// [EN] The coat lobe uses its own normal (KHR_materials_clearcoat's
-		///      clearcoatNormalTexture) - it is a separate layer and may be
-		///      smooth where the base is bumpy. Equals the base normal when the
-		///      material has no coat normal map.
-		/// [JP] コートのローブは専用の法線(KHR_materials_clearcoat の
-		///      clearcoatNormalTexture)を使う — ベースとは別の層なので、ベースが
-		///      凸凹でもコートは滑らか、という表現ができる。コート法線マップが
-		///      無いマテリアルではベースの法線と一致する。
-		float coat_normal_dot_light = max(dot(clearcoat_normal, light_direction), 0.0);
-		float coat_normal_dot_view = max(dot(clearcoat_normal, view), 0.001);
-		float coat_normal_dot_half = max(dot(clearcoat_normal, half_vector), 0.0);
-
-		const float3 coat_f0 = float3(0.04, 0.04, 0.04);
-		float coat_alpha = clearcoat_roughness * clearcoat_roughness;
-		float3 coat_fresnel = FresnelSchlick(coat_f0, f90, view_dot_half) * clearcoat;
-		float3 coat_specular = BrdfSpecularGgx(coat_f0, f90, coat_alpha, view_dot_half, coat_normal_dot_light, coat_normal_dot_view, coat_normal_dot_half) * clearcoat;
-		base = base * (1.0 - coat_fresnel) + coat_specular;
-	}
-
-	/// [EN] Sheen: additive Charlie lobe (fabric grazing-angle highlight). Not
-	///      energy-conserving against the base layer (the full KHR spec scales
-	///      the base by a sheen directional-albedo LUT) - simple additive
-	///      approximation.
-	/// [JP] Sheen: 加算のCharlieローブ(布のグレージング角ハイライト)。ベース層への
-	///      エネルギー保存はしていない(KHR仕様はsheenディレクショナルアルベドLUTで
-	///      ベースを減衰させる) - 単純な加算近似。
-	if (dot(sheen_color, sheen_color) > 0.0)
-	{
-		float sheen_ndf = CharlieDistribution(sheen_roughness, normal_dot_half);
-		float sheen_visibility = AshikhminVisibility(normal_dot_light, normal_dot_view);
-		base += sheen_color * sheen_ndf * sheen_visibility;
-	}
-
-	return base * normal_dot_light;
+	return EvalDirectLight(normal, view, light_direction, diffuse_color, f0, roughness, clearcoat, clearcoat_roughness, clearcoat_normal, sheen_color, sheen_roughness, anisotropy_tangent, anisotropy_bitangent, anisotropy_strength);
 }
 
 float4 main(CompositeOutput input) : SV_Target0
@@ -350,8 +270,9 @@ float4 main(CompositeOutput input) : SV_Target0
 		}
 	}
 
-	/// [JP] KHR_materials_unlit: ライティングを一切せず base_color + emissive のみ。
-	if (material_instance.unlit_ > 0.5)
+	/// [JP] Unlit: ライティングを一切せず base_color + emissive のみ
+	///      (KHR_materials_unlit、またはマテリアルで明示的に選択されたUnlit)。
+	if (material_instance.shading_model_ == SHADING_MODEL_UNLIT)
 	{
 		return float4(base_color + emissive, 1.0);
 	}
@@ -689,7 +610,7 @@ float4 main(CompositeOutput input) : SV_Target0
 	{
 		float3 light_direction = normalize(-light_constant_buffer.directional_direction_);
 		float3 directional_color = light_constant_buffer.directional_color_.rgb * light_constant_buffer.directional_intensity_ * directional_shadow_factor;
-		lighting += EvalDirectLight(normal, view, light_direction, diffuse_color, f0, roughness, clearcoat_factor, clearcoat_roughness, clearcoat_normal, sheen_color, sheen_roughness, anisotropy_tangent, anisotropy_bitangent, anisotropy_strength) * directional_color;
+		lighting += EvalDirectLightDispatch(material_instance.shading_model_, normal, view, light_direction, diffuse_color, f0, roughness, clearcoat_factor, clearcoat_roughness, clearcoat_normal, sheen_color, sheen_roughness, anisotropy_tangent, anisotropy_bitangent, anisotropy_strength) * directional_color;
 
 		/// [JP] レイトレ表面下散乱(SubsurfaceScatteringRT.hlsl が書いた透過率)。
 		///      光に背いた面(N・L<0)で、裏から差し込む光が薄い部分ほど透けて
@@ -739,7 +660,7 @@ float4 main(CompositeOutput input) : SV_Target0
 			float attenuation = AttenuateDistance(distance, point_light.range);
 
 			float3 light_color = point_light.color.rgb * point_light.intensity * attenuation * punctual_shadow_factor;
-			lighting += EvalDirectLight(normal, view, light_direction, diffuse_color, f0, roughness, clearcoat_factor, clearcoat_roughness, clearcoat_normal, sheen_color, sheen_roughness, anisotropy_tangent, anisotropy_bitangent, anisotropy_strength) * light_color;
+			lighting += EvalDirectLightDispatch(material_instance.shading_model_, normal, view, light_direction, diffuse_color, f0, roughness, clearcoat_factor, clearcoat_roughness, clearcoat_normal, sheen_color, sheen_roughness, anisotropy_tangent, anisotropy_bitangent, anisotropy_strength) * light_color;
 		}
 	}
 
@@ -763,7 +684,7 @@ float4 main(CompositeOutput input) : SV_Target0
 			float attenuation = AttenuateDistance(distance, spot_light.range) * spot_fade;
 
 			float3 light_color = spot_light.color.rgb * spot_light.intensity * attenuation * punctual_shadow_factor;
-			lighting += EvalDirectLight(normal, view, light_direction, diffuse_color, f0, roughness, clearcoat_factor, clearcoat_roughness, clearcoat_normal, sheen_color, sheen_roughness, anisotropy_tangent, anisotropy_bitangent, anisotropy_strength) * light_color;
+			lighting += EvalDirectLightDispatch(material_instance.shading_model_, normal, view, light_direction, diffuse_color, f0, roughness, clearcoat_factor, clearcoat_roughness, clearcoat_normal, sheen_color, sheen_roughness, anisotropy_tangent, anisotropy_bitangent, anisotropy_strength) * light_color;
 		}
 	}
 
@@ -793,7 +714,7 @@ float4 main(CompositeOutput input) : SV_Target0
 
 			float attenuation = AttenuateDistance(distance, rect_light.range);
 			float3 light_color = rect_light.color.rgb * rect_light.intensity * attenuation * punctual_shadow_factor;
-			lighting += EvalDirectLight(normal, view, light_direction, diffuse_color, f0, roughness, clearcoat_factor, clearcoat_roughness, clearcoat_normal, sheen_color, sheen_roughness, anisotropy_tangent, anisotropy_bitangent, anisotropy_strength) * light_color;
+			lighting += EvalDirectLightDispatch(material_instance.shading_model_, normal, view, light_direction, diffuse_color, f0, roughness, clearcoat_factor, clearcoat_roughness, clearcoat_normal, sheen_color, sheen_roughness, anisotropy_tangent, anisotropy_bitangent, anisotropy_strength) * light_color;
 		}
 	}
 

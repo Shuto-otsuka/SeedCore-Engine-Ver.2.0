@@ -44,6 +44,14 @@ struct ModelMeshletBound
 	float cone_cutoff_;
 };
 
+// Mirrors the C++ ShadingModel enum (Model/Crister.h). Read from
+// ModelInstance::shading_model_ and switched on by
+// Opaque/DeferredLightingPS.hlsl's direct-light dispatch.
+#define SHADING_MODEL_PBR 0
+#define SHADING_MODEL_UNLIT 1
+#define SHADING_MODEL_PHONG 2
+#define SHADING_MODEL_TOON 3
+
 struct ModelInstance
 {
 	row_major float4x4 world_;
@@ -114,7 +122,7 @@ struct ModelInstance
 	float unlit_;                       // KHR_materials_unlit (1.0 = skip lighting)
 
 	float3 volume_attenuation_color_;   // KHR_materials_volume (attenuation color)
-	float model_instance_padding_6_;
+	uint shading_model_;                // ShadingModel - see DeferredLightingPS.hlsl's dispatch
 
 	float3 sheen_color_;                // KHR_materials_sheen (color)
 	float sheen_roughness_;             // KHR_materials_sheen (roughness)

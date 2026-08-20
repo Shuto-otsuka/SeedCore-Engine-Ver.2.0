@@ -76,7 +76,10 @@ namespace SeedCore
 		editorContext_.cameraContext_.editorCamera_ = &editorCamera_;
 		editorContext_.cameraContext_.editorCameraController_ = &editorCameraController_;
 		editorContext_.cameraContext_.canvasCamera_ = &canvasCamera_;
-		editorContext_.cameraContext_.previewCamera_ = &previewCamera_;
+		editorContext_.cameraContext_.timelineCamera_ = &timelineCamera_;
+		editorContext_.cameraContext_.modelTransformCamera_ = &modelTransformCamera_;
+		editorContext_.cameraContext_.timelineCameraController_ = &timelineCameraController_;
+		editorContext_.cameraContext_.modelTransformCameraController_ = &modelTransformCameraController_;
 		editorContext_.graphicsContext_.device_ = device;
 		editorContext_.graphicsContext_.cmdQueue_ = graphics_->GetContext()->GetDirectQueue()->GetCommandQueue();
 		editorContext_.graphicsContext_.bc7Shader_ = &graphics_->GetBC7CompressShader();
@@ -295,7 +298,8 @@ namespace SeedCore
 
 				canvasCamera_.Resize(ScResolution::SC_HD.Width, ScResolution::SC_HD.Height);
 				canvasCamera_.Tick(window_->GetTimer().Delta());
-				previewCamera_.Tick(window_->GetTimer().Delta());
+				timelineCamera_.Tick(window_->GetTimer().Delta());
+				modelTransformCamera_.Tick(window_->GetTimer().Delta());
 
 				if (editorContext_.viewportContext_.raytracing_.daySystemEnabled_)
 				{
@@ -318,15 +322,20 @@ namespace SeedCore
 				graphics_->GameRender(gameTimer_, *loaderSystem_, *resource_, *world_);
 				graphics_->CanvasRender(worldTimer_, canvasCamera_, *loaderSystem_, *resource_, *world_);
 
-				if (editorContext_.previewContext_.previewActive_)
+				if (editorContext_.timelinePreviewContext_.previewActive_)
 				{
-					graphics_->PreviewRender(worldTimer_, previewCamera_, *loaderSystem_, *resource_, editorContext_.previewContext_.previewMeshAssetId_, editorContext_.previewContext_.previewAnimationAssetId_, editorContext_.previewContext_.previewTime_, editorContext_.previewContext_.previewWorldMatrix_);
+					graphics_->TimelineRender(worldTimer_, timelineCamera_, *loaderSystem_, *resource_, editorContext_.timelinePreviewContext_.previewMeshAssetId_, editorContext_.timelinePreviewContext_.previewAnimationAssetId_, editorContext_.timelinePreviewContext_.previewTime_, Matrix::Identity);
+				}
+
+				if (editorContext_.modelTransformPreviewContext_.previewActive_)
+				{
+					graphics_->ModelTransformRender(worldTimer_, modelTransformCamera_, *loaderSystem_, *resource_, editorContext_.modelTransformPreviewContext_.previewMeshAssetId_, 0, 0.0f, editorContext_.modelTransformPreviewContext_.previewWorldMatrix_);
 				}
 
 				graphics_->Clear();
 
 				imgui_->DockSpaceBegin(editor_->DrawToolbar());
-				editor_->Draw(graphics_->EditorImGuiGPUHandle(), graphics_->GameImGuiGPUHandle(), graphics_->CanvasImGuiGPUHandle(), graphics_->PreviewImGuiGPUHandle(), graphics_->GetGpuProfiler());
+				editor_->Draw(graphics_->EditorImGuiGPUHandle(), graphics_->GameImGuiGPUHandle(), graphics_->CanvasImGuiGPUHandle(), graphics_->TimelineImGuiGPUHandle(), graphics_->ModelTransformImGuiGPUHandle(), graphics_->GetGpuProfiler());
 				imgui_->DockSpaceEnd();
 
 				imgui_->Render(graphics_->GetContext()->GetDirectList()->Get());

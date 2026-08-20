@@ -1,6 +1,6 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
-#include <FoundationEngine/Utility/SerializeFallback.h>
+#include <FoundationEngine/Serialization/SerializeFallback.h>
 
 namespace SeedCore
 {

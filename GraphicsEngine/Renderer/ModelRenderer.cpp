@@ -335,7 +335,7 @@ namespace SeedCore
 									}
 								}
 
-								if (animatorState.useRootMotion_ && !skins.empty() && !skins[0].joints_.empty())
+								if (!skins.empty() && !skins[0].joints_.empty())
 								{
 									Int rootNodeIndex = skins[0].joints_[0];
 									if (!animation->HasTranslationChannel(rootNodeIndex))
@@ -350,59 +350,61 @@ namespace SeedCore
 									auto rootTranslationIt = translationOverrides.find(rootNodeIndex);
 									Vector3 currentRootTranslation = (rootTranslationIt != translationOverrides.end()) ? rootTranslationIt->second : nodes[rootNodeIndex].translation_;
 
-									if (animator->HasRootMotionBaseline(stateIndex))
+									if (animatorState.useRootMotion_)
 									{
-										Float previousSampleTime = animator->RootMotionBaselineSampleTime();
-										Vector3 previousTranslation = animator->RootMotionBaselineTranslation();
-
-										Vector3 delta;
-										if (duration > 0.0f && sampleTime < previousSampleTime)
+										if (animator->HasRootMotionBaseline(stateIndex))
 										{
-											std::unordered_map<Int, Vector3> endTranslations, startTranslations;
-											std::unordered_map<Int, Quaternion> unusedRotations;
-											std::unordered_map<Int, Vector3> unusedScales;
-											animation->SamplePose(duration, endTranslations, unusedRotations, unusedScales);
-											animation->SamplePose(0.0f, startTranslations, unusedRotations, unusedScales);
+											Float previousSampleTime = animator->RootMotionBaselineSampleTime();
+											Vector3 previousTranslation = animator->RootMotionBaselineTranslation();
 
-											Vector3 endTranslation = endTranslations.count(rootNodeIndex) ? endTranslations[rootNodeIndex] : nodes[rootNodeIndex].translation_;
-											Vector3 startTranslation = startTranslations.count(rootNodeIndex) ? startTranslations[rootNodeIndex] : nodes[rootNodeIndex].translation_;
-
-											delta = (endTranslation - previousTranslation) + (currentRootTranslation - startTranslation);
-										}
-										else
-										{
-											delta = currentRootTranslation - previousTranslation;
-										}
-
-										delta.y = 0.0f;
-
-										if (delta.x != 0.0f || delta.z != 0.0f)
-										{
-											Entity entity = actor->GetEntity();
-											Rotation* rotationComponent = world.GetComponent<Rotation>(entity);
-											Scale* scaleComponent = world.GetComponent<Scale>(entity);
-
-											Matrix scaleMatrix = scaleComponent ? Matrix::CreateScale(scaleComponent->x, scaleComponent->y, scaleComponent->z) : Matrix::Identity;
-											Matrix rotationMatrix = rotationComponent ? Matrix::CreateFromYawPitchRoll(ToRadians(rotationComponent->y), ToRadians(rotationComponent->x), ToRadians(rotationComponent->z)) : Matrix::Identity;
-
-											Vector3 localDelta = Vector3::TransformNormal(delta, scaleMatrix * rotationMatrix);
-
-											Position* positionComponent = world.GetComponent<Position>(entity);
-											if (positionComponent)
+											Vector3 delta;
+											if (duration > 0.0f && sampleTime < previousSampleTime)
 											{
-												positionComponent->x += localDelta.x;
-												positionComponent->y += localDelta.y;
-												positionComponent->z += localDelta.z;
+												std::unordered_map<Int, Vector3> endTranslations, startTranslations;
+												std::unordered_map<Int, Quaternion> unusedRotations;
+												std::unordered_map<Int, Vector3> unusedScales;
+												animation->SamplePose(duration, endTranslations, unusedRotations, unusedScales);
+												animation->SamplePose(0.0f, startTranslations, unusedRotations, unusedScales);
+
+												Vector3 endTranslation = endTranslations.count(rootNodeIndex) ? endTranslations[rootNodeIndex] : nodes[rootNodeIndex].translation_;
+												Vector3 startTranslation = startTranslations.count(rootNodeIndex) ? startTranslations[rootNodeIndex] : nodes[rootNodeIndex].translation_;
+
+												delta = (endTranslation - previousTranslation) + (currentRootTranslation - startTranslation);
+											}
+											else
+											{
+												delta = currentRootTranslation - previousTranslation;
+											}
+
+											if (delta.x != 0.0f || delta.y != 0.0f || delta.z != 0.0f)
+											{
+												Entity entity = actor->GetEntity();
+												Rotation* rotationComponent = world.GetComponent<Rotation>(entity);
+												Scale* scaleComponent = world.GetComponent<Scale>(entity);
+
+												Matrix scaleMatrix = scaleComponent ? Matrix::CreateScale(scaleComponent->x, scaleComponent->y, scaleComponent->z) : Matrix::Identity;
+												Matrix rotationMatrix = rotationComponent ? Matrix::CreateFromYawPitchRoll(ToRadians(rotationComponent->y), ToRadians(rotationComponent->x), ToRadians(rotationComponent->z)) : Matrix::Identity;
+
+												Vector3 localDelta = Vector3::TransformNormal(delta, scaleMatrix * rotationMatrix);
+
+												Position* positionComponent = world.GetComponent<Position>(entity);
+												if (positionComponent)
+												{
+													positionComponent->x += localDelta.x;
+													positionComponent->y += localDelta.y;
+													positionComponent->z += localDelta.z;
+												}
 											}
 										}
+
+										animator->UpdateRootMotionBaseline(stateIndex, sampleTime, currentRootTranslation);
+
+										translationOverrides[rootNodeIndex] = Vector3::Zero;
 									}
-
-									animator->UpdateRootMotionBaseline(stateIndex, sampleTime, currentRootTranslation);
-
-									Vector3 maskedRootTranslation = currentRootTranslation;
-									maskedRootTranslation.x = 0.0f;
-									maskedRootTranslation.z = 0.0f;
-									translationOverrides[rootNodeIndex] = maskedRootTranslation;
+									else
+									{
+										translationOverrides[rootNodeIndex] = Vector3::Zero;
+									}
 								}
 
 								poseGlobalTransforms.resize(nodes.size(), Matrix::Identity);
@@ -822,6 +824,7 @@ namespace SeedCore
 							instanceData.iridescenceIor_ = material.khr_.iridescence_.iridescenceIor_;
 							instanceData.iridescenceThickness_ = (material.khr_.iridescence_.iridescenceThicknessMinimum_ + material.khr_.iridescence_.iridescenceThicknessMaximum_) * 0.5f;
 							instanceData.unlit_ = material.khr_.unlit_.unlit_ != 0 ? 1.0f : 0.0f;
+							instanceData.shadingModel_ = material.khr_.unlit_.unlit_ != 0 ? static_cast<Uint>(ShadingModel::Unlit) : static_cast<Uint>(material.shadingModel_);
 
 							/// [EN] Material stores glTF image indices — resolve to bindless heap indices.
 							/// [JP] Material には glTF の image インデックスが入っているため、bindless ヒープインデックスに解決する。
@@ -1042,6 +1045,7 @@ namespace SeedCore
 				instanceData.iridescenceIor_ = material.khr_.iridescence_.iridescenceIor_;
 				instanceData.iridescenceThickness_ = (material.khr_.iridescence_.iridescenceThicknessMinimum_ + material.khr_.iridescence_.iridescenceThicknessMaximum_) * 0.5f;
 				instanceData.unlit_ = material.khr_.unlit_.unlit_ != 0 ? 1.0f : 0.0f;
+				instanceData.shadingModel_ = material.khr_.unlit_.unlit_ != 0 ? static_cast<Uint>(ShadingModel::Unlit) : static_cast<Uint>(material.shadingModel_);
 
 				instanceData.baseColorTextureIndex_ = crister->TextureBindlessIndex(material.baseColorTextureIndex_);
 				instanceData.normalTextureIndex_ = crister->TextureBindlessIndex(material.normalTextureIndex_);

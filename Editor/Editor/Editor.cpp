@@ -28,6 +28,8 @@ namespace SeedCore
 		configPanel_ = MakePtr<ConfigPanel>(context_);
 		animatorControllerPanel_ = MakePtr<AnimatorControllerPanel>(context_);
 		timelinePanel_ = MakePtr<TimelinePanel>(context_);
+		boneControllerPanel_ = MakePtr<BoneControllerPanel>(context_);
+		materialPanel_ = MakePtr<MaterialPanel>(context_);
 		modelTransformPanel_ = MakePtr<ModelTransformPanel>(context_);
 
 		context_.panelContext_.animatorControllerPanel_ = &*animatorControllerPanel_;
@@ -107,6 +109,14 @@ namespace SeedCore
 			TimelineRequest::requested_ = false;
 			timelinePanel_->Open();
 		}
+		if (menuBarPanel_->ConsumeBoneControllerRequest())
+		{
+			boneControllerPanel_->Open();
+		}
+		if (menuBarPanel_->ConsumeMaterialRequest())
+		{
+			materialPanel_->Open();
+		}
 		if (menuBarPanel_->ConsumeModelTransformRequest())
 		{
 			modelTransformPanel_->Open();
@@ -116,15 +126,14 @@ namespace SeedCore
 		todoListPanel_->Draw();
 		versionPanel_->Draw();
 		configPanel_->Draw();
-		modelTransformPanel_->Draw();
 		toolbarHeight_ = controlPanel_->Draw();
 		return toolbarHeight_;
 	}
 
-	void Editor::Draw(D3D12_GPU_DESCRIPTOR_HANDLE editorFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE gameFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE canvasFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE previewFrameBufferHandle, const GpuProfiler& gpuProfiler)
+	void Editor::Draw(D3D12_GPU_DESCRIPTOR_HANDLE editorFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE gameFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE canvasFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE timelinePreviewFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE modelTransformPreviewFrameBufferHandle, const GpuProfiler& gpuProfiler)
 	{
-		timelinePanel_->SetPreviewHandle(previewFrameBufferHandle);
-		modelTransformPanel_->SetPreviewHandle(previewFrameBufferHandle);
+		timelinePanel_->SetPreviewHandle(timelinePreviewFrameBufferHandle);
+		modelTransformPanel_->SetPreviewHandle(modelTransformPreviewFrameBufferHandle);
 
 		/// [EN] Must run after DockSpaceBegin() (called by Engine before this
 		///      function) so ImGui::DockSpace() has already created/refreshed
@@ -144,6 +153,9 @@ namespace SeedCore
 		///      本当の原因)。
 		animatorControllerPanel_->Draw();
 		timelinePanel_->Draw();
+		boneControllerPanel_->Draw();
+		materialPanel_->Draw();
+		modelTransformPanel_->Draw();
 
 		gameWindowPanel_->Draw(gameFrameBufferHandle, toolbarHeight_);
 

@@ -171,10 +171,12 @@
     <ClCompile Include="Editor\Build\RuntimeBuilder.cpp" />
     <ClCompile Include="Editor\Build\VisualStudioAutomation.cpp" />
     <ClCompile Include="Editor\Panel\AnimatorControllerPanel.cpp" />
+    <ClCompile Include="Editor\Panel\BoneControllerPanel.cpp" />
     <ClCompile Include="Editor\Panel\CanvasViewPanel.cpp" />
     <ClCompile Include="Editor\Panel\ConfigPanel.cpp" />
     <ClCompile Include="Editor\Panel\EnvironmentMenuPanel.cpp" />
     <ClCompile Include="Editor\Panel\GraphicsMenuPanel.cpp" />
+    <ClCompile Include="Editor\Panel\MaterialPanel.cpp" />
     <ClCompile Include="Editor\Panel\ModelTransformPanel.cpp" />
     <ClCompile Include="Editor\Panel\ProfilerPanel.cpp" />
     <ClCompile Include="Editor\Panel\RaytracingPanel.cpp" />
@@ -254,6 +256,7 @@
     <ClInclude Include="Editor\ImGui\ImGuiTexture.h" />
     <ClInclude Include="Editor\Panel\AddComponentPanel.h" />
     <ClInclude Include="Editor\Panel\AnimatorControllerPanel.h" />
+    <ClInclude Include="Editor\Panel\BoneControllerPanel.h" />
     <ClInclude Include="Editor\Panel\CanvasViewPanel.h" />
     <ClInclude Include="Editor\Panel\ConfigPanel.h" />
     <ClInclude Include="Editor\Panel\ConsolePanel.h" />
@@ -267,6 +270,7 @@
     <ClInclude Include="Editor\Panel\GuizmoPanel2D.h" />
     <ClInclude Include="Editor\Panel\HierarchyPanel.h" />
     <ClInclude Include="Editor\Panel\InspectorPanel.h" />
+    <ClInclude Include="Editor\Panel\MaterialPanel.h" />
     <ClInclude Include="Editor\Panel\MenuBarPanel.h" />
     <ClInclude Include="Editor\Panel\ModelTransformPanel.h" />
     <ClInclude Include="Editor\Panel\ProfilerPanel.h" />

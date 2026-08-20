@@ -1,4 +1,4 @@
-#include <GraphicsEngine/Renderer/PreviewRenderer.h>
+#include <GraphicsEngine/Renderer/TimelineRenderer.h>
 #include <GraphicsEngine/Profiler/ProfilerStats.h>
 #include <GraphicsEngine/Model/Crister.h>
 #include <GraphicsEngine/Model/ModelResource.h>
@@ -8,14 +8,14 @@
 
 namespace SeedCore
 {
-	PreviewRenderer::PreviewRenderer(RootSignature& rootSignature, PipelineStateObject& pipelineStateObject) : modelShader_(rootSignature, pipelineStateObject)
+	TimelineRenderer::TimelineRenderer(RootSignature& rootSignature, PipelineStateObject& pipelineStateObject) : modelShader_(rootSignature, pipelineStateObject)
 	{
 		/// No Code
 	}
 
-	PreviewRenderer::~PreviewRenderer() = default;
+	TimelineRenderer::~TimelineRenderer() = default;
 
-	void PreviewRenderer::Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, Uint32 width, Uint32 height)
+	void TimelineRenderer::Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, Uint32 width, Uint32 height)
 	{
 		bindlessHeap_ = bindlessHeap;
 		maxInstanceCount_ = 2048;
@@ -46,14 +46,14 @@ namespace SeedCore
 		structuredIndicesBuffer_ = MakePtr<ConstantBuffer<StructuredIndices>>(device, bindlessHeap);
 	}
 
-	void PreviewRenderer::Resize(ID3D12Device* device, BindlessHeap* bindlessHeap, Uint32 width, Uint32 height)
+	void TimelineRenderer::Resize(ID3D12Device* device, BindlessHeap* bindlessHeap, Uint32 width, Uint32 height)
 	{
 		renderTargetViewHeap_.Create(device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 1);
 		depthStencilViewHeap_.Create(device, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 1);
 		frameBuffer_->Resize(device, bindlessHeap, width, height);
 	}
 
-	void PreviewRenderer::Gather(LoaderSystem& loaderSystem, ModelResource& modelResource, AnimationResource& animationResource, Uint32 meshAssetId, Uint32 animationAssetId, Float time, const Matrix& worldMatrix)
+	void TimelineRenderer::Gather(LoaderSystem& loaderSystem, ModelResource& modelResource, AnimationResource& animationResource, Uint32 meshAssetId, Uint32 animationAssetId, Float time, const Matrix& worldMatrix)
 	{
 		opaqueInstances_.clear();
 		transparentInstances_.clear();
@@ -259,6 +259,7 @@ namespace SeedCore
 					instanceData.iridescenceIor_ = material.khr_.iridescence_.iridescenceIor_;
 					instanceData.iridescenceThickness_ = (material.khr_.iridescence_.iridescenceThicknessMinimum_ + material.khr_.iridescence_.iridescenceThicknessMaximum_) * 0.5f;
 					instanceData.unlit_ = material.khr_.unlit_.unlit_ != 0 ? 1.0f : 0.0f;
+					instanceData.shadingModel_ = material.khr_.unlit_.unlit_ != 0 ? static_cast<Uint>(ShadingModel::Unlit) : static_cast<Uint>(material.shadingModel_);
 
 					instanceData.baseColorTextureIndex_ = crister->TextureBindlessIndex(material.baseColorTextureIndex_);
 					instanceData.normalTextureIndex_ = crister->TextureBindlessIndex(material.normalTextureIndex_);
@@ -334,7 +335,7 @@ namespace SeedCore
 		}
 	}
 
-	void PreviewRenderer::Upload()
+	void TimelineRenderer::Upload()
 	{
 		if (uploaded_)
 		{
@@ -361,7 +362,7 @@ namespace SeedCore
 		}
 	}
 
-	void PreviewRenderer::Begin(D3D12CommandList* cmdList)
+	void TimelineRenderer::Begin(D3D12CommandList* cmdList)
 	{
 		/// [EN] Sky-blue clear instead of the default flat gray, since the
 		///      preview has no skybox/background of its own.
@@ -371,7 +372,7 @@ namespace SeedCore
 		frameBuffer_->Clear(cmdList, 0.45f, 0.65f, 0.9f, 1.0f);
 	}
 
-	void PreviewRenderer::Draw(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const SceneConstantBuffer& scene)
+	void TimelineRenderer::Draw(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const SceneConstantBuffer& scene)
 	{
 		sceneSystem_->Upload(scene);
 
@@ -408,12 +409,12 @@ namespace SeedCore
 		}
 	}
 
-	void PreviewRenderer::End(D3D12CommandList* cmdList)
+	void TimelineRenderer::End(D3D12CommandList* cmdList)
 	{
 		frameBuffer_->End(cmdList);
 	}
 
-	void PreviewRenderer::RegisterImGuiShaderResourceView(ID3D12Device* device, DescriptorHeap* imguiHeap)
+	void TimelineRenderer::RegisterImGuiShaderResourceView(ID3D12Device* device, DescriptorHeap* imguiHeap)
 	{
 		imguiHeap_ = imguiHeap;
 
@@ -431,7 +432,7 @@ namespace SeedCore
 		imguiShaderResourceViewIndex_ = index;
 	}
 
-	D3D12_GPU_DESCRIPTOR_HANDLE PreviewRenderer::ImGuiGPUHandle()const
+	D3D12_GPU_DESCRIPTOR_HANDLE TimelineRenderer::ImGuiGPUHandle()const
 	{
 		return imguiHeap_->GPUHandle(imguiShaderResourceViewIndex_);
 	}

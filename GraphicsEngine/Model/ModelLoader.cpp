@@ -342,13 +342,15 @@ namespace SeedCore
 		///      is a valid state that must fall back to a default material, not be
 		///      reinterpreted as an index: assigning -1 directly into the Uint32
 		///      materialIndex_ would wrap to 0xFFFFFFFF and cause an out-of-bounds
-		///      read in ModelRenderer/PreviewRenderer's materials[subMesh.materialIndex_].
+		///      read in ModelRenderer/TimelineRenderer/ModelTransformRenderer's
+		///      materials[subMesh.materialIndex_].
 		/// [JP] プリミティブがマテリアルを持たない場合（gltfPrimitive.material == -1）
 		///      に使う、遅延生成の共有デフォルトマテリアル。glTF 仕様上これは正当な
 		///      状態でありデフォルトマテリアルへフォールバックすべきで、そのまま
 		///      インデックスとして解釈してはならない: -1 を Uint32 の materialIndex_
-		///      にそのまま代入すると 0xFFFFFFFF にラップし、ModelRenderer/PreviewRenderer
-		///      の materials[subMesh.materialIndex_] で範囲外アクセスを引き起こす。
+		///      にそのまま代入すると 0xFFFFFFFF にラップし、
+		///      ModelRenderer/TimelineRenderer/ModelTransformRenderer の
+		///      materials[subMesh.materialIndex_] で範囲外アクセスを引き起こす。
 		Int defaultMaterialIndex = -1;
 
 		for (Size meshIndex = 0; meshIndex < model.meshes.size(); meshIndex++)

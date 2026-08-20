@@ -1,6 +1,6 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
-#include <FoundationEngine/Utility/SerializeFallback.h>
+#include <FoundationEngine/Serialization/SerializeFallback.h>
 #include <GraphicsEngine/DLSS/DlssMode.h>
 #include <GraphicsEngine/Renderer/ShadowRenderer.h>
 #include <GraphicsEngine/Renderer/AmbientOcclusionRenderer.h>
@@ -119,7 +119,7 @@ namespace SeedCore
 		UpscaleMode upscaleMode_ = UpscaleMode::Balanced;
 
 		/// [EN] Each field is loaded/saved independently via TryLoadField (see
-		///      FoundationEngine/Utility/SerializeFallback.h) - a missing or
+		///      FoundationEngine/Serialization/SerializeFallback.h) - a missing or
 		///      unparsable field (older save, schema change) only falls back to
 		///      that field's default; every other field still loads normally.
 		/// [JP] 各フィールドは TryLoadField(FoundationEngine/Utility/

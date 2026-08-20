@@ -620,9 +620,7 @@ namespace SeedCore
 			/// [JP] Full は SubMesh の最初のクラスタ（LOD 0、最も詳細）、
 			///      Proxy は最後のクラスタ（最も粗い）を取る — RT プロキシ
 			///      ジオメトリが既に使っているのと同じ範囲。
-			Uint32 clusterIndex = detail == MeshCollisionDetail::Full
-				? subMesh.clusterOffset_
-				: subMesh.clusterOffset_ + subMesh.clusterCount_ - 1;
+			Uint32 clusterIndex = detail == MeshCollisionDetail::Full ? subMesh.clusterOffset_ : subMesh.clusterOffset_ + subMesh.clusterCount_ - 1;
 
 			if (clusterIndex >= clusters_.size())
 			{

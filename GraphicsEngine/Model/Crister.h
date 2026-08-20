@@ -763,6 +763,31 @@ namespace SeedCore
 
 	/**
 	* [EN]
+	* Which lighting response DeferredLightingPS.hlsl evaluates a material's
+	* direct/indirect light with. Not a separate shader/PSO - the deferred
+	* lighting pass reads this per-instance and switches within the single
+	* shader (the same technique khr_.unlit_ already used before this enum
+	* existed; Unlit now folds into this list instead of its own flag).
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* DeferredLightingPS.hlsl がマテリアルの直接光/間接光をどのライティング
+	* 応答で評価するか。別シェーダー/PSOではない — デフォードライティング
+	* パスがinstanceごとにこれを読み、単一シェーダー内でswitchする(この
+	* enumができる前からkhr_.unlit_が使っていたのと同じ手法。Unlitは
+	* 専用フラグをやめてこのリストへ統合された)。
+	*/
+	enum class ShadingModel :Uint32
+	{
+		Pbr = 0,
+		Unlit = 1,
+		Phong = 2,
+		Toon = 3,
+	};
+
+	/**
+	* [EN]
 	* glTF PBR metallic-roughness material: base factors, alpha mode/
 	* cutoff/double-sidedness, bundled KHR_materials_* extensions (khr_),
 	* and bindless-heap-agnostic texture indices (resolved into actual
@@ -787,6 +812,14 @@ namespace SeedCore
 		Float alphaCutoff_ = 0.5f;
 		Int doubleSided_ = 0;
 
+		/// [EN] Overridden to ShadingModel::Unlit at Gather time when
+		///      khr_.unlit_.unlit_ is set (see ModelRenderer::Gather) - the
+		///      glTF extension always wins over whatever is authored here.
+		/// [JP] khr_.unlit_.unlit_ が立っている場合、Gather時にShadingModel::Unlit
+		///      へ上書きされる(ModelRenderer::Gather参照) - glTF拡張が、
+		///      ここで設定された値より常に優先される。
+		ShadingModel shadingModel_ = ShadingModel::Pbr;
+
 		/// [JP] KHR_materials_* 拡張。拡張が無ければ各デフォルト（中立値）のまま。
 		KHR khr_;
 
@@ -807,6 +840,7 @@ namespace SeedCore
 				cereal::make_nvp("alpha_mode", alphaMode_),
 				cereal::make_nvp("alpha_cutoff", alphaCutoff_),
 				cereal::make_nvp("double_sided", doubleSided_),
+				cereal::make_nvp("shading_model", shadingModel_),
 				cereal::make_nvp("khr", khr_),
 				cereal::make_nvp("base_color_texture_index", baseColorTextureIndex_),
 				cereal::make_nvp("normal_texture_index", normalTextureIndex_),

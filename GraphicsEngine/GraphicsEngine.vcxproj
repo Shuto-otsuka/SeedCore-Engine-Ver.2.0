@@ -26,6 +26,7 @@
     <ClInclude Include="Camera\FreeCameraController.h" />
     <ClInclude Include="Camera\OrbitCameraController.h" />
     <ClInclude Include="Camera\PreviewCamera.h" />
+    <ClInclude Include="Camera\PreviewCameraController.h" />
     <ClInclude Include="Constraint\LookAtConstraint.h" />
     <ClInclude Include="Constraint\ParentConstraint.h" />
     <ClInclude Include="Constraint\PositionConstraint.h" />
@@ -176,10 +177,10 @@
     <ClInclude Include="Renderer\GlobalIlluminationRenderer.h" />
     <ClInclude Include="Renderer\ImageRenderer.h" />
     <ClInclude Include="Renderer\ModelRenderer.h" />
+    <ClInclude Include="Renderer\ModelTransformRenderer.h" />
     <ClInclude Include="Renderer\MovieRenderer.h" />
     <ClInclude Include="Renderer\OutlineRenderer.h" />
     <ClInclude Include="Renderer\PostProcessRenderer.h" />
-    <ClInclude Include="Renderer\PreviewRenderer.h" />
     <ClInclude Include="Renderer\RaytracingRenderer.h" />
     <ClInclude Include="Renderer\ReflectionRenderer.h" />
     <ClInclude Include="Renderer\RefractionRenderer.h" />
@@ -189,6 +190,7 @@
     <ClInclude Include="Renderer\SkyRenderer.h" />
     <ClInclude Include="Renderer\SubsurfaceScatteringRenderer.h" />
     <ClInclude Include="Renderer\TaauUpsamplingRenderer.h" />
+    <ClInclude Include="Renderer\TimelineRenderer.h" />
     <ClInclude Include="Renderer\ViewMode.h" />
     <ClInclude Include="Renderer\VolumetricCloudScapesRenderer.h" />
     <ClInclude Include="Renderer\VolumetricLightRenderer.h" />
@@ -225,6 +227,7 @@
     <ClCompile Include="Camera\FreeCameraController.cpp" />
     <ClCompile Include="Camera\OrbitCameraController.cpp" />
     <ClCompile Include="Camera\PreviewCamera.cpp" />
+    <ClCompile Include="Camera\PreviewCameraController.cpp" />
     <ClCompile Include="D3D12\Buffer\DepthResizeBuffer.cpp" />
     <ClCompile Include="DLSS\DlssBackgroundVelocityShader.cpp" />
     <ClCompile Include="DLSS\DlssNormalRoughnessShader.cpp" />
@@ -391,10 +394,10 @@
     <ClCompile Include="Renderer\GlobalIlluminationRenderer.cpp" />
     <ClCompile Include="Renderer\ImageRenderer.cpp" />
     <ClCompile Include="Renderer\ModelRenderer.cpp" />
+    <ClCompile Include="Renderer\ModelTransformRenderer.cpp" />
     <ClCompile Include="Renderer\MovieRenderer.cpp" />
     <ClCompile Include="Renderer\OutlineRenderer.cpp" />
     <ClCompile Include="Renderer\PostProcessRenderer.cpp" />
-    <ClCompile Include="Renderer\PreviewRenderer.cpp" />
     <ClCompile Include="Renderer\RaytracingRenderer.cpp" />
     <ClCompile Include="Renderer\ReflectionRenderer.cpp" />
     <ClCompile Include="Renderer\RefractionRenderer.cpp" />
@@ -404,6 +407,7 @@
     <ClCompile Include="Renderer\SkyRenderer.cpp" />
     <ClCompile Include="Renderer\SubsurfaceScatteringRenderer.cpp" />
     <ClCompile Include="Renderer\TaauUpsamplingRenderer.cpp" />
+    <ClCompile Include="Renderer\TimelineRenderer.cpp" />
     <ClCompile Include="Renderer\VolumetricCloudScapesRenderer.cpp" />
     <ClCompile Include="Renderer\VolumetricLightRenderer.cpp" />
     <ClCompile Include="Renderer\VolumetricStarRenderer.cpp" />
@@ -455,6 +459,18 @@
     <None Include="Light\BidirectionalReflectanceDistributionFunction.hlsli" />
     <None Include="Light\ImageBasedLighting.hlsli" />
     <None Include="Model\Model.hlsli">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </None>
+    <None Include="Model\Opaque\PbrShading.hlsli">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </None>
+    <None Include="Model\Opaque\PhongShading.hlsli">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </None>
+    <None Include="Model\Opaque\ToonShading.hlsli">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </None>

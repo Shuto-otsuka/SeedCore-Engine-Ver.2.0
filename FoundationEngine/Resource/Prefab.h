@@ -2,7 +2,7 @@
 #include <FoundationEngine/Prelude.h>
 #include <FoundationEngine/ECS/ReflectionRegistry.h>
 #include <FoundationEngine/Resource/ActorSerialization.h>
-#include <FoundationEngine/Utility/SerializeFallback.h>
+#include <FoundationEngine/Serialization/SerializeFallback.h>
 
 namespace SeedCore
 {

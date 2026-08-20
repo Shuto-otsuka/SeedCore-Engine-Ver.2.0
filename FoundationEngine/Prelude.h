@@ -296,7 +296,7 @@
 #include <FoundationEngine/Utility/DestructiveCopy.h>
 #include <FoundationEngine/Utility/Delegate.h>
 
-#include <FoundationEngine/File/CerealCommon.h>
+#include <FoundationEngine/Serialization/CerealCommon.h>
 
 #include <GraphicsEngine/D3D12/D3D12Common.h>
 

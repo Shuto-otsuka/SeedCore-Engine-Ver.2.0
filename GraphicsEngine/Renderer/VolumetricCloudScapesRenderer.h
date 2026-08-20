@@ -1,6 +1,6 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
-#include <FoundationEngine/Utility/SerializeFallback.h>
+#include <FoundationEngine/Serialization/SerializeFallback.h>
 #include <GraphicsEngine/D3D12/Buffer/ConstantBuffer.h>
 #include <GraphicsEngine/D3D12/Descriptor/DescriptorHeap.h>
 #include <GraphicsEngine/Raytracing/VolumetricCloudScapes/VolumetricCloudScapesShader.h>
