@@ -252,6 +252,8 @@ namespace SeedCore
 					entry.alphaMode_ = static_cast<Uint32>(material.alphaMode_);
 					entry.alphaCutoff_ = material.alphaCutoff_;
 					entry.baseColorAlpha_ = material.baseColor_.A();
+					entry.thicknessFactor_ = material.khr_.volume_.thicknessFactor_;
+					entry.thicknessTextureIndex_ = static_cast<Uint32>(crister->TextureBindlessIndex(material.khr_.volume_.thicknessTextureIndex_));
 					materialData.push_back(entry);
 				}
 			}

@@ -27,6 +27,7 @@ namespace SeedCore
 		desc.restitution_ = restitution_;
 		desc.gravityFactor_ = useGravity_ ? gravityScale_ : 0.0f;
 		desc.allowedDOFs_ = PhysicsSystem::ToAllowedDOFs(*this);
+		desc.isSensor_ = isTrigger_;
 
 		bodyID_ = actor.GetPhysics().CreateRigidbody(desc);
 	}

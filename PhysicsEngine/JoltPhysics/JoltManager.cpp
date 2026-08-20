@@ -20,6 +20,7 @@ namespace SeedCore
 		static ObjLayerPairFilterImplementation objLayerPairFilter;
 
 		physicsSystem_.Init(1024, 0, 65536, 1024, bpLayerInterface, objVsBPFilter, objLayerPairFilter);
+		physicsSystem_.SetContactListener(&contactListener_);
 
 		return true;
 	}
@@ -27,6 +28,7 @@ namespace SeedCore
 	void JoltManager::Execute(Float elapsedTime)
 	{
 		physicsSystem_.Update(elapsedTime, 1, tempAllocator_.get(), executor_.get());
+		contactListener_.DispatchPendingEvents();
 	}
 
 	void JoltManager::Finalize()
@@ -65,5 +67,15 @@ namespace SeedCore
 	JPH::PhysicsSystem& JoltManager::GetPhysicsSystem()
 	{
 		return physicsSystem_;
+	}
+
+	JPH::TempAllocator& JoltManager::GetPhysicsAllocator()
+	{
+		return *tempAllocator_;
+	}
+
+	void JoltManager::SetActiveWorld(World* world)
+	{
+		contactListener_.SetActiveWorld(world);
 	}
 }

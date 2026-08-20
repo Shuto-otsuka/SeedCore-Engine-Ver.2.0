@@ -16,6 +16,9 @@
     <Filter Include="Physics">
       <UniqueIdentifier>{16da94ac-77b1-46ce-b41e-1a527ac9514c}</UniqueIdentifier>
     </Filter>
+    <Filter Include="CharacterController">
+      <UniqueIdentifier>{ffb3171d-bafe-49b1-a07d-491ba0daaf23}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="JoltPhysics\JoltManager.h">
@@ -62,6 +65,15 @@
     </ClInclude>
     <ClInclude Include="Physics\PhysicsSystem.h">
       <Filter>Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="CharacterController\CharacterController.h">
+      <Filter>CharacterController</Filter>
+    </ClInclude>
+    <ClInclude Include="JoltPhysics\JoltContactListener.h">
+      <Filter>JoltPhysics</Filter>
+    </ClInclude>
+    <ClInclude Include="JoltPhysics\JoltCharacterContactListener.h">
+      <Filter>JoltPhysics</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -110,6 +122,15 @@
     </ClCompile>
     <ClCompile Include="Softbody\Softbody.cpp">
       <Filter>Softbody</Filter>
+    </ClCompile>
+    <ClCompile Include="CharacterController\CharacterController.cpp">
+      <Filter>CharacterController</Filter>
+    </ClCompile>
+    <ClCompile Include="JoltPhysics\JoltContactListener.cpp">
+      <Filter>JoltPhysics</Filter>
+    </ClCompile>
+    <ClCompile Include="JoltPhysics\JoltCharacterContactListener.cpp">
+      <Filter>JoltPhysics</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

@@ -90,9 +90,10 @@ namespace SeedCore
 
 		desc.position_ = position ? Vector3{ position->x, position->y, position->z } : Vector3{ 0.0f, 0.0f, 0.0f };
 		desc.rotation_ = rotation ? Quaternion::CreateFromYawPitchRoll(ToRadians(rotation->y), ToRadians(rotation->x), ToRadians(rotation->z)) : Quaternion::Identity;
+		desc.userData_ = static_cast<EntityID>(actor.GetEntity().GetHandle().index_);
 	}
 
-	JPH::BodyID PhysicsSystem::CreateColliderBody(Actor& actor, ShapeHandle shape)
+	JPH::BodyID PhysicsSystem::CreateColliderBody(Actor& actor, ShapeHandle shape, Bool isTrigger)
 	{
 		if (actor.GetComponent<Rigidbody>())
 		{
@@ -103,6 +104,7 @@ namespace SeedCore
 		desc.shape_ = shape;
 		desc.motionType_ = JPH::EMotionType::Static;
 		desc.layer_ = Layers::STATIC;
+		desc.isSensor_ = isTrigger;
 		ApplyActorTransform(actor, desc);
 
 		return actor.GetPhysics().CreateRigidbody(desc);
@@ -128,6 +130,56 @@ namespace SeedCore
 			outPosition = position ? Vector3(position->x, position->y, position->z) : Vector3(0.0f, 0.0f, 0.0f);
 			outRotation = rotation ? Quaternion::CreateFromYawPitchRoll(ToRadians(rotation->y), ToRadians(rotation->x), ToRadians(rotation->z)) : Quaternion::Identity;
 		}
+
+		template<typename DispatchFunction>
+		void DispatchToActor(World& world, EntityID entityID, EntityID otherEntityID, DispatchFunction dispatchFunction)
+		{
+			Actor* actor = world.GetActor(entityID);
+			Actor* otherActor = world.GetActor(otherEntityID);
+			if (!actor || !otherActor)
+			{
+				return;
+			}
+
+			Entity otherEntity = otherActor->GetEntity();
+			for (ComponentID id : actor->ComponentBaseIDList())
+			{
+				if (ComponentBase* component = reinterpret_cast<ComponentBase*>(world.GetComponent(entityID, id)))
+				{
+					dispatchFunction(component, otherEntity);
+				}
+			}
+		}
+	}
+
+	void PhysicsSystem::DispatchCollisionEnter(World& world, EntityID entityID, EntityID otherEntityID)
+	{
+		DispatchToActor(world, entityID, otherEntityID, [](ComponentBase* component, Entity otherEntity) { component->DispatchCollisionEnter(otherEntity); });
+	}
+
+	void PhysicsSystem::DispatchCollisionStay(World& world, EntityID entityID, EntityID otherEntityID)
+	{
+		DispatchToActor(world, entityID, otherEntityID, [](ComponentBase* component, Entity otherEntity) { component->DispatchCollisionStay(otherEntity); });
+	}
+
+	void PhysicsSystem::DispatchCollisionExit(World& world, EntityID entityID, EntityID otherEntityID)
+	{
+		DispatchToActor(world, entityID, otherEntityID, [](ComponentBase* component, Entity otherEntity) { component->DispatchCollisionExit(otherEntity); });
+	}
+
+	void PhysicsSystem::DispatchTriggerEnter(World& world, EntityID entityID, EntityID otherEntityID)
+	{
+		DispatchToActor(world, entityID, otherEntityID, [](ComponentBase* component, Entity otherEntity) { component->DispatchTriggerEnter(otherEntity); });
+	}
+
+	void PhysicsSystem::DispatchTriggerStay(World& world, EntityID entityID, EntityID otherEntityID)
+	{
+		DispatchToActor(world, entityID, otherEntityID, [](ComponentBase* component, Entity otherEntity) { component->DispatchTriggerStay(otherEntity); });
+	}
+
+	void PhysicsSystem::DispatchTriggerExit(World& world, EntityID entityID, EntityID otherEntityID)
+	{
+		DispatchToActor(world, entityID, otherEntityID, [](ComponentBase* component, Entity otherEntity) { component->DispatchTriggerExit(otherEntity); });
 	}
 
 	DynamicArray<ColliderInstance> PhysicsSystem::GatherColliderInstances(World& world)

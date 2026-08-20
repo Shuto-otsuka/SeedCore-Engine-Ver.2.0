@@ -142,6 +142,31 @@ struct ModelInstance
 	uint morph_target_count_;
 	uint morph_weight_offset_;     // into the shared per-frame morph weight buffer
 	uint model_instance_padding_8_;
+
+	// KHR extension / occlusion textures (0xFFFFFFFF when absent). Sampled by
+	// Model/Opaque/DeferredLightingPS.hlsl using the model UV recovered from the
+	// VisibilityBuffer (RT4.zw) - the deferred pass has no interpolated
+	// texcoord of its own. The matching scalar factors live further up; each
+	// texture multiplies its factor per the glTF spec's channel convention.
+	uint occlusion_texture_index_;              // .r  occlusion strength
+	uint specular_texture_index_;               // .a  KHR_materials_specular (factor)
+	uint specular_color_texture_index_;         // .rgb KHR_materials_specular (color)
+	uint clearcoat_texture_index_;              // .r  KHR_materials_clearcoat (factor)
+
+	uint clearcoat_roughness_texture_index_;    // .g  KHR_materials_clearcoat (roughness)
+	uint clearcoat_normal_texture_index_;       // .rgb tangent-space clearcoat normal
+	uint transmission_texture_index_;           // .r  KHR_materials_transmission
+	uint thickness_texture_index_;              // .g  KHR_materials_volume (thickness)
+
+	uint sheen_color_texture_index_;            // .rgb KHR_materials_sheen (color)
+	uint sheen_roughness_texture_index_;        // .a  KHR_materials_sheen (roughness)
+	uint iridescence_texture_index_;            // .r  KHR_materials_iridescence (factor)
+	uint iridescence_thickness_texture_index_;  // .g  KHR_materials_iridescence (thickness lerp)
+
+	uint anisotropy_texture_index_;             // .rg direction, .b strength
+	float anisotropy_rotation_;                 // KHR_materials_anisotropy (rotation, radians)
+	uint model_instance_padding_10_;
+	uint model_instance_padding_11_;
 };
 
 // Blends morph_target_count_ morph targets into base_position, weighted by
@@ -288,22 +313,32 @@ struct DepthPrepassOutput
 // from this id + depth.
 struct ModelPSOutput
 {
-	uint2 visibility_id            : SV_Target0;   // x: instance_index, y: pack(meshlet_index, triangle_in_meshlet_index)
+	uint4 visibility_id            : SV_Target0;   // x: instance_index, y: pack(meshlet_index, triangle_in_meshlet_index), zw: asuint(texcoord)
 };
 
-// Packs a triangle's Visibility-Buffer identity: y reserves the low 7 bits for
-// triangle_in_meshlet_index (meshlets emit at most 124 triangles, so 0..123
-// fits) and the remaining high bits for meshlet_index.
-uint2 PackVisibilityID(uint instance_index, uint meshlet_index, uint triangle_in_meshlet_index)
+// Packs a triangle's Visibility-Buffer identity plus the interpolated texcoord:
+// y reserves the low 7 bits for triangle_in_meshlet_index (meshlets emit at most
+// 124 triangles, so 0..123 fits) and the remaining high bits for meshlet_index.
+// zw carry the rasterized texcoord bit-for-bit (asuint, not a narrowing pack) so
+// the lighting pass can sample material textures without re-deriving UVs - the
+// source UVs are UNORM16 within the mesh's UV AABB, so any narrowing here would
+// lose precision that tiled UVs (large texcoord_extent_) actually need.
+uint4 PackVisibilityID(uint instance_index, uint meshlet_index, uint triangle_in_meshlet_index, float2 texcoord)
 {
-	return uint2(instance_index, (meshlet_index << 7) | (triangle_in_meshlet_index & 0x7F));
+	return uint4(instance_index, (meshlet_index << 7) | (triangle_in_meshlet_index & 0x7F), asuint(texcoord.x), asuint(texcoord.y));
 }
 
-void UnpackVisibilityID(uint2 packed, out uint instance_index, out uint meshlet_index, out uint triangle_in_meshlet_index)
+void UnpackVisibilityID(uint4 packed, out uint instance_index, out uint meshlet_index, out uint triangle_in_meshlet_index)
 {
 	instance_index = packed.x;
 	meshlet_index = packed.y >> 7;
 	triangle_in_meshlet_index = packed.y & 0x7F;
+}
+
+// Texcoord half of the VisibilityBuffer id, as written by PackVisibilityID.
+float2 UnpackVisibilityTexcoord(uint4 packed)
+{
+	return float2(asfloat(packed.z), asfloat(packed.w));
 }
 
 #define OIT_MAX_LAYERS 8

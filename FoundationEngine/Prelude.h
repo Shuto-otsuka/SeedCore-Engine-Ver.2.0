@@ -241,6 +241,7 @@
 #include <External/JoltPhysics/Jolt/Physics/Collision/Shape/ConvexShape.h>
 #include <External/JoltPhysics/Jolt/Physics/Collision/Shape/ConvexHullShape.h>
 #include <External/JoltPhysics/Jolt/Physics/Collision/Shape/RotatedTranslatedShape.h>
+#include <External/JoltPhysics/Jolt/Physics/Character/CharacterVirtual.h>
 #include <External/JoltPhysics/Jolt/Physics/Body/BodyLock.h>
 #include <External/JoltPhysics/Jolt/Physics/SoftBody/SoftBodySharedSettings.h>
 #include <External/JoltPhysics/Jolt/Physics/SoftBody/SoftBodyCreationSettings.h>
@@ -293,6 +294,7 @@
 #include <FoundationEngine/Utility/NonMovable.h>
 #include <FoundationEngine/Utility/NonTransferable.h>
 #include <FoundationEngine/Utility/DestructiveCopy.h>
+#include <FoundationEngine/Utility/Delegate.h>
 
 #include <FoundationEngine/File/CerealCommon.h>
 

@@ -11,6 +11,9 @@ namespace SeedCore
 		SC_REFLECTION_CLAMPED_EX("半径", 0.001f, 100.0f)
 		Float radius_ = 0.5f;
 
+		SC_REFLECTION_FIELD_EX("トリガー")
+		Bool isTrigger_ = false;
+
 	public:
 		ShapeHandle GetShapeHandle()const;
 

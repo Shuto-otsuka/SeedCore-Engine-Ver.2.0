@@ -152,6 +152,7 @@
     </ClCompile>
     <ClCompile Include="Utility\Bitset.cpp">
     </ClCompile>
+    <ClCompile Include="Utility\Delegate.cpp" />
     <ClCompile Include="Utility\String.cpp">
     </ClCompile>
     <ClCompile Include="Reflection\Reflection.generated.cpp">
@@ -238,6 +239,7 @@
     <ClInclude Include="Utility\Array.h" />
     <ClInclude Include="Utility\Bitset.h" />
     <ClInclude Include="Utility\Bootstrap.h" />
+    <ClInclude Include="Utility\Delegate.h" />
     <ClInclude Include="Utility\DestructiveCopy.h" />
     <ClInclude Include="Utility\FlatMap.h" />
     <ClInclude Include="Utility\Handle.h" />

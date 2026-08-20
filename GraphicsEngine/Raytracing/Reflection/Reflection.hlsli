@@ -54,6 +54,13 @@ struct ReflectionMaterialData
 	uint alpha_mode_;
 	float alpha_cutoff_;
 	float base_color_alpha_;
+
+	// KHR_materials_volume thickness. Zero means THIN-WALLED: the surface
+	// encloses no volume, so Refraction/RefractionRT.hlsl must skip Beer-Lambert
+	// absorption entirely for it - otherwise a pane of window glass gets tinted
+	// like a solid block of the same material.
+	float thickness_factor_;
+	uint thickness_texture_index_;   // .g scales thickness_factor_ per pixel
 	float material_padding_;
 };
 
@@ -137,7 +144,10 @@ float2 DecodeReflectionVertexTexcoord(ReflectionVertex vertex, float2 texcoord_m
 // True when a ray should pass THROUGH this candidate triangle: OPAQUE always
 // blocks, MASK blocks only where base color alpha reaches alphaCutoff, BLEND
 // never blocks (the PPLL in Model/Transparent draws those surfaces instead).
-// Only reached on meshes declared non-opaque by Crister::HasNonOpaqueMaterial.
+// Only reached on meshes whose BLAS geometry was declared non-opaque, which
+// RaytracingRenderer does whenever any of the mesh's materials is MASK or
+// BLEND (see geometryDesc.opaque_); a fully OPAQUE mesh keeps
+// D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE and never reaches here.
 // instance_data_index is structured_indices.raytracing_.instance_data_index_,
 // passed in so this header needs no extra includes.
 bool IsReflectionMaterialPassthrough(uint instance_data_index, uint instance_id, uint primitive_index, float2 barycentrics)

@@ -60,7 +60,7 @@ void main(uint3 dtid : SV_DispatchThreadID)
 
 	Texture2D<float4> gbuffer0 = ResourceDescriptorHeap[structured_indices.gbuffer_.index_0_];
 	Texture2D<float4> gbuffer1 = ResourceDescriptorHeap[structured_indices.gbuffer_.index_1_];
-	Texture2D<uint2> gbuffer4 = ResourceDescriptorHeap[structured_indices.gbuffer_.index_4_];
+	Texture2D<uint4> gbuffer4 = ResourceDescriptorHeap[structured_indices.gbuffer_.index_4_];
 	Texture2D<float> depth_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.depth_index_];
 	RWTexture2D<float4> normal_roughness = ResourceDescriptorHeap[constant_indices.dlss_.normal_roughness_uav_index_];
 	RWTexture2D<float4> specular_albedo = ResourceDescriptorHeap[constant_indices.dlss_.specular_albedo_uav_index_];
@@ -85,7 +85,7 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	/// [JP] KHR_materials_ior/specular はGBufferに焼き込まれていないので、
 	///      VisID(RT4)からinstance_indexを引いてModelInstanceからその場で
 	///      誘電体F0を計算する(Model/Opaque/DeferredLightingPS.hlsl と同じ式)。
-	uint2 visibility_id = gbuffer4.Load(int3(pixel, 0));
+	uint4 visibility_id = gbuffer4.Load(int3(pixel, 0));
 	uint material_instance_index, material_meshlet_index, material_triangle_index;
 	UnpackVisibilityID(visibility_id, material_instance_index, material_meshlet_index, material_triangle_index);
 	StructuredBuffer<ModelInstance> material_instances = ResourceDescriptorHeap[structured_indices.model_.instance_index_];

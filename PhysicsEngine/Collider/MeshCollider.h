@@ -15,6 +15,9 @@ namespace SeedCore
 		SC_REFLECTION_FIELD_EX("凸包にする")
 		Bool convex_ = false;
 
+		SC_REFLECTION_FIELD_EX("トリガー")
+		Bool isTrigger_ = false;
+
 	public:
 		void OnAwake();
 

@@ -269,6 +269,8 @@ namespace SeedCore
 					PhysicsSystem::ResolveMeshColliders(*loaderSystem_, *resource_, *world_);
 					PhysicsSystem::ResolveSoftbodies(*loaderSystem_, *resource_, *world_);
 
+					joltManager_->SetActiveWorld(world_.get());
+
 					while (worldTimer_.Step())
 					{
 						joltManager_->Execute(worldTimer_.FixedDeltaTime());

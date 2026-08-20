@@ -72,8 +72,8 @@ void main(uint3 dtid : SV_DispatchThreadID)
 
 	uint2 pixel = uint2(linear_pixel % screen_width, linear_pixel / screen_width);
 
-	Texture2D<uint2> visibility_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.index_4_];
-	uint2 visibility_id = visibility_texture.Load(int3(pixel, 0));
+	Texture2D<uint4> visibility_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.index_4_];
+	uint4 visibility_id = visibility_texture.Load(int3(pixel, 0));
 
 	uint instance_index;
 	uint meshlet_index;
@@ -147,11 +147,14 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	RWTexture2D<float4> rt3 = ResourceDescriptorHeap[structured_indices.gbuffer_.index_3_uav_];
 
 	rt0[pixel] = float4(base_color.rgb, metallic);
-	/// [JP] RT1.a は未使用(0固定) - KHR拡張のスカラー値(ior/specular/clearcoat/
-	///      transmission/volume/sheen/iridescence/anisotropy/unlit)は per-instance
-	///      定数でピクセルごとに変わらないため GBuffer に焼き込まず、VisID経由で
-	///      DeferredLightingPS.hlsl がその場で ModelInstance から直接読む。
-	rt1[pixel] = float4(OctNormalEncode(N), roughness, 0.0);
+	/// [JP] RT1.a はタンジェント(N まわりの角度15bit + 利き手符号1bit)。
+	///      KHR拡張のスカラー値は per-instance 定数なので GBuffer に焼き込まず
+	///      VisID 経由で DeferredLightingPS.hlsl が ModelInstance から直接読むが、
+	///      KHR_materials_clearcoat の法線マップだけは接空間なので TBN が要る。
+	///      deferred パスは補間済みタンジェントを持たないため、ここで渡す。
+	///      符号化は【法線マップ適用後の N】に対して行う - 復元側はその N と
+	///      直交するタンジェントを得て、そのまま TBN を組める。
+	rt1[pixel] = float4(OctNormalEncode(N), roughness, PackTangentAngle(N, world_tangent_xyz, tangent_sign));
 	rt2[pixel] = velocity;
 	/// [JP] emissive は生値(テクスチャ*factor)のみ - emissive_strength_ は
 	///      per-instance 定数なので DeferredLightingPS.hlsl 側で掛ける。

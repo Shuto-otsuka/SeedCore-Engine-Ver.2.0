@@ -13,7 +13,7 @@ namespace SeedCore
 	void CircleCollider::OnAwake()
 	{
 		shapeHandle_ = GetShapeHandle();
-		bodyID_ = PhysicsSystem::CreateColliderBody(GetActor(), shapeHandle_);
+		bodyID_ = PhysicsSystem::CreateColliderBody(GetActor(), shapeHandle_, isTrigger_);
 	}
 
 	void CircleCollider::OnDestroy()

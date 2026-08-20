@@ -65,7 +65,7 @@ float AshikhminVisibility(float normal_dot_light, float normal_dot_view)
 	return 1.0 / max(4.0 * (normal_dot_light + normal_dot_view - normal_dot_light * normal_dot_view), 1e-4);
 }
 
-float3 EvalDirectLight(float3 normal, float3 view, float3 light_direction, float3 diffuse_color, float3 f0, float roughness, float clearcoat, float clearcoat_roughness, float3 sheen_color, float sheen_roughness)
+float3 EvalDirectLight(float3 normal, float3 view, float3 light_direction, float3 diffuse_color, float3 f0, float roughness, float clearcoat, float clearcoat_roughness, float3 clearcoat_normal, float3 sheen_color, float sheen_roughness, float3 anisotropy_tangent, float3 anisotropy_bitangent, float anisotropy_strength)
 {
 	float normal_dot_light = max(dot(normal, light_direction), 0.0);
 	if (normal_dot_light <= 0.0)
@@ -82,7 +82,32 @@ float3 EvalDirectLight(float3 normal, float3 view, float3 light_direction, float
 	float3 f90 = float3(1.0, 1.0, 1.0);
 
 	float3 diffuse = BrdfLambertian(f0, f90, diffuse_color, view_dot_half);
-	float3 specular = BrdfSpecularGgx(f0, f90, alpha_roughness, view_dot_half, normal_dot_light, normal_dot_view, normal_dot_half);
+
+	/// [EN] KHR_materials_anisotropy stretches the highlight along the tangent
+	///      frame. Splits the single roughness into a tangent/bitangent pair;
+	///      strength 0 leaves them equal, which is exactly the isotropic lobe,
+	///      so the branch only costs the materials that actually opt in.
+	/// [JP] KHR_materials_anisotropy はタンジェント基底に沿ってハイライトを
+	///      引き伸ばす。単一のラフネスをタンジェント/バイタンジェントの対へ
+	///      分ける。強度0なら両者が等しくなり等方ローブと完全に一致するので、
+	///      分岐のコストは実際に使うマテリアルだけが払う。
+	float3 specular;
+	if (abs(anisotropy_strength) > 0.0)
+	{
+		float anisotropy_clamped = clamp(anisotropy_strength, -0.99, 0.99);
+		float alpha_tangent = max(alpha_roughness * (1.0 + anisotropy_clamped), 0.001);
+		float alpha_bitangent = max(alpha_roughness * (1.0 - anisotropy_clamped), 0.001);
+
+		specular = BrdfSpecularGgxAnisotropic(f0, f90, alpha_tangent, alpha_bitangent, view_dot_half,
+			normal_dot_light, normal_dot_view, normal_dot_half,
+			dot(anisotropy_tangent, light_direction), dot(anisotropy_bitangent, light_direction),
+			dot(anisotropy_tangent, view), dot(anisotropy_bitangent, view),
+			dot(anisotropy_tangent, half_vector), dot(anisotropy_bitangent, half_vector));
+	}
+	else
+	{
+		specular = BrdfSpecularGgx(f0, f90, alpha_roughness, view_dot_half, normal_dot_light, normal_dot_view, normal_dot_half);
+	}
 
 	float3 base = diffuse + specular;
 
@@ -90,10 +115,22 @@ float3 EvalDirectLight(float3 normal, float3 view, float3 light_direction, float
 	///      layered on top; the base layer is attenuated by the coat Fresnel.
 	if (clearcoat > 0.0)
 	{
+		/// [EN] The coat lobe uses its own normal (KHR_materials_clearcoat's
+		///      clearcoatNormalTexture) - it is a separate layer and may be
+		///      smooth where the base is bumpy. Equals the base normal when the
+		///      material has no coat normal map.
+		/// [JP] コートのローブは専用の法線(KHR_materials_clearcoat の
+		///      clearcoatNormalTexture)を使う — ベースとは別の層なので、ベースが
+		///      凸凹でもコートは滑らか、という表現ができる。コート法線マップが
+		///      無いマテリアルではベースの法線と一致する。
+		float coat_normal_dot_light = max(dot(clearcoat_normal, light_direction), 0.0);
+		float coat_normal_dot_view = max(dot(clearcoat_normal, view), 0.001);
+		float coat_normal_dot_half = max(dot(clearcoat_normal, half_vector), 0.0);
+
 		const float3 coat_f0 = float3(0.04, 0.04, 0.04);
 		float coat_alpha = clearcoat_roughness * clearcoat_roughness;
 		float3 coat_fresnel = FresnelSchlick(coat_f0, f90, view_dot_half) * clearcoat;
-		float3 coat_specular = BrdfSpecularGgx(coat_f0, f90, coat_alpha, view_dot_half, normal_dot_light, normal_dot_view, normal_dot_half) * clearcoat;
+		float3 coat_specular = BrdfSpecularGgx(coat_f0, f90, coat_alpha, view_dot_half, coat_normal_dot_light, coat_normal_dot_view, coat_normal_dot_half) * clearcoat;
 		base = base * (1.0 - coat_fresnel) + coat_specular;
 	}
 
@@ -231,8 +268,8 @@ float4 main(CompositeOutput input) : SV_Target0
 	///      ここ(ライティングのその場)で評価する。
 	float3 emissive = rt3.rgb;
 
-	Texture2D<uint2> gbuffer4 = ResourceDescriptorHeap[structured_indices.gbuffer_.index_4_];
-	uint2 visibility_id = gbuffer4.Load(int3(pixel, 0));
+	Texture2D<uint4> gbuffer4 = ResourceDescriptorHeap[structured_indices.gbuffer_.index_4_];
+	uint4 visibility_id = gbuffer4.Load(int3(pixel, 0));
 	uint material_instance_index, material_meshlet_index, material_triangle_index;
 	UnpackVisibilityID(visibility_id, material_instance_index, material_meshlet_index, material_triangle_index);
 	StructuredBuffer<ModelInstance> material_instances = ResourceDescriptorHeap[structured_indices.model_.instance_index_];
@@ -365,25 +402,68 @@ float4 main(CompositeOutput input) : SV_Target0
 	const float MIN_PERCEPTUAL_ROUGHNESS = 0.045;
 	roughness = max(roughness, MIN_PERCEPTUAL_ROUGHNESS);
 
+	/// [JP] KHR拡張 / オクルージョンのテクスチャを、対応する per-instance factor へ
+	///      掛け合わせる。モデルの UV は VisibilityBuffer(RT4.zw)から復元する —
+	///      このパスはフルスクリーン矩形なので input.texcoord はスクリーン UV で
+	///      あってモデル UV ではない。チャンネルの割り当ては glTF 仕様に従う。
+	///      ミップは MaterialResolveCS.hlsl と同じ理由(解析的な UV 偏微分が無い)で
+	///      0 固定 - G-Buffer 由来の UV は三角形の境界で ddx/ddy が壊れる。
+	float2 material_texcoord = UnpackVisibilityTexcoord(visibility_id);
+
+	float specular_factor = material_instance.specular_factor_;
+	if (material_instance.specular_texture_index_ != 0xFFFFFFFF)
+	{
+		Texture2D<float4> specular_texture = ResourceDescriptorHeap[material_instance.specular_texture_index_];
+		specular_factor *= specular_texture.SampleLevel(sampler_aniso_wrap, material_texcoord, 0).a;
+	}
+
+	float3 specular_color = material_instance.specular_color_;
+	if (material_instance.specular_color_texture_index_ != 0xFFFFFFFF)
+	{
+		Texture2D<float4> specular_color_texture = ResourceDescriptorHeap[material_instance.specular_color_texture_index_];
+		specular_color *= specular_color_texture.SampleLevel(sampler_aniso_wrap, material_texcoord, 0).rgb;
+	}
+
+	float iridescence_factor = material_instance.iridescence_factor_;
+	if (material_instance.iridescence_texture_index_ != 0xFFFFFFFF)
+	{
+		Texture2D<float4> iridescence_texture = ResourceDescriptorHeap[material_instance.iridescence_texture_index_];
+		iridescence_factor *= iridescence_texture.SampleLevel(sampler_aniso_wrap, material_texcoord, 0).r;
+	}
+
+	float iridescence_thickness = material_instance.iridescence_thickness_;
+	if (material_instance.iridescence_thickness_texture_index_ != 0xFFFFFFFF)
+	{
+		Texture2D<float4> iridescence_thickness_texture = ResourceDescriptorHeap[material_instance.iridescence_thickness_texture_index_];
+		iridescence_thickness *= iridescence_thickness_texture.SampleLevel(sampler_aniso_wrap, material_texcoord, 0).g;
+	}
+
+	float transmission_factor = material_instance.transmission_factor_;
+	if (material_instance.transmission_texture_index_ != 0xFFFFFFFF)
+	{
+		Texture2D<float4> transmission_texture = ResourceDescriptorHeap[material_instance.transmission_texture_index_];
+		transmission_factor *= transmission_texture.SampleLevel(sampler_aniso_wrap, material_texcoord, 0).r;
+	}
+
 	/// [JP] KHR_materials_ior/specular からその場で誘電体 F0 を計算。金属は base_color。
 	float dielectric = (material_instance.ior_ - 1.0) / (material_instance.ior_ + 1.0);
 	dielectric *= dielectric;
-	float3 dielectric_f0 = saturate(dielectric * material_instance.specular_color_ * material_instance.specular_factor_);
+	float3 dielectric_f0 = saturate(dielectric * specular_color * specular_factor);
 
 	/// [JP] KHR_materials_iridescence: 簡易近似(物理的に正確な薄膜干渉ではなく、
 	///      厚み/視野角で位相をずらした疑似虹色シフト)で F0 を色付けする。
-	if (material_instance.iridescence_factor_ > 0.0)
+	if (iridescence_factor > 0.0)
 	{
 		float normal_dot_view_for_iridescence = saturate(dot(normal, view));
-		float phase = material_instance.iridescence_thickness_ * 0.01 * normal_dot_view_for_iridescence + material_instance.iridescence_ior_;
+		float phase = iridescence_thickness * 0.01 * normal_dot_view_for_iridescence + material_instance.iridescence_ior_;
 		float3 iridescence_shift = sin(float3(phase, phase + 2.094395, phase + 4.18879)) * 0.5 + 0.5;
-		dielectric_f0 = lerp(dielectric_f0, iridescence_shift, saturate(material_instance.iridescence_factor_));
+		dielectric_f0 = lerp(dielectric_f0, iridescence_shift, saturate(iridescence_factor));
 	}
 
 	/// [JP] KHR_materials_transmission: 透過する光は拡散反射しない。実際に背後を
 	///      透かして見せる屈折表現(スクリーン空間/レイトレの Refraction)は別途
 	///      実装予定 - ここでは拡散応答の減衰のみ反映する。
-	float3 diffuse_color = base_color * (1.0 - metallic) * (1.0 - material_instance.transmission_factor_);
+	float3 diffuse_color = base_color * (1.0 - metallic) * (1.0 - transmission_factor);
 	float3 f0 = lerp(dielectric_f0, base_color, metallic);
 	/// [JP] 濡れた面は薄い水膜でグレージング角の反射率が上がる。水たまりは
 	///      水面そのものとしてさらに強く反射させる。
@@ -391,9 +471,85 @@ float4 main(CompositeOutput input) : SV_Target0
 	f0 = lerp(f0, max(f0, 0.05), puddle);
 
 	float clearcoat_factor = material_instance.clearcoat_factor_;
+	if (material_instance.clearcoat_texture_index_ != 0xFFFFFFFF)
+	{
+		Texture2D<float4> clearcoat_texture = ResourceDescriptorHeap[material_instance.clearcoat_texture_index_];
+		clearcoat_factor *= clearcoat_texture.SampleLevel(sampler_aniso_wrap, material_texcoord, 0).r;
+	}
+
 	float clearcoat_roughness = material_instance.clearcoat_roughness_;
+	if (material_instance.clearcoat_roughness_texture_index_ != 0xFFFFFFFF)
+	{
+		Texture2D<float4> clearcoat_roughness_texture = ResourceDescriptorHeap[material_instance.clearcoat_roughness_texture_index_];
+		clearcoat_roughness *= clearcoat_roughness_texture.SampleLevel(sampler_aniso_wrap, material_texcoord, 0).g;
+	}
+
+	/// [JP] KHR_materials_clearcoat の法線マップ。接空間なので TBN が要るが、
+	///      このパスは補間済みタンジェントを持たない — MaterialResolveCS.hlsl が
+	///      RT1.a へ「N まわりの角度 + 利き手符号」として畳んだものを復元して組む
+	///      (Shader/Normal.hlsli の PackTangentAngle/UnpackTangentAngle)。
+	///      クリアコート層は base とは独立した法線を持てるので、base の法線は
+	///      そのままに、コート専用の法線だけを差し替える。
+	float3 clearcoat_normal = normal;
+	if (material_instance.clearcoat_normal_texture_index_ != 0xFFFFFFFF)
+	{
+		float3 clearcoat_tangent;
+		float clearcoat_handedness;
+		UnpackTangentAngle(normal, rt1.a, clearcoat_tangent, clearcoat_handedness);
+
+		float3 clearcoat_bitangent = cross(normal, clearcoat_tangent) * clearcoat_handedness;
+		float3x3 clearcoat_tbn = float3x3(clearcoat_tangent, clearcoat_bitangent, normal);
+
+		Texture2D<float4> clearcoat_normal_texture = ResourceDescriptorHeap[material_instance.clearcoat_normal_texture_index_];
+		float3 clearcoat_normal_sample = clearcoat_normal_texture.SampleLevel(sampler_linear_wrap, material_texcoord, 0).xyz * 2.0 - 1.0;
+		clearcoat_normal = normalize(mul(clearcoat_normal_sample, clearcoat_tbn));
+	}
+
+	/// [JP] KHR_materials_anisotropy。方向は「タンジェント基底内の2Dベクトル」で、
+	///      anisotropyRotation(定数) と anisotropyTexture.rg(ピクセルごと)の
+	///      合成で決まる。強度は anisotropyStrength * texture.b。
+	///      タンジェントはクリアコート法線と同じ RT1.a 由来のものを使う。
+	float3 anisotropy_tangent = float3(1, 0, 0);
+	float3 anisotropy_bitangent = float3(0, 1, 0);
+	float anisotropy_strength = material_instance.anisotropy_;
+	if (abs(anisotropy_strength) > 0.0)
+	{
+		float2 anisotropy_direction = float2(cos(material_instance.anisotropy_rotation_), sin(material_instance.anisotropy_rotation_));
+		if (material_instance.anisotropy_texture_index_ != 0xFFFFFFFF)
+		{
+			Texture2D<float4> anisotropy_texture = ResourceDescriptorHeap[material_instance.anisotropy_texture_index_];
+			float3 anisotropy_sample = anisotropy_texture.SampleLevel(sampler_aniso_wrap, material_texcoord, 0).rgb;
+
+			float2 texture_direction = anisotropy_sample.rg * 2.0 - 1.0;
+			anisotropy_direction = float2(
+				texture_direction.x * anisotropy_direction.x - texture_direction.y * anisotropy_direction.y,
+				texture_direction.x * anisotropy_direction.y + texture_direction.y * anisotropy_direction.x);
+			anisotropy_strength *= anisotropy_sample.b;
+		}
+
+		float3 base_tangent;
+		float base_handedness;
+		UnpackTangentAngle(normal, rt1.a, base_tangent, base_handedness);
+		float3 base_bitangent = cross(normal, base_tangent) * base_handedness;
+
+		anisotropy_tangent = normalize(base_tangent * anisotropy_direction.x + base_bitangent * anisotropy_direction.y);
+		anisotropy_bitangent = normalize(cross(normal, anisotropy_tangent));
+	}
+
 	float3 sheen_color = material_instance.sheen_color_;
-	float sheen_roughness = max(material_instance.sheen_roughness_, 0.001);
+	if (material_instance.sheen_color_texture_index_ != 0xFFFFFFFF)
+	{
+		Texture2D<float4> sheen_color_texture = ResourceDescriptorHeap[material_instance.sheen_color_texture_index_];
+		sheen_color *= sheen_color_texture.SampleLevel(sampler_aniso_wrap, material_texcoord, 0).rgb;
+	}
+
+	float sheen_roughness_value = material_instance.sheen_roughness_;
+	if (material_instance.sheen_roughness_texture_index_ != 0xFFFFFFFF)
+	{
+		Texture2D<float4> sheen_roughness_texture = ResourceDescriptorHeap[material_instance.sheen_roughness_texture_index_];
+		sheen_roughness_value *= sheen_roughness_texture.SampleLevel(sampler_aniso_wrap, material_texcoord, 0).a;
+	}
+	float sheen_roughness = max(sheen_roughness_value, 0.001);
 
 	/// [JP] ShadowRT.hlsl(+ShadowDenoiseCS.hlsl で時間積分済み)が書いた
 	///      2チャンネル可視性(r=ディレクショナル, g=Point/Spot/Rect のうち
@@ -508,6 +664,16 @@ float4 main(CompositeOutput input) : SV_Target0
 	Texture2D<float> ao_openness = ResourceDescriptorHeap[constant_indices.ambient_occlusion_.openness_srv_index_];
 	ConstantBuffer<AmbientOcclusionRayConstantBuffer> ao_tuning = ResourceDescriptorHeap[structured_indices.ambient_occlusion_.ray_constant_index_];
 	float ao = pow(saturate(ao_openness.Load(int3(pixel, 0))), max(ao_tuning.power_, 0.0001));
+
+	/// [JP] glTF コアの occlusionTexture(.r)。レイトレAOと同じ「環境光がどれだけ
+	///      届くか」を表すので同じ環境光項へ掛ける。両者は別物 — こちらは
+	///      アーティストが焼き込んだ静的な遮蔽、AO は実行時に計算する動的な遮蔽。
+	if (material_instance.occlusion_texture_index_ != 0xFFFFFFFF)
+	{
+		Texture2D<float4> occlusion_texture = ResourceDescriptorHeap[material_instance.occlusion_texture_index_];
+		ao *= occlusion_texture.SampleLevel(sampler_aniso_wrap, material_texcoord, 0).r;
+	}
+
 	lighting *= ao;
 
 	/// [JP] GI はここで足す。AO を掛けないのは、GI のレイ自体が遮蔽そのものを
@@ -523,7 +689,7 @@ float4 main(CompositeOutput input) : SV_Target0
 	{
 		float3 light_direction = normalize(-light_constant_buffer.directional_direction_);
 		float3 directional_color = light_constant_buffer.directional_color_.rgb * light_constant_buffer.directional_intensity_ * directional_shadow_factor;
-		lighting += EvalDirectLight(normal, view, light_direction, diffuse_color, f0, roughness, clearcoat_factor, clearcoat_roughness, sheen_color, sheen_roughness) * directional_color;
+		lighting += EvalDirectLight(normal, view, light_direction, diffuse_color, f0, roughness, clearcoat_factor, clearcoat_roughness, clearcoat_normal, sheen_color, sheen_roughness, anisotropy_tangent, anisotropy_bitangent, anisotropy_strength) * directional_color;
 
 		/// [JP] レイトレ表面下散乱(SubsurfaceScatteringRT.hlsl が書いた透過率)。
 		///      光に背いた面(N・L<0)で、裏から差し込む光が薄い部分ほど透けて
@@ -573,7 +739,7 @@ float4 main(CompositeOutput input) : SV_Target0
 			float attenuation = AttenuateDistance(distance, point_light.range);
 
 			float3 light_color = point_light.color.rgb * point_light.intensity * attenuation * punctual_shadow_factor;
-			lighting += EvalDirectLight(normal, view, light_direction, diffuse_color, f0, roughness, clearcoat_factor, clearcoat_roughness, sheen_color, sheen_roughness) * light_color;
+			lighting += EvalDirectLight(normal, view, light_direction, diffuse_color, f0, roughness, clearcoat_factor, clearcoat_roughness, clearcoat_normal, sheen_color, sheen_roughness, anisotropy_tangent, anisotropy_bitangent, anisotropy_strength) * light_color;
 		}
 	}
 
@@ -597,7 +763,7 @@ float4 main(CompositeOutput input) : SV_Target0
 			float attenuation = AttenuateDistance(distance, spot_light.range) * spot_fade;
 
 			float3 light_color = spot_light.color.rgb * spot_light.intensity * attenuation * punctual_shadow_factor;
-			lighting += EvalDirectLight(normal, view, light_direction, diffuse_color, f0, roughness, clearcoat_factor, clearcoat_roughness, sheen_color, sheen_roughness) * light_color;
+			lighting += EvalDirectLight(normal, view, light_direction, diffuse_color, f0, roughness, clearcoat_factor, clearcoat_roughness, clearcoat_normal, sheen_color, sheen_roughness, anisotropy_tangent, anisotropy_bitangent, anisotropy_strength) * light_color;
 		}
 	}
 
@@ -627,7 +793,7 @@ float4 main(CompositeOutput input) : SV_Target0
 
 			float attenuation = AttenuateDistance(distance, rect_light.range);
 			float3 light_color = rect_light.color.rgb * rect_light.intensity * attenuation * punctual_shadow_factor;
-			lighting += EvalDirectLight(normal, view, light_direction, diffuse_color, f0, roughness, clearcoat_factor, clearcoat_roughness, sheen_color, sheen_roughness) * light_color;
+			lighting += EvalDirectLight(normal, view, light_direction, diffuse_color, f0, roughness, clearcoat_factor, clearcoat_roughness, clearcoat_normal, sheen_color, sheen_roughness, anisotropy_tangent, anisotropy_bitangent, anisotropy_strength) * light_color;
 		}
 	}
 

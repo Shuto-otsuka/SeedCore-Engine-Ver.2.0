@@ -2,10 +2,12 @@
 #include <FoundationEngine/Prelude.h>
 #include <PhysicsEngine/JoltPhysics/JoltExecutorBridge.h>
 #include <PhysicsEngine/JoltPhysics/JoltShapePool.h>
+#include <PhysicsEngine/JoltPhysics/JoltContactListener.h>
 
 namespace SeedCore
 {
 	class JobExecutor;
+	class World;
 
 	class SEEDCORE_API JoltManager
 	{
@@ -25,6 +27,10 @@ namespace SeedCore
 
 		JPH::PhysicsSystem& GetPhysicsSystem();
 
+		JPH::TempAllocator& GetPhysicsAllocator();
+
+		void SetActiveWorld(World* world);
+
 	private:
 		JoltShapePool shapePool_;
 
@@ -33,5 +39,7 @@ namespace SeedCore
 		ResourcePtr<JPH::TempAllocatorImpl> tempAllocator_;
 
 		JPH::PhysicsSystem physicsSystem_;
+
+		JoltContactListener contactListener_;
 	};
 }

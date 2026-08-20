@@ -57,8 +57,8 @@ void main(uint3 dtid : SV_DispatchThreadID)
 		return;
 	}
 
-	Texture2D<uint2> visibility_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.index_4_];
-	uint2 visibility_id = visibility_texture.Load(int3(pixel, 0));
+	Texture2D<uint4> visibility_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.index_4_];
+	uint4 visibility_id = visibility_texture.Load(int3(pixel, 0));
 
 	uint instance_index;
 	uint meshlet_index;

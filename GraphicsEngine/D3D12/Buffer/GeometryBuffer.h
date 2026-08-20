@@ -18,7 +18,7 @@ namespace SeedCore
 			DXGI_FORMAT_R16G16B16A16_UNORM,	// RT1: octNormal.rg + roughness (.a unused/reserved - KHR extension scalars are no longer baked per-pixel, DeferredLightingPS.hlsl reads them straight from ModelInstance via VisID)
 			DXGI_FORMAT_R16G16_FLOAT,		// RT2: velocity
 			DXGI_FORMAT_R11G11B10_FLOAT,		// RT3: emissive.rgb (raw texture*factor - emissive_strength_ is applied at lighting time, not baked in)
-			DXGI_FORMAT_R32G32_UINT		// RT4: visibility id (instance_index, pack(meshlet_index, triangle_in_meshlet_index)) - VisibilityBuffer groundwork
+			DXGI_FORMAT_R32G32B32A32_UINT	// RT4: visibility id (instance_index, pack(meshlet_index, triangle_in_meshlet_index)) + asuint(texcoord) - VisibilityBuffer groundwork
 		};
 
 	public:

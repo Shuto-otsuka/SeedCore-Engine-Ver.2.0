@@ -60,6 +60,6 @@ namespace SeedCore
 			return;
 		}
 
-		bodyID_ = PhysicsSystem::CreateColliderBody(actor, shapeHandle_);
+		bodyID_ = PhysicsSystem::CreateColliderBody(actor, shapeHandle_, isTrigger_);
 	}
 }

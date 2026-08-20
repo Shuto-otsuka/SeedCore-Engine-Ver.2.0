@@ -14,6 +14,9 @@ namespace SeedCore
 		SC_REFLECTION_FIELD_EX("中心オフセット")
 		Vector3 center_ = { 0.0f, 0.0f, 0.0f };
 
+		SC_REFLECTION_FIELD_EX("トリガー")
+		Bool isTrigger_ = false;
+
 	public:
 		ShapeHandle GetShapeHandle()const;
 

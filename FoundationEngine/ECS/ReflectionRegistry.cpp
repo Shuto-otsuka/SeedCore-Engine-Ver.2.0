@@ -42,6 +42,7 @@
 #pragma comment(linker, "/include:_force_reflection_FilmGrainSettings")
 #pragma comment(linker, "/include:_force_reflection_PostProcess")
 #pragma comment(linker, "/include:_force_reflection_Image")
+#pragma comment(linker, "/include:_force_reflection_CharacterController")
 #pragma comment(linker, "/include:_force_reflection_BoxCollider")
 #pragma comment(linker, "/include:_force_reflection_CapsuleCollider")
 #pragma comment(linker, "/include:_force_reflection_CircleCollider")

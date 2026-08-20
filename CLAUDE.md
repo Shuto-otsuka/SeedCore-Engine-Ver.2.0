@@ -32,7 +32,7 @@ These macros are no-ops at compile time (defined empty in `FoundationEngine/Prel
 
 ### Module/project layout and dependency order
 
-`FoundationEngine` is the base dependency for every other module (per `Runtime/Runtime.sln` project dependencies):
+`FoundationEngine` is the base dependency for every other engine module, and `SeedCore` is a thin aggregator project (just `dllmain.cpp`) that pulls all engine modules together into one library. Everything above it — `UserProject`, `Runtime`, `Editor` — depends on `SeedCore` rather than on the individual engine modules directly (per `Runtime/Runtime.sln` project dependencies):
 
 ```
 FoundationEngine
@@ -41,8 +41,10 @@ FoundationEngine
   ├── AIEngine
   └── AudioEngine     (wraps CRI ADX2)
 
-Runtime / Editor  depend on: AIEngine, GraphicsEngine, FoundationEngine, AudioEngine, PhysicsEngine
-UserProject       depends only on FoundationEngine (builds game/user code independently)
+SeedCore     depends on: AIEngine, AudioEngine, FoundationEngine, GraphicsEngine, PhysicsEngine
+UserProject  depends on: SeedCore (so it can reach any engine module transitively, including PhysicsEngine/GraphicsEngine — not just FoundationEngine)
+Runtime      depends on: SeedCore, UserProject
+Editor       depends on: SeedCore, UserProject
 ```
 
 Every module includes a single `Prelude.h`/`Prelude.cpp` per project (e.g. `FoundationEngine/Prelude.h`) that centralizes all third-party includes, `#pragma comment(lib, ...)` linking, and shared macros. `FoundationEngine/Prelude.h` is effectively the engine's global precompiled-header-style entry point — most engine `.cpp` files include it (or their own module's Prelude) rather than pulling in individual third-party headers directly.
@@ -85,7 +87,8 @@ Wrapper around CRI ADX2 (`CRI/`).
 
 - `Runtime/` — the shippable game executable. `Application/Framework.*` + `Application/Main.cpp`.
 - `Editor/` — the editor executable/tooling, built on the same engine libraries plus ImGui-based `Panel/` UI, `GizmoContext`, node editor (`NodeEditor.json`).
-- `UserProject/` — user/game-specific code and content, decoupled from Runtime/Editor and depending only on `FoundationEngine`. Contains `Assets/`, `Scene/`, `Prefab/`, `SourceCode/`, `DefaultCode/` — these are the folders `Clean.py` clears out. This is where gameplay code and content authored on top of the engine lives.
+- `UserProject/` — user/game-specific code and content, decoupled from Runtime/Editor. Depends on `SeedCore` (see dependency graph above), so gameplay scripts can `#include` any engine module's headers directly, not just `FoundationEngine`'s. Contains `Assets/`, `Scene/`, `Prefab/`, `SourceCode/`, `DefaultCode/` — these are the folders `Clean.py` clears out. This is where gameplay code and content authored on top of the engine lives.
+- `SeedCore/` — thin aggregator project (`dllmain.cpp` only) that links every engine module together; `UserProject`/`Runtime`/`Editor` reference this instead of the individual engine projects.
 
 ## Notes
 

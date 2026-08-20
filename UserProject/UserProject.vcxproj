@@ -35,12 +35,10 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="Script\Test.cpp" />
     <ClCompile Include="Tutorial\ScTutorial.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="EntryPoint\EntryGame.h" />
-    <ClInclude Include="Script\Test.h" />
     <ClInclude Include="Tutorial\ScTutorial.h" />
   </ItemGroup>
   <ItemGroup>

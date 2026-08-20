@@ -23,6 +23,7 @@
 #include <GraphicsEngine/Movie/Movie.h>
 #include <GraphicsEngine/PostProcess/PostProcess.h>
 #include <GraphicsEngine/Texture/Image.h>
+#include <PhysicsEngine/CharacterController/CharacterController.h>
 #include <PhysicsEngine/Collider/BoxCollider.h>
 #include <PhysicsEngine/Collider/CapsuleCollider.h>
 #include <PhysicsEngine/Collider/CircleCollider.h>
@@ -74,6 +75,7 @@ extern "C" int _force_reflection_SharpnessSettings = 0;
 extern "C" int _force_reflection_FilmGrainSettings = 0;
 extern "C" int _force_reflection_PostProcess = 0;
 extern "C" int _force_reflection_Image = 0;
+extern "C" int _force_reflection_CharacterController = 0;
 extern "C" int _force_reflection_BoxCollider = 0;
 extern "C" int _force_reflection_CapsuleCollider = 0;
 extern "C" int _force_reflection_CircleCollider = 0;
@@ -2073,6 +2075,146 @@ namespace SeedCore
 		};
 		static Register_Image global_Image_register;
 
+		// ---- PhysicsEngine/CharacterController/CharacterController.h ----
+		struct Register_CharacterController
+		{
+			Register_CharacterController()
+			{
+				ReflectionRegistry::Register(String("CharacterController"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
+					CharacterController& obj = *static_cast<CharacterController*>(ptr);
+					{
+						FieldInfo fi;
+						fi.name_ = String("半径");
+						fi.offset_ = offsetof(CharacterController, radius_);
+						fi.type_ = AttributeType::Float;
+						fi.clampMin_ = 0.001f;
+						fi.clampMax_ = 100.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("高さ");
+						fi.offset_ = offsetof(CharacterController, height_);
+						fi.type_ = AttributeType::Float;
+						fi.clampMin_ = 0.001f;
+						fi.clampMax_ = 100.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("質量");
+						fi.offset_ = offsetof(CharacterController, mass_);
+						fi.type_ = AttributeType::Float;
+						fi.clampMin_ = 0.001f;
+						fi.clampMax_ = 1000.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("押し出し力");
+						fi.offset_ = offsetof(CharacterController, pushForce_);
+						fi.type_ = AttributeType::Float;
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 10000.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("最大移動速度");
+						fi.offset_ = offsetof(CharacterController, maxMoveSpeed_);
+						fi.type_ = AttributeType::Float;
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 100.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("加速度");
+						fi.offset_ = offsetof(CharacterController, acceleration_);
+						fi.type_ = AttributeType::Float;
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 1000.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("減速度");
+						fi.offset_ = offsetof(CharacterController, deceleration_);
+						fi.type_ = AttributeType::Float;
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 1000.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("回転速度");
+						fi.offset_ = offsetof(CharacterController, turnSpeed_);
+						fi.type_ = AttributeType::Float;
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 1000.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("空気抵抗");
+						fi.offset_ = offsetof(CharacterController, airDrag_);
+						fi.type_ = AttributeType::Float;
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 10.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("最大斜面角度");
+						fi.offset_ = offsetof(CharacterController, maxSlopeAngle_);
+						fi.type_ = AttributeType::Float;
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 89.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("最大許容段差高");
+						fi.offset_ = offsetof(CharacterController, maxStepHeight_);
+						fi.type_ = AttributeType::Float;
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 10.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					outInfo.push_back({ String("重力倍率"), offsetof(CharacterController, gravityScale_), AttributeType::Float });
+					{
+						FieldInfo fi;
+						fi.name_ = String("最大落下速度");
+						fi.offset_ = offsetof(CharacterController, maxFallSpeed_);
+						fi.type_ = AttributeType::Float;
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 1000.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("ジャンプ力");
+						fi.offset_ = offsetof(CharacterController, jumpPower_);
+						fi.type_ = AttributeType::Float;
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 1000.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					outInfo.push_back({ String("しゃがみ"), offsetof(CharacterController, crouch_), AttributeType::Bool });
+					{
+						FieldInfo fi;
+						fi.name_ = String("しゃがみ時の高さ");
+						fi.offset_ = offsetof(CharacterController, crouchHeight_);
+						fi.type_ = AttributeType::Float;
+						fi.clampMin_ = 0.001f;
+						fi.clampMax_ = 100.0f;
+						outInfo.push_back(std::move(fi));
+					}
+				});
+			}
+		};
+		static Register_CharacterController global_CharacterController_register;
+
 		// ---- PhysicsEngine/Collider/BoxCollider.h ----
 		struct Register_BoxCollider
 		{
@@ -2082,6 +2224,7 @@ namespace SeedCore
 					BoxCollider& obj = *static_cast<BoxCollider*>(ptr);
 					outInfo.push_back({ String("サイズ"), offsetof(BoxCollider, size_), AttributeType::Vector3 });
 					outInfo.push_back({ String("中心オフセット"), offsetof(BoxCollider, center_), AttributeType::Vector3 });
+					outInfo.push_back({ String("トリガー"), offsetof(BoxCollider, isTrigger_), AttributeType::Bool });
 				});
 			}
 		};
@@ -2112,6 +2255,7 @@ namespace SeedCore
 						fi.clampMax_ = 100.0f;
 						outInfo.push_back(std::move(fi));
 					}
+					outInfo.push_back({ String("トリガー"), offsetof(CapsuleCollider, isTrigger_), AttributeType::Bool });
 				});
 			}
 		};
@@ -2134,6 +2278,7 @@ namespace SeedCore
 						outInfo.push_back(std::move(fi));
 					}
 					outInfo.push_back({ String("中心オフセット"), offsetof(CircleCollider, center_), AttributeType::Vector2 });
+					outInfo.push_back({ String("トリガー"), offsetof(CircleCollider, isTrigger_), AttributeType::Bool });
 				});
 			}
 		};
@@ -2164,6 +2309,7 @@ namespace SeedCore
 						fi.clampMax_ = 100.0f;
 						outInfo.push_back(std::move(fi));
 					}
+					outInfo.push_back({ String("トリガー"), offsetof(CylinderCollider, isTrigger_), AttributeType::Bool });
 				});
 			}
 		};
@@ -2177,6 +2323,7 @@ namespace SeedCore
 				ReflectionRegistry::Register(String("MeshCollider"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
 					MeshCollider& obj = *static_cast<MeshCollider*>(ptr);
 					outInfo.push_back({ String("凸包にする"), offsetof(MeshCollider, convex_), AttributeType::Bool });
+					outInfo.push_back({ String("トリガー"), offsetof(MeshCollider, isTrigger_), AttributeType::Bool });
 				});
 			}
 		};
@@ -2191,6 +2338,7 @@ namespace SeedCore
 					RectCollider& obj = *static_cast<RectCollider*>(ptr);
 					outInfo.push_back({ String("サイズ"), offsetof(RectCollider, size_), AttributeType::Vector2 });
 					outInfo.push_back({ String("中心オフセット"), offsetof(RectCollider, center_), AttributeType::Vector2 });
+					outInfo.push_back({ String("トリガー"), offsetof(RectCollider, isTrigger_), AttributeType::Bool });
 				});
 			}
 		};
@@ -2212,6 +2360,7 @@ namespace SeedCore
 						fi.clampMax_ = 100.0f;
 						outInfo.push_back(std::move(fi));
 					}
+					outInfo.push_back({ String("トリガー"), offsetof(SphereCollider, isTrigger_), AttributeType::Bool });
 				});
 			}
 		};
@@ -2292,6 +2441,7 @@ namespace SeedCore
 					outInfo.push_back({ String("回転X軸固定"), offsetof(Rigidbody, freezeRotationX_), AttributeType::Bool });
 					outInfo.push_back({ String("回転Y軸固定"), offsetof(Rigidbody, freezeRotationY_), AttributeType::Bool });
 					outInfo.push_back({ String("回転Z軸固定"), offsetof(Rigidbody, freezeRotationZ_), AttributeType::Bool });
+					outInfo.push_back({ String("トリガー"), offsetof(Rigidbody, isTrigger_), AttributeType::Bool });
 				});
 			}
 		};

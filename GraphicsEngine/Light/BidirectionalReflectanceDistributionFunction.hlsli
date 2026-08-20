@@ -36,6 +36,40 @@ float3 BrdfSpecularGgx(float3 f0, float3 f90, float alpha_roughness, float view_
 	return fresnel * visibility * distribution;
 }
 
+// Anisotropic GGX (KHR_materials_anisotropy). The isotropic pair above assumes
+// one roughness in every tangent direction; these take a separate roughness
+// along the tangent and the bitangent, which stretches the highlight into the
+// streak seen on brushed metal and hair. Reduces exactly to the isotropic form
+// when alpha_tangent == alpha_bitangent, so callers can branch on strength.
+float DistributionGgxAnisotropic(float normal_dot_half, float tangent_dot_half, float bitangent_dot_half, float alpha_tangent, float alpha_bitangent)
+{
+	const float PI = 3.14159265358979;
+
+	float a = tangent_dot_half / alpha_tangent;
+	float b = bitangent_dot_half / alpha_bitangent;
+	float w = a * a + b * b + normal_dot_half * normal_dot_half;
+
+	return 1.0 / (PI * alpha_tangent * alpha_bitangent * w * w);
+}
+
+float VisibilityGgxAnisotropic(float normal_dot_light, float normal_dot_view, float tangent_dot_light, float bitangent_dot_light, float tangent_dot_view, float bitangent_dot_view, float alpha_tangent, float alpha_bitangent)
+{
+	float lambda_view = normal_dot_light * length(float3(alpha_tangent * tangent_dot_view, alpha_bitangent * bitangent_dot_view, normal_dot_view));
+	float lambda_light = normal_dot_view * length(float3(alpha_tangent * tangent_dot_light, alpha_bitangent * bitangent_dot_light, normal_dot_light));
+
+	float total = lambda_view + lambda_light;
+	return (total > 0.0) ? 0.5 / total : 0.0;
+}
+
+float3 BrdfSpecularGgxAnisotropic(float3 f0, float3 f90, float alpha_tangent, float alpha_bitangent, float view_dot_half, float normal_dot_light, float normal_dot_view, float normal_dot_half, float tangent_dot_light, float bitangent_dot_light, float tangent_dot_view, float bitangent_dot_view, float tangent_dot_half, float bitangent_dot_half)
+{
+	float3 fresnel = FresnelSchlick(f0, f90, view_dot_half);
+	float visibility = VisibilityGgxAnisotropic(normal_dot_light, normal_dot_view, tangent_dot_light, bitangent_dot_light, tangent_dot_view, bitangent_dot_view, alpha_tangent, alpha_bitangent);
+	float distribution = DistributionGgxAnisotropic(normal_dot_half, tangent_dot_half, bitangent_dot_half, alpha_tangent, alpha_bitangent);
+
+	return fresnel * visibility * distribution;
+}
+
 float3 BrdfLambertian(float3 f0, float3 f90, float3 diffuse_color, float view_dot_half)
 {
 	const float PI = 3.14159265358979;

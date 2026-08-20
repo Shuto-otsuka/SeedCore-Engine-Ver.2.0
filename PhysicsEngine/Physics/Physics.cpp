@@ -1,5 +1,6 @@
 #include <PhysicsEngine/Physics/Physics.h>
 #include <PhysicsEngine/JoltPhysics/JoltManager.h>
+#include <PhysicsEngine/JoltPhysics/JoltLayerdef.h>
 #include <FoundationEngine/Resource/Gateway.h>
 #include <FoundationEngine/Log/Warning.h>
 
@@ -55,6 +56,75 @@ namespace SeedCore
 		joltPhysics_.GetShapePool().Release(handle);
 	}
 
+	JPH::Ref<JPH::CharacterVirtual> Physics::CreateCharacter(const CharacterDesc& desc)
+	{
+		JPH::RefConst<JPH::Shape> capsule = new JPH::CapsuleShape(desc.height_ * 0.5f, desc.radius_);
+		JPH::RefConst<JPH::Shape> shape = new JPH::RotatedTranslatedShape(JPH::Vec3(0.0f, desc.height_ * 0.5f + desc.radius_, 0.0f), JPH::Quat::sIdentity(), capsule);
+
+		JPH::CharacterVirtualSettings settings;
+		settings.mShape = shape;
+		settings.mMaxSlopeAngle = desc.maxSlopeAngle_;
+		settings.mMass = desc.mass_;
+		settings.mMaxStrength = desc.maxStrength_;
+
+		return new JPH::CharacterVirtual(&settings, JPH::RVec3(desc.position_.x, desc.position_.y, desc.position_.z), JPH::Quat(desc.rotation_.x, desc.rotation_.y, desc.rotation_.z, desc.rotation_.w), desc.userData_, &joltPhysics_.GetPhysicsSystem());
+	}
+
+	Bool Physics::SetCharacterHeight(JPH::CharacterVirtual* character, Float height, Float radius)
+	{
+		if (!character)
+		{
+			return false;
+		}
+
+		JPH::RefConst<JPH::Shape> capsule = new JPH::CapsuleShape(height * 0.5f, radius);
+		JPH::RefConst<JPH::Shape> shape = new JPH::RotatedTranslatedShape(JPH::Vec3(0.0f, height * 0.5f + radius, 0.0f), JPH::Quat::sIdentity(), capsule);
+
+		JPH::PhysicsSystem& physicsSystem = joltPhysics_.GetPhysicsSystem();
+
+		return character->SetShape(shape, 0.05f, physicsSystem.GetDefaultBroadPhaseLayerFilter(Layers::DYNAMIC), physicsSystem.GetDefaultLayerFilter(Layers::DYNAMIC), { }, { }, joltPhysics_.GetPhysicsAllocator());
+	}
+
+	void Physics::UpdateCharacter(JPH::CharacterVirtual* character, Float elapsedTime, Float maxSlopeAngle, Float stepHeight)
+	{
+		if (!character)
+		{
+			return;
+		}
+
+		character->SetMaxSlopeAngle(maxSlopeAngle);
+
+		JPH::PhysicsSystem& physicsSystem = joltPhysics_.GetPhysicsSystem();
+
+		JPH::CharacterVirtual::ExtendedUpdateSettings updateSettings;
+		updateSettings.mWalkStairsStepUp = JPH::Vec3(0.0f, stepHeight, 0.0f);
+
+		character->ExtendedUpdate(elapsedTime, physicsSystem.GetGravity(), updateSettings, physicsSystem.GetDefaultBroadPhaseLayerFilter(Layers::DYNAMIC), physicsSystem.GetDefaultLayerFilter(Layers::DYNAMIC), { }, { }, joltPhysics_.GetPhysicsAllocator());
+	}
+
+	void Physics::Refresh(JPH::CharacterVirtual* character)
+	{
+		if (!character)
+		{
+			return;
+		}
+
+		JPH::PhysicsSystem& physicsSystem = joltPhysics_.GetPhysicsSystem();
+
+		character->RefreshContacts(physicsSystem.GetDefaultBroadPhaseLayerFilter(Layers::DYNAMIC), physicsSystem.GetDefaultLayerFilter(Layers::DYNAMIC), { }, { }, joltPhysics_.GetPhysicsAllocator());
+	}
+
+	void Physics::DestroyCharacter(JPH::Ref<JPH::CharacterVirtual>& character)
+	{
+		character = nullptr;
+	}
+
+	Vector3 Physics::GetGravity()const
+	{
+		JPH::Vec3 gravity = joltPhysics_.GetPhysicsSystem().GetGravity();
+		return Vector3(gravity.GetX(), gravity.GetY(), gravity.GetZ());
+	}
+
 	JPH::BodyID Physics::CreateRigidbody(const RigidbodyDesc& desc)
 	{
 		JPH::ShapeRefC shape = joltPhysics_.GetShapePool().Get(desc.shape_);
@@ -71,6 +141,8 @@ namespace SeedCore
 		settings.mFriction = desc.friction_;
 		settings.mRestitution = desc.restitution_;
 		settings.mGravityFactor = desc.gravityFactor_;
+		settings.mUserData = desc.userData_;
+		settings.mIsSensor = desc.isSensor_;
 
 		if (desc.motionType_ != JPH::EMotionType::Static)
 		{
@@ -89,7 +161,7 @@ namespace SeedCore
 		return body->GetID();
 	}
 
-	JPH::Ref<JPH::SoftBodySharedSettings> Physics::BuildSoftbodySettings(const SoftbodyDesc& desc)
+	JPH::BodyID Physics::CreateSoftbody(const SoftbodyDesc& desc)
 	{
 		JPH::Ref<JPH::SoftBodySharedSettings> sharedSettings = new JPH::SoftBodySharedSettings();
 
@@ -125,22 +197,12 @@ namespace SeedCore
 
 		if (sharedSettings->mFaces.empty())
 		{
-			return nullptr;
+			return JPH::BodyID();
 		}
 
 		JPH::SoftBodySharedSettings::VertexAttributes vertexAttributes(desc.edgeCompliance_, desc.shearCompliance_, desc.bendCompliance_);
 		sharedSettings->CreateConstraints(&vertexAttributes, 1);
 		sharedSettings->Optimize();
-
-		return sharedSettings;
-	}
-
-	JPH::BodyID Physics::CreateSoftbody(const SoftbodyDesc& desc, JPH::Ref<JPH::SoftBodySharedSettings> sharedSettings)
-	{
-		if (!sharedSettings)
-		{
-			return JPH::BodyID();
-		}
 
 		JPH::SoftBodyCreationSettings settings(sharedSettings, JPH::RVec3(desc.position_.x, desc.position_.y, desc.position_.z), JPH::Quat(desc.rotation_.x, desc.rotation_.y, desc.rotation_.z, desc.rotation_.w), desc.layer_);
 		settings.mNumIterations = desc.numIterations_;
@@ -198,7 +260,7 @@ namespace SeedCore
 		outRotation = Quaternion(rotation.GetX(), rotation.GetY(), rotation.GetZ(), rotation.GetW());
 	}
 
-	void Physics::GetSoftbodyVertexPositions(JPH::BodyID bodyID, DynamicArray<Vector3>& outPositions)const
+	void Physics::GetVertexPosition(JPH::BodyID bodyID, DynamicArray<Vector3>& outPositions)const
 	{
 		if (bodyID.IsInvalid())
 		{
@@ -230,5 +292,23 @@ namespace SeedCore
 			JPH::RVec3 worldPosition = transform * vertex.mPosition;
 			outPositions.push_back(Vector3(static_cast<Float>(worldPosition.GetX()), static_cast<Float>(worldPosition.GetY()), static_cast<Float>(worldPosition.GetZ())));
 		}
+	}
+
+	EntityID Physics::GetBodyEntityID(JPH::BodyID bodyID)const
+	{
+		if (bodyID.IsInvalid())
+		{
+			return 0;
+		}
+
+		const JPH::BodyLockInterface& lockInterface = joltPhysics_.GetPhysicsSystem().GetBodyLockInterface();
+
+		JPH::BodyLockRead lock(lockInterface, bodyID);
+		if (!lock.Succeeded())
+		{
+			return 0;
+		}
+
+		return static_cast<EntityID>(lock.GetBody().GetUserData());
 	}
 }

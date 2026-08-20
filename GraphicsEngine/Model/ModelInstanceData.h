@@ -129,5 +129,39 @@ namespace SeedCore
 		Uint morphTargetCount_;
 		Uint morphWeightOffset_;
 		Uint instancePadding8_;
+
+		/// [EN] Bindless SRVs of the KHR extension / occlusion textures, or
+		///      0xFFFFFFFF when the material has none. Sampled by
+		///      Model/Opaque/DeferredLightingPS.hlsl, which gets the model UV from
+		///      the VisibilityBuffer (RT4.zw) - the deferred pass has no
+		///      interpolated texcoord of its own.
+		/// [JP] KHR 拡張 / オクルージョンの各テクスチャの bindless SRV。
+		///      マテリアルが持たなければ 0xFFFFFFFF。
+		///      Model/Opaque/DeferredLightingPS.hlsl がサンプルする。モデルの UV は
+		///      VisibilityBuffer(RT4.zw)から取る — deferred パスは自前の
+		///      補間済み texcoord を持たないため。
+		Uint occlusionTextureIndex_;
+		Uint specularTextureIndex_;
+		Uint specularColorTextureIndex_;
+		Uint clearCoatTextureIndex_;
+
+		Uint clearCoatRoughnessTextureIndex_;
+		Uint clearCoatNormalTextureIndex_;
+		Uint transmissionTextureIndex_;
+		Uint thicknessTextureIndex_;
+
+		Uint sheenColorTextureIndex_;
+		Uint sheenRoughnessTextureIndex_;
+		Uint iridescenceTextureIndex_;
+		Uint iridescenceThicknessTextureIndex_;
+
+		Uint anisotropyTextureIndex_;
+		/// [EN] KHR_materials_anisotropy (rotation, radians) - rotates the
+		///      tangent frame the anisotropic GGX lobe is stretched along.
+		/// [JP] KHR_materials_anisotropy の rotation(ラジアン) — 異方性GGXの
+		///      ローブを引き伸ばすタンジェント基底を回転させる。
+		Float anisotropyRotation_;
+		Uint instancePadding10_;
+		Uint instancePadding11_;
 	};
 }

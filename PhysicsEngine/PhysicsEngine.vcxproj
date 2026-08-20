@@ -24,6 +24,7 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="CharacterController\CharacterController.h" />
     <ClInclude Include="Collider\BoxCollider.h" />
     <ClInclude Include="Collider\CapsuleCollider.h" />
     <ClInclude Include="Collider\CircleCollider.h" />
@@ -31,6 +32,8 @@
     <ClInclude Include="Collider\RectCollider.h" />
     <ClInclude Include="Collider\SphereCollider.h" />
     <ClInclude Include="Collider\CylinderCollider.h" />
+    <ClInclude Include="JoltPhysics\JoltCharacterContactListener.h" />
+    <ClInclude Include="JoltPhysics\JoltContactListener.h" />
     <ClInclude Include="JoltPhysics\JoltExecutorBridge.h" />
     <ClInclude Include="JoltPhysics\JoltLayerdef.h" />
     <ClInclude Include="JoltPhysics\JoltManager.h" />
@@ -41,6 +44,7 @@
     <ClInclude Include="Softbody\Softbody.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="CharacterController\CharacterController.cpp" />
     <ClCompile Include="Collider\BoxCollider.cpp" />
     <ClCompile Include="Collider\CapsuleCollider.cpp" />
     <ClCompile Include="Collider\CircleCollider.cpp" />
@@ -48,6 +52,8 @@
     <ClCompile Include="Collider\MeshCollider.cpp" />
     <ClCompile Include="Collider\RectCollider.cpp" />
     <ClCompile Include="Collider\SphereCollider.cpp" />
+    <ClCompile Include="JoltPhysics\JoltCharacterContactListener.cpp" />
+    <ClCompile Include="JoltPhysics\JoltContactListener.cpp" />
     <ClCompile Include="JoltPhysics\JoltLayerdef.cpp" />
     <ClCompile Include="JoltPhysics\JoltShapePool.cpp" />
     <ClCompile Include="Physics\Physics.cpp" />

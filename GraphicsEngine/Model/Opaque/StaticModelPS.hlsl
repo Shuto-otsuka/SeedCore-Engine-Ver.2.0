@@ -37,7 +37,7 @@ ModelPSOutput main(ModelMSOutput input, ModelMSPrimitiveOutput primitive)
 	clip(base_color.a - instance.alpha_cutoff_);
 
 	ModelPSOutput output;
-	output.visibility_id = PackVisibilityID(input.instance_index, input.meshlet_index, primitive.triangle_in_meshlet_index);
+	output.visibility_id = PackVisibilityID(input.instance_index, input.meshlet_index, primitive.triangle_in_meshlet_index, input.texcoord);
 
 	return output;
 }

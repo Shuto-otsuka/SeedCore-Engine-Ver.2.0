@@ -98,6 +98,13 @@ namespace SeedCore
 		Uint32 alphaMode_ = 0;
 		Float alphaCutoff_ = 0.5f;
 		Float baseColorAlpha_ = 1.0f;
+
+		/// [EN] KHR_materials_volume thickness. Zero means thin-walled, which
+		///      RefractionRT.hlsl uses to skip Beer-Lambert absorption.
+		/// [JP] KHR_materials_volume の厚み。0 は thin-walled を意味し、
+		///      RefractionRT.hlsl はそれを見て Beer-Lambert 吸収を飛ばす。
+		Float thicknessFactor_ = 0.0f;
+		Uint32 thicknessTextureIndex_ = 0xFFFFFFFF;
 		Float materialPadding_ = 0.0f;
 	};
 

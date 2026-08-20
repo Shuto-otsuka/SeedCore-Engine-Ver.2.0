@@ -58,10 +58,10 @@ namespace SeedCore
 		}
 
 		/// [EN] Static model PSO: ModelAS + StaticModelMS + StaticModelPS → G-Buffer
-		///      visibility id only (RT4, R32G32_UINT). RT0-3 are rewritten
+		///      visibility id only (RT4, R32G32B32A32_UINT). RT0-3 are rewritten
 		///      afterward by Model/Material/MaterialResolveCS.hlsl - see GeometryBuffer::BeginVisibility.
 		/// [JP] 静的モデル PSO: ModelAS + StaticModelMS + StaticModelPS →
-		///      G-Buffer visibility id のみ(RT4, R32G32_UINT)。RT0-3 はこの後
+		///      G-Buffer visibility id のみ(RT4, R32G32B32A32_UINT)。RT0-3 はこの後
 		///      Model/Material/MaterialResolveCS.hlsl が書き直す - GeometryBuffer::BeginVisibility 参照。
 		{
 			staticMeshShader_ = shaderCache.GetOrCreateMeshShader(String("../GraphicsEngine/Model/Opaque/StaticModelMS.hlsl"));
@@ -76,7 +76,7 @@ namespace SeedCore
 			psokey.rasterizerDesc_ = RasterizerState::Get(RasterizerStateType::SolidNoneLHS);
 			psokey.blendDesc_ = BlendState::Get(BlendStateType::Opaque);
 			psokey.depthStencilDesc_ = DepthStencilState::Get(DepthStencilStateType::DepthOnWriteOffReverseZ);
-			psokey.renderTargetViewFormat_[0] = DXGI_FORMAT_R32G32_UINT;			// visibility id (instance_index, pack(meshlet_index, triangle_in_meshlet_index)) - see GeometryBuffer::BeginVisibility
+			psokey.renderTargetViewFormat_[0] = DXGI_FORMAT_R32G32B32A32_UINT;			// visibility id (instance_index, pack(meshlet_index, triangle_in_meshlet_index)) + asuint(texcoord) - see GeometryBuffer::BeginVisibility
 			psokey.renderTargetViewCount_ = 1;
 			psokey.depthStencilViewFormat_ = DXGI_FORMAT_D32_FLOAT;
 			psokey.primitiveTopologyType_ = D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED;
@@ -84,9 +84,9 @@ namespace SeedCore
 		}
 
 		/// [EN] Skeletal model PSO: ModelAS + SkeletalModelMS + SkeletalModelPS →
-		///      G-Buffer visibility id only (RT4, R32G32_UINT). Same as the static PSO above.
+		///      G-Buffer visibility id only (RT4, R32G32B32A32_UINT). Same as the static PSO above.
 		/// [JP] スケルタルモデル PSO: ModelAS + SkeletalModelMS + SkeletalModelPS →
-		///      G-Buffer visibility id のみ(RT4, R32G32_UINT)。上の静的PSOと同様。
+		///      G-Buffer visibility id のみ(RT4, R32G32B32A32_UINT)。上の静的PSOと同様。
 		{
 			skeletalMeshShader_ = shaderCache.GetOrCreateMeshShader(String("../GraphicsEngine/Model/Opaque/SkeletalModelMS.hlsl"));
 			skeletalPixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Model/Opaque/SkeletalModelPS.hlsl"));
@@ -100,7 +100,7 @@ namespace SeedCore
 			psokey.rasterizerDesc_ = RasterizerState::Get(RasterizerStateType::SolidNoneLHS);
 			psokey.blendDesc_ = BlendState::Get(BlendStateType::Opaque);
 			psokey.depthStencilDesc_ = DepthStencilState::Get(DepthStencilStateType::DepthOnWriteOffReverseZ);
-			psokey.renderTargetViewFormat_[0] = DXGI_FORMAT_R32G32_UINT;			// visibility id (instance_index, pack(meshlet_index, triangle_in_meshlet_index)) - see GeometryBuffer::BeginVisibility
+			psokey.renderTargetViewFormat_[0] = DXGI_FORMAT_R32G32B32A32_UINT;			// visibility id (instance_index, pack(meshlet_index, triangle_in_meshlet_index)) + asuint(texcoord) - see GeometryBuffer::BeginVisibility
 			psokey.renderTargetViewCount_ = 1;
 			psokey.depthStencilViewFormat_ = DXGI_FORMAT_D32_FLOAT;
 			psokey.primitiveTopologyType_ = D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED;

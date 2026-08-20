@@ -52,7 +52,7 @@ struct GBufferIndices                     // 3 rows
 	uint index_1_;                    // RT1: octNormal.rg + roughness (.a unused)
 	uint index_2_;                    // RT2: velocity
 	uint index_3_;                    // RT3: emissive.rgb (raw, emissive_strength_ applied at lighting time)
-	uint index_4_;                    // RT4: VisibilityBuffer id (instance/meshlet/triangle), R32G32_UINT
+	uint index_4_;                    // RT4: VisibilityBuffer id (instance/meshlet/triangle) + asuint(texcoord), R32G32B32A32_UINT
 	uint depth_index_;
 	uint velocity_uav_index_;         // RT2 UAV
 	uint index_0_uav_;

@@ -124,8 +124,8 @@ void RefractionRayGeneration()
 	// KHR_materials_transmission が無いピクセルはここで抜ける
 	// (Model/Opaque/DeferredLightingPS.hlsl と同じ配線 - Model/Material/MaterialResolveCS.hlsl
 	// 参照)。
-	Texture2D<uint2> visibility_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.index_4_];
-	uint2 visibility_id = visibility_texture.Load(int3(pixel, 0));
+	Texture2D<uint4> visibility_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.index_4_];
+	uint4 visibility_id = visibility_texture.Load(int3(pixel, 0));
 	uint material_instance_index, material_meshlet_index, material_triangle_index;
 	UnpackVisibilityID(visibility_id, material_instance_index, material_meshlet_index, material_triangle_index);
 	StructuredBuffer<ModelInstance> material_instances = ResourceDescriptorHeap[structured_indices.model_.instance_index_];
@@ -234,12 +234,31 @@ void RefractionRayGeneration()
 
 		ReflectionMaterialData material = ResolveReflectionMaterial(hit_instance, primitive_index);
 
+		// KHR_materials_volume: thickness 0 は「thin-walled」= 体積を囲まない
+		// 薄い面という意味で、仕様上そこでは体積吸収を行わない。これを見ないと
+		// 窓ガラス1枚が同じ材質の塊と同じだけ色付いてしまう。
+		// thicknessTexture(.g)は factor をピクセル単位で変調する。
+		float thickness = material.thickness_factor_;
+		if (thickness > 0.0 && material.thickness_texture_index_ != 0xFFFFFFFF)
+		{
+			float2 hit_texcoord =
+				DecodeReflectionVertexTexcoord(vertex0, hit_instance.texcoord_min_, hit_instance.texcoord_extent_) * weight0 +
+				DecodeReflectionVertexTexcoord(vertex1, hit_instance.texcoord_min_, hit_instance.texcoord_extent_) * weight1 +
+				DecodeReflectionVertexTexcoord(vertex2, hit_instance.texcoord_min_, hit_instance.texcoord_extent_) * weight2;
+
+			Texture2D<float4> thickness_texture = ResourceDescriptorHeap[material.thickness_texture_index_];
+			thickness *= thickness_texture.SampleLevel(sampler_linear_wrap, hit_texcoord, 0).g;
+		}
+
 		// Beer-Lambert吸収: 直前の区間(hit_t)をこの三角形の媒質の
 		// attenuation_color_/attenuation_distance_ で減衰させる。
 		// attenuation_distance_ が既定の FLT_MAX(=吸収なし)ならほぼ 1 のまま。
-		float3 optical_density = -log(max(material.volume_attenuation_color_, 0.0001)) / max(material.volume_attenuation_distance_, 0.0001);
-		float3 absorption = exp(-optical_density * hit_t);
-		throughput *= absorption;
+		if (thickness > 0.0)
+		{
+			float3 optical_density = -log(max(material.volume_attenuation_color_, 0.0001)) / max(material.volume_attenuation_distance_, 0.0001);
+			float3 absorption = exp(-optical_density * hit_t);
+			throughput *= absorption;
+		}
 
 		if (bounce + 1 >= REFRACTION_MAX_BOUNCES)
 		{

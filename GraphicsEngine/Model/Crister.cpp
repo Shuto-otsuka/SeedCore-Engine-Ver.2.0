@@ -2112,33 +2112,14 @@ namespace SeedCore
 
 	/**
 	* [EN]
-	* Whether this Crister has RT-side morph delta data
-	* (raytracingMorphDeltaResource_ populated), i.e. at least one SubMesh has
-	* morphs_ and the RT proxy build baked its delta block.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* この Crister が RT 側のモーフデルタデータを持つか
-	* (raytracingMorphDeltaResource_ が構築済みか)。いずれかの SubMesh が
-	* morphs_ を持ち、RT プロキシ構築時にそのデルタブロックが
-	* 焼き込まれた場合に true。
-	*/
-	Bool Crister::IsProxyMorphed()const
-	{
-		return raytracingMorphDeltaResource_ != nullptr;
-	}
-
-	/**
-	* [EN]
 	* GPU address of the RT proxy's morph delta pool
-	* (raytracingMorphDeltaResource_), or 0 when IsProxyMorphed is false.
+	* (raytracingMorphDeltaResource_), or 0 when no SubMesh has morphs_.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
 	* RT プロキシのモーフデルタプール (raytracingMorphDeltaResource_) の
-	* GPU アドレス。IsProxyMorphed が false なら 0。
+	* GPU アドレス。どの SubMesh も morphs_ を持たなければ 0。
 	*/
 	D3D12_GPU_VIRTUAL_ADDRESS Crister::ProxyMorphDeltaBufferAddress()const
 	{
