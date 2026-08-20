@@ -52,6 +52,15 @@
     <Filter Include="Interop">
       <UniqueIdentifier>{febad004-00b5-450b-aaa9-3d3101ab61d2}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Serialization">
+      <UniqueIdentifier>{0273aca2-c01c-4cd0-8279-d0d90544d0b5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Serialization\Bainary">
+      <UniqueIdentifier>{c10667b9-a2d8-4173-b593-ba1612f443fc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Serialization\Json">
+      <UniqueIdentifier>{d1876de6-9c4d-4cc5-a365-c13df8d5f17a}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="JobSystem\FlowBuilder.cpp">
@@ -563,9 +572,6 @@
     <ClInclude Include="Math\Random\Hash.h">
       <Filter>Math\Random</Filter>
     </ClInclude>
-    <ClInclude Include="Utility\SerializeFallback.h">
-      <Filter>Utility</Filter>
-    </ClInclude>
     <ClInclude Include="ECS\ActorCommand.h">
       <Filter>ESC</Filter>
     </ClInclude>
@@ -598,6 +604,12 @@
     </ClInclude>
     <ClInclude Include="Utility\Delegate.h">
       <Filter>Utility</Filter>
+    </ClInclude>
+    <ClInclude Include="Serialization\CerealCommon.h">
+      <Filter>Serialization</Filter>
+    </ClInclude>
+    <ClInclude Include="Serialization\SerializeFallback.h">
+      <Filter>Serialization</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
