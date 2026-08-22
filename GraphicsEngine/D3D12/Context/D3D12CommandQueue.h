@@ -8,6 +8,9 @@ namespace SeedCore
 {
 	class SEEDCORE_API D3D12CommandQueue :public NonTransferable
 	{
+	private:
+		static constexpr Uint fenceTimeoutMilliseconds = 5000;
+
 	public:
 		explicit D3D12CommandQueue(ID3D12Device* device, D3D12CommandType type = D3D12CommandType::Direct);
 

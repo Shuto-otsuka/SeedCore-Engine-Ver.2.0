@@ -317,8 +317,8 @@ namespace SeedCore
 				const Float clearValues[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 				cmd->ClearUnorderedAccessViewFloat(bindlessHeap_->GPUHandle(radianceUnorderedAccessViewIndex_), clearHeap_.CPUHandle(clearRawIndex_), radianceResource_.Get(), clearValues, 0, nullptr);
 
-				cmdList->Barrier(radianceResource_.Get(), radianceState_, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-				radianceState_ = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+				cmdList->Barrier(radianceResource_.Get(), radianceState_, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
+				radianceState_ = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
 				return;
 			}
 
@@ -331,8 +331,8 @@ namespace SeedCore
 			const Float clearValues[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 			cmd->ClearUnorderedAccessViewFloat(bindlessHeap_->GPUHandle(accumulatedUnorderedAccessViewIndex_[viewIndex][writeSlot]), clearHeap_.CPUHandle(clearAccumulatedIndex_[viewIndex][writeSlot]), accumulatedRadianceResource_[viewIndex][writeSlot].Get(), clearValues, 0, nullptr);
 
-			cmdList->Barrier(accumulatedRadianceResource_[viewIndex][writeSlot].Get(), accumulatedRadianceState_[viewIndex][writeSlot], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-			accumulatedRadianceState_[viewIndex][writeSlot] = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+			cmdList->Barrier(accumulatedRadianceResource_[viewIndex][writeSlot].Get(), accumulatedRadianceState_[viewIndex][writeSlot], D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
+			accumulatedRadianceState_[viewIndex][writeSlot] = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
 			return;
 		}
 		else
@@ -380,8 +380,8 @@ namespace SeedCore
 				///      スキップする — 生テクスチャを composite が読める状態
 				///      (PIXEL_SHADER_RESOURCE)へ遷移させるだけでよい。
 				///      ピンポン蓄積チェーンには一切触れない。
-				cmdList->Barrier(radianceResource_.Get(), radianceState_, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-				radianceState_ = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+				cmdList->Barrier(radianceResource_.Get(), radianceState_, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
+				radianceState_ = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
 				return;
 			}
 
@@ -457,8 +457,8 @@ namespace SeedCore
 			cmd->Dispatch(groupCountX, groupCountY, 1);
 			ProfilerStats::AddDrawCall();
 
-			cmdList->Barrier(accumulatedRadianceResource_[viewIndex][writeSlot].Get(), accumulatedRadianceState_[viewIndex][writeSlot], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-			accumulatedRadianceState_[viewIndex][writeSlot] = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+			cmdList->Barrier(accumulatedRadianceResource_[viewIndex][writeSlot].Get(), accumulatedRadianceState_[viewIndex][writeSlot], D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
+			accumulatedRadianceState_[viewIndex][writeSlot] = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
 		}
 	}
 }

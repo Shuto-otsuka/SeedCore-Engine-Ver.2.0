@@ -24,14 +24,38 @@ GET_ASSET_CALL_PATTERN = re.compile(r'Scene::GetAsset\s*\(\s*([^()]*?)\s*\)')
 STRING_LITERAL_FULL_PATTERN = re.compile(r'^"((?:[^"\\]|\\.)*)"$')
 
 
-def sv(value):
+def fnv1a(name):
     """
-    Cereal JSON は SeedCore の String 型を {"value0": ...} でラップして
-    出力する（name/component/string フィールドなど）。ラップを剥がす。
+    FoundationEngine/Serialization/Binary/BinaryArchive.h の BinaryField と
+    同じ FNV-1a。フィールド名からタグ付きバイナリのフィールドIDを求める。
     """
-    if isinstance(value, dict) and "value0" in value:
-        return value["value0"]
-    return value
+    h = 2166136261
+    for byte in name.encode("utf-8"):
+        h ^= byte
+        h = (h * 16777619) & 0xFFFFFFFF
+    return h
+
+
+def read_tagged_binary_fields(raw):
+    """
+    FoundationEngine/Serialization/Binary/BinaryArchive.h が書き出す、
+    [fieldId:u32][size:u32][payload] の並びをスキャンし、
+    {fieldId: payloadバイト列} を返す。
+    """
+    fields = {}
+    offset = 0
+    length = len(raw)
+    while offset + 8 <= length:
+        field_id, size = struct.unpack_from('<II', raw, offset)
+        offset += 8
+        if offset + size > length:
+            break
+        fields[field_id] = raw[offset:offset + size]
+        offset += size
+    return fields
+
+
+GUID_FIELD_ID = fnv1a("guid")
 
 
 def build_guid_map(project_root, user_project_root):
@@ -39,9 +63,9 @@ def build_guid_map(project_root, user_project_root):
     UserProject 以下を走査し、.meta を持つ全ファイルについて
     guid -> 実ファイルパス のマップと、
     プロジェクトルート相対パス（スラッシュ区切り） -> guid のマップを構築する。
-    .meta は cereal::BinaryOutputArchive で AssetMeta{version_, guid_}
-    （Uint32 x2 = 8byte）をそのまま書き出しているだけなので、
-    struct.unpack('<II', ...) で直接読める。
+    .meta は AssetMeta::Serialize がタグ付きバイナリ形式(BinaryArchive.h参照)
+    で書き出しているので、read_tagged_binary_fields でフィールドIDから
+    "guid" の4バイトを引く。
     後者は ResourceCache::GetAssetID() が asset.path_（プロジェクトルート
     相対、フォワードスラッシュ）に対して完全一致で引く仕組みと同じ形。
     """
@@ -64,10 +88,11 @@ def build_guid_map(project_root, user_project_root):
 
             try:
                 with open(meta_path, 'rb') as f:
-                    raw = f.read(8)
-                if len(raw) < 8:
+                    raw = f.read()
+                guid_bytes = read_tagged_binary_fields(raw).get(GUID_FIELD_ID)
+                if guid_bytes is None or len(guid_bytes) != 4:
                     continue
-                _version, guid = struct.unpack('<II', raw)
+                guid = struct.unpack('<I', guid_bytes)[0]
             except Exception:
                 continue
 
@@ -232,13 +257,13 @@ def collect_referenced_asset_ids(scene_paths, payload_map, guid_to_path):
                 continue
 
             for comp in node.get("components", []):
-                comp_name = sv(comp.get("component"))
+                comp_name = comp.get("component")
                 payload_names = payload_map.get(comp_name)
                 if not payload_names:
                     continue
 
                 for field in comp.get("fields", []):
-                    field_name = sv(field.get("name"))
+                    field_name = field.get("name")
                     if field_name not in payload_names:
                         continue
 
@@ -267,10 +292,9 @@ def collect_referenced_asset_ids(scene_paths, payload_map, guid_to_path):
         except Exception:
             return
 
-        root = data.get("value0", data)
-        walk_nodes(root.get("nodes", []))
+        walk_nodes(data.get("nodes", []))
 
-        base_id = root.get("basePrefabAssetID", 0)
+        base_id = data.get("basePrefabAssetID", 0)
         if base_id:
             referenced_ids.add(base_id)
             walk_prefab(base_id)
@@ -283,8 +307,7 @@ def collect_referenced_asset_ids(scene_paths, payload_map, guid_to_path):
             print(f"シーンの読み込みに失敗しました: {scene_path}")
             continue
 
-        root = data.get("value0", data)
-        walk_nodes(root.get("nodes", []))
+        walk_nodes(data.get("nodes", []))
 
     return referenced_ids
 

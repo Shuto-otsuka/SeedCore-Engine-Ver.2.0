@@ -94,7 +94,7 @@ namespace SeedCore
 
 	void SkyRenderer::CreateIblCubes(ID3D12Device* device, BindlessHeap* bindlessHeap)
 	{
-		const D3D12_RESOURCE_STATES readState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+		const D3D12_RESOURCE_STATES readState = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
 
 		CreateCube(device, bindlessHeap, environmentSize_, environmentMipLevels_, nullptr, readState, environmentResource_, environmentShaderResourceViewIndex_, environmentUnorderedAccessViewIndices_);
 		CreateCube(device, bindlessHeap, irradianceSize_, 1, nullptr, readState, irradianceResource_, irradianceShaderResourceViewIndex_, &irradianceUnorderedAccessViewIndex_);
@@ -281,7 +281,7 @@ namespace SeedCore
 			Dispatch(cmdList, heap, brdfLookupTablePipeline_.Get(), data, (brdfLookupTableSize_ + 7) / 8, (brdfLookupTableSize_ + 7) / 8, 1);
 
 			UnorderedAccessBarrier(cmdList, brdfLookupTableResource_.Get());
-			Transition(cmdList, brdfLookupTableResource_.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+			Transition(cmdList, brdfLookupTableResource_.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 			brdfLookupTableGenerated_ = true;
 		}
 
@@ -327,7 +327,7 @@ namespace SeedCore
 
 	void SkyRenderer::GenerateProceduralEnvironment(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS structuredAddress)
 	{
-		const D3D12_RESOURCE_STATES readState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+		const D3D12_RESOURCE_STATES readState = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
 
 		/// [JP] 解析的な空+太陽を environment の6面へ描く。source_index_ は
 		///      このパスでは未使用なので LightConstantData の bindless
@@ -352,7 +352,7 @@ namespace SeedCore
 
 	void SkyRenderer::GenerateStaticEnvironment(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap)
 	{
-		const D3D12_RESOURCE_STATES readState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+		const D3D12_RESOURCE_STATES readState = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
 
 		/// [EN] Project the HDR equirect onto all six environment faces (sky).
 		/// [JP] HDR equirect を environment の 6 面（空）へ投影する。
@@ -372,7 +372,7 @@ namespace SeedCore
 
 	void SkyRenderer::ConvolveFromSource(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, Uint sourceShaderResourceViewIndex)
 	{
-		const D3D12_RESOURCE_STATES readState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+		const D3D12_RESOURCE_STATES readState = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
 
 		Transition(cmdList, irradianceResource_.Get(), readState, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 		Transition(cmdList, prefilterResource_.Get(), readState, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);

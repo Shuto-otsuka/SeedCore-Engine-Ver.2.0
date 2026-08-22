@@ -79,7 +79,11 @@ namespace SeedCore
 		/// [EN] Upload heap holding the per-instance descriptors the build consumes.
 		/// [JP] 構築が読む per-instance ディスクリプタを保持するアップロードバッファ。
 		const Uint64 instanceBufferSize = sizeof(D3D12_RAYTRACING_INSTANCE_DESC) * static_cast<Uint64>(instanceCount);
-		instanceBuffer_[frame] = CreateAccelerationStructureBuffer(device, instanceBufferSize, D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_COMMON);
+		if (instanceCapacity_[frame] < instanceBufferSize)
+		{
+			instanceBuffer_[frame] = CreateAccelerationStructureBuffer(device, instanceBufferSize, D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_COMMON);
+			instanceCapacity_[frame] = instanceBuffer_[frame] ? instanceBufferSize : 0;
+		}
 		if (!instanceBuffer_[frame])
 		{
 			return false;
@@ -109,8 +113,18 @@ namespace SeedCore
 
 		inputs.InstanceDescs = instanceBuffer_[frame]->GetGPUVirtualAddress();
 
-		scratch_[frame] = CreateAccelerationStructureBuffer(device, prebuildInfo.ScratchDataSizeInBytes, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_COMMON);
-		result_[frame] = CreateAccelerationStructureBuffer(device, prebuildInfo.ResultDataMaxSizeInBytes, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE);
+		if (scratchCapacity_[frame] < prebuildInfo.ScratchDataSizeInBytes)
+		{
+			scratch_[frame] = CreateAccelerationStructureBuffer(device, prebuildInfo.ScratchDataSizeInBytes, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_COMMON);
+			scratchCapacity_[frame] = scratch_[frame] ? prebuildInfo.ScratchDataSizeInBytes : 0;
+		}
+
+		if (resultCapacity_[frame] < prebuildInfo.ResultDataMaxSizeInBytes)
+		{
+			result_[frame] = CreateAccelerationStructureBuffer(device, prebuildInfo.ResultDataMaxSizeInBytes, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE);
+			resultCapacity_[frame] = result_[frame] ? prebuildInfo.ResultDataMaxSizeInBytes : 0;
+		}
+
 		if (!scratch_[frame] || !result_[frame])
 		{
 			/// [EN] Drop the half-built slot so Address()/Resource() cannot hand out
@@ -121,6 +135,8 @@ namespace SeedCore
 			///      バッファを返してしまわないようにするため。
 			scratch_[frame].Reset();
 			result_[frame].Reset();
+			scratchCapacity_[frame] = 0;
+			resultCapacity_[frame] = 0;
 			return false;
 		}
 

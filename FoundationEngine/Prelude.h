@@ -97,6 +97,7 @@
 #include <fstream>
 #include <functional>
 #include <future>
+#include <iomanip>
 #include <iostream>
 #include <iterator>
 #include <map>
@@ -154,6 +155,7 @@
 #pragma comment(lib, "../External/MTSDF/Lib/Debug/msdf-atlas-gen.lib")
 #pragma comment(lib, "../External/MTSDF/Lib/Debug/libpng18_staticd.lib")
 #pragma comment(lib, "../External/MTSDF/Lib/Debug/libzsd.lib")
+#pragma comment(lib, "../External/NsightAftermath/Lib/GFSDK_Aftermath_Lib.x64.lib")
 #else
 #if !SC_RENDER_DOC_USAGE
 #pragma comment(lib, "../External/DLSS/Lib/sl.interposer.lib" )
@@ -176,6 +178,7 @@
 #pragma comment(lib, "../External/MTSDF/Lib/Release/msdf-atlas-gen.lib")
 #pragma comment(lib, "../External/MTSDF/Lib/Release/libpng18_static.lib")
 #pragma comment(lib, "../External/MTSDF/Lib/Release/libzs.lib")
+#pragma comment(lib, "../External/NsightAftermath/Lib/GFSDK_Aftermath_Lib.x64.lib")
 #endif
 
 #pragma comment(lib, "ole32.lib")
@@ -221,6 +224,10 @@
 #endif
 #include <External/TinyglTF/Include/tiny_gltf.h>
 
+#include <External/NsightAftermath/Include/GFSDK_Aftermath.h>
+#include <External/NsightAftermath/Include/GFSDK_Aftermath_GpuCrashDump.h>
+#include <External/NsightAftermath/Include/GFSDK_Aftermath_GpuCrashDumpDecoding.h>
+
 #include <External/RecastNavigation/Detour/Include/DetourNavMesh.h>
 #include <External/RecastNavigation/DetourCrowd/Include/DetourCrowd.h>
 #include <External/RecastNavigation/Recast/Include/Recast.h>
@@ -252,12 +259,7 @@
 #include <External/Effekseer/Include/EffekseerRendererDX12.h>
 #include <External/Effekseer/Include/EffekseerRendererLLGI/Common.h>
 
-#include <External/Cereal/Include/archives/binary.hpp>
-#include <External/Cereal/Include/archives/json.hpp>
-#include <External/Cereal/Include/types/memory.hpp>
-#include <External/Cereal/Include/types/vector.hpp>
-#include <External/Cereal/Include/types/set.hpp>
-#include <External/Cereal/Include/types/unordered_map.hpp>
+#include <External/Json/json.hpp>
 
 #include <External/CRI/Include/cri_adx2le.h>
 
@@ -295,8 +297,6 @@
 #include <FoundationEngine/Utility/NonTransferable.h>
 #include <FoundationEngine/Utility/DestructiveCopy.h>
 #include <FoundationEngine/Utility/Delegate.h>
-
-#include <FoundationEngine/Serialization/CerealCommon.h>
 
 #include <GraphicsEngine/D3D12/D3D12Common.h>
 

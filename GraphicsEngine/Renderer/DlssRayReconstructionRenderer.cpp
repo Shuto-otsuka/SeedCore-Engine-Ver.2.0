@@ -220,13 +220,13 @@ namespace SeedCore
 		ID3D12PipelineState* backgroundVelocityPipelineState = backgroundVelocityShader_.GetPipelineState();
 		if (backgroundVelocityPipelineState)
 		{
-			cmdList->Barrier(velocityResource, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+			cmdList->Barrier(velocityResource, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 
 			cmd->SetPipelineState(backgroundVelocityPipelineState);
 			cmd->Dispatch((width_ + 7) / 8, (height_ + 7) / 8, 1);
 			ProfilerStats::AddDrawCall();
 
-			cmdList->Barrier(velocityResource, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+			cmdList->Barrier(velocityResource, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
 		}
 
 		if (target.outputState_ != D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
@@ -256,8 +256,8 @@ namespace SeedCore
 		dlssManager->Tag(tags, cmd, target.outputResource_.Get(), viewportIndex, outputWidth, outputHeight);
 		dlssManager->EvaluateRayReconstruction(cmd, scene, viewportIndex, outputWidth, outputHeight, mode);
 
-		cmdList->Barrier(target.outputResource_.Get(), target.outputState_, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-		target.outputState_ = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+		cmdList->Barrier(target.outputResource_.Get(), target.outputState_, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
+		target.outputState_ = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
 	}
 
 	ID3D12Resource* DlssRayReconstructionRenderer::OutputResource(RaytracingView view)const

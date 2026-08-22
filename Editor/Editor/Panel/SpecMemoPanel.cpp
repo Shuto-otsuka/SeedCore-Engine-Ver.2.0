@@ -68,7 +68,7 @@ namespace SeedCore
 
 			static const LibraryEntry libraries[] = {
 				{ "Dear ImGui",       "1.92.9 WIP", "エディター UI" },
-				{ "cereal",           "1.3.0",      "シリアライズ（バイナリ / JSON）" },
+				{ "nlohmann/json",    "3.12.0",     "シリアライズ（JSON）" },
 				{ "JoltPhysics",      "5.6.0",      "物理演算" },
 				{ "NVIDIA Streamline (DLSS)", "2.11.1", "アップスケーリング" },
 				{ "CRI ADX",          "バージョン表記なし", "音声再生" },

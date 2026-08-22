@@ -162,7 +162,7 @@ namespace SeedCore
 			ProfilerStats::AddDrawCall();
 		}
 
-		cmdList->Barrier(integrationVolumeResource_.Get(), integrationVolumeState_, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-		integrationVolumeState_ = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+		cmdList->Barrier(integrationVolumeResource_.Get(), integrationVolumeState_, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
+		integrationVolumeState_ = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
 	}
 }

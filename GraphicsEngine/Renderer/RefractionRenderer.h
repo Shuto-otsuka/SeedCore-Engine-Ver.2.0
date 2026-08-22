@@ -1,6 +1,5 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
-#include <FoundationEngine/Serialization/SerializeFallback.h>
 #include <GraphicsEngine/D3D12/Buffer/ConstantBuffer.h>
 #include <GraphicsEngine/D3D12/Descriptor/DescriptorHeap.h>
 #include <GraphicsEngine/Raytracing/Refraction/RefractionShader.h>
@@ -33,11 +32,11 @@ namespace SeedCore
 		Float refractionPadding_ = 0.0f;
 
 		template<class Archive>
-		void serialize(Archive& archive)
+		void Serialize(Archive& archive)
 		{
-			TryLoadField(archive, "rayTMax", rayTMax_);
-			TryLoadField(archive, "normalBias", normalBias_);
-			TryLoadField(archive, "strength", strength_);
+			archive.TryField("rayTMax", rayTMax_);
+			archive.TryField("normalBias", normalBias_);
+			archive.TryField("strength", strength_);
 		}
 	};
 

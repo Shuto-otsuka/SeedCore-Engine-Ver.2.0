@@ -4,6 +4,7 @@
 #include <FoundationEngine/Resource/Gateway.h>
 #include <FoundationEngine/Log/Warning.h>
 #include <FoundationEngine/Log/Error.h>
+#include <FoundationEngine/Serialization/Binary/BinaryArchive.h>
 
 namespace SeedCore
 {
@@ -189,12 +190,11 @@ namespace SeedCore
 
 		if (path.extension() == ".effekseer" && std::filesystem::exists(cachePath))
 		{
-			try
+			BinaryInputArchive archive;
+			if (archive.Read(String(cachePath.string())))
 			{
 				EffekseerCache cache;
-				std::ifstream ifs(cachePath, std::ios::binary);
-				cereal::BinaryInputArchive archive(ifs);
-				archive(cache);
+				cache.Serialize(archive);
 
 				for (EffekseerDependency& dependency : cache.dependencies_)
 				{
@@ -203,9 +203,9 @@ namespace SeedCore
 
 				effect = Effekseer::Effect::Create(manager.GetManager(), cache.data_.data(), static_cast<Int32>(cache.data_.size()), 1.0f, materialPath.c_str());
 			}
-			catch (const cereal::Exception& exception)
+			else
 			{
-				SC_LOG_WARNING("Effekseerキャッシュの読み込みに失敗しました。ソースから再生成します: {} ({})", filePath.c_str(), exception.what());
+				SC_LOG_WARNING("Effekseerキャッシュの読み込みに失敗しました。ソースから再生成します: {}", filePath.c_str());
 				effect = nullptr;
 			}
 		}
@@ -250,9 +250,9 @@ namespace SeedCore
 				cache.dependencies_.push_back(std::move(dependency));
 			}
 
-			std::ofstream ofs(cachePath, std::ios::binary);
-			cereal::BinaryOutputArchive archive(ofs);
-			archive(cache);
+			BinaryOutputArchive archive;
+			cache.Serialize(archive);
+			archive.Write(String(cachePath.string()));
 		}
 
 		Handle<EffekseerEffectHandle> handle = pool_.Create();

@@ -73,6 +73,23 @@ namespace SeedCore
 		pendingInstances_.clear();
 		pendingBlasBuilds_.clear();
 
+		/// [EN] Meshes/entities seen this Gather, used below to prune every
+		///      Crister*/EntityID-keyed cache of entries whose backing model
+		///      or actor no longer exists — otherwise a destroyed Crister's
+		///      heap address (or a destroyed entity's EntityID) can be reused
+		///      by an unrelated new one, which would then hit the stale
+		///      cache entry and render with a completely wrong BLAS/material
+		///      table instead of building its own.
+		/// [JP] 今回の Gather で見つかったメッシュ/エンティティ。以下で、
+		///      裏付けのモデル/Actor がもう存在しない Crister*/EntityID キー
+		///      のキャッシュエントリを刈るのに使う — でないと、破棄された
+		///      Crister のヒープアドレス(や破棄されたエンティティの
+		///      EntityID)が無関係な新規オブジェクトに再利用された時、古い
+		///      キャッシュエントリへ誤ヒットし、自前で構築する代わりに
+		///      全く別物の BLAS/マテリアルテーブルで描画してしまう。
+		std::unordered_set<const Crister*> liveCristers;
+		std::unordered_set<EntityID> liveEntities;
+
 		Query<Read<Active>, Read<Mesh>> query(world);
 		query.ForEach([&](EntityID entityID, const Active& active, const Mesh& mesh)
 			{
@@ -182,8 +199,22 @@ namespace SeedCore
 					}
 				}
 
+				liveCristers.insert(crister);
+				liveEntities.insert(entityID);
+
 				pendingInstances_.push_back(instance);
 			});
+
+		Uint frameIndex = FrameRing::Index();
+
+		std::erase_if(blasCache_, [&](const auto& entry) { return !liveCristers.contains(entry.first); });
+		std::erase_if(reflectionMaterialTableCache_, [&](const auto& entry) { return !liveCristers.contains(entry.first); });
+
+		std::erase_if(skinnedBlasCache_[frameIndex], [&](const auto& entry) { return !liveEntities.contains(entry.first); });
+		std::erase_if(skinnedPositionBuffers_[frameIndex], [&](const auto& entry) { return !liveEntities.contains(entry.first); });
+		std::erase_if(morphedBlasCache_[frameIndex], [&](const auto& entry) { return !liveEntities.contains(entry.first); });
+		std::erase_if(morphedPositionBuffers_[frameIndex], [&](const auto& entry) { return !liveEntities.contains(entry.first); });
+		std::erase_if(morphWeightBuffers_[frameIndex], [&](const auto& entry) { return !liveEntities.contains(entry.first); });
 	}
 
 	/**
@@ -441,6 +472,61 @@ namespace SeedCore
 			BuildReflectionMaterialTable(device, crister);
 		}
 		pendingBlasBuilds_.clear();
+
+		/// [EN] The reflection/GI material table has the same "build once per
+		///      unique Crister" lifecycle as the static BLAS above, but skinned/
+		///      animated instances never populate blasCache_ (they use
+		///      skinnedBlasCache_ instead - see Gather()'s !hasSkeletalPose_
+		///      gate on pendingBlasBuilds_), so a Crister seen only through
+		///      animated actors never reached BuildReflectionMaterialTable at
+		///      all. GlobalIlluminationRT.hlsl/ReflectionRT.hlsl's closesthit
+		///      resolves its material through this table regardless of
+		///      skinning, so a missing entry left the instance's
+		///      materialDataIndex_/triangleMaterialIndexBufferIndex_ at their
+		///      zero-initialized default - an unallocated descriptor slot, not
+		///      a "no material" sentinel - which is the same no-page-fault,
+		///      DispatchRays-never-returns hang as an unvalidated BLAS/RT-proxy
+		///      buffer.
+		/// [JP] 反射/GI マテリアルテーブルは、上の静的 BLAS と同じ「ユニークな
+		///      Crister ごとに一度だけ構築」というライフサイクルだが、
+		///      スキン付き/アニメーション付きインスタンスは blasCache_ を
+		///      一切埋めない(代わりに skinnedBlasCache_ を使う — Gather() の
+		///      pendingBlasBuilds_ への !hasSkeletalPose_ ゲート参照)ため、
+		///      アニメーション付きアクター経由でしか見ない Crister は
+		///      BuildReflectionMaterialTable へ一度も届いていなかった。
+		///      GlobalIlluminationRT.hlsl/ReflectionRT.hlsl の closesthit は
+		///      スキンの有無に関わらずこのテーブルでマテリアルを解決するため、
+		///      エントリが無いとインスタンスの materialDataIndex_/
+		///      triangleMaterialIndexBufferIndex_ がゼロ初期化のデフォルトの
+		///      ままになる — これは「マテリアル無し」のセンチネルではなく
+		///      未確保のディスクリプタスロットであり、検証していない BLAS/RT
+		///      プロキシバッファと同じページフォルト無し・DispatchRays が
+		///      返ってこないハングになる。
+		/// [EN] Texture streaming can reassign a material's baked
+		///      TextureBindlessIndex() slot after the table was built -
+		///      rebuild when IsMaterialsDirty() reports that.
+		/// [JP] テクスチャストリーミングにより、焼き込み済みの
+		///      TextureBindlessIndex() スロットが構築後に再割り当てされる
+		///      ことがある - IsMaterialsDirty() が検知したら再構築する。
+		std::unordered_set<const Crister*> materialTableBuilt;
+		for (const PendingInstance& pending : pendingInstances_)
+		{
+			if (!materialTableBuilt.insert(pending.crister_).second)
+			{
+				continue;
+			}
+
+			Bool notCached = reflectionMaterialTableCache_.find(pending.crister_) == reflectionMaterialTableCache_.end();
+			Bool wasDirty = pending.crister_->IsMaterialsDirty();
+			if (!notCached && !wasDirty)
+			{
+				continue;
+			}
+
+			pending.crister_->ClearMaterialsDirty();
+			reflectionMaterialTableCache_.erase(pending.crister_);
+			BuildReflectionMaterialTable(device, pending.crister_);
+		}
 
 		Uint frameIndex = FrameRing::Index();
 
@@ -834,6 +920,78 @@ namespace SeedCore
 				///      TLAS 構築が壊れる/失敗するため、そのインスタンスを除外する。
 				if (bottomLevelAddress == 0)
 				{
+					continue;
+				}
+
+				/// [EN] The instance transform is inverted by the traversal
+				///      hardware to bring rays into the BLAS's local space, so a
+				///      non-finite (or otherwise degenerate) matrix makes that
+				///      traversal never terminate - DispatchRays hangs and the
+				///      device is lost without any page fault. Drop the instance
+				///      rather than hand DXR a matrix it cannot invert.
+				/// [JP] インスタンス変換は、レイを BLAS のローカル空間へ移すため
+				///      走査ハードウェアが逆行列を取る。非有限(あるいは退化した)
+				///      行列だとその走査が終了せず、DispatchRays がハングして
+				///      ページフォルトも無いままデバイスが失われる。逆行列を
+				///      取れない行列を DXR へ渡す前にインスタンスを除外する。
+				Bool transformFinite = true;
+				for (Int row = 0; row < 4 && transformFinite; row++)
+				{
+					for (Int col = 0; col < 4; col++)
+					{
+						if (!std::isfinite(pending.worldMatrix_.m[row][col]))
+						{
+							transformFinite = false;
+							break;
+						}
+					}
+				}
+
+				if (!transformFinite)
+				{
+					if (!degenerateInstanceLogged_)
+					{
+						SC_LOG_WARNING("ワールド行列が非有限なアクターを TLAS から除外しました。アニメーション/IK が NaN を出力している可能性があります。");
+						degenerateInstanceLogged_ = true;
+					}
+					continue;
+				}
+
+				/// [EN] GlobalIlluminationRT.hlsl/ReflectionRT.hlsl's closesthit
+				///      re-fetches the hit triangle through this Crister's RT
+				///      proxy vertex/index buffers via InstanceID() into the
+				///      shared ReflectionInstanceData table - unlike
+				///      bottomLevelAddress above, nothing upstream gates these
+				///      indices, so a Crister whose RT proxy build has not run yet
+				///      (still streaming in) reaches the shader as a raw sentinel.
+				///      ResourceDescriptorHeap[0xFFFFFFFF] is not a page fault; it
+				///      is traversal-hardware-adjacent hit-shader work reading
+				///      through a descriptor slot that was never allocated, which
+				///      is the same "no page fault, DispatchRays never returns"
+				///      symptom as the degenerate-BLAS-geometry case. Drop the
+				///      instance instead of handing DXR an unresolvable table entry.
+				/// [JP] GlobalIlluminationRT.hlsl/ReflectionRT.hlsl の closesthit
+				///      は、InstanceID() 経由で共有 ReflectionInstanceData
+				///      テーブルを引き、この Crister の RT プロキシ頂点/
+				///      インデックスバッファをヒット三角形ごとに引き直す -
+				///      上の bottomLevelAddress と違い、これらのインデックスは
+				///      何にもゲートされていないため、RT プロキシ構築がまだ
+				///      走っていない(ストリーミング中の) Crister は、生の
+				///      センチネル値のままシェーダへ届く。
+				///      ResourceDescriptorHeap[0xFFFFFFFF] はページフォルトには
+				///      ならず、一度も確保されていないディスクリプタスロットを
+				///      走査ハードウェア隣接のヒットシェーダ処理が読みに行く形に
+				///      なる - これは退化 BLAS ジオメトリのケースと同じ
+				///      「ページフォルト無しで DispatchRays が返ってこない」
+				///      症状になる。解決できないテーブルエントリを DXR へ渡す前に
+				///      インスタンスを除外する。
+				if (pending.crister_->VertexBufferIndex() == 0xFFFFFFFF || pending.crister_->IndexBufferIndex() == 0xFFFFFFFF)
+				{
+					if (!rtProxyNotReadyLogged_)
+					{
+						SC_LOG_WARNING("RT プロキシ(頂点/インデックスバッファ)が未構築の Crister を TLAS から除外しました。ストリーミング中の可能性があります。");
+						rtProxyNotReadyLogged_ = true;
+					}
 					continue;
 				}
 

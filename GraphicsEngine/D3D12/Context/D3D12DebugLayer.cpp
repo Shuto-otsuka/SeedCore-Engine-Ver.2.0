@@ -9,6 +9,14 @@ namespace SeedCore
 		if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController))))
 		{
 			debugController->EnableDebugLayer();
+
+#if DEEP_D3D12_DEBUG_MODE
+			Microsoft::WRL::ComPtr<ID3D12Debug1> debugController1;
+			if (SUCCEEDED(debugController.As(&debugController1)))
+			{
+				debugController1->SetEnableGPUBasedValidation(TRUE);
+			}
+#endif
 		}
 #endif
 

@@ -1,5 +1,4 @@
 #include <GraphicsEngine/Camera/CanvasCamera.h>
-#include <FoundationEngine/Math/Halton.h>
 
 namespace SeedCore
 {
@@ -19,16 +18,7 @@ namespace SeedCore
 		nonJitterProjection_._33 = 1.0f / (nearPlane_ - farPlane_);
 		nonJitterProjection_._43 = farPlane_ / (farPlane_ - nearPlane_);
 
-		jitter_ = Halton23Jitter(frameIndex_);
-		++frameIndex_;
-
 		projection_ = nonJitterProjection_;
-
-		if (jitter_.LengthSquared() > 0.0f)
-		{
-			projection_._31 += (jitter_.x * 2.0f) / static_cast<Float>(width_);
-			projection_._32 -= (jitter_.y * 2.0f) / static_cast<Float>(height_);
-		}
 
 		currentViewProjection_ = view_ * projection_;
 

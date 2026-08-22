@@ -1,5 +1,6 @@
 #include <FoundationEngine/Resource/ResourceCache.h>
 #include <FoundationEngine/Resource/LoaderSystem.h>
+#include <FoundationEngine/Serialization/Binary/BinaryArchive.h>
 #include <FoundationEngine/JobSystem/JobExecutor.h>
 #include <FoundationEngine/JobSystem/JobTaskflow.h>
 #include <GraphicsEngine/D3D12/Descriptor/BindlessHeap.h>
@@ -17,84 +18,29 @@ namespace SeedCore
 {
 	namespace
 	{
-		/// [EN] Outcome of ReadAssetMetaWithLegacyFallback: whether the .meta
-		///      parsed cleanly against the current AssetMeta schema, had to be
-		///      recovered from the legacy 2-field (version_+guid_ only, 8 byte)
-		///      layout, or was unreadable by either.
-		/// [JP] ReadAssetMetaWithLegacyFallback の結果: .meta が現行の
-		///      AssetMeta スキーマでそのままパースできたか、旧2フィールド
-		///      （version_+guid_ のみ、8バイト）レイアウトから復旧が必要
-		///      だったか、どちらでも読めなかったか。
-		enum class MetaReadResult
+		/// [EN] Reads an AssetMeta from metaPath. Returns false if the file
+		///      couldn't be opened or parsed (see BinaryInputArchive::Read).
+		/// [JP] metaPath から AssetMeta を読み取る。ファイルを開けない、
+		///      または解析できなければ false を返す（BinaryInputArchive::Read 参照）。
+		Bool ReadAssetMeta(const std::filesystem::path& metaPath, AssetMeta& meta)
 		{
-			Current,
-			LegacyMigrated,
-			Failed,
-		};
-
-		/**
-		* [EN]
-		* Reads an AssetMeta from metaPath. cereal's BinaryInputArchive is
-		* positional (no field names/count on disk), so adding a field to
-		* AssetMeta makes it throw on any .meta written before that field
-		* existed. Falls back to a raw-byte read of the legacy 2-field
-		* format so a previously-stable GUID isn't lost/regenerated just
-		* because AssetMeta's schema grew.
-		*
-		* ---------------------------------------------------------------------
-		*
-		* [JP]
-		* metaPath から AssetMeta を読み取る。cereal の BinaryInputArchive は
-		* 位置ベース（ディスク上にフィールド名/個数の情報を持たない）なので、
-		* AssetMeta にフィールドを追加すると、それ以前に書かれた .meta の
-		* 読み込みで例外が飛ぶ。旧2フィールド形式の生バイト読み取りに
-		* フォールバックし、AssetMeta のスキーマが拡張されただけで安定
-		* していたはずの GUID が失われ/再発行されることを防ぐ。
-		*/
-		MetaReadResult ReadAssetMetaWithLegacyFallback(const std::filesystem::path& metaPath, AssetMeta& meta)
-		{
-			try
+			BinaryInputArchive archive;
+			if (!archive.Read(String(metaPath.string())))
 			{
-				std::ifstream ifs(metaPath.c_str(), std::ios::binary);
-				cereal::BinaryInputArchive deserialization(ifs);
-				deserialization(cereal::make_nvp("meta", meta));
-				return MetaReadResult::Current;
-			}
-			catch (...)
-			{
-				/// No Code
+				return false;
 			}
 
-			std::error_code errorCode;
-			Uint64 fileSize = std::filesystem::file_size(metaPath, errorCode);
-			if (errorCode || fileSize != sizeof(Uint32) * 2)
-			{
-				return MetaReadResult::Failed;
-			}
-
-			std::ifstream ifs(metaPath.c_str(), std::ios::binary);
-			Uint32 legacyVersion = 0;
-			Uint32 legacyGuid = 0;
-			ifs.read(reinterpret_cast<Char*>(&legacyVersion), sizeof(Uint32));
-			ifs.read(reinterpret_cast<Char*>(&legacyGuid), sizeof(Uint32));
-			if (!ifs)
-			{
-				return MetaReadResult::Failed;
-			}
-
-			meta = AssetMeta{};
-			meta.version_ = legacyVersion;
-			meta.guid_ = legacyGuid;
-			return MetaReadResult::LegacyMigrated;
+			meta.Serialize(archive);
+			return true;
 		}
 
-		/// [EN] Serialises meta to metaPath in the current AssetMeta schema.
-		/// [JP] meta を現行の AssetMeta スキーマで metaPath へシリアライズする。
-		void WriteAssetMetaFile(const std::filesystem::path& metaPath, const AssetMeta& meta)
+		/// [EN] Serialises meta to metaPath.
+		/// [JP] meta を metaPath へシリアライズする。
+		void WriteAssetMetaFile(const std::filesystem::path& metaPath, AssetMeta meta)
 		{
-			std::ofstream ofs(metaPath.c_str(), std::ios::binary);
-			cereal::BinaryOutputArchive serialization(ofs);
-			serialization(cereal::make_nvp("meta", meta));
+			BinaryOutputArchive archive;
+			meta.Serialize(archive);
+			archive.Write(String(metaPath.string()));
 		}
 	}
 
@@ -463,7 +409,7 @@ namespace SeedCore
 		}
 
 		AssetMeta meta;
-		if (ReadAssetMetaWithLegacyFallback(metaPath, meta) == MetaReadResult::Failed)
+		if (!ReadAssetMeta(metaPath, meta))
 		{
 			return AxisConvention{};
 		}
@@ -498,7 +444,7 @@ namespace SeedCore
 
 		if (std::filesystem::exists(metaPath))
 		{
-			if (ReadAssetMetaWithLegacyFallback(metaPath, meta) == MetaReadResult::Failed)
+			if (!ReadAssetMeta(metaPath, meta))
 			{
 				meta = AssetMeta{};
 				meta.guid_ = assetId;
@@ -1016,13 +962,12 @@ namespace SeedCore
 				if (std::filesystem::exists(metaPath))
 				{
 					/// [EN] A .meta file already sits next to this asset: read its GUID directly.
-					///      Rewrite the file if it needed legacy recovery or a fresh
-					///      GUID had to be minted, so the repair doesn't repeat next scan.
+					///      Rewrite the file if it couldn't be read and a fresh GUID had to
+					///      be minted, so the repair doesn't repeat next scan.
 					/// [JP] このアセットの隣に既に .meta ファイルが存在する: その GUID を直接読み取る。
-					///      旧形式からの復旧、または新規 GUID の発行が必要だった場合は
-					///      ファイルを書き直し、次回スキャンで同じ修復を繰り返さないようにする。
-					MetaReadResult readResult = ReadAssetMetaWithLegacyFallback(metaPath, meta);
-					if (readResult == MetaReadResult::Failed)
+					///      読み込みに失敗し新規 GUID の発行が必要だった場合はファイルを
+					///      書き直し、次回スキャンで同じ修復を繰り返さないようにする。
+					if (!ReadAssetMeta(metaPath, meta))
 					{
 						meta = AssetMeta{};
 						meta.guid_ = static_cast<Uint32>(std::hash<std::string>{}(asset.path_.c_str() + std::to_string(std::time(nullptr))));
@@ -1030,9 +975,6 @@ namespace SeedCore
 						{
 							meta.guid_++;
 						}
-					}
-					if (readResult != MetaReadResult::Current)
-					{
 						WriteAssetMetaFile(metaPath, meta);
 					}
 				}
@@ -1045,12 +987,11 @@ namespace SeedCore
 
 					if (orphanIt != orphanedMetas.end())
 					{
-						/// [EN] Uses the same legacy-fallback read as the main .meta path so a
-						///      pre-schema-change orphan still recovers its original GUID.
-						/// [JP] メインの .meta 読み取りと同じ旧形式フォールバックを使い、
-						///      スキーマ変更前の孤立ファイルでも元の GUID を復旧できるようにする。
-						MetaReadResult readResult = ReadAssetMetaWithLegacyFallback(orphanIt->second, meta);
-						if (readResult != MetaReadResult::Failed)
+						/// [EN] Uses the same read as the main .meta path so a renamed
+						///      asset's orphaned .meta still recovers its original GUID.
+						/// [JP] メインの .meta 読み取りと同じ経路を使い、リネームされた
+						///      アセットの孤立した .meta でも元の GUID を復旧できるようにする。
+						if (ReadAssetMeta(orphanIt->second, meta))
 						{
 							/// [EN] Move the recovered .meta file to sit alongside the renamed asset; fall back to copy+delete if the rename fails (e.g. across volumes).
 							/// [JP] 復旧した .meta ファイルを、リネームされたアセットの隣へ移動する。リネームが失敗した場合（異なるボリューム間など）はコピー＋削除にフォールバックする。
@@ -1060,11 +1001,6 @@ namespace SeedCore
 							{
 								std::filesystem::copy_file(orphanIt->second, metaPath, std::filesystem::copy_options::overwrite_existing, errorCode);
 								std::filesystem::remove(orphanIt->second, errorCode);
-							}
-
-							if (readResult == MetaReadResult::LegacyMigrated)
-							{
-								WriteAssetMetaFile(metaPath, meta);
 							}
 
 							recovered = true;
@@ -1083,9 +1019,7 @@ namespace SeedCore
 							meta.guid_++;
 						}
 
-						std::ofstream ofs(metaPath.c_str(), std::ios::binary);
-						cereal::BinaryOutputArchive serialization(ofs);
-						serialization(cereal::make_nvp("meta", meta));
+						WriteAssetMetaFile(metaPath, meta);
 					}
 				}
 			}

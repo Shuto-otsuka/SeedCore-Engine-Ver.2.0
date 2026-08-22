@@ -215,8 +215,8 @@ namespace SeedCore
 			const Float clearValues[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 			cmd->ClearUnorderedAccessViewFloat(bindlessHeap_->GPUHandle(outputUnorderedAccessViewIndex_), clearHeap_.CPUHandle(clearOutputIndex_), outputResource_.Get(), clearValues, 0, nullptr);
 
-			cmdList->Barrier(outputResource_.Get(), outputState_, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-			outputState_ = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+			cmdList->Barrier(outputResource_.Get(), outputState_, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
+			outputState_ = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
 			return;
 		}
 
@@ -248,7 +248,7 @@ namespace SeedCore
 		cmd->DispatchRays(&dispatchDesc);
 		ProfilerStats::AddDrawCall();
 
-		cmdList->Barrier(outputResource_.Get(), outputState_, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-		outputState_ = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+		cmdList->Barrier(outputResource_.Get(), outputState_, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
+		outputState_ = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
 	}
 }

@@ -1,5 +1,6 @@
 #include <GraphicsEngine/Model/Animation/AnimationLoader.h>
 #include <FoundationEngine/Resource/LoaderSystem.h>
+#include <FoundationEngine/Serialization/Binary/BinaryArchive.h>
 
 namespace SeedCore
 {
@@ -18,39 +19,22 @@ namespace SeedCore
 			return Handle<Animation>::null();
 		}
 
-		try
-		{
-			std::ifstream ifs(path, std::ios::binary);
-			cereal::BinaryInputArchive archive(ifs);
-			archive(*animation);
-		}
-		catch (const cereal::Exception&)
+		BinaryInputArchive archive;
+		if (!archive.Read(filePath))
 		{
 			pool_.Destroy(handle);
 			return Handle<Animation>::null();
 		}
+		animation->Serialize(archive);
 
 		return handle;
 	}
 
 	Bool AnimationLoader::Save(Animation& animation, const std::filesystem::path& filePath)
 	{
-		try
-		{
-			std::ofstream ofs(filePath, std::ios::binary);
-			if (!ofs)
-			{
-				return false;
-			}
-			cereal::BinaryOutputArchive archive(ofs);
-			archive(animation);
-		}
-		catch (const cereal::Exception&)
-		{
-			return false;
-		}
-
-		return true;
+		BinaryOutputArchive archive;
+		animation.Serialize(archive);
+		return archive.Write(String(filePath.string()));
 	}
 
 	Animation* AnimationLoader::Get(const Handle<Animation>& handle)
@@ -110,9 +94,9 @@ namespace SeedCore
 
 			std::filesystem::path clipPath = path.parent_path() / (clipName + ".animation");
 
-			std::ofstream ofs(clipPath, std::ios::binary);
-			cereal::BinaryOutputArchive archive(ofs);
-			archive(animation);
+			BinaryOutputArchive archive;
+			animation.Serialize(archive);
+			archive.Write(String(clipPath.string()));
 		}
 	}
 

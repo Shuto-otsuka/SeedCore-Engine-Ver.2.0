@@ -1,6 +1,5 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
-#include <FoundationEngine/Serialization/SerializeFallback.h>
 #include <GraphicsEngine/D3D12/Buffer/ConstantBuffer.h>
 #include <GraphicsEngine/D3D12/Descriptor/DescriptorHeap.h>
 #include <GraphicsEngine/Raytracing/SubsurfaceScattering/SubsurfaceScatteringShader.h>
@@ -51,13 +50,13 @@ namespace SeedCore
 		Float subsurfaceScatteringPadding_ = 0.0f;
 
 		template<class Archive>
-		void serialize(Archive& archive)
+		void Serialize(Archive& archive)
 		{
-			TryLoadField(archive, "scatterDistance", scatterDistance_);
-			TryLoadField(archive, "thicknessBias", thicknessBias_);
-			TryLoadField(archive, "rayTMax", rayTMax_);
-			TryLoadField(archive, "strength", strength_);
-			TryLoadField(archive, "subsurfaceColor", subsurfaceColor_);
+			archive.TryField("scatterDistance", scatterDistance_);
+			archive.TryField("thicknessBias", thicknessBias_);
+			archive.TryField("rayTMax", rayTMax_);
+			archive.TryField("strength", strength_);
+			archive.TryField("subsurfaceColor", subsurfaceColor_);
 		}
 	};
 

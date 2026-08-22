@@ -1,6 +1,5 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
-#include <FoundationEngine/Serialization/SerializeFallback.h>
 #include <GraphicsEngine/D3D12/Buffer/ConstantBuffer.h>
 #include <GraphicsEngine/D3D12/Descriptor/DescriptorHeap.h>
 #include <GraphicsEngine/Raytracing/VolumetricLight/VolumetricLightShader.h>
@@ -72,17 +71,17 @@ namespace SeedCore
 		Float volumetricLightPadding_[2] = { 0.0f, 0.0f };
 
 		template<class Archive>
-		void serialize(Archive& archive)
+		void Serialize(Archive& archive)
 		{
-			TryLoadField(archive, "density", density_);
-			TryLoadField(archive, "absorption", absorption_);
-			TryLoadField(archive, "heightFalloff", heightFalloff_);
-			TryLoadField(archive, "heightReference", heightReference_);
-			TryLoadField(archive, "fogAlbedo", fogAlbedo_);
-			TryLoadField(archive, "scatteringG", scatteringG_);
-			TryLoadField(archive, "rayTMax", rayTMax_);
-			TryLoadField(archive, "godrayStrength", godrayStrength_);
-			TryLoadField(archive, "cloudShadowEnabled", cloudShadowEnabled_);
+			archive.TryField("density", density_);
+			archive.TryField("absorption", absorption_);
+			archive.TryField("heightFalloff", heightFalloff_);
+			archive.TryField("heightReference", heightReference_);
+			archive.TryField("fogAlbedo", fogAlbedo_);
+			archive.TryField("scatteringG", scatteringG_);
+			archive.TryField("rayTMax", rayTMax_);
+			archive.TryField("godrayStrength", godrayStrength_);
+			archive.TryField("cloudShadowEnabled", cloudShadowEnabled_);
 		}
 	};
 

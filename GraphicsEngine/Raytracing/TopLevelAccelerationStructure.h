@@ -52,5 +52,9 @@ namespace SeedCore
 		Microsoft::WRL::ComPtr<ID3D12Resource> result_[FrameRing::frameCount];
 		Microsoft::WRL::ComPtr<ID3D12Resource> scratch_[FrameRing::frameCount];
 		Microsoft::WRL::ComPtr<ID3D12Resource> instanceBuffer_[FrameRing::frameCount];
+
+		Uint64 resultCapacity_[FrameRing::frameCount] = {};
+		Uint64 scratchCapacity_[FrameRing::frameCount] = {};
+		Uint64 instanceCapacity_[FrameRing::frameCount] = {};
 	};
 }

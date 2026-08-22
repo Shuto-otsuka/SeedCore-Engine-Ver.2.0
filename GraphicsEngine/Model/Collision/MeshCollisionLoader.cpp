@@ -1,6 +1,7 @@
 #include <GraphicsEngine/Model/Collision/MeshCollisionLoader.h>
 #include <GraphicsEngine/Model/Crister.h>
 #include <FoundationEngine/Resource/LoaderSystem.h>
+#include <FoundationEngine/Serialization/Binary/BinaryArchive.h>
 
 namespace SeedCore
 {
@@ -19,17 +20,13 @@ namespace SeedCore
 			return Handle<MeshCollision>::null();
 		}
 
-		try
-		{
-			std::ifstream ifs(path, std::ios::binary);
-			cereal::BinaryInputArchive archive(ifs);
-			archive(*meshCollision);
-		}
-		catch (const cereal::Exception&)
+		BinaryInputArchive archive;
+		if (!archive.Read(filePath))
 		{
 			pool_.Destroy(handle);
 			return Handle<MeshCollision>::null();
 		}
+		meshCollision->Serialize(archive);
 
 		return handle;
 	}
@@ -46,16 +43,14 @@ namespace SeedCore
 
 	void MeshCollisionLoader::Bake(const Crister& crister, MeshCollisionDetail detail, String filePath)
 	{
-		std::filesystem::path path(filePath.c_str());
-
 		MeshCollision meshCollision;
 		if (!crister.BakeCollision(detail, meshCollision.positions_, meshCollision.indices_))
 		{
 			return;
 		}
 
-		std::ofstream ofs(path, std::ios::binary);
-		cereal::BinaryOutputArchive archive(ofs);
-		archive(meshCollision);
+		BinaryOutputArchive archive;
+		meshCollision.Serialize(archive);
+		archive.Write(filePath);
 	}
 }

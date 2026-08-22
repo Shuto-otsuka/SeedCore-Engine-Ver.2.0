@@ -4,6 +4,7 @@
 #include <GraphicsEngine/D3D12/Context/D3D12CommandQueue.h>
 #include <GraphicsEngine/D3D12/Context/D3D12CommandList.h>
 #include <GraphicsEngine/D3D12/Context/D3D12DebugLayer.h>
+#include <FoundationEngine/Log/AftermathCrashTracker.h>
 #include <GraphicsEngine/Camera/EditorCamera.h>
 #include <GraphicsEngine/Camera/CanvasCamera.h>
 #include <GraphicsEngine/Camera/PreviewCamera.h>
@@ -35,6 +36,10 @@ namespace SeedCore
 		D3D12DebugLayer::Enable();
 #endif
 
+		/// [JP] デバイス作成前に呼ぶ必要がある(Enable() 呼び出し後に作成された
+		///      デバイスのクラッシュしか Aftermath から見えないため)。
+		AftermathCrashTracker::Enable();
+
 		context_ = MakePtr<D3D12Context>();
 		if (!context_->Initialize())
 		{
@@ -42,6 +47,8 @@ namespace SeedCore
 			return false;
 		}
 		SC_LOG_NOTICE("D3D12コンテキストを初期化しました");
+
+		AftermathCrashTracker::Create(context_->GetDevice());
 
 		swapChain_ = MakePtr<SwapChain>(width, height);
 		if (!swapChain_->Create(context_->GetFactory(), context_->GetDevice(), context_->GetDirectQueue()->GetCommandQueue(), hwnd))
@@ -184,6 +191,8 @@ namespace SeedCore
 		}
 
 		fadeScreen_.Finalize();
+
+		AftermathCrashTracker::Disable();
 
 		if (context_)
 		{

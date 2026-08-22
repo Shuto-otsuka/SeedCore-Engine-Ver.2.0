@@ -16,11 +16,11 @@ namespace SeedCore
 
 		Handle<Animation> Load(LoaderSystem& loader, String filePath);
 
-		/// [EN] Writes animation back out as a ".animation" cereal binary file
+		/// [EN] Writes animation back out as a ".animation" binary file
 		///      at filePath (overwrite: same path as it was loaded from; save
 		///      as: any other path). Used by TimelinePanel to persist editor-
 		///      authored easing keyframes / notify events.
-		/// [JP] animationを".animation"のcereal binaryファイルとしてfilePathへ
+		/// [JP] animationを".animation"のバイナリファイルとしてfilePathへ
 		///      書き出す(上書き保存: 読み込み元と同じパス、名前を付けて保存:
 		///      別パス)。TimelinePanelがエディタで作成したイージングキーフレーム
 		///      /通知イベントを永続化するのに使う。

@@ -53,5 +53,18 @@ void main(uint3 id : SV_DispatchThreadID)
 		position += rt_morph_deltas[target * params.vertex_count_ + local_index] * morph_weights[target];
 	}
 
+	/// [EN] Same contract as SkinnedPositionCS: this feeds a BLAS build (either
+	///      directly for a morph-only instance, or through SkinnedPositionCS),
+	///      so a non-finite vertex here hangs DXR traversal later. Fall back to
+	///      the unmorphed base position.
+	/// [JP] SkinnedPositionCS と同じ約束: ここの出力は(モーフのみのインスタンス
+	///      なら直接、そうでなければ SkinnedPositionCS 経由で)BLAS 構築へ渡る
+	///      ため、非有限な頂点は後段の DXR 走査をハングさせる。モーフ適用前の
+	///      ベース位置へフォールバックする。
+	if (!all(isfinite(position)))
+	{
+		position = rt_positions[global_index];
+	}
+
 	blended_positions[global_index] = position;
 }

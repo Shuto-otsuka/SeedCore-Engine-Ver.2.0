@@ -9,6 +9,7 @@
 #include <GraphicsEngine/D3D12/Context/D3D12DebugLayer.h>
 #include <GraphicsEngine/D3D12/D3D12Types.h>
 #include <GraphicsEngine/D3D12/FrameRing.h>
+#include <FoundationEngine/Log/DxFail.h>
 
 namespace SeedCore
 {
@@ -71,6 +72,19 @@ namespace SeedCore
 		/// [JP] フレームインフライト: このリングスロットを最後に使った
 		///      フレーム（N-frameCount）の完了だけを待つ。これにより
 		///      フレーム N の CPU 記録と N-1 の GPU 実行が重なる。
+		/// [EN] Report a device lost during the previous frame here, at the very
+		///      top of the frame, before anything else touches D3D12. Present is
+		///      too late to be relied on: once the device is hung, an allocation
+		///      or acceleration-structure call earlier in the frame can block
+		///      indefinitely, so the frame never reaches Present and its
+		///      device-removed report (with the DRED breadcrumbs) never runs.
+		/// [JP] 前フレーム中に失われたデバイスを、他のどの D3D12 呼び出しよりも
+		///      先にフレーム先頭で報告する。Present 頼みでは遅い: デバイスが
+		///      ハングすると、フレーム前半の確保や加速構造の呼び出しが
+		///      無期限にブロックしうるため、Present とそのデバイス削除報告
+		///      (DRED ブレッドクラム付き)まで到達しないことがある。
+		SC_DEVICE_REMOVED_CHECK(device_->Get()->GetDeviceRemovedReason(), device_->Get(), "前フレームのGPU処理中にデバイスが失われました");
+
 		Uint frame = FrameRing::Index();
 		directQueue_->WaitFor(frameFenceValues_[frame]);
 

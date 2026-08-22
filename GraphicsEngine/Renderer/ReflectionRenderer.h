@@ -1,6 +1,5 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
-#include <FoundationEngine/Serialization/SerializeFallback.h>
 #include <GraphicsEngine/D3D12/Buffer/ConstantBuffer.h>
 #include <GraphicsEngine/D3D12/Buffer/StructuredBuffer.h>
 #include <GraphicsEngine/D3D12/Descriptor/DescriptorHeap.h>
@@ -42,27 +41,20 @@ namespace SeedCore
 		///      パターンにならず時間的に平均化されるようにする。
 		Uint32 frameIndex_ = 0;
 
-		/// [EN] Loaded field by field through TryLoadField rather than as one
-		///      archive() call. A single archive() with several fields is
-		///      atomic in the wrong direction: if any one name is missing - an
-		///      older save, a field added or renamed since - cereal throws, and
-		///      because RaytracingContext wraps this whole struct in its own
-		///      TryLoadField, that exception is swallowed and EVERY setting in
-		///      here silently reverts to its default. Per-field loading limits
-		///      the damage to the field that actually changed.
-		/// [JP] 1回の archive() ではなく TryLoadField でフィールドごとに読む。
-		///      複数フィールドをまとめた archive() は悪い意味で不可分で、名前が
-		///      1つでも欠けると(古い保存データ、後から追加・改名したフィールド)
-		///      cereal が例外を投げる。そして RaytracingContext はこの構造体全体を
-		///      自身の TryLoadField で包んでいるため、その例外は握り潰され、
-		///      【ここの設定が全部黙って既定値に戻る】。フィールドごとに読めば、
-		///      被害は実際に変わったフィールドだけで済む。
+		/// [EN] Loaded field by field through TryField so a missing or
+		///      unparsable name (older save, a field added or renamed since)
+		///      only falls back to that field's own default; every other
+		///      field here still loads normally.
+		/// [JP] 名前が見つからない/パースできないフィールド(古い保存データ、
+		///      後から追加・改名したフィールド)があっても、そのフィールドだけ
+		///      既定値へフォールバックするよう、TryField でフィールドごとに
+		///      読む。他のフィールドは通常通り読み込まれる。
 		template<class Archive>
-		void serialize(Archive& archive)
+		void Serialize(Archive& archive)
 		{
-			TryLoadField(archive, "rayTMax", rayTMax_);
-			TryLoadField(archive, "normalBias", normalBias_);
-			TryLoadField(archive, "strength", strength_);
+			archive.TryField("rayTMax", rayTMax_);
+			archive.TryField("normalBias", normalBias_);
+			archive.TryField("strength", strength_);
 		}
 	};
 

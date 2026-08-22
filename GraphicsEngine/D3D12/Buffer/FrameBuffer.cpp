@@ -184,13 +184,13 @@ namespace SeedCore
 
 	void FrameBuffer::End(D3D12CommandList* cmdList)
 	{
-		cmdList->Barrier(bufferResource_.Get(), currentState_, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-		currentState_ = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+		cmdList->Barrier(bufferResource_.Get(), currentState_, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
+		currentState_ = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
 
 		if (depthStencilViewHeap_)
 		{
-			cmdList->Barrier(depthStencilResource_.Get(), depthCurrentState_, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-			depthCurrentState_ = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+			cmdList->Barrier(depthStencilResource_.Get(), depthCurrentState_, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
+			depthCurrentState_ = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
 		}
 	}
 

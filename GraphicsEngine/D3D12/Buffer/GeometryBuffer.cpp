@@ -234,10 +234,10 @@ namespace SeedCore
 	{
 		for (Int bufferIndex = 0; bufferIndex < bufferCount_; ++bufferIndex)
 		{
-			if (colorStates_[bufferIndex] != D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE)
+			if (colorStates_[bufferIndex] != D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE)
 			{
-				cmdList->Barrier(colorResources_[bufferIndex].Get(), colorStates_[bufferIndex], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-				colorStates_[bufferIndex] = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+				cmdList->Barrier(colorResources_[bufferIndex].Get(), colorStates_[bufferIndex], D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
+				colorStates_[bufferIndex] = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
 			}
 		}
 	}
@@ -253,10 +253,10 @@ namespace SeedCore
 
 	void GeometryBuffer::EndDepth(D3D12CommandList* cmdList)
 	{
-		if (depthState_ != D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE)
+		if (depthState_ != D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE)
 		{
-			cmdList->Barrier(depthResource_.Get(), depthState_, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-			depthState_ = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+			cmdList->Barrier(depthResource_.Get(), depthState_, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
+			depthState_ = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
 		}
 	}
 

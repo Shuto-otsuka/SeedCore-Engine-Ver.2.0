@@ -20,3 +20,7 @@
 #include <dxgidebug.h>
 #include <d3dcompiler.h>
 #include <dxcapi.h>
+
+#ifndef DEEP_D3D12_DEBUG_MODE
+#define DEEP_D3D12_DEBUG_MODE 0
+#endif

@@ -23,8 +23,8 @@ namespace SeedCore
 		void Clear(Handle<MeshCollision>& handle)noexcept;
 
 		/// [EN] Calls crister.BakeCollision to compute the geometry at the
-		///      given detail, then writes it out as a ".collision" cereal
-		///      binary file at filePath, next to the source model — same
+		///      given detail, then writes it out as a ".collision" binary
+		///      file at filePath, next to the source model — same
 		///      shape as AnimationLoader::SplitClips. Doesn't touch the pool
 		///      or return a handle; the written file becomes its own
 		///      AssetType::MeshCollision asset on the next scan, loaded
@@ -33,7 +33,7 @@ namespace SeedCore
 		///      Model ends up with both a Proxy and a Full ".collision"
 		///      sibling for MeshCollider::meshID_ to pick between.
 		/// [JP] crister.BakeCollision で指定した detail のジオメトリを計算し、
-		///      ソースモデルの隣に ".collision" の cereal binary ファイルとして
+		///      ソースモデルの隣に ".collision" のバイナリファイルとして
 		///      書き出す — AnimationLoader::SplitClips と同じ形。プールにも
 		///      触れずハンドルも返さない — 書き出したファイルは次回スキャンで
 		///      個別の AssetType::MeshCollision アセットになり、他の

@@ -1,6 +1,5 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
-#include <FoundationEngine/Serialization/SerializeFallback.h>
 #include <GraphicsEngine/D3D12/Buffer/ConstantBuffer.h>
 #include <GraphicsEngine/D3D12/Descriptor/DescriptorHeap.h>
 #include <GraphicsEngine/Raytracing/GlobalIllumination/GlobalIlluminationShader.h>
@@ -50,11 +49,11 @@ namespace SeedCore
 		Uint32 frameIndex_ = 0;
 
 		template<class Archive>
-		void serialize(Archive& archive)
+		void Serialize(Archive& archive)
 		{
-			TryLoadField(archive, "rayTMax", rayTMax_);
-			TryLoadField(archive, "normalBias", normalBias_);
-			TryLoadField(archive, "intensity", intensity_);
+			archive.TryField("rayTMax", rayTMax_);
+			archive.TryField("normalBias", normalBias_);
+			archive.TryField("intensity", intensity_);
 		}
 	};
 

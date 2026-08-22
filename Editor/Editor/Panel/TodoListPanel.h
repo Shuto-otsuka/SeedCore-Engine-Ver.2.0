@@ -18,15 +18,13 @@ namespace SeedCore
 		Bool done_ = false;
 		TodoPriority priority_ = TodoPriority::Mid;
 
-		template<class T>
-		void serialize(T& archive)
+		template<class Archive>
+		void Serialize(Archive& archive)
 		{
 			Int32 priorityValue = static_cast<Int32>(priority_);
-			archive(
-				cereal::make_nvp("text", text_),
-				cereal::make_nvp("done", done_),
-				cereal::make_nvp("priority", priorityValue)
-			);
+			archive.Field("text", text_);
+			archive.Field("done", done_);
+			archive.Field("priority", priorityValue);
 			priority_ = static_cast<TodoPriority>(priorityValue);
 		}
 	};

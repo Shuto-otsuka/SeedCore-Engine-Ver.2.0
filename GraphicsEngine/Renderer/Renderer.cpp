@@ -558,10 +558,10 @@ namespace SeedCore
 			{
 				ID3D12GraphicsCommandList* cmd = cmdList->Get();
 
-				cmdList->Barrier(geometryBuffer_.ColorResource(0), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-				cmdList->Barrier(geometryBuffer_.ColorResource(1), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-				cmdList->Barrier(geometryBuffer_.ColorResource(2), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-				cmdList->Barrier(geometryBuffer_.ColorResource(3), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+				cmdList->Barrier(geometryBuffer_.ColorResource(0), D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+				cmdList->Barrier(geometryBuffer_.ColorResource(1), D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+				cmdList->Barrier(geometryBuffer_.ColorResource(2), D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+				cmdList->Barrier(geometryBuffer_.ColorResource(3), D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 
 				materialSortBuffer_.Clear(cmd);
 				materialSortBuffer_.Barrier(cmd);
@@ -598,10 +598,10 @@ namespace SeedCore
 				cmd->Dispatch((totalPixels + 63) / 64, 1, 1);
 				ProfilerStats::AddDrawCall();
 
-				cmdList->Barrier(geometryBuffer_.ColorResource(0), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-				cmdList->Barrier(geometryBuffer_.ColorResource(1), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-				cmdList->Barrier(geometryBuffer_.ColorResource(2), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-				cmdList->Barrier(geometryBuffer_.ColorResource(3), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+				cmdList->Barrier(geometryBuffer_.ColorResource(0), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
+				cmdList->Barrier(geometryBuffer_.ColorResource(1), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
+				cmdList->Barrier(geometryBuffer_.ColorResource(2), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
+				cmdList->Barrier(geometryBuffer_.ColorResource(3), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
 			}
 		}
 		gpuProfiler_.End(cmdList, profileView, GpuProfileScope::MaterialResolve);
@@ -798,10 +798,10 @@ namespace SeedCore
 			{
 				ID3D12GraphicsCommandList* cmd = cmdList->Get();
 
-				cmdList->Barrier(geometryBuffer_.ColorResource(0), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-				cmdList->Barrier(geometryBuffer_.ColorResource(1), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-				cmdList->Barrier(geometryBuffer_.ColorResource(2), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-				cmdList->Barrier(geometryBuffer_.ColorResource(3), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+				cmdList->Barrier(geometryBuffer_.ColorResource(0), D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+				cmdList->Barrier(geometryBuffer_.ColorResource(1), D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+				cmdList->Barrier(geometryBuffer_.ColorResource(2), D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+				cmdList->Barrier(geometryBuffer_.ColorResource(3), D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 
 				materialSortBuffer_.Clear(cmd);
 				materialSortBuffer_.Barrier(cmd);
@@ -833,10 +833,10 @@ namespace SeedCore
 				cmd->Dispatch((totalPixels + 63) / 64, 1, 1);
 				ProfilerStats::AddDrawCall();
 
-				cmdList->Barrier(geometryBuffer_.ColorResource(0), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-				cmdList->Barrier(geometryBuffer_.ColorResource(1), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-				cmdList->Barrier(geometryBuffer_.ColorResource(2), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-				cmdList->Barrier(geometryBuffer_.ColorResource(3), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+				cmdList->Barrier(geometryBuffer_.ColorResource(0), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
+				cmdList->Barrier(geometryBuffer_.ColorResource(1), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
+				cmdList->Barrier(geometryBuffer_.ColorResource(2), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
+				cmdList->Barrier(geometryBuffer_.ColorResource(3), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
 			}
 		}
 		gpuProfiler_.End(cmdList, profileView, GpuProfileScope::MaterialResolve);

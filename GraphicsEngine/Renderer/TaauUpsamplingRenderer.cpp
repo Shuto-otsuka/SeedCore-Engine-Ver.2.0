@@ -127,13 +127,13 @@ namespace SeedCore
 			cmd->SetComputeRootConstantBufferView(2, constantIndex);
 			cmd->SetComputeRootConstantBufferView(3, structuredIndex);
 
-			cmdList->Barrier(velocityResource, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+			cmdList->Barrier(velocityResource, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 
 			cmd->SetPipelineState(backgroundVelocityPipelineState);
 			cmd->Dispatch((sourceWidth + 7) / 8, (sourceHeight + 7) / 8, 1);
 			ProfilerStats::AddDrawCall();
 
-			cmdList->Barrier(velocityResource, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+			cmdList->Barrier(velocityResource, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
 		}
 
 		Uint32 writeSlot = target.writeSlot_;
@@ -145,10 +145,10 @@ namespace SeedCore
 			target.accumulatedState_[writeSlot] = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
 		}
 
-		if (target.accumulatedState_[historySlot] != D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE)
+		if (target.accumulatedState_[historySlot] != D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE)
 		{
-			cmdList->Barrier(target.accumulatedResource_[historySlot].Get(), target.accumulatedState_[historySlot], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-			target.accumulatedState_[historySlot] = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+			cmdList->Barrier(target.accumulatedResource_[historySlot].Get(), target.accumulatedState_[historySlot], D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
+			target.accumulatedState_[historySlot] = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
 		}
 
 		TaauResolveConstants constants{};
@@ -172,8 +172,8 @@ namespace SeedCore
 		cmd->Dispatch((outputWidth_ + 7) / 8, (outputHeight_ + 7) / 8, 1);
 		ProfilerStats::AddDrawCall();
 
-		cmdList->Barrier(target.accumulatedResource_[writeSlot].Get(), target.accumulatedState_[writeSlot], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-		target.accumulatedState_[writeSlot] = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+		cmdList->Barrier(target.accumulatedResource_[writeSlot].Get(), target.accumulatedState_[writeSlot], D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
+		target.accumulatedState_[writeSlot] = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
 	}
 
 	ID3D12Resource* TaauUpsamplingRenderer::OutputResource(RaytracingView view)const

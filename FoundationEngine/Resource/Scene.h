@@ -14,7 +14,7 @@ namespace SeedCore
 	* [EN]
 	* Serializable snapshot of every root Actor (and its descendants) in
 	* a World, stored as a flat, parent-index-linked array of
-	* SerializedActorNode so it round-trips through Cereal JSON.
+	* SerializedActorNode so it round-trips through JSON.
 	* Capture()/Instantiate() handle a single scene's data; the static
 	* Change()/Update()/Initialize() surface additionally drives the
 	* process-wide SceneTransitionSystem, so callers can trigger
@@ -25,7 +25,7 @@ namespace SeedCore
 	*
 	* [JP]
 	* World 内の全ルート Actor（とその子孫）のシリアライズ可能な
-	* スナップショット。Cereal JSON で往復できるよう、親インデックスで
+	* スナップショット。JSON で往復できるよう、親インデックスで
 	* 連結された SerializedActorNode のフラットな配列として保存される。
 	* Capture()/Instantiate() は単一シーンのデータを扱う。静的な
 	* Change()/Update()/Initialize() のインターフェースは、加えて
@@ -338,23 +338,23 @@ namespace SeedCore
 
 		/**
 		* [EN]
-		* Cereal serialization hook (save side): writes nodes_ and raytracingSettingsJson_.
+		* Serialization hook (save side): writes nodes_ and raytracingSettingsJson_.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* Cereal シリアライズ用フック(保存側): nodes_ と raytracingSettingsJson_ を書き込む。
+		* シリアライズ用フック(保存側): nodes_ と raytracingSettingsJson_ を書き込む。
 		*/
 		template<class Archive>
-		void save(Archive& archive)const
+		void Save(Archive& archive)const
 		{
-			archive(cereal::make_nvp("nodes", nodes_));
-			archive(cereal::make_nvp("raytracingSettings", raytracingSettingsJson_));
+			archive.Field("nodes", nodes_);
+			archive.Field("raytracingSettings", raytracingSettingsJson_);
 		}
 
 		/**
 		* [EN]
-		* Cereal serialization hook (load side): reads nodes_ and
+		* Serialization hook (load side): reads nodes_ and
 		* raytracingSettingsJson_. raytracingSettingsJson_ is optional --
 		* scenes saved before this field existed simply leave it empty --
 		* so a missing key is swallowed rather than failing the whole load.
@@ -362,25 +362,16 @@ namespace SeedCore
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* Cereal シリアライズ用フック(読み込み側): nodes_ と
-		* raytracingSettingsJson_ を読み込む。raytracingSettingsJson_ は
-		* 任意項目 -- このフィールドが存在する前に保存されたシーンでは単に
-		* 空になる -- なので、キーが無くても読み込み全体を失敗させず読み飛ばす。
+		* シリアライズ用フック(読み込み側): nodes_ と raytracingSettingsJson_
+		* を読み込む。raytracingSettingsJson_ は任意項目 -- このフィールドが
+		* 存在する前に保存されたシーンでは単に空になる -- なので、キーが
+		* 無くても読み込み全体を失敗させず読み飛ばす。
 		*/
 		template<class Archive>
-		void load(Archive& archive)
+		void Load(Archive& archive)
 		{
-			archive(cereal::make_nvp("nodes", nodes_));
-
-			const Char* nextName = archive.getNodeName();
-			if (nextName && std::strcmp(nextName, "raytracingSettings") == 0)
-			{
-				archive(cereal::make_nvp("raytracingSettings", raytracingSettingsJson_));
-			}
-			else
-			{
-				raytracingSettingsJson_ = String();
-			}
+			archive.TryField("nodes", nodes_);
+			archive.TryField("raytracingSettings", raytracingSettingsJson_);
 		}
 
 	private:

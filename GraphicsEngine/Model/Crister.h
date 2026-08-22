@@ -93,15 +93,13 @@ namespace SeedCore
 		Uint32 texVTangent_ = 0;   // texcoord v:16 | tangent oct x:8 y:7 sign:1
 		Uint32 normal_ = 0;        // octahedral x:16 | y:16
 
-		template<class T>
-		void serialize(T& archive)
+		template<class Archive>
+		void Serialize(Archive& archive)
 		{
-			archive(
-				cereal::make_nvp("position_xy", positionXY_),
-				cereal::make_nvp("position_z_tex_u", positionZTexU_),
-				cereal::make_nvp("tex_v_tangent", texVTangent_),
-				cereal::make_nvp("normal", normal_)
-			);
+			archive.Field("position_xy", positionXY_);
+			archive.Field("position_z_tex_u", positionZTexU_);
+			archive.Field("tex_v_tangent", texVTangent_);
+			archive.Field("normal", normal_);
 		}
 	};
 
@@ -122,14 +120,12 @@ namespace SeedCore
 		Uint32 jointsZW_ = 0; // joint2:16 | joint3:16
 		Uint32 weights_ = 0;  // 4 x 8-bit UNORM, renormalised in the shader
 
-		template<class T>
-		void serialize(T& archive)
+		template<class Archive>
+		void Serialize(Archive& archive)
 		{
-			archive(
-				cereal::make_nvp("joints_xy", jointsXY_),
-				cereal::make_nvp("joints_zw", jointsZW_),
-				cereal::make_nvp("weights", weights_)
-			);
+			archive.Field("joints_xy", jointsXY_);
+			archive.Field("joints_zw", jointsZW_);
+			archive.Field("weights", weights_);
 		}
 	};
 
@@ -156,15 +152,13 @@ namespace SeedCore
 		Uint32 vertexCount_ = 0;
 		Uint32 triangleCount_ = 0;
 
-		template<class T>
-		void serialize(T& archive)
+		template<class Archive>
+		void Serialize(Archive& archive)
 		{
-			archive(
-				cereal::make_nvp("vertex_offset", vertexOffset_),
-				cereal::make_nvp("triangle_offset", triangleOffset_),
-				cereal::make_nvp("vertex_count", vertexCount_),
-				cereal::make_nvp("triangle_count", triangleCount_)
-			);
+			archive.Field("vertex_offset", vertexOffset_);
+			archive.Field("triangle_offset", triangleOffset_);
+			archive.Field("vertex_count", vertexCount_);
+			archive.Field("triangle_count", triangleCount_);
 		}
 	};
 
@@ -188,15 +182,13 @@ namespace SeedCore
 		Vector3 coneAxis_ = { 0,0,1 };
 		Float coneCutoff_ = 1.0f;
 
-		template<class T>
-		void serialize(T& archive)
+		template<class Archive>
+		void Serialize(Archive& archive)
 		{
-			archive(
-				cereal::make_nvp("center", center_),
-				cereal::make_nvp("radius", radius_),
-				cereal::make_nvp("cone_axis", coneAxis_),
-				cereal::make_nvp("cone_cutoff", coneCutoff_)
-			);
+			archive.Field("center", center_);
+			archive.Field("radius", radius_);
+			archive.Field("cone_axis", coneAxis_);
+			archive.Field("cone_cutoff", coneCutoff_);
 		}
 	};
 
@@ -226,15 +218,13 @@ namespace SeedCore
 		Uint32 lodLevel_ = 0;
 		Float lodError_ = 0.0f;
 
-		template<class T>
-		void serialize(T& archive)
+		template<class Archive>
+		void Serialize(Archive& archive)
 		{
-			archive(
-				cereal::make_nvp("meshlet_offset", meshletOffset_),
-				cereal::make_nvp("meshlet_count", meshletCount_),
-				cereal::make_nvp("lod_level", lodLevel_),
-				cereal::make_nvp("lod_error", lodError_)
-			);
+			archive.Field("meshlet_offset", meshletOffset_);
+			archive.Field("meshlet_count", meshletCount_);
+			archive.Field("lod_level", lodLevel_);
+			archive.Field("lod_error", lodError_);
 		}
 	};
 
@@ -266,13 +256,11 @@ namespace SeedCore
 		std::string name_;
 		DynamicArray<Vector3> positionDeltas_;
 
-		template<class T>
-		void serialize(T& archive)
+		template<class Archive>
+		void Serialize(Archive& archive)
 		{
-			archive(
-				cereal::make_nvp("name", name_),
-				cereal::make_nvp("position_deltas", positionDeltas_)
-			);
+			archive.Field("name", name_);
+			archive.Field("position_deltas", positionDeltas_);
 		}
 	};
 
@@ -391,21 +379,19 @@ namespace SeedCore
 		///      のコメント参照)。実行時のみで、シリアライズしない。
 		Uint32 morphDeltaOffset_ = 0xFFFFFFFFu;
 
-		template<class T>
-		void serialize(T& archive)
+		template<class Archive>
+		void Serialize(Archive& archive)
 		{
-			archive(
-				cereal::make_nvp("cluster_offset", clusterOffset_),
-				cereal::make_nvp("cluster_count", clusterCount_),
-				cereal::make_nvp("material_index", materialIndex_),
-				cereal::make_nvp("index_offset", indexOffset_),
-				cereal::make_nvp("index_count", indexCount_),
-				cereal::make_nvp("skin_index", skinIndex_),
-				cereal::make_nvp("mesh_index", meshIndex_),
-				cereal::make_nvp("morphs", morphs_),
-				cereal::make_nvp("vertex_offset", vertexOffset_),
-				cereal::make_nvp("vertex_count", vertexCount_)
-			);
+			archive.Field("cluster_offset", clusterOffset_);
+			archive.Field("cluster_count", clusterCount_);
+			archive.Field("material_index", materialIndex_);
+			archive.Field("index_offset", indexOffset_);
+			archive.Field("index_count", indexCount_);
+			archive.Field("skin_index", skinIndex_);
+			archive.Field("mesh_index", meshIndex_);
+			archive.Field("morphs", morphs_);
+			archive.Field("vertex_offset", vertexOffset_);
+			archive.Field("vertex_count", vertexCount_);
 		}
 	};
 
@@ -427,13 +413,11 @@ namespace SeedCore
 		std::string name_;
 		DynamicArray<Int> nodes_;
 
-		template<class T>
-		void serialize(T& archive)
+		template<class Archive>
+		void Serialize(Archive& archive)
 		{
-			archive(
-				cereal::make_nvp("name", name_),
-				cereal::make_nvp("nodes", nodes_)
-			);
+			archive.Field("name", name_);
+			archive.Field("nodes", nodes_);
 		}
 	};
 
@@ -466,10 +450,10 @@ namespace SeedCore
 		{
 			Float emissiveStrength_ = 1.0f;
 
-			template<class T>
-			void serialize(T& archive)
+			template<class Archive>
+			void Serialize(Archive& archive)
 			{
-				archive(cereal::make_nvp("emissive_strength", emissiveStrength_));
+				archive.Field("emissive_strength", emissiveStrength_);
 			}
 		};
 		EmissiveStrength emissiveStrength_;
@@ -489,10 +473,10 @@ namespace SeedCore
 		{
 			Float ior_ = 1.5f;
 
-			template<class T>
-			void serialize(T& archive)
+			template<class Archive>
+			void Serialize(Archive& archive)
 			{
-				archive(cereal::make_nvp("ior", ior_));
+				archive.Field("ior", ior_);
 			}
 		};
 		Ior ior_;
@@ -515,15 +499,13 @@ namespace SeedCore
 			Uint32 specularTextureIndex_ = 0xFFFFFFFF;
 			Uint32 specularColorTextureIndex_ = 0xFFFFFFFF;
 
-			template<class T>
-			void serialize(T& archive)
+			template<class Archive>
+			void Serialize(Archive& archive)
 			{
-				archive(
-					cereal::make_nvp("specular_factor", specularFactor_),
-					cereal::make_nvp("specular_color_factor", specularColorFactor_),
-					cereal::make_nvp("specular_texture_index", specularTextureIndex_),
-					cereal::make_nvp("specular_color_texture_index", specularColorTextureIndex_)
-				);
+				archive.Field("specular_factor", specularFactor_);
+				archive.Field("specular_color_factor", specularColorFactor_);
+				archive.Field("specular_texture_index", specularTextureIndex_);
+				archive.Field("specular_color_texture_index", specularColorTextureIndex_);
 			}
 		};
 		Specular specular_;
@@ -547,16 +529,14 @@ namespace SeedCore
 			Uint32 clearCoatRoughnessTextureIndex_ = 0xFFFFFFFF;
 			Uint32 clearCoatNormalTextureIndex_ = 0xFFFFFFFF;
 
-			template<class T>
-			void serialize(T& archive)
+			template<class Archive>
+			void Serialize(Archive& archive)
 			{
-				archive(
-					cereal::make_nvp("clear_coat_factor", clearCoatFactor_),
-					cereal::make_nvp("clear_coat_roughness_factor", clearCoatRoughnessFactor_),
-					cereal::make_nvp("clear_coat_texture_index", clearCoatTextureIndex_),
-					cereal::make_nvp("clear_coat_roughness_texture_index", clearCoatRoughnessTextureIndex_),
-					cereal::make_nvp("clear_coat_normal_texture_index", clearCoatNormalTextureIndex_)
-				);
+				archive.Field("clear_coat_factor", clearCoatFactor_);
+				archive.Field("clear_coat_roughness_factor", clearCoatRoughnessFactor_);
+				archive.Field("clear_coat_texture_index", clearCoatTextureIndex_);
+				archive.Field("clear_coat_roughness_texture_index", clearCoatRoughnessTextureIndex_);
+				archive.Field("clear_coat_normal_texture_index", clearCoatNormalTextureIndex_);
 			}
 		};
 		ClearCoat clearCoat_;
@@ -577,13 +557,11 @@ namespace SeedCore
 
 			Uint32 transmissionTextureIndex_ = 0xFFFFFFFF;
 
-			template<class T>
-			void serialize(T& archive)
+			template<class Archive>
+			void Serialize(Archive& archive)
 			{
-				archive(
-					cereal::make_nvp("transmission_factor", transmissionFactor_),
-					cereal::make_nvp("transmission_texture_index", transmissionTextureIndex_)
-				);
+				archive.Field("transmission_factor", transmissionFactor_);
+				archive.Field("transmission_texture_index", transmissionTextureIndex_);
 			}
 		};
 		Transmission transmission_;
@@ -609,15 +587,13 @@ namespace SeedCore
 
 			Uint32 thicknessTextureIndex_ = 0xFFFFFFFF;
 
-			template<class T>
-			void serialize(T& archive)
+			template<class Archive>
+			void Serialize(Archive& archive)
 			{
-				archive(
-					cereal::make_nvp("thickness_factor", thicknessFactor_),
-					cereal::make_nvp("attenuation_distance", attenuationDistance_),
-					cereal::make_nvp("attenuation_color", attenuationColor_),
-					cereal::make_nvp("thickness_texture_index", thicknessTextureIndex_)
-				);
+				archive.Field("thickness_factor", thicknessFactor_);
+				archive.Field("attenuation_distance", attenuationDistance_);
+				archive.Field("attenuation_color", attenuationColor_);
+				archive.Field("thickness_texture_index", thicknessTextureIndex_);
 			}
 		};
 		Volume volume_;
@@ -640,15 +616,13 @@ namespace SeedCore
 			Uint32 sheenColorTextureIndex_ = 0xFFFFFFFF;
 			Uint32 sheenRoughnessTextureIndex_ = 0xFFFFFFFF;
 
-			template<class T>
-			void serialize(T& archive)
+			template<class Archive>
+			void Serialize(Archive& archive)
 			{
-				archive(
-					cereal::make_nvp("sheen_color_factor", sheenColorFactor_),
-					cereal::make_nvp("sheen_roughness_factor", sheenRoughnessFactor_),
-					cereal::make_nvp("sheen_color_texture_index", sheenColorTextureIndex_),
-					cereal::make_nvp("sheen_roughness_texture_index", sheenRoughnessTextureIndex_)
-				);
+				archive.Field("sheen_color_factor", sheenColorFactor_);
+				archive.Field("sheen_roughness_factor", sheenRoughnessFactor_);
+				archive.Field("sheen_color_texture_index", sheenColorTextureIndex_);
+				archive.Field("sheen_roughness_texture_index", sheenRoughnessTextureIndex_);
 			}
 		};
 		Sheen sheen_;
@@ -675,17 +649,15 @@ namespace SeedCore
 			Uint32 iridescenceTextureIndex_ = 0xFFFFFFFF;
 			Uint32 iridescenceThicknessTextureIndex_ = 0xFFFFFFFF;
 
-			template<class T>
-			void serialize(T& archive)
+			template<class Archive>
+			void Serialize(Archive& archive)
 			{
-				archive(
-					cereal::make_nvp("iridescence_factor", iridescenceFactor_),
-					cereal::make_nvp("iridescence_ior", iridescenceIor_),
-					cereal::make_nvp("iridescence_thickness_minimum", iridescenceThicknessMinimum_),
-					cereal::make_nvp("iridescence_thickness_maximum", iridescenceThicknessMaximum_),
-					cereal::make_nvp("iridescence_texture_index", iridescenceTextureIndex_),
-					cereal::make_nvp("iridescence_thickness_texture_index", iridescenceThicknessTextureIndex_)
-				);
+				archive.Field("iridescence_factor", iridescenceFactor_);
+				archive.Field("iridescence_ior", iridescenceIor_);
+				archive.Field("iridescence_thickness_minimum", iridescenceThicknessMinimum_);
+				archive.Field("iridescence_thickness_maximum", iridescenceThicknessMaximum_);
+				archive.Field("iridescence_texture_index", iridescenceTextureIndex_);
+				archive.Field("iridescence_thickness_texture_index", iridescenceThicknessTextureIndex_);
 			}
 		};
 		Iridescence iridescence_;
@@ -709,14 +681,12 @@ namespace SeedCore
 
 			Uint32 anisotropyTextureIndex_ = 0xFFFFFFFF;
 
-			template<class T>
-			void serialize(T& archive)
+			template<class Archive>
+			void Serialize(Archive& archive)
 			{
-				archive(
-					cereal::make_nvp("anisotropy_strength", anisotropyStrength_),
-					cereal::make_nvp("anisotropy_rotation", anisotropyRotation_),
-					cereal::make_nvp("anisotropy_texture_index", anisotropyTextureIndex_)
-				);
+				archive.Field("anisotropy_strength", anisotropyStrength_);
+				archive.Field("anisotropy_rotation", anisotropyRotation_);
+				archive.Field("anisotropy_texture_index", anisotropyTextureIndex_);
 			}
 		};
 		Anisotropy anisotropy_;
@@ -735,29 +705,27 @@ namespace SeedCore
 		{
 			Int unlit_ = 0;
 
-			template<class T>
-			void serialize(T& archive)
+			template<class Archive>
+			void Serialize(Archive& archive)
 			{
-				archive(cereal::make_nvp("unlit", unlit_));
+				archive.Field("unlit", unlit_);
 			}
 		};
 		Unlit unlit_;
 
-		template<class T>
-		void serialize(T& archive)
+		template<class Archive>
+		void Serialize(Archive& archive)
 		{
-			archive(
-				cereal::make_nvp("emissive_strength", emissiveStrength_),
-				cereal::make_nvp("ior", ior_),
-				cereal::make_nvp("specular", specular_),
-				cereal::make_nvp("clear_coat", clearCoat_),
-				cereal::make_nvp("transmission", transmission_),
-				cereal::make_nvp("volume", volume_),
-				cereal::make_nvp("sheen", sheen_),
-				cereal::make_nvp("iridescence", iridescence_),
-				cereal::make_nvp("anisotropy", anisotropy_),
-				cereal::make_nvp("unlit", unlit_)
-			);
+			archive.Field("emissive_strength", emissiveStrength_);
+			archive.Field("ior", ior_);
+			archive.Field("specular", specular_);
+			archive.Field("clear_coat", clearCoat_);
+			archive.Field("transmission", transmission_);
+			archive.Field("volume", volume_);
+			archive.Field("sheen", sheen_);
+			archive.Field("iridescence", iridescence_);
+			archive.Field("anisotropy", anisotropy_);
+			archive.Field("unlit", unlit_);
 		}
 	};
 
@@ -829,25 +797,23 @@ namespace SeedCore
 		Uint32 occlusionTextureIndex_ = 0xFFFFFFFF;
 		Uint32 emissiveTextureIndex_ = 0xFFFFFFFF;
 
-		template<class T>
-		void serialize(T& archive)
+		template<class Archive>
+		void Serialize(Archive& archive)
 		{
-			archive(
-				cereal::make_nvp("base_color", baseColor_),
-				cereal::make_nvp("metallic", metallic_),
-				cereal::make_nvp("roughness", roughness_),
-				cereal::make_nvp("emissive_factor", emissiveFactor_),
-				cereal::make_nvp("alpha_mode", alphaMode_),
-				cereal::make_nvp("alpha_cutoff", alphaCutoff_),
-				cereal::make_nvp("double_sided", doubleSided_),
-				cereal::make_nvp("shading_model", shadingModel_),
-				cereal::make_nvp("khr", khr_),
-				cereal::make_nvp("base_color_texture_index", baseColorTextureIndex_),
-				cereal::make_nvp("normal_texture_index", normalTextureIndex_),
-				cereal::make_nvp("metallic_roughness_texture_index", metallicRoughnessTextureIndex_),
-				cereal::make_nvp("occlusion_texture_index", occlusionTextureIndex_),
-				cereal::make_nvp("emissive_texture_index", emissiveTextureIndex_)
-			);
+			archive.Field("base_color", baseColor_);
+			archive.Field("metallic", metallic_);
+			archive.Field("roughness", roughness_);
+			archive.Field("emissive_factor", emissiveFactor_);
+			archive.Field("alpha_mode", alphaMode_);
+			archive.Field("alpha_cutoff", alphaCutoff_);
+			archive.Field("double_sided", doubleSided_);
+			archive.Field("shading_model", shadingModel_);
+			archive.Field("khr", khr_);
+			archive.Field("base_color_texture_index", baseColorTextureIndex_);
+			archive.Field("normal_texture_index", normalTextureIndex_);
+			archive.Field("metallic_roughness_texture_index", metallicRoughnessTextureIndex_);
+			archive.Field("occlusion_texture_index", occlusionTextureIndex_);
+			archive.Field("emissive_texture_index", emissiveTextureIndex_);
 		}
 	};
 
@@ -894,20 +860,18 @@ namespace SeedCore
 		Vector3 translation_ = { 0,0,0 };
 		Matrix globalTransform_ = Matrix::Identity;
 
-		template<class T>
-		void serialize(T& archive)
+		template<class Archive>
+		void Serialize(Archive& archive)
 		{
-			archive(
-				cereal::make_nvp("name", name_),
-				cereal::make_nvp("mesh", mesh_),
-				cereal::make_nvp("skin", skin_),
-				cereal::make_nvp("light", light_),
-				cereal::make_nvp("children", children_),
-				cereal::make_nvp("rotation", rotation_),
-				cereal::make_nvp("scale", scale_),
-				cereal::make_nvp("translation", translation_),
-				cereal::make_nvp("global_transform", globalTransform_)
-			);
+			archive.Field("name", name_);
+			archive.Field("mesh", mesh_);
+			archive.Field("skin", skin_);
+			archive.Field("light", light_);
+			archive.Field("children", children_);
+			archive.Field("rotation", rotation_);
+			archive.Field("scale", scale_);
+			archive.Field("translation", translation_);
+			archive.Field("global_transform", globalTransform_);
 		}
 	};
 
@@ -929,13 +893,11 @@ namespace SeedCore
 		DynamicArray<Matrix> inverseBindMatrices_;
 		DynamicArray<Int> joints_;
 
-		template<class T>
-		void serialize(T& archive)
+		template<class Archive>
+		void Serialize(Archive& archive)
 		{
-			archive(
-				cereal::make_nvp("inverse_bind_matrices", inverseBindMatrices_),
-				cereal::make_nvp("joints", joints_)
-			);
+			archive.Field("inverse_bind_matrices", inverseBindMatrices_);
+			archive.Field("joints", joints_);
 		}
 	};
 
@@ -988,19 +950,17 @@ namespace SeedCore
 		Float innerConeAngle_ = 0.0f; // Spot only, radians.
 		Float outerConeAngle_ = 0.785398163f; // Spot only, radians (45 deg default per glTF spec).
 
-		template<class T>
-		void serialize(T& archive)
+		template<class Archive>
+		void Serialize(Archive& archive)
 		{
-			archive(
-				cereal::make_nvp("type", type_),
-				cereal::make_nvp("position", position_),
-				cereal::make_nvp("direction", direction_),
-				cereal::make_nvp("color_rgb", colorRGB_),
-				cereal::make_nvp("intensity", intensity_),
-				cereal::make_nvp("range", range_),
-				cereal::make_nvp("inner_cone_angle", innerConeAngle_),
-				cereal::make_nvp("outer_cone_angle", outerConeAngle_)
-			);
+			archive.Field("type", type_);
+			archive.Field("position", position_);
+			archive.Field("direction", direction_);
+			archive.Field("color_rgb", colorRGB_);
+			archive.Field("intensity", intensity_);
+			archive.Field("range", range_);
+			archive.Field("inner_cone_angle", innerConeAngle_);
+			archive.Field("outer_cone_angle", outerConeAngle_);
 		}
 	};
 
@@ -1034,19 +994,17 @@ namespace SeedCore
 		std::string mimeType_;
 		DynamicArray<Uchar> cacheData_;
 
-		template<class T>
-		void serialize(T& archive)
+		template<class Archive>
+		void Serialize(Archive& archive)
 		{
-			archive(
-				cereal::make_nvp("name", name_),
-				cereal::make_nvp("width", width_),
-				cereal::make_nvp("height", height_),
-				cereal::make_nvp("component", component_),
-				cereal::make_nvp("bits", bits_),
-				cereal::make_nvp("mip_count", mipCount_),
-				cereal::make_nvp("mime_type", mimeType_),
-				cereal::make_nvp("cache_data", cacheData_)
-			);
+			archive.Field("name", name_);
+			archive.Field("width", width_);
+			archive.Field("height", height_);
+			archive.Field("component", component_);
+			archive.Field("bits", bits_);
+			archive.Field("mip_count", mipCount_);
+			archive.Field("mime_type", mimeType_);
+			archive.Field("cache_data", cacheData_);
 		}
 	};
 
@@ -1204,31 +1162,29 @@ namespace SeedCore
 		Crister(Crister&&)noexcept = default;
 		Crister& operator=(Crister&&)noexcept = default;
 
-		template<class T>
-		void serialize(T& archive)
+		template<class Archive>
+		void Serialize(Archive& archive)
 		{
-			archive(
-				cereal::make_nvp("compressed_vertices", compressedVertices_),
-				cereal::make_nvp("compressed_skin_vertices", compressedSkinVertices_),
-				cereal::make_nvp("vertex_morph_source", vertexMorphSource_),
-				cereal::make_nvp("position_min", positionMin_),
-				cereal::make_nvp("position_extent", positionExtent_),
-				cereal::make_nvp("texcoord_min", texcoordMin_),
-				cereal::make_nvp("texcoord_extent", texcoordExtent_),
-				cereal::make_nvp("vertex_indices", vertexIndices_),
-				cereal::make_nvp("primitive_indices", primitiveIndices_),
-				cereal::make_nvp("meshlets", meshlets_),
-				cereal::make_nvp("meshlet_bounds", meshletBounds_),
-				cereal::make_nvp("clusters", clusters_),
-				cereal::make_nvp("stages", stages_),
-				cereal::make_nvp("sub_meshes", subMeshes_),
-				cereal::make_nvp("materials", materials_),
-				cereal::make_nvp("nodes", nodes_),
-				cereal::make_nvp("skins", skins_),
-				cereal::make_nvp("bitmaps", bitmaps_),
-				cereal::make_nvp("lights", lights_),
-				cereal::make_nvp("default_stage", defaultStage_)
-			);
+			archive.Field("compressed_vertices", compressedVertices_);
+			archive.Field("compressed_skin_vertices", compressedSkinVertices_);
+			archive.Field("vertex_morph_source", vertexMorphSource_);
+			archive.Field("position_min", positionMin_);
+			archive.Field("position_extent", positionExtent_);
+			archive.Field("texcoord_min", texcoordMin_);
+			archive.Field("texcoord_extent", texcoordExtent_);
+			archive.Field("vertex_indices", vertexIndices_);
+			archive.Field("primitive_indices", primitiveIndices_);
+			archive.Field("meshlets", meshlets_);
+			archive.Field("meshlet_bounds", meshletBounds_);
+			archive.Field("clusters", clusters_);
+			archive.Field("stages", stages_);
+			archive.Field("sub_meshes", subMeshes_);
+			archive.Field("materials", materials_);
+			archive.Field("nodes", nodes_);
+			archive.Field("skins", skins_);
+			archive.Field("bitmaps", bitmaps_);
+			archive.Field("lights", lights_);
+			archive.Field("default_stage", defaultStage_);
 		}
 
 		/**
@@ -1818,6 +1774,38 @@ namespace SeedCore
 		* 変換する。無ければ 0xFFFFFFFF。
 		*/
 		[[nodiscard]] Uint TextureBindlessIndex(Uint32 textureIndex)const;
+
+		/**
+		* [EN]
+		* Whether any texture's resident bindless index has changed (via
+		* MakeTextureMipResident/EvictTextureMip) since the last
+		* ClearMaterialsDirty() - RaytracingRenderer checks this to know
+		* whether its cached reflection/GI material table (which baked
+		* TextureBindlessIndex() at build time) needs rebuilding.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* 前回の ClearMaterialsDirty() 以降に、いずれかのテクスチャの常駐
+		* バインドレスインデックスが(MakeTextureMipResident/EvictTextureMip
+		* 経由で)変わったか。RaytracingRenderer がこれを見て、キャッシュ済みの
+		* 反射/GI マテリアルテーブル(構築時に TextureBindlessIndex() を
+		* 焼き込んでいる)を再構築すべきか判断する。
+		*/
+		[[nodiscard]] Bool IsMaterialsDirty()const;
+
+		/**
+		* [EN]
+		* Clears the flag IsMaterialsDirty() reports, after the caller has
+		* rebuilt whatever depended on the stale bindless indices.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* IsMaterialsDirty() が報告するフラグをクリアする。呼び出し側が、
+		* 古いバインドレスインデックスに依存していたものを再構築した後に呼ぶ。
+		*/
+		void ClearMaterialsDirty()const;
 
 		/**
 		* [EN]
@@ -2667,9 +2655,17 @@ namespace SeedCore
 
 		Uint vertexBufferIndex_ = 0xFFFFFFFF;
 		Uint skinVertexBufferIndex_ = 0xFFFFFFFF;
-		Uint indexBufferIndex_ = 0;
+		Uint indexBufferIndex_ = 0xFFFFFFFF;
 		Uint32 triangleIndexCount_ = 0;
 		Uint32 proxyVertexCount_ = 0;
+
+		/// [EN] Logs the RT proxy's non-finite-position fallback once per
+		///      Crister instead of once per degenerate vertex - see Upload()'s
+		///      RT proxy geometry loop.
+		/// [JP] RT プロキシの非有限位置フォールバックを、退化頂点ごとでなく
+		///      Crister ごとに 1 度だけログする — Upload() の RT プロキシ
+		///      ジオメトリループ参照。
+		Bool degenerateRaytracingPositionLogged_ = false;
 
 		/// [EN] Shared LOD 0 vertex pool page (referenced by LOD 0 cluster pages).
 		/// [JP] 共有 LOD 0 頂点プールページ（LOD 0 クラスタページが参照する）。
@@ -2684,6 +2680,27 @@ namespace SeedCore
 
 		DynamicArray<StreamingGeometry> streamingGeometry_;
 		DynamicArray<StreamingTexture> streamingTextures_;
+
+		/// [EN] Set whenever any StreamingTexture's resident bindless index
+		///      changes (MakeTextureMipResident/EvictTextureMip) - the
+		///      reflection/GI material table (RaytracingRenderer::
+		///      BuildReflectionMaterialTable) bakes TextureBindlessIndex()
+		///      once and caches it, so a later mip swap leaves that baked
+		///      index pointing at whatever the freed slot gets reused for
+		///      next, or at nothing at all. ConsumeMaterialsDirty() lets the
+		///      renderer notice and rebuild the table instead of reading
+		///      through a stale/destroyed descriptor forever.
+		/// [JP] StreamingTexture の常駐バインドレスインデックスが変わるたびに
+		///      (MakeTextureMipResident/EvictTextureMip)立てる - 反射/GI
+		///      マテリアルテーブル(RaytracingRenderer::
+		///      BuildReflectionMaterialTable)は TextureBindlessIndex() を
+		///      一度だけ焼き込んでキャッシュするため、後のミップ入れ替えは
+		///      焼き込み済みインデックスを、解放されたスロットが次に再利用
+		///      された先(あるいは何も無い先)を指したままにしてしまう。
+		///      ConsumeMaterialsDirty() により、レンダラーがそれに気付いて
+		///      テーブルを再構築できるようにする — 破棄済み/不正な
+		///      ディスクリプタを読み続けさせない。
+		mutable Bool materialsDirty_ = false;
 
 		/// [EN] Captured at Upload() so pages can stream in and out later.
 		///      These engine objects outlive every Crister.

@@ -15,19 +15,17 @@ namespace SeedCore
 
 		DynamicArray<Byte> data_;
 
-		template<class T>
-		void serialize(T& archive)
+		template<class Archive>
+		void Serialize(Archive& archive)
 		{
-			archive(
-				cereal::make_nvp("path", path_), 
-				cereal::make_nvp("data", data_)
-			);
+			archive.Field("path", path_);
+			archive.Field("data", data_);
 		}
 	};
 
 	/**
 	* [EN]
-	* Cereal-serialisable wrapper around a raw ".efkefc" byte blob plus every
+	* Serializable wrapper around a raw ".efkefc" byte blob plus every
 	* dependency (texture/model/material/wave/curve) it references, written
 	* as a ".effekseer" binary cache next to the source file (mirrors the
 	* ".crister" cache for models). Ships without exposing the original
@@ -37,7 +35,7 @@ namespace SeedCore
 	*
 	* [JP]
 	* 生の ".efkefc" バイト列と、それが参照する全依存関係(テクスチャ/モデル/
-	* マテリアル/wave/curve)をまとめてラップするcerealシリアライズ可能な
+	* マテリアル/wave/curve)をまとめてラップするシリアライズ可能な
 	* 構造体。ソースファイルの隣に ".effekseer" バイナリキャッシュとして
 	* 書き出す（モデルの ".crister" キャッシュと同じ構図）。元のEffekseer
 	* プロジェクトが持つ生の ".efkefc"/".efkmodel"/テクスチャのソース構成を
@@ -49,13 +47,11 @@ namespace SeedCore
 
 		DynamicArray<EffekseerDependency> dependencies_;
 
-		template<class T>
-		void serialize(T& archive)
+		template<class Archive>
+		void Serialize(Archive& archive)
 		{
-			archive(
-				cereal::make_nvp("data", data_), 
-				cereal::make_nvp("dependencies", dependencies_)
-			);
+			archive.Field("data", data_);
+			archive.Field("dependencies", dependencies_);
 		}
 	};
 }

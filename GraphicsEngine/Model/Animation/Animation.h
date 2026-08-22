@@ -9,14 +9,12 @@ namespace SeedCore
 		Int targetNode_ = -1;
 		std::string targetPath_;
 
-		template<class T>
-		void serialize(T& archive)
+		template<class Archive>
+		void Serialize(Archive& archive)
 		{
-			archive(
-				cereal::make_nvp("sampler", sampler_),
-				cereal::make_nvp("target_node", targetNode_),
-				cereal::make_nvp("target_path", targetPath_)
-			);
+			archive.Field("sampler", sampler_);
+			archive.Field("target_node", targetNode_);
+			archive.Field("target_path", targetPath_);
 		}
 	};
 
@@ -26,14 +24,12 @@ namespace SeedCore
 		Int output_ = -1;
 		std::string interpolation_;
 
-		template<class T>
-		void serialize(T& archive)
+		template<class Archive>
+		void Serialize(Archive& archive)
 		{
-			archive(
-				cereal::make_nvp("input", input_),
-				cereal::make_nvp("output", output_),
-				cereal::make_nvp("interpolation", interpolation_)
-			);
+			archive.Field("input", input_);
+			archive.Field("output", output_);
+			archive.Field("interpolation", interpolation_);
 		}
 	};
 
@@ -54,13 +50,11 @@ namespace SeedCore
 		Float time_ = 0.0f;
 		Float value_ = 0.0f;
 
-		template<class T>
-		void serialize(T& archive)
+		template<class Archive>
+		void Serialize(Archive& archive)
 		{
-			archive(
-				cereal::make_nvp("time", time_),
-				cereal::make_nvp("value", value_)
-			);
+			archive.Field("time", time_);
+			archive.Field("value", value_);
 		}
 	};
 
@@ -75,13 +69,11 @@ namespace SeedCore
 		Float time_ = 0.0f;
 		std::string label_;
 
-		template<class T>
-		void serialize(T& archive)
+		template<class Archive>
+		void Serialize(Archive& archive)
 		{
-			archive(
-				cereal::make_nvp("time", time_),
-				cereal::make_nvp("label", label_)
-			);
+			archive.Field("time", time_);
+			archive.Field("label", label_);
 		}
 	};
 
@@ -155,22 +147,20 @@ namespace SeedCore
 		[[nodiscard]] DynamicArray<AnimationNotifyEvent>& NotifyEvents();
 		[[nodiscard]] const DynamicArray<AnimationNotifyEvent>& NotifyEvents()const;
 
-		template<class T>
-		void serialize(T& archive)
+		template<class Archive>
+		void Serialize(Archive& archive)
 		{
-			archive(
-				cereal::make_nvp("name", name_),
-				cereal::make_nvp("duration", duration_),
-				cereal::make_nvp("channels", channels_),
-				cereal::make_nvp("samplers", samplers_),
-				cereal::make_nvp("timelines", timelines_),
-				cereal::make_nvp("scales", scales_),
-				cereal::make_nvp("rotations", rotations_),
-				cereal::make_nvp("translations", translations_),
-				cereal::make_nvp("weights", weights_),
-				cereal::make_nvp("speed_curve", speedCurve_),
-				cereal::make_nvp("notify_events", notifyEvents_)
-			);
+			archive.Field("name", name_);
+			archive.Field("duration", duration_);
+			archive.Field("channels", channels_);
+			archive.Field("samplers", samplers_);
+			archive.Field("timelines", timelines_);
+			archive.Field("scales", scales_);
+			archive.Field("rotations", rotations_);
+			archive.Field("translations", translations_);
+			archive.Field("weights", weights_);
+			archive.Field("speed_curve", speedCurve_);
+			archive.Field("notify_events", notifyEvents_);
 		}
 	};
 }

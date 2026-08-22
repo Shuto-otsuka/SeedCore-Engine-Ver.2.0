@@ -161,7 +161,7 @@ namespace SeedCore
 			ProfilerStats::AddDrawCall();
 		}
 
-		cmdList->Barrier(transmittanceResource_.Get(), transmittanceState_, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-		transmittanceState_ = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+		cmdList->Barrier(transmittanceResource_.Get(), transmittanceState_, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
+		transmittanceState_ = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
 	}
 }

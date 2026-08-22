@@ -2,7 +2,6 @@
 #include <FoundationEngine/Prelude.h>
 #include <FoundationEngine/ECS/ReflectionRegistry.h>
 #include <FoundationEngine/Resource/ActorSerialization.h>
-#include <FoundationEngine/Serialization/SerializeFallback.h>
 
 namespace SeedCore
 {
@@ -26,7 +25,7 @@ namespace SeedCore
 	* [EN]
 	* Serializable snapshot of an Actor subtree (root plus every
 	* descendant), stored as a flat, parent-index-linked array of
-	* PrefabNode so it round-trips through Cereal JSON. Capture()
+	* PrefabNode so it round-trips through JSON. Capture()
 	* records a live subtree; Instantiate() recreates it (as a new,
 	* independent copy of actors) in a World.
 	*
@@ -34,7 +33,7 @@ namespace SeedCore
 	*
 	* [JP]
 	* Actor のサブツリー（ルートとその全子孫）のシリアライズ可能な
-	* スナップショット。Cereal JSON で往復できるよう、親インデックスで
+	* スナップショット。JSON で往復できるよう、親インデックスで
 	* 連結された PrefabNode のフラットな配列として保存される。
 	* Capture() は生きたサブツリーを記録し、Instantiate() はそれを
 	* World 内に（actor の新しい独立したコピーとして）再生成する。
@@ -133,19 +132,39 @@ namespace SeedCore
 
 		/**
 		* [EN]
-		* Cereal serialization hook: reads/writes nodes_ and basePrefabAssetID_.
+		* Serialization hook (save side): writes nodes_ and basePrefabAssetID_.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* Cereal シリアライズ用フック: nodes_ と basePrefabAssetID_ を
-		* 読み書きする。
+		* シリアライズ用フック(保存側): nodes_ と basePrefabAssetID_ を
+		* 書き込む。
 		*/
 		template<class Archive>
-		void serialize(Archive& archive)
+		void Save(Archive& archive)const
 		{
-			TryLoadField(archive, "nodes", nodes_);
-			TryLoadField(archive, "basePrefabAssetID", basePrefabAssetID_);
+			archive.Field("nodes", nodes_);
+			archive.Field("basePrefabAssetID", basePrefabAssetID_);
+		}
+
+		/**
+		* [EN]
+		* Serialization hook (load side): reads nodes_ and basePrefabAssetID_.
+		* Both are optional -- a missing key is swallowed rather than
+		* failing the whole load.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* シリアライズ用フック(読み込み側): nodes_ と basePrefabAssetID_ を
+		* 読み込む。どちらも任意項目 -- キーが無くても読み込み全体を
+		* 失敗させず読み飛ばす。
+		*/
+		template<class Archive>
+		void Load(Archive& archive)
+		{
+			archive.TryField("nodes", nodes_);
+			archive.TryField("basePrefabAssetID", basePrefabAssetID_);
 		}
 
 	private:

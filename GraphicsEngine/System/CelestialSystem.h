@@ -1,6 +1,5 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
-#include <FoundationEngine/Serialization/SerializeFallback.h>
 
 namespace SeedCore
 {
@@ -8,13 +7,13 @@ namespace SeedCore
 	///      - never uploaded to the GPU directly, only the direction/color it
 	///      derives (via CelestialSystem::Compute) reach the shaders through
 	///      LightConstantData. Mirrors the *RayConstantBuffer structs' shape
-	///      (default-constructed values, cereal serialize()) even though it has
+	///      (default-constructed values, a Serialize() hook) even though it has
 	///      no HLSL counterpart.
 	/// [JP] 昼夜の時計: 現在時刻と暦日。CPU 専用 - GPU へ直接アップロードせず、
 	///      そこから導出される方向/色(CelestialSystem::Compute 経由)だけが
 	///      LightConstantData を通してシェーダへ届く。HLSL 側の対応は無いが、
-	///      他の *RayConstantBuffer 構造体と同じ形(デフォルト値、cereal
-	///      serialize())にしてある。
+	///      他の *RayConstantBuffer 構造体と同じ形(デフォルト値、Serialize()
+	///      フック)にしてある。
 	struct DaySystemConstantBuffer
 	{
 		/// [EN] Current time of day, 0-24. Advanced each frame by CelestialSystem::Advance.
@@ -50,15 +49,15 @@ namespace SeedCore
 		Bool paused_ = false;
 
 		template<class Archive>
-		void serialize(Archive& archive)
+		void Serialize(Archive& archive)
 		{
-			TryLoadField(archive, "hourOfDay", hourOfDay_);
-			TryLoadField(archive, "dayOfMonth", dayOfMonth_);
-			TryLoadField(archive, "daysPerMonth", daysPerMonth_);
-			TryLoadField(archive, "monthOfYear", monthOfYear_);
-			TryLoadField(archive, "dayLengthMinutes", dayLengthMinutes_);
-			TryLoadField(archive, "timeScale", timeScale_);
-			TryLoadField(archive, "paused", paused_);
+			archive.TryField("hourOfDay", hourOfDay_);
+			archive.TryField("dayOfMonth", dayOfMonth_);
+			archive.TryField("daysPerMonth", daysPerMonth_);
+			archive.TryField("monthOfYear", monthOfYear_);
+			archive.TryField("dayLengthMinutes", dayLengthMinutes_);
+			archive.TryField("timeScale", timeScale_);
+			archive.TryField("paused", paused_);
 		}
 	};
 
@@ -80,13 +79,13 @@ namespace SeedCore
 		Float angularRadius_ = 0.03f;
 
 		template<class Archive>
-		void serialize(Archive& archive)
+		void Serialize(Archive& archive)
 		{
-			TryLoadField(archive, "horizonColor", horizonColor_);
-			TryLoadField(archive, "zenithColor", zenithColor_);
-			TryLoadField(archive, "maxIntensity", maxIntensity_);
-			TryLoadField(archive, "minElevationDegrees", minElevationDegrees_);
-			TryLoadField(archive, "angularRadius", angularRadius_);
+			archive.TryField("horizonColor", horizonColor_);
+			archive.TryField("zenithColor", zenithColor_);
+			archive.TryField("maxIntensity", maxIntensity_);
+			archive.TryField("minElevationDegrees", minElevationDegrees_);
+			archive.TryField("angularRadius", angularRadius_);
 		}
 	};
 
@@ -99,11 +98,11 @@ namespace SeedCore
 		Float angularRadius_ = 0.02f;
 
 		template<class Archive>
-		void serialize(Archive& archive)
+		void Serialize(Archive& archive)
 		{
-			TryLoadField(archive, "color", color_);
-			TryLoadField(archive, "maxIntensity", maxIntensity_);
-			TryLoadField(archive, "angularRadius", angularRadius_);
+			archive.TryField("color", color_);
+			archive.TryField("maxIntensity", maxIntensity_);
+			archive.TryField("angularRadius", angularRadius_);
 		}
 	};
 

@@ -869,7 +869,7 @@ namespace SeedCore
 		///      はこの一時遷移を知らないため、戻し忘れると次フレームの Begin()
 		///      が誤った "before" 状態でバリアを積んでデバッグレイヤ検証に
 		///      引っかかる。
-		cmdList->Barrier(sourceColorResource, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+		cmdList->Barrier(sourceColorResource, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 
 		if (outputState != D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
 		{
@@ -1335,10 +1335,10 @@ namespace SeedCore
 			ProfilerStats::AddDrawCall();
 		}
 
-		cmdList->Barrier(sharpenResource.Get(), sharpenState, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-		sharpenState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+		cmdList->Barrier(sharpenResource.Get(), sharpenState, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
+		sharpenState = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
 
-		cmdList->Barrier(sourceColorResource, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+		cmdList->Barrier(sourceColorResource, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
 	}
 
 	ID3D12Resource* PostProcessRenderer::OutputResource(RaytracingView view)const
@@ -1419,8 +1419,8 @@ namespace SeedCore
 		Microsoft::WRL::ComPtr<ID3D12Resource>& sharpenResource = target.activeIsUpscaled_ ? target.sharpenResourceUpscaled_ : target.sharpenResource_;
 		D3D12_RESOURCE_STATES& sharpenState = target.activeIsUpscaled_ ? target.sharpenStateUpscaled_ : target.sharpenState_;
 
-		cmdList->Barrier(sharpenResource.Get(), sharpenState, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-		sharpenState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+		cmdList->Barrier(sharpenResource.Get(), sharpenState, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
+		sharpenState = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
 	}
 
 	void PostProcessRenderer::UnorderedAccessBarrier(D3D12CommandList* cmdList, ID3D12Resource* resource)

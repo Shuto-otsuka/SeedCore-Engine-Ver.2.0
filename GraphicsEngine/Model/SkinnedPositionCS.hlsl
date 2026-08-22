@@ -41,5 +41,22 @@ void main(uint3 id : SV_DispatchThreadID)
 		LoadBoneMatrix(bone_matrices[params.bone_offset_ + joints.z]) * weights.z +
 		LoadBoneMatrix(bone_matrices[params.bone_offset_ + joints.w]) * weights.w;
 
-	skinned_positions[index] = mul(float4(position, 1.0), skin_matrix).xyz;
+	float3 skinned = mul(float4(position, 1.0), skin_matrix).xyz;
+
+	/// [EN] These positions become a BLAS's triangle vertices. A non-finite
+	///      vertex builds a degenerate acceleration structure, and DXR
+	///      traversal over one never terminates - the GPU hangs and the
+	///      device is lost with no page fault to point at. Fall back to the
+	///      unskinned position so the frame renders wrong rather than dying.
+	/// [JP] ここで書いた位置はそのまま BLAS の三角形頂点になる。非有限な頂点は
+	///      退化した加速構造を作り、その上の DXR 走査は終了しない - GPU が
+	///      ハングし、手がかりとなるページフォルトも無いままデバイスが失われる。
+	///      スキン適用前の位置へフォールバックし、死ぬ代わりに絵が崩れるだけに
+	///      留める。
+	if (!all(isfinite(skinned)))
+	{
+		skinned = position;
+	}
+
+	skinned_positions[index] = skinned;
 }

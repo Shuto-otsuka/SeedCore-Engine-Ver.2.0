@@ -21,13 +21,11 @@ namespace SeedCore
 		[[nodiscard]] const DynamicArray<Vector3>& Positions()const;
 		[[nodiscard]] const DynamicArray<Uint32>& Indices()const;
 
-		template<class T>
-		void serialize(T& archive)
+		template<class Archive>
+		void Serialize(Archive& archive)
 		{
-			archive(
-				cereal::make_nvp("positions", positions_),
-				cereal::make_nvp("indices", indices_)
-			);
+			archive.Field("positions", positions_);
+			archive.Field("indices", indices_);
 		}
 	};
 }

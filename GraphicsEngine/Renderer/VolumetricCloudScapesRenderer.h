@@ -1,6 +1,5 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
-#include <FoundationEngine/Serialization/SerializeFallback.h>
 #include <GraphicsEngine/D3D12/Buffer/ConstantBuffer.h>
 #include <GraphicsEngine/D3D12/Descriptor/DescriptorHeap.h>
 #include <GraphicsEngine/Raytracing/VolumetricCloudScapes/VolumetricCloudScapesShader.h>
@@ -248,43 +247,43 @@ namespace SeedCore
 		Float cloudPadding2_ = 0.0f;
 
 		template<class Archive>
-		void serialize(Archive& archive)
+		void Serialize(Archive& archive)
 		{
-			TryLoadField(archive, "cloudBottom", cloudBottom_);
-			TryLoadField(archive, "cloudTop", cloudTop_);
-			TryLoadField(archive, "coverage", coverage_);
-			TryLoadField(archive, "densityScale", densityScale_);
-			TryLoadField(archive, "cloudAlbedo", cloudAlbedo_);
-			TryLoadField(archive, "scatteringG", scatteringG_);
-			TryLoadField(archive, "stepCount", stepCount_);
-			TryLoadField(archive, "lightStepCount", lightStepCount_);
-			TryLoadField(archive, "noiseScale", noiseScale_);
-			TryLoadField(archive, "windSpeed", windSpeed_);
-			TryLoadField(archive, "cloudType", cloudType_);
-			TryLoadField(archive, "rain", rain_);
-			TryLoadField(archive, "detailScale", detailScale_);
-			TryLoadField(archive, "skyZenithColor", skyZenithColor_);
-			TryLoadField(archive, "sunSize", sunSize_);
-			TryLoadField(archive, "skyHorizonColor", skyHorizonColor_);
-			TryLoadField(archive, "skyBrightness", skyBrightness_);
-			TryLoadField(archive, "groundColor", groundColor_);
-			TryLoadField(archive, "planetRadius", planetRadius_);
-			TryLoadField(archive, "maxMarchDistance", maxMarchDistance_);
-			TryLoadField(archive, "lodDistance", lodDistance_);
-			TryLoadField(archive, "aerialDensity", aerialDensity_);
-			TryLoadField(archive, "weatherScale", weatherScale_);
-			TryLoadField(archive, "weatherAmount", weatherAmount_);
-			TryLoadField(archive, "detailStrength", detailStrength_);
-			TryLoadField(archive, "detailWindSpeed", detailWindSpeed_);
-			TryLoadField(archive, "phaseBackward", phaseBackward_);
-			TryLoadField(archive, "phaseBlend", phaseBlend_);
-			TryLoadField(archive, "powderStrength", powderStrength_);
-			TryLoadField(archive, "ambientStrength", ambientStrength_);
-			TryLoadField(archive, "multiScatterOctaves", multiScatterOctaves_);
-			TryLoadField(archive, "multiScatterAttenuation", multiScatterAttenuation_);
-			TryLoadField(archive, "multiScatterContribution", multiScatterContribution_);
-			TryLoadField(archive, "multiScatterEccentricity", multiScatterEccentricity_);
-			TryLoadField(archive, "temporalJitter", temporalJitter_);
+			archive.TryField("cloudBottom", cloudBottom_);
+			archive.TryField("cloudTop", cloudTop_);
+			archive.TryField("coverage", coverage_);
+			archive.TryField("densityScale", densityScale_);
+			archive.TryField("cloudAlbedo", cloudAlbedo_);
+			archive.TryField("scatteringG", scatteringG_);
+			archive.TryField("stepCount", stepCount_);
+			archive.TryField("lightStepCount", lightStepCount_);
+			archive.TryField("noiseScale", noiseScale_);
+			archive.TryField("windSpeed", windSpeed_);
+			archive.TryField("cloudType", cloudType_);
+			archive.TryField("rain", rain_);
+			archive.TryField("detailScale", detailScale_);
+			archive.TryField("skyZenithColor", skyZenithColor_);
+			archive.TryField("sunSize", sunSize_);
+			archive.TryField("skyHorizonColor", skyHorizonColor_);
+			archive.TryField("skyBrightness", skyBrightness_);
+			archive.TryField("groundColor", groundColor_);
+			archive.TryField("planetRadius", planetRadius_);
+			archive.TryField("maxMarchDistance", maxMarchDistance_);
+			archive.TryField("lodDistance", lodDistance_);
+			archive.TryField("aerialDensity", aerialDensity_);
+			archive.TryField("weatherScale", weatherScale_);
+			archive.TryField("weatherAmount", weatherAmount_);
+			archive.TryField("detailStrength", detailStrength_);
+			archive.TryField("detailWindSpeed", detailWindSpeed_);
+			archive.TryField("phaseBackward", phaseBackward_);
+			archive.TryField("phaseBlend", phaseBlend_);
+			archive.TryField("powderStrength", powderStrength_);
+			archive.TryField("ambientStrength", ambientStrength_);
+			archive.TryField("multiScatterOctaves", multiScatterOctaves_);
+			archive.TryField("multiScatterAttenuation", multiScatterAttenuation_);
+			archive.TryField("multiScatterContribution", multiScatterContribution_);
+			archive.TryField("multiScatterEccentricity", multiScatterEccentricity_);
+			archive.TryField("temporalJitter", temporalJitter_);
 		}
 	};
 

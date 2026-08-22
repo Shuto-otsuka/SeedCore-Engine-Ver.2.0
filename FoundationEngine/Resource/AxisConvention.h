@@ -69,15 +69,13 @@ namespace SeedCore
 		SignedAxis forward_ = SignedAxis::PositiveZ;
 		WindingOverride windingOverride_ = WindingOverride::Auto;
 
-		template<class T>
-		void serialize(T& archive)
+		template<class Archive>
+		void Serialize(Archive& archive)
 		{
-			archive(
-				cereal::make_nvp("up", up_),
-				cereal::make_nvp("right", right_),
-				cereal::make_nvp("forward", forward_),
-				cereal::make_nvp("winding_override", windingOverride_)
-			);
+			archive.Field("up", up_);
+			archive.Field("right", right_);
+			archive.Field("forward", forward_);
+			archive.Field("winding_override", windingOverride_);
 		}
 	};
 

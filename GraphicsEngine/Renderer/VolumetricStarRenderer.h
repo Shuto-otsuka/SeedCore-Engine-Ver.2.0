@@ -1,6 +1,5 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
-#include <FoundationEngine/Serialization/SerializeFallback.h>
 #include <GraphicsEngine/D3D12/Buffer/ConstantBuffer.h>
 #include <GraphicsEngine/D3D12/Descriptor/DescriptorHeap.h>
 #include <GraphicsEngine/Raytracing/VolumetricStar/VolumetricStarShader.h>
@@ -91,20 +90,20 @@ namespace SeedCore
 		ShootingStarInstance activeShootingStars_[volumetricStarMaxShootingStars_];
 
 		template<class Archive>
-		void serialize(Archive& archive)
+		void Serialize(Archive& archive)
 		{
-			TryLoadField(archive, "cellSize", cellSize_);
-			TryLoadField(archive, "density", density_);
-			TryLoadField(archive, "brightness", brightness_);
-			TryLoadField(archive, "twinkleSpeed", twinkleSpeed_);
-			TryLoadField(archive, "color", color_);
-			TryLoadField(archive, "sizeMin", sizeMin_);
-			TryLoadField(archive, "sizeMax", sizeMax_);
-			TryLoadField(archive, "shootingStarChancePerSecond", shootingStarChancePerSecond_);
-			TryLoadField(archive, "shootingStarBrightness", shootingStarBrightness_);
-			TryLoadField(archive, "shootingStarWidth", shootingStarWidth_);
-			TryLoadField(archive, "glowIntensity", glowIntensity_);
-			TryLoadField(archive, "glowFalloff", glowFalloff_);
+			archive.TryField("cellSize", cellSize_);
+			archive.TryField("density", density_);
+			archive.TryField("brightness", brightness_);
+			archive.TryField("twinkleSpeed", twinkleSpeed_);
+			archive.TryField("color", color_);
+			archive.TryField("sizeMin", sizeMin_);
+			archive.TryField("sizeMax", sizeMax_);
+			archive.TryField("shootingStarChancePerSecond", shootingStarChancePerSecond_);
+			archive.TryField("shootingStarBrightness", shootingStarBrightness_);
+			archive.TryField("shootingStarWidth", shootingStarWidth_);
+			archive.TryField("glowIntensity", glowIntensity_);
+			archive.TryField("glowFalloff", glowFalloff_);
 		}
 	};
 

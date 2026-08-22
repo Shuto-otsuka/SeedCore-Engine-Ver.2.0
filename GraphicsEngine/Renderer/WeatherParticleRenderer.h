@@ -1,6 +1,5 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
-#include <FoundationEngine/Serialization/SerializeFallback.h>
 #include <GraphicsEngine/D3D12/Buffer/ConstantBuffer.h>
 #include <GraphicsEngine/Environment/WeatherParticleShader.h>
 
@@ -35,16 +34,16 @@ namespace SeedCore
 		Float color_[3] = { 0.75f, 0.8f, 0.9f };
 
 		template<class Archive>
-		void serialize(Archive& archive)
+		void Serialize(Archive& archive)
 		{
-			TryLoadField(archive, "density", density_);
-			TryLoadField(archive, "fallSpeed", fallSpeed_);
-			TryLoadField(archive, "size", size_);
-			TryLoadField(archive, "streakLength", streakLength_);
-			TryLoadField(archive, "brightness", brightness_);
-			TryLoadField(archive, "volumeRadius", volumeRadius_);
-			TryLoadField(archive, "volumeHeight", volumeHeight_);
-			TryLoadField(archive, "color", color_);
+			archive.TryField("density", density_);
+			archive.TryField("fallSpeed", fallSpeed_);
+			archive.TryField("size", size_);
+			archive.TryField("streakLength", streakLength_);
+			archive.TryField("brightness", brightness_);
+			archive.TryField("volumeRadius", volumeRadius_);
+			archive.TryField("volumeHeight", volumeHeight_);
+			archive.TryField("color", color_);
 		}
 	};
 
@@ -66,16 +65,16 @@ namespace SeedCore
 		Float color_[3] = { 1.0f, 1.0f, 1.0f };
 
 		template<class Archive>
-		void serialize(Archive& archive)
+		void Serialize(Archive& archive)
 		{
-			TryLoadField(archive, "density", density_);
-			TryLoadField(archive, "fallSpeed", fallSpeed_);
-			TryLoadField(archive, "size", size_);
-			TryLoadField(archive, "swayAmount", swayAmount_);
-			TryLoadField(archive, "brightness", brightness_);
-			TryLoadField(archive, "volumeRadius", volumeRadius_);
-			TryLoadField(archive, "volumeHeight", volumeHeight_);
-			TryLoadField(archive, "color", color_);
+			archive.TryField("density", density_);
+			archive.TryField("fallSpeed", fallSpeed_);
+			archive.TryField("size", size_);
+			archive.TryField("swayAmount", swayAmount_);
+			archive.TryField("brightness", brightness_);
+			archive.TryField("volumeRadius", volumeRadius_);
+			archive.TryField("volumeHeight", volumeHeight_);
+			archive.TryField("color", color_);
 		}
 	};
 

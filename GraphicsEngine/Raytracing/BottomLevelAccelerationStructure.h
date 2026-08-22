@@ -52,5 +52,10 @@ namespace SeedCore
 	private:
 		Microsoft::WRL::ComPtr<ID3D12Resource> result_;
 		Microsoft::WRL::ComPtr<ID3D12Resource> scratch_;
+
+		Uint64 resultCapacity_ = 0;
+		Uint64 scratchCapacity_ = 0;
+
+		Bool invalidGeometryLogged_ = false;
 	};
 }

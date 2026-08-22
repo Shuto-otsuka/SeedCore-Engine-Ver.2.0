@@ -337,8 +337,8 @@ namespace SeedCore
 				const Float clearValues[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 				cmd->ClearUnorderedAccessViewFloat(bindlessHeap_->GPUHandle(rawVisibilityUnorderedAccessViewIndex_), clearHeap_.CPUHandle(clearRawIndex_), rawVisibilityResource_.Get(), clearValues, 0, nullptr);
 
-				cmdList->Barrier(rawVisibilityResource_.Get(), rawVisibilityState_, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-				rawVisibilityState_ = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+				cmdList->Barrier(rawVisibilityResource_.Get(), rawVisibilityState_, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
+				rawVisibilityState_ = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
 				return;
 			}
 
@@ -351,8 +351,8 @@ namespace SeedCore
 			const Float litValues[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 			cmd->ClearUnorderedAccessViewFloat(bindlessHeap_->GPUHandle(denoisedUnorderedAccessViewIndex_[viewIndex]), clearHeap_.CPUHandle(clearDenoisedIndex_[viewIndex]), denoisedResource_[viewIndex].Get(), litValues, 0, nullptr);
 
-			cmdList->Barrier(denoisedResource_[viewIndex].Get(), denoisedState_[viewIndex], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-			denoisedState_[viewIndex] = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+			cmdList->Barrier(denoisedResource_[viewIndex].Get(), denoisedState_[viewIndex], D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
+			denoisedState_[viewIndex] = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
 
 			/// [JP] 履歴長も 0 にしておく。こうしないと、次に実際にトレースが走った
 			///      フレームで「長い履歴がある」と誤認し、クリア中の無関係な輝度を
@@ -397,8 +397,8 @@ namespace SeedCore
 				///      このRenderer自身のSVGFチェーンは丸ごとスキップする —
 				///      生テクスチャを composite が読める状態
 				///      (PIXEL_SHADER_RESOURCE)へ遷移させるだけでよい。
-				cmdList->Barrier(rawVisibilityResource_.Get(), rawVisibilityState_, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-				rawVisibilityState_ = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+				cmdList->Barrier(rawVisibilityResource_.Get(), rawVisibilityState_, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
+				rawVisibilityState_ = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
 				return;
 			}
 
@@ -526,16 +526,16 @@ namespace SeedCore
 			cmd->Dispatch(groupCountX, groupCountY, 1);
 			ProfilerStats::AddDrawCall();
 
-			cmdList->Barrier(denoisedResource_[viewIndex].Get(), denoisedState_[viewIndex], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-			denoisedState_[viewIndex] = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+			cmdList->Barrier(denoisedResource_[viewIndex].Get(), denoisedState_[viewIndex], D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
+			denoisedState_[viewIndex] = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
 
 			/// [JP] 生テクスチャも最後にピクセルシェーダから読める状態へ戻す。
 			///      デノイズチェーンが読むのは NON_PIXEL 状態で足りるが、
 			///      ViewMode の「シャドウ（生）」表示は DeferredLightingPS
 			///      ＝ピクセルシェーダから読むため、その状態のままだと不正な
 			///      リソース状態での読み取りになり、表示される値が信用できない。
-			cmdList->Barrier(rawVisibilityResource_.Get(), rawVisibilityState_, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-			rawVisibilityState_ = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+			cmdList->Barrier(rawVisibilityResource_.Get(), rawVisibilityState_, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
+			rawVisibilityState_ = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
 		}
 	}
 }

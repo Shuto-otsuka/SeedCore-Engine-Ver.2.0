@@ -67,7 +67,16 @@ namespace SeedCore
 		{
 			HANDLE event = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 			fence_->Get()->SetEventOnCompletion(fenceValue, event);
-			WaitForSingleObject(event, INFINITE);
+
+			while (WaitForSingleObject(event, fenceTimeoutMilliseconds) == WAIT_TIMEOUT)
+			{
+				Microsoft::WRL::ComPtr<ID3D12Device> device;
+				fence_->Get()->GetDevice(IID_PPV_ARGS(&device));
+
+				HRESULT removedReason = device ? device->GetDeviceRemovedReason() : DXGI_ERROR_DEVICE_HUNG;
+				SC_DEVICE_REMOVED_CHECK(removedReason, device.Get(), "GPUの処理完了待ちがタイムアウトしました");
+			}
+
 			CloseHandle(event);
 		}
 	}

@@ -1,6 +1,6 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
-#include <FoundationEngine/Serialization/SerializeFallback.h>
+#include <FoundationEngine/Serialization/Json/JsonArchive.h>
 #include <GraphicsEngine/DLSS/DlssMode.h>
 #include <GraphicsEngine/Renderer/ShadowRenderer.h>
 #include <GraphicsEngine/Renderer/AmbientOcclusionRenderer.h>
@@ -118,50 +118,49 @@ namespace SeedCore
 		///      モードを消費するかを切り替えるだけ。
 		UpscaleMode upscaleMode_ = UpscaleMode::Balanced;
 
-		/// [EN] Each field is loaded/saved independently via TryLoadField (see
-		///      FoundationEngine/Serialization/SerializeFallback.h) - a missing or
-		///      unparsable field (older save, schema change) only falls back to
-		///      that field's default; every other field still loads normally.
-		/// [JP] 各フィールドは TryLoadField(FoundationEngine/Utility/
-		///      SerializeFallback.h 参照)経由で独立に読み書きする -
+		/// [EN] Each field is loaded/saved independently via TryField - a
+		///      missing or unparsable field (older save, schema change) only
+		///      falls back to that field's default; every other field still
+		///      loads normally.
+		/// [JP] 各フィールドは TryField 経由で独立に読み書きする -
 		///      見つからない/パースできないフィールド(古い保存データ、
 		///      スキーマ変更)があってもそのフィールドだけ既定値へフォール
 		///      バックし、他のフィールドは通常通り読み込まれる。
 		template<class Archive>
-		void serialize(Archive& archive)
+		void Serialize(Archive& archive)
 		{
 			Int32 upscaleModeValue = static_cast<Int32>(upscaleMode_);
 
-			TryLoadField(archive, "shadowEnabled", shadowEnabled_);
-			TryLoadField(archive, "shadow", shadow_);
-			TryLoadField(archive, "ambientOcclusionEnabled", ambientOcclusionEnabled_);
-			TryLoadField(archive, "ambientOcclusion", ambientOcclusion_);
-			TryLoadField(archive, "reflectionEnabled", reflectionEnabled_);
-			TryLoadField(archive, "reflection", reflection_);
-			TryLoadField(archive, "globalIlluminationEnabled", globalIlluminationEnabled_);
-			TryLoadField(archive, "globalIllumination", globalIllumination_);
-			TryLoadField(archive, "subsurfaceScatteringEnabled", subsurfaceScatteringEnabled_);
-			TryLoadField(archive, "subsurfaceScattering", subsurfaceScattering_);
-			TryLoadField(archive, "volumetricCloudScapesEnabled", volumetricCloudScapesEnabled_);
-			TryLoadField(archive, "volumetricCloudScapes", volumetricCloudScapes_);
-			TryLoadField(archive, "volumetricLightEnabled", volumetricLightEnabled_);
-			TryLoadField(archive, "volumetricLight", volumetricLight_);
-			TryLoadField(archive, "daySystemEnabled", daySystemEnabled_);
-			TryLoadField(archive, "daySystem", daySystem_);
-			TryLoadField(archive, "sunLightEnabled", sunLightEnabled_);
-			TryLoadField(archive, "sunLight", sunLight_);
-			TryLoadField(archive, "moonLightEnabled", moonLightEnabled_);
-			TryLoadField(archive, "moonLight", moonLight_);
-			TryLoadField(archive, "volumetricStarEnabled", volumetricStarEnabled_);
-			TryLoadField(archive, "volumetricStar", volumetricStar_);
-			TryLoadField(archive, "rainEnabled", rainEnabled_);
-			TryLoadField(archive, "rain", rain_);
-			TryLoadField(archive, "snowEnabled", snowEnabled_);
-			TryLoadField(archive, "snow", snow_);
-			TryLoadField(archive, "refractionEnabled", refractionEnabled_);
-			TryLoadField(archive, "refraction", refraction_);
-			TryLoadField(archive, "dlssRayReconstructionEnabled", dlssRayReconstructionEnabled_);
-			TryLoadField(archive, "upscaleMode", upscaleModeValue);
+			archive.TryField("shadowEnabled", shadowEnabled_);
+			archive.TryField("shadow", shadow_);
+			archive.TryField("ambientOcclusionEnabled", ambientOcclusionEnabled_);
+			archive.TryField("ambientOcclusion", ambientOcclusion_);
+			archive.TryField("reflectionEnabled", reflectionEnabled_);
+			archive.TryField("reflection", reflection_);
+			archive.TryField("globalIlluminationEnabled", globalIlluminationEnabled_);
+			archive.TryField("globalIllumination", globalIllumination_);
+			archive.TryField("subsurfaceScatteringEnabled", subsurfaceScatteringEnabled_);
+			archive.TryField("subsurfaceScattering", subsurfaceScattering_);
+			archive.TryField("volumetricCloudScapesEnabled", volumetricCloudScapesEnabled_);
+			archive.TryField("volumetricCloudScapes", volumetricCloudScapes_);
+			archive.TryField("volumetricLightEnabled", volumetricLightEnabled_);
+			archive.TryField("volumetricLight", volumetricLight_);
+			archive.TryField("daySystemEnabled", daySystemEnabled_);
+			archive.TryField("daySystem", daySystem_);
+			archive.TryField("sunLightEnabled", sunLightEnabled_);
+			archive.TryField("sunLight", sunLight_);
+			archive.TryField("moonLightEnabled", moonLightEnabled_);
+			archive.TryField("moonLight", moonLight_);
+			archive.TryField("volumetricStarEnabled", volumetricStarEnabled_);
+			archive.TryField("volumetricStar", volumetricStar_);
+			archive.TryField("rainEnabled", rainEnabled_);
+			archive.TryField("rain", rain_);
+			archive.TryField("snowEnabled", snowEnabled_);
+			archive.TryField("snow", snow_);
+			archive.TryField("refractionEnabled", refractionEnabled_);
+			archive.TryField("refraction", refraction_);
+			archive.TryField("dlssRayReconstructionEnabled", dlssRayReconstructionEnabled_);
+			archive.TryField("upscaleMode", upscaleModeValue);
 
 			upscaleMode_ = static_cast<UpscaleMode>(upscaleModeValue);
 		}
@@ -171,13 +170,9 @@ namespace SeedCore
 	/// [JP] settings を JSON 文字列へ変換する。Scene::raytracingSettingsJson_ に埋め込むために使う。
 	inline String SerializeRaytracingContext(const RaytracingContext& settings)
 	{
-		std::ostringstream stream;
-		{
-			cereal::JSONOutputArchive archive(stream);
-			archive(cereal::make_nvp("raytracing", settings));
-		}
-
-		return stream.str().c_str();
+		JsonOutputArchive archive;
+		archive.Field("raytracing", settings);
+		return archive.Dump();
 	}
 
 	/// [EN] Decodes a JSON string produced by SerializeRaytracingContext back into a RaytracingContext. Returns a default-constructed RaytracingContext if json is empty or malformed.
@@ -191,16 +186,13 @@ namespace SeedCore
 			return settings;
 		}
 
-		try
-		{
-			std::istringstream stream(json.c_str());
-			cereal::JSONInputArchive archive(stream);
-			archive(cereal::make_nvp("raytracing", settings));
-		}
-		catch (const cereal::Exception&)
+		JsonInputArchive archive;
+		if (!archive.Parse(json))
 		{
 			return RaytracingContext();
 		}
+
+		archive.TryField("raytracing", settings);
 
 		return settings;
 	}

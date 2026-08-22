@@ -110,7 +110,7 @@ namespace SeedCore
 		DirectX::ResourceUploadBatch resourceUpload(device);
 		resourceUpload.Begin();
 		resourceUpload.Upload(equirectResource_.Get(), 0, &subresource, 1);
-		resourceUpload.Transition(equirectResource_.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+		resourceUpload.Transition(equirectResource_.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 		auto uploadFinished = resourceUpload.End(cmdQueue);
 		uploadFinished.wait();
 

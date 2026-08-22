@@ -72,34 +72,32 @@ namespace SeedCore
 
 		/**
 		* [EN]
-		* Cereal serialization hook: reads/writes every member above.
-		* type_ is round-tripped through a plain Int since cereal cannot
+		* Serialization hook: reads/writes every member above. type_ is
+		* round-tripped through a plain Int since the archive cannot
 		* serialize an enum class directly.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* Cereal シリアライズ用フック: 上記の全メンバを読み書きする。
-		* cereal は enum class を直接シリアライズできないため、type_ は
+		* シリアライズ用フック: 上記の全メンバを読み書きする。
+		* アーカイブは enum class を直接シリアライズできないため、type_ は
 		* 素の Int を経由して往復させる。
 		*/
 		template<class Archive>
-		void serialize(Archive& archive)
+		void Serialize(Archive& archive)
 		{
 			Int typeValue = static_cast<Int>(type_);
-			archive(
-				cereal::make_nvp("name", name_),
-				cereal::make_nvp("type", typeValue),
-				cereal::make_nvp("float", floatValue_),
-				cereal::make_nvp("vector2", vector2Value_),
-				cereal::make_nvp("vector3", vector3Value_),
-				cereal::make_nvp("color", colorValue_),
-				cereal::make_nvp("bool", boolValue_),
-				cereal::make_nvp("int", intValue_),
-				cereal::make_nvp("string", stringValue_),
-				cereal::make_nvp("is_array", isArray_),
-				cereal::make_nvp("children", children_)
-			);
+			archive.Field("name", name_);
+			archive.Field("type", typeValue);
+			archive.Field("float", floatValue_);
+			archive.Field("vector2", vector2Value_);
+			archive.Field("vector3", vector3Value_);
+			archive.Field("color", colorValue_);
+			archive.Field("bool", boolValue_);
+			archive.Field("int", intValue_);
+			archive.Field("string", stringValue_);
+			archive.Field("is_array", isArray_);
+			archive.Field("children", children_);
 			type_ = static_cast<AttributeType>(typeValue);
 		}
 	};
@@ -128,21 +126,18 @@ namespace SeedCore
 
 		/**
 		* [EN]
-		* Cereal serialization hook: reads/writes componentName_ and fields_.
+		* Serialization hook: reads/writes componentName_ and fields_.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* Cereal シリアライズ用フック: componentName_ と fields_ を
-		* 読み書きする。
+		* シリアライズ用フック: componentName_ と fields_ を読み書きする。
 		*/
 		template<class Archive>
-		void serialize(Archive& archive)
+		void Serialize(Archive& archive)
 		{
-			archive(
-				cereal::make_nvp("component", componentName_),
-				cereal::make_nvp("fields", fields_)
-			);
+			archive.Field("component", componentName_);
+			archive.Field("fields", fields_);
 		}
 	};
 
@@ -213,34 +208,32 @@ namespace SeedCore
 
 		/**
 		* [EN]
-		* Cereal serialization hook (save side): writes every member above.
+		* Serialization hook (save side): writes every member above.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* Cereal シリアライズ用フック(保存側): 上記の全メンバを書き込む。
+		* シリアライズ用フック(保存側): 上記の全メンバを書き込む。
 		*/
 		template<class Archive>
-		void save(Archive& archive)const
+		void Save(Archive& archive)const
 		{
-			archive(
-				cereal::make_nvp("name", name_),
-				cereal::make_nvp("tags", tags_),
-				cereal::make_nvp("active", active_),
-				cereal::make_nvp("position", position_),
-				cereal::make_nvp("rotation", rotation_),
-				cereal::make_nvp("scale", scale_),
-				cereal::make_nvp("components", components_),
-				cereal::make_nvp("parentIndex", parentIndex_),
-				cereal::make_nvp("nestedPrefabAssetID", nestedPrefabAssetID_),
-				cereal::make_nvp("overrides", overrides_),
-				cereal::make_nvp("persistentId", persistentId_)
-			);
+			archive.Field("name", name_);
+			archive.Field("tags", tags_);
+			archive.Field("active", active_);
+			archive.Field("position", position_);
+			archive.Field("rotation", rotation_);
+			archive.Field("scale", scale_);
+			archive.Field("components", components_);
+			archive.Field("parentIndex", parentIndex_);
+			archive.Field("nestedPrefabAssetID", nestedPrefabAssetID_);
+			archive.Field("overrides", overrides_);
+			archive.Field("persistentId", persistentId_);
 		}
 
 		/**
 		* [EN]
-		* Cereal serialization hook (load side): reads every member above.
+		* Serialization hook (load side): reads every member above.
 		* persistentId_ is optional -- nodes saved before this field
 		* existed simply leave it 0 (World::CreateActor auto-allocates a
 		* fresh ID in that case) -- so a missing key is swallowed rather
@@ -249,37 +242,26 @@ namespace SeedCore
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* Cereal シリアライズ用フック(読み込み側): 上記の全メンバを
-		* 読み込む。persistentId_ は任意項目 -- このフィールドが存在する前に
-		* 保存されたノードでは単に 0 のままになる(その場合
-		* World::CreateActor が新規IDを自動割り当てする) -- なので、キーが
-		* 無くても読み込み全体を失敗させず読み飛ばす。
+		* シリアライズ用フック(読み込み側): 上記の全メンバを読み込む。
+		* persistentId_ は任意項目 -- このフィールドが存在する前に保存された
+		* ノードでは単に 0 のままになる(その場合 World::CreateActor が
+		* 新規IDを自動割り当てする) -- なので、キーが無くても読み込み全体を
+		* 失敗させず読み飛ばす。
 		*/
 		template<class Archive>
-		void load(Archive& archive)
+		void Load(Archive& archive)
 		{
-			archive(
-				cereal::make_nvp("name", name_),
-				cereal::make_nvp("tags", tags_),
-				cereal::make_nvp("active", active_),
-				cereal::make_nvp("position", position_),
-				cereal::make_nvp("rotation", rotation_),
-				cereal::make_nvp("scale", scale_),
-				cereal::make_nvp("components", components_),
-				cereal::make_nvp("parentIndex", parentIndex_),
-				cereal::make_nvp("nestedPrefabAssetID", nestedPrefabAssetID_),
-				cereal::make_nvp("overrides", overrides_)
-			);
-
-			const Char* nextName = archive.getNodeName();
-			if (nextName && std::strcmp(nextName, "persistentId") == 0)
-			{
-				archive(cereal::make_nvp("persistentId", persistentId_));
-			}
-			else
-			{
-				persistentId_ = 0;
-			}
+			archive.TryField("name", name_);
+			archive.TryField("tags", tags_);
+			archive.TryField("active", active_);
+			archive.TryField("position", position_);
+			archive.TryField("rotation", rotation_);
+			archive.TryField("scale", scale_);
+			archive.TryField("components", components_);
+			archive.TryField("parentIndex", parentIndex_);
+			archive.TryField("nestedPrefabAssetID", nestedPrefabAssetID_);
+			archive.TryField("overrides", overrides_);
+			archive.TryField("persistentId", persistentId_);
 		}
 	};
 

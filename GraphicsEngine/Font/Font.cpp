@@ -250,7 +250,7 @@ namespace SeedCore
 		{
 			DirectX::ResourceUploadBatch transition(device);
 			transition.Begin();
-			transition.Transition(atlasTexture_.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_COPY_DEST);
+			transition.Transition(atlasTexture_.Get(), D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_COPY_DEST);
 			transition.End(cmdQueue).wait();
 		}
 
@@ -262,7 +262,7 @@ namespace SeedCore
 		DirectX::ResourceUploadBatch upload(device);
 		upload.Begin();
 		upload.Upload(atlasTexture_.Get(), 0, &subresource, 1);
-		upload.Transition(atlasTexture_.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+		upload.Transition(atlasTexture_.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
 		upload.End(cmdQueue).wait();
 
 		ClearAtlasDirty();

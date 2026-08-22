@@ -3,6 +3,7 @@
 #include <FoundationEngine/ECS/World.h>
 #include <FoundationEngine/ECS/Component/Name.h>
 #include <FoundationEngine/Log/Error.h>
+#include <FoundationEngine/Serialization/Json/JsonArchive.h>
 
 namespace SeedCore
 {
@@ -90,16 +91,9 @@ namespace SeedCore
 	*/
 	Bool Prefab::Write(const std::filesystem::path& path)
 	{
-		std::ofstream ofs(path);
-		if (!ofs)
-		{
-			return false;
-		}
-
-		cereal::JSONOutputArchive archive(ofs);
-		archive(*this);
-
-		return true;
+		JsonOutputArchive archive;
+		Save(archive);
+		return archive.Write(String(path.string()));
 	}
 
 	/**
@@ -115,22 +109,14 @@ namespace SeedCore
 	*/
 	Bool Prefab::Read(const std::filesystem::path& path)
 	{
-		std::ifstream ifs(path);
-		if (!ifs)
+		JsonInputArchive archive;
+		if (!archive.Read(String(path.string())))
 		{
+			SC_LOG_ERROR("Prefabの読み込みに失敗しました ({})", path.string());
 			return false;
 		}
 
-		try
-		{
-			cereal::JSONInputArchive archive(ifs);
-			archive(*this);
-		}
-		catch (const cereal::Exception& exception)
-		{
-			SC_LOG_ERROR("Prefabの読み込みに失敗しました ({}): {}", path.string(), exception.what());
-			return false;
-		}
+		Load(archive);
 
 		return true;
 	}

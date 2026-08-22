@@ -241,6 +241,15 @@
     <ClCompile Include="Utility\Delegate.cpp">
       <Filter>Utility</Filter>
     </ClCompile>
+    <ClCompile Include="Serialization\Json\JsonArchive.cpp">
+      <Filter>Serialization\Json</Filter>
+    </ClCompile>
+    <ClCompile Include="Serialization\Binary\BinaryArchive.cpp">
+      <Filter>Serialization\Bainary</Filter>
+    </ClCompile>
+    <ClCompile Include="Log\AftermathCrashTracker.cpp">
+      <Filter>Log</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Log\DxFail.h">
@@ -605,11 +614,17 @@
     <ClInclude Include="Utility\Delegate.h">
       <Filter>Utility</Filter>
     </ClInclude>
-    <ClInclude Include="Serialization\CerealCommon.h">
+    <ClInclude Include="Serialization\Json\JsonArchive.h">
+      <Filter>Serialization\Json</Filter>
+    </ClInclude>
+    <ClInclude Include="Serialization\Binary\BinaryArchive.h">
+      <Filter>Serialization\Bainary</Filter>
+    </ClInclude>
+    <ClInclude Include="Serialization\SerializeSupport.h">
       <Filter>Serialization</Filter>
     </ClInclude>
-    <ClInclude Include="Serialization\SerializeFallback.h">
-      <Filter>Serialization</Filter>
+    <ClInclude Include="Log\AftermathCrashTracker.h">
+      <Filter>Log</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

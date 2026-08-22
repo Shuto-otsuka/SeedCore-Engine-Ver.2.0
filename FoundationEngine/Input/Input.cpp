@@ -1,16 +1,16 @@
 #include <FoundationEngine/Input/Input.h>
-#include <FoundationEngine/Serialization/SerializeFallback.h>
+#include <FoundationEngine/Serialization/Json/JsonArchive.h>
 
 namespace SeedCore
 {
 	namespace
 	{
 		/// [EN] On-disk shape of one action's bindings (see Input::LoadBindings/SaveBindings).
-		///      Key/SDL_GamepadButton round-trip as Int32 since cereal has no
+		///      Key/SDL_GamepadButton round-trip as Int32 since the archive has no
 		///      built-in support for raw enums (same convention as GameConfig's
 		///      upscaleMode_/resolution_, see Editor/Editor/Build/Config.cpp).
 		/// [JP] 1アクション分のバインド情報のディスク上の形（Input::LoadBindings/
-		///      SaveBindings 参照）。Key/SDL_GamepadButton は cereal が生の enum を
+		///      SaveBindings 参照）。Key/SDL_GamepadButton はアーカイブが生の enum を
 		///      直接扱えないため Int32 として往復させる（GameConfig の
 		///      upscaleMode_/resolution_ と同じ規約、Editor/Editor/Build/Config.cpp 参照）。
 		struct AxisKeysRecord
@@ -21,14 +21,12 @@ namespace SeedCore
 			Int32 right_ = 0;
 
 			template<class Archive>
-			void serialize(Archive& archive)
+			void Serialize(Archive& archive)
 			{
-				archive(
-					cereal::make_nvp("up", up_),
-					cereal::make_nvp("down", down_),
-					cereal::make_nvp("left", left_),
-					cereal::make_nvp("right", right_)
-				);
+				archive.Field("up", up_);
+				archive.Field("down", down_);
+				archive.Field("left", left_);
+				archive.Field("right", right_);
 			}
 		};
 
@@ -41,15 +39,13 @@ namespace SeedCore
 			DynamicArray<Int32> sticks_;
 
 			template<class Archive>
-			void serialize(Archive& archive)
+			void Serialize(Archive& archive)
 			{
-				archive(
-					cereal::make_nvp("action", action_),
-					cereal::make_nvp("keys", keys_),
-					cereal::make_nvp("gamepadButtons", gamepadButtons_),
-					cereal::make_nvp("axisKeys", axisKeys_),
-					cereal::make_nvp("sticks", sticks_)
-				);
+				archive.Field("action", action_);
+				archive.Field("keys", keys_);
+				archive.Field("gamepadButtons", gamepadButtons_);
+				archive.Field("axisKeys", axisKeys_);
+				archive.Field("sticks", sticks_);
 			}
 		};
 	}
@@ -1038,23 +1034,19 @@ namespace SeedCore
 	*/
 	void Input::LoadBindings(const std::filesystem::path& path)
 	{
-		std::ifstream ifs(path);
-		if (!ifs)
+		if (!std::filesystem::exists(path))
+		{
+			return;
+		}
+
+		JsonInputArchive archive;
+		if (!archive.Read(String(path.string())))
 		{
 			return;
 		}
 
 		DynamicArray<ActionBindingRecord> records;
-
-		try
-		{
-			cereal::JSONInputArchive archive(ifs);
-			TryLoadField(archive, "bindings", records);
-		}
-		catch (...)
-		{
-			return;
-		}
+		archive.TryField("bindings", records);
 
 		actionBindings_.clear();
 		actionOrder_.clear();
@@ -1106,12 +1098,6 @@ namespace SeedCore
 			std::filesystem::create_directories(path.parent_path());
 		}
 
-		std::ofstream ofs(path);
-		if (!ofs)
-		{
-			return;
-		}
-
 		DynamicArray<ActionBindingRecord> records;
 		records.reserve(actionOrder_.size());
 
@@ -1150,8 +1136,9 @@ namespace SeedCore
 			records.push_back(std::move(record));
 		}
 
-		cereal::JSONOutputArchive archive(ofs);
-		archive(cereal::make_nvp("bindings", records));
+		JsonOutputArchive archive;
+		archive.Field("bindings", records);
+		archive.Write(String(path.string()));
 	}
 
 	/**

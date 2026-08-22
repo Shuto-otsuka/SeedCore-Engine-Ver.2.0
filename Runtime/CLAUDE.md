@@ -51,7 +51,7 @@ Every module includes a single `Prelude.h`/`Prelude.cpp` per project (e.g. `Foun
 
 ### External dependencies (`External/`)
 
-Vendored, prebuilt-lib third-party libraries: JoltPhysics (physics), DirectXTK/DirectXTex (D3D12 helpers/textures), DLSS, ImGui (+ ImGuizmo, ImNodeEditor) for editor UI, SDL3 (windowing/input), Cereal (serialization), CRI ADX2 (audio), MTSDF/FreeType/HarfBuzz/msdfgen (text/font rendering), TinyglTF, RecastNavigation (navmesh/pathfinding), WebSocket.
+Vendored, prebuilt-lib third-party libraries: JoltPhysics (physics), DirectXTK/DirectXTex (D3D12 helpers/textures), DLSS, ImGui (+ ImGuizmo, ImNodeEditor) for editor UI, SDL3 (windowing/input), nlohmann/json (JSON), CRI ADX2 (audio), MTSDF/FreeType/HarfBuzz/msdfgen (text/font rendering), TinyglTF, RecastNavigation (navmesh/pathfinding), WebSocket.
 
 ### ECS (`FoundationEngine/ECS`)
 
@@ -61,7 +61,7 @@ Archetype-based ECS (namespace `SeedCore`), similar in shape to Unity DOTS/EnTT:
 - `ComponentRegistry`/`ReflectionRegistry`/`PayloadRegistry`/`TagRegistry` are metadata registries — the latter two have code-generated bodies (see Code generation above).
 - `Component/` holds built-in components (`Position`, `Rotation`, `Scale`, `Velocity`, lifecycle markers like `Active`, `Startable`, `Tickable`, `FixedTick`, `LateTickable`, `Awakeable`, `Destroyable`, and interaction markers `Collisionable`/`Triggerable`).
 - `System/` holds engine systems that operate over queries (`TransformSystem`, `SceneTransitionSystem`), scheduled via `SystemScheduler`.
-- `Resource/` handles scenes/prefabs/assets: `Scene`, `Prefab` (+ pools), `ResourceCache`, `LoaderSystem`, `Gateway`, and `ActorSerialization` (Cereal-based).
+- `Resource/` handles scenes/prefabs/assets: `Scene`, `Prefab` (+ pools), `ResourceCache`, `LoaderSystem`, `Gateway`, and `ActorSerialization`.
 
 ### Job system (`FoundationEngine/JobSystem`)
 

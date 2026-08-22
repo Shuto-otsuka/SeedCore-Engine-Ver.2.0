@@ -3,6 +3,7 @@
 #include <GraphicsEngine/Model/BC7CompressShader.h>
 #include <FoundationEngine/Log/DxFail.h>
 #include <FoundationEngine/Log/Warning.h>
+#include <FoundationEngine/Serialization/Binary/BinaryArchive.h>
 
 namespace SeedCore
 {
@@ -1108,13 +1109,12 @@ namespace SeedCore
 		vertices_ = std::move(transformedVertices);
 		BakeMesh();
 
-		std::ofstream ofs(cristerPath, std::ios::binary);
-		if (!ofs)
+		BinaryOutputArchive archive;
+		Serialize(archive);
+		if (!archive.Write(String(cristerPath.string())))
 		{
 			return false;
 		}
-		cereal::BinaryOutputArchive archive(ofs);
-		archive(*this);
 
 		return true;
 	}
@@ -1244,13 +1244,12 @@ namespace SeedCore
 		vertices_ = std::move(transformedVertices);
 		BakeMesh();
 
-		std::ofstream ofs(cristerPath, std::ios::binary);
-		if (!ofs)
+		BinaryOutputArchive archive;
+		Serialize(archive);
+		if (!archive.Write(String(cristerPath.string())))
 		{
 			return false;
 		}
-		cereal::BinaryOutputArchive archive(ofs);
-		archive(*this);
 
 		return true;
 	}
@@ -1460,7 +1459,44 @@ namespace SeedCore
 
 							const CompressedVertex& compressed = compressedVertices_[globalIndex];
 							raytracingVertices.push_back(compressed);
-							raytracingPositions.push_back(DecodePosition(compressed));
+
+							/// [EN] A source asset with a degenerate/non-finite
+							///      quantisation AABB (positionMin_/positionExtent_)
+							///      decodes to a NaN/Inf position here even though
+							///      the compressed bit pattern itself is well-formed.
+							///      That NaN reaches the BLAS's position buffer,
+							///      producing a NaN bounding box the traversal
+							///      hardware can never cull against - every ray
+							///      descends into it instead of skipping it, which
+							///      is a no-page-fault DispatchRays hang rather than
+							///      a crash. Falling back to the origin keeps this
+							///      mesh's triangle count/indexing intact (so BLAS
+							///      build still succeeds) while giving the BVH a
+							///      finite, if wrong-looking, box.
+							/// [JP] 量子化 AABB(positionMin_/positionExtent_)が退化/非有限な
+							///      ソースアセットは、圧縮ビットパターン自体は
+							///      正常でもここで NaN/Inf の位置へデコードされる。
+							///      その NaN は BLAS の位置バッファへそのまま渡り、
+							///      走査ハードウェアが絶対にカリングできない NaN
+							///      境界ボックスを生む - 全てのレイがスキップされず
+							///      そこへ降りていくため、クラッシュではなく
+							///      ページフォルト無しの DispatchRays ハングになる。
+							///      原点へフォールバックすれば、このメッシュの
+							///      三角形数/インデックス構造は保ったまま
+							///      (BLAS 構築を成功させたまま)、見た目はおかしくとも
+							///      有限な境界ボックスを BVH に与えられる。
+							Vector3 position = DecodePosition(compressed);
+							if (!std::isfinite(position.x) || !std::isfinite(position.y) || !std::isfinite(position.z))
+							{
+								if (!degenerateRaytracingPositionLogged_)
+								{
+									SC_LOG_WARNING("RT プロキシの頂点位置が非有限です。ソースアセットの量子化 AABB が壊れている可能性があります。");
+									degenerateRaytracingPositionLogged_ = true;
+								}
+								position = Vector3::Zero;
+							}
+
+							raytracingPositions.push_back(position);
 							flatTriangleIndices.push_back(compactIndex);
 
 							if (buildRaytracingSkinVertices)
@@ -1983,6 +2019,38 @@ namespace SeedCore
 
 	/**
 	* [EN]
+	* Whether any texture's resident bindless index has changed (via
+	* MakeTextureMipResident/EvictTextureMip) since the last
+	* ClearMaterialsDirty().
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 前回の ClearMaterialsDirty() 以降に、いずれかのテクスチャの常駐
+	* バインドレスインデックスが(MakeTextureMipResident/EvictTextureMip
+	* 経由で)変わったか。
+	*/
+	Bool Crister::IsMaterialsDirty()const
+	{
+		return materialsDirty_;
+	}
+
+	/**
+	* [EN]
+	* Clears the flag IsMaterialsDirty() reports.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* IsMaterialsDirty() が報告するフラグをクリアする。
+	*/
+	void Crister::ClearMaterialsDirty()const
+	{
+		materialsDirty_ = false;
+	}
+
+	/**
+	* [EN]
 	* Bindless SRV of the RT proxy CompressedVertex buffer (built from
 	* each SubMesh's coarsest cluster — reflections trace against a
 	* low-poly proxy so full-detail geometry never has to be resident).
@@ -2351,7 +2419,7 @@ namespace SeedCore
 		DirectX::ResourceUploadBatch resourceUpload(device_);
 		resourceUpload.Begin();
 		resourceUpload.Upload(newResource.Get(), 0, &subresource, 1);
-		resourceUpload.Transition(newResource.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+		resourceUpload.Transition(newResource.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
 		auto finished = resourceUpload.End(uploadQueue_);
 		finished.wait();
 
@@ -2398,6 +2466,7 @@ namespace SeedCore
 
 		totalResidentTextureBytes_ += slicePitch;
 		streamingTexture.topResidentMip_ = mipIndex;
+		materialsDirty_ = true;
 	}
 
 	/**
@@ -2515,6 +2584,7 @@ namespace SeedCore
 		totalResidentTextureBytes_ -= streamingTexture.currentMip_.sizeBytes_;
 		streamingTexture.currentMip_.sizeBytes_ = 0;
 		streamingTexture.topResidentMip_ = streamingTexture.mipCount_ - 1;
+		materialsDirty_ = true;
 	}
 
 	/**

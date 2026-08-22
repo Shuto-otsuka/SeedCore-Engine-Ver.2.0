@@ -1,71 +1,61 @@
 {
-    "value0": {
-        "nodes": [
-            {
-                "name": {
-                    "value0": "FlatWall"
-                },
-                "tags": [],
-                "active": true,
-                "position": {
-                    "x": -8.291202545166016,
-                    "y": 0.0,
-                    "z": 0.0
-                },
-                "rotation": {
-                    "x": -0.0,
-                    "y": 0.0,
-                    "z": -0.0
-                },
-                "scale": {
-                    "x": 1.0,
-                    "y": 1.0,
-                    "z": 1.0
-                },
-                "components": [
-                    {
-                        "component": {
-                            "value0": "Mesh"
-                        },
-                        "fields": [
-                            {
-                                "name": {
-                                    "value0": "メッシュID"
-                                },
-                                "type": 1,
-                                "float": 0.0,
-                                "vector2": {
-                                    "x": 0.0,
-                                    "y": 0.0
-                                },
-                                "vector3": {
-                                    "x": 0.0,
-                                    "y": 0.0,
-                                    "z": 0.0
-                                },
-                                "color": {
-                                    "r": 0.0,
-                                    "g": 0.0,
-                                    "b": 0.0,
-                                    "a": 1.0
-                                },
-                                "bool": false,
-                                "int": -874794,
-                                "string": {
-                                    "value0": ""
-                                },
-                                "is_array": false,
-                                "children": []
-                            }
-                        ]
-                    }
-                ],
-                "parentIndex": -1,
-                "nestedPrefabAssetID": 0,
-                "overrides": [],
-                "persistentId": 27
-            }
-        ],
-        "basePrefabAssetID": 0
-    }
+	"nodes": [
+		{
+			"name": "FlatWall",
+			"tags": [],
+			"active": true,
+			"position": {
+				"x": -8.291202545166016,
+				"y": 0.0,
+				"z": 0.0
+			},
+			"rotation": {
+				"x": -0.0,
+				"y": 0.0,
+				"z": -0.0
+			},
+			"scale": {
+				"x": 1.0,
+				"y": 1.0,
+				"z": 1.0
+			},
+			"components": [
+				{
+					"component": "Mesh",
+					"fields": [
+						{
+							"name": "メッシュID",
+							"type": 1,
+							"float": 0.0,
+							"vector2": {
+								"x": 0.0,
+								"y": 0.0
+							},
+							"vector3": {
+								"x": 0.0,
+								"y": 0.0,
+								"z": 0.0
+							},
+							"color": {
+								"r": 0.0,
+								"g": 0.0,
+								"b": 0.0,
+								"a": 1.0
+							},
+							"bool": false,
+							"int": -874794,
+							"string": "",
+							"is_array": false,
+							"children": []
+						}
+					]
+				}
+			],
+			"parentIndex": -1,
+			"nestedPrefabAssetID": 0,
+			"overrides": [],
+			"persistentId": 27
+		}
+	],
+	"basePrefabAssetID": 0
 }

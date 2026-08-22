@@ -1,6 +1,5 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
-#include <FoundationEngine/Serialization/SerializeFallback.h>
 #include <GraphicsEngine/D3D12/Buffer/ConstantBuffer.h>
 #include <GraphicsEngine/D3D12/Descriptor/DescriptorHeap.h>
 #include <GraphicsEngine/Raytracing/Shadow/ShadowShader.h>
@@ -76,14 +75,14 @@ namespace SeedCore
 		Float shadowRayPadding_ = 0.0f;
 
 		template<class Archive>
-		void serialize(Archive& archive)
+		void Serialize(Archive& archive)
 		{
-			TryLoadField(archive, "rayTMax", rayTMax_);
-			TryLoadField(archive, "normalBias", normalBias_);
-			TryLoadField(archive, "shadowStrength", shadowStrength_);
-			TryLoadField(archive, "sunAngularRadius", sunAngularRadius_);
-			TryLoadField(archive, "punctualLightRadius", punctualLightRadius_);
-			TryLoadField(archive, "denoiseMode", denoiseMode_);
+			archive.TryField("rayTMax", rayTMax_);
+			archive.TryField("normalBias", normalBias_);
+			archive.TryField("shadowStrength", shadowStrength_);
+			archive.TryField("sunAngularRadius", sunAngularRadius_);
+			archive.TryField("punctualLightRadius", punctualLightRadius_);
+			archive.TryField("denoiseMode", denoiseMode_);
 		}
 	};
 

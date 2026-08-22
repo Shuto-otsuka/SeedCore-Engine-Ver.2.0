@@ -2,6 +2,7 @@
 #include <GraphicsEngine/Model/QuadricErrorMetrics.h>
 #include <GraphicsEngine/D3D12/Descriptor/BindlessHeap.h>
 #include <FoundationEngine/Resource/LoaderSystem.h>
+#include <FoundationEngine/Serialization/Binary/BinaryArchive.h>
 
 namespace SeedCore
 {
@@ -51,23 +52,22 @@ namespace SeedCore
 		///      asset IS the ".crister" itself. Assigning the source glTF/GLB
 		///      always re-parses it (source of truth) and re-bakes the sibling
 		///      ".crister". A cache written by an older serialisation layout
-		///      throws cereal::Exception — treat it as a cache miss.
+		///      fails to parse — treat it as a cache miss.
 		/// [JP] ソース優先: 割り当てられたアセットが ".crister" 自身の時だけ
 		///      バイナリキャッシュを読む。ソース glTF/GLB を割り当てた時は常に
 		///      再解析し（source of truth）隣の ".crister" を再ベイクする。古い
-		///      シリアライズレイアウトのキャッシュは cereal::Exception を投げる
-		///      ため、キャッシュミス扱いにする。
+		///      シリアライズレイアウトのキャッシュは解析に失敗するため、
+		///      キャッシュミス扱いにする。
 		Bool loadedFromCache = false;
 		if (path.extension() == ".crister" && std::filesystem::exists(cristerPath))
 		{
-			try
+			BinaryInputArchive archive;
+			if (archive.Read(String(cristerPath.string())))
 			{
-				std::ifstream ifs(cristerPath, std::ios::binary);
-				cereal::BinaryInputArchive archive(ifs);
-				archive(*crister);
+				crister->Serialize(archive);
 				loadedFromCache = true;
 			}
-			catch (const cereal::Exception&)
+			else
 			{
 				*crister = Crister{};
 			}
@@ -137,9 +137,9 @@ namespace SeedCore
 
 			/// [EN] Serialise everything to ".crister" binary cache for next load.
 			/// [JP] 次回のロードのため ".crister" バイナリキャッシュにシリアライズする。
-			std::ofstream ofs(cristerPath, std::ios::binary);
-			cereal::BinaryOutputArchive archive(ofs);
-			archive(*crister);
+			BinaryOutputArchive archive;
+			crister->Serialize(archive);
+			archive.Write(String(cristerPath.string()));
 		}
 
 		/// [EN] Upload vertex/index/meshlet buffers to GPU.

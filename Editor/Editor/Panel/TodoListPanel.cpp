@@ -1,5 +1,6 @@
 #include <Editor/Editor/Panel/TodoListPanel.h>
 #include <Editor/Editor/EditorContext.h>
+#include <FoundationEngine/Serialization/Json/JsonArchive.h>
 
 namespace SeedCore
 {
@@ -72,33 +73,26 @@ namespace SeedCore
 
 	void TodoListPanel::Load()
 	{
-		std::ifstream ifs("../Editor/TodoList.json");
-		if (!ifs)
+		if (!std::filesystem::exists("../Editor/TodoList.json"))
 		{
 			return;
 		}
 
-		try
-		{
-			cereal::JSONInputArchive archive(ifs);
-			archive(cereal::make_nvp("items", items_));
-		}
-		catch (...)
+		JsonInputArchive archive;
+		if (!archive.Read("../Editor/TodoList.json"))
 		{
 			items_.clear();
+			return;
 		}
+
+		archive.Field("items", items_);
 	}
 
 	void TodoListPanel::Save()
 	{
-		std::ofstream ofs("../Editor/TodoList.json");
-		if (!ofs)
-		{
-			return;
-		}
-
-		cereal::JSONOutputArchive archive(ofs);
-		archive(cereal::make_nvp("items", items_));
+		JsonOutputArchive archive;
+		archive.Field("items", items_);
+		archive.Write("../Editor/TodoList.json");
 	}
 
 	void TodoListPanel::Open()

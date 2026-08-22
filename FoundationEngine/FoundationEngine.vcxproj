@@ -110,6 +110,7 @@
     <ClInclude Include="Input\Input.h" />
     <ClInclude Include="Input\InputSystem.h" />
     <ClInclude Include="Interop\ColliderInstance.h" />
+    <ClInclude Include="Log\AftermathCrashTracker.h" />
     <ClInclude Include="Log\Error.h" />
     <ClInclude Include="Log\LogSystem.h" />
     <ClInclude Include="Log\Notice.h" />
@@ -120,6 +121,7 @@
     <ClInclude Include="Math\Random\Xorshift.h" />
     <ClCompile Include="JobSystem\Semaphore.cpp">
     </ClCompile>
+    <ClCompile Include="Log\AftermathCrashTracker.cpp" />
     <ClCompile Include="Log\LogSystem.cpp">
     </ClCompile>
     <ClCompile Include="Math\Random\Hash.cpp" />
@@ -144,6 +146,8 @@
     <ClCompile Include="Resource\ScenePool.cpp" />
     <ClCompile Include="Resource\ResourceCache.cpp">
     </ClCompile>
+    <ClCompile Include="Serialization\Binary\BinaryArchive.cpp" />
+    <ClCompile Include="Serialization\Json\JsonArchive.cpp" />
     <ClCompile Include="Time\GameTimer.cpp">
     </ClCompile>
     <ClCompile Include="Time\Timer.cpp">
@@ -233,8 +237,9 @@
     <ClInclude Include="Resource\ResourceCache.h" />
     <ClInclude Include="Resource\ScenePool.h" />
     <ClInclude Include="SeedScript.h" />
-    <ClInclude Include="Serialization\CerealCommon.h" />
-    <ClInclude Include="Serialization\SerializeFallback.h" />
+    <ClInclude Include="Serialization\Binary\BinaryArchive.h" />
+    <ClInclude Include="Serialization\Json\JsonArchive.h" />
+    <ClInclude Include="Serialization\SerializeSupport.h" />
     <ClInclude Include="Time\GameTimer.h" />
     <ClInclude Include="Time\Timer.h" />
     <ClInclude Include="Time\WorldTimer.h" />

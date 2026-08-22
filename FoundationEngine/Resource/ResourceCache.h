@@ -115,14 +115,14 @@ namespace SeedCore
 
 	/**
 	* [EN]
-	* Cereal-serializable sidecar metadata stored in an asset's .meta
-	* file: primarily its stable GUID, which survives file moves/renames
+	* Serializable sidecar metadata stored in an asset's .meta file:
+	* primarily its stable GUID, which survives file moves/renames
 	* (unlike a path-derived hash).
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* アセットの .meta ファイルに格納される、Cereal でシリアライズ可能な
+	* アセットの .meta ファイルに格納される、シリアライズ可能な
 	* サイドカーメタデータ。主にその安定的な GUID を保持し、これは
 	* （パス由来のハッシュとは異なり）ファイルの移動/リネームを経ても
 	* 変化しない。
@@ -149,21 +149,19 @@ namespace SeedCore
 
 		/**
 		* [EN]
-		* Cereal serialization hook: reads/writes version_, guid_, and axisConvention_.
+		* Serialization hook: reads/writes version_, guid_, and axisConvention_.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* Cereal シリアライズ用フック: version_、guid_、axisConvention_ を読み書きする。
+		* シリアライズ用フック: version_、guid_、axisConvention_ を読み書きする。
 		*/
-		template<class T>
-		void serialize(T& archive)
+		template<class Archive>
+		void Serialize(Archive& archive)
 		{
-			archive(
-				cereal::make_nvp("version", version_),
-				cereal::make_nvp("guid", guid_),
-				cereal::make_nvp("axis_convention", axisConvention_)
-			);
+			archive.Field("version", version_);
+			archive.Field("guid", guid_);
+			archive.Field("axis_convention", axisConvention_);
 		}
 	};
 
