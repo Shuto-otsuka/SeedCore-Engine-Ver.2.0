@@ -38,6 +38,22 @@ namespace SeedCore
 		Bool isSensor_ = false;
 	};
 
+	struct RaycastHit
+	{
+		Vector3 position_ = { 0.0f, 0.0f, 0.0f };
+		Vector3 normal_ = { 0.0f, 0.0f, 0.0f };
+		Float distance_ = 0.0f;
+		EntityID entityID_ = 0;
+	};
+
+	struct RaycastHit2D
+	{
+		Vector2 position_ = { 0.0f, 0.0f };
+		Vector2 normal_ = { 0.0f, 0.0f };
+		Float distance_ = 0.0f;
+		EntityID entityID_ = 0;
+	};
+
 	struct SoftbodyDesc
 	{
 		DynamicArray<Vector3> positions_;
@@ -108,6 +124,22 @@ namespace SeedCore
 		void GetVertexPosition(JPH::BodyID bodyID, DynamicArray<Vector3>& outPositions)const;
 
 		EntityID GetBodyEntityID(JPH::BodyID bodyID)const;
+
+	public:
+		Bool Raycast(const Vector3& origin, const Vector3& direction, Float maxDistance, RaycastHit& outHit, Uint32 layerMask = 0xFFFFFFFF)const;
+
+		Bool Spherecast(const Vector3& origin, Float radius, const Vector3& direction, Float maxDistance, RaycastHit& outHit, Uint32 layerMask = 0xFFFFFFFF)const;
+
+		DynamicArray<EntityID> Overlap(ShapeHandle shape, const Vector3& position, const Quaternion& rotation, Uint32 layerMask = 0xFFFFFFFF)const;
+
+		Bool Raycast2D(const Vector2& origin, const Vector2& direction, Float maxDistance, RaycastHit2D& outHit, Float z = 0.0f, Uint32 layerMask = 0xFFFFFFFF)const;
+
+		Bool Circlecast2D(const Vector2& origin, Float radius, const Vector2& direction, Float maxDistance, RaycastHit2D& outHit, Float z = 0.0f, Uint32 layerMask = 0xFFFFFFFF)const;
+
+		DynamicArray<EntityID> Overlap2D(ShapeHandle shape, const Vector2& position, Float rotation, Float z = 0.0f, Uint32 layerMask = 0xFFFFFFFF)const;
+
+	private:
+		Bool PassesLayerMask(JPH::BodyID bodyID, Uint32 layerMask)const;
 
 	private:
 		JoltManager& joltPhysics_;

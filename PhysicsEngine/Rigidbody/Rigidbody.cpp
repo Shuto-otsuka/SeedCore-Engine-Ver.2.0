@@ -19,7 +19,7 @@ namespace SeedCore
 		desc.shape_ = shapeHandle_;
 		PhysicsSystem::ApplyActorTransform(actor, desc);
 		desc.motionType_ = ToMotionType(bodyType_);
-		desc.layer_ = ToObjectLayer(bodyType_);
+		desc.layer_ = ToObjectLayer(bodyType_, actor.GetLayer());
 		desc.mass_ = mass_;
 		desc.linearDamping_ = linearDrag_;
 		desc.angularDamping_ = angularDrag_;

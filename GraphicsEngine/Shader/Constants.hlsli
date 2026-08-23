@@ -394,42 +394,68 @@ struct PostProcessIndices
 // is a single buffer shared by every view, so per-view values placed there
 // would clobber each other.
 //
-// history_/accumulated_ are the SVGF feedback tap (ATrousPass2's output), i.e.
-// what next frame reprojects, NOT the final image - denoised_/visibility_ is
-// the fully filtered result ATrousPass3 writes and DeferredLightingPS.hlsl
-// samples. moments_ carries (1st.x, 2nd.x, 1st.y, 2nd.y) of the two visibility
-// channels, history_length_ the accumulated frame count, and depth_normal_ a
-// packed copy of this frame's view depth / depth derivative / normal, which the
-// temporal consistency test needs from the PREVIOUS frame (the engine's
-// G-Buffer is single-buffered, so it cannot be read back).
+// Two independent signal chains, directional_/punctual_, because they are no
+// longer the same shape: directional_ is still a single scalar visibility
+// (moments/variance are one channel), while punctual_ is now ShadowRT.hlsl's
+// ReSTIR-picked light's full BRDF RGB radiance (already visibility-weighted),
+// whose variance is tracked from its luminance only (moments/variance stay one
+// channel, but the signal itself is RGB) - see ShadowDenoiseCS.hlsl. Both
+// share ONE geometry chain (history_length_/depth_normal_ below) because the
+// temporal reprojection validity test is purely geometric (view depth/normal),
+// identical for both signals at a given pixel.
 //
-// All of moments_/history_length_/depth_normal_ ping-pong exactly like
-// history_/accumulated_ do; atrous_scratch0_/atrous_scratch1_ are pure scratch
-// registered once in Create()/Resize().
+// Within each signal chain, history_/accumulated_ are the SVGF feedback tap
+// (ATrousPass2's output), i.e. what next frame reprojects, NOT the final image
+// - denoised_/(directional_visibility_|punctual_radiance_) is the fully
+// filtered result ATrousPass3 writes and DeferredLightingPS.hlsl samples.
+// moments_ carries (1st, 2nd) of that chain's luminance, history_length_ the
+// shared accumulated frame count, and depth_normal_ the shared packed copy of
+// this frame's view depth / depth derivative / normal, which the temporal
+// consistency test needs from the PREVIOUS frame (the engine's G-Buffer is
+// single-buffered, so it cannot be read back).
+//
+// moments_/history_length_/depth_normal_ all ping-pong exactly like history_/
+// accumulated_ do; the atrous_scratch0_/atrous_scratch1_ pairs are pure
+// scratch registered once in Create()/Resize().
 struct ShadowAccumulationIndices
 {
-	uint history_srv_index_;
-	uint accumulated_uav_index_;
-	uint accumulated_srv_index_;
-	uint visibility_srv_index_;
+	uint directional_history_srv_index_;
+	uint directional_accumulated_uav_index_;
+	uint directional_accumulated_srv_index_;
+	uint directional_visibility_srv_index_;
 
-	uint atrous_scratch0_srv_index_;
-	uint atrous_scratch0_uav_index_;
-	uint atrous_scratch1_srv_index_;
-	uint atrous_scratch1_uav_index_;
+	uint directional_moments_history_srv_index_;
+	uint directional_moments_srv_index_;
+	uint directional_moments_uav_index_;
+	uint directional_atrous_scratch0_srv_index_;
 
-	uint moments_history_srv_index_;
-	uint moments_srv_index_;
-	uint moments_uav_index_;
+	uint directional_atrous_scratch0_uav_index_;
+	uint directional_atrous_scratch1_srv_index_;
+	uint directional_atrous_scratch1_uav_index_;
+	uint directional_denoised_uav_index_;
+
+	uint punctual_history_srv_index_;
+	uint punctual_accumulated_uav_index_;
+	uint punctual_accumulated_srv_index_;
+	uint punctual_radiance_srv_index_;
+
+	uint punctual_moments_history_srv_index_;
+	uint punctual_moments_srv_index_;
+	uint punctual_moments_uav_index_;
+	uint punctual_atrous_scratch0_srv_index_;
+
+	uint punctual_atrous_scratch0_uav_index_;
+	uint punctual_atrous_scratch1_srv_index_;
+	uint punctual_atrous_scratch1_uav_index_;
+	uint punctual_denoised_uav_index_;
+
 	uint history_length_history_srv_index_;
-
 	uint history_length_srv_index_;
 	uint history_length_uav_index_;
 	uint depth_normal_history_srv_index_;
-	uint depth_normal_srv_index_;
 
+	uint depth_normal_srv_index_;
 	uint depth_normal_uav_index_;
-	uint denoised_uav_index_;
 	uint shadow_accumulation_padding_0_;
 	uint shadow_accumulation_padding_1_;
 };
@@ -467,6 +493,16 @@ struct GlobalIlluminationAccumulationIndices
 	uint atrous_scratch0_uav_index_;
 	uint atrous_scratch1_srv_index_;
 	uint atrous_scratch1_uav_index_;
+
+	// Previous frame's ReSTIR reservoir (ping-ponged like history_/
+	// accumulated_ above) and this frame's write target -
+	// GlobalIlluminationRayGeneration reads/writes both in the same
+	// dispatch, combining the new hemisphere-sample candidate with the
+	// reprojected history reservoir.
+	uint reservoir_history_srv_index_;
+	uint reservoir_uav_index_;
+	uint reservoir_write_srv_index_;
+	uint global_illumination_reservoir_padding_1_;
 };
 
 // Per-view ray-traced reflection SVGF chain (ReflectionDenoiseCS.hlsl) - same
@@ -510,6 +546,17 @@ struct ReflectionAccumulationIndices
 	uint denoised_uav_index_;
 	uint reflection_accumulation_padding_0_;
 	uint reflection_accumulation_padding_1_;
+
+	// Previous frame's ReSTIR reservoir (ping-ponged like history_/
+	// accumulated_ above) and this frame's write target -
+	// ReflectionRayGeneration reads/writes both in the same dispatch,
+	// combining the new GGX-importance-sampled candidate with the
+	// reprojected history reservoir. Same scheme as
+	// GlobalIlluminationAccumulationIndices' reservoir_ fields.
+	uint reservoir_history_srv_index_;
+	uint reservoir_uav_index_;
+	uint reservoir_write_srv_index_;
+	uint reflection_reservoir_padding_1_;
 };
 
 // DLSS Ray Reconstruction's synthesized RGB=normal/A=roughness buffer for

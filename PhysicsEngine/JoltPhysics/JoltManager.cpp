@@ -78,4 +78,9 @@ namespace SeedCore
 	{
 		contactListener_.SetActiveWorld(world);
 	}
+
+	World* JoltManager::GetActiveWorld()const
+	{
+		return contactListener_.GetActiveWorld();
+	}
 }

@@ -578,6 +578,26 @@ namespace SeedCore
 
 		/**
 		* [EN]
+		* Returns the first Actor whose Name component's name_ equals
+		* name, or nullptr if none match (or the actor has no Name
+		* component). Unlike the EntityID/Entity overloads above, this is
+		* O(actor count) - there is no name index - so prefer caching the
+		* result (or an EntityID/persistent ID) over calling this every
+		* frame.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* Name コンポーネントの name_ が name と一致する最初の Actor を
+		* 返す。一致するものが無い（または Name コンポーネントを持たない）
+		* 場合は nullptr。上の EntityID/Entity 版と違い、名前用の索引は
+		* 無いため O(actor数) になる - 毎フレーム呼ぶより、結果(または
+		* EntityID/永続ID)をキャッシュしておくことを推奨する。
+		*/
+		Actor* GetActor(const String& name)const;
+
+		/**
+		* [EN]
 		* Returns the Actor whose persistent ID is persistentId, or
 		* nullptr if no live actor currently holds it.
 		*

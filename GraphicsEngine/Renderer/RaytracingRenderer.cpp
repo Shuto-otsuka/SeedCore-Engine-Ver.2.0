@@ -207,8 +207,50 @@ namespace SeedCore
 
 		Uint frameIndex = FrameRing::Index();
 
-		std::erase_if(blasCache_, [&](const auto& entry) { return !liveCristers.contains(entry.first); });
-		std::erase_if(reflectionMaterialTableCache_, [&](const auto& entry) { return !liveCristers.contains(entry.first); });
+		/// [EN] Cancel eviction for any Crister seen live again this frame.
+		/// [JP] このフレーム再び見えるようになった Crister は破棄猶予を取り消す。
+		for (const Crister* crister : liveCristers)
+		{
+			pendingBlasEviction_.erase(crister);
+		}
+
+		/// [EN] Advance every already-pending eviction's countdown, then
+		///      actually erase the ones that have reached zero - by now
+		///      every frame-ring slot's in-flight GPU work from before the
+		///      Crister went invisible has had a chance to complete.
+		/// [JP] 既に猶予中の破棄カウントダウンを1つ進め、0に達したものを
+		///      実際に消去する - この時点までに、Crister が非表示になる
+		///      前の全フレームリングスロットの実行中 GPU 処理は完了している
+		///      はず。
+		for (auto& [crister, framesRemaining] : pendingBlasEviction_)
+		{
+			if (framesRemaining > 0)
+			{
+				framesRemaining--;
+			}
+		}
+		std::erase_if(pendingBlasEviction_, [&](const auto& entry)
+			{
+				if (entry.second > 0)
+				{
+					return false;
+				}
+				blasCache_.erase(entry.first);
+				reflectionMaterialTableCache_.erase(entry.first);
+				return true;
+			});
+
+		/// [EN] Start the eviction countdown for cached Cristers not seen
+		///      live this frame (and not already counting down).
+		/// [JP] このフレーム見えなかった(かつまだ猶予中でない)キャッシュ済み
+		///      Crister の破棄カウントダウンを開始する。
+		for (const auto& [crister, blas] : blasCache_)
+		{
+			if (!liveCristers.contains(crister) && !pendingBlasEviction_.contains(crister))
+			{
+				pendingBlasEviction_[crister] = FrameRing::frameCount;
+			}
+		}
 
 		std::erase_if(skinnedBlasCache_[frameIndex], [&](const auto& entry) { return !liveEntities.contains(entry.first); });
 		std::erase_if(skinnedPositionBuffers_[frameIndex], [&](const auto& entry) { return !liveEntities.contains(entry.first); });

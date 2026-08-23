@@ -156,8 +156,22 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	float3 clip_min = DenoiserVarianceClipMin(moments, filtered_raw, GI_HISTORY_CLIP_GAMMA);
 	float3 clip_max = DenoiserVarianceClipMax(moments, filtered_raw, GI_HISTORY_CLIP_GAMMA);
 
+	// [JP] GlobalIlluminationReservoirSpatialCS.hlsl が書いた reservoir 収束度
+	//      (0=直前にディスオクルージョンでリセット、1=Mが上限まで積み上がった
+	//      定常状態)。収束しているほどブレンド係数を1.0(=自分の履歴を無視して
+	//      フィルタ済み今フレーム値をそのまま採用)へ寄せる — reservoir が既に
+	//      自前の時間的リユースで信号を安定させているので、この上にさらに
+	//      GI_TEMPORAL_BLEND_ALPHA の遅いEMAを重ねると、2つの時間フィルタが
+	//      直列になって実効的な応答速度が大きく鈍る(カメラを動かした時などに
+	//      「ぬるっと引きずられる」体感の原因)。Mが低い間(リセット直後)は
+	//      reservoir 自体がまだ信号を安定させていないので、このデノイザ自身の
+	//      時間的ブレンドに通常通り頼る。
+	Texture2D<float> confidence_texture = ResourceDescriptorHeap[structured_indices.global_illumination_.confidence_srv_index_];
+	float confidence = confidence_texture.Load(int3(pixel, 0));
+	float adaptive_temporal_alpha = lerp(GI_TEMPORAL_BLEND_ALPHA, 1.0, confidence);
+
 	Texture2D<float4> history_radiance = ResourceDescriptorHeap[constant_indices.global_illumination_.history_srv_index_];
-	float3 result = DenoiserTemporalBlend(history_radiance, previous_uv, clip_min, clip_max, filtered_raw, GI_TEMPORAL_BLEND_ALPHA);
+	float3 result = DenoiserTemporalBlend(history_radiance, previous_uv, clip_min, clip_max, filtered_raw, adaptive_temporal_alpha);
 
 	scratch_output[pixel] = float4(result, 1.0);
 }

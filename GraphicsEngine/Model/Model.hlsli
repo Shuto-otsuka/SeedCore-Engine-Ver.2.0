@@ -1,3 +1,6 @@
+#ifndef __MODEL_HLSL__
+#define __MODEL_HLSL__
+
 #include "../Shader/Normal.hlsli"
 
 // Decoded vertex, produced by DecodeModelVertex. Skinning attributes live in
@@ -595,3 +598,5 @@ ModelSurface ResolveModelSurface(ModelInstance instance, uint meshlet_index, uin
 
 	return surface;
 }
+
+#endif // __MODEL_HLSL__

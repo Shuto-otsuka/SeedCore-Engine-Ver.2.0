@@ -27,6 +27,7 @@
     <ClInclude Include="Camera\OrbitCameraController.h" />
     <ClInclude Include="Camera\PreviewCamera.h" />
     <ClInclude Include="Camera\PreviewCameraController.h" />
+    <ClInclude Include="Camera\ScreenSpace.h" />
     <ClInclude Include="Constraint\LookAtConstraint.h" />
     <ClInclude Include="Constraint\ParentConstraint.h" />
     <ClInclude Include="Constraint\PositionConstraint.h" />
@@ -39,6 +40,7 @@
     <ClInclude Include="D3D12\Buffer\GeometryBuffer.h" />
     <ClInclude Include="D3D12\Buffer\HiZBuffer.h" />
     <ClInclude Include="D3D12\Buffer\IndexBuffer.h" />
+    <ClInclude Include="D3D12\Buffer\ReservoirBuffer.h" />
     <ClInclude Include="D3D12\Buffer\StructuredBuffer.h" />
     <ClInclude Include="D3D12\Buffer\VertexBuffer.h" />
     <ClInclude Include="D3D12\Context\D3D12Adapter.h" />
@@ -228,7 +230,9 @@
     <ClCompile Include="Camera\OrbitCameraController.cpp" />
     <ClCompile Include="Camera\PreviewCamera.cpp" />
     <ClCompile Include="Camera\PreviewCameraController.cpp" />
+    <ClCompile Include="Camera\ScreenSpace.cpp" />
     <ClCompile Include="D3D12\Buffer\DepthResizeBuffer.cpp" />
+    <ClCompile Include="D3D12\Buffer\ReservoirBuffer.cpp" />
     <ClCompile Include="DLSS\DlssBackgroundVelocityShader.cpp" />
     <ClCompile Include="DLSS\DlssNormalRoughnessShader.cpp" />
     <ClCompile Include="Effect\Effekseer\EffekseerFileInterface.cpp" />
@@ -494,7 +498,15 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </None>
+    <None Include="Raytracing\GlobalIllumination\GlobalIlluminationReSTIR.hlsli">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </None>
     <None Include="Raytracing\Reflection\Reflection.hlsli" />
+    <None Include="Raytracing\Reflection\ReflectionReSTIR.hlsli">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </None>
     <None Include="Raytracing\Refraction\Refraction.hlsli">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
@@ -540,6 +552,10 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </None>
     <None Include="Shader\Light.hlsli">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </None>
+    <None Include="Shader\Material.hlsli">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </None>
@@ -992,6 +1008,16 @@
   </ItemGroup>
   <ItemGroup>
     <Text Include="Model\Transparent\ModelTransparentPS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Raytracing\GlobalIllumination\GlobalIlluminationReservoirSpatialCS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Raytracing\Reflection\ReflectionReservoirSpatialCS.hlsl">
       <FileType>Document</FileType>
     </Text>
   </ItemGroup>

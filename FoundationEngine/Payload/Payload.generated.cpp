@@ -1,5 +1,6 @@
 #include <FoundationEngine/Prelude.h>
 #include <FoundationEngine/ECS/PayloadRegistry.h>
+#include <FoundationEngine/ECS/Component/Spawner.h>
 #include <GraphicsEngine/Constraint/LookAtConstraint.h>
 #include <GraphicsEngine/Constraint/ParentConstraint.h>
 #include <GraphicsEngine/Constraint/PositionConstraint.h>
@@ -12,6 +13,7 @@
 #include <GraphicsEngine/Texture/Image.h>
 #include <PhysicsEngine/Collider/MeshCollider.h>
 
+extern "C" int _force_payload_Spawner = 0;
 extern "C" int _force_payload_LookAtConstraint = 0;
 extern "C" int _force_payload_ParentConstraint = 0;
 extern "C" int _force_payload_PositionConstraint = 0;
@@ -28,6 +30,19 @@ namespace SeedCore
 {
 	 namespace ScPayload
 	 {
+		// ---- FoundationEngine/ECS/Component/Spawner.h ----
+		struct Register_Spawner
+		{
+			Register_Spawner()
+			{
+				PayloadRegistry::Register(String("Spawner"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
+					Spawner& obj = *static_cast<Spawner*>(ptr);
+					outInfo.push_back({ String("プレハブID"), offsetof(Spawner, prefabID_), AttributeType::Int, PayloadAssetType::Prefab });
+				});
+			}
+		};
+		static Register_Spawner global_Spawner_register;
+
 		// ---- GraphicsEngine/Constraint/LookAtConstraint.h ----
 		struct Register_LookAtConstraint
 		{

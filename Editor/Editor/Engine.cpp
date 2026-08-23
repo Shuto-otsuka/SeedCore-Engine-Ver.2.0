@@ -2,6 +2,7 @@
 #include <FoundationEngine/Utility/Bootstrap.h>
 #include <FoundationEngine/Input/InputSystem.h>
 #include <FoundationEngine/Resource/Gateway.h>
+#include <FoundationEngine/ECS/LayerRegistry.h>
 
 #include <GraphicsEngine/D3D12/Context/D3D12CommandList.h>
 #include <GraphicsEngine/D3D12/Context/D3D12CommandQueue.h>
@@ -73,6 +74,7 @@ namespace SeedCore
 		editorContext_.worldContext_.resource_ = resource_.get();
 		editorContext_.worldContext_.loader_ = loaderSystem_.get();
 		editorContext_.worldContext_.gameTimer_ = &gameTimer_;
+		editorContext_.worldContext_.system_ = system_.get();
 		editorContext_.cameraContext_.editorCamera_ = &editorCamera_;
 		editorContext_.cameraContext_.editorCameraController_ = &editorCameraController_;
 		editorContext_.cameraContext_.canvasCamera_ = &canvasCamera_;
@@ -90,6 +92,7 @@ namespace SeedCore
 		editorContext_.graphicsContext_.imgui_ = imgui_.get();
 
 		InputSystem::Initialize();
+		LayerRegistry::Load();
 
 		hotReload_.Load(*world_);
 
@@ -281,7 +284,7 @@ namespace SeedCore
 					}
 				}
 
-				system_->Run(*world_, *executor_, gameTimer_.DeltaTime(), gameTimer_.IsPlaying());
+				system_->Run(*world_, *resource_, *executor_, gameTimer_.DeltaTime(), gameTimer_.IsPlaying());
 
 				if (gameTimer_.IsPlaying())
 				{

@@ -8,43 +8,48 @@
 #include "../VolumetricCloudScapes/VolumetricCloudScapes.hlsli"
 #include "../../Shader/Denoiser.hlsli"
 #include "Reflection.hlsli"
+#include "ReflectionReSTIR.hlsli"
 
 /**
 * [EN]
 * Ray-traced glossy reflection (RTPSO / DispatchRays, raygen + miss +
-* closesthit). Reflects the view ray off the G-Buffer surface and traces four
-* GGX-importance-sampled rays per pixel per frame, averaged before writing
-* (SkyMath.hlsli's ImportanceSampleGgx, the same half-vector distribution
-* SpecularPrefilterCS.hlsl uses to prefilter the IBL cube, driven here by an
-* independent per-pixel random sample per ray instead of a fixed Hammersley
-* set). At roughness 0 the half-vector always equals the normal for every ray,
-* so this degenerates to the old exact mirror ray with no noise; roughness > 0
-* spreads each ray's direction independently, and still needs
-* ReflectionDenoiseCS.hlsl's SVGF chain to converge the rest of the way - which
-* is why the averaged hit distance is written into the output alpha rather
-* than being discarded: the denoiser's dual reprojection (surface motion +
-* hit-point virtual motion) reprojects a virtual position built by extending
-* this hit distance along the surface's specular dominant direction. miss
-* samples the environment cube; closesthit re-fetches the hit triangle's
-* vertices through the per-instance table (InstanceID() -> ReflectionInstanceData)
-* and relights the hit point with the directional/punctual lights + diffuse IBL.
+* closesthit). Reflects the view ray off the G-Buffer surface and traces ONE
+* GGX-importance-sampled ray per pixel per frame (SkyMath.hlsli's
+* ImportanceSampleGgx, the same half-vector distribution SpecularPrefilterCS.hlsl
+* uses to prefilter the IBL cube). At roughness 0 the half-vector always
+* equals the normal, so this degenerates to the old exact mirror ray with no
+* noise. Cost was previously kept down by tracing 4 such rays and averaging
+* them per pixel per frame; it is now kept down instead by a ReSTIR reservoir
+* (ReflectionReSTIR.hlsli) that streams this frame's single candidate against
+* the reprojected temporal history in the same dispatch, then against a few
+* spatial neighbors in a following pass (ReflectionReservoirSpatialCS.hlsl) -
+* trading the four redundant traces for reuse of already-traced neighboring
+* work, the same trade GlobalIlluminationRT.hlsl already makes for GI. The
+* resolved reservoir's hit distance is written into the output alpha (not
+* discarded): the denoiser's dual reprojection (surface motion + hit-point
+* virtual motion) reprojects a virtual position built by extending this hit
+* distance along the surface's specular dominant direction. miss samples the
+* environment cube; closesthit re-fetches the hit triangle's vertices through
+* the per-instance table (InstanceID() -> ReflectionInstanceData) and relights
+* the hit point with the directional/punctual lights + diffuse IBL.
 *
 * [JP]
 * レイトレ光沢反射(RTPSO / DispatchRays、raygen + miss + closesthit)。
 * G-Buffer の面で視線を反射し、1ピクセル1フレームにつき GGX 重点サンプリング
-* したレイを4本撃って平均する(SkyMath.hlsli の ImportanceSampleGgx — IBL
-* キューブのプリフィルタに SpecularPrefilterCS.hlsl が使うのと同じハーフ
-* ベクトル分布を、ここでは固定 Hammersley 集合ではなくレイごとに独立した
-* ピクセル単位の乱数サンプルで駆動する)。roughness 0 では全レイのハーフ
-* ベクトルが常に法線と一致するため、ノイズ無しの旧・厳密ミラーレイへ縮退する。
-* roughness > 0 では各レイの方向が独立に広がり、それでも
-* ReflectionDenoiseCS.hlsl の SVGF チェーンで残りを収束させる必要がある —
-* 平均済みヒット距離を捨てず出力アルファへ書くのはそのためで、デノイザの
-* 二重リプロジェクション(面モーション+ヒット点仮想モーション)がこの
-* ヒット距離を面のスペキュラ支配方向へ延長した仮想位置をリプロジェクションする。
-* miss は
-* 環境キューブをサンプル。closesthit はインスタンステーブル(InstanceID() →
-* ReflectionInstanceData)経由でヒット三角形の頂点を引き直し、
+* したレイを【1本】撃つ(SkyMath.hlsli の ImportanceSampleGgx — IBL キューブの
+* プリフィルタに SpecularPrefilterCS.hlsl が使うのと同じハーフベクトル分布)。
+* roughness 0 では常に法線と一致するため、ノイズ無しの旧・厳密ミラーレイへ
+* 縮退する。以前は1ピクセル4本撃って平均することでコストを抑えていたが、
+* 今は ReSTIR reservoir(ReflectionReSTIR.hlsli)が今フレームの1候補を
+* リプロジェクション済みの時間的履歴と同じディスパッチ内でストリーム結合し、
+* 続くパス(ReflectionReservoirSpatialCS.hlsl)で近傍数点とも結合する —
+* 4本の冗長なトレースを、既にトレース済みの近傍の結果の再利用へ置き換える。
+* GlobalIlluminationRT.hlsl が GI で既に行っているのと同じトレードオフ。
+* 解決した reservoir のヒット距離は出力アルファへ書く(捨てない) —
+* デノイザの二重リプロジェクション(面モーション+ヒット点仮想モーション)が
+* このヒット距離を面のスペキュラ支配方向へ延長した仮想位置をリプロジェクション
+* する。miss は環境キューブをサンプル。closesthit はインスタンステーブル
+* (InstanceID() → ReflectionInstanceData)経由でヒット三角形の頂点を引き直し、
 * ディレクショナル/ポイント/スポット/矩形ライト+拡散IBLでヒット点を
 * 再ライティングする。
 */
@@ -104,65 +109,70 @@ void ReflectionRayGeneration()
 
 	RaytracingAccelerationStructure tlas = ResourceDescriptorHeap[structured_indices.raytracing_.tlas_index_];
 
-	// GGX 重点サンプリングを4本撃って平均する(1本あたりのノイズを直接減らす
-	// ため — デノイザ側の蓄積だけに頼らず、1フレームの時点で既に分散を落とす)。
-	// 各本は独立した Rand2 draw でハーフベクトルをサンプルし、視線をそのまわりへ
-	// 反射させる(ImageBasedLighting の畳み込みと同じ式: L = 2*(V.H)*H - V、
-	// V はここでは surface→camera 方向)。roughness 0 では ImportanceSampleGgx が
-	// 常に H=normal を返すので、4本とも mirror_direction と厳密に一致する
-	// (ノイズ無し、平均を取っても余計なコストにしかならないが分岐で避けるほどでもない)。
-	float3 radiance_sum = float3(0, 0, 0);
-	float hit_distance_sum = 0.0;
+	float3 half_vector = ImportanceSampleGgx(Rand2(rng_state), normal, roughness);
+	float3 reflect_direction = normalize(2.0 * dot(view, half_vector) * half_vector - view);
 
-	[unroll]
-	for (uint ray_index = 0; ray_index < 4; ++ray_index)
+	// [JP] GGX半球サンプルは稀に法線の下(dot(N,L)<=0)を向く(特に高ラフネス+
+	// 視線がすれすれの時)。有効なレイが要るので、その場合は決定論的な
+	// ミラー方向へフォールバックする(エネルギーを捨てて真っ黒にするより、
+	// 偏りは小さい)。
+	if (dot(normal, reflect_direction) <= 0.0)
 	{
-		float3 half_vector = ImportanceSampleGgx(Rand2(rng_state), normal, roughness);
-		float3 reflect_direction = normalize(2.0 * dot(view, half_vector) * half_vector - view);
-
-		// [JP] GGX半球サンプルは稀に法線の下(dot(N,L)<=0)を向く(特に高ラフネス+
-		// 視線がすれすれの時)。有効なレイが要るので、その場合は決定論的な
-		// ミラー方向へフォールバックする(エネルギーを捨てて真っ黒にするより、
-		// 偏りは小さい)。
-		if (dot(normal, reflect_direction) <= 0.0)
-		{
-			reflect_direction = mirror_direction;
-		}
-
-		RayDesc ray_desc;
-		ray_desc.Origin = world_position + normal * tuning.normal_bias_;
-		ray_desc.Direction = reflect_direction;
-		ray_desc.TMin = 0.001;
-		ray_desc.TMax = tuning.ray_t_max_;
-
-		ReflectionPayload payload;
-		payload.radiance_ = float3(0, 0, 0);
-		payload.hit_distance_ = 0.0;
-
-		// 最近接ヒットが要るので first-hit 打ち切りフラグは付けない。
-		TraceRay(tlas, RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES, 0xFF, 0, 0, 0, ray_desc, payload);
-
-		radiance_sum += payload.radiance_;
-		hit_distance_sum += payload.hit_distance_;
+		reflect_direction = mirror_direction;
 	}
 
-	float3 radiance = radiance_sum * 0.25;
+	RayDesc ray_desc;
+	ray_desc.Origin = world_position + normal * tuning.normal_bias_;
+	ray_desc.Direction = reflect_direction;
+	ray_desc.TMin = 0.001;
+	ray_desc.TMax = tuning.ray_t_max_;
 
-	// [JP] アルファには平均ヒット距離(ワールド単位、正規化しない生の値)を書く。
-	//      ReflectionDenoiseCS.hlsl の時間的リプロジェクションが、このヒット距離を
-	//      解析的なスペキュラ支配方向へ延長した仮想位置(GetReflectionVirtualPosition)
-	//      を再投影する - もう ReBLUR 型のブラー半径駆動には使わないので、細かい
-	//      正規化は不要。0 より大きければ有効(背景は上で a=0)、miss も空へ抜けた
-	//      印として大きな値(100000)を持つので常に正になる。
-	float hit_distance = hit_distance_sum * 0.25;
-	hit_distance = (isnan(hit_distance) || isinf(hit_distance)) ? 0.0 : clamp(hit_distance, 0.0, 65504.0);
+	ReflectionPayload payload;
+	payload.radiance_ = float3(0, 0, 0);
+	payload.hit_distance_ = 0.0;
 
-	// [JP] 放射輝度も必ず有限値へ畳む。出力先は RGBA16F なので、65504 を超える
+	// 最近接ヒットが要るので first-hit 打ち切りフラグは付けない。
+	TraceRay(tlas, RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES, 0xFF, 0, 0, 0, ray_desc, payload);
+
+	// [JP] 放射輝度を必ず有限値へ畳む。出力先は RGBA16F なので、65504 を超える
 	//      放射輝度(明るいスペキュラや発光面の反射なら容易に到達する)は +Inf
-	//      として格納され、デノイザ側の分散計算やA-Trousの重み付けで NaN が
-	//      生まれる。しかもそれは履歴として書き戻されるため通り過ぎず焼き付き、
-	//      HDRバッファ経由でブルームやレンズフレアへ拡散する。
-	output[pixel] = float4(DenoiserSanitizeRadiance(radiance), hit_distance);
+	//      として格納され、reservoir 結合の輝度計算や後段のデノイザで NaN が
+	//      生まれる。しかもそれは reservoir/履歴として書き戻されるため通り
+	//      過ぎず焼き付き、HDRバッファ経由でブルームやレンズフレアへ拡散する。
+	float3 candidate_radiance = DenoiserSanitizeRadiance(payload.radiance_);
+	float candidate_hit_distance = (isnan(payload.hit_distance_) || isinf(payload.hit_distance_)) ? 0.0 : clamp(payload.hit_distance_, 0.0, 65504.0);
+
+	ReflectionReservoir reservoir = ReflectionReservoirFromSample(reflect_direction, candidate_radiance, candidate_hit_distance);
+
+	StructuredBuffer<ReflectionReservoir> reservoir_history = ResourceDescriptorHeap[constant_indices.reflection_.reservoir_history_srv_index_];
+
+	// ReSTIR 時間的リユース。速度バッファでの再投影は GI と同じ手順(UV空間の
+	// 移動量は (velocity.x, -velocity.y))。反射特有のパララックス問題
+	// (映っている内容は面ではなく反射先のジオメトリと動く)は、ここではなく
+	// 後段の ReflectionDenoiseCS.hlsl の二重リプロジェクションが個別に扱う —
+	// reservoir 自体の時間的結合は面モーションでの粗い当たりで十分、外れても
+	// RIS の重み付けと空間的リユースで薄まる。
+	Texture2D<float2> velocity_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.index_2_];
+	float2 velocity = velocity_texture.Load(int3(pixel, 0)).rg;
+	float2 previous_uv = uv - float2(velocity.x, -velocity.y);
+
+	bool temporal_valid = all(previous_uv >= 0.0) && all(previous_uv <= 1.0);
+
+	if (temporal_valid)
+	{
+		uint2 previous_pixel = uint2(previous_uv * scene.screen_size_);
+		uint previous_index = previous_pixel.y * (uint)scene.screen_size_.x + previous_pixel.x;
+
+		ReflectionReservoir temporal = reservoir_history[previous_index];
+		temporal.sample_m_ = min(temporal.sample_m_, REFLECTION_RESERVOIR_M_CAP);
+
+		reservoir = ReflectionReservoirCombine(reservoir, temporal, temporal_valid, rng_state);
+	}
+
+	RWStructuredBuffer<ReflectionReservoir> reservoir_write = ResourceDescriptorHeap[constant_indices.reflection_.reservoir_uav_index_];
+	reservoir_write[pixel.y * (uint)scene.screen_size_.x + pixel.x] = reservoir;
+
+	output[pixel] = float4(reservoir.sample_radiance_ * reservoir.sample_w_, reservoir.sample_hit_distance_);
 }
 
 [shader("miss")]
@@ -323,7 +333,7 @@ void ReflectionClosestHit(inout ReflectionPayload payload, in BuiltInTriangleInt
 	// 単一色にしない — 複数マテリアルのメッシュ(例: 壁ごとに色が違う Cornell
 	// box を1つの Crister で作った場合)で、実際に当たった壁と無関係な色が
 	// 返っていたのを修正)。
-	ReflectionMaterialData material = ResolveReflectionMaterial(instance, PrimitiveIndex());
+	ReflectionMaterial material = ResolveReflectionMaterial(instance, PrimitiveIndex());
 
 	// ベースカラーテクスチャ。レイトレシェーダには暗黙の微分が無いので
 	// SampleLevel 固定(ミップ選択はレイのフットプリントから出すのが本式だが、

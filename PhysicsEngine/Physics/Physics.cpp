@@ -3,6 +3,8 @@
 #include <PhysicsEngine/JoltPhysics/JoltLayerdef.h>
 #include <FoundationEngine/Resource/Gateway.h>
 #include <FoundationEngine/Log/Warning.h>
+#include <FoundationEngine/ECS/World.h>
+#include <FoundationEngine/ECS/Actor.h>
 
 namespace SeedCore
 {
@@ -310,5 +312,190 @@ namespace SeedCore
 		}
 
 		return static_cast<EntityID>(lock.GetBody().GetUserData());
+	}
+
+	Bool Physics::Raycast(const Vector3& origin, const Vector3& direction, Float maxDistance, RaycastHit& outHit, Uint32 layerMask)const
+	{
+		JPH::Vec3 dir(direction.x, direction.y, direction.z);
+		if (dir.LengthSq() > 0.0f)
+		{
+			dir = dir.Normalized();
+		}
+
+		JPH::RRayCast ray(JPH::RVec3(origin.x, origin.y, origin.z), dir * maxDistance);
+
+		JPH::PhysicsSystem& physicsSystem = joltPhysics_.GetPhysicsSystem();
+
+		JPH::AllHitCollisionCollector<JPH::CastRayCollector> collector;
+		physicsSystem.GetNarrowPhaseQuery().CastRay(ray, JPH::RayCastSettings(), collector);
+
+		if (!collector.HadHit())
+		{
+			return false;
+		}
+
+		collector.Sort();
+
+		for (const JPH::RayCastResult& hit : collector.mHits)
+		{
+			if (!PassesLayerMask(hit.mBodyID, layerMask))
+			{
+				continue;
+			}
+
+			JPH::RVec3 hitPosition = ray.GetPointOnRay(hit.mFraction);
+
+			JPH::Vec3 normal = JPH::Vec3::sZero();
+			{
+				JPH::BodyLockRead lock(physicsSystem.GetBodyLockInterface(), hit.mBodyID);
+				if (lock.Succeeded())
+				{
+					normal = lock.GetBody().GetWorldSpaceSurfaceNormal(hit.mSubShapeID2, hitPosition);
+				}
+			}
+
+			outHit.position_ = Vector3(static_cast<Float>(hitPosition.GetX()), static_cast<Float>(hitPosition.GetY()), static_cast<Float>(hitPosition.GetZ()));
+			outHit.normal_ = Vector3(normal.GetX(), normal.GetY(), normal.GetZ());
+			outHit.distance_ = hit.mFraction * maxDistance;
+			outHit.entityID_ = GetBodyEntityID(hit.mBodyID);
+			return true;
+		}
+
+		return false;
+	}
+
+	Bool Physics::Spherecast(const Vector3& origin, Float radius, const Vector3& direction, Float maxDistance, RaycastHit& outHit, Uint32 layerMask)const
+	{
+		JPH::Vec3 dir(direction.x, direction.y, direction.z);
+		if (dir.LengthSq() > 0.0f)
+		{
+			dir = dir.Normalized();
+		}
+
+		JPH::SphereShape sphereShape(radius);
+		JPH::RShapeCast shapeCast(&sphereShape, JPH::Vec3::sReplicate(1.0f), JPH::RMat44::sTranslation(JPH::RVec3(origin.x, origin.y, origin.z)), dir * maxDistance);
+
+		JPH::ShapeCastSettings settings;
+
+		JPH::PhysicsSystem& physicsSystem = joltPhysics_.GetPhysicsSystem();
+
+		JPH::AllHitCollisionCollector<JPH::CastShapeCollector> collector;
+		physicsSystem.GetNarrowPhaseQuery().CastShape(shapeCast, settings, JPH::RVec3::sZero(), collector);
+
+		if (!collector.HadHit())
+		{
+			return false;
+		}
+
+		collector.Sort();
+
+		for (const JPH::ShapeCastResult& hit : collector.mHits)
+		{
+			if (!PassesLayerMask(hit.mBodyID2, layerMask))
+			{
+				continue;
+			}
+
+			JPH::Vec3 normal = -hit.mPenetrationAxis.Normalized();
+
+			outHit.position_ = Vector3(hit.mContactPointOn2.GetX(), hit.mContactPointOn2.GetY(), hit.mContactPointOn2.GetZ());
+			outHit.normal_ = Vector3(normal.GetX(), normal.GetY(), normal.GetZ());
+			outHit.distance_ = hit.mFraction * maxDistance;
+			outHit.entityID_ = GetBodyEntityID(hit.mBodyID2);
+			return true;
+		}
+
+		return false;
+	}
+
+	DynamicArray<EntityID> Physics::Overlap(ShapeHandle shape, const Vector3& position, const Quaternion& rotation, Uint32 layerMask)const
+	{
+		DynamicArray<EntityID> result;
+
+		JPH::ShapeRefC queryShape = joltPhysics_.GetShapePool().Get(shape);
+		if (!queryShape)
+		{
+			return result;
+		}
+
+		JPH::RMat44 transform = JPH::RMat44::sRotationTranslation(JPH::Quat(rotation.x, rotation.y, rotation.z, rotation.w), JPH::RVec3(position.x, position.y, position.z));
+
+		JPH::PhysicsSystem& physicsSystem = joltPhysics_.GetPhysicsSystem();
+
+		JPH::AllHitCollisionCollector<JPH::CollideShapeCollector> collector;
+		physicsSystem.GetNarrowPhaseQuery().CollideShape(queryShape.GetPtr(), JPH::Vec3::sReplicate(1.0f), transform, JPH::CollideShapeSettings(), JPH::RVec3::sZero(), collector);
+
+		for (const JPH::CollideShapeResult& hit : collector.mHits)
+		{
+			if (!PassesLayerMask(hit.mBodyID2, layerMask))
+			{
+				continue;
+			}
+
+			result.push_back(GetBodyEntityID(hit.mBodyID2));
+		}
+
+		return result;
+	}
+
+	Bool Physics::Raycast2D(const Vector2& origin, const Vector2& direction, Float maxDistance, RaycastHit2D& outHit, Float z, Uint32 layerMask)const
+	{
+		RaycastHit hit;
+		if (!Raycast(Vector3(origin.x, origin.y, z), Vector3(direction.x, direction.y, 0.0f), maxDistance, hit, layerMask))
+		{
+			return false;
+		}
+
+		outHit.position_ = Vector2(hit.position_.x, hit.position_.y);
+		outHit.normal_ = Vector2(hit.normal_.x, hit.normal_.y);
+		outHit.distance_ = hit.distance_;
+		outHit.entityID_ = hit.entityID_;
+		return true;
+	}
+
+	Bool Physics::Circlecast2D(const Vector2& origin, Float radius, const Vector2& direction, Float maxDistance, RaycastHit2D& outHit, Float z, Uint32 layerMask)const
+	{
+		RaycastHit hit;
+		Bool didHit = Spherecast(Vector3(origin.x, origin.y, z), radius, Vector3(direction.x, direction.y, 0.0f), maxDistance, hit, layerMask);
+
+		if (!didHit)
+		{
+			return false;
+		}
+
+		outHit.position_ = Vector2(hit.position_.x, hit.position_.y);
+		outHit.normal_ = Vector2(hit.normal_.x, hit.normal_.y);
+		outHit.distance_ = hit.distance_;
+		outHit.entityID_ = hit.entityID_;
+		return true;
+	}
+
+	DynamicArray<EntityID> Physics::Overlap2D(ShapeHandle shape, const Vector2& position, Float rotation, Float z, Uint32 layerMask)const
+	{
+		Quaternion rotationQuat = Quaternion::CreateFromAxisAngle(Vector3(0.0f, 0.0f, 1.0f), rotation);
+		return Overlap(shape, Vector3(position.x, position.y, z), rotationQuat, layerMask);
+	}
+
+	Bool Physics::PassesLayerMask(JPH::BodyID bodyID, Uint32 layerMask)const
+	{
+		if (layerMask == 0xFFFFFFFF)
+		{
+			return true;
+		}
+
+		World* world = joltPhysics_.GetActiveWorld();
+		if (!world)
+		{
+			return true;
+		}
+
+		EntityID entityID = GetBodyEntityID(bodyID);
+		Actor* actor = world->GetActor(entityID);
+		if (!actor)
+		{
+			return true;
+		}
+
+		return (layerMask & (1u << actor->GetLayer())) != 0;
 	}
 }

@@ -27,6 +27,8 @@ namespace SeedCore
 	public:
 		void SetActiveWorld(World* world);
 
+		World* GetActiveWorld()const;
+
 		void DispatchPendingEvents();
 
 	public:

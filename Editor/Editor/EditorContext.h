@@ -13,6 +13,7 @@ namespace SeedCore
 	class Actor;
 	class World;
 	class ResourceCache;
+	class SystemScheduler;
 	class DescriptorHeap;
 	class GameTimer;
 	class EditorCamera;
@@ -27,6 +28,7 @@ namespace SeedCore
 	class ImGuiRenderer;
 	class AnimatorControllerPanel;
 	class TimelinePanel;
+	class LayerSettingsPanel;
 
 	struct WorldContext
 	{
@@ -34,6 +36,7 @@ namespace SeedCore
 		ResourceCache* resource_ = nullptr;
 		LoaderSystem* loader_ = nullptr;
 		GameTimer* gameTimer_ = nullptr;
+		SystemScheduler* system_ = nullptr;
 	};
 
 	struct GraphicsContext
@@ -103,6 +106,7 @@ namespace SeedCore
 	{
 		AnimatorControllerPanel* animatorControllerPanel_ = nullptr;
 		TimelinePanel* timelinePanel_ = nullptr;
+		LayerSettingsPanel* layerSettingsPanel_ = nullptr;
 	};
 
 	struct EditorContext

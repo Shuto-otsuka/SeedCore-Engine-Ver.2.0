@@ -46,8 +46,26 @@ namespace SeedCore
 		Float spaceBelow = (viewport->WorkPos.y + viewport->WorkSize.y) - buttonMax.y;
 		Float spaceAbove = buttonMin.y - viewport->WorkPos.y;
 
+		/// [EN] Cap the popup's height to whichever space it actually opens
+		///      into (with a small margin so it never touches the viewport
+		///      edge) - without this, a long category list simply grows past
+		///      the bottom of the screen and the lower entries become
+		///      unreachable, since AlwaysAutoResize by itself has no notion of
+		///      the viewport bound. Once height is constrained, ImGui's popup
+		///      window adds its own scrollbar automatically for the overflow.
+		/// [JP] ポップアップの高さを、実際に開く側の余白に収まるよう上限を
+		///      掛ける(端に張り付かないよう少し余裕を持たせる) - これが無いと
+		///      カテゴリ一覧が長い時に画面下へそのまま伸び続け、下の方の項目に
+		///      届かなくなる(AlwaysAutoResize 単体はビューポート境界を知らない
+		///      ため)。高さを制限すれば、はみ出た分は ImGui のポップアップ
+		///      ウィンドウが自動でスクロールバーを付ける。
 		constexpr Float minReasonableSpace = 150.0f;
-		if (spaceBelow >= minReasonableSpace || spaceBelow >= spaceAbove)
+		constexpr Float viewportEdgeMargin = 16.0f;
+		Bool opensDownward = spaceBelow >= minReasonableSpace || spaceBelow >= spaceAbove;
+		Float maxPopupHeight = (opensDownward ? spaceBelow : spaceAbove) - viewportEdgeMargin;
+		ImGui::SetNextWindowSizeConstraints(ImVec2(0.0f, 0.0f), ImVec2(FLT_MAX, maxPopupHeight));
+
+		if (opensDownward)
 		{
 			ImGui::SetNextWindowPos(ImVec2(buttonCenterX, buttonMax.y), ImGuiCond_Always, ImVec2(0.5f, 0.0f));
 		}
@@ -129,7 +147,19 @@ namespace SeedCore
 		///      フライアウトサブメニュー（BeginMenu）を表示する。
 		Bool searching = !filterText.empty();
 
-		for (auto& [category, entries] : grouped)
+		/// [EN] "Custom" (ComponentRegistry::Register's default category, for
+		///      components registered with no explicit one) is drawn last,
+		///      after a separator, instead of wherever it lands alphabetically
+		///      - it is a catch-all bucket rather than a real category, so
+		///      mixing it in with the named ones makes the list harder to scan.
+		/// [JP] "Custom"(ComponentRegistry::Register のデフォルトカテゴリ —
+		///      明示的なカテゴリを指定せず登録したコンポーネント向け)は、
+		///      アルファベット順の位置ではなく区切り線の後、一番下に描く —
+		///      これは本物のカテゴリではなく雑多な受け皿なので、名前付きの
+		///      カテゴリと混ぜると一覧が見づらくなる。
+		static const std::string customCategory = "Custom";
+
+		auto drawCategory = [&](const std::string& category, DynamicArray<std::pair<String, ComponentID>>& entries)
 		{
 			std::sort(entries.begin(), entries.end(), [](const auto& a, const auto& b)
 				{
@@ -151,6 +181,23 @@ namespace SeedCore
 				}
 				ImGui::EndMenu();
 			}
+		};
+
+		for (auto& [category, entries] : grouped)
+		{
+			if (category == customCategory)
+			{
+				continue;
+			}
+
+			drawCategory(category, entries);
+		}
+
+		auto customEntries = grouped.find(customCategory);
+		if (customEntries != grouped.end())
+		{
+			ImGui::Separator();
+			drawCategory(customEntries->first, customEntries->second);
 		}
 	}
 

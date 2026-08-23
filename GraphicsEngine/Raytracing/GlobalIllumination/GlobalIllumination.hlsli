@@ -7,6 +7,12 @@
 // type name says "Reflection" only because that pass introduced it.
 #include "../Reflection/Reflection.hlsli"
 
+// GlobalIlluminationReservoir/GlobalIlluminationReservoirCombine - the
+// temporal ReSTIR resampling used by GlobalIlluminationRayGeneration. Needs
+// Rand() (Noise.hlsli), which every includer of this file already pulls in
+// before including it.
+#include "GlobalIlluminationReSTIR.hlsli"
+
 // GI tuning constant buffer, read by GlobalIlluminationRT.hlsl and
 // DeferredLightingPS.hlsl via
 // structured_indices.global_illumination_.ray_constant_index_.

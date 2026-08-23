@@ -416,6 +416,61 @@ namespace SeedCore
 
 		/**
 		* [EN]
+		* Sets this actor's layer to the LayerRegistry slot at index
+		* (clamped to a valid slot if out of range). Unlike tags, an
+		* actor belongs to exactly one layer at a time.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* この actor のレイヤーを、index の LayerRegistry スロットに設定
+		* する（範囲外なら有効なスロットへクランプする）。タグと異なり、
+		* actor は常にちょうど1つのレイヤーに属する。
+		*/
+		SEEDCORE_API void SetLayer(Size index);
+
+		/**
+		* [EN]
+		* Sets this actor's layer by name via LayerRegistry::Find. Falls
+		* back to LayerRegistry::DefaultLayer if name isn't a registered
+		* layer (e.g. an empty name from a scene saved before layers existed).
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* LayerRegistry::Find 経由で、名前でこの actor のレイヤーを設定
+		* する。name が登録済みのレイヤーでなければ（例: レイヤーが存在
+		* する前に保存されたシーンの空文字列）LayerRegistry::DefaultLayer
+		* にフォールバックする。
+		*/
+		SEEDCORE_API void SetLayer(const String& name);
+
+		/**
+		* [EN]
+		* Returns this actor's current layer index (a LayerRegistry slot).
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* この actor の現在のレイヤーインデックス（LayerRegistry の
+		* スロット）を返す。
+		*/
+		SEEDCORE_API Size GetLayer()const;
+
+		/**
+		* [EN]
+		* Returns this actor's current layer's name, via LayerRegistry::GetName.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* LayerRegistry::GetName 経由で、この actor の現在のレイヤー名を
+		* 返す。
+		*/
+		SEEDCORE_API const String& GetLayerName()const;
+
+		/**
+		* [EN]
 		* Marks whether this actor was instantiated from a prefab.
 		*
 		* ---------------------------------------------------------------------
@@ -533,6 +588,10 @@ namespace SeedCore
 		/// [EN] Bitset of tag membership, indexed by TagRegistry bit index.
 		/// [JP] タグ所属を表すビットセット。TagRegistry のビットインデックスでアクセスする。
 		Bitset tags_;
+
+		/// [EN] This actor's current layer, a LayerRegistry slot index (see LayerRegistry::DefaultLayer).
+		/// [JP] この actor の現在のレイヤー。LayerRegistry のスロットインデックス（LayerRegistry::DefaultLayer 参照）。
+		Size layer_ = 0;
 
 		/// [EN] Whether this actor was instantiated from a prefab.
 		/// [JP] この actor がプレハブからインスタンス化されたかどうか。

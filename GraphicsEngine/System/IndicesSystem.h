@@ -549,30 +549,53 @@ namespace SeedCore
 	///      信号でカメラごとに1チェーン必要、StructuredIndices は全ビュー共有の
 	///      ため)。history_/accumulated_ は SVGF のフィードバックタップであって
 	///      最終画ではない — 最終画は denoised_/visibility_ の方。
+	/// [EN] Two independent SVGF signal chains (directional_/punctual_, see the
+	///      HLSL mirror in Shader/Constants.hlsli for why) sharing one geometry
+	///      chain (historyLength_/depthNormal_ below, purely a function of view
+	///      depth/normal so identical for both signals).
+	/// [JP] 独立した2本の SVGF 信号チェーン(directional_/punctual_ — 理由は
+	///      Shader/Constants.hlsli の HLSL 側ミラー参照)が、1本の幾何チェーン
+	///      (下の historyLength_/depthNormal_ — ビュー深度/法線だけで決まるので
+	///      両信号で共通)を共有する。
 	struct ShadowAccumulationIndices
 	{
-		Uint historyShaderResourceViewIndex_ = 0;
-		Uint accumulatedUnorderedAccessViewIndex_ = 0;
-		Uint accumulatedShaderResourceViewIndex_ = 0;
-		Uint visibilityShaderResourceViewIndex_ = 0;
+		Uint directionalHistoryShaderResourceViewIndex_ = 0;
+		Uint directionalAccumulatedUnorderedAccessViewIndex_ = 0;
+		Uint directionalAccumulatedShaderResourceViewIndex_ = 0;
+		Uint directionalVisibilityShaderResourceViewIndex_ = 0;
 
-		Uint atrousScratch0ShaderResourceViewIndex_ = 0;
-		Uint atrousScratch0UnorderedAccessViewIndex_ = 0;
-		Uint atrousScratch1ShaderResourceViewIndex_ = 0;
-		Uint atrousScratch1UnorderedAccessViewIndex_ = 0;
+		Uint directionalMomentsHistoryShaderResourceViewIndex_ = 0;
+		Uint directionalMomentsShaderResourceViewIndex_ = 0;
+		Uint directionalMomentsUnorderedAccessViewIndex_ = 0;
+		Uint directionalAtrousScratch0ShaderResourceViewIndex_ = 0;
 
-		Uint momentsHistoryShaderResourceViewIndex_ = 0;
-		Uint momentsShaderResourceViewIndex_ = 0;
-		Uint momentsUnorderedAccessViewIndex_ = 0;
+		Uint directionalAtrousScratch0UnorderedAccessViewIndex_ = 0;
+		Uint directionalAtrousScratch1ShaderResourceViewIndex_ = 0;
+		Uint directionalAtrousScratch1UnorderedAccessViewIndex_ = 0;
+		Uint directionalDenoisedUnorderedAccessViewIndex_ = 0;
+
+		Uint punctualHistoryShaderResourceViewIndex_ = 0;
+		Uint punctualAccumulatedUnorderedAccessViewIndex_ = 0;
+		Uint punctualAccumulatedShaderResourceViewIndex_ = 0;
+		Uint punctualRadianceShaderResourceViewIndex_ = 0;
+
+		Uint punctualMomentsHistoryShaderResourceViewIndex_ = 0;
+		Uint punctualMomentsShaderResourceViewIndex_ = 0;
+		Uint punctualMomentsUnorderedAccessViewIndex_ = 0;
+		Uint punctualAtrousScratch0ShaderResourceViewIndex_ = 0;
+
+		Uint punctualAtrousScratch0UnorderedAccessViewIndex_ = 0;
+		Uint punctualAtrousScratch1ShaderResourceViewIndex_ = 0;
+		Uint punctualAtrousScratch1UnorderedAccessViewIndex_ = 0;
+		Uint punctualDenoisedUnorderedAccessViewIndex_ = 0;
+
 		Uint historyLengthHistoryShaderResourceViewIndex_ = 0;
-
 		Uint historyLengthShaderResourceViewIndex_ = 0;
 		Uint historyLengthUnorderedAccessViewIndex_ = 0;
 		Uint depthNormalHistoryShaderResourceViewIndex_ = 0;
-		Uint depthNormalShaderResourceViewIndex_ = 0;
 
+		Uint depthNormalShaderResourceViewIndex_ = 0;
 		Uint depthNormalUnorderedAccessViewIndex_ = 0;
-		Uint denoisedUnorderedAccessViewIndex_ = 0;
 		Uint shadowAccumulationPadding0_ = 0;
 		Uint shadowAccumulationPadding1_ = 0;
 	};
@@ -611,6 +634,26 @@ namespace SeedCore
 		Uint atrousScratch0UnorderedAccessViewIndex_ = 0;
 		Uint atrousScratch1ShaderResourceViewIndex_ = 0;
 		Uint atrousScratch1UnorderedAccessViewIndex_ = 0;
+
+		/// [EN] Previous frame's ReSTIR reservoir (ping-ponged like history_/
+		///      accumulated_ above) and this frame's write target (as both a
+		///      UAV for GlobalIlluminationRayGeneration's write and an SRV for
+		///      GlobalIlluminationReservoirSpatialCS.hlsl's read once that
+		///      write is complete and barriered - the spatial-reuse pass reads
+		///      THIS frame's own already-temporal-combined reservoir for the
+		///      current pixel and its neighbors, unlike the raygen's temporal
+		///      reprojection which reads the other (history) slot).
+		/// [JP] 前フレームのReSTIR Reservoir(上のhistory_/accumulated_と同じ
+		///      ピンポン)と今フレームの書き込み先(GlobalIlluminationRayGeneration
+		///      の書き込み用UAVと、その書き込みが完了・バリア済みになった後の
+		///      GlobalIlluminationReservoirSpatialCS.hlsl の読み取り用SRVの両方
+		///      として)。空間的リユースパスは、raygen の時間的再投影が
+		///      (別スロットの)履歴を読むのと違い、今フレーム自身の
+		///      時間的結合済みReservoirを自分のピクセルと近傍から読む。
+		Uint reservoirHistoryShaderResourceViewIndex_ = 0;
+		Uint reservoirUnorderedAccessViewIndex_ = 0;
+		Uint reservoirWriteShaderResourceViewIndex_ = 0;
+		Uint globalIlluminationReservoirPadding1_ = 0;
 	};
 	static_assert(sizeof(GlobalIlluminationAccumulationIndices) % 16 == 0, "GlobalIlluminationAccumulationIndices が 16 バイト行の倍数ではありません");
 
@@ -663,6 +706,17 @@ namespace SeedCore
 		Uint denoisedUnorderedAccessViewIndex_ = 0;
 		Uint reflectionAccumulationPadding0_ = 0;
 		Uint reflectionAccumulationPadding1_ = 0;
+
+		/// [EN] Previous frame's ReSTIR reservoir and this frame's write
+		///      target - same scheme as GlobalIlluminationAccumulationIndices'
+		///      reservoir fields.
+		/// [JP] 前フレームの ReSTIR reservoir と今フレームの書き込み先 -
+		///      GlobalIlluminationAccumulationIndices の reservoir 系フィールドと
+		///      同じ形。
+		Uint reservoirHistoryShaderResourceViewIndex_ = 0;
+		Uint reservoirUnorderedAccessViewIndex_ = 0;
+		Uint reservoirWriteShaderResourceViewIndex_ = 0;
+		Uint reflectionReservoirPadding1_ = 0;
 	};
 	static_assert(sizeof(ReflectionAccumulationIndices) % 16 == 0, "ReflectionAccumulationIndices が 16 バイト行の倍数ではありません");
 
@@ -703,7 +757,7 @@ namespace SeedCore
 
 		PostProcessIndices postProcess_;
 	};
-	static_assert(sizeof(ConstantIndices) == 64 * 16, "ConstantIndices が Shader/Constants.hlsli と一致していません");
+	static_assert(sizeof(ConstantIndices) == 69 * 16, "ConstantIndices が Shader/Constants.hlsli と一致していません");
 
 	/// [EN] Mirrors Shader/Structured.hlsli. Each group is a whole number of
 	///      16-byte cbuffer rows with its padding written out explicitly, and
@@ -881,6 +935,15 @@ namespace SeedCore
 		Uint outputShaderResourceViewIndex_ = 0;
 		Uint rayConstantIndex_ = 0;
 		Uint reflectionPadding_ = 0;
+
+		/// [EN] Screen-sized single-channel confidence, see the HLSL mirror
+		///      (Shader/Structured.hlsli) for what it drives.
+		/// [JP] 画面サイズの単チャンネル信頼度。何を駆動するかは HLSL 側ミラー
+		///      (Shader/Structured.hlsli)参照。
+		Uint confidenceUnorderedAccessViewIndex_ = 0;
+		Uint confidenceShaderResourceViewIndex_ = 0;
+		Uint reflectionPadding1_ = 0;
+		Uint reflectionPadding2_ = 0;
 	};
 	static_assert(sizeof(ReflectionIndices) % 16 == 0, "ReflectionIndices が 16 バイト行の倍数ではありません");
 
@@ -899,6 +962,15 @@ namespace SeedCore
 		Uint outputShaderResourceViewIndex_ = 0;
 		Uint rayConstantIndex_ = 0;
 		Uint globalIlluminationPadding_ = 0;
+
+		/// [EN] Screen-sized single-channel confidence, see the HLSL mirror
+		///      (Shader/Structured.hlsli) for what it drives.
+		/// [JP] 画面サイズの単チャンネル信頼度。何を駆動するかは HLSL 側ミラー
+		///      (Shader/Structured.hlsli)参照。
+		Uint confidenceUnorderedAccessViewIndex_ = 0;
+		Uint confidenceShaderResourceViewIndex_ = 0;
+		Uint globalIlluminationPadding1_ = 0;
+		Uint globalIlluminationPadding2_ = 0;
 	};
 	static_assert(sizeof(GlobalIlluminationIndices) % 16 == 0, "GlobalIlluminationIndices が 16 バイト行の倍数ではありません");
 
@@ -1113,6 +1185,18 @@ namespace SeedCore
 
 		void SetGameGlobalIlluminationAccumulationIndices(Uint historyShaderResourceViewIndex, Uint accumulatedUnorderedAccessViewIndex, Uint radianceShaderResourceViewIndex);
 
+		/// [EN] Registers this frame's ReSTIR reservoir history/write bindless
+		///      indices for one view. Called every frame from
+		///      GlobalIlluminationRenderer::PrepareFrame, alongside the
+		///      accumulation indices above (same historySlot_/writeSlot swap).
+		/// [JP] 1ビュー分の、今フレームのReSTIR Reservoir history/write の
+		///      bindless インデックスを登録する。GlobalIlluminationRenderer::
+		///      PrepareFrame から毎フレーム、上の蓄積インデックスと一緒に呼ぶ
+		///      (同じ historySlot_/writeSlot の交換)。
+		void SetEditorGlobalIlluminationReservoirIndices(Uint historyShaderResourceViewIndex, Uint unorderedAccessViewIndex, Uint writeShaderResourceViewIndex);
+
+		void SetGameGlobalIlluminationReservoirIndices(Uint historyShaderResourceViewIndex, Uint unorderedAccessViewIndex, Uint writeShaderResourceViewIndex);
+
 		/// [EN] Registers the A-Trous ping-pong scratch textures' bindless
 		///      indices for one view. Called once from
 		///      GlobalIlluminationRenderer::Create/Resize (NOT PrepareFrame) —
@@ -1162,6 +1246,10 @@ namespace SeedCore
 
 		void SetReflectionOutputShaderResourceViewIndex(Uint index);
 
+		void SetReflectionConfidenceUnorderedAccessViewIndex(Uint index);
+
+		void SetReflectionConfidenceShaderResourceViewIndex(Uint index);
+
 		void SetReflectionRayConstantIndex(Uint index);
 
 		void SetReflectionInstanceDataIndex(Uint index);
@@ -1175,6 +1263,10 @@ namespace SeedCore
 		void SetGlobalIlluminationOutputUnorderedAccessViewIndex(Uint index);
 
 		void SetGlobalIlluminationOutputShaderResourceViewIndex(Uint index);
+
+		void SetGlobalIlluminationConfidenceUnorderedAccessViewIndex(Uint index);
+
+		void SetGlobalIlluminationConfidenceShaderResourceViewIndex(Uint index);
 
 		void SetGlobalIlluminationRayConstantIndex(Uint index);
 

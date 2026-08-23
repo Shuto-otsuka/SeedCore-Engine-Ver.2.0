@@ -171,6 +171,25 @@ namespace SeedCore
 		Uint32 radianceUnorderedAccessViewIndex_ = 0;
 		Uint32 radianceShaderResourceViewIndex_ = 0;
 
+		/// [EN] Screen-sized single-channel confidence (0..1), written by
+		///      GlobalIlluminationReservoirSpatialCS.hlsl right after
+		///      radianceResource_ (same lifetime/barriers - single-buffered,
+		///      fully consumed by GlobalIlluminationDenoiseCS.hlsl the same
+		///      frame it is written) and read there to let its own temporal
+		///      blend defer to the reservoir's already-converged history
+		///      instead of re-integrating a second one on top of it.
+		/// [JP] 画面サイズの単チャンネル信頼度(0..1)。
+		///      GlobalIlluminationReservoirSpatialCS.hlsl が radianceResource_
+		///      の直後に書く(ライフタイム/バリアも同じ — 単一バッファで、
+		///      書かれた同じフレーム内で GlobalIlluminationDenoiseCS.hlsl に
+		///      消費し切られる)。そちらが自身の時間的ブレンドを reservoir の
+		///      既に収束済みの履歴に譲り、その上にもう一段の時間積分を重ねない
+		///      ようにするために読む。
+		Microsoft::WRL::ComPtr<ID3D12Resource> confidenceResource_;
+		D3D12_RESOURCE_STATES confidenceState_ = D3D12_RESOURCE_STATE_COMMON;
+		Uint32 confidenceUnorderedAccessViewIndex_ = 0;
+		Uint32 confidenceShaderResourceViewIndex_ = 0;
+
 		/// [EN] Ping-ponged accumulated (denoised) radiance, one independent
 		///      pair per view (see RaytracingView) — same scheme as
 		///      AmbientOcclusionRenderer's accumulated openness.
@@ -199,6 +218,28 @@ namespace SeedCore
 		D3D12_RESOURCE_STATES atrousScratchState_[viewCount][2] = {};
 		Uint32 atrousScratchUnorderedAccessViewIndex_[viewCount][2] = {};
 		Uint32 atrousScratchShaderResourceViewIndex_[viewCount][2] = {};
+
+		/// [EN] ReSTIR reservoir, ping-ponged per view like
+		///      accumulatedRadianceResource_ above - GlobalIlluminationRayGeneration
+		///      reads last frame's slot (reprojected) and writes this frame's
+		///      slot in the same dispatch, so unlike the accumulation chain
+		///      there is no separate consumer pass; both slots stay
+		///      screen-sized StructuredBuffers of reservoirElementSizeInBytes-
+		///      byte elements (see GlobalIlluminationReservoir in
+		///      GlobalIllumination.hlsli, which this must match byte-for-byte).
+		/// [JP] ReSTIR Reservoir。上の accumulatedRadianceResource_ と同じく
+		///      ビューごとにピンポンする - GlobalIlluminationRayGeneration が
+		///      同じディスパッチ内で前フレームのスロット(再投影済み)を読み、
+		///      今フレームのスロットへ書くため、蓄積チェーンと違って別の
+		///      消費パスは無い。両スロットとも画面サイズの
+		///      StructuredBuffer(要素サイズ reservoirElementSizeInBytes バイト —
+		///      GlobalIllumination.hlsli の GlobalIlluminationReservoir とバイト単位で
+		///      一致させること)。
+		static constexpr Uint32 reservoirElementSizeInBytes_ = 48;
+		Microsoft::WRL::ComPtr<ID3D12Resource> reservoirResource_[viewCount][accumulationSlotCount];
+		D3D12_RESOURCE_STATES reservoirState_[viewCount][accumulationSlotCount] = {};
+		Uint32 reservoirUnorderedAccessViewIndex_[viewCount][accumulationSlotCount] = {};
+		Uint32 reservoirShaderResourceViewIndex_[viewCount][accumulationSlotCount] = {};
 
 		/// [EN] Which slot holds the previous frame's finished result (this
 		///      frame's history). Swapped once per frame at the top of
@@ -230,7 +271,19 @@ namespace SeedCore
 		///      accumulated はビュー×スロットごとに1つ)。
 		DescriptorHeap clearHeap_;
 		Uint32 clearRawIndex_ = 0;
+		Uint32 clearConfidenceIndex_ = 0;
 		Uint32 clearAccumulatedIndex_[viewCount][accumulationSlotCount] = {};
+		Uint32 clearReservoirIndex_[viewCount][accumulationSlotCount] = {};
+
+		/// [EN] Both reservoir ping-pong slots are zeroed once, the first time
+		///      Dispatch() runs (PrepareFrame does no GPU work, so this can't
+		///      happen there) - M_/W_ = 0 makes the very first frame's temporal
+		///      combine treat history as absent instead of resampling garbage.
+		/// [JP] Reservoir のピンポン両スロットを、Dispatch() が初めて走った時に
+		///      1度だけゼロクリアする(PrepareFrame は GPU 処理を行わないため
+		///      ここではできない) - M_/W_ = 0 にしておけば、最初のフレームの
+		///      時間的結合は履歴を「無し」として扱い、ゴミ値をリサンプルしない。
+		Bool reservoirCleared_ = false;
 
 		BindlessHeap* bindlessHeap_ = nullptr;
 		IndicesSystem* indicesSystem_ = nullptr;

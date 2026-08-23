@@ -38,6 +38,16 @@ namespace SeedCore
 			atrousKey.computeShader_ = shaderCache.GetComputeShader(atrousComputeShader_[pass])->Bytecode();
 			atrousPipelineStateObjectHandle_[pass] = pipelineStateObject_.GetOrCreate(device, atrousKey);
 		}
+
+		const String spatialReuseFilePath = String("../GraphicsEngine/Raytracing/GlobalIllumination/GlobalIlluminationReservoirSpatialCS.hlsl");
+
+		spatialReuseComputeShader_ = shaderCache.GetOrCreateComputeShader(spatialReuseFilePath);
+
+		PipelineStateKey spatialReuseKey{};
+		memset(&spatialReuseKey, 0, sizeof(spatialReuseKey));
+		spatialReuseKey.rootSignature_ = rootSignature_.Get(denoiseRootSignature_)->Get();
+		spatialReuseKey.computeShader_ = shaderCache.GetComputeShader(spatialReuseComputeShader_)->Bytecode();
+		spatialReusePipelineStateObjectHandle_ = pipelineStateObject_.GetOrCreate(device, spatialReuseKey);
 	}
 
 	ID3D12PipelineState* GlobalIlluminationDenoiseShader::GetPipelineState()const
@@ -48,6 +58,11 @@ namespace SeedCore
 	ID3D12PipelineState* GlobalIlluminationDenoiseShader::GetATrousPipelineState(Uint32 passIndex)const
 	{
 		return pipelineStateObject_.Get(atrousPipelineStateObjectHandle_[passIndex]);
+	}
+
+	ID3D12PipelineState* GlobalIlluminationDenoiseShader::GetSpatialReusePipelineState()const
+	{
+		return pipelineStateObject_.Get(spatialReusePipelineStateObjectHandle_);
 	}
 
 	ID3D12RootSignature* GlobalIlluminationDenoiseShader::GetRootSignature()const

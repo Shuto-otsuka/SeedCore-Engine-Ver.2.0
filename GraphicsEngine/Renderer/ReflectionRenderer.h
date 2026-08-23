@@ -309,6 +309,27 @@ namespace SeedCore
 		Uint32 radianceUnorderedAccessViewIndex_ = 0;
 		Uint32 radianceShaderResourceViewIndex_ = 0;
 
+		/// [EN] Screen-sized single-channel confidence (0..1), written by
+		///      ReflectionReservoirSpatialCS.hlsl right after radianceResource_
+		///      (same lifetime/barriers - single-buffered, fully consumed by
+		///      ReflectionDenoiseCS.hlsl the same frame it is written) and read
+		///      there to let its own temporal blend defer to the reservoir's
+		///      already-converged history instead of re-integrating a second
+		///      one on top of it (same scheme as GlobalIlluminationRenderer's
+		///      confidence fields).
+		/// [JP] 画面サイズの単チャンネル信頼度(0..1)。
+		///      ReflectionReservoirSpatialCS.hlsl が radianceResource_ の直後に
+		///      書く(ライフタイム/バリアも同じ — 単一バッファで、書かれた
+		///      同じフレーム内で ReflectionDenoiseCS.hlsl に消費し切られる)。
+		///      そちらが自身の時間的ブレンドを reservoir の既に収束済みの
+		///      履歴に譲り、その上にもう一段の時間積分を重ねないようにする
+		///      ために読む(GlobalIlluminationRenderer の confidence 系
+		///      フィールドと同じ形)。
+		Microsoft::WRL::ComPtr<ID3D12Resource> confidenceResource_;
+		D3D12_RESOURCE_STATES confidenceState_ = D3D12_RESOURCE_STATE_COMMON;
+		Uint32 confidenceUnorderedAccessViewIndex_ = 0;
+		Uint32 confidenceShaderResourceViewIndex_ = 0;
+
 		/// [EN] SVGF's temporal history: rgb = filtered radiance, a = its
 		///      variance. Ping-ponged, one independent pair per view (see
 		///      RaytracingView). This is the FEEDBACK TAP, not the final
@@ -389,6 +410,32 @@ namespace SeedCore
 		Uint32 atrousScratchUnorderedAccessViewIndex_[viewCount][2] = {};
 		Uint32 atrousScratchShaderResourceViewIndex_[viewCount][2] = {};
 
+		/// [EN] ReSTIR reservoir, ping-ponged per view like
+		///      accumulatedRadianceResource_ above - ReflectionRayGeneration
+		///      reads last frame's slot (reprojected) and writes this frame's
+		///      slot in the same dispatch, then ReflectionReservoirSpatialCS.hlsl
+		///      reads/combines this frame's slot again for spatial reuse before
+		///      the SVGF chain ever sees the result. Both slots stay
+		///      screen-sized StructuredBuffers of reservoirElementSizeInBytes_-
+		///      byte elements (see ReflectionReservoir in ReflectionReSTIR.hlsli,
+		///      which this must match byte-for-byte). Same scheme as
+		///      GlobalIlluminationRenderer's reservoir fields.
+		/// [JP] ReSTIR Reservoir。上の accumulatedRadianceResource_ と同じく
+		///      ビューごとにピンポンする - ReflectionRayGeneration が同じ
+		///      ディスパッチ内で前フレームのスロット(再投影済み)を読み、今
+		///      フレームのスロットへ書き、続けて ReflectionReservoirSpatialCS.hlsl
+		///      が今フレームのスロットを読み直して空間的リユースを行ってから
+		///      初めて SVGF チェーンへ渡る。両スロットとも画面サイズの
+		///      StructuredBuffer(要素サイズ reservoirElementSizeInBytes_ バイト —
+		///      ReflectionReSTIR.hlsli の ReflectionReservoir とバイト単位で
+		///      一致させること)。GlobalIlluminationRenderer の reservoir 系
+		///      フィールドと同じ形。
+		static constexpr Uint32 reservoirElementSizeInBytes_ = 48;
+		Microsoft::WRL::ComPtr<ID3D12Resource> reservoirResource_[viewCount][accumulationSlotCount];
+		D3D12_RESOURCE_STATES reservoirState_[viewCount][accumulationSlotCount] = {};
+		Uint32 reservoirUnorderedAccessViewIndex_[viewCount][accumulationSlotCount] = {};
+		Uint32 reservoirShaderResourceViewIndex_[viewCount][accumulationSlotCount] = {};
+
 		/// [EN] Which slot holds the previous frame's finished result (this
 		///      frame's history). Swapped once per frame at the top of
 		///      PrepareFrame() — NOT in Dispatch(), which runs twice per frame
@@ -425,11 +472,13 @@ namespace SeedCore
 		///      ゼロから収束し直させる)。
 		DescriptorHeap clearHeap_;
 		Uint32 clearRawIndex_ = 0;
+		Uint32 clearConfidenceIndex_ = 0;
 		Uint32 clearDenoisedIndex_[viewCount] = {};
 		Uint32 clearHistoryLengthIndex_[viewCount][accumulationSlotCount] = {};
 		Uint32 clearAccumulatedIndex_[viewCount][accumulationSlotCount] = {};
 		Uint32 clearMomentsIndex_[viewCount][accumulationSlotCount] = {};
 		Uint32 clearDepthNormalIndex_[viewCount][accumulationSlotCount] = {};
+		Uint32 clearReservoirIndex_[viewCount][accumulationSlotCount] = {};
 
 		/// [EN] Whether the history chain has been zeroed since it was created.
 		///      D3D12 does not guarantee a freshly created committed resource
@@ -445,6 +494,15 @@ namespace SeedCore
 		///      ビットパターンは容易に NaN になり、テクスチャはスウィズルされて
 		///      配置されるため、ノイズではなく矩形の塊として現れる。
 		Bool historyCleared_ = false;
+
+		/// [EN] Both reservoir ping-pong slots are zeroed once, the first time
+		///      Dispatch() runs, folded into the same historyCleared_ pass above
+		///      - M_/W_ = 0 makes the very first frame's temporal combine treat
+		///      history as absent instead of resampling garbage.
+		/// [JP] Reservoir のピンポン両スロットも、上と同じ historyCleared_
+		///      パスでDispatch()が初めて走った時に1度だけゼロクリアする -
+		///      M_/W_ = 0 にしておけば、最初のフレームの時間的結合は履歴を
+		///      「無し」として扱い、ゴミ値をリサンプルしない。
 
 		BindlessHeap* bindlessHeap_ = nullptr;
 		IndicesSystem* indicesSystem_ = nullptr;

@@ -25,6 +25,8 @@ namespace SeedCore
 
 		void DrawTags(Actor* actor);
 
+		void DrawLayer(Actor* actor);
+
 		void DrawPrefabControls(Actor* actor);
 
 		void DrawComponents(Actor* actor);
@@ -86,6 +88,8 @@ namespace SeedCore
 		Actor* lockedActor_ = nullptr;
 
 		std::string newTagBuffer_;
+
+		DynamicArray<std::string> layerNameBuffers_;
 
 		ImGuiTexture& imguiTexture_;
 

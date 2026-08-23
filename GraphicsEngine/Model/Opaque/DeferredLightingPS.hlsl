@@ -3,6 +3,7 @@
 #include "../../Shader/Structured.hlsli"
 #include "../../Shader/Normal.hlsli"
 #include "../../Shader/Light.hlsli"
+#include "../../Shader/Material.hlsli"
 #include "../../Light/Cluster.hlsli"
 #include "../../Light/ImageBasedLighting.hlsli"
 #include "../../Raytracing/Shadow/Shadow.hlsli"
@@ -15,9 +16,6 @@
 #include "../../Raytracing/VolumetricLight/VolumetricLight.hlsli"
 #include "../../Shader/Noise.hlsli"
 #include "../../Shader/Precipitation.hlsli"
-#include "PbrShading.hlsli"
-#include "PhongShading.hlsli"
-#include "ToonShading.hlsli"
 
 /// [JP] Froxel フォグ/体積光の積分ボリューム(rgb=累積散乱、a=透過率)を
 ///      uv+ビュー空間Zでサンプルしてシーン色へ合成する。無効時はレンダラーが
@@ -48,27 +46,6 @@ float3 ReconstructWorldPosition(float2 uv, float depth)
 	ndc.y = -ndc.y;
 	float4 world_position = mul(ndc, scene.inverse_view_projection_);
 	return world_position.xyz / world_position.w;
-}
-
-/// [JP] マテリアルのシェーディングモデルに応じて、直接光1灯ぶんの応答を
-///      計算する関数を切り替える。IBL/シャドウ/AO/反射/GI/フォグ/天候などの
-///      周辺インフラは main() 側で全モデル共有のまま - ここで変わるのは
-///      「直接光をどう陰影付けするか」だけ。
-float3 EvalDirectLightDispatch(uint shading_model, float3 normal, float3 view, float3 light_direction, float3 diffuse_color, float3 f0, float roughness, float clearcoat, float clearcoat_roughness, float3 clearcoat_normal, float3 sheen_color, float sheen_roughness, float3 anisotropy_tangent, float3 anisotropy_bitangent, float anisotropy_strength)
-{
-	if (shading_model == SHADING_MODEL_PHONG)
-	{
-		float shininess = lerp(128.0, 2.0, roughness);
-		return EvalDirectLightPhong(normal, view, light_direction, diffuse_color, f0, shininess);
-	}
-
-	if (shading_model == SHADING_MODEL_TOON)
-	{
-		float shininess = lerp(64.0, 4.0, roughness);
-		return EvalDirectLightToon(normal, view, light_direction, diffuse_color, f0, shininess);
-	}
-
-	return EvalDirectLight(normal, view, light_direction, diffuse_color, f0, roughness, clearcoat, clearcoat_roughness, clearcoat_normal, sheen_color, sheen_roughness, anisotropy_tangent, anisotropy_bitangent, anisotropy_strength);
 }
 
 float4 main(CompositeOutput input) : SV_Target0
@@ -244,19 +221,25 @@ float4 main(CompositeOutput input) : SV_Target0
 			return float4(global_illumination_denoised.Load(int3(pixel, 0)).rgb, 1.0);
 		}
 
-		/// [JP] シャドウは2チャンネル(r=ディレクショナル, g=確率的に選ばれた
-		///      パンクチュアル1灯)なので、そのまま R/G へ出す。両方照射なら黄色、
-		///      ディレクショナルだけ遮蔽されていれば緑、というように、どちらの
-		///      チャンネルが落ちているかが色で分かる。
+		/// [JP] シャドウの生信号は r=ディレクショナル可視性、gba=パンクチュアル
+		///      放射輝度なので、そのまま出す(r=ディレクショナル、
+		///      gb=パンクチュアル放射輝度の頭2チャンネル)。デノイズ後は形が
+		///      違う2枚(directional_denoised_/punctual_denoised_)に分かれて
+		///      いるので、rにディレクショナル可視性、gbにパンクチュアル放射輝度の
+		///      頭2チャンネルを合成して同じ見え方にする。
 		case 14: // シャドウ（生）
 		{
-			Texture2D<float2> shadow_raw = ResourceDescriptorHeap[structured_indices.shadow_.raw_visibility_srv_index_];
-			return float4(shadow_raw.Load(int3(pixel, 0)), 0.0, 1.0);
+			Texture2D<float4> shadow_raw = ResourceDescriptorHeap[structured_indices.shadow_.raw_visibility_srv_index_];
+			float4 raw_value = shadow_raw.Load(int3(pixel, 0));
+			return float4(raw_value.x, raw_value.y, raw_value.z, 1.0);
 		}
 		case 15: // シャドウ（デノイズ後）
 		{
-			Texture2D<float2> shadow_denoised = ResourceDescriptorHeap[constant_indices.shadow_.visibility_srv_index_];
-			return float4(shadow_denoised.Load(int3(pixel, 0)), 0.0, 1.0);
+			Texture2D<float> directional_denoised = ResourceDescriptorHeap[constant_indices.shadow_.directional_visibility_srv_index_];
+			Texture2D<float4> punctual_denoised = ResourceDescriptorHeap[constant_indices.shadow_.punctual_radiance_srv_index_];
+			float directional_value = directional_denoised.Load(int3(pixel, 0));
+			float3 punctual_value = punctual_denoised.Load(int3(pixel, 0)).rgb;
+			return float4(directional_value, punctual_value.r, punctual_value.g, 1.0);
 		}
 		case 16: // アンビエントオクルージョン（生）
 		{
@@ -282,212 +265,42 @@ float4 main(CompositeOutput input) : SV_Target0
 	SceneConstantBuffer scene = GetSceneConstantBuffer();
 	float3 view = normalize(scene.camera_position_.xyz - world_position);
 
-	/// [JP] 天候の見た目への反映(WeatherSystem::ReadGpuState経由)。上向きの
-	///      面ほど強く - 濡れは粗さを落としてテカらせ、雪は白へブレンドする。
-	///      diffuse_color/f0 の算出前に base_color/roughness へ適用することで
-	///      環境光/反射/直接光/GI すべてに一貫して効く。
-	ConstantBuffer<LightConstantData> weather_light = ResourceDescriptorHeap[constant_indices.light_index_];
-	float weather_up_facing = saturate(normal.y);
-
-	float wetness = weather_light.wetness_ * weather_up_facing;
-	roughness = lerp(roughness, roughness * 0.25, wetness);
-	base_color = lerp(base_color, base_color * 0.8, wetness * 0.6);
-
-	/// [JP] 水たまり: ほぼ水平な面(法線がほぼ真上)だけ、濡れ具合に応じて
-	///      さらに鏡面寄りへ押す。傾いた面(壁など)は上の薄い水膜の
-	///      テカりだけに留め、水が「溜まる」のは平らな地面だけにする。
-	float flatness = saturate((normal.y - 0.85) / 0.15);
-	float puddle = wetness * flatness;
-	roughness = lerp(roughness, 0.03, puddle);
-	base_color = lerp(base_color, base_color * 0.5, puddle * 0.5);
-
-	float snow = weather_light.snow_coverage_ * weather_up_facing;
-	base_color = lerp(base_color, float3(0.95, 0.96, 1.0), snow);
-	roughness = lerp(roughness, 0.9, snow);
-
-	/// [JP] ラフネスの下限。ここから下は「鋭いハイライト」ではなく【破綻】になる。
-	///      GGX の法線分布はピーク(N・H=1)で D = 1/(PI * alpha^2)、alpha =
-	///      roughness^2 なので、roughness が小さいほど D は 4 乗で発散する
-	///      (roughness 0.01 で約 3.2e7、0 で Inf)。これに光源強度が掛かった値が
-	///      RGBA16F の HDR バッファ(上限 65504)へ入るので、+Inf として格納される。
-	///
-	///      そして NaN が生まれるのはここではなくブルームの Karis 平均で、
-	///      color * 1/(1+luma) が Inf * 0 になる。生まれた NaN はブルーム/
-	///      レンズフレア/アナモルフィックがそれぞれ自分のカーネル形状で広げるため、
-	///      「光源とは無関係な場所に、3種類の別々の形の黒が同時に出る」という
-	///      原因の見えにくい壊れ方をする。
-	///
-	///      0.045 は Filament/Frostbite が同じ理由(half float でのオーバーフロー
-	///      回避)で使っている値。上の水たまり(0.03)はこれを単独で下回るため、
-	///      すべての weather 補正を通した【後】に敷く必要がある。
-	const float MIN_PERCEPTUAL_ROUGHNESS = 0.045;
-	roughness = max(roughness, MIN_PERCEPTUAL_ROUGHNESS);
-
-	/// [JP] KHR拡張 / オクルージョンのテクスチャを、対応する per-instance factor へ
-	///      掛け合わせる。モデルの UV は VisibilityBuffer(RT4.zw)から復元する —
-	///      このパスはフルスクリーン矩形なので input.texcoord はスクリーン UV で
-	///      あってモデル UV ではない。チャンネルの割り当ては glTF 仕様に従う。
-	///      ミップは MaterialResolveCS.hlsl と同じ理由(解析的な UV 偏微分が無い)で
-	///      0 固定 - G-Buffer 由来の UV は三角形の境界で ddx/ddy が壊れる。
+	/// [JP] 天候補正+KHR拡張のマテリアル解決は Shader/Material.hlsli の
+	///      ResolveGBufferMaterial に共通化した(Raytracing/Shadow/ShadowRT.hlsl
+	///      の ReSTIR DI からも同じ関数を呼び、鏡面ハイライトが主要視点と
+	///      一致するようにするため)。モデル UV は VisibilityBuffer(RT4.zw)
+	///      から復元する — このパスはフルスクリーン矩形なので input.texcoord
+	///      はスクリーン UV であってモデル UV ではない。
 	float2 material_texcoord = UnpackVisibilityTexcoord(visibility_id);
+	GBufferMaterial gbuffer_material = ResolveGBufferMaterial(base_color, metallic, roughness, normal, view, material_instance, material_texcoord, rt1.a);
+	float3 diffuse_color = gbuffer_material.diffuse_color_;
+	float3 f0 = gbuffer_material.f0_;
+	roughness = gbuffer_material.roughness_;
+	float clearcoat_factor = gbuffer_material.clearcoat_factor_;
+	float clearcoat_roughness = gbuffer_material.clearcoat_roughness_;
+	float3 clearcoat_normal = gbuffer_material.clearcoat_normal_;
+	float3 sheen_color = gbuffer_material.sheen_color_;
+	float sheen_roughness = gbuffer_material.sheen_roughness_;
+	float3 anisotropy_tangent = gbuffer_material.anisotropy_tangent_;
+	float3 anisotropy_bitangent = gbuffer_material.anisotropy_bitangent_;
+	float anisotropy_strength = gbuffer_material.anisotropy_strength_;
 
-	float specular_factor = material_instance.specular_factor_;
-	if (material_instance.specular_texture_index_ != 0xFFFFFFFF)
-	{
-		Texture2D<float4> specular_texture = ResourceDescriptorHeap[material_instance.specular_texture_index_];
-		specular_factor *= specular_texture.SampleLevel(sampler_aniso_wrap, material_texcoord, 0).a;
-	}
-
-	float3 specular_color = material_instance.specular_color_;
-	if (material_instance.specular_color_texture_index_ != 0xFFFFFFFF)
-	{
-		Texture2D<float4> specular_color_texture = ResourceDescriptorHeap[material_instance.specular_color_texture_index_];
-		specular_color *= specular_color_texture.SampleLevel(sampler_aniso_wrap, material_texcoord, 0).rgb;
-	}
-
-	float iridescence_factor = material_instance.iridescence_factor_;
-	if (material_instance.iridescence_texture_index_ != 0xFFFFFFFF)
-	{
-		Texture2D<float4> iridescence_texture = ResourceDescriptorHeap[material_instance.iridescence_texture_index_];
-		iridescence_factor *= iridescence_texture.SampleLevel(sampler_aniso_wrap, material_texcoord, 0).r;
-	}
-
-	float iridescence_thickness = material_instance.iridescence_thickness_;
-	if (material_instance.iridescence_thickness_texture_index_ != 0xFFFFFFFF)
-	{
-		Texture2D<float4> iridescence_thickness_texture = ResourceDescriptorHeap[material_instance.iridescence_thickness_texture_index_];
-		iridescence_thickness *= iridescence_thickness_texture.SampleLevel(sampler_aniso_wrap, material_texcoord, 0).g;
-	}
-
-	float transmission_factor = material_instance.transmission_factor_;
-	if (material_instance.transmission_texture_index_ != 0xFFFFFFFF)
-	{
-		Texture2D<float4> transmission_texture = ResourceDescriptorHeap[material_instance.transmission_texture_index_];
-		transmission_factor *= transmission_texture.SampleLevel(sampler_aniso_wrap, material_texcoord, 0).r;
-	}
-
-	/// [JP] KHR_materials_ior/specular からその場で誘電体 F0 を計算。金属は base_color。
-	float dielectric = (material_instance.ior_ - 1.0) / (material_instance.ior_ + 1.0);
-	dielectric *= dielectric;
-	float3 dielectric_f0 = saturate(dielectric * specular_color * specular_factor);
-
-	/// [JP] KHR_materials_iridescence: 簡易近似(物理的に正確な薄膜干渉ではなく、
-	///      厚み/視野角で位相をずらした疑似虹色シフト)で F0 を色付けする。
-	if (iridescence_factor > 0.0)
-	{
-		float normal_dot_view_for_iridescence = saturate(dot(normal, view));
-		float phase = iridescence_thickness * 0.01 * normal_dot_view_for_iridescence + material_instance.iridescence_ior_;
-		float3 iridescence_shift = sin(float3(phase, phase + 2.094395, phase + 4.18879)) * 0.5 + 0.5;
-		dielectric_f0 = lerp(dielectric_f0, iridescence_shift, saturate(iridescence_factor));
-	}
-
-	/// [JP] KHR_materials_transmission: 透過する光は拡散反射しない。実際に背後を
-	///      透かして見せる屈折表現(スクリーン空間/レイトレの Refraction)は別途
-	///      実装予定 - ここでは拡散応答の減衰のみ反映する。
-	float3 diffuse_color = base_color * (1.0 - metallic) * (1.0 - transmission_factor);
-	float3 f0 = lerp(dielectric_f0, base_color, metallic);
-	/// [JP] 濡れた面は薄い水膜でグレージング角の反射率が上がる。水たまりは
-	///      水面そのものとしてさらに強く反射させる。
-	f0 = lerp(f0, max(f0, 0.02), wetness);
-	f0 = lerp(f0, max(f0, 0.05), puddle);
-
-	float clearcoat_factor = material_instance.clearcoat_factor_;
-	if (material_instance.clearcoat_texture_index_ != 0xFFFFFFFF)
-	{
-		Texture2D<float4> clearcoat_texture = ResourceDescriptorHeap[material_instance.clearcoat_texture_index_];
-		clearcoat_factor *= clearcoat_texture.SampleLevel(sampler_aniso_wrap, material_texcoord, 0).r;
-	}
-
-	float clearcoat_roughness = material_instance.clearcoat_roughness_;
-	if (material_instance.clearcoat_roughness_texture_index_ != 0xFFFFFFFF)
-	{
-		Texture2D<float4> clearcoat_roughness_texture = ResourceDescriptorHeap[material_instance.clearcoat_roughness_texture_index_];
-		clearcoat_roughness *= clearcoat_roughness_texture.SampleLevel(sampler_aniso_wrap, material_texcoord, 0).g;
-	}
-
-	/// [JP] KHR_materials_clearcoat の法線マップ。接空間なので TBN が要るが、
-	///      このパスは補間済みタンジェントを持たない — MaterialResolveCS.hlsl が
-	///      RT1.a へ「N まわりの角度 + 利き手符号」として畳んだものを復元して組む
-	///      (Shader/Normal.hlsli の PackTangentAngle/UnpackTangentAngle)。
-	///      クリアコート層は base とは独立した法線を持てるので、base の法線は
-	///      そのままに、コート専用の法線だけを差し替える。
-	float3 clearcoat_normal = normal;
-	if (material_instance.clearcoat_normal_texture_index_ != 0xFFFFFFFF)
-	{
-		float3 clearcoat_tangent;
-		float clearcoat_handedness;
-		UnpackTangentAngle(normal, rt1.a, clearcoat_tangent, clearcoat_handedness);
-
-		float3 clearcoat_bitangent = cross(normal, clearcoat_tangent) * clearcoat_handedness;
-		float3x3 clearcoat_tbn = float3x3(clearcoat_tangent, clearcoat_bitangent, normal);
-
-		Texture2D<float4> clearcoat_normal_texture = ResourceDescriptorHeap[material_instance.clearcoat_normal_texture_index_];
-		float3 clearcoat_normal_sample = clearcoat_normal_texture.SampleLevel(sampler_linear_wrap, material_texcoord, 0).xyz * 2.0 - 1.0;
-		clearcoat_normal = normalize(mul(clearcoat_normal_sample, clearcoat_tbn));
-	}
-
-	/// [JP] KHR_materials_anisotropy。方向は「タンジェント基底内の2Dベクトル」で、
-	///      anisotropyRotation(定数) と anisotropyTexture.rg(ピクセルごと)の
-	///      合成で決まる。強度は anisotropyStrength * texture.b。
-	///      タンジェントはクリアコート法線と同じ RT1.a 由来のものを使う。
-	float3 anisotropy_tangent = float3(1, 0, 0);
-	float3 anisotropy_bitangent = float3(0, 1, 0);
-	float anisotropy_strength = material_instance.anisotropy_;
-	if (abs(anisotropy_strength) > 0.0)
-	{
-		float2 anisotropy_direction = float2(cos(material_instance.anisotropy_rotation_), sin(material_instance.anisotropy_rotation_));
-		if (material_instance.anisotropy_texture_index_ != 0xFFFFFFFF)
-		{
-			Texture2D<float4> anisotropy_texture = ResourceDescriptorHeap[material_instance.anisotropy_texture_index_];
-			float3 anisotropy_sample = anisotropy_texture.SampleLevel(sampler_aniso_wrap, material_texcoord, 0).rgb;
-
-			float2 texture_direction = anisotropy_sample.rg * 2.0 - 1.0;
-			anisotropy_direction = float2(
-				texture_direction.x * anisotropy_direction.x - texture_direction.y * anisotropy_direction.y,
-				texture_direction.x * anisotropy_direction.y + texture_direction.y * anisotropy_direction.x);
-			anisotropy_strength *= anisotropy_sample.b;
-		}
-
-		float3 base_tangent;
-		float base_handedness;
-		UnpackTangentAngle(normal, rt1.a, base_tangent, base_handedness);
-		float3 base_bitangent = cross(normal, base_tangent) * base_handedness;
-
-		anisotropy_tangent = normalize(base_tangent * anisotropy_direction.x + base_bitangent * anisotropy_direction.y);
-		anisotropy_bitangent = normalize(cross(normal, anisotropy_tangent));
-	}
-
-	float3 sheen_color = material_instance.sheen_color_;
-	if (material_instance.sheen_color_texture_index_ != 0xFFFFFFFF)
-	{
-		Texture2D<float4> sheen_color_texture = ResourceDescriptorHeap[material_instance.sheen_color_texture_index_];
-		sheen_color *= sheen_color_texture.SampleLevel(sampler_aniso_wrap, material_texcoord, 0).rgb;
-	}
-
-	float sheen_roughness_value = material_instance.sheen_roughness_;
-	if (material_instance.sheen_roughness_texture_index_ != 0xFFFFFFFF)
-	{
-		Texture2D<float4> sheen_roughness_texture = ResourceDescriptorHeap[material_instance.sheen_roughness_texture_index_];
-		sheen_roughness_value *= sheen_roughness_texture.SampleLevel(sampler_aniso_wrap, material_texcoord, 0).a;
-	}
-	float sheen_roughness = max(sheen_roughness_value, 0.001);
-
-	/// [JP] ShadowRT.hlsl(+ShadowDenoiseCS.hlsl で時間積分済み)が書いた
-	///      2チャンネル可視性(r=ディレクショナル, g=Point/Spot/Rect のうち
-	///      確率的に選ばれた1灯)。ビューごとの蓄積チェーンなので
+	/// [JP] ShadowRT.hlsl(+ShadowDenoiseCS.hlsl で時間+空間積分済み)が書いた
+	///      ディレクショナル可視性。ビューごとの蓄積チェーンなので
 	///      constant_indices 側から取る。shadow_strength_ で効きの強さを
 	///      0(常に照射扱い)〜1(可視性をそのまま適用)で調整する。
-	///      各チャンネルは対応する直接光の項【だけ】に掛ける。環境光(IBL)には
-	///      掛けない — 太陽から見えない面(壁の裏・屋内)は可視性0になるため、
-	///      環境光まで消すと真っ黒に潰れる。影の暗さの下限は環境光が決める
-	///      (物理的にもそれが正しい)。もっと暗い影にしたければ環境光/スカイ
-	///      強度を下げるか太陽強度を上げる。
-	Texture2D<float2> shadow_visibility = ResourceDescriptorHeap[constant_indices.shadow_.visibility_srv_index_];
-	float2 visibility = shadow_visibility.Load(int3(pixel, 0));
+	///      ディレクショナルの項【だけ】に掛ける。環境光(IBL)には掛けない —
+	///      太陽から見えない面(壁の裏・屋内)は可視性0になるため、環境光まで
+	///      消すと真っ黒に潰れる。影の暗さの下限は環境光が決める(物理的にも
+	///      それが正しい)。もっと暗い影にしたければ環境光/スカイ強度を下げるか
+	///      太陽強度を上げる。パンクチュアル側は既にBRDF評価済みのRGB放射輝度
+	///      なので同じ掛け方はできない — shadow_strength_ の適用は
+	///      ShadowRT.hlsl 側で完結させている(下の punctual_direct_lighting 参照)。
+	Texture2D<float> directional_visibility_texture = ResourceDescriptorHeap[constant_indices.shadow_.directional_visibility_srv_index_];
+	float directional_visibility = directional_visibility_texture.Load(int3(pixel, 0));
 
 	ConstantBuffer<ShadowRayConstantBuffer> shadow_tuning = ResourceDescriptorHeap[structured_indices.shadow_.ray_constant_index_];
-	float directional_shadow_factor = lerp(1.0, visibility.x, saturate(shadow_tuning.shadow_strength_));
-	float punctual_shadow_factor = lerp(1.0, visibility.y, saturate(shadow_tuning.shadow_strength_));
+	float directional_shadow_factor = lerp(1.0, directional_visibility, saturate(shadow_tuning.shadow_strength_));
 
 	/// [EN] Ambient term: image-based lighting when a skymap is bound
 	///      (irradiance index != 0), otherwise the flat fallback ambient.
@@ -629,105 +442,32 @@ float4 main(CompositeOutput input) : SV_Target0
 		}
 	}
 
+	/// [JP] Point/Spot/Rect の直接光は、決定論的なクラスタループではなく
+	///      Raytracing/Shadow/ShadowRT.hlsl の ReSTIR DI(このピクセルのクラスタで
+	///      重み付きリザーバーサンプリングにより毎フレーム1灯だけ確率的に選び、
+	///      ResolveGBufferMaterial + EvalDirectLightDispatch でフルBRDF評価した
+	///      RGB放射輝度を選択pdfで割って影レイの可視性を掛けたもの)を
+	///      ShadowDenoiseCS.hlsl が時間+空間積分した結果を直接加算する。
+	///      光ごとに個別の影/鏡面ハイライトが立つため、複数の Point/Spot/Rect が
+	///      同一ピクセルへ及ぶ場面で「全灯の可視性を1つの確率的スカラーへ平均化
+	///      して共有する」という以前の破綻(ある灯が遮蔽されていても他の灯と
+	///      混ざって中途半端に暗くなる)が起きない。
+	Texture2D<float4> punctual_direct_lighting_texture = ResourceDescriptorHeap[constant_indices.shadow_.punctual_radiance_srv_index_];
+	lighting += punctual_direct_lighting_texture.Load(int3(pixel, 0)).rgb;
+
 	float4 view_position = mul(float4(world_position, 1.0), scene.view_);
 	float linear_depth = view_position.z;
 
-	uint3 cluster_count = uint3(light_constant_buffer.cluster_count_x_, light_constant_buffer.cluster_count_y_, CLUSTER_DEPTH_SLICES);
-	uint tile_x = pixel.x / CLUSTER_TILE_SIZE;
-	uint tile_y = pixel.y / CLUSTER_TILE_SIZE;
-	uint slice = ComputeDepthSlice(linear_depth, scene.near_plane_, scene.far_plane_);
-	uint cluster_index = ClusterIndex(uint3(tile_x, tile_y, slice), cluster_count);
-
-	StructuredBuffer<ClusterData> cluster_data = ResourceDescriptorHeap[light_constant_buffer.cluster_data_shader_resource_view_index_];
-	ByteAddressBuffer light_list = ResourceDescriptorHeap[light_constant_buffer.cluster_light_list_shader_resource_view_index_];
-
-	ClusterData cluster = cluster_data[cluster_index];
-	uint base = cluster_index * CLUSTER_STRIDE;
-
-	if (cluster.point_count_ > 0)
-	{
-		StructuredBuffer<PointLightData> point_lights = ResourceDescriptorHeap[light_constant_buffer.point_light_index_];
-		uint count = min(cluster.point_count_, CLUSTER_MAX_POINT_LIGHTS);
-
-		for (uint index = 0; index < count; index++)
-		{
-			uint light_index = light_list.Load((base + index) * 4);
-			PointLightData point_light = point_lights[light_index];
-
-			float3 to_light = point_light.position - world_position;
-			float distance = length(to_light);
-			float3 light_direction = to_light / max(distance, 0.0001);
-			float attenuation = AttenuateDistance(distance, point_light.range);
-
-			float3 light_color = point_light.color.rgb * point_light.intensity * attenuation * punctual_shadow_factor;
-			lighting += EvalDirectLightDispatch(material_instance.shading_model_, normal, view, light_direction, diffuse_color, f0, roughness, clearcoat_factor, clearcoat_roughness, clearcoat_normal, sheen_color, sheen_roughness, anisotropy_tangent, anisotropy_bitangent, anisotropy_strength) * light_color;
-		}
-	}
-
-	if (cluster.spot_count_ > 0)
-	{
-		StructuredBuffer<SpotLightData> spot_lights = ResourceDescriptorHeap[light_constant_buffer.spot_light_index_];
-		uint count = min(cluster.spot_count_, CLUSTER_MAX_SPOT_LIGHTS);
-
-		for (uint index = 0; index < count; index++)
-		{
-			uint light_index = light_list.Load((base + CLUSTER_MAX_POINT_LIGHTS + index) * 4);
-			SpotLightData spot_light = spot_lights[light_index];
-
-			float3 to_light = spot_light.position - world_position;
-			float distance = length(to_light);
-			float3 light_direction = to_light / max(distance, 0.0001);
-
-			float cos_angle = dot(-light_direction, spot_light.direction);
-			float spot_fade = saturate((cos_angle - spot_light.cos_half_angle) / max(spot_light.softness * (1.0 - spot_light.cos_half_angle), 0.0001));
-
-			float attenuation = AttenuateDistance(distance, spot_light.range) * spot_fade;
-
-			float3 light_color = spot_light.color.rgb * spot_light.intensity * attenuation * punctual_shadow_factor;
-			lighting += EvalDirectLightDispatch(material_instance.shading_model_, normal, view, light_direction, diffuse_color, f0, roughness, clearcoat_factor, clearcoat_roughness, clearcoat_normal, sheen_color, sheen_roughness, anisotropy_tangent, anisotropy_bitangent, anisotropy_strength) * light_color;
-		}
-	}
-
-	/// [JP] 矩形(エリア)ライト。Point/Spot と同じくクラスタで絞ってループする。
-	///      面上の最近点を代表点として拡散/鏡面を評価する近似。物理的に正しくやるなら
-	///      LTC(Linearly Transformed Cosines)、ソフトシャドウはレイトレ側で別途対応する。
-	if (cluster.rect_count_ > 0)
-	{
-		StructuredBuffer<RectLightData> rect_lights = ResourceDescriptorHeap[light_constant_buffer.rect_light_index_];
-		uint count = min(cluster.rect_count_, CLUSTER_MAX_RECT_LIGHTS);
-
-		for (uint index = 0; index < count; index++)
-		{
-			uint light_index = light_list.Load((base + CLUSTER_MAX_POINT_LIGHTS + CLUSTER_MAX_SPOT_LIGHTS + index) * 4);
-			RectLightData rect_light = rect_lights[light_index];
-
-			/// [JP] 片面発光: パネルの正面(normal 側)にある面だけを照らす。
-			if (dot(world_position - rect_light.position, rect_light.normal) <= 0.0)
-			{
-				continue;
-			}
-
-			float3 representative_point = ClosestPointOnRect(world_position, rect_light.position, rect_light.right, rect_light.up, rect_light.half_width, rect_light.half_height);
-			float3 to_light = representative_point - world_position;
-			float distance = length(to_light);
-			float3 light_direction = to_light / max(distance, 0.0001);
-
-			float attenuation = AttenuateDistance(distance, rect_light.range);
-			float3 light_color = rect_light.color.rgb * rect_light.intensity * attenuation * punctual_shadow_factor;
-			lighting += EvalDirectLightDispatch(material_instance.shading_model_, normal, view, light_direction, diffuse_color, f0, roughness, clearcoat_factor, clearcoat_roughness, clearcoat_normal, sheen_color, sheen_roughness, anisotropy_tangent, anisotropy_bitangent, anisotropy_strength) * light_color;
-		}
-	}
-
 	/// [JP] 雷の閃光: シーン全体を一瞬明るく染める簡易表現(実際の稲妻ジオメトリは
 	///      描かない)。
-	lighting += weather_light.thunder_flash_ * float3(0.85, 0.9, 1.0) * 2.5;
+	lighting += light_constant_buffer.thunder_flash_ * float3(0.85, 0.9, 1.0) * 2.5;
 
 	/// [JP] 最後にフォグ/体積光を合成(このピクセルのビュー空間Zのスライスで
 	///      サンプル)。ゴッドレイ(fog.rgb)もここで乗る。
 	float3 final_color = ApplyVolumetricFog(lighting + emissive, input.texcoord, linear_depth);
 
 	/// [JP] 雷の閃光はこの面にも独立して効く。
-	final_color += LightningBoltMask(input.texcoord, weather_light.thunder_seed_, saturate(weather_light.thunder_flash_ - 0.5) * 2.0);
+	final_color += LightningBoltMask(input.texcoord, light_constant_buffer.thunder_seed_, saturate(light_constant_buffer.thunder_flash_ - 0.5) * 2.0);
 
 	return float4(final_color, 1.0);
 }

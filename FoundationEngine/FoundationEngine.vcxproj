@@ -48,15 +48,19 @@
     <ClInclude Include="ECS\Component\Bounds.h" />
     <ClInclude Include="ECS\Component\ComponentBase.h" />
     <ClInclude Include="ECS\Component\InspectorDrawable.h" />
+    <ClInclude Include="ECS\Component\Spawner.h" />
     <ClInclude Include="ECS\Entity.h" />
     <ClCompile Include="ECS\EntityRecord.cpp">
     </ClCompile>
     <ClCompile Include="ECS\History.cpp" />
+    <ClCompile Include="ECS\LayerCollisionMatrix.cpp" />
+    <ClCompile Include="ECS\LayerRegistry.cpp" />
     <ClCompile Include="ECS\PayloadRegistry.cpp">
     </ClCompile>
     <ClCompile Include="ECS\ReflectionRegistry.cpp">
     </ClCompile>
     <ClCompile Include="ECS\System\MoveSystem.cpp" />
+    <ClCompile Include="ECS\System\SpawnerSystem.cpp" />
     <ClCompile Include="ECS\System\SystemScheduler.cpp">
     </ClCompile>
     <ClCompile Include="ECS\System\SceneTransitionSystem.cpp" />
@@ -66,8 +70,11 @@
     <ClCompile Include="ECS\World.cpp">
     </ClCompile>
     <ClInclude Include="ECS\History.h" />
+    <ClInclude Include="ECS\LayerCollisionMatrix.h" />
+    <ClInclude Include="ECS\LayerRegistry.h" />
     <ClInclude Include="ECS\PayloadRegistry.h" />
     <ClInclude Include="ECS\System\MoveSystem.h" />
+    <ClInclude Include="ECS\System\SpawnerSystem.h" />
     <ClInclude Include="ECS\System\TransformSystem.h" />
     <ClInclude Include="ECS\TagRegistry.h" />
     <ClInclude Include="ECS\World.h" />
@@ -221,6 +228,7 @@
     <ClInclude Include="Math\MathCommon.h" />
     <ClInclude Include="Math\Matrix.h" />
     <ClInclude Include="Math\Quaternion.h" />
+    <ClInclude Include="Math\Ray.h" />
     <ClInclude Include="Math\Vector.h" />
     <ClInclude Include="Memory\ChunkAllocator.h" />
     <ClInclude Include="Pool\InternPool.h" />

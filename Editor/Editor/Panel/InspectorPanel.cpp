@@ -3,6 +3,7 @@
 #include <Editor/Editor/ImGui/ImGuiTexture.h>
 #include <Editor/Editor/Panel/AnimatorControllerPanel.h>
 #include <Editor/Editor/Panel/TimelinePanel.h>
+#include <Editor/Editor/Panel/LayerSettingsPanel.h>
 #include <FoundationEngine/ECS/World.h>
 #include <FoundationEngine/ECS/Actor.h>
 #include <FoundationEngine/ECS/Component.h>
@@ -16,6 +17,7 @@
 #include <FoundationEngine/ECS/ReflectionRegistry.h>
 #include <FoundationEngine/ECS/PayloadRegistry.h>
 #include <FoundationEngine/ECS/TagRegistry.h>
+#include <FoundationEngine/ECS/LayerRegistry.h>
 #include <FoundationEngine/Resource/Prefab.h>
 #include <FoundationEngine/Time/GameTimer.h>
 
@@ -24,6 +26,12 @@ namespace SeedCore
 	InspectorPanel::InspectorPanel(EditorContext& context, ImGuiTexture& imguiTexture) : context_(context), addComponentPanel_(context), imguiTexture_(imguiTexture)
 	{
 		newTagBuffer_.resize(64);
+
+		layerNameBuffers_.resize(LayerRegistry::LayerCount);
+		for (std::string& buffer : layerNameBuffers_)
+		{
+			buffer.resize(64);
+		}
 	}
 
 	void InspectorPanel::Draw()
@@ -53,7 +61,19 @@ namespace SeedCore
 			{
 				ImGui::BeginChild("##InspectorContent", ImVec2(0, 0), ImGuiChildFlags_None, ImGuiWindowFlags_HorizontalScrollbar);
 				DrawName(actor);
+
+				Float tagLayerColumnWidth = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.5f;
+
+				ImGui::BeginChild("##TagColumn", ImVec2(tagLayerColumnWidth, 0.0f), ImGuiChildFlags_AutoResizeY);
 				DrawTags(actor);
+				ImGui::EndChild();
+
+				ImGui::SameLine();
+
+				ImGui::BeginChild("##LayerColumn", ImVec2(tagLayerColumnWidth, 0.0f), ImGuiChildFlags_AutoResizeY);
+				DrawLayer(actor);
+				ImGui::EndChild();
+
 				DrawPrefabControls(actor);
 				ImGui::Separator();
 
@@ -127,21 +147,24 @@ namespace SeedCore
 	{
 		DynamicArray<String> currentTags = actor->GetTagList();
 
-		std::string headerLabel = "タグ";
-		if (!currentTags.empty())
+		std::string previewLabel;
+		for (Size index = 0; index < currentTags.size(); ++index)
 		{
-			headerLabel += " (" + std::to_string(currentTags.size()) + ")";
+			if (index > 0)
+			{
+				previewLabel += ", ";
+			}
+			previewLabel += currentTags[index].str();
 		}
-		headerLabel += "###TagsHeader";
+		if (previewLabel.empty())
+		{
+			previewLabel = "(なし)";
+		}
 
-		ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.20f, 0.45f, 0.75f, 0.55f));
-		ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.25f, 0.52f, 0.85f, 0.70f));
-		ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImVec4(0.25f, 0.52f, 0.85f, 0.85f));
-		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.75f, 0.88f, 1.0f, 1.0f));
-		Bool headerOpen = ImGui::CollapsingHeader(headerLabel.c_str());
-		ImGui::PopStyleColor(4);
+		ImGui::TextDisabled("タグ");
 
-		if (!headerOpen)
+		ImGui::SetNextItemWidth(-1.0f);
+		if (!ImGui::BeginCombo("##Tags", previewLabel.c_str()))
 		{
 			return;
 		}
@@ -151,48 +174,55 @@ namespace SeedCore
 		String deleteTag;
 		Bool hasDeleteTag = false;
 
-		const ImGuiStyle& style = ImGui::GetStyle();
-		Float windowVisibleX = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
-
-		for (Size index = 0; index < currentTags.size(); ++index)
+		if (!currentTags.empty())
 		{
-			const String& tag = currentTags[index];
+			const ImGuiStyle& style = ImGui::GetStyle();
+			Float windowVisibleX = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
 
-			ImGui::PushID(tag.c_str());
-			ImGui::SmallButton(tag.c_str());
-
-			if (ImGui::BeginPopupContextItem())
+			for (Size index = 0; index < currentTags.size(); ++index)
 			{
-				if (ImGui::MenuItem("このActorから外す"))
+				const String& tag = currentTags[index];
+
+				ImGui::PushID(tag.c_str());
+				ImGui::SmallButton(tag.c_str());
+
+				if (ImGui::BeginPopupContextItem())
 				{
-					removeTag = tag;
-					hasRemoveTag = true;
+					if (ImGui::MenuItem("このActorから外す"))
+					{
+						removeTag = tag;
+						hasRemoveTag = true;
+					}
+					if (ImGui::MenuItem("タグを削除（すべてのActorから）"))
+					{
+						deleteTag = tag;
+						hasDeleteTag = true;
+					}
+					ImGui::EndPopup();
 				}
-				if (ImGui::MenuItem("タグを削除（すべてのActorから）"))
+				else if (ImGui::IsItemHovered())
 				{
-					deleteTag = tag;
-					hasDeleteTag = true;
+					ImGui::SetTooltip("右クリックでメニューを開く");
 				}
-				ImGui::EndPopup();
-			}
-			else if (ImGui::IsItemHovered())
-			{
-				ImGui::SetTooltip("右クリックでメニューを開く");
+
+				ImGui::PopID();
+
+				Float lastButtonX = ImGui::GetItemRectMax().x;
+				if (index + 1 < currentTags.size())
+				{
+					const String& nextTag = currentTags[index + 1];
+					Float nextButtonWidth = ImGui::CalcTextSize(nextTag.c_str()).x + style.FramePadding.x * 2.0f;
+					Float nextButtonX = lastButtonX + style.ItemSpacing.x + nextButtonWidth;
+					if (nextButtonX < windowVisibleX)
+					{
+						ImGui::SameLine();
+					}
+				}
 			}
 
-			ImGui::PopID();
-
-			Float lastButtonX = ImGui::GetItemRectMax().x;
-			if (index + 1 < currentTags.size())
-			{
-				const String& nextTag = currentTags[index + 1];
-				Float nextButtonWidth = ImGui::CalcTextSize(nextTag.c_str()).x + style.FramePadding.x * 2.0f;
-				Float nextButtonX = lastButtonX + style.ItemSpacing.x + nextButtonWidth;
-				if (nextButtonX < windowVisibleX)
-				{
-					ImGui::SameLine();
-				}
-			}
+			ImGui::Spacing();
+			ImGui::Separator();
+			ImGui::Spacing();
 		}
 
 		if (hasRemoveTag)
@@ -205,99 +235,153 @@ namespace SeedCore
 			TagRegistry::Remove(deleteTag);
 		}
 
-		if (!currentTags.empty())
+		ImGui::SetNextItemWidth(140.0f);
+		Bool entered = ImGui::InputText("##NewTag", newTagBuffer_.data(), newTagBuffer_.capacity(), ImGuiInputTextFlags_EnterReturnsTrue);
+		ImGui::SameLine();
+		Bool addClicked = ImGui::SmallButton("追加");
+
+		if (entered || addClicked)
 		{
-			Float lastButtonX = ImGui::GetItemRectMax().x;
-			Float addButtonWidth = ImGui::CalcTextSize("+").x + style.FramePadding.x * 2.0f;
-			if (lastButtonX + style.ItemSpacing.x + addButtonWidth < windowVisibleX)
+			std::string text(newTagBuffer_.c_str());
+			if (!text.empty())
 			{
-				ImGui::SameLine();
+				String newTag = String(std::string_view(text));
+				context_.sceneContext_.history_.Push(MakePtr<ActorTagCommand>(*context_.worldContext_.world_, actor->GetPersistentID(), newTag, true));
+				actor->AddTag(newTag);
+			}
+			std::fill(newTagBuffer_.begin(), newTagBuffer_.end(), '\0');
+			ImGui::SetKeyboardFocusHere(-1);
+		}
+
+		const DynamicArray<String>& allNames = TagRegistry::GetNames();
+
+		Bool hasActiveTag = false;
+		for (Size index = 0; index < allNames.size(); ++index)
+		{
+			if (!TagRegistry::IsRemoved(index))
+			{
+				hasActiveTag = true;
+				break;
 			}
 		}
 
-		if (ImGui::SmallButton("+"))
+		if (hasActiveTag)
 		{
-			ImGui::OpenPopup("##AddTagPopup");
-		}
+			ImGui::Spacing();
+			ImGui::Separator();
+			ImGui::Spacing();
 
-		if (ImGui::BeginPopup("##AddTagPopup"))
-		{
-			ImGui::SetNextItemWidth(180.0f);
-			Bool entered = ImGui::InputText("##NewTag", newTagBuffer_.data(), newTagBuffer_.capacity(), ImGuiInputTextFlags_EnterReturnsTrue);
-			ImGui::SameLine();
-			Bool addClicked = ImGui::SmallButton("追加");
-
-			if (entered || addClicked)
-			{
-				std::string text(newTagBuffer_.c_str());
-				if (!text.empty())
-				{
-					String newTag = String(std::string_view(text));
-					context_.sceneContext_.history_.Push(MakePtr<ActorTagCommand>(*context_.worldContext_.world_, actor->GetPersistentID(), newTag, true));
-					actor->AddTag(newTag);
-				}
-				std::fill(newTagBuffer_.begin(), newTagBuffer_.end(), '\0');
-				ImGui::SetKeyboardFocusHere(-1);
-			}
-
-			const DynamicArray<String>& allNames = TagRegistry::GetNames();
-
-			Bool hasActiveTag = false;
 			for (Size index = 0; index < allNames.size(); ++index)
 			{
-				if (!TagRegistry::IsRemoved(index))
+				if (TagRegistry::IsRemoved(index))
 				{
-					hasActiveTag = true;
-					break;
+					continue;
 				}
-			}
 
-			if (hasActiveTag)
+				const String& tag = allNames[index];
+
+				ImGui::PushID(static_cast<Int>(index));
+
+				Bool hasTag = actor->HasTag(tag);
+				if (ImGui::Checkbox(tag.c_str(), &hasTag))
+				{
+					context_.sceneContext_.history_.Push(MakePtr<ActorTagCommand>(*context_.worldContext_.world_, actor->GetPersistentID(), tag, hasTag));
+					if (hasTag)
+					{
+						actor->AddTag(tag);
+					}
+					else
+					{
+						actor->RemoveTag(tag);
+					}
+				}
+
+				if (ImGui::BeginPopupContextItem())
+				{
+					if (ImGui::MenuItem("タグを削除（すべてのActorから）"))
+					{
+						actor->RemoveTag(tag);
+						TagRegistry::Remove(tag);
+					}
+					ImGui::EndPopup();
+				}
+
+				ImGui::PopID();
+			}
+		}
+
+		ImGui::EndCombo();
+	}
+
+	void InspectorPanel::DrawLayer(Actor* actor)
+	{
+		const DynamicArray<String>& layerNames = LayerRegistry::GetNames();
+		Size currentLayer = actor->GetLayer();
+
+		ImGui::TextDisabled("レイヤー");
+
+		ImGui::SetNextItemWidth(-1.0f);
+		if (ImGui::BeginCombo("##Layer", layerNames[currentLayer].c_str()))
+		{
+			/// [EN] The combo's popup is its own ImGui window - refresh the
+			///      edit buffers from LayerRegistry only on the frame it
+			///      opens, not every frame, so an in-progress edit isn't
+			///      overwritten by its own unsubmitted keystrokes.
+			/// [JP] コンボのポップアップはそれ自体が1つのImGuiウィンドウ -
+			///      毎フレームではなく開いたフレームだけ編集バッファを
+			///      LayerRegistry から再読込する。そうしないと入力中の文字が
+			///      自分自身の未確定な入力で上書きされてしまう。
+			if (ImGui::IsWindowAppearing())
 			{
-				ImGui::Spacing();
-				ImGui::Separator();
-				ImGui::Spacing();
-
-				for (Size index = 0; index < allNames.size(); ++index)
+				for (Size index = 0; index < LayerRegistry::LayerCount; ++index)
 				{
-					if (TagRegistry::IsRemoved(index))
-					{
-						continue;
-					}
-
-					const String& tag = allNames[index];
-
-					ImGui::PushID(static_cast<Int>(index));
-
-					Bool hasTag = actor->HasTag(tag);
-					if (ImGui::Checkbox(tag.c_str(), &hasTag))
-					{
-						context_.sceneContext_.history_.Push(MakePtr<ActorTagCommand>(*context_.worldContext_.world_, actor->GetPersistentID(), tag, hasTag));
-						if (hasTag)
-						{
-							actor->AddTag(tag);
-						}
-						else
-						{
-							actor->RemoveTag(tag);
-						}
-					}
-
-					if (ImGui::BeginPopupContextItem())
-					{
-						if (ImGui::MenuItem("タグを削除（すべてのActorから）"))
-						{
-							actor->RemoveTag(tag);
-							TagRegistry::Remove(tag);
-						}
-						ImGui::EndPopup();
-					}
-
-					ImGui::PopID();
+					std::fill(layerNameBuffers_[index].begin(), layerNameBuffers_[index].end(), '\0');
+					std::string name = layerNames[index].str();
+					std::copy(name.begin(), name.end(), layerNameBuffers_[index].begin());
 				}
 			}
 
-			ImGui::EndPopup();
+			for (Size index = 0; index < LayerRegistry::LayerCount; ++index)
+			{
+				ImGui::PushID(static_cast<Int>(index));
+
+				Bool isSelected = (index == currentLayer);
+				if (ImGui::Checkbox("##Select", &isSelected) && isSelected)
+				{
+					String oldLayerName = actor->GetLayerName();
+					String newLayerName = layerNames[index];
+					context_.sceneContext_.history_.Push(MakePtr<ActorLayerCommand>(*context_.worldContext_.world_, actor->GetPersistentID(), oldLayerName, newLayerName));
+					actor->SetLayer(index);
+				}
+
+				ImGui::SameLine();
+				ImGui::SetNextItemWidth(140.0f);
+
+				if (index == LayerRegistry::DefaultLayer)
+				{
+					ImGui::BeginDisabled();
+					ImGui::InputText("##Name", layerNameBuffers_[index].data(), layerNameBuffers_[index].capacity());
+					ImGui::EndDisabled();
+				}
+				else if (ImGui::InputText("##Name", layerNameBuffers_[index].data(), layerNameBuffers_[index].capacity()))
+				{
+					LayerRegistry::SetName(index, String(std::string_view(layerNameBuffers_[index].c_str())));
+					LayerRegistry::Save();
+				}
+
+				ImGui::PopID();
+			}
+
+			ImGui::Spacing();
+			ImGui::Separator();
+			ImGui::Spacing();
+
+			if (ImGui::Selectable("編集") && context_.panelContext_.layerSettingsPanel_)
+			{
+				context_.panelContext_.layerSettingsPanel_->Open();
+			}
+
+			ImGui::EndCombo();
 		}
 	}
 
@@ -1216,6 +1300,8 @@ namespace SeedCore
 			return "ASSET_MESHCOLLISION";
 		case PayloadAssetType::Sky:
 			return "ASSET_SKY";
+		case PayloadAssetType::Prefab:
+			return "ASSET_PREFAB";
 		case PayloadAssetType::Actor:
 			return "HIERARCHY_ACTOR";
 		default:

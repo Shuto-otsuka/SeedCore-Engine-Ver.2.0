@@ -85,7 +85,36 @@ void GlobalIlluminationRayGeneration()
 	///      つまり cos と 1/PI が pdf と完全に約分され、【重み付けは何も要らない】。
 	///      アルベドは受け側の面のものなのでコンポジット側で掛ける。ここが
 	///      入射放射輝度そのものを書いてよい理由。
-	output[pixel] = float4(payload.radiance_ * tuning.intensity_, 1.0);
+	float3 candidate_radiance = payload.radiance_;
+	float3 candidate_position = world_position + ray_direction * payload.hit_distance_;
+
+	GlobalIlluminationReservoir reservoir = GlobalIlluminationReservoirFromSample(candidate_position, normal, candidate_radiance);
+
+	StructuredBuffer<GlobalIlluminationReservoir> reservoir_history = ResourceDescriptorHeap[constant_indices.global_illumination_.reservoir_history_srv_index_];
+
+	// ReSTIR 時間的リユース。速度バッファでの再投影は GlobalIlluminationDenoiseCS.hlsl
+	// の main() と同じ手順(UV空間の移動量は (velocity.x, -velocity.y))。
+	Texture2D<float2> velocity_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.index_2_];
+	float2 velocity = velocity_texture.Load(int3(pixel, 0)).rg;
+	float2 previous_uv = uv - float2(velocity.x, -velocity.y);
+
+	bool temporal_valid = all(previous_uv >= 0.0) && all(previous_uv <= 1.0);
+
+	if (temporal_valid)
+	{
+		uint2 previous_pixel = uint2(previous_uv * scene.screen_size_);
+		uint previous_index = previous_pixel.y * (uint)scene.screen_size_.x + previous_pixel.x;
+
+		GlobalIlluminationReservoir temporal = reservoir_history[previous_index];
+		temporal.sample_m_ = min(temporal.sample_m_, GI_RESERVOIR_M_CAP);
+
+		reservoir = GlobalIlluminationReservoirCombine(reservoir, temporal, temporal_valid, rng_state);
+	}
+
+	RWStructuredBuffer<GlobalIlluminationReservoir> reservoir_write = ResourceDescriptorHeap[constant_indices.global_illumination_.reservoir_uav_index_];
+	reservoir_write[pixel.y * (uint)scene.screen_size_.x + pixel.x] = reservoir;
+
+	output[pixel] = float4(reservoir.sample_radiance_ * reservoir.sample_w_ * tuning.intensity_, 1.0);
 }
 
 [shader("miss")]
@@ -240,7 +269,7 @@ void GlobalIlluminationClosestHit(inout GlobalIlluminationPayload payload, in Bu
 	// (壁ごとに色が違う Cornell box を1つの Crister で作った場合など)では
 	// 常に先頭マテリアルの色しか返らず、赤壁/緑壁のどちらに当たっても同じ色
 	// になっていたため、色滲みが原理的に一切出ていなかった)。
-	ReflectionMaterialData material = ResolveReflectionMaterial(instance, PrimitiveIndex());
+	ReflectionMaterial material = ResolveReflectionMaterial(instance, PrimitiveIndex());
 
 	// ベースカラー。ここでアルベドを掛けることが「色が飛ぶ」= カラー
 	// ブリーディングの本体。赤い壁で跳ねた光が赤くなるのはこの一行。

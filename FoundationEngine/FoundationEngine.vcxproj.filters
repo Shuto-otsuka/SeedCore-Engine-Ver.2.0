@@ -250,6 +250,15 @@
     <ClCompile Include="Log\AftermathCrashTracker.cpp">
       <Filter>Log</Filter>
     </ClCompile>
+    <ClCompile Include="ECS\System\SpawnerSystem.cpp">
+      <Filter>ESC\System</Filter>
+    </ClCompile>
+    <ClCompile Include="ECS\LayerRegistry.cpp">
+      <Filter>ESC</Filter>
+    </ClCompile>
+    <ClCompile Include="ECS\LayerCollisionMatrix.cpp">
+      <Filter>ESC</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Log\DxFail.h">
@@ -625,6 +634,21 @@
     </ClInclude>
     <ClInclude Include="Log\AftermathCrashTracker.h">
       <Filter>Log</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\Component\Spawner.h">
+      <Filter>ESC\Component</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\System\SpawnerSystem.h">
+      <Filter>ESC\System</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\LayerRegistry.h">
+      <Filter>ESC</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\LayerCollisionMatrix.h">
+      <Filter>ESC</Filter>
+    </ClInclude>
+    <ClInclude Include="Math\Ray.h">
+      <Filter>Math</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

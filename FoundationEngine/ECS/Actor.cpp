@@ -1,6 +1,7 @@
 #include <FoundationEngine/ECS/Actor.h>
 #include <FoundationEngine/ECS/World.h>
 #include <FoundationEngine/ECS/TagRegistry.h>
+#include <FoundationEngine/ECS/LayerRegistry.h>
 
 #include <FoundationEngine/ECS/Component/Name.h>
 #include <FoundationEngine/ECS/Component/Position.h>
@@ -481,6 +482,68 @@ namespace SeedCore
 		}
 
 		return result;
+	}
+
+	/**
+	* [EN]
+	* Sets this actor's layer to the LayerRegistry slot at index (clamped
+	* to a valid slot if out of range).
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* この actor のレイヤーを、index の LayerRegistry スロットに設定する
+	* （範囲外なら有効なスロットへクランプする）。
+	*/
+	void Actor::SetLayer(Size index)
+	{
+		layer_ = Min(index, LayerRegistry::LayerCount - 1);
+	}
+
+	/**
+	* [EN]
+	* Sets this actor's layer by name via LayerRegistry::Find, falling
+	* back to LayerRegistry::DefaultLayer if name isn't registered.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* LayerRegistry::Find 経由で、名前でこの actor のレイヤーを設定する。
+	* name が未登録であれば LayerRegistry::DefaultLayer にフォールバック
+	* する。
+	*/
+	void Actor::SetLayer(const String& name)
+	{
+		Size index = LayerRegistry::Find(name);
+		layer_ = (index != LayerRegistry::InvalidIndex) ? index : LayerRegistry::DefaultLayer;
+	}
+
+	/**
+	* [EN]
+	* Returns this actor's current layer index.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* この actor の現在のレイヤーインデックスを返す。
+	*/
+	Size Actor::GetLayer()const
+	{
+		return layer_;
+	}
+
+	/**
+	* [EN]
+	* Returns this actor's current layer's name, via LayerRegistry::GetName.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* LayerRegistry::GetName 経由で、この actor の現在のレイヤー名を返す。
+	*/
+	const String& Actor::GetLayerName()const
+	{
+		return LayerRegistry::GetName(layer_);
 	}
 
 	/**

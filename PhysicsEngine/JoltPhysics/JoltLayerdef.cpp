@@ -17,18 +17,23 @@ namespace SeedCore
 		}
 	}
 
-	JPH::ObjectLayer ToObjectLayer(Rigidbody::BodyType bodyType)
+	JPH::ObjectLayer ToObjectLayer(Rigidbody::BodyType bodyType, Size userLayer)
 	{
 		switch (bodyType)
 		{
 		case Rigidbody::BodyType::Dynamic:
-			return Layers::DYNAMIC;
+			return Layers::Pack(Layers::DYNAMIC, userLayer);
 		case Rigidbody::BodyType::Kinematic:
-			return Layers::KINEMATIC;
+			return Layers::Pack(Layers::KINEMATIC, userLayer);
 		case Rigidbody::BodyType::Static:
-			return Layers::STATIC;
+			return Layers::Pack(Layers::STATIC, userLayer);
 		default:
-			return Layers::DYNAMIC;
+			return Layers::Pack(Layers::DYNAMIC, userLayer);
 		}
+	}
+
+	JPH::ObjectLayer ToObjectLayer(Rigidbody::BodyType bodyType)
+	{
+		return ToObjectLayer(bodyType, LayerRegistry::DefaultLayer);
 	}
 }

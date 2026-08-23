@@ -48,17 +48,20 @@ namespace SeedCore
 		* [EN]
 		* If a snapshot has been captured, copies its component data
 		* back onto world's actors (matched by index) and resets each
-		* ComponentBase's lifecycle state, then clears the snapshot.
-		* Does nothing if no snapshot exists.
+		* ComponentBase's lifecycle state, destroys any actor beyond the
+		* captured count (i.e. created after the snapshot, such as by
+		* SpawnerSystem during Play), then clears the snapshot. Does
+		* nothing if no snapshot exists.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
 		* スナップショットが取得済みであれば、そのコンポーネントデータを
-		* （インデックスで対応付けた）world の actor 群へコピーし戻し、
-		* 各 ComponentBase のライフサイクル状態をリセットした上で、
-		* スナップショットをクリアする。スナップショットが存在しなければ
-		* 何もしない。
+		* （インデックスで対応付けた）world の actor 群へコピーし戻し、各
+		* ComponentBase のライフサイクル状態をリセットし、取得済み数を
+		* 超える actor（スナップショット後に生成されたもの、例えば Play
+		* 中の SpawnerSystem による生成）を破棄した上で、スナップショットを
+		* クリアする。スナップショットが存在しなければ何もしない。
 		*/
 		void Restore(World& world);
 

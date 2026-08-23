@@ -428,6 +428,7 @@ namespace SeedCore
 		node.name_ = nameComponent ? nameComponent->name_ : String("Actor");
 
 		node.tags_ = actor->GetTagList();
+		node.layerName_ = actor->GetLayerName();
 		node.active_ = actor->IsActive();
 		node.persistentId_ = actor->GetPersistentID();
 
@@ -669,6 +670,8 @@ namespace SeedCore
 		{
 			actor->AddTag(tag);
 		}
+
+		actor->SetLayer(node.layerName_);
 
 		if (parentActor)
 		{

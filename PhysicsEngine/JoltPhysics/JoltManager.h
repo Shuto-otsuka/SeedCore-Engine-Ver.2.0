@@ -31,6 +31,8 @@ namespace SeedCore
 
 		void SetActiveWorld(World* world);
 
+		World* GetActiveWorld()const;
+
 	private:
 		JoltShapePool shapePool_;
 

@@ -103,7 +103,7 @@ namespace SeedCore
 		RigidbodyDesc desc;
 		desc.shape_ = shape;
 		desc.motionType_ = JPH::EMotionType::Static;
-		desc.layer_ = Layers::STATIC;
+		desc.layer_ = Layers::Pack(Layers::STATIC, actor.GetLayer());
 		desc.isSensor_ = isTrigger;
 		ApplyActorTransform(actor, desc);
 

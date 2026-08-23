@@ -108,17 +108,20 @@ namespace SeedCore
 	* [EN]
 	* If a snapshot has been captured, copies its component data back
 	* onto world's actors (matched by index) and resets each
-	* ComponentBase's lifecycle state, then clears the snapshot. Does
-	* nothing if no snapshot exists.
+	* ComponentBase's lifecycle state, destroys any actor beyond the
+	* captured count (i.e. created after the snapshot, such as by
+	* SpawnerSystem during Play), then clears the snapshot. Does nothing
+	* if no snapshot exists.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
 	* スナップショットが取得済みであれば、そのコンポーネントデータを
 	* （インデックスで対応付けた）world の actor 群へコピーし戻し、各
-	* ComponentBase のライフサイクル状態をリセットした上で、
-	* スナップショットをクリアする。スナップショットが存在しなければ
-	* 何もしない。
+	* ComponentBase のライフサイクル状態をリセットし、取得済み数を超える
+	* actor（スナップショット後に生成されたもの、例えば Play 中の
+	* SpawnerSystem による生成）を破棄した上で、スナップショットを
+	* クリアする。スナップショットが存在しなければ何もしない。
 	*/
 	void WorldSnapshot::Restore(World& world)
 	{
@@ -177,6 +180,22 @@ namespace SeedCore
 					component->ResetLifecycleState();
 				}
 			}
+		}
+
+		/// [EN] Any actor beyond the captured count did not exist when the
+		///      snapshot was taken (e.g. spawned during Play, such as by
+		///      SpawnerSystem) - destroy it so Stop fully reverts world
+		///      back to its pre-Play state instead of leaving it behind.
+		///      Destroyed from the end backward since DestroyActor erases
+		///      from actors_ immediately, which would shift later indices.
+		/// [JP] 取得済み数を超える actor は、スナップショット取得時点では
+		///      存在しなかった(例: SpawnerSystem 等により Play 中に生成
+		///      された) - Stop で world を Play 前の状態へ完全に戻すため
+		///      破棄する。DestroyActor は actors_ から即座に消去し後方の
+		///      インデックスをずらすため、末尾から逆順に破棄する。
+		for (Size actorIndex = actors.size(); actorIndex > count; --actorIndex)
+		{
+			world.DestroyActor(actors[actorIndex - 1].get());
 		}
 
 		Clear();

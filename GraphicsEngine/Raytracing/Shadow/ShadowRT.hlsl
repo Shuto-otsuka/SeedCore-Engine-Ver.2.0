@@ -3,16 +3,18 @@
 #include "../../Shader/Light.hlsli"
 #include "../../Shader/Normal.hlsli"
 #include "../../Shader/Noise.hlsli"
+#include "../../Shader/Material.hlsli"
 #include "../../Light/Cluster.hlsli"
 #include "../Reflection/Reflection.hlsli"
 #include "Shadow.hlsli"
 
 /**
 * [EN]
-* Stochastic ray-traced shadow pass (inline RayQuery). One thread per screen
-* pixel, one shadow ray per pixel per frame:
+* Stochastic ray-traced shadow + ReSTIR DI pass (inline RayQuery). One thread
+* per screen pixel, one shadow ray per pixel per frame:
 *   - Directional light: always tested (cheap, single dominant light), ray
 *     jittered within a cone sized by sun_angular_radius_ for a soft penumbra.
+*     Output stays a scalar visibility, same as before.
 *   - Point/Spot/Rect lights: picks ONE light per pixel per frame via
 *     weighted reservoir sampling (no per-light cost growth) — the weight is
 *     each light's actual contribution to this pixel (intensity * distance
@@ -21,17 +23,27 @@
 *     actually illuminate the pixel are never selected and never waste the
 *     one shadow ray. Jitters the ray toward a random point on/near the
 *     picked light's surface (physical size -> free soft shadow for rect
-*     lights; a fixed world-space radius for point/spot). The result is a
-*     noisy single-sample estimate of "is the dominant affecting light
-*     visible" — ShadowDenoiseCS.hlsl (or DLSS Ray Reconstruction later)
-*     accumulates it over time into a smooth value. This is deliberately an
-*     averaged per-pixel term, not a per-light one: with dozens of lights
-*     possibly affecting a single pixel, tracing one ray per light per frame
-*     doesn't scale, so (like UE Lumen's stochastic shadowing) all punctual
-*     lights share one accumulated visibility signal.
+*     lights; a fixed world-space radius for point/spot). Unlike the
+*     directional term, this is a full ReSTIR DI-style estimator: it resolves
+*     this pixel's G-Buffer material (Shader/Material.hlsli's
+*     ResolveGBufferMaterial - the SAME function Model/Opaque/
+*     DeferredLightingPS.hlsl uses, so the specular response matches),
+*     evaluates the picked light's full BRDF response, divides by the RIS
+*     selection pdf (weight_sum / picked_weight) to keep the single-sample
+*     estimate unbiased, and multiplies by the shadow ray's visibility. The
+*     result is a noisy single-sample RGB radiance estimate rather than a
+*     scalar - ShadowDenoiseCS.hlsl accumulates it over time (tracking
+*     variance from its luminance, since a full RGB covariance would triple
+*     the moment storage for no denoising benefit). This replaces sharing one
+*     averaged visibility scalar across every punctual light (like UE Lumen's
+*     stochastic shadowing) - dozens of lights can affect one pixel, so tracing
+*     one full shadow ray per light per frame does not scale, but averaging
+*     their visibility together was wrong: a light that is actually occluded
+*     would only partially darken, blended with whichever other light in the
+*     cluster happened to be lit.
 *
-* Output: RG channel = (directional visibility, punctual visibility), both
-* raw/noisy, written to shadow_raw_visibility_uav_index_.
+* Output: raw_visibility_uav_index_, r = directional visibility, gba = the
+* picked punctual light's RGB radiance estimate, both raw/noisy.
 */
 [numthreads(8, 8, 1)]
 void main(uint3 dtid : SV_DispatchThreadID)
@@ -45,7 +57,7 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	}
 
 	uint2 pixel = dtid.xy;
-	RWTexture2D<float2> raw_visibility = ResourceDescriptorHeap[structured_indices.shadow_.raw_visibility_uav_index_];
+	RWTexture2D<float4> raw_signal = ResourceDescriptorHeap[structured_indices.shadow_.raw_visibility_uav_index_];
 
 	// シーン深度をサンプル。reverse-Z では遠平面が 0.0 なので、0 は何も描画
 	// されていない背景を意味する。影を落とす対象がないので照射(1.0)扱いにする。
@@ -54,7 +66,7 @@ void main(uint3 dtid : SV_DispatchThreadID)
 
 	if (depth == 0.0)
 	{
-		raw_visibility[pixel] = float2(1.0, 1.0);
+		raw_signal[pixel] = float4(1.0, 0.0, 0.0, 0.0);
 		return;
 	}
 
@@ -72,7 +84,8 @@ void main(uint3 dtid : SV_DispatchThreadID)
 
 	// 法線は G-Buffer RT1 に oct エンコードで格納されているのでデコードする。
 	Texture2D<float4> normal_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.index_1_];
-	float3 normal = OctNormalDecode(normal_texture.Load(int3(pixel, 0)).rg);
+	float4 rt1 = normal_texture.Load(int3(pixel, 0));
+	float3 normal = OctNormalDecode(rt1.rg);
 	float3 origin = world_position + normal * tuning.normal_bias_;
 
 	RaytracingAccelerationStructure tlas = ResourceDescriptorHeap[structured_indices.raytracing_.tlas_index_];
@@ -109,8 +122,8 @@ void main(uint3 dtid : SV_DispatchThreadID)
 		}
 	}
 
-	// ---- Point/Spot/Rect（このピクセルのクラスタから確率的に1灯だけ選ぶ） ----
-	float punctual_visibility = 1.0;
+	// ---- Point/Spot/Rect（このピクセルのクラスタから確率的に1灯だけ選ぶ、ReSTIR DI） ----
+	float3 punctual_radiance = float3(0, 0, 0);
 
 	float4 view_position = mul(float4(world_position, 1.0), scene.view_);
 	float linear_depth = view_position.z;
@@ -145,8 +158,11 @@ void main(uint3 dtid : SV_DispatchThreadID)
 		// が下がって収束が遅れる/ノイズが残る原因になっていた。各光の実効
 		// 寄与度(強度×距離減衰×スポットフェード、寄与ゼロなら重み0で除外)を
 		// 重みとして使うことで、明るく効いている光ほど高頻度でサンプルされる
-		// ようにする。
+		// ようにする。ReSTIR の RIS(Resampled Importance Sampling)と同じ形 —
+		// picked_weight/weight_sum が選択pdfになり、下でBRDF応答をこれで割って
+		// 単一サンプル推定量をアンバイアスに保つ。
 		float weight_sum = 0.0;
+		float picked_weight = 0.0;
 		uint picked = 0xFFFFFFFF;
 
 		for (uint index = 0; index < total_punctual; index++)
@@ -219,6 +235,7 @@ void main(uint3 dtid : SV_DispatchThreadID)
 				if (Rand(rng_state) * weight_sum <= weight)
 				{
 					picked = index;
+					picked_weight = weight;
 				}
 			}
 		}
@@ -230,28 +247,27 @@ void main(uint3 dtid : SV_DispatchThreadID)
 			weight_sum = 0.0;
 		}
 
-		if (weight_sum <= 0.0)
-		{
-			// このピクセルを実際に照らしている Point/Spot/Rect が1つも無い
-			// (全部レンジ外・コーン外・裏面)。追跡対象が無いので照射(1.0)扱い
-			// にし、無駄なレイを飛ばさない。
-			punctual_visibility = 1.0;
-		}
-		else
+		if (weight_sum > 0.0)
 		{
 			float3 sample_point;
+			float3 light_color;
+			float3 base_direction;
 			float light_radius = tuning.punctual_light_radius_;
 
 			if (picked < point_count)
 			{
 				uint light_index = light_list.Load((base + picked) * 4);
-				sample_point = point_lights[light_index].position;
+				PointLightData point_light = point_lights[light_index];
+				sample_point = point_light.position;
+				light_color = point_light.color.rgb;
 			}
 			else if (picked < point_count + spot_count)
 			{
 				uint local_index = picked - point_count;
 				uint light_index = light_list.Load((base + CLUSTER_MAX_POINT_LIGHTS + local_index) * 4);
-				sample_point = spot_lights[light_index].position;
+				SpotLightData spot_light = spot_lights[light_index];
+				sample_point = spot_light.position;
+				light_color = spot_light.color.rgb;
 			}
 			else
 			{
@@ -263,12 +279,13 @@ void main(uint3 dtid : SV_DispatchThreadID)
 				// 応じた半影が自然に出る（コーンジッター不要）。
 				float2 rect_uv = Rand2(rng_state) * 2.0 - 1.0;
 				sample_point = rect_light.position + rect_light.right * (rect_uv.x * rect_light.half_width) + rect_light.up * (rect_uv.y * rect_light.half_height);
+				light_color = rect_light.color.rgb;
 				light_radius = 0.0;
 			}
 
 			float3 to_light = sample_point - world_position;
 			float distance_to_light = length(to_light);
-			float3 base_direction = to_light / max(distance_to_light, 0.0001);
+			base_direction = to_light / max(distance_to_light, 0.0001);
 
 			// Point/Spot はワールド空間半径から円錐の半頂角を導く
 			// (sin(half_angle) = radius / distance)。面光源は既にサンプル点で
@@ -283,9 +300,41 @@ void main(uint3 dtid : SV_DispatchThreadID)
 			ray_desc.TMin = 0.001;
 			ray_desc.TMax = max(distance_to_light - 0.01, 0.001);
 
-			punctual_visibility = IsReflectionRayOccluded(tlas, ray_desc, structured_indices.raytracing_.instance_data_index_) ? 0.0 : 1.0;
+			float ray_visibility = IsReflectionRayOccluded(tlas, ray_desc, structured_indices.raytracing_.instance_data_index_) ? 0.0 : 1.0;
+			float shadow_factor = lerp(1.0, ray_visibility, saturate(tuning.shadow_strength_));
+
+			// [JP] この面の G-Buffer マテリアルを解決する。DeferredLightingPS.hlsl
+			//      と全く同じ ResolveGBufferMaterial を使うことで、鏡面
+			//      ハイライトの形が主要視点(G-Buffer)側と一致する。
+			Texture2D<float4> gbuffer0 = ResourceDescriptorHeap[structured_indices.gbuffer_.index_0_];
+			float4 rt0 = gbuffer0.Load(int3(pixel, 0));
+			float3 base_color = rt0.rgb;
+			float metallic = rt0.a;
+			float roughness = rt1.b;
+
+			Texture2D<uint4> gbuffer4 = ResourceDescriptorHeap[structured_indices.gbuffer_.index_4_];
+			uint4 visibility_id = gbuffer4.Load(int3(pixel, 0));
+			uint material_instance_index, material_meshlet_index, material_triangle_index;
+			UnpackVisibilityID(visibility_id, material_instance_index, material_meshlet_index, material_triangle_index);
+			StructuredBuffer<ModelInstance> material_instances = ResourceDescriptorHeap[structured_indices.model_.instance_index_];
+			ModelInstance material_instance = material_instances[material_instance_index];
+
+			float3 view = normalize(scene.camera_position_.xyz - world_position);
+			float2 material_texcoord = UnpackVisibilityTexcoord(visibility_id);
+			GBufferMaterial gbuffer_material = ResolveGBufferMaterial(base_color, metallic, roughness, normal, view, material_instance, material_texcoord, rt1.a);
+
+			float3 brdf_response = EvalDirectLightDispatch(material_instance.shading_model_, normal, view, base_direction, gbuffer_material.diffuse_color_, gbuffer_material.f0_, gbuffer_material.roughness_, gbuffer_material.clearcoat_factor_, gbuffer_material.clearcoat_roughness_, gbuffer_material.clearcoat_normal_, gbuffer_material.sheen_color_, gbuffer_material.sheen_roughness_, gbuffer_material.anisotropy_tangent_, gbuffer_material.anisotropy_bitangent_, gbuffer_material.anisotropy_strength_);
+
+			// [JP] RIS の選択pdf(picked_weight/weight_sum)で割って単一サンプル
+			//      推定量をアンバイアスに保つ(result = f(picked) / pdf(picked)
+			//      = f(picked) * weight_sum / picked_weight)。f(picked)は
+			//      brdf_response*light_color(このピクセルへのこの光の実際の
+			//      寄与) — picked_weight(強度×距離減衰×スポットフェード、色は
+			//      含まない)はあくまで選択用の重みで、f(picked)には掛けない。
+			float inverse_pdf = weight_sum / max(picked_weight, 0.0001);
+			punctual_radiance = brdf_response * light_color * inverse_pdf * shadow_factor;
 		}
 	}
 
-	raw_visibility[pixel] = float2(directional_visibility, punctual_visibility);
+	raw_signal[pixel] = float4(directional_visibility, punctual_radiance);
 }

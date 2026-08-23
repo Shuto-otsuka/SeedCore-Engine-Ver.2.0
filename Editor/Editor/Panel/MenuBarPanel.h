@@ -30,6 +30,8 @@ namespace SeedCore
 
 		Bool ConsumeConfigRequest();
 
+		Bool ConsumeLayerSettingsRequest();
+
 		Bool ConsumeAnimatorControllerRequest();
 
 		Bool ConsumeTimelineRequest();
@@ -76,6 +78,7 @@ namespace SeedCore
 		Bool todoListRequested_ = false;
 		Bool versionRequested_ = false;
 		Bool configRequested_ = false;
+		Bool layerSettingsRequested_ = false;
 		Bool animatorControllerRequested_ = false;
 		Bool timelineRequested_ = false;
 		Bool boneControllerRequested_ = false;

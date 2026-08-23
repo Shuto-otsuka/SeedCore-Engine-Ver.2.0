@@ -46,6 +46,20 @@ namespace SeedCore
 
 		[[nodiscard]] ID3D12PipelineState* GetATrousPipelineState(Uint32 passIndex)const;
 
+		/// [EN] PSO for ReflectionReservoirSpatialCS.hlsl's ReSTIR spatial-reuse
+		///      pass - a separate file (StructuredBuffer<ReflectionReservoir>
+		///      reads instead of the RGBA float texture chain the rest of this
+		///      class denoises) but the same shared root signature, so it lives
+		///      here rather than a whole new shader class (same pattern as
+		///      GlobalIlluminationDenoiseShader::GetSpatialReusePipelineState).
+		/// [JP] ReflectionReservoirSpatialCS.hlsl の ReSTIR 空間的リユースパス用
+		///      PSO - このクラスの他パスが扱う RGBA float テクスチャチェーンと
+		///      違い StructuredBuffer<ReflectionReservoir> を読む別ファイルだが、
+		///      共有ルートシグネチャは同じなので、新しいシェーダクラスを作らず
+		///      ここに置く(GlobalIlluminationDenoiseShader::
+		///      GetSpatialReusePipelineState と同じパターン)。
+		[[nodiscard]] ID3D12PipelineState* GetSpatialReusePipelineState()const;
+
 		[[nodiscard]] ID3D12RootSignature* GetRootSignature()const;
 
 	private:
@@ -59,6 +73,9 @@ namespace SeedCore
 
 		Handle<ComputeShader> atrousComputeShader_[atrousPassCount];
 		Handle<Microsoft::WRL::ComPtr<ID3D12PipelineState>> atrousPipelineStateObjectHandle_[atrousPassCount];
+
+		Handle<ComputeShader> spatialReuseComputeShader_;
+		Handle<Microsoft::WRL::ComPtr<ID3D12PipelineState>> spatialReusePipelineStateObjectHandle_;
 
 		Handle<RootSignature> denoiseRootSignature_;
 

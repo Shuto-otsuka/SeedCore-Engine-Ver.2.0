@@ -170,6 +170,10 @@ namespace SeedCore
 		/// [JP] actor に設定されている全タグ。
 		DynamicArray<String> tags_;
 
+		/// [EN] Name of the actor's layer at capture time (see LayerRegistry). Stored by name, not index, so a slot reshuffle elsewhere doesn't retarget this actor to the wrong layer.
+		/// [JP] 取得時点での actor のレイヤー名（LayerRegistry 参照）。インデックスではなく名前で保存する。他所でのスロット並び替えにより、この actor が別のレイヤーへ誤って向いてしまわないようにするため。
+		String layerName_;
+
 		/// [EN] Whether the actor was active at capture time.
 		/// [JP] 取得時点で actor がアクティブだったかどうか。
 		Bool active_ = true;
@@ -220,6 +224,7 @@ namespace SeedCore
 		{
 			archive.Field("name", name_);
 			archive.Field("tags", tags_);
+			archive.Field("layer", layerName_);
 			archive.Field("active", active_);
 			archive.Field("position", position_);
 			archive.Field("rotation", rotation_);
@@ -253,6 +258,7 @@ namespace SeedCore
 		{
 			archive.TryField("name", name_);
 			archive.TryField("tags", tags_);
+			archive.TryField("layer", layerName_);
 			archive.TryField("active", active_);
 			archive.TryField("position", position_);
 			archive.TryField("rotation", rotation_);

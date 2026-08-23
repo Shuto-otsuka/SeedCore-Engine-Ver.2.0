@@ -1,6 +1,11 @@
 #ifndef __LIGHT_HLSL__
 #define __LIGHT_HLSL__
 
+#include "../Model/Model.hlsli"
+#include "../Model/Opaque/PbrShading.hlsli"
+#include "../Model/Opaque/PhongShading.hlsli"
+#include "../Model/Opaque/ToonShading.hlsli"
+
 struct LightConstantData
 {
 	float3 directional_direction_;
@@ -94,6 +99,30 @@ float AttenuateDistance(float distance, float range)
 	float ratio2 = ratio * ratio;
 	float attenuation = saturate(1.0 - ratio2 * ratio2);
 	return attenuation * attenuation / max(distance * distance, 0.0001);
+}
+
+// Picks the per-shading-model direct light response for one light. Shared by
+// Model/Opaque/DeferredLightingPS.hlsl (the primary G-Buffer surface, looping
+// over every deterministic light) and Raytracing/Shadow/ShadowRT.hlsl (the
+// ReSTIR-picked punctual light's stochastic full-BRDF estimate) so a punctual
+// light's specular response is identical between the two - IBL/shadow/AO/
+// reflection/GI/fog/weather stay each caller's own concern; only "how to shade
+// against one direct light" lives here.
+float3 EvalDirectLightDispatch(uint shading_model, float3 normal, float3 view, float3 light_direction, float3 diffuse_color, float3 f0, float roughness, float clearcoat, float clearcoat_roughness, float3 clearcoat_normal, float3 sheen_color, float sheen_roughness, float3 anisotropy_tangent, float3 anisotropy_bitangent, float anisotropy_strength)
+{
+	if (shading_model == SHADING_MODEL_PHONG)
+	{
+		float shininess = lerp(128.0, 2.0, roughness);
+		return EvalDirectLightPhong(normal, view, light_direction, diffuse_color, f0, shininess);
+	}
+
+	if (shading_model == SHADING_MODEL_TOON)
+	{
+		float shininess = lerp(64.0, 4.0, roughness);
+		return EvalDirectLightToon(normal, view, light_direction, diffuse_color, f0, shininess);
+	}
+
+	return EvalDirectLight(normal, view, light_direction, diffuse_color, f0, roughness, clearcoat, clearcoat_roughness, clearcoat_normal, sheen_color, sheen_roughness, anisotropy_tangent, anisotropy_bitangent, anisotropy_strength);
 }
 
 #endif // __LIGHT_HLSL__

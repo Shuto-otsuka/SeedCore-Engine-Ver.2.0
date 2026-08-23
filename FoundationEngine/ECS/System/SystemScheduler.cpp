@@ -1,5 +1,6 @@
 #include <FoundationEngine/ECS/System/SystemScheduler.h>
 #include <FoundationEngine/ECS/System/TransformSystem.h>
+#include <FoundationEngine/ECS/System/MoveSystem.h>
 #include <FoundationEngine/ECS/World.h>
 #include <FoundationEngine/ECS/Actor.h>
 #include <FoundationEngine/ECS/Component/ComponentBase.h>
@@ -10,18 +11,24 @@ namespace SeedCore
 	/**
 	* [EN]
 	* Runs one frame: drives Awake/Start (if isPlaying), builds and runs
-	* the archetype/sparse system flows, runs the built-in TransformSystem,
-	* then drives Tick/LateTick (if isPlaying).
+	* the archetype/sparse system flows, drives MoveSystem then
+	* SpawnerSystem (if isPlaying, both before TransformSystem so this
+	* frame's motion and any newly spawned actor's position are
+	* reflected in this same frame's world matrix), runs the built-in
+	* TransformSystem, then drives Tick/LateTick (if isPlaying).
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
 	* 1フレーム分を実行する: （isPlaying であれば）Awake/Start を
 	* 駆動し、アーキタイプ/スパースのシステムフローを構築・実行し、
-	* 組み込みの TransformSystem を実行し、（isPlaying であれば）
-	* Tick/LateTick を駆動する。
+	* （isPlaying であれば、TransformSystem より前に — 今フレームの移動や
+	* 新しく生成された actor の位置が同じフレームのワールド行列に反映
+	* されるように）MoveSystem、続けて SpawnerSystem を駆動し、組み込みの
+	* TransformSystem を実行し、（isPlaying であれば）Tick/LateTick を
+	* 駆動する。
 	*/
-	void SystemScheduler::Run(World& world, JobExecutor& executor, Float elapsedTime, Bool isPlaying)
+	void SystemScheduler::Run(World& world, ResourceCache& cache, JobExecutor& executor, Float elapsedTime, Bool isPlaying)
 	{
 		if (isPlaying)
 		{
@@ -75,6 +82,27 @@ namespace SeedCore
 
 		executor.Run(archetypeFlow).wait();
 		executor.Run(sparseFlow).wait();
+
+		/// [EN] Spawn before TransformSystem::Execute (not alongside
+		///      Tick/LateTick below) so a newly spawned actor's world
+		///      matrix is computed from its post-spawn Position this same
+		///      frame - otherwise it would still hold whatever matrix
+		///      Prefab::Instantiate initialized it with when next frame's
+		///      Awake dispatch runs, and Rigidbody::OnAwake (which reads
+		///      the actor's world matrix, not Position, to place its JPH
+		///      body) would create the collider at the wrong spot.
+		/// [JP] TransformSystem::Execute より前に(下の Tick/LateTick とは
+		///      別に)スポーンする - こうしないと、スポーン後に設定した
+		///      Position が反映される前の、Prefab::Instantiate が初期化
+		///      した時点のワールド行列のまま次フレームの Awake ディスパッチ
+		///      を迎えてしまい、Rigidbody::OnAwake(JPH ボディの配置に
+		///      Position ではなく actor のワールド行列を読む)が誤った
+		///      位置でコライダーを作ってしまう。
+		if (isPlaying)
+		{
+			moveSystem_.Execute(world, elapsedTime);
+			spawnerSystem_.Update(world, cache, elapsedTime);
+		}
 
 		transformSystem_.Execute(world);
 
@@ -157,6 +185,20 @@ namespace SeedCore
 				}
 			}
 		}
+	}
+
+	/**
+	* [EN]
+	* Forgets SpawnerSystem's runtime progress for every Spawner.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* SpawnerSystem が持つ、全 Spawner のランタイム進行状況を忘れる。
+	*/
+	void SystemScheduler::Reset()
+	{
+		spawnerSystem_.Reset();
 	}
 
 	/**

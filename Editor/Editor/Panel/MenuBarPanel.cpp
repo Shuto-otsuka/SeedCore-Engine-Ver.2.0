@@ -118,6 +118,11 @@ namespace SeedCore
 				{
 
 				}
+				ImGui::Separator();
+				if (ImGui::MenuItem("レイヤー編集"))
+				{
+					layerSettingsRequested_ = true;
+				}
 				ImGui::EndMenu();
 			}
 
@@ -317,6 +322,16 @@ namespace SeedCore
 		if (configRequested_)
 		{
 			configRequested_ = false;
+			return true;
+		}
+		return false;
+	}
+
+	Bool MenuBarPanel::ConsumeLayerSettingsRequest()
+	{
+		if (layerSettingsRequested_)
+		{
+			layerSettingsRequested_ = false;
 			return true;
 		}
 		return false;

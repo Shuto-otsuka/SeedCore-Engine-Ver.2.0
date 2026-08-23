@@ -760,6 +760,12 @@
     <ClInclude Include="Camera\PreviewCameraController.h">
       <Filter>Camera</Filter>
     </ClInclude>
+    <ClInclude Include="D3D12\Buffer\ReservoirBuffer.h">
+      <Filter>D3D12\Buffer</Filter>
+    </ClInclude>
+    <ClInclude Include="Camera\ScreenSpace.h">
+      <Filter>Camera</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="D3D12\Context\D3D12Adapter.cpp">
@@ -1268,6 +1274,12 @@
     <ClCompile Include="Camera\PreviewCameraController.cpp">
       <Filter>Camera</Filter>
     </ClCompile>
+    <ClCompile Include="D3D12\Buffer\ReservoirBuffer.cpp">
+      <Filter>D3D12\Buffer</Filter>
+    </ClCompile>
+    <ClCompile Include="Camera\ScreenSpace.cpp">
+      <Filter>Camera</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="Shader\Sampler.hlsli">
@@ -1374,6 +1386,15 @@
     </None>
     <None Include="Model\Opaque\ToonShading.hlsli">
       <Filter>Model\Opaque</Filter>
+    </None>
+    <None Include="Raytracing\GlobalIllumination\GlobalIlluminationReSTIR.hlsli">
+      <Filter>Raytracing\GlobalIllumination</Filter>
+    </None>
+    <None Include="Shader\Material.hlsli">
+      <Filter>Shader</Filter>
+    </None>
+    <None Include="Raytracing\Reflection\ReflectionReSTIR.hlsli">
+      <Filter>Raytracing\Reflection</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>
@@ -1703,6 +1724,12 @@
     </Text>
     <Text Include="Model\Transparent\ModelTransparentPS.hlsl">
       <Filter>Model\Transparent</Filter>
+    </Text>
+    <Text Include="Raytracing\GlobalIllumination\GlobalIlluminationReservoirSpatialCS.hlsl">
+      <Filter>Raytracing\GlobalIllumination</Filter>
+    </Text>
+    <Text Include="Raytracing\Reflection\ReflectionReservoirSpatialCS.hlsl">
+      <Filter>Raytracing\Reflection</Filter>
     </Text>
   </ItemGroup>
 </Project>

@@ -4,6 +4,7 @@
 #include <FoundationEngine/ECS/Component/Position.h>
 #include <FoundationEngine/ECS/Component/Rotation.h>
 #include <FoundationEngine/ECS/Component/Scale.h>
+#include <FoundationEngine/ECS/Component/Spawner.h>
 #include <FoundationEngine/ECS/Component/Velocity.h>
 #include <GraphicsEngine/Camera/Camera.h>
 #include <GraphicsEngine/Camera/FreeCameraController.h>
@@ -38,6 +39,7 @@ extern "C" int _force_reflection_Name = 0;
 extern "C" int _force_reflection_Position = 0;
 extern "C" int _force_reflection_Rotation = 0;
 extern "C" int _force_reflection_Scale = 0;
+extern "C" int _force_reflection_Spawner = 0;
 extern "C" int _force_reflection_Velocity = 0;
 extern "C" int _force_reflection_Camera = 0;
 extern "C" int _force_reflection_FreeCameraController = 0;
@@ -217,6 +219,57 @@ namespace SeedCore
 			}
 		};
 		static Register_Scale global_Scale_register;
+
+		// ---- FoundationEngine/ECS/Component/Spawner.h ----
+		struct Register_Spawner
+		{
+			Register_Spawner()
+			{
+				ReflectionRegistry::Register(String("Spawner"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
+					Spawner& obj = *static_cast<Spawner*>(ptr);
+					outInfo.push_back({ String("開始時に自動生成"), offsetof(Spawner, autoStart_), AttributeType::Bool });
+					{
+						FieldInfo fi;
+						fi.name_ = String("生成間隔");
+						fi.offset_ = offsetof(Spawner, spawnInterval_);
+						fi.type_ = AttributeType::Float;
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 3600.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("最大生成数");
+						fi.offset_ = offsetof(Spawner, maxCount_);
+						fi.type_ = AttributeType::Int;
+						fi.clampMin_ = 1;
+						fi.clampMax_ = 1000;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("生存時間");
+						fi.offset_ = offsetof(Spawner, lifeTime_);
+						fi.type_ = AttributeType::Float;
+						fi.clampMin_ = 0.1f;
+						fi.clampMax_ = 3600.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					outInfo.push_back({ String("ランダムスポーン"), offsetof(Spawner, randomSpawn_), AttributeType::Bool });
+					{
+						FieldInfo fi;
+						fi.name_ = String("ランダム範囲");
+						fi.offset_ = offsetof(Spawner, randomRadius_);
+						fi.type_ = AttributeType::Float;
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<Spawner*>(p); return o.randomSpawn_; };
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 1000.0f;
+						outInfo.push_back(std::move(fi));
+					}
+				});
+			}
+		};
+		static Register_Spawner global_Spawner_register;
 
 		// ---- FoundationEngine/ECS/Component/Velocity.h ----
 		struct Register_Velocity

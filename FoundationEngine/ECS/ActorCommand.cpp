@@ -264,6 +264,34 @@ namespace SeedCore
 		}
 	}
 
+	ActorLayerCommand::ActorLayerCommand(World& world, Uint32 actorPersistentId, const String& oldLayerName, const String& newLayerName)
+		: world_(world), actorPersistentId_(actorPersistentId), oldLayerName_(oldLayerName), newLayerName_(newLayerName)
+	{
+		/// No Code
+	}
+
+	void ActorLayerCommand::Redo()
+	{
+		Actor* actor = world_.FindActor(actorPersistentId_);
+		if (!actor)
+		{
+			return;
+		}
+
+		actor->SetLayer(newLayerName_);
+	}
+
+	void ActorLayerCommand::Undo()
+	{
+		Actor* actor = world_.FindActor(actorPersistentId_);
+		if (!actor)
+		{
+			return;
+		}
+
+		actor->SetLayer(oldLayerName_);
+	}
+
 	/**
 	* [EN]
 	* Recursively captures the current active state of actor and every

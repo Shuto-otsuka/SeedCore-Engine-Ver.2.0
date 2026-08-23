@@ -189,6 +189,7 @@
 
 #include <objbase.h>
 #include <oleauto.h>
+#include <crtdbg.h>
 
 #if !SC_RENDER_DOC_USAGE
 #pragma push_macro("free")
@@ -249,7 +250,13 @@
 #include <External/JoltPhysics/Jolt/Physics/Collision/Shape/ConvexHullShape.h>
 #include <External/JoltPhysics/Jolt/Physics/Collision/Shape/RotatedTranslatedShape.h>
 #include <External/JoltPhysics/Jolt/Physics/Character/CharacterVirtual.h>
+#include <External/JoltPhysics/Jolt/Physics/Body/Body.h>
 #include <External/JoltPhysics/Jolt/Physics/Body/BodyLock.h>
+#include <External/JoltPhysics/Jolt/Physics/Collision/NarrowPhaseQuery.h>
+#include <External/JoltPhysics/Jolt/Physics/Collision/RayCast.h>
+#include <External/JoltPhysics/Jolt/Physics/Collision/CastResult.h>
+#include <External/JoltPhysics/Jolt/Physics/Collision/ShapeCast.h>
+#include <External/JoltPhysics/Jolt/Physics/Collision/CollisionCollectorImpl.h>
 #include <External/JoltPhysics/Jolt/Physics/SoftBody/SoftBodySharedSettings.h>
 #include <External/JoltPhysics/Jolt/Physics/SoftBody/SoftBodyCreationSettings.h>
 #include <External/JoltPhysics/Jolt/Physics/SoftBody/SoftBodyMotionProperties.h>

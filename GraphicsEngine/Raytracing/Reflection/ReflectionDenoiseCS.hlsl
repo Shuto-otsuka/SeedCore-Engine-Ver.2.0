@@ -531,9 +531,23 @@ void main(uint3 dtid : SV_DispatchThreadID)
 
 	float history_length = min(REFLECTION_MAX_HISTORY_LENGTH, valid ? previous_history_length + 1.0 : 1.0);
 
+	/// [JP] ReflectionReservoirSpatialCS.hlsl が書いた reservoir 収束度(0=直前に
+	///      ディスオクルージョンでリセット、1=Mが上限まで積み上がった定常状態)。
+	///      収束しているほどブレンド係数の下限を1.0(=このデノイザ自身の履歴を
+	///      ほぼ無視してフィルタ済み今フレーム値を採用)へ寄せる — reservoir が
+	///      既に自前の時間的リユースで信号を安定させているので、この上にさらに
+	///      REFLECTION_TEMPORAL_ALPHA の遅いEMAを重ねると、2つの時間フィルタが
+	///      直列になって実効的な応答速度が大きく鈍る(カメラを動かした時などに
+	///      「ぬるっと引きずられる」体感の原因)。history_length 由来の
+	///      1/履歴長 は残す — reservoir の収束度に関わらず、実際の幾何
+	///      ディスオクルージョン直後の数フレームは等重みで積み直す必要がある。
+	Texture2D<float> confidence_texture = ResourceDescriptorHeap[structured_indices.reflection_.confidence_srv_index_];
+	float confidence = confidence_texture.Load(int3(pixel, 0));
+	float adaptive_temporal_alpha_floor = lerp(REFLECTION_TEMPORAL_ALPHA, 1.0, confidence);
+
 	/// [JP] 履歴が短いうちは 1/履歴長 を使う。これが指数移動平均を単純平均へ
 	///      縮退させるので、序盤のフレームが不当に軽く扱われない。
-	float alpha = valid ? max(REFLECTION_TEMPORAL_ALPHA, 1.0 / history_length) : 1.0;
+	float alpha = valid ? max(adaptive_temporal_alpha_floor, 1.0 / history_length) : 1.0;
 	float moments_alpha = valid ? max(REFLECTION_MOMENTS_ALPHA, 1.0 / history_length) : 1.0;
 
 	float raw_luminance = dot(raw_value.rgb, float3(0.2126, 0.7152, 0.0722));

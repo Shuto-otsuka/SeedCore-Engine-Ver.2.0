@@ -340,6 +340,25 @@ namespace SeedCore
 		gameConstantIndices_.globalIllumination_.radianceShaderResourceViewIndex_ = radianceShaderResourceViewIndex;
 	}
 
+	void IndicesSystem::SetEditorGlobalIlluminationReservoirIndices(Uint historyShaderResourceViewIndex, Uint unorderedAccessViewIndex, Uint writeShaderResourceViewIndex)
+	{
+		editorConstantIndices_.globalIllumination_.reservoirHistoryShaderResourceViewIndex_ = historyShaderResourceViewIndex;
+		editorConstantIndices_.globalIllumination_.reservoirUnorderedAccessViewIndex_ = unorderedAccessViewIndex;
+		editorConstantIndices_.globalIllumination_.reservoirWriteShaderResourceViewIndex_ = writeShaderResourceViewIndex;
+
+		/// [JP] Canvas はGIを読まないが、未定義値を残さないためエディタと同値を入れる。
+		canvasConstantIndices_.globalIllumination_.reservoirHistoryShaderResourceViewIndex_ = historyShaderResourceViewIndex;
+		canvasConstantIndices_.globalIllumination_.reservoirUnorderedAccessViewIndex_ = unorderedAccessViewIndex;
+		canvasConstantIndices_.globalIllumination_.reservoirWriteShaderResourceViewIndex_ = writeShaderResourceViewIndex;
+	}
+
+	void IndicesSystem::SetGameGlobalIlluminationReservoirIndices(Uint historyShaderResourceViewIndex, Uint unorderedAccessViewIndex, Uint writeShaderResourceViewIndex)
+	{
+		gameConstantIndices_.globalIllumination_.reservoirHistoryShaderResourceViewIndex_ = historyShaderResourceViewIndex;
+		gameConstantIndices_.globalIllumination_.reservoirUnorderedAccessViewIndex_ = unorderedAccessViewIndex;
+		gameConstantIndices_.globalIllumination_.reservoirWriteShaderResourceViewIndex_ = writeShaderResourceViewIndex;
+	}
+
 	void IndicesSystem::SetEditorGlobalIlluminationAtrousScratchIndices(Uint scratch0ShaderResourceViewIndex, Uint scratch0UnorderedAccessViewIndex, Uint scratch1ShaderResourceViewIndex, Uint scratch1UnorderedAccessViewIndex)
 	{
 		editorConstantIndices_.globalIllumination_.atrousScratch0ShaderResourceViewIndex_ = scratch0ShaderResourceViewIndex;
@@ -424,6 +443,16 @@ namespace SeedCore
 		structuredIndices_.reflection_.outputShaderResourceViewIndex_ = index;
 	}
 
+	void IndicesSystem::SetReflectionConfidenceUnorderedAccessViewIndex(Uint index)
+	{
+		structuredIndices_.reflection_.confidenceUnorderedAccessViewIndex_ = index;
+	}
+
+	void IndicesSystem::SetReflectionConfidenceShaderResourceViewIndex(Uint index)
+	{
+		structuredIndices_.reflection_.confidenceShaderResourceViewIndex_ = index;
+	}
+
 	void IndicesSystem::SetReflectionRayConstantIndex(Uint index)
 	{
 		structuredIndices_.reflection_.rayConstantIndex_ = index;
@@ -457,6 +486,16 @@ namespace SeedCore
 	void IndicesSystem::SetGlobalIlluminationOutputShaderResourceViewIndex(Uint index)
 	{
 		structuredIndices_.globalIllumination_.outputShaderResourceViewIndex_ = index;
+	}
+
+	void IndicesSystem::SetGlobalIlluminationConfidenceUnorderedAccessViewIndex(Uint index)
+	{
+		structuredIndices_.globalIllumination_.confidenceUnorderedAccessViewIndex_ = index;
+	}
+
+	void IndicesSystem::SetGlobalIlluminationConfidenceShaderResourceViewIndex(Uint index)
+	{
+		structuredIndices_.globalIllumination_.confidenceShaderResourceViewIndex_ = index;
 	}
 
 	void IndicesSystem::SetGlobalIlluminationRayConstantIndex(Uint index)

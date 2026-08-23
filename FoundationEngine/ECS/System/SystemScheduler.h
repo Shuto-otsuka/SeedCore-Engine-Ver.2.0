@@ -2,12 +2,15 @@
 #include <FoundationEngine/Prelude.h>
 #include <FoundationEngine/ECS/System/QuerySystem.h>
 #include <FoundationEngine/ECS/System/TransformSystem.h>
+#include <FoundationEngine/ECS/System/MoveSystem.h>
+#include <FoundationEngine/ECS/System/SpawnerSystem.h>
 #include <FoundationEngine/JobSystem/JobTask.h>
 
 namespace SeedCore
 {
 	class World;
 	class JobExecutor;
+	class ResourceCache;
 
 	/**
 	* [EN]
@@ -102,18 +105,27 @@ namespace SeedCore
 		/**
 		* [EN]
 		* Runs one frame: drives Awake/Start (if isPlaying), builds and
-		* runs the archetype/sparse system flows, runs the built-in
-		* TransformSystem, then drives Tick/LateTick (if isPlaying).
+		* runs the archetype/sparse system flows, drives MoveSystem then
+		* SpawnerSystem (if isPlaying, both before TransformSystem so
+		* this frame's motion and any newly spawned actor's position are
+		* reflected in this same frame's world matrix), runs the
+		* built-in TransformSystem, then drives Tick/LateTick (if
+		* isPlaying). Shared by Runtime and Editor, so cache is threaded
+		* through explicitly rather than assumed global.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
 		* 1フレーム分を実行する: （isPlaying であれば）Awake/Start を
 		* 駆動し、アーキタイプ/スパースのシステムフローを構築・実行し、
-		* 組み込みの TransformSystem を実行し、（isPlaying であれば）
-		* Tick/LateTick を駆動する。
+		* （isPlaying であれば、TransformSystem より前に — 今フレームの
+		* 移動や新しく生成された actor の位置が同じフレームのワールド
+		* 行列に反映されるように）MoveSystem、続けて SpawnerSystem を
+		* 駆動し、組み込みの TransformSystem を実行し、（isPlaying
+		* であれば）Tick/LateTick を駆動する。Runtime と Editor の両方から
+		* 使われるため、cache はグローバル前提にせず明示的に受け渡す。
 		*/
-		void Run(World& world, JobExecutor& executor, Float elapsedTime, Bool isPlaying = true);
+		void Run(World& world, ResourceCache& cache, JobExecutor& executor, Float elapsedTime, Bool isPlaying = true);
 
 		/**
 		* [EN]
@@ -135,6 +147,24 @@ namespace SeedCore
 		* あわせて）1回ずつ呼び出すことを想定している。
 		*/
 		void Step(World& world, Float fixedTime);
+
+		/**
+		* [EN]
+		* Forgets SpawnerSystem's runtime progress for every Spawner -
+		* call this whenever the World was reset out from under this
+		* scheduler (e.g. WorldSnapshot::Restore on Editor Stop), so
+		* stale EntityIDs from the previous session aren't carried
+		* forward into the next Play.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* SpawnerSystem が持つ、全 Spawner のランタイム進行状況を忘れる -
+		* この scheduler の下で World がリセットされた時(例: Editor の
+		* Stop 時の WorldSnapshot::Restore)に呼ぶこと。前回セッションの
+		* 古い EntityID が次の Play へ持ち越されないようにするため。
+		*/
+		void Reset();
 
 	private:
 		/**
@@ -205,6 +235,14 @@ namespace SeedCore
 		/// [EN] Built-in system that recomputes world-space transform matrices from local transforms and the parent hierarchy.
 		/// [JP] ローカルトランスフォームと親階層から、ワールド空間変換行列を再計算する組み込みシステム。
 		TransformSystem transformSystem_;
+
+		/// [EN] Built-in system that integrates every Velocity-holding actor's Position each frame.
+		/// [JP] 毎フレーム、Velocity を持つ全 actor の Position を積分する組み込みシステム。
+		MoveSystem moveSystem_;
+
+		/// [EN] Built-in system that drives every Spawner component's periodic prefab instantiation.
+		/// [JP] 全 Spawner コンポーネントの周期的なプレハブ生成を駆動する組み込みシステム。
+		SpawnerSystem spawnerSystem_;
 
 		/// [EN] Registered systems whose query touches at least one archetype-stored component.
 		/// [JP] クエリが少なくとも1つのアーキタイプ格納コンポーネントに触れる、登録済みシステム群。

@@ -328,6 +328,27 @@ namespace SeedCore
 
 		std::unordered_map<const Crister*, ResourcePtr<BottomLevelAccelerationStructure>> blasCache_;
 
+		/// [EN] Cristers no longer seen live in Gather(), counting down the
+		///      number of frames left before their blasCache_/
+		///      reflectionMaterialTableCache_ entries are actually erased.
+		///      Unlike skinnedBlasCache_/morphedBlasCache_ below (already
+		///      frame-ring-indexed, so a stale entry naturally survives a
+		///      few frames), blasCache_ is keyed by Crister* and shared
+		///      across the whole frame ring - erasing it the instant an
+		///      actor is deactivated would free a static mesh's BLAS while
+		///      an already-submitted, still in-flight frame's TLAS may
+		///      still be traced against it.
+		/// [JP] Gather() でこのフレーム見えなくなった Crister。
+		///      blasCache_/reflectionMaterialTableCache_ のエントリを実際に
+		///      消去するまでの残りフレーム数をカウントダウンする。下の
+		///      skinnedBlasCache_/morphedBlasCache_(既にフレームリング化
+		///      されており、古いエントリは自然に数フレーム生き残る)と違い、
+		///      blasCache_ は Crister* キーでフレームリング全体から共有
+		///      されているため、actor が非表示になった瞬間に消すと、既に
+		///      投入済みでまだ実行中のフレームの TLAS がまだそれを参照して
+		///      いる可能性がある静的メッシュの BLAS を破棄してしまう。
+		std::unordered_map<const Crister*, Uint32> pendingBlasEviction_;
+
 		std::unordered_map<EntityID, ResourcePtr<BottomLevelAccelerationStructure>> skinnedBlasCache_[FrameRing::frameCount];
 		std::unordered_map<EntityID, SkinnedPositionBuffer> skinnedPositionBuffers_[FrameRing::frameCount];
 		SkinnedPositionShader skinnedPositionShader_;

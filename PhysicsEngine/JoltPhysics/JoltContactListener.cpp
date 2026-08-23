@@ -8,6 +8,11 @@ namespace SeedCore
 		world_ = world;
 	}
 
+	World* JoltContactListener::GetActiveWorld()const
+	{
+		return world_;
+	}
+
 	void JoltContactListener::DispatchPendingEvents()
 	{
 		DynamicArray<ContactEvent> events;

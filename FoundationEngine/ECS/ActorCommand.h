@@ -184,6 +184,40 @@ namespace SeedCore
 
 	/**
 	* [EN]
+	* Undo/redo command for changing a single Actor's layer (the
+	* Inspector's layer dropdown). Unlike tags, an actor has exactly one
+	* layer, so this stores oldLayerName_/newLayerName_ (by name, not
+	* index, matching SerializedActorNode::layerName_) rather than a
+	* toggle direction. actor isn't cached, and is re-resolved by
+	* persistent ID each time, matching ActorTagCommand.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 単一Actorのレイヤー変更（Inspectorのレイヤードロップダウン）に対する
+	* Undo/Redoコマンド。タグと違い actor のレイヤーは常に1つなので、
+	* トグル方向ではなく oldLayerName_/newLayerName_（インデックスでは
+	* なく名前で。SerializedActorNode::layerName_ と対応）を保持する。
+	* actorはキャッシュせず、ActorTagCommandと同様に毎回永続IDで再解決する。
+	*/
+	class SEEDCORE_API ActorLayerCommand : public Command
+	{
+	public:
+		ActorLayerCommand(World& world, Uint32 actorPersistentId, const String& oldLayerName, const String& newLayerName);
+
+		void Redo()override;
+
+		void Undo()override;
+
+	private:
+		World& world_;
+		Uint32 actorPersistentId_;
+		String oldLayerName_;
+		String newLayerName_;
+	};
+
+	/**
+	* [EN]
 	* Undo/redo command for toggling an Actor's active state (the
 	* Inspector's "有効" checkbox). Actor::SetActive cascades onto every
 	* descendant, so the constructor recursively captures the current

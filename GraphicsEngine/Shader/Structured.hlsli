@@ -121,12 +121,24 @@ struct SubsurfaceScatteringIndices        // 1 row
 	uint subsurface_scattering_padding_;
 };
 
-struct ReflectionIndices                  // 1 row
+struct ReflectionIndices                  // 2 rows
 {
 	uint output_uav_index_;
 	uint output_srv_index_;
 	uint ray_constant_index_;
 	uint reflection_padding_;
+
+	// Screen-sized single-channel confidence (0..1, saturate(reservoir M /
+	// its cap)) ReflectionReservoirSpatialCS.hlsl writes after temporal+
+	// spatial reservoir combine - lets ReflectionDenoiseCS.hlsl's own
+	// temporal blend trust the ReSTIR-resolved signal more as the reservoir's
+	// own history converges, instead of always re-integrating a second full
+	// history on top of it (which otherwise compounds into visible lag/drag -
+	// see ReflectionReSTIR.hlsli).
+	uint confidence_uav_index_;
+	uint confidence_srv_index_;
+	uint reflection_padding_1_;
+	uint reflection_padding_2_;
 };
 
 struct RefractionIndices                  // 1 row
@@ -137,12 +149,21 @@ struct RefractionIndices                  // 1 row
 	uint refraction_padding_;
 };
 
-struct GlobalIlluminationIndices          // 1 row
+struct GlobalIlluminationIndices          // 2 rows
 {
 	uint output_uav_index_;
 	uint output_srv_index_;
 	uint ray_constant_index_;
 	uint global_illumination_padding_;
+
+	// Screen-sized single-channel confidence (0..1, saturate(reservoir M /
+	// its cap)) GlobalIlluminationReservoirSpatialCS.hlsl writes after
+	// temporal+spatial reservoir combine - same purpose as
+	// ReflectionIndices' confidence_ fields, see that comment.
+	uint confidence_uav_index_;
+	uint confidence_srv_index_;
+	uint global_illumination_padding_1_;
+	uint global_illumination_padding_2_;
 };
 
 struct CloudIndices                       // 2 rows

@@ -5,6 +5,7 @@
 #include "../../Shader/Constants.hlsli"
 #include "../../Shader/Sampler.hlsli"
 #include "../../Shader/Light.hlsli"
+#include "../../Shader/Material.hlsli"
 #include "../../Light/Cluster.hlsli"
 
 // Reflection tuning constant buffer, read by both ReflectionRT.hlsl and
@@ -26,94 +27,9 @@ struct ReflectionRayConstantBuffer
 	uint frame_index_;
 };
 
-// One entry per material slot in the mesh's Crister::Materials() list.
-// Uploaded once per unique Crister (RaytracingRenderer::BuildReflectionMaterialTable,
-// cached like the BLAS - not rebuilt every frame). Must match the C++ mirror in
-// Renderer/RaytracingRenderer.h byte-for-byte.
-struct ReflectionMaterialData
-{
-	float3 base_color_;
-
-	// Bindless SRV of that material's base-color texture, or 0xFFFFFFFF when it
-	// has none / is not resident yet (Crister::TextureBindlessIndex returns the
-	// sentinel while a streaming mip is still loading).
-	uint base_color_texture_index_;
-
-	// KHR_materials_ior/transmission/volume - read by Refraction/RefractionRT.hlsl
-	// (Snell refraction needs ior_; the Fresnel/transmit-vs-absorb decision needs
-	// transmission_factor_; Beer-Lambert absorption over the traveled distance
-	// inside the medium needs volume_attenuation_color_/distance_). Reflection
-	// itself does not use these - they live here rather than in a separate
-	// table so ResolveReflectionMaterial's per-triangle lookup can be shared.
-	float ior_;
-	float transmission_factor_;
-	float3 volume_attenuation_color_;
-	float volume_attenuation_distance_;
-
-	// glTF alphaMode in the loader's encoding: 0 OPAQUE, 1 MASK, 2 BLEND.
-	uint alpha_mode_;
-	float alpha_cutoff_;
-	float base_color_alpha_;
-
-	// KHR_materials_volume thickness. Zero means THIN-WALLED: the surface
-	// encloses no volume, so Refraction/RefractionRT.hlsl must skip Beer-Lambert
-	// absorption entirely for it - otherwise a pane of window glass gets tinted
-	// like a solid block of the same material.
-	float thickness_factor_;
-	uint thickness_texture_index_;   // .g scales thickness_factor_ per pixel
-	float material_padding_;
-};
-
-// One entry per TLAS instance, indexed by InstanceID() in the closesthit
-// shader. Uploaded per frame by RaytracingRenderer alongside the TLAS (same
-// order as the instance descs). Must match the C++ mirror in
-// Renderer/ReflectionRenderer.h byte-for-byte (structured buffer - tight
-// packing, no cbuffer 16-byte rules).
-struct ReflectionInstanceData
-{
-	// Bindless SRV of the mesh's StructuredBuffer<ReflectionVertex> (Crister
-	// compressed vertex buffer - 16 bytes, see Model/Crister.h CompressedVertex).
-	uint vertex_buffer_index_;
-
-	// Bindless SRV of the mesh's flat 32-bit triangle index buffer
-	// (PrimitiveIndex() * 3 + n -> vertex index).
-	uint index_buffer_index_;
-
-	// Bindless SRV of StructuredBuffer<ReflectionMaterialData> - the mesh's full
-	// material list (Crister::Materials(), or a single white fallback entry if
-	// the mesh has none), indexed via triangle_material_index_buffer_index_
-	// below rather than a flat per-instance color. A multi-material mesh (e.g.
-	// a Cornell box modeled as one Crister with a red/green/white wall per
-	// submesh) needs this - using only materials()[0] for the whole instance
-	// was the bug that made every ray-traced bounce off such a mesh come back
-	// the same single colour regardless of which wall it actually hit,
-	// silently killing color bleeding.
-	uint material_data_index_;
-
-	// Bindless SRV of StructuredBuffer<uint>, one entry per triangle in the
-	// flat index buffer above, giving that triangle's index into
-	// material_data_index_'s array (built from each SubMesh's materialIndex_
-	// over its own [indexOffset_/3, (indexOffset_+indexCount_)/3) triangle
-	// range - see BuildReflectionMaterialTable).
-	uint triangle_material_index_buffer_index_;
-
-	// The compressed vertex UVs are UNORM within this AABB, so decoding them
-	// needs the per-mesh bounds (Crister::TexcoordMin / TexcoordExtent) - the
-	// same values Model.hlsli gets through its instance data.
-	float2 texcoord_min_;
-	float2 texcoord_extent_;
-};
-
-// Resolves the actual hit triangle's material via the two-step per-triangle
-// lookup above. primitive_index is PrimitiveIndex() from the closesthit shader.
-ReflectionMaterialData ResolveReflectionMaterial(ReflectionInstanceData instance, uint primitive_index)
-{
-	StructuredBuffer<uint> triangle_material_index = ResourceDescriptorHeap[instance.triangle_material_index_buffer_index_];
-	uint material_index = triangle_material_index[primitive_index];
-
-	StructuredBuffer<ReflectionMaterialData> materials = ResourceDescriptorHeap[instance.material_data_index_];
-	return materials[material_index];
-}
+// ReflectionMaterial/ReflectionInstanceData/ResolveReflectionMaterial now
+// live in Shader/Material.hlsli, shared with the G-Buffer material resolve
+// path (ResolveGBufferMaterial) - included above.
 
 // Mirrors the C++ CompressedVertex struct (Model/Crister.h) - 16 bytes.
 // The closesthit shader only needs the normal, decoded from the octahedral
@@ -155,7 +71,7 @@ bool IsReflectionMaterialPassthrough(uint instance_data_index, uint instance_id,
 	StructuredBuffer<ReflectionInstanceData> instances = ResourceDescriptorHeap[instance_data_index];
 	ReflectionInstanceData instance = instances[instance_id];
 
-	ReflectionMaterialData material = ResolveReflectionMaterial(instance, primitive_index);
+	ReflectionMaterial material = ResolveReflectionMaterial(instance, primitive_index);
 
 	if (material.alpha_mode_ == 0)
 	{

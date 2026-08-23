@@ -3,4 +3,9 @@
   <ItemGroup>
     <ClCompile Include="dllmain.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="ScInput.h" />
+    <ClInclude Include="ScMath.h" />
+    <ClInclude Include="ScScene.h" />
+  </ItemGroup>
 </Project>

@@ -1,5 +1,6 @@
 #include <GraphicsEngine/System/CameraSystem.h>
 #include <GraphicsEngine/Camera/Camera.h>
+#include <GraphicsEngine/Camera/ScreenSpace.h>
 #include <GraphicsEngine/D3D12/SwapChain/GraphicsResolution.h>
 #include <FoundationEngine/ECS/Query.h>
 #include <FoundationEngine/ECS/Component/Position.h>
@@ -143,6 +144,16 @@ namespace SeedCore
 
 				previousViewProjection_ = viewProjection;
 				previousNonJitterViewProjection_ = nonJitterViewProjection;
+
+				/// [EN] nonJitterProjection, not the TAA-jittered projection
+				///      above - gameplay screen<->world picking should use
+				///      the camera's true projection, not the render-only
+				///      sub-pixel jitter offset.
+				/// [JP] 上のTAAジッター付きprojectionではなくnonJitterProjection
+				///      を使う - ゲームプレイのスクリーン⇔ワールド変換は、
+				///      描画専用のサブピクセルジッターオフセットではなく
+				///      カメラ本来のprojectionを使うべきなため。
+				ScreenSpace::SetCurrentView(view, nonJitterProjection, Vector2(width, height));
 			});
 	}
 

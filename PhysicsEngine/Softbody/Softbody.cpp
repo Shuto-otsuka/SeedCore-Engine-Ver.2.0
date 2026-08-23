@@ -69,7 +69,7 @@ namespace SeedCore
 			desc.positions_.push_back(vertex.position_);
 		}
 
-		desc.layer_ = Layers::DYNAMIC;
+		desc.layer_ = Layers::Pack(Layers::DYNAMIC, actor.GetLayer());
 		desc.edgeCompliance_ = (1.0f - Clamp(edgeStiffness_, 0.0f, 1.0f)) * 1.0e-4f;
 		desc.shearCompliance_ = (1.0f - Clamp(areaStiffness_, 0.0f, 1.0f)) * 1.0e-4f;
 		desc.bendCompliance_ = (1.0f - Clamp(bendStiffness_, 0.0f, 1.0f)) * 1.0e-4f;

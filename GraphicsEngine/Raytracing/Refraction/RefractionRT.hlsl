@@ -33,7 +33,7 @@
 *
 * Reuses Reflection.hlsli's per-triangle instance/material tables wholesale
 * (ReflectionInstanceData / ResolveReflectionMaterial) rather than duplicating
-* them - same TLAS, same instance order, and ReflectionMaterialData already
+* them - same TLAS, same instance order, and ReflectionMaterial already
 * carries ior_/transmission_factor_/volume_attenuation_*_ alongside the
 * base_color_ Reflection itself uses.
 *
@@ -67,7 +67,7 @@
 * Reflection.hlsli の三角形単位インスタンス/マテリアルテーブル
 * (ReflectionInstanceData / ResolveReflectionMaterial)をそのまま再利用する
 * (複製しない) - 同じTLAS、同じインスタンス順序であり、
-* ReflectionMaterialData には Reflection 自身が使う base_color_ と並んで
+* ReflectionMaterial には Reflection 自身が使う base_color_ と並んで
 * ior_/transmission_factor_/volume_attenuation_*_ も既に乗っている。
 *
 * 各界面で反射レイもあえて撃たない(バウンスごとにレイ数が倍増するため) -
@@ -232,7 +232,7 @@ void RefractionRayGeneration()
 		float hit_t = query.CommittedRayT();
 		float3 hit_position = ray_origin + ray_direction * hit_t;
 
-		ReflectionMaterialData material = ResolveReflectionMaterial(hit_instance, primitive_index);
+		ReflectionMaterial material = ResolveReflectionMaterial(hit_instance, primitive_index);
 
 		// KHR_materials_volume: thickness 0 は「thin-walled」= 体積を囲まない
 		// 薄い面という意味で、仕様上そこでは体積吸収を行わない。これを見ないと

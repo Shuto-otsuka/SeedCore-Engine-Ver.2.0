@@ -170,6 +170,18 @@ float3 DenoiserTemporalBlend(Texture2D<float4> history_texture, float2 previous_
 	return lerp(history_value, filtered_raw, blend_alpha);
 }
 
+/**
+* [EN]
+* Rec.709 relative luminance. Used wherever an RGB radiance signal (as opposed
+* to a scalar visibility) needs a single number to drive a variance/edge-
+* stopping estimate - tracking the full RGB covariance is unnecessary for that
+* purpose and would triple the moment/variance storage for no denoising benefit.
+*/
+float DenoiserLuminance(float3 color)
+{
+	return dot(color, float3(0.2126, 0.7152, 0.0722));
+}
+
 /// [EN] Largest value representable in FP16, the format every RT signal
 ///      buffer here uses. Radiance above this stores as +Inf.
 static const float DENOISER_FP16_MAX = 65504.0;
@@ -363,6 +375,19 @@ float2 SvgfLuminanceWeight(float2 center_luminance, float2 neighbor_luminance, f
 
 /**
 * [EN]
+* Scalar overload of the above, for an SVGF chain that carries a single
+* luminance value per pixel instead of two packed side by side (e.g. a chain
+* whose signal is RGB radiance rather than a 2-channel scalar visibility pair -
+* only the RGB's luminance drives the edge-stopping weight, see
+* DenoiserLuminance).
+*/
+float SvgfLuminanceWeight(float center_luminance, float neighbor_luminance, float phi_luminance)
+{
+	return exp(-abs(center_luminance - neighbor_luminance) / phi_luminance);
+}
+
+/**
+* [EN]
 * 3x3 Gaussian prefilter of the variance channels before they are used to size
 * phi_luminance above. Variance is itself a noisy per-pixel estimate; without
 * this smoothing the filter width flickers pixel to pixel and the result boils.
@@ -381,6 +406,57 @@ float2 SvgfVarianceCenter(Texture2D<float4> source_texture, int2 pixel, int2 scr
 		{
 			int2 neighbor = clamp(pixel + int2(dx, dy), int2(0, 0), screen_max);
 			sum += source_texture.Load(int3(neighbor, 0)).ba * kernel[abs(dx) + abs(dy)];
+		}
+	}
+
+	return sum;
+}
+
+/**
+* [EN]
+* Same 3x3 Gaussian prefilter as above, for a chain that carries only ONE
+* variance value per pixel instead of two packed side by side. source_texture
+* is a 2-channel (value, variance) signal - variance is the .y channel.
+*/
+float SvgfVarianceCenterScalar(Texture2D<float2> source_texture, int2 pixel, int2 screen_max)
+{
+	const float kernel[3] = { 1.0 / 4.0, 1.0 / 8.0, 1.0 / 16.0 };
+
+	float sum = 0.0;
+
+	[unroll]
+	for (int dy = -1; dy <= 1; ++dy)
+	{
+		[unroll]
+		for (int dx = -1; dx <= 1; ++dx)
+		{
+			int2 neighbor = clamp(pixel + int2(dx, dy), int2(0, 0), screen_max);
+			sum += source_texture.Load(int3(neighbor, 0)).y * kernel[abs(dx) + abs(dy)];
+		}
+	}
+
+	return sum;
+}
+
+/**
+* [EN]
+* Same as SvgfVarianceCenterScalar above, for a 4-channel (rgb signal,
+* luminance variance) chain - variance is the .a channel.
+*/
+float SvgfVarianceCenterLuminance(Texture2D<float4> source_texture, int2 pixel, int2 screen_max)
+{
+	const float kernel[3] = { 1.0 / 4.0, 1.0 / 8.0, 1.0 / 16.0 };
+
+	float sum = 0.0;
+
+	[unroll]
+	for (int dy = -1; dy <= 1; ++dy)
+	{
+		[unroll]
+		for (int dx = -1; dx <= 1; ++dx)
+		{
+			int2 neighbor = clamp(pixel + int2(dx, dy), int2(0, 0), screen_max);
+			sum += source_texture.Load(int3(neighbor, 0)).a * kernel[abs(dx) + abs(dy)];
 		}
 	}
 

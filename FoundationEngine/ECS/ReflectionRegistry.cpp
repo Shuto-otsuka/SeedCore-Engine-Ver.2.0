@@ -5,6 +5,7 @@
 #pragma comment(linker, "/include:_force_reflection_Position")
 #pragma comment(linker, "/include:_force_reflection_Rotation")
 #pragma comment(linker, "/include:_force_reflection_Scale")
+#pragma comment(linker, "/include:_force_reflection_Spawner")
 #pragma comment(linker, "/include:_force_reflection_Velocity")
 #pragma comment(linker, "/include:_force_reflection_Camera")
 #pragma comment(linker, "/include:_force_reflection_FreeCameraController")

@@ -86,40 +86,67 @@ namespace SeedCore
 
 	/**
 	* [EN]
-	* Allocates the raw texture and, per view, the whole SVGF chain: the
-	* illumination/variance history, the moments, the history length, the packed
-	* depth+normal copy, the two A-Trous scratch buffers and the final denoised
-	* output. Shared by Create() and Resize() so the two can never drift apart.
+	* Allocates the raw texture and, per view, the whole SVGF chain for both
+	* signals (directional/punctual): each chain's illumination/variance
+	* history, moments, A-Trous scratch pair and final denoised output, plus the
+	* ONE shared history length and packed depth+normal copy (purely geometric,
+	* identical for both chains). Shared by Create() and Resize() so the two can
+	* never drift apart.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* raw テクスチャと、ビューごとの SVGF チェーン一式を確保する: 輝度/分散の
-	* 履歴、モーメント、履歴長、深度+法線のパック済みコピー、A-Trous スクラッチ
-	* 2枚、最終 denoised 出力。Create() と Resize() で共有し、両者がずれないように
-	* する。
+	* raw テクスチャと、ビューごとの両信号(directional/punctual)分の SVGF
+	* チェーン一式を確保する: チェーンごとの輝度/分散の履歴、モーメント、
+	* A-Trous スクラッチ2枚、最終 denoised 出力、それに両チェーンで共有する
+	* (純粋に幾何なので同一になる)履歴長と深度+法線のパック済みコピーを1組。
+	* Create() と Resize() で共有し、両者がずれないようにする。
 	*/
 	void ShadowRenderer::CreateResources(ID3D12Device* device, BindlessHeap* bindlessHeap, Uint32 width, Uint32 height)
 	{
 		width_ = width;
 		height_ = height;
 
-		clearHeap_.Create(device, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1 + viewCount + viewCount * accumulationSlotCount * 4, false);
+		clearHeap_.Create(device, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1 + viewCount * 2 + viewCount * accumulationSlotCount * 6, false);
 
 		historyCleared_ = false;
 
-		CreateShadowTexture(device, bindlessHeap, clearHeap_, width, height, DXGI_FORMAT_R16G16_FLOAT, rawVisibilityResource_, rawVisibilityUnorderedAccessViewIndex_, rawVisibilityShaderResourceViewIndex_, &clearRawIndex_);
+		/// [JP] r = ディレクショナル可視性、gba = パンクチュアル放射輝度。
+		CreateShadowTexture(device, bindlessHeap, clearHeap_, width, height, DXGI_FORMAT_R16G16B16A16_FLOAT, rawVisibilityResource_, rawVisibilityUnorderedAccessViewIndex_, rawVisibilityShaderResourceViewIndex_, &clearRawIndex_);
 		rawVisibilityState_ = D3D12_RESOURCE_STATE_COMMON;
+
+		/// [JP] 同じ rawVisibilityResource_ に対する、チャンネルをずらした
+		///      2つ目のSRV(DLSS-RR 素通り経路専用 - ShadowRenderer.h の
+		///      rawPunctualShaderResourceViewIndex_ のコメント参照)。
+		///      Shader4ComponentMapping で dest.r/g/b <- src.g/b/a にずらすので、
+		///      このビュー越しに読む `.rgb` が raw の gba(パンクチュアル
+		///      放射輝度)になる。
+		{
+			rawPunctualShaderResourceViewIndex_ = bindlessHeap->AllocateIndex();
+
+			D3D12_SHADER_RESOURCE_VIEW_DESC shaderResourceViewDesc{};
+			shaderResourceViewDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+			shaderResourceViewDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+			shaderResourceViewDesc.Shader4ComponentMapping = D3D12_ENCODE_SHADER_4_COMPONENT_MAPPING(1, 2, 3, 3);
+			shaderResourceViewDesc.Texture2D.MipLevels = 1;
+			device->CreateShaderResourceView(rawVisibilityResource_.Get(), &shaderResourceViewDesc, bindlessHeap->CPUHandle(rawPunctualShaderResourceViewIndex_));
+		}
 
 		for (Uint32 view = 0; view < viewCount; ++view)
 		{
 			for (Uint32 slot = 0; slot < accumulationSlotCount; ++slot)
 			{
-				CreateShadowTexture(device, bindlessHeap, clearHeap_, width, height, DXGI_FORMAT_R16G16B16A16_FLOAT, accumulatedVisibilityResource_[view][slot], accumulatedUnorderedAccessViewIndex_[view][slot], accumulatedShaderResourceViewIndex_[view][slot], &clearAccumulatedIndex_[view][slot]);
-				accumulatedVisibilityState_[view][slot] = D3D12_RESOURCE_STATE_COMMON;
+				CreateShadowTexture(device, bindlessHeap, clearHeap_, width, height, DXGI_FORMAT_R16G16_FLOAT, directionalAccumulatedResource_[view][slot], directionalAccumulatedUnorderedAccessViewIndex_[view][slot], directionalAccumulatedShaderResourceViewIndex_[view][slot], &clearDirectionalAccumulatedIndex_[view][slot]);
+				directionalAccumulatedState_[view][slot] = D3D12_RESOURCE_STATE_COMMON;
 
-				CreateShadowTexture(device, bindlessHeap, clearHeap_, width, height, DXGI_FORMAT_R16G16B16A16_FLOAT, momentsResource_[view][slot], momentsUnorderedAccessViewIndex_[view][slot], momentsShaderResourceViewIndex_[view][slot], &clearMomentsIndex_[view][slot]);
-				momentsState_[view][slot] = D3D12_RESOURCE_STATE_COMMON;
+				CreateShadowTexture(device, bindlessHeap, clearHeap_, width, height, DXGI_FORMAT_R16G16B16A16_FLOAT, punctualAccumulatedResource_[view][slot], punctualAccumulatedUnorderedAccessViewIndex_[view][slot], punctualAccumulatedShaderResourceViewIndex_[view][slot], &clearPunctualAccumulatedIndex_[view][slot]);
+				punctualAccumulatedState_[view][slot] = D3D12_RESOURCE_STATE_COMMON;
+
+				CreateShadowTexture(device, bindlessHeap, clearHeap_, width, height, DXGI_FORMAT_R16G16_FLOAT, directionalMomentsResource_[view][slot], directionalMomentsUnorderedAccessViewIndex_[view][slot], directionalMomentsShaderResourceViewIndex_[view][slot], &clearDirectionalMomentsIndex_[view][slot]);
+				directionalMomentsState_[view][slot] = D3D12_RESOURCE_STATE_COMMON;
+
+				CreateShadowTexture(device, bindlessHeap, clearHeap_, width, height, DXGI_FORMAT_R16G16_FLOAT, punctualMomentsResource_[view][slot], punctualMomentsUnorderedAccessViewIndex_[view][slot], punctualMomentsShaderResourceViewIndex_[view][slot], &clearPunctualMomentsIndex_[view][slot]);
+				punctualMomentsState_[view][slot] = D3D12_RESOURCE_STATE_COMMON;
 
 				CreateShadowTexture(device, bindlessHeap, clearHeap_, width, height, DXGI_FORMAT_R16_FLOAT, historyLengthResource_[view][slot], historyLengthUnorderedAccessViewIndex_[view][slot], historyLengthShaderResourceViewIndex_[view][slot], &clearHistoryLengthIndex_[view][slot]);
 				historyLengthState_[view][slot] = D3D12_RESOURCE_STATE_COMMON;
@@ -137,12 +164,18 @@ namespace SeedCore
 
 			for (Uint32 slot = 0; slot < 2; ++slot)
 			{
-				CreateShadowTexture(device, bindlessHeap, clearHeap_, width, height, DXGI_FORMAT_R16G16B16A16_FLOAT, atrousScratchResource_[view][slot], atrousScratchUnorderedAccessViewIndex_[view][slot], atrousScratchShaderResourceViewIndex_[view][slot], nullptr);
-				atrousScratchState_[view][slot] = D3D12_RESOURCE_STATE_COMMON;
+				CreateShadowTexture(device, bindlessHeap, clearHeap_, width, height, DXGI_FORMAT_R16G16_FLOAT, directionalAtrousScratchResource_[view][slot], directionalAtrousScratchUnorderedAccessViewIndex_[view][slot], directionalAtrousScratchShaderResourceViewIndex_[view][slot], nullptr);
+				directionalAtrousScratchState_[view][slot] = D3D12_RESOURCE_STATE_COMMON;
+
+				CreateShadowTexture(device, bindlessHeap, clearHeap_, width, height, DXGI_FORMAT_R16G16B16A16_FLOAT, punctualAtrousScratchResource_[view][slot], punctualAtrousScratchUnorderedAccessViewIndex_[view][slot], punctualAtrousScratchShaderResourceViewIndex_[view][slot], nullptr);
+				punctualAtrousScratchState_[view][slot] = D3D12_RESOURCE_STATE_COMMON;
 			}
 
-			CreateShadowTexture(device, bindlessHeap, clearHeap_, width, height, DXGI_FORMAT_R16G16_FLOAT, denoisedResource_[view], denoisedUnorderedAccessViewIndex_[view], denoisedShaderResourceViewIndex_[view], &clearDenoisedIndex_[view]);
-			denoisedState_[view] = D3D12_RESOURCE_STATE_COMMON;
+			CreateShadowTexture(device, bindlessHeap, clearHeap_, width, height, DXGI_FORMAT_R16_FLOAT, directionalDenoisedResource_[view], directionalDenoisedUnorderedAccessViewIndex_[view], directionalDenoisedShaderResourceViewIndex_[view], &clearDirectionalDenoisedIndex_[view]);
+			directionalDenoisedState_[view] = D3D12_RESOURCE_STATE_COMMON;
+
+			CreateShadowTexture(device, bindlessHeap, clearHeap_, width, height, DXGI_FORMAT_R16G16B16A16_FLOAT, punctualDenoisedResource_[view], punctualDenoisedUnorderedAccessViewIndex_[view], punctualDenoisedShaderResourceViewIndex_[view], &clearPunctualDenoisedIndex_[view]);
+			punctualDenoisedState_[view] = D3D12_RESOURCE_STATE_COMMON;
 		}
 	}
 
@@ -150,19 +183,28 @@ namespace SeedCore
 	{
 		bindlessHeap->FreeIndex(rawVisibilityUnorderedAccessViewIndex_);
 		bindlessHeap->FreeIndex(rawVisibilityShaderResourceViewIndex_);
+		bindlessHeap->FreeIndex(rawPunctualShaderResourceViewIndex_);
 		rawVisibilityResource_.Reset();
 
 		for (Uint32 view = 0; view < viewCount; ++view)
 		{
 			for (Uint32 slot = 0; slot < accumulationSlotCount; ++slot)
 			{
-				bindlessHeap->FreeIndex(accumulatedUnorderedAccessViewIndex_[view][slot]);
-				bindlessHeap->FreeIndex(accumulatedShaderResourceViewIndex_[view][slot]);
-				accumulatedVisibilityResource_[view][slot].Reset();
+				bindlessHeap->FreeIndex(directionalAccumulatedUnorderedAccessViewIndex_[view][slot]);
+				bindlessHeap->FreeIndex(directionalAccumulatedShaderResourceViewIndex_[view][slot]);
+				directionalAccumulatedResource_[view][slot].Reset();
 
-				bindlessHeap->FreeIndex(momentsUnorderedAccessViewIndex_[view][slot]);
-				bindlessHeap->FreeIndex(momentsShaderResourceViewIndex_[view][slot]);
-				momentsResource_[view][slot].Reset();
+				bindlessHeap->FreeIndex(punctualAccumulatedUnorderedAccessViewIndex_[view][slot]);
+				bindlessHeap->FreeIndex(punctualAccumulatedShaderResourceViewIndex_[view][slot]);
+				punctualAccumulatedResource_[view][slot].Reset();
+
+				bindlessHeap->FreeIndex(directionalMomentsUnorderedAccessViewIndex_[view][slot]);
+				bindlessHeap->FreeIndex(directionalMomentsShaderResourceViewIndex_[view][slot]);
+				directionalMomentsResource_[view][slot].Reset();
+
+				bindlessHeap->FreeIndex(punctualMomentsUnorderedAccessViewIndex_[view][slot]);
+				bindlessHeap->FreeIndex(punctualMomentsShaderResourceViewIndex_[view][slot]);
+				punctualMomentsResource_[view][slot].Reset();
 
 				bindlessHeap->FreeIndex(historyLengthUnorderedAccessViewIndex_[view][slot]);
 				bindlessHeap->FreeIndex(historyLengthShaderResourceViewIndex_[view][slot]);
@@ -175,14 +217,22 @@ namespace SeedCore
 
 			for (Uint32 slot = 0; slot < 2; ++slot)
 			{
-				bindlessHeap->FreeIndex(atrousScratchUnorderedAccessViewIndex_[view][slot]);
-				bindlessHeap->FreeIndex(atrousScratchShaderResourceViewIndex_[view][slot]);
-				atrousScratchResource_[view][slot].Reset();
+				bindlessHeap->FreeIndex(directionalAtrousScratchUnorderedAccessViewIndex_[view][slot]);
+				bindlessHeap->FreeIndex(directionalAtrousScratchShaderResourceViewIndex_[view][slot]);
+				directionalAtrousScratchResource_[view][slot].Reset();
+
+				bindlessHeap->FreeIndex(punctualAtrousScratchUnorderedAccessViewIndex_[view][slot]);
+				bindlessHeap->FreeIndex(punctualAtrousScratchShaderResourceViewIndex_[view][slot]);
+				punctualAtrousScratchResource_[view][slot].Reset();
 			}
 
-			bindlessHeap->FreeIndex(denoisedUnorderedAccessViewIndex_[view]);
-			bindlessHeap->FreeIndex(denoisedShaderResourceViewIndex_[view]);
-			denoisedResource_[view].Reset();
+			bindlessHeap->FreeIndex(directionalDenoisedUnorderedAccessViewIndex_[view]);
+			bindlessHeap->FreeIndex(directionalDenoisedShaderResourceViewIndex_[view]);
+			directionalDenoisedResource_[view].Reset();
+
+			bindlessHeap->FreeIndex(punctualDenoisedUnorderedAccessViewIndex_[view]);
+			bindlessHeap->FreeIndex(punctualDenoisedShaderResourceViewIndex_[view]);
+			punctualDenoisedResource_[view].Reset();
 		}
 	}
 
@@ -219,31 +269,51 @@ namespace SeedCore
 		Uint32 writeSlot = 1 - historySlot_;
 
 		/// [JP] フレームをまたぐ状態を持つバッファは全て history スロットを読んで
-		///      もう片方へ書く。1組の historySlot_/writeSlot が輝度・モーメント・
-		///      履歴長・深度法線コピーをまとめて駆動する — これらがずれると、
-		///      あるフレームの幾何で整合性を判定しながら別のフレームの輝度を
-		///      ブレンドすることになる。
+		///      もう片方へ書く。1組の historySlot_/writeSlot が両信号チェーンの
+		///      輝度・モーメントと、共有の履歴長・深度法線コピーをまとめて
+		///      駆動する — これらがずれると、あるフレームの幾何で整合性を
+		///      判定しながら別のフレームの輝度をブレンドすることになる。
 		auto buildIndices = [&](Uint32 viewIndex)
 		{
 			ShadowAccumulationIndices values{};
 
-			values.historyShaderResourceViewIndex_ = accumulatedShaderResourceViewIndex_[viewIndex][historySlot_];
-			values.accumulatedUnorderedAccessViewIndex_ = accumulatedUnorderedAccessViewIndex_[viewIndex][writeSlot];
-			values.accumulatedShaderResourceViewIndex_ = accumulatedShaderResourceViewIndex_[viewIndex][writeSlot];
+			values.directionalHistoryShaderResourceViewIndex_ = directionalAccumulatedShaderResourceViewIndex_[viewIndex][historySlot_];
+			values.directionalAccumulatedUnorderedAccessViewIndex_ = directionalAccumulatedUnorderedAccessViewIndex_[viewIndex][writeSlot];
+			values.directionalAccumulatedShaderResourceViewIndex_ = directionalAccumulatedShaderResourceViewIndex_[viewIndex][writeSlot];
+
+			values.punctualHistoryShaderResourceViewIndex_ = punctualAccumulatedShaderResourceViewIndex_[viewIndex][historySlot_];
+			values.punctualAccumulatedUnorderedAccessViewIndex_ = punctualAccumulatedUnorderedAccessViewIndex_[viewIndex][writeSlot];
+			values.punctualAccumulatedShaderResourceViewIndex_ = punctualAccumulatedShaderResourceViewIndex_[viewIndex][writeSlot];
 
 			/// [JP] DLSS-RRが合成フレーム全体をデノイズするので、その間だけ
-			///      「最終」影読み取りは生の単一バッファテクスチャを直接指す
-			///      (SVGFチェーンには一切触れない)。
-			values.visibilityShaderResourceViewIndex_ = dlssRayReconstructionActive_ ? rawVisibilityShaderResourceViewIndex_ : denoisedShaderResourceViewIndex_[viewIndex];
+			///      「最終」読み取りは生の単一バッファテクスチャを直接指す
+			///      (SVGFチェーンには一切触れない)。ディレクショナルは素の
+			///      raw テクスチャ(.r がそのまま可視性)、パンクチュアルは
+			///      チャンネルをずらした rawPunctualShaderResourceViewIndex_
+			///      (.rgb が raw の gba = パンクチュアル放射輝度になる)を指す —
+			///      同じビューを両方に使うと、パンクチュアル側が `.rgb` を
+			///      読んだ時に raw の r(ディレクショナル可視性)まで拾って
+			///      しまい、明るい場所ほど赤みがかる不具合になる。
+			values.directionalVisibilityShaderResourceViewIndex_ = dlssRayReconstructionActive_ ? rawVisibilityShaderResourceViewIndex_ : directionalDenoisedShaderResourceViewIndex_[viewIndex];
+			values.punctualRadianceShaderResourceViewIndex_ = dlssRayReconstructionActive_ ? rawPunctualShaderResourceViewIndex_ : punctualDenoisedShaderResourceViewIndex_[viewIndex];
 
-			values.atrousScratch0ShaderResourceViewIndex_ = atrousScratchShaderResourceViewIndex_[viewIndex][0];
-			values.atrousScratch0UnorderedAccessViewIndex_ = atrousScratchUnorderedAccessViewIndex_[viewIndex][0];
-			values.atrousScratch1ShaderResourceViewIndex_ = atrousScratchShaderResourceViewIndex_[viewIndex][1];
-			values.atrousScratch1UnorderedAccessViewIndex_ = atrousScratchUnorderedAccessViewIndex_[viewIndex][1];
+			values.directionalAtrousScratch0ShaderResourceViewIndex_ = directionalAtrousScratchShaderResourceViewIndex_[viewIndex][0];
+			values.directionalAtrousScratch0UnorderedAccessViewIndex_ = directionalAtrousScratchUnorderedAccessViewIndex_[viewIndex][0];
+			values.directionalAtrousScratch1ShaderResourceViewIndex_ = directionalAtrousScratchShaderResourceViewIndex_[viewIndex][1];
+			values.directionalAtrousScratch1UnorderedAccessViewIndex_ = directionalAtrousScratchUnorderedAccessViewIndex_[viewIndex][1];
 
-			values.momentsHistoryShaderResourceViewIndex_ = momentsShaderResourceViewIndex_[viewIndex][historySlot_];
-			values.momentsShaderResourceViewIndex_ = momentsShaderResourceViewIndex_[viewIndex][writeSlot];
-			values.momentsUnorderedAccessViewIndex_ = momentsUnorderedAccessViewIndex_[viewIndex][writeSlot];
+			values.punctualAtrousScratch0ShaderResourceViewIndex_ = punctualAtrousScratchShaderResourceViewIndex_[viewIndex][0];
+			values.punctualAtrousScratch0UnorderedAccessViewIndex_ = punctualAtrousScratchUnorderedAccessViewIndex_[viewIndex][0];
+			values.punctualAtrousScratch1ShaderResourceViewIndex_ = punctualAtrousScratchShaderResourceViewIndex_[viewIndex][1];
+			values.punctualAtrousScratch1UnorderedAccessViewIndex_ = punctualAtrousScratchUnorderedAccessViewIndex_[viewIndex][1];
+
+			values.directionalMomentsHistoryShaderResourceViewIndex_ = directionalMomentsShaderResourceViewIndex_[viewIndex][historySlot_];
+			values.directionalMomentsShaderResourceViewIndex_ = directionalMomentsShaderResourceViewIndex_[viewIndex][writeSlot];
+			values.directionalMomentsUnorderedAccessViewIndex_ = directionalMomentsUnorderedAccessViewIndex_[viewIndex][writeSlot];
+
+			values.punctualMomentsHistoryShaderResourceViewIndex_ = punctualMomentsShaderResourceViewIndex_[viewIndex][historySlot_];
+			values.punctualMomentsShaderResourceViewIndex_ = punctualMomentsShaderResourceViewIndex_[viewIndex][writeSlot];
+			values.punctualMomentsUnorderedAccessViewIndex_ = punctualMomentsUnorderedAccessViewIndex_[viewIndex][writeSlot];
 
 			values.historyLengthHistoryShaderResourceViewIndex_ = historyLengthShaderResourceViewIndex_[viewIndex][historySlot_];
 			values.historyLengthShaderResourceViewIndex_ = historyLengthShaderResourceViewIndex_[viewIndex][writeSlot];
@@ -253,7 +323,8 @@ namespace SeedCore
 			values.depthNormalShaderResourceViewIndex_ = depthNormalShaderResourceViewIndex_[viewIndex][writeSlot];
 			values.depthNormalUnorderedAccessViewIndex_ = depthNormalUnorderedAccessViewIndex_[viewIndex][writeSlot];
 
-			values.denoisedUnorderedAccessViewIndex_ = denoisedUnorderedAccessViewIndex_[viewIndex];
+			values.directionalDenoisedUnorderedAccessViewIndex_ = directionalDenoisedUnorderedAccessViewIndex_[viewIndex];
+			values.punctualDenoisedUnorderedAccessViewIndex_ = punctualDenoisedUnorderedAccessViewIndex_[viewIndex];
 
 			return values;
 		};
@@ -296,8 +367,10 @@ namespace SeedCore
 						cmd->ClearUnorderedAccessViewFloat(bindlessHeap_->GPUHandle(unorderedAccessViewIndex), clearHeap_.CPUHandle(clearIndex), resource.Get(), zeroValues, 0, nullptr);
 					};
 
-					clearTexture(accumulatedVisibilityResource_[clearView][clearSlot], accumulatedVisibilityState_[clearView][clearSlot], accumulatedUnorderedAccessViewIndex_[clearView][clearSlot], clearAccumulatedIndex_[clearView][clearSlot]);
-					clearTexture(momentsResource_[clearView][clearSlot], momentsState_[clearView][clearSlot], momentsUnorderedAccessViewIndex_[clearView][clearSlot], clearMomentsIndex_[clearView][clearSlot]);
+					clearTexture(directionalAccumulatedResource_[clearView][clearSlot], directionalAccumulatedState_[clearView][clearSlot], directionalAccumulatedUnorderedAccessViewIndex_[clearView][clearSlot], clearDirectionalAccumulatedIndex_[clearView][clearSlot]);
+					clearTexture(punctualAccumulatedResource_[clearView][clearSlot], punctualAccumulatedState_[clearView][clearSlot], punctualAccumulatedUnorderedAccessViewIndex_[clearView][clearSlot], clearPunctualAccumulatedIndex_[clearView][clearSlot]);
+					clearTexture(directionalMomentsResource_[clearView][clearSlot], directionalMomentsState_[clearView][clearSlot], directionalMomentsUnorderedAccessViewIndex_[clearView][clearSlot], clearDirectionalMomentsIndex_[clearView][clearSlot]);
+					clearTexture(punctualMomentsResource_[clearView][clearSlot], punctualMomentsState_[clearView][clearSlot], punctualMomentsUnorderedAccessViewIndex_[clearView][clearSlot], clearPunctualMomentsIndex_[clearView][clearSlot]);
 					clearTexture(historyLengthResource_[clearView][clearSlot], historyLengthState_[clearView][clearSlot], historyLengthUnorderedAccessViewIndex_[clearView][clearSlot], clearHistoryLengthIndex_[clearView][clearSlot]);
 					clearTexture(depthNormalResource_[clearView][clearSlot], depthNormalState_[clearView][clearSlot], depthNormalUnorderedAccessViewIndex_[clearView][clearSlot], clearDepthNormalIndex_[clearView][clearSlot]);
 				}
@@ -323,9 +396,12 @@ namespace SeedCore
 
 		if (!tlasValid || !shadowPipelineState || (denoisePipelineRequired && !denoisePipelineState))
 		{
-			/// [JP] 追跡対象(TLAS)が無い、または PSO が無いフレーム: 照射(1.0)で
-			///      クリアする。composite が実際に読む先(DLSS-RR経路なら生
-			///      テクスチャ、通常経路なら denoised 出力)をそのままクリアする。
+			/// [JP] 追跡対象(TLAS)が無い、または PSO が無いフレーム。composite が
+			///      実際に読む先(DLSS-RR経路なら生テクスチャ、通常経路なら
+			///      denoised 出力)をクリアする。ディレクショナルは可視性
+			///      乗数なので照射(1.0)、パンクチュアルはBRDF評価済み放射輝度の
+			///      加算項なので、追跡できていない以上「何も足さない」意味で
+			///      0.0 でクリアする(1.0 で埋めるとフラットな白を加算してしまう)。
 			if (dlssRayReconstructionActive_)
 			{
 				if (rawVisibilityState_ != D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
@@ -334,7 +410,7 @@ namespace SeedCore
 					rawVisibilityState_ = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
 				}
 
-				const Float clearValues[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+				const Float clearValues[4] = { 1.0f, 0.0f, 0.0f, 0.0f };
 				cmd->ClearUnorderedAccessViewFloat(bindlessHeap_->GPUHandle(rawVisibilityUnorderedAccessViewIndex_), clearHeap_.CPUHandle(clearRawIndex_), rawVisibilityResource_.Get(), clearValues, 0, nullptr);
 
 				cmdList->Barrier(rawVisibilityResource_.Get(), rawVisibilityState_, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
@@ -342,17 +418,29 @@ namespace SeedCore
 				return;
 			}
 
-			if (denoisedState_[viewIndex] != D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
+			if (directionalDenoisedState_[viewIndex] != D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
 			{
-				cmdList->Barrier(denoisedResource_[viewIndex].Get(), denoisedState_[viewIndex], D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-				denoisedState_[viewIndex] = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+				cmdList->Barrier(directionalDenoisedResource_[viewIndex].Get(), directionalDenoisedState_[viewIndex], D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+				directionalDenoisedState_[viewIndex] = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
 			}
 
 			const Float litValues[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
-			cmd->ClearUnorderedAccessViewFloat(bindlessHeap_->GPUHandle(denoisedUnorderedAccessViewIndex_[viewIndex]), clearHeap_.CPUHandle(clearDenoisedIndex_[viewIndex]), denoisedResource_[viewIndex].Get(), litValues, 0, nullptr);
+			cmd->ClearUnorderedAccessViewFloat(bindlessHeap_->GPUHandle(directionalDenoisedUnorderedAccessViewIndex_[viewIndex]), clearHeap_.CPUHandle(clearDirectionalDenoisedIndex_[viewIndex]), directionalDenoisedResource_[viewIndex].Get(), litValues, 0, nullptr);
 
-			cmdList->Barrier(denoisedResource_[viewIndex].Get(), denoisedState_[viewIndex], D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
-			denoisedState_[viewIndex] = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
+			cmdList->Barrier(directionalDenoisedResource_[viewIndex].Get(), directionalDenoisedState_[viewIndex], D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
+			directionalDenoisedState_[viewIndex] = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
+
+			if (punctualDenoisedState_[viewIndex] != D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
+			{
+				cmdList->Barrier(punctualDenoisedResource_[viewIndex].Get(), punctualDenoisedState_[viewIndex], D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+				punctualDenoisedState_[viewIndex] = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+			}
+
+			const Float zeroLitValues[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+			cmd->ClearUnorderedAccessViewFloat(bindlessHeap_->GPUHandle(punctualDenoisedUnorderedAccessViewIndex_[viewIndex]), clearHeap_.CPUHandle(clearPunctualDenoisedIndex_[viewIndex]), punctualDenoisedResource_[viewIndex].Get(), zeroLitValues, 0, nullptr);
+
+			cmdList->Barrier(punctualDenoisedResource_[viewIndex].Get(), punctualDenoisedState_[viewIndex], D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
+			punctualDenoisedState_[viewIndex] = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
 
 			/// [JP] 履歴長も 0 にしておく。こうしないと、次に実際にトレースが走った
 			///      フレームで「長い履歴がある」と誤認し、クリア中の無関係な輝度を
@@ -402,57 +490,41 @@ namespace SeedCore
 				return;
 			}
 
-			/// [JP] リプロジェクションが読む履歴側(輝度/モーメント/履歴長/
-			///      深度法線)をまとめて読み取り状態へ。
-			if (accumulatedVisibilityState_[viewIndex][historySlot_] != D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE)
+			/// [JP] リプロジェクションが読む履歴側(両チェーンの輝度/モーメント、
+			///      共有の履歴長/深度法線)をまとめて読み取り状態へ。
+			auto toRead = [&](Microsoft::WRL::ComPtr<ID3D12Resource>& resource, D3D12_RESOURCE_STATES& state)
 			{
-				cmdList->Barrier(accumulatedVisibilityResource_[viewIndex][historySlot_].Get(), accumulatedVisibilityState_[viewIndex][historySlot_], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-				accumulatedVisibilityState_[viewIndex][historySlot_] = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
-			}
+				if (state != D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE)
+				{
+					cmdList->Barrier(resource.Get(), state, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+					state = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+				}
+			};
 
-			if (momentsState_[viewIndex][historySlot_] != D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE)
+			auto toWrite = [&](Microsoft::WRL::ComPtr<ID3D12Resource>& resource, D3D12_RESOURCE_STATES& state)
 			{
-				cmdList->Barrier(momentsResource_[viewIndex][historySlot_].Get(), momentsState_[viewIndex][historySlot_], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-				momentsState_[viewIndex][historySlot_] = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
-			}
+				if (state != D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
+				{
+					cmdList->Barrier(resource.Get(), state, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+					state = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+				}
+			};
 
-			if (historyLengthState_[viewIndex][historySlot_] != D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE)
-			{
-				cmdList->Barrier(historyLengthResource_[viewIndex][historySlot_].Get(), historyLengthState_[viewIndex][historySlot_], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-				historyLengthState_[viewIndex][historySlot_] = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
-			}
+			toRead(directionalAccumulatedResource_[viewIndex][historySlot_], directionalAccumulatedState_[viewIndex][historySlot_]);
+			toRead(punctualAccumulatedResource_[viewIndex][historySlot_], punctualAccumulatedState_[viewIndex][historySlot_]);
+			toRead(directionalMomentsResource_[viewIndex][historySlot_], directionalMomentsState_[viewIndex][historySlot_]);
+			toRead(punctualMomentsResource_[viewIndex][historySlot_], punctualMomentsState_[viewIndex][historySlot_]);
+			toRead(historyLengthResource_[viewIndex][historySlot_], historyLengthState_[viewIndex][historySlot_]);
+			toRead(depthNormalResource_[viewIndex][historySlot_], depthNormalState_[viewIndex][historySlot_]);
 
-			if (depthNormalState_[viewIndex][historySlot_] != D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE)
-			{
-				cmdList->Barrier(depthNormalResource_[viewIndex][historySlot_].Get(), depthNormalState_[viewIndex][historySlot_], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-				depthNormalState_[viewIndex][historySlot_] = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
-			}
-
-			/// [JP] パス1(リプロジェクション): raw + 履歴 → scratch0 と、
-			///      今フレームのモーメント/履歴長/深度法線。
-			if (atrousScratchState_[viewIndex][0] != D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
-			{
-				cmdList->Barrier(atrousScratchResource_[viewIndex][0].Get(), atrousScratchState_[viewIndex][0], D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-				atrousScratchState_[viewIndex][0] = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-			}
-
-			if (momentsState_[viewIndex][writeSlot] != D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
-			{
-				cmdList->Barrier(momentsResource_[viewIndex][writeSlot].Get(), momentsState_[viewIndex][writeSlot], D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-				momentsState_[viewIndex][writeSlot] = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-			}
-
-			if (historyLengthState_[viewIndex][writeSlot] != D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
-			{
-				cmdList->Barrier(historyLengthResource_[viewIndex][writeSlot].Get(), historyLengthState_[viewIndex][writeSlot], D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-				historyLengthState_[viewIndex][writeSlot] = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-			}
-
-			if (depthNormalState_[viewIndex][writeSlot] != D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
-			{
-				cmdList->Barrier(depthNormalResource_[viewIndex][writeSlot].Get(), depthNormalState_[viewIndex][writeSlot], D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-				depthNormalState_[viewIndex][writeSlot] = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-			}
+			/// [JP] パス1(リプロジェクション): raw + 履歴 → 両チェーンの scratch0 と、
+			///      今フレームのモーメント(両チェーン)/履歴長/深度法線(共有)。
+			toWrite(directionalAtrousScratchResource_[viewIndex][0], directionalAtrousScratchState_[viewIndex][0]);
+			toWrite(punctualAtrousScratchResource_[viewIndex][0], punctualAtrousScratchState_[viewIndex][0]);
+			toWrite(directionalMomentsResource_[viewIndex][writeSlot], directionalMomentsState_[viewIndex][writeSlot]);
+			toWrite(punctualMomentsResource_[viewIndex][writeSlot], punctualMomentsState_[viewIndex][writeSlot]);
+			toWrite(historyLengthResource_[viewIndex][writeSlot], historyLengthState_[viewIndex][writeSlot]);
+			toWrite(depthNormalResource_[viewIndex][writeSlot], depthNormalState_[viewIndex][writeSlot]);
 
 			cmd->SetPipelineState(denoisePipelineState);
 			cmd->Dispatch(groupCountX, groupCountY, 1);
@@ -460,74 +532,61 @@ namespace SeedCore
 
 			/// [JP] 以降のパスはモーメント/履歴長/深度法線を読むだけなので、
 			///      ここで一度だけ読み取り状態へ落として最後まで据え置く。
-			cmdList->Barrier(momentsResource_[viewIndex][writeSlot].Get(), momentsState_[viewIndex][writeSlot], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-			momentsState_[viewIndex][writeSlot] = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+			toRead(directionalMomentsResource_[viewIndex][writeSlot], directionalMomentsState_[viewIndex][writeSlot]);
+			toRead(punctualMomentsResource_[viewIndex][writeSlot], punctualMomentsState_[viewIndex][writeSlot]);
+			toRead(historyLengthResource_[viewIndex][writeSlot], historyLengthState_[viewIndex][writeSlot]);
+			toRead(depthNormalResource_[viewIndex][writeSlot], depthNormalState_[viewIndex][writeSlot]);
+			toRead(directionalAtrousScratchResource_[viewIndex][0], directionalAtrousScratchState_[viewIndex][0]);
+			toRead(punctualAtrousScratchResource_[viewIndex][0], punctualAtrousScratchState_[viewIndex][0]);
 
-			cmdList->Barrier(historyLengthResource_[viewIndex][writeSlot].Get(), historyLengthState_[viewIndex][writeSlot], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-			historyLengthState_[viewIndex][writeSlot] = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
-
-			cmdList->Barrier(depthNormalResource_[viewIndex][writeSlot].Get(), depthNormalState_[viewIndex][writeSlot], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-			depthNormalState_[viewIndex][writeSlot] = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
-
-			cmdList->Barrier(atrousScratchResource_[viewIndex][0].Get(), atrousScratchState_[viewIndex][0], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-			atrousScratchState_[viewIndex][0] = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
-
-			/// [JP] パス2(FilterMoments): scratch0 → scratch1。
-			if (atrousScratchState_[viewIndex][1] != D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
-			{
-				cmdList->Barrier(atrousScratchResource_[viewIndex][1].Get(), atrousScratchState_[viewIndex][1], D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-				atrousScratchState_[viewIndex][1] = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-			}
+			/// [JP] パス2(FilterMoments): 両チェーンの scratch0 → scratch1。
+			toWrite(directionalAtrousScratchResource_[viewIndex][1], directionalAtrousScratchState_[viewIndex][1]);
+			toWrite(punctualAtrousScratchResource_[viewIndex][1], punctualAtrousScratchState_[viewIndex][1]);
 
 			cmd->SetPipelineState(denoiseShader_.GetFilterMomentsPipelineState());
 			cmd->Dispatch(groupCountX, groupCountY, 1);
 			ProfilerStats::AddDrawCall();
 
-			cmdList->Barrier(atrousScratchResource_[viewIndex][1].Get(), atrousScratchState_[viewIndex][1], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-			atrousScratchState_[viewIndex][1] = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+			toRead(directionalAtrousScratchResource_[viewIndex][1], directionalAtrousScratchState_[viewIndex][1]);
+			toRead(punctualAtrousScratchResource_[viewIndex][1], punctualAtrousScratchState_[viewIndex][1]);
 
-			/// [JP] パス3(A-Trous step1): scratch1 → scratch0。
-			if (atrousScratchState_[viewIndex][0] != D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
-			{
-				cmdList->Barrier(atrousScratchResource_[viewIndex][0].Get(), atrousScratchState_[viewIndex][0], D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-				atrousScratchState_[viewIndex][0] = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-			}
+			/// [JP] パス3(A-Trous step1): 両チェーンの scratch1 → scratch0。
+			toWrite(directionalAtrousScratchResource_[viewIndex][0], directionalAtrousScratchState_[viewIndex][0]);
+			toWrite(punctualAtrousScratchResource_[viewIndex][0], punctualAtrousScratchState_[viewIndex][0]);
 
 			cmd->SetPipelineState(denoiseShader_.GetATrousPipelineState(0));
 			cmd->Dispatch(groupCountX, groupCountY, 1);
 			ProfilerStats::AddDrawCall();
 
-			cmdList->Barrier(atrousScratchResource_[viewIndex][0].Get(), atrousScratchState_[viewIndex][0], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-			atrousScratchState_[viewIndex][0] = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+			toRead(directionalAtrousScratchResource_[viewIndex][0], directionalAtrousScratchState_[viewIndex][0]);
+			toRead(punctualAtrousScratchResource_[viewIndex][0], punctualAtrousScratchState_[viewIndex][0]);
 
-			/// [JP] パス4(A-Trous step2 = フィードバックタップ): scratch0 →
-			///      history write スロット。これが次フレームの履歴になる。
-			if (accumulatedVisibilityState_[viewIndex][writeSlot] != D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
-			{
-				cmdList->Barrier(accumulatedVisibilityResource_[viewIndex][writeSlot].Get(), accumulatedVisibilityState_[viewIndex][writeSlot], D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-				accumulatedVisibilityState_[viewIndex][writeSlot] = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-			}
+			/// [JP] パス4(A-Trous step2 = フィードバックタップ): 両チェーンの
+			///      scratch0 → history write スロット。これが次フレームの履歴になる。
+			toWrite(directionalAccumulatedResource_[viewIndex][writeSlot], directionalAccumulatedState_[viewIndex][writeSlot]);
+			toWrite(punctualAccumulatedResource_[viewIndex][writeSlot], punctualAccumulatedState_[viewIndex][writeSlot]);
 
 			cmd->SetPipelineState(denoiseShader_.GetATrousPipelineState(1));
 			cmd->Dispatch(groupCountX, groupCountY, 1);
 			ProfilerStats::AddDrawCall();
 
-			cmdList->Barrier(accumulatedVisibilityResource_[viewIndex][writeSlot].Get(), accumulatedVisibilityState_[viewIndex][writeSlot], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-			accumulatedVisibilityState_[viewIndex][writeSlot] = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+			toRead(directionalAccumulatedResource_[viewIndex][writeSlot], directionalAccumulatedState_[viewIndex][writeSlot]);
+			toRead(punctualAccumulatedResource_[viewIndex][writeSlot], punctualAccumulatedState_[viewIndex][writeSlot]);
 
-			/// [JP] パス5(A-Trous step4): history write スロット → denoised 出力。
-			if (denoisedState_[viewIndex] != D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
-			{
-				cmdList->Barrier(denoisedResource_[viewIndex].Get(), denoisedState_[viewIndex], D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-				denoisedState_[viewIndex] = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-			}
+			/// [JP] パス5(A-Trous step4): history write スロット → 両チェーンの
+			///      denoised 出力。
+			toWrite(directionalDenoisedResource_[viewIndex], directionalDenoisedState_[viewIndex]);
+			toWrite(punctualDenoisedResource_[viewIndex], punctualDenoisedState_[viewIndex]);
 
 			cmd->SetPipelineState(denoiseShader_.GetATrousPipelineState(2));
 			cmd->Dispatch(groupCountX, groupCountY, 1);
 			ProfilerStats::AddDrawCall();
 
-			cmdList->Barrier(denoisedResource_[viewIndex].Get(), denoisedState_[viewIndex], D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
-			denoisedState_[viewIndex] = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
+			cmdList->Barrier(directionalDenoisedResource_[viewIndex].Get(), directionalDenoisedState_[viewIndex], D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
+			directionalDenoisedState_[viewIndex] = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
+
+			cmdList->Barrier(punctualDenoisedResource_[viewIndex].Get(), punctualDenoisedState_[viewIndex], D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
+			punctualDenoisedState_[viewIndex] = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
 
 			/// [JP] 生テクスチャも最後にピクセルシェーダから読める状態へ戻す。
 			///      デノイズチェーンが読むのは NON_PIXEL 状態で足りるが、

@@ -89,26 +89,30 @@ namespace SeedCore
 	/**
 	* [EN]
 	* Dispatches the ray-traced shadow compute pass (ShadowRT.hlsl) into a raw
-	* 2-channel (directional, punctual) noisy visibility texture, then runs the
-	* 5-pass SVGF chain over it (ShadowDenoiseCS.hlsl: temporal reprojection with
-	* moment accumulation -> spatial variance estimate for short history -> three
-	* variance-guided A-Trous wavelet iterations) and leaves the result in
-	* PIXEL_SHADER_RESOURCE state for DeferredLightingPS.hlsl to sample. If the
-	* scene has no TLAS this frame (nothing to trace against) or the DXR PSO is
-	* unavailable, both stages are skipped and the denoised buffer is cleared to
-	* 1.0 (fully lit) instead.
+	* noisy texture (r = directional visibility, gba = the ReSTIR-picked
+	* punctual light's full BRDF RGB radiance), then runs the 5-pass SVGF chain
+	* over it (ShadowDenoiseCS.hlsl: temporal reprojection with moment
+	* accumulation -> spatial variance estimate for short history -> three
+	* variance-guided A-Trous wavelet iterations, each pass filtering the
+	* directional and punctual signal chains together over one shared geometry
+	* chain) and leaves the result in PIXEL_SHADER_RESOURCE state for
+	* DeferredLightingPS.hlsl to sample. If the scene has no TLAS this frame
+	* (nothing to trace against) or the DXR PSO is unavailable, both stages are
+	* skipped and the denoised buffers are cleared to fully-lit/zero instead.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* レイトレシャドウのコンピュートパス(ShadowRT.hlsl)を生の2チャンネル
-	* (ディレクショナル/パンクチュアル)ノイズ可視性テクスチャへディスパッチし、
-	* それに対して5パスの SVGF チェーンを回した(ShadowDenoiseCS.hlsl: モーメント
-	* 蓄積つき時間的リプロジェクション → 履歴が短いピクセル向けの空間的分散推定
-	* → 分散誘導 A-Trous ウェーブレット3反復)上で、DeferredLightingPS.hlsl が
-	* サンプルできるよう PIXEL_SHADER_RESOURCE 状態にしておく。今フレーム TLAS が
-	* 無い（追跡対象が無い）、または DXR PSO が無い場合は両段ともスキップし、
-	* denoised バッファを 1.0（照射）でクリアする。
+	* レイトレシャドウのコンピュートパス(ShadowRT.hlsl)を生のノイズテクスチャ
+	* (r = ディレクショナル可視性、gba = ReSTIR で選ばれたパンクチュアルライト
+	* 1灯のフルBRDF RGB放射輝度)へディスパッチし、それに対して5パスの SVGF
+	* チェーンを回した(ShadowDenoiseCS.hlsl: モーメント蓄積つき時間的
+	* リプロジェクション → 履歴が短いピクセル向けの空間的分散推定 → 分散誘導
+	* A-Trous ウェーブレット3反復。各パスはディレクショナル/パンクチュアルの
+	* 両信号チェーンを、1本の共有幾何チェーンの上でまとめてフィルタする)上で、
+	* DeferredLightingPS.hlsl がサンプルできるよう PIXEL_SHADER_RESOURCE 状態に
+	* しておく。今フレーム TLAS が無い(追跡対象が無い)、または DXR PSO が無い
+	* 場合は両段ともスキップし、denoised バッファを照射/ゼロでクリアする。
 	*/
 	class ShadowRenderer
 	{
@@ -184,55 +188,106 @@ namespace SeedCore
 
 		ResourcePtr<ConstantBuffer<ShadowRayConstantBuffer>> tuningBuffer_;
 
-		/// [EN] Raw noisy 2-channel (directional, punctual) output of
-		///      ShadowRT.hlsl. Single-buffered — it is fully consumed by
-		///      ShadowDenoiseCS.hlsl the same frame it is written.
-		/// [JP] ShadowRT.hlsl の生ノイズ2チャンネル(ディレクショナル/
-		///      パンクチュアル)出力。単一バッファ — 書かれた同じフレーム内で
+		/// [EN] Raw noisy output of ShadowRT.hlsl, packed as r = directional
+		///      visibility, gba = the ReSTIR-picked punctual light's full BRDF
+		///      RGB radiance (already visibility-weighted). Single-buffered —
+		///      it is fully consumed by ShadowDenoiseCS.hlsl the same frame it
+		///      is written.
+		/// [JP] ShadowRT.hlsl の生ノイズ出力。r = ディレクショナル可視性、
+		///      gba = ReSTIR で選ばれたパンクチュアルライト1灯のフルBRDF RGB
+		///      放射輝度(可視性適用済み)。単一バッファ — 書かれた同じフレーム内で
 		///      ShadowDenoiseCS.hlsl に消費し切られる。
 		Microsoft::WRL::ComPtr<ID3D12Resource> rawVisibilityResource_;
 		D3D12_RESOURCE_STATES rawVisibilityState_ = D3D12_RESOURCE_STATE_COMMON;
 		Uint32 rawVisibilityUnorderedAccessViewIndex_ = 0;
 		Uint32 rawVisibilityShaderResourceViewIndex_ = 0;
 
-		/// [EN] SVGF's temporal history: rg = filtered visibility, ba = its
-		///      variance. Ping-ponged, one independent pair per view (see
+		/// [EN] Second SRV over the SAME rawVisibilityResource_, with
+		///      Shader4ComponentMapping shifted so reading .rgb through THIS
+		///      view returns the raw texture's gba (the punctual radiance)
+		///      instead of its rgb. Needed only for the DLSS-RR passthrough
+		///      path (PrepareFrame), where punctualRadianceShaderResourceViewIndex_
+		///      has to alias the same combined raw texture the directional
+		///      channel also lives in - reading it with the plain (default-
+		///      mapped) SRV via DeferredLightingPS.hlsl's `.rgb` would return
+		///      (directional visibility, punctual.r, punctual.g) instead of the
+		///      punctual RGB radiance, which is exactly what showed up as a
+		///      red tint (directional visibility - usually near 1.0 in lit
+		///      areas - leaking into the red channel).
+		/// [JP] rawVisibilityResource_ と【同じリソース】に対する2つ目のSRV。
+		///      Shader4ComponentMapping をずらしてあり、このビュー越しに
+		///      `.rgb` を読むと raw テクスチャの rgb ではなく gba(パンクチュアル
+		///      放射輝度)が返る。DLSS-RR 素通り経路(PrepareFrame)専用 —
+		///      punctualRadianceShaderResourceViewIndex_ がディレクショナル
+		///      チャンネルと同じ生テクスチャを指さざるを得ない場面で、素の
+		///      (デフォルトマッピングの)SRV から `.rgb` を読むと
+		///      (ディレクショナル可視性, パンクチュアルのR, パンクチュアルのG)
+		///      になってしまう — これがまさに「赤くなる」症状の原因だった
+		///      (明るい場所ではディレクショナル可視性が1.0近くまで上がり、
+		///      それが赤チャンネルへ漏れ込む)。
+		Uint32 rawPunctualShaderResourceViewIndex_ = 0;
+
+		/// [EN] SVGF's temporal history for the two independent signal chains
+		///      (directional: rg = filtered visibility + its variance;
+		///      punctual: rgb = filtered radiance, a = its luminance variance).
+		///      Ping-ponged, one independent pair per view per chain (see
 		///      RaytracingView). This is the FEEDBACK TAP, not the final image —
 		///      ATrousPass2 writes it and next frame's reproject reads it, while
 		///      the image DeferredLightingPS.hlsl samples comes from
-		///      denoisedResource_ below. Hand-rolled (not FrameRing) because
-		///      these are barrier-transitioned in place, never reallocated.
-		/// [JP] SVGF の時間的履歴。rg = フィルタ済み可視性、ba = その分散。
-		///      ピンポン方式で、ビューごと(RaytracingView 参照)に独立した1ペア。
+		///      directionalDenoisedResource_/punctualDenoisedResource_ below.
+		///      Hand-rolled (not FrameRing) because these are barrier-
+		///      transitioned in place, never reallocated.
+		/// [JP] 独立した2本の信号チェーンそれぞれの SVGF 時間的履歴
+		///      (directional: rg = フィルタ済み可視性 + その分散、punctual:
+		///      rgb = フィルタ済み放射輝度、a = その輝度分散)。ピンポン方式で、
+		///      チェーンごと・ビューごと(RaytracingView 参照)に独立した1ペア。
 		///      これは【フィードバックタップ】であって最終画ではない —
 		///      ATrousPass2 が書き、次フレームのリプロジェクションが読む。
-		///      DeferredLightingPS.hlsl がサンプルする画は下の denoisedResource_。
+		///      DeferredLightingPS.hlsl がサンプルする画は下の
+		///      directionalDenoisedResource_/punctualDenoisedResource_。
 		///      リソースは再確保せずバリアで状態遷移するだけなので、FrameRing
 		///      ではなく手動で管理する。
-		Microsoft::WRL::ComPtr<ID3D12Resource> accumulatedVisibilityResource_[viewCount][accumulationSlotCount];
-		D3D12_RESOURCE_STATES accumulatedVisibilityState_[viewCount][accumulationSlotCount] = {};
-		Uint32 accumulatedUnorderedAccessViewIndex_[viewCount][accumulationSlotCount] = {};
-		Uint32 accumulatedShaderResourceViewIndex_[viewCount][accumulationSlotCount] = {};
+		Microsoft::WRL::ComPtr<ID3D12Resource> directionalAccumulatedResource_[viewCount][accumulationSlotCount];
+		D3D12_RESOURCE_STATES directionalAccumulatedState_[viewCount][accumulationSlotCount] = {};
+		Uint32 directionalAccumulatedUnorderedAccessViewIndex_[viewCount][accumulationSlotCount] = {};
+		Uint32 directionalAccumulatedShaderResourceViewIndex_[viewCount][accumulationSlotCount] = {};
 
-		/// [EN] Per-pixel first/second luminance moments of the two visibility
-		///      channels, packed as (1st.x, 2nd.x, 1st.y, 2nd.y). Ping-ponged
-		///      alongside the history above — SVGF derives its variance from the
-		///      temporally accumulated moments, so they have to survive the frame
-		///      exactly like the illumination does.
-		/// [JP] 2チャンネル可視性それぞれの1次/2次輝度モーメント。
-		///      (1次.x, 2次.x, 1次.y, 2次.y) の順で詰める。上の履歴と同じく
-		///      ピンポンする — SVGF は時間蓄積したモーメントから分散を求めるので、
-		///      輝度と全く同様にフレームをまたいで保持する必要がある。
-		Microsoft::WRL::ComPtr<ID3D12Resource> momentsResource_[viewCount][accumulationSlotCount];
-		D3D12_RESOURCE_STATES momentsState_[viewCount][accumulationSlotCount] = {};
-		Uint32 momentsUnorderedAccessViewIndex_[viewCount][accumulationSlotCount] = {};
-		Uint32 momentsShaderResourceViewIndex_[viewCount][accumulationSlotCount] = {};
+		Microsoft::WRL::ComPtr<ID3D12Resource> punctualAccumulatedResource_[viewCount][accumulationSlotCount];
+		D3D12_RESOURCE_STATES punctualAccumulatedState_[viewCount][accumulationSlotCount] = {};
+		Uint32 punctualAccumulatedUnorderedAccessViewIndex_[viewCount][accumulationSlotCount] = {};
+		Uint32 punctualAccumulatedShaderResourceViewIndex_[viewCount][accumulationSlotCount] = {};
 
-		/// [EN] Per-pixel count of successfully reprojected frames. Drives the
-		///      max(alpha, 1/length) blend factor and the switch to the spatial
-		///      variance estimate. Ping-ponged.
-		/// [JP] ピクセルごとのリプロジェクション成功フレーム数。
-		///      max(alpha, 1/履歴長) のブレンド係数と、空間的分散推定への
+		/// [EN] Per-pixel first/second luminance moments, one pair per signal
+		///      chain (directional: luminance IS the scalar visibility;
+		///      punctual: luminance of the RGB radiance). Ping-ponged alongside
+		///      the history above — SVGF derives its variance from the
+		///      temporally accumulated moments, so they have to survive the
+		///      frame exactly like the illumination does.
+		/// [JP] 信号チェーンごとの1次/2次輝度モーメント(directional:
+		///      輝度=可視性スカラーそのもの、punctual: RGB放射輝度の輝度)。
+		///      上の履歴と同じくピンポンする — SVGF は時間蓄積したモーメントから
+		///      分散を求めるので、輝度と全く同様にフレームをまたいで保持する
+		///      必要がある。
+		Microsoft::WRL::ComPtr<ID3D12Resource> directionalMomentsResource_[viewCount][accumulationSlotCount];
+		D3D12_RESOURCE_STATES directionalMomentsState_[viewCount][accumulationSlotCount] = {};
+		Uint32 directionalMomentsUnorderedAccessViewIndex_[viewCount][accumulationSlotCount] = {};
+		Uint32 directionalMomentsShaderResourceViewIndex_[viewCount][accumulationSlotCount] = {};
+
+		Microsoft::WRL::ComPtr<ID3D12Resource> punctualMomentsResource_[viewCount][accumulationSlotCount];
+		D3D12_RESOURCE_STATES punctualMomentsState_[viewCount][accumulationSlotCount] = {};
+		Uint32 punctualMomentsUnorderedAccessViewIndex_[viewCount][accumulationSlotCount] = {};
+		Uint32 punctualMomentsShaderResourceViewIndex_[viewCount][accumulationSlotCount] = {};
+
+		/// [EN] Per-pixel count of successfully reprojected frames. SHARED by
+		///      both signal chains - the reprojection test is purely geometric
+		///      (view depth/normal), so it is identical for directional_ and
+		///      punctual_ at a given pixel. Drives the max(alpha, 1/length)
+		///      blend factor and the switch to the spatial variance estimate.
+		///      Ping-ponged.
+		/// [JP] ピクセルごとのリプロジェクション成功フレーム数。両信号チェーンで
+		///      共有 — リプロジェクションテストは純粋に幾何(ビュー深度/法線)
+		///      なので、あるピクセルにおいて directional_/punctual_ で全く同じに
+		///      なる。max(alpha, 1/履歴長) のブレンド係数と、空間的分散推定への
 		///      切り替え判定を駆動する。ピンポンする。
 		Microsoft::WRL::ComPtr<ID3D12Resource> historyLengthResource_[viewCount][accumulationSlotCount];
 		D3D12_RESOURCE_STATES historyLengthState_[viewCount][accumulationSlotCount] = {};
@@ -240,10 +295,13 @@ namespace SeedCore
 		Uint32 historyLengthShaderResourceViewIndex_[viewCount][accumulationSlotCount] = {};
 
 		/// [EN] Packed (view depth, depth derivative, oct normal) copy of this
-		///      frame's surface. Ping-ponged because SVGF's temporal consistency
-		///      test compares against the PREVIOUS frame's version, and the
-		///      engine's G-Buffer is single-buffered so it cannot be read back.
+		///      frame's surface. SHARED by both signal chains for the same
+		///      reason as historyLengthResource_ above. Ping-ponged because
+		///      SVGF's temporal consistency test compares against the PREVIOUS
+		///      frame's version, and the engine's G-Buffer is single-buffered
+		///      so it cannot be read back.
 		/// [JP] 今フレームの面を (ビュー深度, 深度勾配, oct法線) で詰めたコピー。
+		///      上の historyLengthResource_ と同じ理由で両信号チェーンで共有。
 		///      SVGF の時間的整合性テストが【前フレーム】の値と比較するため
 		///      ピンポンする — エンジンの G-Buffer は単一バッファで、前フレームを
 		///      読み戻せないため。
@@ -252,29 +310,41 @@ namespace SeedCore
 		Uint32 depthNormalUnorderedAccessViewIndex_[viewCount][accumulationSlotCount] = {};
 		Uint32 depthNormalShaderResourceViewIndex_[viewCount][accumulationSlotCount] = {};
 
-		/// [EN] Fully filtered 2-channel visibility DeferredLightingPS.hlsl
-		///      samples — the output of the last A-Trous iteration. Single
-		///      buffered per view: it is consumed the same frame it is written
+		/// [EN] Fully filtered signal DeferredLightingPS.hlsl samples — the
+		///      output of the last A-Trous iteration, one buffer per view per
+		///      chain (directional: r = visibility; punctual: rgb = radiance).
+		///      Single buffered per view: consumed the same frame it is written
 		///      and never feeds back, which is exactly what lets the history
 		///      above stop at the earlier, sharper feedback tap.
 		/// [JP] DeferredLightingPS.hlsl がサンプルする、完全にフィルタ済みの
-		///      2チャンネル可視性 — 最後の A-Trous 反復の出力。ビューごとに単一
-		///      バッファ: 書かれた同じフレームで消費されフィードバックしない。
+		///      信号 — 最後の A-Trous 反復の出力。チェーンごと・ビューごとに1枚
+		///      (directional: r = 可視性、punctual: rgb = 放射輝度)。ビューごとに
+		///      単一バッファ: 書かれた同じフレームで消費されフィードバックしない。
 		///      これがあるからこそ、上の履歴を「より早く、よりシャープな」
 		///      フィードバックタップで止められる。
-		Microsoft::WRL::ComPtr<ID3D12Resource> denoisedResource_[viewCount];
-		D3D12_RESOURCE_STATES denoisedState_[viewCount] = {};
-		Uint32 denoisedUnorderedAccessViewIndex_[viewCount] = {};
-		Uint32 denoisedShaderResourceViewIndex_[viewCount] = {};
+		Microsoft::WRL::ComPtr<ID3D12Resource> directionalDenoisedResource_[viewCount];
+		D3D12_RESOURCE_STATES directionalDenoisedState_[viewCount] = {};
+		Uint32 directionalDenoisedUnorderedAccessViewIndex_[viewCount] = {};
+		Uint32 directionalDenoisedShaderResourceViewIndex_[viewCount] = {};
 
-		/// [EN] A-Trous ping-pong scratch, one pair per view. Pure scratch -
-		///      always fully overwritten by the pass that writes it.
-		/// [JP] A-Trous ピンポンスクラッチ、ビューごとに1ペア。純粋なスクラッチ
-		///      で、書き込むパスが必ず全画素を上書きする。
-		Microsoft::WRL::ComPtr<ID3D12Resource> atrousScratchResource_[viewCount][2];
-		D3D12_RESOURCE_STATES atrousScratchState_[viewCount][2] = {};
-		Uint32 atrousScratchUnorderedAccessViewIndex_[viewCount][2] = {};
-		Uint32 atrousScratchShaderResourceViewIndex_[viewCount][2] = {};
+		Microsoft::WRL::ComPtr<ID3D12Resource> punctualDenoisedResource_[viewCount];
+		D3D12_RESOURCE_STATES punctualDenoisedState_[viewCount] = {};
+		Uint32 punctualDenoisedUnorderedAccessViewIndex_[viewCount] = {};
+		Uint32 punctualDenoisedShaderResourceViewIndex_[viewCount] = {};
+
+		/// [EN] A-Trous ping-pong scratch, one pair per view per chain. Pure
+		///      scratch - always fully overwritten by the pass that writes it.
+		/// [JP] A-Trous ピンポンスクラッチ、チェーンごと・ビューごとに1ペア。
+		///      純粋なスクラッチで、書き込むパスが必ず全画素を上書きする。
+		Microsoft::WRL::ComPtr<ID3D12Resource> directionalAtrousScratchResource_[viewCount][2];
+		D3D12_RESOURCE_STATES directionalAtrousScratchState_[viewCount][2] = {};
+		Uint32 directionalAtrousScratchUnorderedAccessViewIndex_[viewCount][2] = {};
+		Uint32 directionalAtrousScratchShaderResourceViewIndex_[viewCount][2] = {};
+
+		Microsoft::WRL::ComPtr<ID3D12Resource> punctualAtrousScratchResource_[viewCount][2];
+		D3D12_RESOURCE_STATES punctualAtrousScratchState_[viewCount][2] = {};
+		Uint32 punctualAtrousScratchUnorderedAccessViewIndex_[viewCount][2] = {};
+		Uint32 punctualAtrousScratchShaderResourceViewIndex_[viewCount][2] = {};
 
 		/// [EN] Which slot holds the previous frame's finished result (this
 		///      frame's history). The other slot is this frame's write
@@ -292,19 +362,23 @@ namespace SeedCore
 		///      ClearUnorderedAccessViewFloat alongside the shader-visible
 		///      ones. Only the surfaces actually cleared on the "nothing to
 		///      trace" path need one: the raw texture, the per-view denoised
-		///      output, and the history length (cleared to 0 so the filter
-		///      re-converges from scratch rather than trusting a stale history).
+		///      output of each chain, and the (shared) history length (cleared
+		///      to 0 so the filter re-converges from scratch rather than
+		///      trusting a stale history).
 		/// [JP] ClearUnorderedAccessViewFloat がシェーダ可視の UAV と併せて
 		///      要求する、非シェーダ可視の UAV ディスクリプタ。「追跡対象なし」
-		///      経路で実際にクリアする面だけが必要 — raw、ビューごとの
-		///      denoised 出力、そして履歴長(0 でクリアし、古い履歴を信用せず
-		///      ゼロから収束し直させる)。
+		///      経路で実際にクリアする面だけが必要 — raw、チェーンごと・
+		///      ビューごとの denoised 出力、そして(共有の)履歴長(0 でクリアし、
+		///      古い履歴を信用せずゼロから収束し直させる)。
 		DescriptorHeap clearHeap_;
 		Uint32 clearRawIndex_ = 0;
-		Uint32 clearDenoisedIndex_[viewCount] = {};
+		Uint32 clearDirectionalDenoisedIndex_[viewCount] = {};
+		Uint32 clearPunctualDenoisedIndex_[viewCount] = {};
 		Uint32 clearHistoryLengthIndex_[viewCount][accumulationSlotCount] = {};
-		Uint32 clearAccumulatedIndex_[viewCount][accumulationSlotCount] = {};
-		Uint32 clearMomentsIndex_[viewCount][accumulationSlotCount] = {};
+		Uint32 clearDirectionalAccumulatedIndex_[viewCount][accumulationSlotCount] = {};
+		Uint32 clearPunctualAccumulatedIndex_[viewCount][accumulationSlotCount] = {};
+		Uint32 clearDirectionalMomentsIndex_[viewCount][accumulationSlotCount] = {};
+		Uint32 clearPunctualMomentsIndex_[viewCount][accumulationSlotCount] = {};
 		Uint32 clearDepthNormalIndex_[viewCount][accumulationSlotCount] = {};
 
 		/// [EN] Whether the history chain has been zeroed since it was created.

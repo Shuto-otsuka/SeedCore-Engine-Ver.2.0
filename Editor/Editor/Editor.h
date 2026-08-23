@@ -17,6 +17,7 @@
 #include <Editor/Editor/Panel/TodoListPanel.h>
 #include <Editor/Editor/Panel/VersionPanel.h>
 #include <Editor/Editor/Panel/ConfigPanel.h>
+#include <Editor/Editor/Panel/LayerSettingsPanel.h>
 #include <Editor/Editor/Panel/AnimatorControllerPanel.h>
 #include <Editor/Editor/Panel/TimelinePanel.h>
 #include <Editor/Editor/Panel/BoneControllerPanel.h>
@@ -70,6 +71,7 @@ namespace SeedCore
 		ResourcePtr<TodoListPanel> todoListPanel_;
 		ResourcePtr<VersionPanel> versionPanel_;
 		ResourcePtr<ConfigPanel> configPanel_;
+		ResourcePtr<LayerSettingsPanel> layerSettingsPanel_;
 		ResourcePtr<AnimatorControllerPanel> animatorControllerPanel_;
 		ResourcePtr<TimelinePanel> timelinePanel_;
 		ResourcePtr<BoneControllerPanel> boneControllerPanel_;

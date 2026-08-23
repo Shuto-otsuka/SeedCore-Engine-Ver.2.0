@@ -1,6 +1,7 @@
 #include <GraphicsEngine/Renderer/ReflectionRenderer.h>
 #include <GraphicsEngine/Profiler/ProfilerStats.h>
 #include <GraphicsEngine/D3D12/Descriptor/BindlessHeap.h>
+#include <GraphicsEngine/D3D12/Buffer/ReservoirBuffer.h>
 #include <GraphicsEngine/D3D12/Context/D3D12CommandList.h>
 #include <GraphicsEngine/System/IndicesSystem.h>
 #include <FoundationEngine/Log/DxFail.h>
@@ -172,12 +173,15 @@ namespace SeedCore
 		width_ = width;
 		height_ = height;
 
-		clearHeap_.Create(device, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1 + viewCount + viewCount * accumulationSlotCount * 4, false);
+		clearHeap_.Create(device, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1 + 1 + viewCount + viewCount * accumulationSlotCount * 4 + viewCount * accumulationSlotCount, false);
 
 		historyCleared_ = false;
 
 		CreateReflectionTexture(device, bindlessHeap, clearHeap_, width, height, DXGI_FORMAT_R16G16B16A16_FLOAT, radianceResource_, radianceUnorderedAccessViewIndex_, radianceShaderResourceViewIndex_, &clearRawIndex_);
 		radianceState_ = D3D12_RESOURCE_STATE_COMMON;
+
+		CreateReflectionTexture(device, bindlessHeap, clearHeap_, width, height, DXGI_FORMAT_R16_FLOAT, confidenceResource_, confidenceUnorderedAccessViewIndex_, confidenceShaderResourceViewIndex_, &clearConfidenceIndex_);
+		confidenceState_ = D3D12_RESOURCE_STATE_COMMON;
 
 		for (Uint32 view = 0; view < viewCount; ++view)
 		{
@@ -185,6 +189,9 @@ namespace SeedCore
 			{
 				CreateReflectionTexture(device, bindlessHeap, clearHeap_, width, height, DXGI_FORMAT_R16G16B16A16_FLOAT, accumulatedRadianceResource_[view][slot], accumulatedUnorderedAccessViewIndex_[view][slot], accumulatedShaderResourceViewIndex_[view][slot], &clearAccumulatedIndex_[view][slot]);
 				accumulatedRadianceState_[view][slot] = D3D12_RESOURCE_STATE_COMMON;
+
+				ReservoirBuffer::Create(device, bindlessHeap, clearHeap_, width * height, reservoirElementSizeInBytes_, reservoirResource_[view][slot], reservoirUnorderedAccessViewIndex_[view][slot], reservoirShaderResourceViewIndex_[view][slot], clearReservoirIndex_[view][slot]);
+				reservoirState_[view][slot] = D3D12_RESOURCE_STATE_COMMON;
 
 				CreateReflectionTexture(device, bindlessHeap, clearHeap_, width, height, DXGI_FORMAT_R16G16_FLOAT, momentsResource_[view][slot], momentsUnorderedAccessViewIndex_[view][slot], momentsShaderResourceViewIndex_[view][slot], &clearMomentsIndex_[view][slot]);
 				momentsState_[view][slot] = D3D12_RESOURCE_STATE_COMMON;
@@ -227,6 +234,11 @@ namespace SeedCore
 		bindlessHeap->DeferRelease(radianceResource_);
 		radianceResource_.Reset();
 
+		bindlessHeap->FreeIndex(confidenceUnorderedAccessViewIndex_);
+		bindlessHeap->FreeIndex(confidenceShaderResourceViewIndex_);
+		bindlessHeap->DeferRelease(confidenceResource_);
+		confidenceResource_.Reset();
+
 		for (Uint32 view = 0; view < viewCount; ++view)
 		{
 			for (Uint32 slot = 0; slot < accumulationSlotCount; ++slot)
@@ -235,6 +247,11 @@ namespace SeedCore
 				bindlessHeap->FreeIndex(accumulatedShaderResourceViewIndex_[view][slot]);
 				bindlessHeap->DeferRelease(accumulatedRadianceResource_[view][slot]);
 				accumulatedRadianceResource_[view][slot].Reset();
+
+				bindlessHeap->FreeIndex(reservoirUnorderedAccessViewIndex_[view][slot]);
+				bindlessHeap->FreeIndex(reservoirShaderResourceViewIndex_[view][slot]);
+				bindlessHeap->DeferRelease(reservoirResource_[view][slot]);
+				reservoirResource_[view][slot].Reset();
 
 				bindlessHeap->FreeIndex(momentsUnorderedAccessViewIndex_[view][slot]);
 				bindlessHeap->FreeIndex(momentsShaderResourceViewIndex_[view][slot]);
@@ -294,6 +311,8 @@ namespace SeedCore
 		indicesSystem_->SetReflectionRayConstantIndex(tuningBuffer_->GetIndex());
 		indicesSystem_->SetReflectionOutputUnorderedAccessViewIndex(radianceUnorderedAccessViewIndex_);
 		indicesSystem_->SetReflectionOutputShaderResourceViewIndex(radianceShaderResourceViewIndex_);
+		indicesSystem_->SetReflectionConfidenceUnorderedAccessViewIndex(confidenceUnorderedAccessViewIndex_);
+		indicesSystem_->SetReflectionConfidenceShaderResourceViewIndex(confidenceShaderResourceViewIndex_);
 
 		/// [JP] フレームリングバッファなので SRV インデックスは毎フレーム変わる
 		///      — 必ず毎フレーム登録し直す(frame-ring-rules)。
@@ -341,6 +360,13 @@ namespace SeedCore
 
 			values.denoisedUnorderedAccessViewIndex_ = denoisedUnorderedAccessViewIndex_[viewIndex];
 
+			/// [JP] ReSTIR Reservoir はデノイズ経路(SVGF/DLSS-RR)に関わらず常に
+			///      使う — history_/accumulated_ と同じ historySlot_/writeSlot
+			///      (GlobalIlluminationRenderer と同じ扱い)。
+			values.reservoirHistoryShaderResourceViewIndex_ = reservoirShaderResourceViewIndex_[viewIndex][historySlot_];
+			values.reservoirUnorderedAccessViewIndex_ = reservoirUnorderedAccessViewIndex_[viewIndex][writeSlot];
+			values.reservoirWriteShaderResourceViewIndex_ = reservoirShaderResourceViewIndex_[viewIndex][writeSlot];
+
 			return values;
 		};
 
@@ -378,6 +404,8 @@ namespace SeedCore
 				cmd->ClearUnorderedAccessViewFloat(bindlessHeap_->GPUHandle(unorderedAccessViewIndex), clearHeap_.CPUHandle(clearIndex), resource.Get(), zeroValues, 0, nullptr);
 			};
 
+			const Uint32 zeroReservoirValues[4] = { 0, 0, 0, 0 };
+
 			for (Uint32 clearView = 0; clearView < viewCount; ++clearView)
 			{
 				for (Uint32 clearSlot = 0; clearSlot < accumulationSlotCount; ++clearSlot)
@@ -386,6 +414,14 @@ namespace SeedCore
 					clearTexture(momentsResource_[clearView][clearSlot], momentsState_[clearView][clearSlot], momentsUnorderedAccessViewIndex_[clearView][clearSlot], clearMomentsIndex_[clearView][clearSlot]);
 					clearTexture(historyLengthResource_[clearView][clearSlot], historyLengthState_[clearView][clearSlot], historyLengthUnorderedAccessViewIndex_[clearView][clearSlot], clearHistoryLengthIndex_[clearView][clearSlot]);
 					clearTexture(depthNormalResource_[clearView][clearSlot], depthNormalState_[clearView][clearSlot], depthNormalUnorderedAccessViewIndex_[clearView][clearSlot], clearDepthNormalIndex_[clearView][clearSlot]);
+
+					if (reservoirState_[clearView][clearSlot] != D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
+					{
+						cmdList->Barrier(reservoirResource_[clearView][clearSlot].Get(), reservoirState_[clearView][clearSlot], D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+						reservoirState_[clearView][clearSlot] = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+					}
+
+					cmd->ClearUnorderedAccessViewUint(bindlessHeap_->GPUHandle(reservoirUnorderedAccessViewIndex_[clearView][clearSlot]), clearHeap_.CPUHandle(clearReservoirIndex_[clearView][clearSlot]), reservoirResource_[clearView][clearSlot].Get(), zeroReservoirValues, 0, nullptr);
 				}
 
 				clearTexture(denoisedResource_[clearView], denoisedState_[clearView], denoisedUnorderedAccessViewIndex_[clearView], clearDenoisedIndex_[clearView]);
@@ -401,19 +437,40 @@ namespace SeedCore
 		Bool denoisePipelineRequired = !useDlssRayReconstruction;
 		Bool denoisePipelineMissing = !denoisePipelineState || !denoiseShader_.GetFilterMomentsPipelineState() || !denoiseShader_.GetATrousPipelineState(0) || !denoiseShader_.GetATrousPipelineState(1) || !denoiseShader_.GetATrousPipelineState(2);
 
-		if ((!stateObject || !shaderTableResource_ || (denoisePipelineRequired && denoisePipelineMissing)) && !stateObjectMissingLogged_)
+		/// [JP] 空間的リユースパスは DLSS-RR 経路でも走る(どちらのデノイザに
+		///      入る前段の生信号を綺麗にするため)ので、denoisePipelineRequired
+		///      に関わらず常に必須として扱う(GlobalIlluminationRenderer と同じ)。
+		Bool spatialReusePipelineMissing = !denoiseShader_.GetSpatialReusePipelineState();
+
+		if ((!stateObject || !shaderTableResource_ || spatialReusePipelineMissing || (denoisePipelineRequired && denoisePipelineMissing)) && !stateObjectMissingLogged_)
 		{
 			SC_LOG_WARNING("ReflectionRT/ReflectionDenoise の RTPSO/PSO/シェーダテーブル作成に失敗しています。DXR(DispatchRays)非対応の可能性があります。反射は常に無し(0)として扱われます。");
 			stateObjectMissingLogged_ = true;
 		}
 
-		if (!tlasValid || !stateObject || !shaderTableResource_ || (denoisePipelineRequired && denoisePipelineMissing))
+		if (!tlasValid || !stateObject || !shaderTableResource_ || spatialReusePipelineMissing || (denoisePipelineRequired && denoisePipelineMissing))
 		{
 			/// [JP] 追跡対象(TLAS)が無い、反射が無効、または RTPSO/PSO が無い
 			///      フレーム: 反射無し(0)でクリアする。composite が実際に
 			///      読む先(DLSS-RR経路なら生テクスチャ、通常経路なら denoised
 			///      出力)をそのままクリアする — 逆側をクリアしても composite
 			///      からは見えないため。
+			/// [JP] このビューの今フレーム write スロットの Reservoir も合わせて
+			///      クリアする — 反射が無効な間の古い M_/W_ を残すと、後で
+			///      再有効化した時に何フレームも前のゴミ Reservoir をリサンプル
+			///      してしまう(GlobalIlluminationRenderer と同じ理由)。
+			if (reservoirState_[viewIndex][writeSlot] != D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
+			{
+				cmdList->Barrier(reservoirResource_[viewIndex][writeSlot].Get(), reservoirState_[viewIndex][writeSlot], D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+				reservoirState_[viewIndex][writeSlot] = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+			}
+
+			const Uint32 zeroReservoirValues[4] = { 0, 0, 0, 0 };
+			cmd->ClearUnorderedAccessViewUint(bindlessHeap_->GPUHandle(reservoirUnorderedAccessViewIndex_[viewIndex][writeSlot]), clearHeap_.CPUHandle(clearReservoirIndex_[viewIndex][writeSlot]), reservoirResource_[viewIndex][writeSlot].Get(), zeroReservoirValues, 0, nullptr);
+
+			cmdList->Barrier(reservoirResource_[viewIndex][writeSlot].Get(), reservoirState_[viewIndex][writeSlot], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+			reservoirState_[viewIndex][writeSlot] = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+
 			if (useDlssRayReconstruction)
 			{
 				if (radianceState_ != D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
@@ -462,6 +519,23 @@ namespace SeedCore
 				radianceState_ = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
 			}
 
+			/// [JP] Reservoir はここで読み書き両方が要る(raygen が同じ
+			///      ディスパッチ内で前フレームの history を読み、今フレームの
+			///      write スロットへ書くため) - 他のバッファと違い、A-Trous等の
+			///      後続パスを待たずに DispatchRays の前に両方遷移させる
+			///      (GlobalIlluminationRenderer と同じ)。
+			if (reservoirState_[viewIndex][historySlot_] != D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE)
+			{
+				cmdList->Barrier(reservoirResource_[viewIndex][historySlot_].Get(), reservoirState_[viewIndex][historySlot_], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+				reservoirState_[viewIndex][historySlot_] = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+			}
+
+			if (reservoirState_[viewIndex][writeSlot] != D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
+			{
+				cmdList->Barrier(reservoirResource_[viewIndex][writeSlot].Get(), reservoirState_[viewIndex][writeSlot], D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+				reservoirState_[viewIndex][writeSlot] = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+			}
+
 			/// [JP] DispatchRays のルート引数はコンピュートのバインドポイントを使う。
 			ID3D12DescriptorHeap* heaps[] = { heap };
 			cmd->SetDescriptorHeaps(_countof(heaps), heaps);
@@ -491,6 +565,45 @@ namespace SeedCore
 
 			cmdList->Barrier(radianceResource_.Get(), radianceState_, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 			radianceState_ = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+
+			/// [JP] 今フレーム書いた Reservoir を、次フレームが history として
+			///      読める状態、かつ下の空間的リユースパスが自分・近傍を読める
+			///      状態へ戻す(GlobalIlluminationRenderer と同じ)。
+			cmdList->Barrier(reservoirResource_[viewIndex][writeSlot].Get(), reservoirState_[viewIndex][writeSlot], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+			reservoirState_[viewIndex][writeSlot] = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+
+			Uint32 groupCountX = (width_ + 7) / 8;
+			Uint32 groupCountY = (height_ + 7) / 8;
+
+			/// [JP] ReSTIR 空間的リユース。raygen が書いた今フレームの Reservoir
+			///      (自分+近傍、両方とも上のバリアで読める状態になった直後)を
+			///      結合し、その結果を radianceResource_ とその収束度
+			///      (confidenceResource_、ReflectionDenoiseCS.hlsl が自身の
+			///      時間的ブレンドを reservoir に譲る度合いを決める)へ書き直す
+			///      — DLSS-RR/SVGF どちらのデノイザに入る前段でも常に走る(下の
+			///      useDlssRayReconstruction 分岐より前、GlobalIlluminationRenderer
+			///      と同じ)。
+			if (radianceState_ != D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
+			{
+				cmdList->Barrier(radianceResource_.Get(), radianceState_, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+				radianceState_ = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+			}
+
+			if (confidenceState_ != D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
+			{
+				cmdList->Barrier(confidenceResource_.Get(), confidenceState_, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+				confidenceState_ = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+			}
+
+			cmd->SetPipelineState(denoiseShader_.GetSpatialReusePipelineState());
+			cmd->Dispatch(groupCountX, groupCountY, 1);
+			ProfilerStats::AddDrawCall();
+
+			cmdList->Barrier(radianceResource_.Get(), radianceState_, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+			radianceState_ = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+
+			cmdList->Barrier(confidenceResource_.Get(), confidenceState_, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+			confidenceState_ = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
 
 			if (useDlssRayReconstruction)
 			{
@@ -533,8 +646,7 @@ namespace SeedCore
 			/// [JP] denoiseShader_ は reflectionShader_ と同じ共有
 			///      ルートシグネチャ(コンストラクタ引数の rootSignature)を使う
 			///      ので、ルート引数の再設定は不要 — PSO だけ差し替える。
-			Uint32 groupCountX = (width_ + 7) / 8;
-			Uint32 groupCountY = (height_ + 7) / 8;
+			///      groupCountX/Y は上の空間的リユースパスで既に計算済み。
 
 			/// [JP] パス1(リプロジェクション): raw + 履歴 → scratch0 と、
 			///      今フレームのモーメント/履歴長/深度法線。

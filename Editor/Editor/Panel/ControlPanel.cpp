@@ -2,7 +2,7 @@
 #include <Editor/Editor/EditorContext.h>
 #include <Editor/Editor/ImGui/ImGuiTexture.h>
 #include <FoundationEngine/Time/GameTimer.h>
-#include <crtdbg.h>
+#include <FoundationEngine/ECS/System/SystemScheduler.h>
 
 namespace SeedCore
 {
@@ -70,6 +70,7 @@ namespace SeedCore
 			{
 				context_.worldContext_.gameTimer_->Stop();
 				context_.sceneContext_.worldSnapshot_.Restore(*context_.worldContext_.world_);
+				context_.worldContext_.system_->Reset();
 				isPlaying = false;
 				EndPlayMemCheck();
 				ImGui::SetWindowFocus("エディタービュー");
@@ -152,6 +153,7 @@ namespace SeedCore
 				{
 					context_.worldContext_.gameTimer_->Stop();
 					context_.sceneContext_.worldSnapshot_.Restore(*context_.worldContext_.world_);
+					context_.worldContext_.system_->Reset();
 					EndPlayMemCheck();
 					ImGui::SetWindowFocus("エディタービュー");
 				}

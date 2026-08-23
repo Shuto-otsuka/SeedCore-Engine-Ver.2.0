@@ -26,6 +26,7 @@ namespace SeedCore
 		todoListPanel_ = MakePtr<TodoListPanel>(context_);
 		versionPanel_ = MakePtr<VersionPanel>(context_);
 		configPanel_ = MakePtr<ConfigPanel>(context_);
+		layerSettingsPanel_ = MakePtr<LayerSettingsPanel>(context_);
 		animatorControllerPanel_ = MakePtr<AnimatorControllerPanel>(context_);
 		timelinePanel_ = MakePtr<TimelinePanel>(context_);
 		boneControllerPanel_ = MakePtr<BoneControllerPanel>(context_);
@@ -34,6 +35,7 @@ namespace SeedCore
 
 		context_.panelContext_.animatorControllerPanel_ = &*animatorControllerPanel_;
 		context_.panelContext_.timelinePanel_ = &*timelinePanel_;
+		context_.panelContext_.layerSettingsPanel_ = &*layerSettingsPanel_;
 
 		SC_LOG_NOTICE("エディターの初期化が完了しました");
 	}
@@ -89,6 +91,10 @@ namespace SeedCore
 		{
 			configPanel_->Open();
 		}
+		if (menuBarPanel_->ConsumeLayerSettingsRequest())
+		{
+			layerSettingsPanel_->Open();
+		}
 		if (menuBarPanel_->ConsumeAnimatorControllerRequest())
 		{
 			Animator* animator = context_.selectionContext_.selectedActor_ ? const_cast<Animator*>(context_.selectionContext_.selectedActor_->GetComponent<Animator>()) : nullptr;
@@ -126,6 +132,7 @@ namespace SeedCore
 		todoListPanel_->Draw();
 		versionPanel_->Draw();
 		configPanel_->Draw();
+		layerSettingsPanel_->Draw();
 		toolbarHeight_ = controlPanel_->Draw();
 		return toolbarHeight_;
 	}

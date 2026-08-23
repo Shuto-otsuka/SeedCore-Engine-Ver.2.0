@@ -121,6 +121,10 @@ namespace SeedCore
 		/// [JP] スカイアセット。
 		Sky,
 
+		/// [EN] Prefab asset.
+		/// [JP] プレハブアセット。
+		Prefab,
+
 		/// [EN] Reference to a live Actor instance within the same World (resolved via Actor::GetPersistentID/World::FindActor), not a ResourceCache-backed asset like every other member of this enum. The underlying field is still a plain Uint32, holding the target's persistent ID (0 = unset).
 		/// [JP] 同じ World 内に存在する Actor インスタンスへの参照(Actor::GetPersistentID/World::FindActor 経由で解決する)。この enum の他のメンバと異なり、ResourceCache 経由のアセットではない。実体のフィールドは通常の Uint32 で、ターゲットの永続ID を保持する(0 = 未設定)。
 		Actor,

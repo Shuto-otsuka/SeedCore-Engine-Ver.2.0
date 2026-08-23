@@ -101,6 +101,8 @@ These were derived by reading actual source across `FoundationEngine`/`GraphicsE
 
 - **Namespace**: everything lives in `namespace SeedCore { ... }`.
 - **No Singletons, in general.** Avoid the Singleton pattern (static instance accessor, `GetInstance()`-style) for new code — prefer passing dependencies explicitly (e.g. through `World`, constructor injection) instead of global/static access. If you think a case genuinely needs one, ask first rather than adding it silently.
+- **Avoid free (global) functions where possible.** Prefer a class with a static method (or an instance method) over a bare namespace-scope function — even a single-purpose helper. This keeps the function grouped with related state/behavior and easy to find/extend later.
+- **Function arguments: no line-wrapping.** Keep a function's whole parameter list (declaration or call site) on one line, however long — don't wrap one argument per line.
 - **Types**: never use raw `int`/`float`/`bool`/`std::string` etc. Use the project's own PascalCase aliases from `FoundationEngine/Utility/Types.h`: `Int`/`Int8/16/32/64`, `Uint`/`Uint8/16/32/64`, `Float`, `Double`, `Bool`, `Char`/`Char8/16/32`, `Size`, `Byte`, plus custom containers like `String`, `DynamicArray<T>`.
 - **Class/struct/enum/function names**: `PascalCase` (`World`, `ComponentBase`, `TransformSystem`, `AddComponent`, `enum class ComponentStorage { SparseSet, Archetype }`).
 - **Member variables**: `camelCase` with a trailing underscore — `handle_`, `actor_`, `componentName_`, `awoken_`, `index_`, `generation_`. This applies to both class and struct private/public data members.

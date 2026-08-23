@@ -1,5 +1,6 @@
 #include <FoundationEngine/ECS/World.h>
 #include <FoundationEngine/ECS/Actor.h>
+#include <FoundationEngine/ECS/Component/Name.h>
 
 namespace SeedCore
 {
@@ -593,6 +594,36 @@ namespace SeedCore
 	Actor* World::GetActor(Entity entity)const
 	{
 		return GetActor(static_cast<Uint32>(entity.GetHandle().index_));
+	}
+
+	/**
+	* [EN]
+	* Returns the first Actor whose Name component's name_ equals name,
+	* or nullptr if none match (or the actor has no Name component).
+	* Unlike the EntityID/Entity overloads above, this is O(actor count)
+	* - there is no name index - so prefer caching the result (or an
+	* EntityID/persistent ID) over calling this every frame.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* Name コンポーネントの name_ が name と一致する最初の Actor を返す。
+	* 一致するものが無い（または Name コンポーネントを持たない）場合は
+	* nullptr。上の EntityID/Entity 版と違い、名前用の索引は無いため
+	* O(actor数) になる - 毎フレーム呼ぶより、結果(または EntityID/
+	* 永続ID)をキャッシュしておくことを推奨する。
+	*/
+	Actor* World::GetActor(const String& name)const
+	{
+		for (const ResourcePtr<Actor>& actor : actors_)
+		{
+			const Name* nameComponent = GetComponent<Name>(actor->GetEntity());
+			if (nameComponent && nameComponent->name_ == name)
+			{
+				return actor.get();
+			}
+		}
+		return nullptr;
 	}
 
 	/**

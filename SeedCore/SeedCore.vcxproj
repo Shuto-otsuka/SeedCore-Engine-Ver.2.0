@@ -38,6 +38,11 @@
       <Project>{fd1a1645-dabc-42f9-9960-57c5540473df}</Project>
     </ProjectReference>
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="ScInput.h" />
+    <ClInclude Include="ScMath.h" />
+    <ClInclude Include="ScScene.h" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
