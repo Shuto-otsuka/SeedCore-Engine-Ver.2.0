@@ -33,6 +33,10 @@ namespace SeedCore
 
 		HRESULT hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&outResource));
 		SC_HR_CHECK(hr, "天候パーティクルバッファの生成に失敗しました");
+#ifdef _DEBUG
+		outResource->SetName(L"WeatherParticle");
+		GFSDK_Aftermath_DX12_UpdateResourceInfo(outResource.Get());
+#endif
 
 		D3D12_UNORDERED_ACCESS_VIEW_DESC unorderedAccessViewDesc{};
 		unorderedAccessViewDesc.Format = DXGI_FORMAT_UNKNOWN;
@@ -77,6 +81,7 @@ namespace SeedCore
 		bindlessHeap->FreeIndex(rainParticleShaderResourceViewIndex_);
 		bindlessHeap->FreeIndex(snowParticleUnorderedAccessViewIndex_);
 		bindlessHeap->FreeIndex(snowParticleShaderResourceViewIndex_);
+
 		rainParticleResource_.Reset();
 		snowParticleResource_.Reset();
 	}

@@ -58,6 +58,10 @@ namespace SeedCore
 
 		hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&outputResource_));
 		SC_HR_CHECK(hr, "屈折放射輝度テクスチャの生成に失敗しました");
+#ifdef _DEBUG
+		outputResource_->SetName(L"Refraction_Output");
+		GFSDK_Aftermath_DX12_UpdateResourceInfo(outputResource_.Get());
+#endif
 		outputState_ = D3D12_RESOURCE_STATE_COMMON;
 
 		D3D12_UNORDERED_ACCESS_VIEW_DESC unorderedAccessViewDesc{};
@@ -117,6 +121,10 @@ namespace SeedCore
 
 		hr = device->CreateCommittedResource(&uploadHeapProperties, D3D12_HEAP_FLAG_NONE, &tableDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&shaderTableResource_));
 		SC_HR_CHECK(hr, "屈折シェーダーテーブルリソースの生成に失敗しました");
+#ifdef _DEBUG
+		shaderTableResource_->SetName(L"Refraction_ShaderTable");
+		GFSDK_Aftermath_DX12_UpdateResourceInfo(shaderTableResource_.Get());
+#endif
 
 		Uint8* mapped = nullptr;
 		hr = shaderTableResource_->Map(0, nullptr, reinterpret_cast<void**>(&mapped));
@@ -163,6 +171,10 @@ namespace SeedCore
 
 		HRESULT hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&outputResource_));
 		SC_HR_CHECK(hr, "屈折放射輝度テクスチャの再生成に失敗しました");
+#ifdef _DEBUG
+		outputResource_->SetName(L"Refraction_Output");
+		GFSDK_Aftermath_DX12_UpdateResourceInfo(outputResource_.Get());
+#endif
 		outputState_ = D3D12_RESOURCE_STATE_COMMON;
 
 		D3D12_UNORDERED_ACCESS_VIEW_DESC unorderedAccessViewDesc{};

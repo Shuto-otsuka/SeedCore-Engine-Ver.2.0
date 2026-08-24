@@ -35,7 +35,7 @@ namespace SeedCore
 	*      シリアライズして次回のロードに備える。
 	*   3. Crister::Upload で GPU リソースをアップロードする。
 	*/
-	Handle<Crister> ModelLoader::Load(LoaderSystem& loader, ID3D12Device* device, ID3D12CommandQueue* cmdQueue, BindlessHeap* heap, BC7CompressShader& bc7Shader, String filePath, const AxisConvention& axisConvention)
+	Handle<Crister> ModelLoader::Load(LoaderSystem& loader, ID3D12Device* device, D3D12CommandQueue* cmdQueue, BindlessHeap* heap, BC7CompressShader& bc7Shader, String filePath, const AxisConvention& axisConvention)
 	{
 		Handle<Crister> handle = pool_.Create();
 		Crister* crister = pool_.Get(handle);

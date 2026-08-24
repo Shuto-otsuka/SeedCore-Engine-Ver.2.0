@@ -65,7 +65,7 @@ namespace SeedCore
 		graphics_->RegisterImGuiShaderResourceViews(device, imgui_->GetDescriptorHeap());
 
 		loaderSystem_ = MakePtr<LoaderSystem>(device);
-		resource_ = MakePtr<ResourceCache>(*loaderSystem_, device, graphics_->GetContext()->GetDirectQueue()->GetCommandQueue(), graphics_->GetBindlessHeap());
+		resource_ = MakePtr<ResourceCache>(*loaderSystem_, device, graphics_->GetContext()->GetDirectQueue(), graphics_->GetBindlessHeap());
 		resource_->Async();
 
 		Scene::Initialize(*world_, *resource_, *executor_);
@@ -83,7 +83,7 @@ namespace SeedCore
 		editorContext_.cameraContext_.timelineCameraController_ = &timelineCameraController_;
 		editorContext_.cameraContext_.modelTransformCameraController_ = &modelTransformCameraController_;
 		editorContext_.graphicsContext_.device_ = device;
-		editorContext_.graphicsContext_.cmdQueue_ = graphics_->GetContext()->GetDirectQueue()->GetCommandQueue();
+		editorContext_.graphicsContext_.cmdQueue_ = graphics_->GetContext()->GetDirectQueue();
 		editorContext_.graphicsContext_.bc7Shader_ = &graphics_->GetBC7CompressShader();
 		editorContext_.graphicsContext_.adapter_ = graphics_->GetContext()->GetAdapter()->Get();
 		editorContext_.graphicsContext_.descHeap_ = imgui_->GetDescriptorHeap();
@@ -258,7 +258,7 @@ namespace SeedCore
 					///      イントロが終わるまで遅らせる必要も無くなり、すぐ開始できる。
 					///      StepAsync() は Async() パスごとの初回呼び出し以降は
 					///      no-op なので、ここで毎フレーム呼んでも問題ない。
-					resource_->StepAsync(*loaderSystem_, graphics_->GetContext()->GetDevice(), graphics_->GetContext()->GetDirectQueue()->GetCommandQueue(), graphics_->GetBindlessHeap(), graphics_->GetBC7CompressShader());
+					resource_->StepAsync(*loaderSystem_, graphics_->GetContext()->GetDevice(), graphics_->GetContext()->GetDirectQueue(), graphics_->GetBindlessHeap(), graphics_->GetBC7CompressShader());
 
 					graphics_->Clear();
 					/// [JP] showWarning/showFiction は仮でtrue固定。Runtime書き出し時のチェックボックスから設定できるようにするのはこれから。

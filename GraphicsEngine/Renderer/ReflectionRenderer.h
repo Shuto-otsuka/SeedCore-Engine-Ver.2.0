@@ -480,6 +480,18 @@ namespace SeedCore
 		Uint32 clearDepthNormalIndex_[viewCount][accumulationSlotCount] = {};
 		Uint32 clearReservoirIndex_[viewCount][accumulationSlotCount] = {};
 
+		/// [EN] Shader-visible RAW UAV copy of clearReservoirIndex_'s view,
+		///      required alongside it - see ReservoirBuffer::Create()'s doc
+		///      comment for why ClearUnorderedAccessViewUint needs both a
+		///      GPU-visible and a CPU (clearHeap_) descriptor of the exact
+		///      same (non-structured) view.
+		/// [JP] clearReservoirIndex_ と同じビューの、シェーダ可視な RAW UAV
+		///      コピー - ClearUnorderedAccessViewUint が GPU可視と
+		///      CPU(clearHeap_)の両方に全く同じ(非構造化の)ビューを
+		///      要求する理由は ReservoirBuffer::Create() のドキュメント
+		///      コメント参照。
+		Uint32 clearReservoirGpuIndex_[viewCount][accumulationSlotCount] = {};
+
 		/// [EN] Whether the history chain has been zeroed since it was created.
 		///      D3D12 does not guarantee a freshly created committed resource
 		///      reads as zero, and every buffer here is fed back into itself the

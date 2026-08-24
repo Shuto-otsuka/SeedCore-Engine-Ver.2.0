@@ -1,5 +1,6 @@
 #include <GraphicsEngine/Model/Crister.h>
 #include <GraphicsEngine/D3D12/Descriptor/BindlessHeap.h>
+#include <GraphicsEngine/D3D12/Context/D3D12CommandQueue.h>
 #include <GraphicsEngine/Model/BC7CompressShader.h>
 #include <FoundationEngine/Log/DxFail.h>
 #include <FoundationEngine/Log/Warning.h>
@@ -213,7 +214,7 @@ namespace SeedCore
 	* BC7CompressShader(Graphics所有、ModelShaderと同じ立ち位置)が
 	* 持つので、それを渡してもらう。
 	*/
-	void Crister::BakeBitmap(ID3D12Device* device, ID3D12CommandQueue* cmdQueue, BC7CompressShader& bc7Shader)
+	void Crister::BakeBitmap(ID3D12Device* device, D3D12CommandQueue* cmdQueue, BC7CompressShader& bc7Shader)
 	{
 		/// [JP] RGBA8 画像を整数倍率のボックスフィルタで縮小する（D3D12 の 2D
 		///      テクスチャ最大寸法 16384 を超える場合のみ呼ばれる）。
@@ -394,6 +395,10 @@ namespace SeedCore
 			Microsoft::WRL::ComPtr<ID3D12Resource> inputBuffer;
 			hr = device->CreateCommittedResource(&uploadHeapProperties, D3D12_HEAP_FLAG_NONE, &inputDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(inputBuffer.GetAddressOf()));
 			SC_HR_CHECK(hr, "入力バッファの生成に失敗しました");
+#ifdef _DEBUG
+			inputBuffer->SetName(L"Crister_CompressInput");
+			GFSDK_Aftermath_DX12_UpdateResourceInfo(inputBuffer.Get());
+#endif
 
 			void* mappedInput = nullptr;
 			D3D12_RANGE noRead{ 0, 0 };
@@ -419,6 +424,10 @@ namespace SeedCore
 			Microsoft::WRL::ComPtr<ID3D12Resource> outputBuffer;
 			hr = device->CreateCommittedResource(&defaultHeapProperties, D3D12_HEAP_FLAG_NONE, &outputDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(outputBuffer.GetAddressOf()));
 			SC_HR_CHECK(hr, "出力バッファの生成に失敗しました");
+#ifdef _DEBUG
+			outputBuffer->SetName(L"Crister_CompressOutput");
+			GFSDK_Aftermath_DX12_UpdateResourceInfo(outputBuffer.Get());
+#endif
 
 			D3D12_HEAP_PROPERTIES readbackHeapProperties{};
 			readbackHeapProperties.Type = D3D12_HEAP_TYPE_READBACK;
@@ -429,6 +438,10 @@ namespace SeedCore
 			Microsoft::WRL::ComPtr<ID3D12Resource> readbackBuffer;
 			hr = device->CreateCommittedResource(&readbackHeapProperties, D3D12_HEAP_FLAG_NONE, &readbackDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(readbackBuffer.GetAddressOf()));
 			SC_HR_CHECK(hr, "リードバックバッファの生成に失敗しました");
+#ifdef _DEBUG
+			readbackBuffer->SetName(L"Crister_CompressReadback");
+			GFSDK_Aftermath_DX12_UpdateResourceInfo(readbackBuffer.Get());
+#endif
 
 			Microsoft::WRL::ComPtr<ID3D12CommandAllocator> cmdAllocator;
 			hr = device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(cmdAllocator.GetAddressOf()));
@@ -462,13 +475,21 @@ namespace SeedCore
 			SC_HR_CHECK(hr, "コマンドリストのCloseに失敗しました");
 
 			ID3D12CommandList* lists[] = { cmdList.Get() };
-			cmdQueue->ExecuteCommandLists(1, lists);
-
 			Microsoft::WRL::ComPtr<ID3D12Fence> fence;
 			hr = device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(fence.GetAddressOf()));
 			SC_HR_CHECK(hr, "フェンスの生成に失敗しました");
-			hr = cmdQueue->Signal(fence.Get(), 1);
-			SC_HR_CHECK(hr, "コマンドキューのSignalに失敗しました");
+			{
+				/// [EN] Lock only around the submission itself (queue-touching,
+				///      fast) - not the wait below, which just blocks this
+				///      thread on a fence event and never touches the queue.
+				/// [JP] 提出そのもの(キューに触れる、高速な部分)だけをロックする
+				///      - 下の待機はこのスレッドをフェンスイベントで止めるだけで
+				///      キューには一切触れない。
+				auto queueLock = cmdQueue->AcquireLock();
+				cmdQueue->GetCommandQueue()->ExecuteCommandLists(1, lists);
+				hr = cmdQueue->GetCommandQueue()->Signal(fence.Get(), 1);
+				SC_HR_CHECK(hr, "コマンドキューのSignalに失敗しました");
+			}
 			if (fence->GetCompletedValue() < 1)
 			{
 				HANDLE event = CreateEvent(nullptr, FALSE, FALSE, nullptr);
@@ -1289,7 +1310,7 @@ namespace SeedCore
 	* オンデマンドにストリームインする（MakeClusterResident/
 	* MakeTextureMipResident、ModelRenderer::Gather から駆動）。
 	*/
-	void Crister::Upload(ID3D12Device* device, ID3D12CommandQueue* cmdQueue, BindlessHeap* heap)
+	void Crister::Upload(ID3D12Device* device, D3D12CommandQueue* cmdQueue, BindlessHeap* heap)
 	{
 		HRESULT hr{ S_OK };
 
@@ -1665,7 +1686,11 @@ namespace SeedCore
 			streamingTexture.valid_ = true;
 		}
 
-		auto uploadFinished = resourceUpload.End(cmdQueue);
+		std::future<void> uploadFinished;
+		{
+			auto queueLock = cmdQueue->AcquireLock();
+			uploadFinished = resourceUpload.End(cmdQueue->GetCommandQueue());
+		}
 		uploadFinished.wait();
 
 		/// [EN] Register with the streaming bookkeeping, then bring the pinned
@@ -2326,7 +2351,11 @@ namespace SeedCore
 			page.vertexBufferIndex_ = CreateStructuredShaderResourceView(device_, bindlessHeap_, page.vertexResource_.Get(), static_cast<Uint>(localVertices.size()), sizeof(CompressedVertex));
 		}
 
-		auto finished = resourceUpload.End(uploadQueue_);
+		std::future<void> finished;
+		{
+			auto queueLock = uploadQueue_->AcquireLock();
+			finished = resourceUpload.End(uploadQueue_->GetCommandQueue());
+		}
 		finished.wait();
 
 		page.sizeBytes_ =
@@ -2410,6 +2439,10 @@ namespace SeedCore
 			SC_LOG_WARNING("テクスチャ {} のミップ {} のアップロードに失敗しました(HRESULT=0x{:08X}, {}x{})。このミップ抜きで続行します。", textureIndex, mipIndex, static_cast<Uint32>(hr), mipWidth, mipHeight);
 			return;
 		}
+#ifdef _DEBUG
+		newResource->SetName(L"Crister_TextureMip");
+		GFSDK_Aftermath_DX12_UpdateResourceInfo(newResource.Get());
+#endif
 
 		D3D12_SUBRESOURCE_DATA subresource{};
 		subresource.pData = bitmap.cacheData_.data() + byteOffset;
@@ -2420,7 +2453,11 @@ namespace SeedCore
 		resourceUpload.Begin();
 		resourceUpload.Upload(newResource.Get(), 0, &subresource, 1);
 		resourceUpload.Transition(newResource.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
-		auto finished = resourceUpload.End(uploadQueue_);
+		std::future<void> finished;
+		{
+			auto queueLock = uploadQueue_->AcquireLock();
+			finished = resourceUpload.End(uploadQueue_->GetCommandQueue());
+		}
 		finished.wait();
 
 		Uint newIndex = bindlessHeap_->AllocateIndex();
@@ -2494,7 +2531,11 @@ namespace SeedCore
 		HRESULT hr = CreateStaticBufferUnbounded(device_, resourceUpload, compressedVertices_.data(), poolVertexEnd_, sizeof(CompressedVertex), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, poolResource_.ReleaseAndGetAddressOf());
 		SC_HR_CHECK(hr, "頂点プールバッファの生成に失敗しました");
 		poolBufferIndex_ = CreateStructuredShaderResourceView(device_, bindlessHeap_, poolResource_.Get(), poolVertexEnd_, sizeof(CompressedVertex));
-		auto finished = resourceUpload.End(uploadQueue_);
+		std::future<void> finished;
+		{
+			auto queueLock = uploadQueue_->AcquireLock();
+			finished = resourceUpload.End(uploadQueue_->GetCommandQueue());
+		}
 		finished.wait();
 
 		poolSizeBytes_ = static_cast<Uint64>(poolVertexEnd_) * sizeof(CompressedVertex);
@@ -3125,6 +3166,10 @@ namespace SeedCore
 		{
 			return hr;
 		}
+#ifdef _DEBUG
+		resource->SetName(L"Crister_StaticBufferUnbounded");
+		GFSDK_Aftermath_DX12_UpdateResourceInfo(resource.Get());
+#endif
 
 		D3D12_SUBRESOURCE_DATA subresourceData{ data, 0, 0 };
 		resourceUpload.Upload(resource.Get(), 0, &subresourceData, 1);

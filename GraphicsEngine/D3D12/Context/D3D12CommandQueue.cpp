@@ -52,6 +52,7 @@ namespace SeedCore
 
 	void D3D12CommandQueue::Signal()
 	{
+		std::lock_guard<std::mutex> lock(queueMutex_);
 		lastFenceValue_ = fence_->Next();
 		cmdQueue_->Signal(fence_->Get(), lastFenceValue_);
 	}
@@ -88,6 +89,7 @@ namespace SeedCore
 			return;
 		}
 
+		std::lock_guard<std::mutex> lock(queueMutex_);
 		ID3D12CommandList* commandLists[] = { cmdList };
 		cmdQueue_->ExecuteCommandLists(1, commandLists);
 	}
@@ -99,7 +101,13 @@ namespace SeedCore
 			return;
 		}
 
+		std::lock_guard<std::mutex> lock(queueMutex_);
 		cmdQueue_->ExecuteCommandLists(static_cast<Uint>(cmdLists.size()), cmdLists.data());
+	}
+
+	std::unique_lock<std::mutex> D3D12CommandQueue::AcquireLock()
+	{
+		return std::unique_lock<std::mutex>(queueMutex_);
 	}
 
 	Uint64 D3D12CommandQueue::LastFenceValue()const

@@ -51,22 +51,32 @@ namespace SeedCore
 		/**
 		* [EN]
 		* Configures Aftermath for the given device: always tracks resources
-		* (so a page fault's faulting VA can be tied back to a resource); the
-		* heavier features (event markers with automatic call stack capture,
-		* shader debug info generation, extra shader error reporting) are
-		* gated behind DEEP_D3D12_DEBUG_MODE, matching D3D12DebugLayer's GPU-
-		* Based Validation toggle - both carry real overhead and are meant as
-		* temporary diagnostic aids, not always-on.
+		* (so a page fault's faulting VA can be tied back to a resource) and
+		* always generates shader debug info (so a crash dump's faulting
+		* shader resolves to a source file/line in Nsight Graphics, instead
+		* of staying "N/A" - ShaderCompiler already embeds DXC debug info via
+		* -Qembed_debug in every _DEBUG build, but Aftermath still needs this
+		* flag to actually capture/report it). The remaining, heavier
+		* features (event markers with automatic call stack capture, extra
+		* shader error reporting) stay gated behind DEEP_D3D12_DEBUG_MODE,
+		* matching D3D12DebugLayer's GPU-Based Validation toggle - both carry
+		* real overhead and are meant as temporary diagnostic aids, not
+		* always-on.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
 		* 指定デバイスに対して Aftermath を構成する。リソース追跡は常に有効
-		* (ページフォルトの発生アドレスをリソースへ結び付けるため)。より
-		* 重い機能(自動コールスタック付きイベントマーカー、シェーダデバッグ
-		* 情報生成、追加のシェーダエラー報告)は DEEP_D3D12_DEBUG_MODE の
-		* 裏に隠す — D3D12DebugLayer の GPU-Based Validation トグルと同じで、
-		* どちらも実コストを伴う一時的な診断用途であり、常時有効にはしない。
+		* (ページフォルトの発生アドレスをリソースへ結び付けるため)、シェーダ
+		* デバッグ情報生成も常に有効(クラッシュダンプの落ちたシェーダが
+		* Nsight Graphics でソースファイル/行番号に解決されるように — "N/A"
+		* のままにしないため。ShaderCompiler は _DEBUG ビルドで既に
+		* -Qembed_debug 付きで DXC デバッグ情報を埋め込んでいるが、それを
+		* 実際に収集/報告させるにはこのフラグが別途要る)。残りのより重い
+		* 機能(自動コールスタック付きイベントマーカー、追加のシェーダエラー
+		* 報告)は DEEP_D3D12_DEBUG_MODE の裏に隠したまま — D3D12DebugLayer の
+		* GPU-Based Validation トグルと同じで、どちらも実コストを伴う一時的な
+		* 診断用途であり、常時有効にはしない。
 		*/
 		static void Create(ID3D12Device* device);
 

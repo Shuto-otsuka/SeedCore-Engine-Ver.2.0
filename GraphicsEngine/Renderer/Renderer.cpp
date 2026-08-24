@@ -741,12 +741,14 @@ namespace SeedCore
 		movieRenderer_->DrawBillboard(cmdList->Get(), heap, constantAddr, structuredAddr);
 	}
 
-	void Renderer::GameFlush(D3D12CommandList* cmdList, SceneSystem* sceneSystem, Float deltaTime)
+	void Renderer::GameFlush(D3D12CommandList* cmdList, SceneSystem* sceneSystem, Float deltaTime, Bool hasActiveCamera)
 	{
-		ID3D12DescriptorHeap* heap = bindlessHeap_->Heap();
-		D3D12_GPU_VIRTUAL_ADDRESS constantAddr = indicesSystem_->GameConstantAddress();
-		D3D12_GPU_VIRTUAL_ADDRESS structuredAddr = indicesSystem_->StructuredAddress();
-
+		/// [JP] indexの更新だけは、カメラが無いフレームでも必ずやる - EndGameFrame
+		///      はカメラの有無に関わらず毎フレームGameView用のTAAU/PostProcess
+		///      をディスパッチし続けるため(そちらのコメント参照)、ここを
+		///      hasActiveCamera で丸ごとスキップすると、後続のResize()で破棄
+		///      済みとなったリソースのindexを読み続け、遅延回収リングが実際に
+		///      解放した時点でフォルトする。
 		indicesSystem_->SetGameSceneIndex(sceneSystem->GetIndex());
 		indicesSystem_->SetLightIndex(lightSystem_->GetIndex());
 		indicesSystem_->SetClusterConstantIndex(lightSystem_->GetClusterConstantIndex());
@@ -765,6 +767,15 @@ namespace SeedCore
 		}
 		postProcessRenderer_->PrepareView(*indicesSystem_, RaytracingView::Game, gamePostProcessSourceColorIndex, true);
 		indicesSystem_->UploadGame();
+
+		if (!hasActiveCamera)
+		{
+			return;
+		}
+
+		ID3D12DescriptorHeap* heap = bindlessHeap_->Heap();
+		D3D12_GPU_VIRTUAL_ADDRESS constantAddr = indicesSystem_->GameConstantAddress();
+		D3D12_GPU_VIRTUAL_ADDRESS structuredAddr = indicesSystem_->StructuredAddress();
 
 		const GpuProfileView profileView = GpuProfileView::Game;
 
@@ -988,11 +999,31 @@ namespace SeedCore
 
 	void Renderer::RegisterImGuiShaderResourceViews(ID3D12Device* device, DescriptorHeap* imguiHeap)
 	{
+		/// [EN] Called again on every resize (see Graphics::Resize).
+		///      DescriptorHeap is a bump allocator with no FreeIndex, so
+		///      re-allocating a fresh index here every time would leak 3
+		///      slots per resize until the heap is exhausted and
+		///      AllocateIndex starts handing back garbage. Instead, reuse
+		///      the same index across every call after the first (matching
+		///      RefreshImGuiOutputView's existing pattern) and only
+		///      overwrite the descriptor at that slot.
+		/// [JP] リサイズのたびに再度呼ばれる(Graphics::Resize参照)。
+		///      DescriptorHeap は FreeIndex を持たない増加専用アロケータなので、
+		///      毎回新しい Index を確保すると1リサイズにつき3枠ずつ漏れ続け、
+		///      いずれ枯渇して AllocateIndex がおかしな値を返すようになる。
+		///      代わりに初回以降は同じ Index を使い回し(RefreshImGuiOutputView
+		///      が既にやってるのと同じパターン)、そのスロットのディスクリプタ
+		///      だけ上書きする。
+		Bool alreadyRegistered = imguiHeap_ != nullptr;
 		imguiHeap_ = imguiHeap;
 
-		auto createShaderResourceView = [&](ID3D12Resource* resource) -> Uint32
+		auto createShaderResourceView = [&](ID3D12Resource* resource, Uint32& index) -> Uint32
 		{
-			Uint32 index = imguiHeap->AllocateIndex();
+			if (!alreadyRegistered)
+			{
+				index = imguiHeap->AllocateIndex();
+			}
+
 			D3D12_RESOURCE_DESC desc = resource->GetDesc();
 
 			D3D12_SHADER_RESOURCE_VIEW_DESC shaderResourceViewDescription{};
@@ -1016,9 +1047,9 @@ namespace SeedCore
 		///      理由は PostProcessRenderer のクラスコメントと
 		///      ToneMappingCS.hlsl 参照)。Canvas(純粋な2D UI、ライティング
 		///      無し)は変更しない。
-		editorImGuiShaderResourceViewIndex_ = createShaderResourceView(postProcessRenderer_->OutputResource(RaytracingView::Editor));
-		gameImGuiShaderResourceViewIndex_ = createShaderResourceView(postProcessRenderer_->OutputResource(RaytracingView::Game));
-		canvasImGuiShaderResourceViewIndex_ = createShaderResourceView(canvasFrameBuffer_->ColorResource());
+		createShaderResourceView(postProcessRenderer_->OutputResource(RaytracingView::Editor), editorImGuiShaderResourceViewIndex_);
+		createShaderResourceView(postProcessRenderer_->OutputResource(RaytracingView::Game), gameImGuiShaderResourceViewIndex_);
+		createShaderResourceView(canvasFrameBuffer_->ColorResource(), canvasImGuiShaderResourceViewIndex_);
 
 		timelineRenderer_->RegisterImGuiShaderResourceView(device, imguiHeap);
 		modelTransformRenderer_->RegisterImGuiShaderResourceView(device, imguiHeap);

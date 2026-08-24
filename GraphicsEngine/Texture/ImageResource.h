@@ -9,6 +9,7 @@ namespace SeedCore
 	struct LoaderSystem;
 	class ResourceCache;
 	class BindlessHeap;
+	class D3D12CommandQueue;
 
 	class SEEDCORE_API ImageResource :public NonCopyable
 	{
@@ -16,7 +17,7 @@ namespace SeedCore
 		ImageResource() = default;
 		~ImageResource() = default;
 
-		Handle<Texture> Load(LoaderSystem& loader, ID3D12Device* device, ID3D12CommandQueue* cmdQueue, BindlessHeap* heap, ResourceCache& cache, Uint32 assetId);
+		Handle<Texture> Load(LoaderSystem& loader, ID3D12Device* device, D3D12CommandQueue* cmdQueue, BindlessHeap* heap, ResourceCache& cache, Uint32 assetId);
 
 		Handle<Texture> GetHandle(Uint32 assetId)const;
 

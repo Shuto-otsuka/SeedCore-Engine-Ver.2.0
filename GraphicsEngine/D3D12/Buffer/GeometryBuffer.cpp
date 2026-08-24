@@ -41,6 +41,10 @@ namespace SeedCore
 			clearValue.Color[3] = 0.0f;
 			hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_COMMON, &clearValue, IID_PPV_ARGS(&colorResources_[bufferIndex]));
 			SC_HR_CHECK(hr, "カラーバッファの生成に失敗しました");
+#ifdef _DEBUG
+			colorResources_[bufferIndex]->SetName(L"GeometryBuffer_Color");
+			GFSDK_Aftermath_DX12_UpdateResourceInfo(colorResources_[bufferIndex].Get());
+#endif
 
 			colorStates_[bufferIndex] = D3D12_RESOURCE_STATE_COMMON;
 
@@ -84,6 +88,12 @@ namespace SeedCore
 		depthClearValue.DepthStencil.Stencil = 0;
 		hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &depthDesc, D3D12_RESOURCE_STATE_COMMON, &depthClearValue, IID_PPV_ARGS(&depthResource_));
 		SC_HR_CHECK(hr, "深度バッファの生成に失敗しました");
+#ifdef _DEBUG
+		depthResource_->SetName(L"GeometryBuffer_Depth");
+		GFSDK_Aftermath_DX12_UpdateResourceInfo(depthResource_.Get());
+#endif
+
+		depthState_ = D3D12_RESOURCE_STATE_COMMON;
 
 		Uint32 depthStencilViewIndex = depthStencilViewHeap_.AllocateIndex();
 		D3D12_DEPTH_STENCIL_VIEW_DESC depthStencilViewDesc{};
@@ -116,10 +126,13 @@ namespace SeedCore
 			{
 				bindlessHeap->FreeIndex(colorUnorderedAccessViewIndices_[bufferIndex]);
 			}
+
+			bindlessHeap->DeferRelease(colorResources_[bufferIndex]);
 			colorResources_[bufferIndex].Reset();
 		}
 
 		bindlessHeap->FreeIndex(depthShaderResourceViewIndex_);
+		bindlessHeap->DeferRelease(depthResource_);
 		depthResource_.Reset();
 	}
 

@@ -29,6 +29,8 @@ namespace SeedCore
 			{
 				bindlessHeap->FreeIndex(view->accumulatedUnorderedAccessViewIndex_[slot]);
 				bindlessHeap->FreeIndex(view->accumulatedShaderResourceViewIndex_[slot]);
+
+				bindlessHeap->DeferRelease(view->accumulatedResource_[slot]);
 				view->accumulatedResource_[slot].Reset();
 			}
 			view->constantBuffer_ = nullptr;
@@ -81,6 +83,10 @@ namespace SeedCore
 			{
 				hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &accumulatedDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&view->accumulatedResource_[slot]));
 				SC_HR_CHECK(hr, "TAAU 蓄積テクスチャの生成に失敗しました");
+#ifdef _DEBUG
+				view->accumulatedResource_[slot]->SetName(L"Taau_Accumulated");
+				GFSDK_Aftermath_DX12_UpdateResourceInfo(view->accumulatedResource_[slot].Get());
+#endif
 				view->accumulatedState_[slot] = D3D12_RESOURCE_STATE_COMMON;
 
 				view->accumulatedUnorderedAccessViewIndex_[slot] = bindlessHeap->AllocateIndex();

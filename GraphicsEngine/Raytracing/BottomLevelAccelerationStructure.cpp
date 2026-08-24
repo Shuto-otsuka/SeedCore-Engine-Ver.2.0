@@ -146,7 +146,10 @@ namespace SeedCore
 
 			scratch_ = scratch;
 			scratchCapacity_ = prebuildInfo.ScratchDataSizeInBytes;
+#ifdef _DEBUG
 			scratch_->SetName(L"BottomLevelAccelerationStructure_Scratch");
+			GFSDK_Aftermath_DX12_UpdateResourceInfo(scratch_.Get());
+#endif
 		}
 
 		if (resultCapacity_ < prebuildInfo.ResultDataMaxSizeInBytes)
@@ -159,7 +162,10 @@ namespace SeedCore
 
 			result_ = result;
 			resultCapacity_ = prebuildInfo.ResultDataMaxSizeInBytes;
+#ifdef _DEBUG
 			result_->SetName(L"BottomLevelAccelerationStructure_Result");
+			GFSDK_Aftermath_DX12_UpdateResourceInfo(result_.Get());
+#endif
 		}
 
 		D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC buildDesc{};

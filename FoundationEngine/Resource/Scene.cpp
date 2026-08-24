@@ -149,19 +149,41 @@ namespace SeedCore
 	* [EN]
 	* Reads a scene from path into a scratch Scene, destroys every actor
 	* currently in world, and instantiates the loaded scene. Returns
-	* whether loading succeeded.
+	* whether loading succeeded. path is first looked up in cache as an
+	* asset name (a bare filename like "Foo.scene" works - see
+	* ResourceCache::GetAssetID) and, if found, that asset's real
+	* filesystem path is used instead; only if no matching asset exists
+	* is path opened literally (relative to the current working
+	* directory), so a caller doesn't have to know the scene's folder
+	* structure to load it by name.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
 	* path からシーンを作業用 Scene へ読み込み、world 内の現在の全 actor
 	* を破棄した上で、読み込んだシーンをインスタンス化する。読み込みに
-	* 成功したかどうかを返す。
+	* 成功したかどうかを返す。path はまず cache でアセット名として検索し
+	* ("Foo.scene" のような単なるファイル名でもよい - ResourceCache::
+	* GetAssetID 参照)、見つかればそのアセットの実際のファイルシステム
+	* パスを代わりに使う。一致するアセットが無い場合のみ、path を文字通り
+	* (カレントディレクトリからの相対で)開く - 呼び出し側はシーンの
+	* フォルダ構成を知らなくても名前だけで読み込める。
 	*/
 	Bool Scene::Load(World& world, ResourceCache& cache, const std::filesystem::path& path, String* outRaytracingSettingsJson)
 	{
+		std::filesystem::path resolvedPath = path;
+		Uint32 assetID = cache.GetAssetID(String(path.string()));
+		if (assetID != 0)
+		{
+			Asset* asset = cache.GetAsset(assetID);
+			if (asset)
+			{
+				resolvedPath = std::filesystem::path(asset->fullpath_.c_str());
+			}
+		}
+
 		Scene& scene = cache.GetScenePool().GetScratch();
-		if (!scene.Read(path))
+		if (!scene.Read(resolvedPath))
 		{
 			return false;
 		}

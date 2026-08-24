@@ -46,6 +46,10 @@ namespace SeedCore
 
 		hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&resource_));
 		SC_HR_CHECK(hr, "HiZバッファの生成に失敗しました");
+#ifdef _DEBUG
+		resource_->SetName(L"HiZBuffer");
+		GFSDK_Aftermath_DX12_UpdateResourceInfo(resource_.Get());
+#endif
 		state_ = D3D12_RESOURCE_STATE_COMMON;
 
 		/// [EN] Per-mip UAVs for the build passes.
@@ -124,6 +128,7 @@ namespace SeedCore
 		}
 		bindlessHeap->FreeIndex(shaderResourceViewIndex_);
 
+		bindlessHeap->DeferRelease(resource_);
 		resource_.Reset();
 		mipConstantBuffers_.clear();
 		mipConstants_.clear();

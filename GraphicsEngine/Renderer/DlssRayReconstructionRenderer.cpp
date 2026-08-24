@@ -35,9 +35,13 @@ namespace SeedCore
 			bindlessHeap->FreeIndex(view->outputUnorderedAccessViewIndex_);
 			bindlessHeap->FreeIndex(view->outputShaderResourceViewIndex_);
 
+			bindlessHeap->DeferRelease(view->normalRoughnessResource_);
 			view->normalRoughnessResource_.Reset();
+			bindlessHeap->DeferRelease(view->specularAlbedoResource_);
 			view->specularAlbedoResource_.Reset();
+			bindlessHeap->DeferRelease(view->diffuseAlbedoResource_);
 			view->diffuseAlbedoResource_.Reset();
+			bindlessHeap->DeferRelease(view->outputResource_);
 			view->outputResource_.Reset();
 		}
 	}
@@ -88,6 +92,10 @@ namespace SeedCore
 
 			hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &normalRoughnessDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&view->normalRoughnessResource_));
 			SC_HR_CHECK(hr, "DLSS-RR 法線+ラフネステクスチャの生成に失敗しました");
+#ifdef _DEBUG
+			view->normalRoughnessResource_->SetName(L"DlssRayReconstruction_NormalRoughness");
+			GFSDK_Aftermath_DX12_UpdateResourceInfo(view->normalRoughnessResource_.Get());
+#endif
 			view->normalRoughnessState_ = D3D12_RESOURCE_STATE_COMMON;
 
 			view->normalRoughnessUnorderedAccessViewIndex_ = bindlessHeap->AllocateIndex();
@@ -105,6 +113,10 @@ namespace SeedCore
 
 			hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &specularAlbedoDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&view->specularAlbedoResource_));
 			SC_HR_CHECK(hr, "DLSS-RR スペキュラアルベドテクスチャの生成に失敗しました");
+#ifdef _DEBUG
+			view->specularAlbedoResource_->SetName(L"DlssRayReconstruction_SpecularAlbedo");
+			GFSDK_Aftermath_DX12_UpdateResourceInfo(view->specularAlbedoResource_.Get());
+#endif
 			view->specularAlbedoState_ = D3D12_RESOURCE_STATE_COMMON;
 
 			view->specularAlbedoUnorderedAccessViewIndex_ = bindlessHeap->AllocateIndex();
@@ -122,6 +134,10 @@ namespace SeedCore
 
 			hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &diffuseAlbedoDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&view->diffuseAlbedoResource_));
 			SC_HR_CHECK(hr, "DLSS-RR 拡散アルベドテクスチャの生成に失敗しました");
+#ifdef _DEBUG
+			view->diffuseAlbedoResource_->SetName(L"DlssRayReconstruction_DiffuseAlbedo");
+			GFSDK_Aftermath_DX12_UpdateResourceInfo(view->diffuseAlbedoResource_.Get());
+#endif
 			view->diffuseAlbedoState_ = D3D12_RESOURCE_STATE_COMMON;
 
 			view->diffuseAlbedoUnorderedAccessViewIndex_ = bindlessHeap->AllocateIndex();
@@ -140,6 +156,10 @@ namespace SeedCore
 
 			hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &outputDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&view->outputResource_));
 			SC_HR_CHECK(hr, "DLSS-RR 出力テクスチャの生成に失敗しました");
+#ifdef _DEBUG
+			view->outputResource_->SetName(L"DlssRayReconstruction_Output");
+			GFSDK_Aftermath_DX12_UpdateResourceInfo(view->outputResource_.Get());
+#endif
 			view->outputState_ = D3D12_RESOURCE_STATE_COMMON;
 
 			view->outputUnorderedAccessViewIndex_ = bindlessHeap->AllocateIndex();

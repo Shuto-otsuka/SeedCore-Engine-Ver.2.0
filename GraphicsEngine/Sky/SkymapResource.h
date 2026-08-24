@@ -9,6 +9,7 @@ namespace SeedCore
 	struct LoaderSystem;
 	class ResourceCache;
 	class BindlessHeap;
+	class D3D12CommandQueue;
 
 	/**
 	* [EN]
@@ -29,7 +30,7 @@ namespace SeedCore
 		SkymapResource() = default;
 		~SkymapResource() = default;
 
-		Handle<Skymap> Load(LoaderSystem& loader, ID3D12Device* device, ID3D12CommandQueue* cmdQueue, BindlessHeap* heap, ResourceCache& cache, Uint32 assetId);
+		Handle<Skymap> Load(LoaderSystem& loader, ID3D12Device* device, D3D12CommandQueue* cmdQueue, BindlessHeap* heap, ResourceCache& cache, Uint32 assetId);
 
 		Handle<Skymap> GetHandle(Uint32 assetId)const;
 

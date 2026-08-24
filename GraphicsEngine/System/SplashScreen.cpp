@@ -16,28 +16,28 @@ namespace SeedCore
 		TextureLoader loader;
 
 		dayTextureIndex_ = bindlessHeap->AllocateIndex();
-		loader.CreateTexture(device, cmdQueue->GetCommandQueue(), bindlessHeap->Heap(), String("../Runtime/Logo/day_logo.dds"), dayResource_, dayTextureIndex_);
+		loader.CreateTexture(device, cmdQueue, bindlessHeap->Heap(), String("../Runtime/Logo/day_logo.dds"), dayResource_, dayTextureIndex_);
 
 		nightTextureIndex_ = bindlessHeap->AllocateIndex();
-		loader.CreateTexture(device, cmdQueue->GetCommandQueue(), bindlessHeap->Heap(), String("../Runtime/Logo/night_logo.dds"), nightResource_, nightTextureIndex_);
+		loader.CreateTexture(device, cmdQueue, bindlessHeap->Heap(), String("../Runtime/Logo/night_logo.dds"), nightResource_, nightTextureIndex_);
 
 		warningTextureIndex_ = bindlessHeap->AllocateIndex();
-		loader.CreateTexture(device, cmdQueue->GetCommandQueue(), bindlessHeap->Heap(), String("../Runtime/Logo/seedcore_warning_notice.dds"), warningResource_, warningTextureIndex_);
+		loader.CreateTexture(device, cmdQueue, bindlessHeap->Heap(), String("../Runtime/Logo/seedcore_warning_notice.dds"), warningResource_, warningTextureIndex_);
 
 		fictionTextureIndex_ = bindlessHeap->AllocateIndex();
-		loader.CreateTexture(device, cmdQueue->GetCommandQueue(), bindlessHeap->Heap(), String("../Runtime/Logo/seedcore_fiction_notice.dds"), fictionResource_, fictionTextureIndex_);
+		loader.CreateTexture(device, cmdQueue, bindlessHeap->Heap(), String("../Runtime/Logo/seedcore_fiction_notice.dds"), fictionResource_, fictionTextureIndex_);
 
 		criLogoTextureIndex_ = bindlessHeap->AllocateIndex();
-		loader.CreateTexture(device, cmdQueue->GetCommandQueue(), bindlessHeap->Heap(), String("../Runtime/Logo/criware_logo.dds"), criLogoResource_, criLogoTextureIndex_);
+		loader.CreateTexture(device, cmdQueue, bindlessHeap->Heap(), String("../Runtime/Logo/criware_logo.dds"), criLogoResource_, criLogoTextureIndex_);
 
 		progressBackgroundTextureIndex_ = bindlessHeap->AllocateIndex();
-		loader.CreateTexture(device, cmdQueue->GetCommandQueue(), bindlessHeap->Heap(), String("../Runtime/Logo/seedcore_progress_background.dds"), progressBackgroundResource_, progressBackgroundTextureIndex_);
+		loader.CreateTexture(device, cmdQueue, bindlessHeap->Heap(), String("../Runtime/Logo/seedcore_progress_background.dds"), progressBackgroundResource_, progressBackgroundTextureIndex_);
 
 		progressBarTextureIndex_ = bindlessHeap->AllocateIndex();
-		loader.CreateTexture(device, cmdQueue->GetCommandQueue(), bindlessHeap->Heap(), String("../Runtime/Logo/seedcore_progress_bar.dds"), progressBarResource_, progressBarTextureIndex_);
+		loader.CreateTexture(device, cmdQueue, bindlessHeap->Heap(), String("../Runtime/Logo/seedcore_progress_bar.dds"), progressBarResource_, progressBarTextureIndex_);
 
 		progressFrameTextureIndex_ = bindlessHeap->AllocateIndex();
-		loader.CreateTexture(device, cmdQueue->GetCommandQueue(), bindlessHeap->Heap(), String("../Runtime/Logo/seedcore_progress_frame.dds"), progressFrameResource_, progressFrameTextureIndex_);
+		loader.CreateTexture(device, cmdQueue, bindlessHeap->Heap(), String("../Runtime/Logo/seedcore_progress_frame.dds"), progressFrameResource_, progressFrameTextureIndex_);
 
 		HRESULT hr{ S_OK };
 

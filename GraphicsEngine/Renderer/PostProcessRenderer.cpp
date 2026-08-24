@@ -108,6 +108,10 @@ namespace SeedCore
 
 		hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &outputDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&view.outputResource_));
 		SC_HR_CHECK(hr, "ポストプロセス表示テクスチャの生成に失敗しました");
+#ifdef _DEBUG
+		view.outputResource_->SetName(L"PostProcess_Output");
+		GFSDK_Aftermath_DX12_UpdateResourceInfo(view.outputResource_.Get());
+#endif
 		view.outputState_ = D3D12_RESOURCE_STATE_COMMON;
 
 		D3D12_UNORDERED_ACCESS_VIEW_DESC outputUnorderedAccessViewDesc{};
@@ -153,6 +157,10 @@ namespace SeedCore
 
 		hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &outputDescUpscaled, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&view.outputResourceUpscaled_));
 		SC_HR_CHECK(hr, "ポストプロセス表示テクスチャ(UHD)の生成に失敗しました");
+#ifdef _DEBUG
+		view.outputResourceUpscaled_->SetName(L"PostProcess_OutputUpscaled");
+		GFSDK_Aftermath_DX12_UpdateResourceInfo(view.outputResourceUpscaled_.Get());
+#endif
 		view.outputStateUpscaled_ = D3D12_RESOURCE_STATE_COMMON;
 
 		view.outputUnorderedAccessViewIndexUpscaled_ = bindlessHeap->AllocateIndex();
@@ -167,6 +175,10 @@ namespace SeedCore
 		// ---- シャープネス出力(新・最終表示チェーン、SD/UHD) ----
 		hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &outputDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&view.sharpenResource_));
 		SC_HR_CHECK(hr, "シャープネス表示テクスチャの生成に失敗しました");
+#ifdef _DEBUG
+		view.sharpenResource_->SetName(L"PostProcess_Sharpen");
+		GFSDK_Aftermath_DX12_UpdateResourceInfo(view.sharpenResource_.Get());
+#endif
 		view.sharpenState_ = D3D12_RESOURCE_STATE_COMMON;
 
 		view.sharpenUnorderedAccessViewIndex_ = bindlessHeap->AllocateIndex();
@@ -177,6 +189,10 @@ namespace SeedCore
 
 		hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &outputDescUpscaled, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&view.sharpenResourceUpscaled_));
 		SC_HR_CHECK(hr, "シャープネス表示テクスチャ(UHD)の生成に失敗しました");
+#ifdef _DEBUG
+		view.sharpenResourceUpscaled_->SetName(L"PostProcess_SharpenUpscaled");
+		GFSDK_Aftermath_DX12_UpdateResourceInfo(view.sharpenResourceUpscaled_.Get());
+#endif
 		view.sharpenStateUpscaled_ = D3D12_RESOURCE_STATE_COMMON;
 
 		view.sharpenUnorderedAccessViewIndexUpscaled_ = bindlessHeap->AllocateIndex();
@@ -200,6 +216,10 @@ namespace SeedCore
 
 			hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&view.histogramResource_));
 			SC_HR_CHECK(hr, "露出ヒストグラムバッファの生成に失敗しました");
+#ifdef _DEBUG
+			view.histogramResource_->SetName(L"PostProcess_Histogram");
+			GFSDK_Aftermath_DX12_UpdateResourceInfo(view.histogramResource_.Get());
+#endif
 
 			D3D12_UNORDERED_ACCESS_VIEW_DESC unorderedAccessViewDesc{};
 			unorderedAccessViewDesc.Format = DXGI_FORMAT_UNKNOWN;
@@ -238,6 +258,10 @@ namespace SeedCore
 
 			hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&view.exposureResource_));
 			SC_HR_CHECK(hr, "永続露出バッファの生成に失敗しました");
+#ifdef _DEBUG
+			view.exposureResource_->SetName(L"PostProcess_Exposure");
+			GFSDK_Aftermath_DX12_UpdateResourceInfo(view.exposureResource_.Get());
+#endif
 
 			D3D12_UNORDERED_ACCESS_VIEW_DESC unorderedAccessViewDesc{};
 			unorderedAccessViewDesc.Format = DXGI_FORMAT_UNKNOWN;
@@ -278,6 +302,10 @@ namespace SeedCore
 
 			hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &lensFlareDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&view.lensFlareResource_));
 			SC_HR_CHECK(hr, "レンズフレアバッファの生成に失敗しました");
+#ifdef _DEBUG
+			view.lensFlareResource_->SetName(L"PostProcess_LensFlare");
+			GFSDK_Aftermath_DX12_UpdateResourceInfo(view.lensFlareResource_.Get());
+#endif
 			view.lensFlareState_ = D3D12_RESOURCE_STATE_COMMON;
 
 			D3D12_UNORDERED_ACCESS_VIEW_DESC lensFlareUnorderedAccessViewDesc{};
@@ -303,6 +331,10 @@ namespace SeedCore
 				{
 					hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &lensFlareDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&view.lensFlareStreakResource_[axis][slot]));
 					SC_HR_CHECK(hr, "レンズフレアストリークバッファの生成に失敗しました");
+	#ifdef _DEBUG
+					view.lensFlareStreakResource_[axis][slot]->SetName(L"PostProcess_LensFlareStreak");
+					GFSDK_Aftermath_DX12_UpdateResourceInfo(view.lensFlareStreakResource_[axis][slot].Get());
+#endif
 					view.lensFlareStreakState_[axis][slot] = D3D12_RESOURCE_STATE_COMMON;
 
 					view.lensFlareStreakUnorderedAccessViewIndex_[axis][slot] = bindlessHeap->AllocateIndex();
@@ -316,6 +348,10 @@ namespace SeedCore
 			// ---- レンズフレア共有ブライトパスバッファ(Downsample の出力) ----
 			hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &lensFlareDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&view.lensFlareBrightResource_));
 			SC_HR_CHECK(hr, "レンズフレアブライトパスバッファの生成に失敗しました");
+	#ifdef _DEBUG
+			view.lensFlareBrightResource_->SetName(L"PostProcess_LensFlareBright");
+			GFSDK_Aftermath_DX12_UpdateResourceInfo(view.lensFlareBrightResource_.Get());
+#endif
 			view.lensFlareBrightState_ = D3D12_RESOURCE_STATE_COMMON;
 
 			view.lensFlareBrightUnorderedAccessViewIndex_ = bindlessHeap->AllocateIndex();
@@ -353,6 +389,10 @@ namespace SeedCore
 
 				hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &bloomDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&view.bloomResource_[level]));
 				SC_HR_CHECK(hr, "ブルームバッファの生成に失敗しました");
+#ifdef _DEBUG
+				view.bloomResource_[level]->SetName(L"PostProcess_Bloom");
+				GFSDK_Aftermath_DX12_UpdateResourceInfo(view.bloomResource_[level].Get());
+#endif
 				view.bloomState_[level] = D3D12_RESOURCE_STATE_COMMON;
 
 				view.bloomUnorderedAccessViewIndex_[level] = bindlessHeap->AllocateIndex();
@@ -389,6 +429,10 @@ namespace SeedCore
 			{
 				hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &anamorphicDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&view.anamorphicFlareResource_[slot]));
 				SC_HR_CHECK(hr, "アナモルフィックフレア作業バッファの生成に失敗しました");
+#ifdef _DEBUG
+				view.anamorphicFlareResource_[slot]->SetName(L"PostProcess_AnamorphicFlare");
+				GFSDK_Aftermath_DX12_UpdateResourceInfo(view.anamorphicFlareResource_[slot].Get());
+#endif
 				view.anamorphicFlareState_[slot] = D3D12_RESOURCE_STATE_COMMON;
 
 				view.anamorphicFlareUnorderedAccessViewIndex_[slot] = bindlessHeap->AllocateIndex();
@@ -403,6 +447,10 @@ namespace SeedCore
 
 			hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &anamorphicOutputDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&view.anamorphicFlareOutputResource_));
 			SC_HR_CHECK(hr, "アナモルフィックフレア出力バッファの生成に失敗しました");
+	#ifdef _DEBUG
+			view.anamorphicFlareOutputResource_->SetName(L"PostProcess_AnamorphicFlareOutput");
+			GFSDK_Aftermath_DX12_UpdateResourceInfo(view.anamorphicFlareOutputResource_.Get());
+#endif
 			view.anamorphicFlareOutputState_ = D3D12_RESOURCE_STATE_COMMON;
 
 			view.anamorphicFlareOutputUnorderedAccessViewIndex_ = bindlessHeap->AllocateIndex();
@@ -418,6 +466,10 @@ namespace SeedCore
 
 			hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &colorGradingDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&view.colorGradingResource_));
 			SC_HR_CHECK(hr, "カラーグレーディングバッファの生成に失敗しました");
+	#ifdef _DEBUG
+			view.colorGradingResource_->SetName(L"PostProcess_ColorGrading");
+			GFSDK_Aftermath_DX12_UpdateResourceInfo(view.colorGradingResource_.Get());
+#endif
 			view.colorGradingState_ = D3D12_RESOURCE_STATE_COMMON;
 
 			view.colorGradingUnorderedAccessViewIndex_ = bindlessHeap->AllocateIndex();
@@ -435,6 +487,10 @@ namespace SeedCore
 			{
 				hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &lensStageDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&view.lensStageResource_[slot]));
 				SC_HR_CHECK(hr, "レンズ段バッファの生成に失敗しました");
+#ifdef _DEBUG
+				view.lensStageResource_[slot]->SetName(L"PostProcess_LensStage");
+				GFSDK_Aftermath_DX12_UpdateResourceInfo(view.lensStageResource_[slot].Get());
+#endif
 				view.lensStageState_[slot] = D3D12_RESOURCE_STATE_COMMON;
 
 				view.lensStageUnorderedAccessViewIndex_[slot] = bindlessHeap->AllocateIndex();
@@ -459,6 +515,10 @@ namespace SeedCore
 
 			hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &depthOfFieldDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&view.depthOfFieldResource_));
 			SC_HR_CHECK(hr, "被写界深度バッファの生成に失敗しました");
+	#ifdef _DEBUG
+			view.depthOfFieldResource_->SetName(L"PostProcess_DepthOfField");
+			GFSDK_Aftermath_DX12_UpdateResourceInfo(view.depthOfFieldResource_.Get());
+#endif
 			view.depthOfFieldState_ = D3D12_RESOURCE_STATE_COMMON;
 
 			D3D12_UNORDERED_ACCESS_VIEW_DESC depthOfFieldUnorderedAccessViewDesc{};
@@ -479,6 +539,11 @@ namespace SeedCore
 		}
 	}
 
+	/// [JP] Resize() はこれを呼んだ直後に同じ幅/高さで作り直すが、その時点で
+	///      前フレームのGPUコマンドがまだこのビューのリソースを読み書きして
+	///      いる可能性がある(OITBuffer::Destroyと同じ理由)。即座に.Reset()すると
+	///      解放直後のメモリへ新しいリソースが再割り当てされ、GPU側が古い
+	///      コマンドで新リソースを踏みに行く事故になる - 全リソースを遅延破棄する。
 	void PostProcessRenderer::DestroyView(BindlessHeap* bindlessHeap, View& view)
 	{
 		bindlessHeap->FreeIndex(view.outputUnorderedAccessViewIndex_);
@@ -504,6 +569,7 @@ namespace SeedCore
 			{
 				bindlessHeap->FreeIndex(view.lensFlareStreakUnorderedAccessViewIndex_[axis][slot]);
 				bindlessHeap->FreeIndex(view.lensFlareStreakShaderResourceViewIndex_[axis][slot]);
+				bindlessHeap->DeferRelease(view.lensFlareStreakResource_[axis][slot]);
 				view.lensFlareStreakResource_[axis][slot].Reset();
 			}
 		}
@@ -512,6 +578,7 @@ namespace SeedCore
 		{
 			bindlessHeap->FreeIndex(view.bloomUnorderedAccessViewIndex_[level]);
 			bindlessHeap->FreeIndex(view.bloomShaderResourceViewIndex_[level]);
+			bindlessHeap->DeferRelease(view.bloomResource_[level]);
 			view.bloomResource_[level].Reset();
 		}
 
@@ -519,32 +586,45 @@ namespace SeedCore
 		{
 			bindlessHeap->FreeIndex(view.anamorphicFlareUnorderedAccessViewIndex_[slot]);
 			bindlessHeap->FreeIndex(view.anamorphicFlareShaderResourceViewIndex_[slot]);
+			bindlessHeap->DeferRelease(view.anamorphicFlareResource_[slot]);
 			view.anamorphicFlareResource_[slot].Reset();
 		}
 
 		bindlessHeap->FreeIndex(view.anamorphicFlareOutputUnorderedAccessViewIndex_);
 		bindlessHeap->FreeIndex(view.anamorphicFlareOutputShaderResourceViewIndex_);
+		bindlessHeap->DeferRelease(view.anamorphicFlareOutputResource_);
 		view.anamorphicFlareOutputResource_.Reset();
 
 		for (Uint32 slot = 0; slot < 2; slot++)
 		{
 			bindlessHeap->FreeIndex(view.lensStageUnorderedAccessViewIndex_[slot]);
 			bindlessHeap->FreeIndex(view.lensStageShaderResourceViewIndex_[slot]);
+			bindlessHeap->DeferRelease(view.lensStageResource_[slot]);
 			view.lensStageResource_[slot].Reset();
 		}
 
 		bindlessHeap->FreeIndex(view.colorGradingUnorderedAccessViewIndex_);
 		bindlessHeap->FreeIndex(view.colorGradingShaderResourceViewIndex_);
+		bindlessHeap->DeferRelease(view.colorGradingResource_);
 		view.colorGradingResource_.Reset();
 
+		bindlessHeap->DeferRelease(view.outputResource_);
 		view.outputResource_.Reset();
+		bindlessHeap->DeferRelease(view.outputResourceUpscaled_);
 		view.outputResourceUpscaled_.Reset();
+		bindlessHeap->DeferRelease(view.sharpenResource_);
 		view.sharpenResource_.Reset();
+		bindlessHeap->DeferRelease(view.sharpenResourceUpscaled_);
 		view.sharpenResourceUpscaled_.Reset();
+		bindlessHeap->DeferRelease(view.histogramResource_);
 		view.histogramResource_.Reset();
+		bindlessHeap->DeferRelease(view.exposureResource_);
 		view.exposureResource_.Reset();
+		bindlessHeap->DeferRelease(view.lensFlareResource_);
 		view.lensFlareResource_.Reset();
+		bindlessHeap->DeferRelease(view.lensFlareBrightResource_);
 		view.lensFlareBrightResource_.Reset();
+		bindlessHeap->DeferRelease(view.depthOfFieldResource_);
 		view.depthOfFieldResource_.Reset();
 
 		view.activeIsUpscaled_ = false;

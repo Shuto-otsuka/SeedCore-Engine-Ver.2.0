@@ -8,6 +8,7 @@ namespace SeedCore
 {
 	class TextureLoader;
 	class BindlessHeap;
+	class D3D12CommandQueue;
 
 	class ImageLoader :public NonCopyable
 	{
@@ -15,7 +16,7 @@ namespace SeedCore
 		ImageLoader() = default;
 		~ImageLoader() = default;
 
-		Handle<Texture> Load(TextureLoader& textureLoader, ID3D12Device* device, ID3D12CommandQueue* cmdQueue, BindlessHeap* heap, String filePath);
+		Handle<Texture> Load(TextureLoader& textureLoader, ID3D12Device* device, D3D12CommandQueue* cmdQueue, BindlessHeap* heap, String filePath);
 
 		Texture* Resolve(TextureLoader& textureLoader, BindlessHeap* heap, const Handle<Texture>& handle, Uint64 frame);
 
@@ -30,7 +31,7 @@ namespace SeedCore
 		DynamicArray<Handle<Texture>> loadedHandles_;
 
 		ID3D12Device* device_ = nullptr;
-		ID3D12CommandQueue* cmdQueue_ = nullptr;
+		D3D12CommandQueue* cmdQueue_ = nullptr;
 
 		Uint64 totalResidentBytes_ = 0;
 		Uint64 budgetBytes_ = 128ull * 1024 * 1024;

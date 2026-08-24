@@ -258,11 +258,13 @@ namespace SeedCore
 
 		renderer_->BeginGameFrame(context_->GetDirectList());
 
-		if (cameraSystem_.HasActiveCamera())
+		Bool hasActiveCamera = cameraSystem_.HasActiveCamera();
+		if (hasActiveCamera)
 		{
 			gameSceneSystem_->Upload(gameSceneConstantBuffer);
-			renderer_->GameFlush(context_->GetDirectList(), gameSceneSystem_.get(), timer.DeltaTime());
 		}
+
+		renderer_->GameFlush(context_->GetDirectList(), gameSceneSystem_.get(), timer.DeltaTime(), hasActiveCamera);
 
 		fadeScreen_.Draw(context_->GetDirectList()->Get(), Scene::GetFadeAlpha(), static_cast<Float>(nativeWidth_), static_cast<Float>(nativeHeight_));
 

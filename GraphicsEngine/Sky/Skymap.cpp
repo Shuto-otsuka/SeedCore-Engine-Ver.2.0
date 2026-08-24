@@ -1,12 +1,13 @@
 #include <GraphicsEngine/Sky/Skymap.h>
 #include <GraphicsEngine/Sky/SkymapCache.h>
 #include <GraphicsEngine/D3D12/Descriptor/BindlessHeap.h>
+#include <GraphicsEngine/D3D12/Context/D3D12CommandQueue.h>
 #include <FoundationEngine/Log/DxFail.h>
 #include <FoundationEngine/Log/Error.h>
 
 namespace SeedCore
 {
-	Bool Skymap::LoadEquirect(ID3D12Device* device, ID3D12CommandQueue* cmdQueue, BindlessHeap* heap, const String& filePath)
+	Bool Skymap::LoadEquirect(ID3D12Device* device, D3D12CommandQueue* cmdQueue, BindlessHeap* heap, const String& filePath)
 	{
 		DirectX::ScratchImage image;
 		HRESULT hr = DirectX::LoadFromHDRFile(filePath.w_str().c_str(), nullptr, image);
@@ -51,7 +52,7 @@ namespace SeedCore
 		return true;
 	}
 
-	Bool Skymap::LoadSkymapCache(ID3D12Device* device, ID3D12CommandQueue* cmdQueue, BindlessHeap* heap, const String& filePath)
+	Bool Skymap::LoadSkymapCache(ID3D12Device* device, D3D12CommandQueue* cmdQueue, BindlessHeap* heap, const String& filePath)
 	{
 		SkymapCacheHeader header{};
 		DynamicArray<Uint8> pixels;
@@ -70,7 +71,7 @@ namespace SeedCore
 		return true;
 	}
 
-	Bool Skymap::CreateEquirectTexture(ID3D12Device* device, ID3D12CommandQueue* cmdQueue, BindlessHeap* heap, DXGI_FORMAT format, Uint width, Uint height, Uint rowPitch, const void* pixels)
+	Bool Skymap::CreateEquirectTexture(ID3D12Device* device, D3D12CommandQueue* cmdQueue, BindlessHeap* heap, DXGI_FORMAT format, Uint width, Uint height, Uint rowPitch, const void* pixels)
 	{
 		HRESULT hr{ S_OK };
 
@@ -101,6 +102,10 @@ namespace SeedCore
 		{
 			return false;
 		}
+#ifdef _DEBUG
+		equirectResource_->SetName(L"Skymap_Equirect");
+		GFSDK_Aftermath_DX12_UpdateResourceInfo(equirectResource_.Get());
+#endif
 
 		D3D12_SUBRESOURCE_DATA subresource{};
 		subresource.pData = pixels;
@@ -111,7 +116,11 @@ namespace SeedCore
 		resourceUpload.Begin();
 		resourceUpload.Upload(equirectResource_.Get(), 0, &subresource, 1);
 		resourceUpload.Transition(equirectResource_.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-		auto uploadFinished = resourceUpload.End(cmdQueue);
+		std::future<void> uploadFinished;
+		{
+			auto queueLock = cmdQueue->AcquireLock();
+			uploadFinished = resourceUpload.End(cmdQueue->GetCommandQueue());
+		}
 		uploadFinished.wait();
 
 		equirectShaderResourceViewIndex_ = heap->AllocateIndex();

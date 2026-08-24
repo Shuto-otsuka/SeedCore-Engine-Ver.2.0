@@ -56,6 +56,10 @@ namespace SeedCore
 			///      以降はコモンステートプロモーションに任せる。
 			hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&resource_));
 			SC_HR_CHECK(hr, "バッファの生成に失敗しました");
+#ifdef _DEBUG
+			resource_->SetName(L"Buffer");
+			GFSDK_Aftermath_DX12_UpdateResourceInfo(resource_.Get());
+#endif
 		}
 
 

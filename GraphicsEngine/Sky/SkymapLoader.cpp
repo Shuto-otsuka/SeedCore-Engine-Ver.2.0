@@ -3,7 +3,7 @@
 
 namespace SeedCore
 {
-	Handle<Skymap> SkymapLoader::Load(ID3D12Device* device, ID3D12CommandQueue* cmdQueue, BindlessHeap* heap, String filePath)
+	Handle<Skymap> SkymapLoader::Load(ID3D12Device* device, D3D12CommandQueue* cmdQueue, BindlessHeap* heap, String filePath)
 	{
 		Handle<Skymap> handle = pool_.Create();
 		Skymap* skymap = pool_.Get(handle);

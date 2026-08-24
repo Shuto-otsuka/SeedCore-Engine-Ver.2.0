@@ -7,6 +7,7 @@
 namespace SeedCore
 {
 	class BindlessHeap;
+	class D3D12CommandQueue;
 
 	/**
 	* [EN]
@@ -35,7 +36,7 @@ namespace SeedCore
 		SkymapLoader() = default;
 		~SkymapLoader() = default;
 
-		Handle<Skymap> Load(ID3D12Device* device, ID3D12CommandQueue* cmdQueue, BindlessHeap* heap, String filePath);
+		Handle<Skymap> Load(ID3D12Device* device, D3D12CommandQueue* cmdQueue, BindlessHeap* heap, String filePath);
 
 		Skymap* Get(const Handle<Skymap>& handle);
 

@@ -42,6 +42,10 @@ namespace SeedCore
 
 			HRESULT hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&outResource));
 			SC_HR_CHECK(hr, "シャドウデノイズ用テクスチャの生成に失敗しました");
+#ifdef _DEBUG
+			outResource->SetName(L"Shadow_Denoise");
+			GFSDK_Aftermath_DX12_UpdateResourceInfo(outResource.Get());
+#endif
 
 			D3D12_UNORDERED_ACCESS_VIEW_DESC unorderedAccessViewDesc{};
 			unorderedAccessViewDesc.Format = format;
@@ -184,6 +188,8 @@ namespace SeedCore
 		bindlessHeap->FreeIndex(rawVisibilityUnorderedAccessViewIndex_);
 		bindlessHeap->FreeIndex(rawVisibilityShaderResourceViewIndex_);
 		bindlessHeap->FreeIndex(rawPunctualShaderResourceViewIndex_);
+
+		bindlessHeap->DeferRelease(rawVisibilityResource_);
 		rawVisibilityResource_.Reset();
 
 		for (Uint32 view = 0; view < viewCount; ++view)
@@ -192,26 +198,32 @@ namespace SeedCore
 			{
 				bindlessHeap->FreeIndex(directionalAccumulatedUnorderedAccessViewIndex_[view][slot]);
 				bindlessHeap->FreeIndex(directionalAccumulatedShaderResourceViewIndex_[view][slot]);
+				bindlessHeap->DeferRelease(directionalAccumulatedResource_[view][slot]);
 				directionalAccumulatedResource_[view][slot].Reset();
 
 				bindlessHeap->FreeIndex(punctualAccumulatedUnorderedAccessViewIndex_[view][slot]);
 				bindlessHeap->FreeIndex(punctualAccumulatedShaderResourceViewIndex_[view][slot]);
+				bindlessHeap->DeferRelease(punctualAccumulatedResource_[view][slot]);
 				punctualAccumulatedResource_[view][slot].Reset();
 
 				bindlessHeap->FreeIndex(directionalMomentsUnorderedAccessViewIndex_[view][slot]);
 				bindlessHeap->FreeIndex(directionalMomentsShaderResourceViewIndex_[view][slot]);
+				bindlessHeap->DeferRelease(directionalMomentsResource_[view][slot]);
 				directionalMomentsResource_[view][slot].Reset();
 
 				bindlessHeap->FreeIndex(punctualMomentsUnorderedAccessViewIndex_[view][slot]);
 				bindlessHeap->FreeIndex(punctualMomentsShaderResourceViewIndex_[view][slot]);
+				bindlessHeap->DeferRelease(punctualMomentsResource_[view][slot]);
 				punctualMomentsResource_[view][slot].Reset();
 
 				bindlessHeap->FreeIndex(historyLengthUnorderedAccessViewIndex_[view][slot]);
 				bindlessHeap->FreeIndex(historyLengthShaderResourceViewIndex_[view][slot]);
+				bindlessHeap->DeferRelease(historyLengthResource_[view][slot]);
 				historyLengthResource_[view][slot].Reset();
 
 				bindlessHeap->FreeIndex(depthNormalUnorderedAccessViewIndex_[view][slot]);
 				bindlessHeap->FreeIndex(depthNormalShaderResourceViewIndex_[view][slot]);
+				bindlessHeap->DeferRelease(depthNormalResource_[view][slot]);
 				depthNormalResource_[view][slot].Reset();
 			}
 
@@ -219,19 +231,23 @@ namespace SeedCore
 			{
 				bindlessHeap->FreeIndex(directionalAtrousScratchUnorderedAccessViewIndex_[view][slot]);
 				bindlessHeap->FreeIndex(directionalAtrousScratchShaderResourceViewIndex_[view][slot]);
+				bindlessHeap->DeferRelease(directionalAtrousScratchResource_[view][slot]);
 				directionalAtrousScratchResource_[view][slot].Reset();
 
 				bindlessHeap->FreeIndex(punctualAtrousScratchUnorderedAccessViewIndex_[view][slot]);
 				bindlessHeap->FreeIndex(punctualAtrousScratchShaderResourceViewIndex_[view][slot]);
+				bindlessHeap->DeferRelease(punctualAtrousScratchResource_[view][slot]);
 				punctualAtrousScratchResource_[view][slot].Reset();
 			}
 
 			bindlessHeap->FreeIndex(directionalDenoisedUnorderedAccessViewIndex_[view]);
 			bindlessHeap->FreeIndex(directionalDenoisedShaderResourceViewIndex_[view]);
+			bindlessHeap->DeferRelease(directionalDenoisedResource_[view]);
 			directionalDenoisedResource_[view].Reset();
 
 			bindlessHeap->FreeIndex(punctualDenoisedUnorderedAccessViewIndex_[view]);
 			bindlessHeap->FreeIndex(punctualDenoisedShaderResourceViewIndex_[view]);
+			bindlessHeap->DeferRelease(punctualDenoisedResource_[view]);
 			punctualDenoisedResource_[view].Reset();
 		}
 	}

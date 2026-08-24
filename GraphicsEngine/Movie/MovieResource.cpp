@@ -152,6 +152,10 @@ namespace SeedCore
 				SC_LOG_ERROR("MovieResource: フレームテクスチャの生成に失敗しました (width={}, height={})", textureWidth_, textureHeight_);
 				return;
 			}
+#ifdef _DEBUG
+			frameTexture_->SetName(L"Movie_FrameTexture");
+			GFSDK_Aftermath_DX12_UpdateResourceInfo(frameTexture_.Get());
+#endif
 
 			D3D12_SHADER_RESOURCE_VIEW_DESC shaderResourceViewDesc{};
 			shaderResourceViewDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
@@ -179,6 +183,10 @@ namespace SeedCore
 				{
 					return;
 				}
+#ifdef _DEBUG
+				uploadBuffer->SetName(L"Movie_UploadBuffer");
+				GFSDK_Aftermath_DX12_UpdateResourceInfo(uploadBuffer.Get());
+#endif
 			}
 		}
 		else

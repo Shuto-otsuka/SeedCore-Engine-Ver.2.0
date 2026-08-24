@@ -158,18 +158,20 @@ void ScTutorial::OnTriggerExit(SeedCore::Entity entity)
 // Sceneの static Change()/Update() はプロセス全体の参照を(Editor.cpp/Runtime側で)束縛済みなので、
 // SeedScriptのOnTick等からでも、Worldを一切意識せず呼べる。
 //
+// パス（フォルダ構成）を知らなくても、ファイル名だけで呼べる（内部でResourceCacheのアセット名検索に通してから開く）
+//
 // 即座に切り替える場合
-//SeedCore::Scene::Change("Scene/NextScene.scene");
+//SeedCore::Scene::Change("NextScene.scene");
 //
 // フェードアウト/フェードインしながら非同期に切り替える場合
-//SeedCore::Scene::Change("Scene/NextScene.scene", 0.3f, 0.3f);
+//SeedCore::Scene::Change("NextScene.scene", 0.3f, 0.3f);
 //
 // ローディングシーンを挟んで非同期に切り替える場合
-//SeedCore::Scene::Change("Scene/NextScene.scene", "Scene/LoadingScene.scene");
+//SeedCore::Scene::Change("NextScene.scene", "LoadingScene.scene");
 //
 // Scene::Update(deltaTime)は遷移の状態機械を進める処理で、こちらは呼ぶ必要はない（Editor.cpp側で毎フレーム呼ばれている）
 // 注意: Runtime側はまだ配線されていないので、Runtime実行ファイルではScene::Changeが今のところ動かない
 //
 // パスからAssetIDを引きたいとき（PrefabやTexture等、他の何かにアセットIDを渡す前段として）はScene::GetAssetを使う
-// これもSceneと同じ束縛済みのResourceCache経由で解決するので、SeedScriptから直接呼べる
-//SeedCore::Uint32 targetSceneAssetID = SeedCore::Scene::GetAsset("Scene/NextScene.scene");
+// これもSceneと同じ束縛済みのResourceCache経由で解決するので、SeedScriptから直接呼べる。こちらもファイル名だけで良い
+//SeedCore::Uint32 targetSceneAssetID = SeedCore::Scene::GetAsset("NextScene.scene");

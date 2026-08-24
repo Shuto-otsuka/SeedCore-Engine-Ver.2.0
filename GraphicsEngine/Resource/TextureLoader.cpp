@@ -1,10 +1,11 @@
 #include <GraphicsEngine/Resource/TextureLoader.h>
+#include <GraphicsEngine/D3D12/Context/D3D12CommandQueue.h>
 #include <FoundationEngine/Log/DxFail.h>
 #include <FoundationEngine/Log/Error.h>
 
 namespace SeedCore
 {
-	void TextureLoader::CreateTexture(in ID3D12Device* device, in ID3D12CommandQueue* cmdQueue, in ID3D12DescriptorHeap* heap, in String filePath, inout Microsoft::WRL::ComPtr<ID3D12Resource>& resource, in Uint textureIndex)
+	void TextureLoader::CreateTexture(in ID3D12Device* device, in D3D12CommandQueue* cmdQueue, in ID3D12DescriptorHeap* heap, in String filePath, inout Microsoft::WRL::ComPtr<ID3D12Resource>& resource, in Uint textureIndex)
 	{
 		HRESULT hr{ S_OK };
 
@@ -23,12 +24,30 @@ namespace SeedCore
 			/// [EN] Bail out instead of dereferencing a null resource below.
 			/// [JP] 下で null リソースを参照しないよう、ここで中断する。
 			SC_LOG_ERROR("テクスチャのロードに失敗しました: {}", filePath.str());
-			auto uploadAborted = resourceUpload.End(cmdQueue);
+
+			/// [EN] Lock only around End() itself (ExecuteCommandLists/Signal,
+			///      fast) - not the wait() below, which just blocks on a CPU
+			///      event and never touches the queue, so holding the lock
+			///      there would stall the main thread's own per-frame
+			///      Signal()/Execute() for no reason.
+			/// [JP] End() 自体(ExecuteCommandLists/Signal、高速)だけをロックする
+			///      - 下の wait() は CPU イベントを待つだけでキューには一切
+			///      触れないので、そこまでロックを持ったままだとメインスレッド
+			///      の毎フレームの Signal()/Execute() を無意味に足止めする。
+			std::future<void> uploadAborted;
+			{
+				auto queueLock = cmdQueue->AcquireLock();
+				uploadAborted = resourceUpload.End(cmdQueue->GetCommandQueue());
+			}
 			uploadAborted.wait();
 			return;
 		}
 
-		auto uploadFinished = resourceUpload.End(cmdQueue);
+		std::future<void> uploadFinished;
+		{
+			auto queueLock = cmdQueue->AcquireLock();
+			uploadFinished = resourceUpload.End(cmdQueue->GetCommandQueue());
+		}
 		uploadFinished.wait();
 
 		D3D12_SHADER_RESOURCE_VIEW_DESC shaderResourceViewDesc{};

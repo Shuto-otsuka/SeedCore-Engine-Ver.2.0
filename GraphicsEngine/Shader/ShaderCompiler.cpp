@@ -101,13 +101,16 @@ namespace SeedCore
 		auto pos = hlslPath.find_last_of("/\\");
 		std::string filename = (pos != std::string::npos) ? hlslPath.substr(pos + 1) : hlslPath;
 		filename = filename.substr(0, filename.size() - 5) + ".cso";
-		return String("../CompiledShaderObject/" + filename);
+		return String("../CompiledShaderObject/Application/" + filename);
 	}
 
 	void ShaderCompiler::SaveCso(const String& csoPath, IDxcBlob* blob)
 	{
-		std::string dir = "../CompiledShaderObject";
-		std::filesystem::create_directories(dir);
+		std::filesystem::path csoFs(csoPath.str());
+		if (csoFs.has_parent_path())
+		{
+			std::filesystem::create_directories(csoFs.parent_path());
+		}
 
 		std::ofstream ofs(csoPath.str(), std::ios::binary);
 		if (ofs)
@@ -222,12 +225,29 @@ namespace SeedCore
 		result->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&compileResult.objectBlob), nullptr);
 		result->GetOutput(DXC_OUT_REFLECTION, IID_PPV_ARGS(&compileResult.reflectionBlob), nullptr);
 
-#ifndef _DEBUG
 		if (compileResult.objectBlob)
 		{
+#ifdef _DEBUG
+			/// [EN] Written under a Develop/ subfolder, separate from the
+			///      Release cache above - Debug never reads this back
+			///      (CompileInternal always recompiles in Debug), it exists
+			///      only so Nsight Graphics's "Shader Binaries" search path
+			///      can find the -Qembed_debug blob on disk and resolve a
+			///      crash dump's DXIL offsets to HLSL source/line.
+			/// [JP] 上のReleaseキャッシュとは別に Develop/ サブフォルダへ
+			///      書き出す - Debugではこれを読み返すことはない
+			///      (CompileInternalはDebugでは常に再コンパイルする)。存在意義
+			///      は、Nsight Graphics の「Shader Binaries」検索パスがディスク
+			///      上の -Qembed_debug 付きバイナリを見つけ、クラッシュダンプの
+			///      DXIL オフセットを HLSL のソース/行へ解決できるようにする
+			///      ためだけ。
+			std::string filename = std::filesystem::path(path).filename().string();
+			filename = filename.substr(0, filename.size() - 5) + ".cso";
+			SaveCso(String("../CompiledShaderObject/Develop/" + filename), compileResult.objectBlob.Get());
+#else
 			SaveCso(csoPath, compileResult.objectBlob.Get());
-		}
 #endif
+		}
 
 		return compileResult;
 	}

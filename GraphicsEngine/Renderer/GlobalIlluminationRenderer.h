@@ -275,6 +275,18 @@ namespace SeedCore
 		Uint32 clearAccumulatedIndex_[viewCount][accumulationSlotCount] = {};
 		Uint32 clearReservoirIndex_[viewCount][accumulationSlotCount] = {};
 
+		/// [EN] Shader-visible RAW UAV copy of clearReservoirIndex_'s view,
+		///      required alongside it - see ReservoirBuffer::Create()'s doc
+		///      comment for why ClearUnorderedAccessViewUint needs both a
+		///      GPU-visible and a CPU (clearHeap_) descriptor of the exact
+		///      same (non-structured) view.
+		/// [JP] clearReservoirIndex_ と同じビューの、シェーダ可視な RAW UAV
+		///      コピー - ClearUnorderedAccessViewUint が GPU可視と
+		///      CPU(clearHeap_)の両方に全く同じ(非構造化の)ビューを
+		///      要求する理由は ReservoirBuffer::Create() のドキュメント
+		///      コメント参照。
+		Uint32 clearReservoirGpuIndex_[viewCount][accumulationSlotCount] = {};
+
 		/// [EN] Both reservoir ping-pong slots are zeroed once, the first time
 		///      Dispatch() runs (PrepareFrame does no GPU work, so this can't
 		///      happen there) - M_/W_ = 0 makes the very first frame's temporal

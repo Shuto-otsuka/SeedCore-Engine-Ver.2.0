@@ -39,6 +39,10 @@ namespace SeedCore
 
 		HRESULT hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&transmittanceResource_));
 		SC_HR_CHECK(hr, "透過率リソースの生成に失敗しました");
+#ifdef _DEBUG
+		transmittanceResource_->SetName(L"SubsurfaceScattering_Transmittance");
+		GFSDK_Aftermath_DX12_UpdateResourceInfo(transmittanceResource_.Get());
+#endif
 		transmittanceState_ = D3D12_RESOURCE_STATE_COMMON;
 
 		D3D12_UNORDERED_ACCESS_VIEW_DESC unorderedAccessViewDesc{};
@@ -65,6 +69,8 @@ namespace SeedCore
 	{
 		bindlessHeap->FreeIndex(transmittanceUnorderedAccessViewIndex_);
 		bindlessHeap->FreeIndex(transmittanceShaderResourceViewIndex_);
+
+		bindlessHeap->DeferRelease(transmittanceResource_);
 		transmittanceResource_.Reset();
 	}
 
@@ -90,6 +96,10 @@ namespace SeedCore
 
 		HRESULT hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&transmittanceResource_));
 		SC_HR_CHECK(hr, "透過率リソースの生成に失敗しました");
+#ifdef _DEBUG
+		transmittanceResource_->SetName(L"SubsurfaceScattering_Transmittance");
+		GFSDK_Aftermath_DX12_UpdateResourceInfo(transmittanceResource_.Get());
+#endif
 		transmittanceState_ = D3D12_RESOURCE_STATE_COMMON;
 
 		D3D12_UNORDERED_ACCESS_VIEW_DESC unorderedAccessViewDesc{};

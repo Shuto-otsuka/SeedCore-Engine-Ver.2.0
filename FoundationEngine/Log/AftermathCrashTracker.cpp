@@ -35,12 +35,27 @@ namespace SeedCore
 
 	void AftermathCrashTracker::Create(ID3D12Device* device)
 	{
-		Uint32 flags = GFSDK_Aftermath_FeatureFlags_EnableResourceTracking;
+		/// [EN] GenerateShaderDebugInfo is always on (not gated behind
+		///      DEEP_D3D12_DEBUG_MODE like the flags below) - without it, a
+		///      crash dump's faulting shader has no source file/line at all
+		///      (Shader Location stays "N/A" in Nsight Graphics), even though
+		///      ShaderCompiler already embeds DXC debug info via -Qembed_debug
+		///      in every _DEBUG build. The DXC-side embedding alone doesn't
+		///      feed Nsight - Aftermath itself must also be told to capture
+		///      and report it, which only this flag does.
+		/// [JP] GenerateShaderDebugInfo は(下のフラグ群と違って)
+		///      DEEP_D3D12_DEBUG_MODE の裏に隠さず常時有効にする - これが無いと
+		///      クラッシュダンプの落ちたシェーダにソースファイル/行番号が
+		///      一切付かない(Nsight Graphics の Shader Location が "N/A" の
+		///      まま)。ShaderCompiler は _DEBUG ビルドで既に -Qembed_debug 付き
+		///      で DXC デバッグ情報を埋め込んでいるが、それだけでは Nsight 側に
+		///      は伝わらない - Aftermath 自身にも収集/報告するよう指示する
+		///      必要があり、それを行うのがこのフラグ。
+		Uint32 flags = GFSDK_Aftermath_FeatureFlags_EnableResourceTracking | GFSDK_Aftermath_FeatureFlags_GenerateShaderDebugInfo;
 
 #if DEEP_D3D12_DEBUG_MODE
 		flags |= GFSDK_Aftermath_FeatureFlags_EnableMarkers;
 		flags |= GFSDK_Aftermath_FeatureFlags_CallStackCapturing;
-		flags |= GFSDK_Aftermath_FeatureFlags_GenerateShaderDebugInfo;
 		flags |= GFSDK_Aftermath_FeatureFlags_EnableShaderErrorReporting;
 #endif
 

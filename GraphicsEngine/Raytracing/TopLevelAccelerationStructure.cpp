@@ -42,6 +42,10 @@ namespace SeedCore
 			{
 				return nullptr;
 			}
+#ifdef _DEBUG
+			resource->SetName(L"TopLevelAccelerationStructure");
+			GFSDK_Aftermath_DX12_UpdateResourceInfo(resource.Get());
+#endif
 			return resource;
 		}
 	}

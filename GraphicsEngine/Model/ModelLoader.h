@@ -10,6 +10,7 @@ namespace SeedCore
 	struct LoaderSystem;
 	class BindlessHeap;
 	class BC7CompressShader;
+	class D3D12CommandQueue;
 
 	/**
 	* [EN]
@@ -66,7 +67,7 @@ namespace SeedCore
 		* せずキャッシュから読み込む。axisConvention は glTF を再解析する
 		* 場合のみ適用される（キャッシュ読み込み時は無視される）。
 		*/
-		Handle<Crister> Load(LoaderSystem& loader, ID3D12Device* device, ID3D12CommandQueue* cmdQueue, BindlessHeap* heap, BC7CompressShader& bc7Shader, String filePath, const AxisConvention& axisConvention = AxisConvention{});
+		Handle<Crister> Load(LoaderSystem& loader, ID3D12Device* device, D3D12CommandQueue* cmdQueue, BindlessHeap* heap, BC7CompressShader& bc7Shader, String filePath, const AxisConvention& axisConvention = AxisConvention{});
 
 		/**
 		* [EN]

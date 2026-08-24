@@ -1,9 +1,11 @@
 #include <FoundationEngine/Resource/ResourceCache.h>
 #include <FoundationEngine/Resource/LoaderSystem.h>
+#include <FoundationEngine/Log/Warning.h>
 #include <FoundationEngine/Serialization/Binary/BinaryArchive.h>
 #include <FoundationEngine/JobSystem/JobExecutor.h>
 #include <FoundationEngine/JobSystem/JobTaskflow.h>
 #include <GraphicsEngine/D3D12/Descriptor/BindlessHeap.h>
+#include <GraphicsEngine/D3D12/Context/D3D12CommandQueue.h>
 
 #include <GraphicsEngine/Texture/ImageResource.h>
 #include <GraphicsEngine/Model/ModelResource.h>
@@ -55,7 +57,7 @@ namespace SeedCore
 	* キャッシュを構築し、各リソースマネージャを生成し、プロジェクト
 	* ルートパスを解決する。
 	*/
-	ResourceCache::ResourceCache(LoaderSystem& loader, ID3D12Device* device, ID3D12CommandQueue* cmdQueue, BindlessHeap* heap) : loader_(loader), heap_(heap)
+	ResourceCache::ResourceCache(LoaderSystem& loader, ID3D12Device* device, D3D12CommandQueue* cmdQueue, BindlessHeap* heap) : loader_(loader), heap_(heap)
 	{
 		/// [EN] The project root is one level above the executable's working directory.
 		/// [JP] プロジェクトルートは、実行ファイルの作業ディレクトリの1つ上にある。
@@ -162,7 +164,7 @@ namespace SeedCore
 	* アセットを読み込む。この呼び出しでアセットを処理したかどうかを
 	* 返す（キューが尽きた、または Async が呼ばれていない場合は false）。
 	*/
-	Bool ResourceCache::Step(LoaderSystem& loader, ID3D12Device* device, ID3D12CommandQueue* cmdQueue, BindlessHeap* heap, BC7CompressShader& bc7Shader)
+	Bool ResourceCache::Step(LoaderSystem& loader, ID3D12Device* device, D3D12CommandQueue* cmdQueue, BindlessHeap* heap, BC7CompressShader& bc7Shader)
 	{
 		if (!scanComplete_.load(std::memory_order_acquire))
 		{
@@ -180,7 +182,13 @@ namespace SeedCore
 		if (asset && !asset->isLoaded_)
 		{
 			/// [EN] Dispatch to the resource manager matching this asset's type; some types (Prefab/Scene) have no per-frame Step loader and are handled elsewhere.
-			/// [JP] このアセットの種別に対応するリソースマネージャへディスパッチする。一部の種別（Prefab/Scene）はフレームごとの Step ローダーを持たず、別の場所で処理される。
+			///      Texture/Model/Skymap submit to the shared Direct queue - this runs on StepAsync's background worker thread while the main thread may
+			///      be submitting to the same queue at the same time (Graphics::Begin/End/Resize); each Load() call locks D3D12CommandQueue::AcquireLock()
+			///      internally, narrowly around the actual ExecuteCommandLists/Signal, not around this whole dispatch.
+			/// [JP] このアセットの種別に対応するリソースマネージャへディスパッチする。一部の種別（Prefab/Scene）はフレームごとの Step ローダーを持たず、
+			///      別の場所で処理される。Texture/Model/Skymap は共有の Direct キューへ提出する - これは StepAsync のバックグラウンドワーカースレッド上で
+			///      走り、メインスレッドが同時に同じキューへ提出しうる(Graphics::Begin/End/Resize)。各 Load() 内部で
+			///      D3D12CommandQueue::AcquireLock() を、このディスパッチ全体ではなく実際の ExecuteCommandLists/Signal の瞬間だけ狭くロックする。
 			switch (asset->type_)
 			{
 			case AssetType::Texture:
@@ -233,7 +241,7 @@ namespace SeedCore
 	* ワーカースレッド上でキューが尽きるまで Step() を繰り返し呼ぶ。
 	* 完全な契約についてはヘッダのドキュメントコメント参照。
 	*/
-	void ResourceCache::StepAsync(LoaderSystem& loader, ID3D12Device* device, ID3D12CommandQueue* cmdQueue, BindlessHeap* heap, BC7CompressShader& bc7Shader)
+	void ResourceCache::StepAsync(LoaderSystem& loader, ID3D12Device* device, D3D12CommandQueue* cmdQueue, BindlessHeap* heap, BC7CompressShader& bc7Shader)
 	{
 		Bool expected = false;
 		if (!loadStarted_.compare_exchange_strong(expected, true, std::memory_order_acq_rel))
@@ -336,13 +344,25 @@ namespace SeedCore
 
 	/**
 	* [EN]
-	* Returns the asset ID whose path matches filename, or 0 if not found.
+	* Returns the asset ID whose path matches filename, or 0 if not
+	* found. filename can be a full project-root-relative path (e.g.
+	* "UserProject/Assets/Scene/Foo.scene", matched exactly) or just a
+	* bare filename (e.g. "Foo.scene", matched against every asset's own
+	* filename - the caller doesn't need to know which subfolder it
+	* lives in). If more than one asset shares that bare filename, the
+	* first one found wins and a warning is logged, since which one is
+	* "correct" is ambiguous.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
 	* パスが filename に一致するアセットの ID を返す。見つからなければ
-	* 0 を返す。
+	* 0 を返す。filename には、プロジェクトルート相対のフルパス(例:
+	* "UserProject/Assets/Scene/Foo.scene"、完全一致)か、単なるファイル名
+	* (例: "Foo.scene"、各アセット自身のファイル名と比較 - 呼び出し側は
+	* どのサブフォルダにあるか知らなくてよい)のどちらも渡せる。同じ
+	* ファイル名を持つアセットが複数ある場合は最初に見つかったものを使い、
+	* 警告を出す(どれが「正しい」かは判別できないため)。
 	*/
 	Uint32 ResourceCache::GetAssetID(String filename)
 	{
@@ -351,7 +371,31 @@ namespace SeedCore
 			return searchMap_.at(filename);
 		}
 
-		return 0;
+		std::string targetFilename = std::filesystem::path(filename.c_str()).filename().string();
+
+		Uint32 matchedAssetID = 0;
+		Uint32 matchCount = 0;
+		for (const auto& [assetID, asset] : assetsMap_)
+		{
+			std::string candidateFilename = std::filesystem::path(asset.path_.c_str()).filename().string();
+			if (candidateFilename != targetFilename)
+			{
+				continue;
+			}
+
+			if (matchCount == 0)
+			{
+				matchedAssetID = assetID;
+			}
+			++matchCount;
+		}
+
+		if (matchCount > 1)
+		{
+			SC_LOG_WARNING("ファイル名 \"{}\" のアセットが複数見つかりました。最初に見つかったものを使います。", filename.c_str());
+		}
+
+		return matchedAssetID;
 	}
 
 	/**
@@ -466,7 +510,7 @@ namespace SeedCore
 	* プロジェクトのアセット変更を同期的に再スキャンし、まだ読み込まれて
 	* いない全アセットを一括で読み込む。
 	*/
-	void ResourceCache::Reload(LoaderSystem& loader, ID3D12Device* device, ID3D12CommandQueue* cmdQueue, BC7CompressShader& bc7Shader)
+	void ResourceCache::Reload(LoaderSystem& loader, ID3D12Device* device, D3D12CommandQueue* cmdQueue, BC7CompressShader& bc7Shader)
 	{
 		Rescan();
 

@@ -4,7 +4,7 @@
 
 namespace SeedCore
 {
-	Handle<Texture> ImageLoader::Load(TextureLoader& textureLoader, ID3D12Device* device, ID3D12CommandQueue* cmdQueue, BindlessHeap* heap, String filePath)
+	Handle<Texture> ImageLoader::Load(TextureLoader& textureLoader, ID3D12Device* device, D3D12CommandQueue* cmdQueue, BindlessHeap* heap, String filePath)
 	{
 		Handle<Texture> handle = pool_.Create();
 		Texture* texture = pool_.Get(handle);

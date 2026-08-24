@@ -15,6 +15,7 @@ namespace SeedCore
 	class AnimationResource;
 	class MeshCollisionResource;
 	class BindlessHeap;
+	class D3D12CommandQueue;
 	class BC7CompressShader;
 	class FontManager;
 	class JobExecutor;
@@ -199,7 +200,7 @@ namespace SeedCore
 		* キャッシュを構築し、各リソースマネージャを生成し、プロジェクト
 		* ルートパスを解決する。
 		*/
-		ResourceCache(LoaderSystem& loader, ID3D12Device* device, ID3D12CommandQueue* cmdQueue, BindlessHeap* heap);
+		ResourceCache(LoaderSystem& loader, ID3D12Device* device, D3D12CommandQueue* cmdQueue, BindlessHeap* heap);
 
 		/**
 		* [EN]
@@ -223,7 +224,7 @@ namespace SeedCore
 		* プロジェクトのアセット変更を同期的に再スキャンし、まだ読み込まれて
 		* いない全アセットを一括で読み込む。
 		*/
-		void Reload(LoaderSystem& loader, ID3D12Device* device, ID3D12CommandQueue* cmdQueue, BC7CompressShader& bc7Shader);
+		void Reload(LoaderSystem& loader, ID3D12Device* device, D3D12CommandQueue* cmdQueue, BC7CompressShader& bc7Shader);
 
 		/**
 		* [EN]
@@ -253,7 +254,7 @@ namespace SeedCore
 		* アセットを読み込む。この呼び出しでアセットを処理したかどうかを
 		* 返す（キューが尽きた、または Async が呼ばれていない場合は false）。
 		*/
-		Bool Step(LoaderSystem& loader, ID3D12Device* device, ID3D12CommandQueue* cmdQueue, BindlessHeap* heap, BC7CompressShader& bc7Shader);
+		Bool Step(LoaderSystem& loader, ID3D12Device* device, D3D12CommandQueue* cmdQueue, BindlessHeap* heap, BC7CompressShader& bc7Shader);
 
 		/**
 		* [EN]
@@ -277,7 +278,7 @@ namespace SeedCore
 		* ジョブの完了を待ってから解放処理に入るので、読み込み中に破棄しても
 		* 常に安全。
 		*/
-		void StepAsync(LoaderSystem& loader, ID3D12Device* device, ID3D12CommandQueue* cmdQueue, BindlessHeap* heap, BC7CompressShader& bc7Shader);
+		void StepAsync(LoaderSystem& loader, ID3D12Device* device, D3D12CommandQueue* cmdQueue, BindlessHeap* heap, BC7CompressShader& bc7Shader);
 
 		/**
 		* [EN]
@@ -318,13 +319,26 @@ namespace SeedCore
 
 		/**
 		* [EN]
-		* Returns the asset ID whose path matches filename, or 0 if not found.
+		* Returns the asset ID whose path matches filename, or 0 if not
+		* found. filename can be a full project-root-relative path (e.g.
+		* "UserProject/Assets/Scene/Foo.scene", matched exactly) or just a
+		* bare filename (e.g. "Foo.scene", matched against every asset's
+		* own filename - the caller doesn't need to know which subfolder
+		* it lives in). If more than one asset shares that bare filename,
+		* the first one found wins and a warning is logged, since which
+		* one is "correct" is ambiguous.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
 		* パスが filename に一致するアセットの ID を返す。見つからなければ
-		* 0 を返す。
+		* 0 を返す。filename には、プロジェクトルート相対のフルパス(例:
+		* "UserProject/Assets/Scene/Foo.scene"、完全一致)か、単なる
+		* ファイル名(例: "Foo.scene"、各アセット自身のファイル名と比較 -
+		* 呼び出し側はどのサブフォルダにあるか知らなくてよい)のどちらも
+		* 渡せる。同じファイル名を持つアセットが複数ある場合は最初に
+		* 見つかったものを使い、警告を出す(どれが「正しい」かは判別
+		* できないため)。
 		*/
 		Uint32 GetAssetID(String filename);
 

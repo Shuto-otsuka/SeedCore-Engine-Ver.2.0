@@ -31,6 +31,10 @@ namespace SeedCore
 
 		HRESULT hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&outResource));
 		SC_HR_CHECK(hr, "ボリュームリソースの生成に失敗しました");
+#ifdef _DEBUG
+		outResource->SetName(L"VolumetricLight");
+		GFSDK_Aftermath_DX12_UpdateResourceInfo(outResource.Get());
+#endif
 
 		D3D12_UNORDERED_ACCESS_VIEW_DESC unorderedAccessViewDesc{};
 		unorderedAccessViewDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;

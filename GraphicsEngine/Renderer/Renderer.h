@@ -158,7 +158,30 @@ namespace SeedCore
 
 		void EditorFlush(D3D12CommandList* cmdList, SceneSystem* sceneSystem, Float deltaTime, ViewMode viewMode);
 
-		void GameFlush(D3D12CommandList* cmdList, SceneSystem* sceneSystem, Float deltaTime);
+		/**
+		* [EN]
+		* Advances the game view's frame. The GameView PostProcess/TAAU
+		* bindless index refresh (and IndicesSystem::UploadGame()) always
+		* runs, even when hasActiveCamera is false - EndGameFrame dispatches
+		* TAAU/PostProcess for the game view unconditionally every frame
+		* regardless of camera state (see its own comment), so those indices
+		* must stay current or the dispatch ends up reading a resource a
+		* later Resize() has since destroyed. Only the geometry/lighting
+		* draw calls are skipped when hasActiveCamera is false.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* GameViewのフレームを進める。GameViewのPostProcess/TAAU用bindless
+		* indexの更新(と IndicesSystem::UploadGame())は hasActiveCamera が
+		* false でも必ず実行する - EndGameFrameはカメラの状態に関わらず毎
+		* フレームGameView用のTAAU/PostProcessをディスパッチするため(そちらの
+		* コメント参照)、これらのindexを最新に保っておかないと、後続の
+		* Resize()で破棄済みとなったリソースをディスパッチが読み続けることに
+		* なる。hasActiveCamera が false のときスキップされるのはジオメトリ/
+		* ライティング描画だけ。
+		*/
+		void GameFlush(D3D12CommandList* cmdList, SceneSystem* sceneSystem, Float deltaTime, Bool hasActiveCamera);
 
 		void CanvasFlush(D3D12CommandList* cmdList, SceneSystem* sceneSystem);
 

@@ -2,6 +2,7 @@
 #include <Editor/Editor/EditorContext.h>
 #include <GraphicsEngine/D3D12/Descriptor/DescriptorHeap.h>
 #include <GraphicsEngine/Resource/TextureLoader.h>
+#include <GraphicsEngine/D3D12/Context/D3D12CommandQueue.h>
 #include <FoundationEngine/Resource/LoaderSystem.h>
 
 namespace SeedCore

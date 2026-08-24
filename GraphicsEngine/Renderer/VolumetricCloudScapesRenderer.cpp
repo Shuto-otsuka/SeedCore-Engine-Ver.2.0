@@ -42,6 +42,10 @@ namespace SeedCore
 
 		HRESULT hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&cloudResource_));
 		SC_HR_CHECK(hr, "クラウドリソースの生成に失敗しました");
+#ifdef _DEBUG
+		cloudResource_->SetName(L"VolumetricCloudScapes_Cloud");
+		GFSDK_Aftermath_DX12_UpdateResourceInfo(cloudResource_.Get());
+#endif
 		cloudState_ = D3D12_RESOURCE_STATE_COMMON;
 
 		D3D12_UNORDERED_ACCESS_VIEW_DESC unorderedAccessViewDesc{};
@@ -71,6 +75,8 @@ namespace SeedCore
 	{
 		bindlessHeap->FreeIndex(cloudUnorderedAccessViewIndex_);
 		bindlessHeap->FreeIndex(cloudShaderResourceViewIndex_);
+
+		bindlessHeap->DeferRelease(cloudResource_);
 		cloudResource_.Reset();
 	}
 
@@ -96,6 +102,10 @@ namespace SeedCore
 
 		HRESULT hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&cloudResource_));
 		SC_HR_CHECK(hr, "クラウドリソースの生成に失敗しました");
+#ifdef _DEBUG
+		cloudResource_->SetName(L"VolumetricCloudScapes_Cloud");
+		GFSDK_Aftermath_DX12_UpdateResourceInfo(cloudResource_.Get());
+#endif
 		cloudState_ = D3D12_RESOURCE_STATE_COMMON;
 
 		D3D12_UNORDERED_ACCESS_VIEW_DESC unorderedAccessViewDesc{};
@@ -136,6 +146,10 @@ namespace SeedCore
 
 		HRESULT hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&outResource));
 		SC_HR_CHECK(hr, "ノイズテクスチャの生成に失敗しました");
+#ifdef _DEBUG
+		outResource->SetName(L"VolumetricCloudScapes_Noise");
+		GFSDK_Aftermath_DX12_UpdateResourceInfo(outResource.Get());
+#endif
 
 		D3D12_UNORDERED_ACCESS_VIEW_DESC unorderedAccessViewDesc{};
 		unorderedAccessViewDesc.Format = DXGI_FORMAT_R16_FLOAT;

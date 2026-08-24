@@ -54,6 +54,10 @@ namespace SeedCore
 			{
 				HRESULT hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&resources_[frame]));
 				SC_HR_CHECK(hr, "定数バッファの生成に失敗しました");
+#ifdef _DEBUG
+				resources_[frame]->SetName(L"ConstantBuffer");
+				GFSDK_Aftermath_DX12_UpdateResourceInfo(resources_[frame].Get());
+#endif
 
 				indices_[frame] = heap->AllocateIndex();
 				D3D12_CPU_DESCRIPTOR_HANDLE handle = heap->CPUHandle(indices_[frame]);
@@ -80,6 +84,7 @@ namespace SeedCore
 				if (heap_)
 				{
 					heap_->FreeIndex(indices_[frame]);
+					heap_->DeferRelease(resources_[frame]);
 				}
 			}
 		}

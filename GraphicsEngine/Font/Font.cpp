@@ -235,6 +235,10 @@ namespace SeedCore
 			{
 				return;
 			}
+#ifdef _DEBUG
+			atlasTexture_->SetName(L"Font_Atlas");
+			GFSDK_Aftermath_DX12_UpdateResourceInfo(atlasTexture_.Get());
+#endif
 
 			atlasTextureWidth_ = bitmap.width;
 			atlasTextureHeight_ = bitmap.height;

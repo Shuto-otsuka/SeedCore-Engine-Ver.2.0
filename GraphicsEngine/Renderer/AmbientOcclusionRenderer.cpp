@@ -31,6 +31,10 @@ namespace SeedCore
 
 			HRESULT hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&outResource));
 			SC_HR_CHECK(hr, "オープンネステクスチャの生成に失敗しました");
+#ifdef _DEBUG
+			outResource->SetName(L"AmbientOcclusion_Openness");
+			GFSDK_Aftermath_DX12_UpdateResourceInfo(outResource.Get());
+#endif
 
 			D3D12_UNORDERED_ACCESS_VIEW_DESC unorderedAccessViewDesc{};
 			unorderedAccessViewDesc.Format = DXGI_FORMAT_R16_FLOAT;
@@ -88,6 +92,8 @@ namespace SeedCore
 	{
 		bindlessHeap->FreeIndex(rawOpennessUnorderedAccessViewIndex_);
 		bindlessHeap->FreeIndex(rawOpennessShaderResourceViewIndex_);
+
+		bindlessHeap->DeferRelease(rawOpennessResource_);
 		rawOpennessResource_.Reset();
 
 		for (Uint32 view = 0; view < viewCount; ++view)
@@ -96,6 +102,7 @@ namespace SeedCore
 			{
 				bindlessHeap->FreeIndex(accumulatedUnorderedAccessViewIndex_[view][slot]);
 				bindlessHeap->FreeIndex(accumulatedShaderResourceViewIndex_[view][slot]);
+				bindlessHeap->DeferRelease(accumulatedOpennessResource_[view][slot]);
 				accumulatedOpennessResource_[view][slot].Reset();
 			}
 		}

@@ -31,6 +31,10 @@ namespace SeedCore
 
 			HRESULT hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&outResource));
 			SC_HR_CHECK(hr, "GI 放射輝度テクスチャの生成に失敗しました");
+#ifdef _DEBUG
+			outResource->SetName(L"GlobalIllumination_Radiance");
+			GFSDK_Aftermath_DX12_UpdateResourceInfo(outResource.Get());
+#endif
 
 			D3D12_UNORDERED_ACCESS_VIEW_DESC unorderedAccessViewDesc{};
 			unorderedAccessViewDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
@@ -70,6 +74,10 @@ namespace SeedCore
 
 			HRESULT hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&outResource));
 			SC_HR_CHECK(hr, "GI reservoir 信頼度テクスチャの生成に失敗しました");
+#ifdef _DEBUG
+			outResource->SetName(L"GlobalIllumination_Confidence");
+			GFSDK_Aftermath_DX12_UpdateResourceInfo(outResource.Get());
+#endif
 
 			D3D12_UNORDERED_ACCESS_VIEW_DESC unorderedAccessViewDesc{};
 			unorderedAccessViewDesc.Format = DXGI_FORMAT_R16_FLOAT;
@@ -163,7 +171,7 @@ namespace SeedCore
 				CreateRadianceTexture(device, bindlessHeap, clearHeap_, width, height, accumulatedRadianceResource_[view][slot], accumulatedUnorderedAccessViewIndex_[view][slot], accumulatedShaderResourceViewIndex_[view][slot], clearAccumulatedIndex_[view][slot]);
 				accumulatedRadianceState_[view][slot] = D3D12_RESOURCE_STATE_COMMON;
 
-				ReservoirBuffer::Create(device, bindlessHeap, clearHeap_, width * height, reservoirElementSizeInBytes_, reservoirResource_[view][slot], reservoirUnorderedAccessViewIndex_[view][slot], reservoirShaderResourceViewIndex_[view][slot], clearReservoirIndex_[view][slot]);
+				ReservoirBuffer::Create(device, bindlessHeap, clearHeap_, width * height, reservoirElementSizeInBytes_, reservoirResource_[view][slot], reservoirUnorderedAccessViewIndex_[view][slot], reservoirShaderResourceViewIndex_[view][slot], clearReservoirIndex_[view][slot], clearReservoirGpuIndex_[view][slot]);
 				reservoirState_[view][slot] = D3D12_RESOURCE_STATE_COMMON;
 			}
 		}
@@ -216,6 +224,10 @@ namespace SeedCore
 
 		hr = device->CreateCommittedResource(&uploadHeapProperties, D3D12_HEAP_FLAG_NONE, &tableDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&shaderTableResource_));
 		SC_HR_CHECK(hr, "GI シェーダーテーブルリソースの生成に失敗しました");
+#ifdef _DEBUG
+		shaderTableResource_->SetName(L"GlobalIllumination_ShaderTable");
+		GFSDK_Aftermath_DX12_UpdateResourceInfo(shaderTableResource_.Get());
+#endif
 
 		Uint8* mapped = nullptr;
 		hr = shaderTableResource_->Map(0, nullptr, reinterpret_cast<void**>(&mapped));
@@ -231,10 +243,12 @@ namespace SeedCore
 	{
 		bindlessHeap->FreeIndex(radianceUnorderedAccessViewIndex_);
 		bindlessHeap->FreeIndex(radianceShaderResourceViewIndex_);
+		bindlessHeap->DeferRelease(radianceResource_);
 		radianceResource_.Reset();
 
 		bindlessHeap->FreeIndex(confidenceUnorderedAccessViewIndex_);
 		bindlessHeap->FreeIndex(confidenceShaderResourceViewIndex_);
+		bindlessHeap->DeferRelease(confidenceResource_);
 		confidenceResource_.Reset();
 
 		for (Uint32 view = 0; view < viewCount; ++view)
@@ -243,10 +257,13 @@ namespace SeedCore
 			{
 				bindlessHeap->FreeIndex(accumulatedUnorderedAccessViewIndex_[view][slot]);
 				bindlessHeap->FreeIndex(accumulatedShaderResourceViewIndex_[view][slot]);
+				bindlessHeap->DeferRelease(accumulatedRadianceResource_[view][slot]);
 				accumulatedRadianceResource_[view][slot].Reset();
 
 				bindlessHeap->FreeIndex(reservoirUnorderedAccessViewIndex_[view][slot]);
 				bindlessHeap->FreeIndex(reservoirShaderResourceViewIndex_[view][slot]);
+				bindlessHeap->FreeIndex(clearReservoirGpuIndex_[view][slot]);
+				bindlessHeap->DeferRelease(reservoirResource_[view][slot]);
 				reservoirResource_[view][slot].Reset();
 			}
 		}
@@ -257,6 +274,7 @@ namespace SeedCore
 			{
 				bindlessHeap->FreeIndex(atrousScratchUnorderedAccessViewIndex_[view][slot]);
 				bindlessHeap->FreeIndex(atrousScratchShaderResourceViewIndex_[view][slot]);
+				bindlessHeap->DeferRelease(atrousScratchResource_[view][slot]);
 				atrousScratchResource_[view][slot].Reset();
 			}
 		}
@@ -286,7 +304,7 @@ namespace SeedCore
 				CreateRadianceTexture(device, bindlessHeap, clearHeap_, width, height, accumulatedRadianceResource_[view][slot], accumulatedUnorderedAccessViewIndex_[view][slot], accumulatedShaderResourceViewIndex_[view][slot], clearAccumulatedIndex_[view][slot]);
 				accumulatedRadianceState_[view][slot] = D3D12_RESOURCE_STATE_COMMON;
 
-				ReservoirBuffer::Create(device, bindlessHeap, clearHeap_, width * height, reservoirElementSizeInBytes_, reservoirResource_[view][slot], reservoirUnorderedAccessViewIndex_[view][slot], reservoirShaderResourceViewIndex_[view][slot], clearReservoirIndex_[view][slot]);
+				ReservoirBuffer::Create(device, bindlessHeap, clearHeap_, width * height, reservoirElementSizeInBytes_, reservoirResource_[view][slot], reservoirUnorderedAccessViewIndex_[view][slot], reservoirShaderResourceViewIndex_[view][slot], clearReservoirIndex_[view][slot], clearReservoirGpuIndex_[view][slot]);
 				reservoirState_[view][slot] = D3D12_RESOURCE_STATE_COMMON;
 			}
 		}
@@ -374,7 +392,7 @@ namespace SeedCore
 						reservoirState_[clearView][clearSlot] = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
 					}
 
-					cmd->ClearUnorderedAccessViewUint(bindlessHeap_->GPUHandle(reservoirUnorderedAccessViewIndex_[clearView][clearSlot]), clearHeap_.CPUHandle(clearReservoirIndex_[clearView][clearSlot]), reservoirResource_[clearView][clearSlot].Get(), zeroValues, 0, nullptr);
+					cmd->ClearUnorderedAccessViewUint(bindlessHeap_->GPUHandle(clearReservoirGpuIndex_[clearView][clearSlot]), clearHeap_.CPUHandle(clearReservoirIndex_[clearView][clearSlot]), reservoirResource_[clearView][clearSlot].Get(), zeroValues, 0, nullptr);
 				}
 			}
 		}
@@ -416,7 +434,7 @@ namespace SeedCore
 			}
 
 			const Uint32 zeroReservoirValues[4] = { 0, 0, 0, 0 };
-			cmd->ClearUnorderedAccessViewUint(bindlessHeap_->GPUHandle(reservoirUnorderedAccessViewIndex_[viewIndex][writeSlot]), clearHeap_.CPUHandle(clearReservoirIndex_[viewIndex][writeSlot]), reservoirResource_[viewIndex][writeSlot].Get(), zeroReservoirValues, 0, nullptr);
+			cmd->ClearUnorderedAccessViewUint(bindlessHeap_->GPUHandle(clearReservoirGpuIndex_[viewIndex][writeSlot]), clearHeap_.CPUHandle(clearReservoirIndex_[viewIndex][writeSlot]), reservoirResource_[viewIndex][writeSlot].Get(), zeroReservoirValues, 0, nullptr);
 
 			cmdList->Barrier(reservoirResource_[viewIndex][writeSlot].Get(), reservoirState_[viewIndex][writeSlot], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 			reservoirState_[viewIndex][writeSlot] = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;

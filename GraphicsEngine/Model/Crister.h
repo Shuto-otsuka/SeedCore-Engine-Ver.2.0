@@ -38,6 +38,7 @@ namespace SeedCore
 {
 	class BindlessHeap;
 	class BC7CompressShader;
+	class D3D12CommandQueue;
 
 	/**
 	* [EN]
@@ -1238,7 +1239,7 @@ namespace SeedCore
 		* BC7CompressShader(Graphics所有、ModelShaderと同じ立ち位置)が
 		* 持つので、それを渡してもらう。
 		*/
-		void BakeBitmap(ID3D12Device* device, ID3D12CommandQueue* cmdQueue, BC7CompressShader& bc7Shader);
+		void BakeBitmap(ID3D12Device* device, D3D12CommandQueue* cmdQueue, BC7CompressShader& bc7Shader);
 
 		/**
 		* [EN]
@@ -1522,7 +1523,7 @@ namespace SeedCore
 		* オンデマンドにストリームインする（MakeClusterResident/
 		* MakeTextureMipResident、ModelRenderer::Gather から駆動）。
 		*/
-		void Upload(ID3D12Device* device, ID3D12CommandQueue* cmdQueue, BindlessHeap* heap);
+		void Upload(ID3D12Device* device, D3D12CommandQueue* cmdQueue, BindlessHeap* heap);
 
 		/**
 		* [EN]
@@ -2707,7 +2708,7 @@ namespace SeedCore
 		/// [JP] 後からページを出し入れできるよう Upload() で保持する。
 		///      これらのエンジンオブジェクトは全 Crister より長寿命。
 		ID3D12Device* device_ = nullptr;
-		ID3D12CommandQueue* uploadQueue_ = nullptr;
+		D3D12CommandQueue* uploadQueue_ = nullptr;
 		BindlessHeap* bindlessHeap_ = nullptr;
 
 		/// [EN] Dequantisation AABBs computed over all vertices at Upload() time.

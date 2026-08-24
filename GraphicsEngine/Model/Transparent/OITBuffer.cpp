@@ -35,6 +35,10 @@ namespace SeedCore
 
 			hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, nullptr, IID_PPV_ARGS(&headPointerTexture_));
 			SC_HR_CHECK(hr, "OIT HeadPointerTextureの生成に失敗しました");
+#ifdef _DEBUG
+			headPointerTexture_->SetName(L"OIT_HeadPointerTexture");
+			GFSDK_Aftermath_DX12_UpdateResourceInfo(headPointerTexture_.Get());
+#endif
 
 			headPointerUAVIndex_ = bindlessHeap->AllocateIndex();
 
@@ -80,6 +84,10 @@ namespace SeedCore
 
 			hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&fragmentBuffer_));
 			SC_HR_CHECK(hr, "OIT FragmentBufferの生成に失敗しました");
+#ifdef _DEBUG
+			fragmentBuffer_->SetName(L"OIT_FragmentBuffer");
+			GFSDK_Aftermath_DX12_UpdateResourceInfo(fragmentBuffer_.Get());
+#endif
 
 			fragmentBufferUAVIndex_ = bindlessHeap->AllocateIndex();
 
@@ -116,6 +124,10 @@ namespace SeedCore
 
 			hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&counterBuffer_));
 			SC_HR_CHECK(hr, "OIT CounterBufferの生成に失敗しました");
+#ifdef _DEBUG
+			counterBuffer_->SetName(L"OIT_CounterBuffer");
+			GFSDK_Aftermath_DX12_UpdateResourceInfo(counterBuffer_.Get());
+#endif
 
 			counterUAVIndex_ = bindlessHeap->AllocateIndex();
 

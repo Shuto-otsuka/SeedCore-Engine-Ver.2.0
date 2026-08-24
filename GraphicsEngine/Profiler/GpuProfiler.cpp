@@ -74,6 +74,10 @@ namespace SeedCore
 			queryHeap_.Reset();
 			return;
 		}
+#ifdef _DEBUG
+		readbackResource_->SetName(L"GpuProfiler_Readback");
+		GFSDK_Aftermath_DX12_UpdateResourceInfo(readbackResource_.Get());
+#endif
 
 		writeFrame_ = 0;
 		advanceCount_ = 0;

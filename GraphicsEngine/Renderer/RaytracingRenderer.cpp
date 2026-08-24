@@ -343,6 +343,10 @@ namespace SeedCore
 
 			hr = device->CreateCommittedResource(&uploadHeapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&table.materialsResource_));
 			SC_HR_CHECK(hr, "反射マテリアルテーブルの生成に失敗しました");
+#ifdef _DEBUG
+			table.materialsResource_->SetName(L"Raytracing_MaterialsTable");
+			GFSDK_Aftermath_DX12_UpdateResourceInfo(table.materialsResource_.Get());
+#endif
 
 			void* mapped = nullptr;
 			D3D12_RANGE noRead{ 0, 0 };
@@ -396,6 +400,10 @@ namespace SeedCore
 
 			hr = device->CreateCommittedResource(&uploadHeapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&table.triangleMaterialIndexResource_));
 			SC_HR_CHECK(hr, "三角形マテリアルインデックステーブルの生成に失敗しました");
+#ifdef _DEBUG
+			table.triangleMaterialIndexResource_->SetName(L"Raytracing_TriangleMaterialIndexTable");
+			GFSDK_Aftermath_DX12_UpdateResourceInfo(table.triangleMaterialIndexResource_.Get());
+#endif
 
 			void* mapped = nullptr;
 			D3D12_RANGE noRead{ 0, 0 };
@@ -628,7 +636,10 @@ namespace SeedCore
 				resourceDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 
 				device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(blendedBuffer.resource_.ReleaseAndGetAddressOf()));
+#ifdef _DEBUG
 				blendedBuffer.resource_->SetName(L"MorphedPositionBuffer");
+				GFSDK_Aftermath_DX12_UpdateResourceInfo(blendedBuffer.resource_.Get());
+#endif
 				blendedBuffer.capacity_ = raytracingVertexCount;
 			}
 
@@ -699,7 +710,10 @@ namespace SeedCore
 					weightResourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 
 					device->CreateCommittedResource(&weightHeapProperties, D3D12_HEAP_FLAG_NONE, &weightResourceDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(weightBuffer.resource_.ReleaseAndGetAddressOf()));
+#ifdef _DEBUG
 					weightBuffer.resource_->SetName(L"MorphWeightBuffer");
+					GFSDK_Aftermath_DX12_UpdateResourceInfo(weightBuffer.resource_.Get());
+#endif
 					weightBuffer.resource_->Map(0, nullptr, &weightBuffer.mappedPtr_);
 					weightBuffer.capacity_ = targetCount;
 				}
@@ -764,7 +778,10 @@ namespace SeedCore
 				resourceDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 
 				device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(skinnedBuffer.resource_.ReleaseAndGetAddressOf()));
+#ifdef _DEBUG
 				skinnedBuffer.resource_->SetName(L"SkinnedPositionBuffer");
+				GFSDK_Aftermath_DX12_UpdateResourceInfo(skinnedBuffer.resource_.Get());
+#endif
 				skinnedBuffer.capacity_ = vertexCount;
 			}
 

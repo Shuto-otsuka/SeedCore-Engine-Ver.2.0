@@ -25,6 +25,7 @@ namespace SeedCore
 	struct LoaderSystem;
 	class BC7CompressShader;
 	class BindlessHeap;
+	class D3D12CommandQueue;
 	class ImGuiRenderer;
 	class AnimatorControllerPanel;
 	class TimelinePanel;
@@ -44,7 +45,7 @@ namespace SeedCore
 		ImGuiRenderer* imgui_ = nullptr;
 
 		ID3D12Device* device_ = nullptr;
-		ID3D12CommandQueue* cmdQueue_ = nullptr;
+		D3D12CommandQueue* cmdQueue_ = nullptr;
 		BC7CompressShader* bc7Shader_ = nullptr;
 		IDXGIAdapter4* adapter_ = nullptr;
 		DescriptorHeap* descHeap_ = nullptr;

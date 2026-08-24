@@ -10,6 +10,7 @@ namespace SeedCore
 	class ResourceCache;
 	class BindlessHeap;
 	class BC7CompressShader;
+	class D3D12CommandQueue;
 
 	/**
 	* [EN]
@@ -39,7 +40,7 @@ namespace SeedCore
 		* [JP]
 		* アセット ID でモデルをロードする。既にロード済みなら既存のハンドルを返す。
 		*/
-		Handle<Crister> Load(LoaderSystem& loader, ID3D12Device* device, ID3D12CommandQueue* cmdQueue, BindlessHeap* heap, BC7CompressShader& bc7Shader, ResourceCache& cache, Uint32 assetId);
+		Handle<Crister> Load(LoaderSystem& loader, ID3D12Device* device, D3D12CommandQueue* cmdQueue, BindlessHeap* heap, BC7CompressShader& bc7Shader, ResourceCache& cache, Uint32 assetId);
 
 		/**
 		* [EN]

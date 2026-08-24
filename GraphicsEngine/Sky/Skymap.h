@@ -5,6 +5,7 @@
 namespace SeedCore
 {
 	class BindlessHeap;
+	class D3D12CommandQueue;
 
 	/**
 	* [EN]
@@ -39,13 +40,13 @@ namespace SeedCore
 		* [EN] Loads an equirectangular ".hdr" into the equirect source texture.
 		* [JP] パノラマ ".hdr" を equirect ソーステクスチャへロードする。
 		*/
-		Bool LoadEquirect(ID3D12Device* device, ID3D12CommandQueue* cmdQueue, BindlessHeap* heap, const String& filePath);
+		Bool LoadEquirect(ID3D12Device* device, D3D12CommandQueue* cmdQueue, BindlessHeap* heap, const String& filePath);
 
 		/**
 		* [EN] Loads a baked ".skymap" cache (decoded equirect pixels) directly.
 		* [JP] ベイク済み ".skymap" キャッシュ（デコード済み equirect）を直接ロード。
 		*/
-		Bool LoadSkymapCache(ID3D12Device* device, ID3D12CommandQueue* cmdQueue, BindlessHeap* heap, const String& filePath);
+		Bool LoadSkymapCache(ID3D12Device* device, D3D12CommandQueue* cmdQueue, BindlessHeap* heap, const String& filePath);
 
 		void Release(BindlessHeap* heap)noexcept;
 
@@ -59,7 +60,7 @@ namespace SeedCore
 		void SetHandle(const Handle<Skymap>& handle);
 
 	private:
-		Bool CreateEquirectTexture(ID3D12Device* device, ID3D12CommandQueue* cmdQueue, BindlessHeap* heap, DXGI_FORMAT format, Uint width, Uint height, Uint rowPitch, const void* pixels);
+		Bool CreateEquirectTexture(ID3D12Device* device, D3D12CommandQueue* cmdQueue, BindlessHeap* heap, DXGI_FORMAT format, Uint width, Uint height, Uint rowPitch, const void* pixels);
 
 	private:
 		Handle<Skymap> handle_;

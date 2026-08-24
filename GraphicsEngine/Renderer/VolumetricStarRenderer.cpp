@@ -40,6 +40,10 @@ namespace SeedCore
 
 		HRESULT hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&starResource_));
 		SC_HR_CHECK(hr, "スターリソースの生成に失敗しました");
+#ifdef _DEBUG
+		starResource_->SetName(L"VolumetricStar");
+		GFSDK_Aftermath_DX12_UpdateResourceInfo(starResource_.Get());
+#endif
 		starState_ = D3D12_RESOURCE_STATE_COMMON;
 
 		D3D12_UNORDERED_ACCESS_VIEW_DESC unorderedAccessViewDesc{};
@@ -66,6 +70,8 @@ namespace SeedCore
 	{
 		bindlessHeap->FreeIndex(starUnorderedAccessViewIndex_);
 		bindlessHeap->FreeIndex(starShaderResourceViewIndex_);
+
+		bindlessHeap->DeferRelease(starResource_);
 		starResource_.Reset();
 	}
 
@@ -91,6 +97,10 @@ namespace SeedCore
 
 		HRESULT hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&starResource_));
 		SC_HR_CHECK(hr, "スターリソースの生成に失敗しました");
+#ifdef _DEBUG
+		starResource_->SetName(L"VolumetricStar");
+		GFSDK_Aftermath_DX12_UpdateResourceInfo(starResource_.Get());
+#endif
 		starState_ = D3D12_RESOURCE_STATE_COMMON;
 
 		D3D12_UNORDERED_ACCESS_VIEW_DESC unorderedAccessViewDesc{};

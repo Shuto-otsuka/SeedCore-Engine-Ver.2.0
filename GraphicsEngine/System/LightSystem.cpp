@@ -55,7 +55,9 @@ namespace SeedCore
 		bindlessHeap->FreeIndex(clusterLightListUnorderedAccessViewIndex_);
 		bindlessHeap->FreeIndex(clusterLightListShaderResourceViewIndex_);
 
+		bindlessHeap->DeferRelease(clusterDataResource_);
 		clusterDataResource_.Reset();
+		bindlessHeap->DeferRelease(clusterLightListResource_);
 		clusterLightListResource_.Reset();
 	}
 
@@ -94,6 +96,10 @@ namespace SeedCore
 
 			hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&clusterDataResource_));
 			SC_HR_CHECK(hr, "クラスターデータリソースの生成に失敗しました");
+#ifdef _DEBUG
+			clusterDataResource_->SetName(L"LightSystem_ClusterData");
+			GFSDK_Aftermath_DX12_UpdateResourceInfo(clusterDataResource_.Get());
+#endif
 
 			clusterDataUnorderedAccessViewIndex_ = bindlessHeap->AllocateIndex();
 			D3D12_UNORDERED_ACCESS_VIEW_DESC unorderedAccessViewDesc{};
@@ -148,6 +154,10 @@ namespace SeedCore
 
 			hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&clusterLightListResource_));
 			SC_HR_CHECK(hr, "クラスターライトリストリソースの生成に失敗しました");
+#ifdef _DEBUG
+			clusterLightListResource_->SetName(L"LightSystem_ClusterLightList");
+			GFSDK_Aftermath_DX12_UpdateResourceInfo(clusterLightListResource_.Get());
+#endif
 
 			clusterLightListUnorderedAccessViewIndex_ = bindlessHeap->AllocateIndex();
 			D3D12_UNORDERED_ACCESS_VIEW_DESC unorderedAccessViewDesc{};
