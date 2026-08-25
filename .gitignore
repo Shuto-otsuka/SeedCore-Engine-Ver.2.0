@@ -72,6 +72,10 @@ imgui.ini
 ## メタファイル
 *.meta
 
+## GPUデバッグファイル
+*.nvdbg
+*.nv-gpudmp
+
 ## ソリューション関連
 .vs/
 *.userosscache

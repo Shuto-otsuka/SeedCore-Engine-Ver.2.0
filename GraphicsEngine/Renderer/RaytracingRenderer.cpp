@@ -641,12 +641,13 @@ namespace SeedCore
 				GFSDK_Aftermath_DX12_UpdateResourceInfo(blendedBuffer.resource_.Get());
 #endif
 				blendedBuffer.capacity_ = raytracingVertexCount;
+				blendedBuffer.state_ = D3D12_RESOURCE_STATE_COMMON;
 			}
 
 			D3D12_RESOURCE_BARRIER toCopyDest{};
 			toCopyDest.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
 			toCopyDest.Transition.pResource = blendedBuffer.resource_.Get();
-			toCopyDest.Transition.StateBefore = D3D12_RESOURCE_STATE_COMMON;
+			toCopyDest.Transition.StateBefore = blendedBuffer.state_;
 			toCopyDest.Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_DEST;
 			toCopyDest.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 			commandList4->ResourceBarrier(1, &toCopyDest);
@@ -660,6 +661,7 @@ namespace SeedCore
 			toUnorderedAccess.Transition.StateAfter = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
 			toUnorderedAccess.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 			commandList4->ResourceBarrier(1, &toUnorderedAccess);
+			blendedBuffer.state_ = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
 
 			const auto& subMeshesForBlend = crister->SubMeshes();
 			DynamicArray<MorphWeightBuffer>& weightBuffers = morphWeightBuffers_[frameIndex][pending.entityID_];

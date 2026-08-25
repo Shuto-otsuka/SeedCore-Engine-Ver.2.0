@@ -271,6 +271,20 @@ namespace SeedCore
 		{
 			Microsoft::WRL::ComPtr<ID3D12Resource> resource_;
 			Uint32 capacity_ = 0;
+
+			/// [EN] Tracks resource_'s actual current state across frames -
+			/// morphedPositionBuffers_/skinnedPositionBuffers_ entries are reused
+			/// (not recreated) whenever capacity_ already covers this frame's
+			/// vertex count, so the barrier before each frame's write cannot
+			/// assume COMMON: the previous frame left it in whatever state its
+			/// own last transition set (UNORDERED_ACCESS for the morph path).
+			/// [JP] resource_ の実際の現在状態をフレームを跨いで追跡する -
+			/// morphedPositionBuffers_/skinnedPositionBuffers_ のエントリは、
+			/// capacity_ が今フレームの頂点数を既に満たしていれば(再生成せず)
+			/// 使い回されるため、各フレームの書き込み前バリアは COMMON を
+			/// 前提にできない - 前フレームは自分の最後の遷移が設定した状態
+			/// (モーフ経路なら UNORDERED_ACCESS)のまま残している。
+			D3D12_RESOURCE_STATES state_ = D3D12_RESOURCE_STATE_COMMON;
 		};
 
 		/// [EN] Per (entity, SubMesh) UPLOAD-heap buffer of this frame's
