@@ -2,6 +2,8 @@
 #include <Editor/Editor/EditorContext.h>
 #include <Editor/Editor/ImGui/ImGuiRenderer.h>
 #include <FoundationEngine/Input/InputSystem.h>
+#include <FoundationEngine/Resource/Gateway.h>
+#include <GraphicsEngine/DLSS/DlssManager.h>
 
 namespace SeedCore
 {
@@ -187,6 +189,10 @@ namespace SeedCore
 		gameConfig_.useDlss_ = context_.viewportContext_.raytracing_.dlssRayReconstructionEnabled_;
 		gameConfig_.upscaleMode_ = context_.viewportContext_.raytracing_.upscaleMode_;
 		gameConfig_.resolution_ = context_.viewportContext_.outputResolution_;
+		gameConfig_.useFrameGeneration_ = Gateway::GetDlssManager().FrameGenerationEnable();
+		gameConfig_.vsync_ = context_.viewportContext_.vsync_;
+		gameConfig_.useReflex_ = Gateway::GetDlssManager().ReflexEnable();
+		gameConfig_.useDeepDVC_ = Gateway::GetDlssManager().DeepDVCEnable();
 
 		std::fill(initialScenePathBuffer_.begin(), initialScenePathBuffer_.end(), '\0');
 		std::string initialScenePath = gameConfig_.initialScenePath_.str();
@@ -276,7 +282,22 @@ namespace SeedCore
 		ImGui::Separator();
 		ImGui::Spacing();
 
-		ImGui::TextDisabled("解像度");
+		ImGui::TextDisabled("グラフィックス");
+		ImGui::Spacing();
+
+		ImGui::BeginDisabled(gameConfig_.useFrameGeneration_);
+		if (ImGui::Checkbox("垂直同期(VSync)", &gameConfig_.vsync_))
+		{
+			changed = true;
+			context_.viewportContext_.vsync_ = gameConfig_.vsync_;
+		}
+		ImGui::EndDisabled();
+
+		ImGui::Spacing();
+		ImGui::Separator();
+		ImGui::Spacing();
+
+		ImGui::TextDisabled("DLSS");
 		ImGui::Spacing();
 
 		const Char* resolutionLabels[] = { "640x360 (HHD)", "1280x720 (HD)", "1920x1080 (FHD)", "2560x1440 (QHD)", "3840x2160 (4K)", "7680x4320 (8K)" };
@@ -290,15 +311,6 @@ namespace SeedCore
 			context_.viewportContext_.resizeRequested_ = true;
 		}
 
-		ImGui::TextDisabled("(エディターのレンダー解像度に即時反映されます)");
-
-		ImGui::Spacing();
-		ImGui::Separator();
-		ImGui::Spacing();
-
-		ImGui::TextDisabled("DLSS");
-		ImGui::Spacing();
-
 		if (ImGui::Checkbox("DLSSを使用する", &gameConfig_.useDlss_))
 		{
 			changed = true;
@@ -306,7 +318,7 @@ namespace SeedCore
 			context_.viewportContext_.resizeRequested_ = true;
 		}
 
-		const Char* upscaleModeLabels[] = { "最高性能", "バランス", "最高画質", "超高性能", "DLAA" };
+		const Char* upscaleModeLabels[] = { "MaxPerformance（最高性能）", "Balanced（バランス）", "MaxQuality（最高画質）", "UltraPerformance（超高性能）", "DLAA" };
 		Int32 upscaleModeIndex = static_cast<Int32>(gameConfig_.upscaleMode_);
 
 		if (ImGui::Combo("パフォーマンス", &upscaleModeIndex, upscaleModeLabels, IM_ARRAYSIZE(upscaleModeLabels)))
@@ -317,7 +329,34 @@ namespace SeedCore
 			context_.viewportContext_.resizeRequested_ = true;
 		}
 
-		ImGui::TextDisabled("(エディターのDLSS-RR/TAAUプレビューに即時反映されます。解像度も自動調整されます)");
+		if (ImGui::Checkbox("フレーム生成(FG)を使用する", &gameConfig_.useFrameGeneration_))
+		{
+			changed = true;
+			Gateway::GetDlssManager().FrameGenerationEnable(gameConfig_.useFrameGeneration_);
+		}
+
+		ImGui::TextDisabled("(エディターのレンダー解像度/DLSS-RR/TAAUプレビューに即時反映されます)");
+
+		ImGui::Spacing();
+		ImGui::Separator();
+		ImGui::Spacing();
+
+		ImGui::TextDisabled("NVIDIA機能");
+		ImGui::Spacing();
+
+		if (ImGui::Checkbox("色彩ブースト（DeepDVC）を使用する", &gameConfig_.useDeepDVC_))
+		{
+			changed = true;
+			Gateway::GetDlssManager().DeepDVCEnable(gameConfig_.useDeepDVC_);
+		}
+
+		if (ImGui::Checkbox("低遅延化（Reflex）を使用する", &gameConfig_.useReflex_))
+		{
+			changed = true;
+			Gateway::GetDlssManager().ReflexEnable(gameConfig_.useReflex_);
+		}
+
+		ImGui::TextDisabled("(エディターに即時反映されます)");
 
 		ImGui::Spacing();
 		ImGui::Separator();

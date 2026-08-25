@@ -25,7 +25,7 @@ namespace SeedCore
 	///      only a plain enabled_ flag exists for each as a placeholder, with
 	///      nothing behind it on the Renderer side yet. Editor's EditorContext
 	///      holds one of these and edits it from the グラフィックス→
-	///      レイトレーシング menu; Graphics::SetRaytracingSettings threads it
+	///      レイトレーシング menu; Graphics::Raytracing threads it
 	///      through to Renderer/RaytracingRenderer as a single call.
 	/// [JP] レイトレーシング系エフェクトの設定をまとめる。shadow_/
 	///      ambientOcclusion_/reflection_/refraction_ は実装済みの実
@@ -36,7 +36,7 @@ namespace SeedCore
 	///      チューニング構造体を持たず、enabled_ フラグだけを器として
 	///      用意してある(Renderer側はまだ何も見ていない)。Editor 側の
 	///      EditorContext がこれを1つ保持してメニュー(グラフィックス→
-	///      レイトレーシング)から編集し、Graphics::SetRaytracingSettings
+	///      レイトレーシング)から編集し、Graphics::Raytracing
 	///      経由で Renderer/RaytracingRenderer まで1本で渡す。
 	struct RaytracingContext
 	{

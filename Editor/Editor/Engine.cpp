@@ -38,7 +38,6 @@ namespace SeedCore
 		{
 			return;
 		}
-		Gateway::BindEffekseerManager(graphics_->GetEffekseerManager());
 
 		ID3D12Device* device = graphics_->GetContext()->GetDevice();
 
@@ -103,7 +102,12 @@ namespace SeedCore
 		editorContext_.viewportContext_.outputResolution_ = gameConfig_.resolution_;
 		editorContext_.viewportContext_.raytracing_.dlssRayReconstructionEnabled_ = gameConfig_.useDlss_;
 		editorContext_.viewportContext_.raytracing_.upscaleMode_ = gameConfig_.upscaleMode_;
+		editorContext_.viewportContext_.vsync_ = gameConfig_.vsync_;
 		editorContext_.viewportContext_.resizeRequested_ = true;
+
+		graphics_->Reflex(gameConfig_.useReflex_, false);
+		graphics_->DeepDVC(gameConfig_.useDeepDVC_, 0.5f, 0.25f);
+		Gateway::GetDlssManager().FrameGenerationEnable(gameConfig_.useFrameGeneration_);
 
 		if (!editorConfig_.lastScenePath_.str().empty())
 		{
@@ -320,7 +324,8 @@ namespace SeedCore
 				}
 				weatherSystem_.Execute(*world_, gameTimer_.DeltaTime(), editorContext_.viewportContext_.raytracing_.daySystem_.monthOfYear_, editorContext_.viewportContext_.raytracing_.volumetricCloudScapes_);
 
-				graphics_->SetRaytracingSettings(editor_->GetRaytracingSettings());
+				graphics_->Raytracing(editor_->GetRaytracingSettings());
+				graphics_->VerticalSync(editorContext_.viewportContext_.vsync_);
 				graphics_->EditorRender(worldTimer_, editorCamera_, *loaderSystem_, *resource_, *world_, editor_->GetViewMode(), PhysicsSystem::GatherColliderInstances(*world_), editor_->GetSelectedEntity());
 				graphics_->GameRender(gameTimer_, *loaderSystem_, *resource_, *world_);
 				graphics_->CanvasRender(worldTimer_, canvasCamera_, *loaderSystem_, *resource_, *world_);

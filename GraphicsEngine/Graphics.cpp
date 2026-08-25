@@ -1,4 +1,5 @@
 #include <GraphicsEngine/Graphics.h>
+#include <FoundationEngine/Resource/Gateway.h>
 #include <FoundationEngine/Resource/ResourceCache.h>
 #include <FoundationEngine/Resource/Scene.h>
 #include <GraphicsEngine/D3D12/Context/D3D12CommandQueue.h>
@@ -16,7 +17,6 @@
 #include <GraphicsEngine/D3D12/PipelineState/RootSignature.h>
 #include <GraphicsEngine/Font/FontResource.h>
 #include <GraphicsEngine/Movie/MovieResource.h>
-#include <FoundationEngine/Time/GameTimer.h>
 
 namespace SeedCore
 {
@@ -77,15 +77,11 @@ namespace SeedCore
 			return false;
 		}
 
+		Gateway::BindDlssManager(dlssManager_.get());
+
 		renderer_ = MakePtr<Renderer>();
 		renderer_->Create(context_->GetDevice(), context_->GetDirectQueue()->GetCommandQueue(), static_cast<Uint32>(swapChain_->BufferCount()), bindlessHeap_.get(), *shaderCache_, nativeWidth_, nativeHeight_);
 		SC_LOG_NOTICE("レンダラーを作成しました ({}x{})", nativeWidth_, nativeHeight_);
-
-		/// [JP] Renderer は DlssManager の Streamline SDK ライフサイクル(この
-		///      関数の先頭で Initialize/Prepare 済み)を所有しない — DLSS-RR
-		///      有効時に Tag()/EvaluateRayReconstruction() を駆動するための
-		///      ポインタだけ渡す。
-		renderer_->SetDlssManager(dlssManager_.get());
 
 		editorSceneSystem_ = MakePtr<SceneSystem>(context_->GetDevice(), bindlessHeap_.get());
 		gameSceneSystem_ = MakePtr<SceneSystem>(context_->GetDevice(), bindlessHeap_.get());
@@ -237,16 +233,11 @@ namespace SeedCore
 
 		/// [JP] ストリーミングの LOD 要求判定用に前フレームのカメラを渡す
 		///      （カメラ更新は Gather の後 — 1 フレーム遅れで十分）。
-		renderer_->Gather(loaderSystem, resourceCache, world, cameraSystem_.GetSceneConstantBuffer(), colliderInstances, selectedEntity);
+		renderer_->GatherScenePreview(loaderSystem, resourceCache, world, cameraSystem_.GetSceneConstantBuffer(), colliderInstances, selectedEntity);
 
 		renderer_->BeginEditorFrame(context_->GetDirectList());
 		renderer_->EditorFlush(context_->GetDirectList(), editorSceneSystem_.get(), timer.DeltaTime(), viewMode);
 		renderer_->EndEditorFrame(context_->GetDirectList(), editorSceneConstantBuffer);
-	}
-
-	void Graphics::SetRaytracingSettings(const RaytracingContext& settings)
-	{
-		renderer_->SetRaytracingSettings(settings);
 	}
 
 	void Graphics::GameRender(GameTimer& timer, LoaderSystem& loaderSystem, ResourceCache& resourceCache, World& world)
@@ -376,6 +367,7 @@ namespace SeedCore
 		///      参照 — Tag() 呼び出しごとに取得すると後勝ちで上書きされ、
 		///      先に処理したビューが誤ったトークンを使う事故になる)。
 		dlssManager_->BeginFrame();
+		dlssManager_->EvaluateReflex();
 
 		auto cmdList = context_->GetDirectList();
 		auto backBuffer = swapChain_->BackBuffer();
@@ -410,6 +402,33 @@ namespace SeedCore
 		
 		const Float clearColor[4] = { 0.3f, 0.3f, 0.3f, 1.0f };
 		cmdList->Get()->ClearRenderTargetView(renderTargetViewHandle, clearColor, 0, nullptr);
+	}
+
+	void Graphics::VerticalSync(Bool vsync)
+	{
+		swapChain_->VerticalSync(vsync);
+	}
+
+	Bool Graphics::VerticalSync()const
+	{
+		return swapChain_->VerticalSync();
+	}
+
+	void Graphics::Raytracing(const RaytracingContext& settings)
+	{
+		renderer_->Raytracing(settings);
+	}
+
+	void Graphics::Reflex(Bool enable, Bool useBoost)
+	{
+		dlssManager_->ReflexEnable(enable);
+		dlssManager_->Reflex(useBoost);
+	}
+
+	void Graphics::DeepDVC(Bool enable, Float intensity, Float saturationBoost)
+	{
+		dlssManager_->DeepDVCEnable(enable);
+		dlssManager_->DeepDVC(intensity, saturationBoost);
 	}
 
 	D3D12Context* Graphics::GetContext()const
@@ -485,11 +504,6 @@ namespace SeedCore
 	CameraSystem& Graphics::GetCameraSystem()
 	{
 		return cameraSystem_;
-	}
-
-	EffekseerManager* Graphics::GetEffekseerManager()const
-	{
-		return renderer_->GetEffekseerManager();
 	}
 
 	void Graphics::DrawSplashScreen(Bool loadComplete, Float progress, Bool showWarning, Bool showFiction)

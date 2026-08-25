@@ -1,4 +1,6 @@
 #include <GraphicsEngine/Renderer/RaytracingRenderer.h>
+#include <FoundationEngine/Resource/Gateway.h>
+#include <GraphicsEngine/DLSS/DlssManager.h>
 #include <GraphicsEngine/Model/Crister.h>
 #include <GraphicsEngine/Model/ModelResource.h>
 #include <GraphicsEngine/D3D12/Descriptor/BindlessHeap.h>
@@ -427,6 +429,7 @@ namespace SeedCore
 
 	void RaytracingRenderer::Build(D3D12CommandList* cmdList, ID3D12Device* device, const ModelRenderer& modelRenderer, Float deltaTime, Float nightFactor, const Vector3& cameraPosition, Float totalTime, Float snowIntensity)
 	{
+		Bool dlssRayReconstructionEnabled = Gateway::GetDlssManager().RayReconstructionEnable();
 		Vector3 wind = Vector3(volumetricCloudScapesSettings_.windSpeed_ * 10.0f, 0.0f, 0.0f);
 		tlasBuiltThisFrame_ = false;
 
@@ -471,11 +474,11 @@ namespace SeedCore
 		{
 			indicesSystem_->SetTLASIndex(TLASBindlessIndex());
 			shadowRenderer_->PrepareFrame(shadowSettings_);
-			ambientOcclusionRenderer_->PrepareFrame(ambientOcclusionSettings_, dlssRayReconstructionEnabled_);
+			ambientOcclusionRenderer_->PrepareFrame(ambientOcclusionSettings_, dlssRayReconstructionEnabled);
 			subsurfaceScatteringRenderer_->PrepareFrame(subsurfaceScatteringSettings_);
-			reflectionRenderer_->PrepareFrame(reflectionSettings_, dlssRayReconstructionEnabled_);
+			reflectionRenderer_->PrepareFrame(reflectionSettings_, dlssRayReconstructionEnabled);
 			refractionRenderer_->PrepareFrame(refractionSettings_);
-			globalIlluminationRenderer_->PrepareFrame(globalIlluminationSettings_, dlssRayReconstructionEnabled_);
+			globalIlluminationRenderer_->PrepareFrame(globalIlluminationSettings_, dlssRayReconstructionEnabled);
 			volumetricCloudScapesRenderer_->PrepareFrame(volumetricCloudScapesSettings_, volumetricCloudScapesEnabled_);
 			volumetricStarRenderer_->PrepareFrame(volumetricStarSettings_, volumetricStarEnabled_, deltaTime, nightFactor);
 			weatherParticleRenderer_->PrepareFrame(cameraPosition, deltaTime, totalTime, wind, rainEnabled_, rainSettings_, volumetricCloudScapesSettings_.rain_, snowEnabled_, snowSettings_, snowIntensity);
@@ -1146,11 +1149,11 @@ namespace SeedCore
 		///      （フォールバック）が見える。
 		indicesSystem_->SetTLASIndex(TLASBindlessIndex());
 		shadowRenderer_->PrepareFrame(shadowSettings_);
-		ambientOcclusionRenderer_->PrepareFrame(ambientOcclusionSettings_, dlssRayReconstructionEnabled_);
+		ambientOcclusionRenderer_->PrepareFrame(ambientOcclusionSettings_, dlssRayReconstructionEnabled);
 		subsurfaceScatteringRenderer_->PrepareFrame(subsurfaceScatteringSettings_);
-		reflectionRenderer_->PrepareFrame(reflectionSettings_, dlssRayReconstructionEnabled_);
+		reflectionRenderer_->PrepareFrame(reflectionSettings_, dlssRayReconstructionEnabled);
 		refractionRenderer_->PrepareFrame(refractionSettings_);
-		globalIlluminationRenderer_->PrepareFrame(globalIlluminationSettings_, dlssRayReconstructionEnabled_);
+		globalIlluminationRenderer_->PrepareFrame(globalIlluminationSettings_, dlssRayReconstructionEnabled);
 		volumetricCloudScapesRenderer_->PrepareFrame(volumetricCloudScapesSettings_, volumetricCloudScapesEnabled_);
 		volumetricStarRenderer_->PrepareFrame(volumetricStarSettings_, volumetricStarEnabled_, deltaTime, nightFactor);
 		weatherParticleRenderer_->PrepareFrame(cameraPosition, deltaTime, totalTime, wind, rainEnabled_, rainSettings_, volumetricCloudScapesSettings_.rain_, snowEnabled_, snowSettings_, snowIntensity);
@@ -1168,7 +1171,7 @@ namespace SeedCore
 	void RaytracingRenderer::DispatchAmbientOcclusion(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex, RaytracingView view)
 	{
 		Bool tlasValid = TLASBindlessIndex() != 0xFFFFFFFF;
-		ambientOcclusionRenderer_->Dispatch(cmdList, heap, constantIndex, structuredIndex, tlasValid && ambientOcclusionEnabled_, view, dlssRayReconstructionEnabled_);
+		ambientOcclusionRenderer_->Dispatch(cmdList, heap, constantIndex, structuredIndex, tlasValid && ambientOcclusionEnabled_, view, Gateway::GetDlssManager().RayReconstructionEnable());
 	}
 
 	void RaytracingRenderer::DispatchSubsurfaceScattering(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex)
@@ -1180,7 +1183,7 @@ namespace SeedCore
 	void RaytracingRenderer::DispatchReflection(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex, RaytracingView view)
 	{
 		Bool tlasValid = TLASBindlessIndex() != 0xFFFFFFFF;
-		reflectionRenderer_->Dispatch(cmdList, heap, constantIndex, structuredIndex, tlasValid && reflectionEnabled_, view, dlssRayReconstructionEnabled_);
+		reflectionRenderer_->Dispatch(cmdList, heap, constantIndex, structuredIndex, tlasValid && reflectionEnabled_, view, Gateway::GetDlssManager().RayReconstructionEnable());
 	}
 
 	void RaytracingRenderer::DispatchRefraction(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex)
@@ -1192,7 +1195,7 @@ namespace SeedCore
 	void RaytracingRenderer::DispatchGlobalIllumination(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex, RaytracingView view)
 	{
 		Bool tlasValid = TLASBindlessIndex() != 0xFFFFFFFF;
-		globalIlluminationRenderer_->Dispatch(cmdList, heap, constantIndex, structuredIndex, tlasValid && globalIlluminationEnabled_, view, dlssRayReconstructionEnabled_);
+		globalIlluminationRenderer_->Dispatch(cmdList, heap, constantIndex, structuredIndex, tlasValid && globalIlluminationEnabled_, view, Gateway::GetDlssManager().RayReconstructionEnable());
 	}
 
 	void RaytracingRenderer::DispatchVolumetricCloudScapes(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex)
@@ -1259,12 +1262,10 @@ namespace SeedCore
 		volumetricLightSettings_ = settings.volumetricLight_;
 		volumetricLightEnabled_ = settings.volumetricLightEnabled_;
 
-		dlssRayReconstructionEnabled_ = settings.dlssRayReconstructionEnabled_;
-
 		/// [JP] Shadowは自前のデノイズモードフィールド(ShadowRayConstantBuffer::
 		///      denoiseMode_)を持つ既存スキャフォールドがあるので、グローバル
 		///      トグルをそこへ流し込む(AO/GIのように別引数にしない)。
-		shadowSettings_.denoiseMode_ = dlssRayReconstructionEnabled_ ? static_cast<Uint32>(ShadowDenoiseMode::DlssRR) : static_cast<Uint32>(ShadowDenoiseMode::Temporal);
+		shadowSettings_.denoiseMode_ = Gateway::GetDlssManager().RayReconstructionEnable() ? static_cast<Uint32>(ShadowDenoiseMode::DlssRR) : static_cast<Uint32>(ShadowDenoiseMode::Temporal);
 	}
 
 	Uint32 RaytracingRenderer::TLASBindlessIndex()const

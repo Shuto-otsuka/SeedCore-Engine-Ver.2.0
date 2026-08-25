@@ -461,19 +461,6 @@ namespace SeedCore
 		VolumetricLightRayConstantBuffer volumetricLightSettings_;
 		Bool volumetricLightEnabled_ = false;
 
-		/// [EN] Global switch: DLSS Ray Reconstruction (whole-frame denoise+
-		///      upscale, driven by DlssRayReconstructionRenderer in Renderer)
-		///      vs. each effect's own per-pixel spatio-temporal denoiser. When
-		///      true, Shadow/AO/GI each bypass their own denoise dispatch (see
-		///      their PrepareFrame/Dispatch) instead of running both.
-		/// [JP] グローバル切り替え: DLSS Ray Reconstruction(フレーム全体の
-		///      デノイズ+アップスケール、Renderer の
-		///      DlssRayReconstructionRenderer が駆動)か、各エフェクト自前の
-		///      画素ごとの空間+時間デノイザか。true の間は Shadow/AO/GI が
-		///      それぞれ自前デノイズのディスパッチをバイパスする(両方は
-		///      走らせない — PrepareFrame/Dispatch 参照)。
-		Bool dlssRayReconstructionEnabled_ = false;
-
 		BindlessHeap* bindlessHeap_ = nullptr;
 		IndicesSystem* indicesSystem_ = nullptr;
 

@@ -62,10 +62,20 @@ namespace SeedCore
 	{
 		HRESULT hr{ S_OK };
 
-		Uint syncInterval = 0;
-		Uint presentFlags = DXGI_PRESENT_ALLOW_TEARING;
+		Uint syncInterval = vsync_ ? 1 : 0;
+		Uint presentFlags = vsync_ ? 0 : DXGI_PRESENT_ALLOW_TEARING;
 		hr = swapChain_->Present(syncInterval, presentFlags);
 		SC_DEVICE_REMOVED_CHECK(hr, device, "スワップチェーンのPresentに失敗しました");
+	}
+
+	void SwapChain::VerticalSync(Bool vsync)
+	{
+		vsync_ = vsync;
+	}
+
+	Bool SwapChain::VerticalSync()const
+	{
+		return vsync_;
 	}
 
 	Size SwapChain::BufferCount()const

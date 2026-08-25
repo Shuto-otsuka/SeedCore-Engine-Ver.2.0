@@ -202,9 +202,9 @@ namespace SeedCore
 		void BeginDebugOverlay(D3D12CommandList* cmdList, RaytracingView view);
 
 		/// [EN] Transitions view's active output chain from RENDER_TARGET back
-		///      to PIXEL_SHADER_RESOURCE, so RefreshImGuiOutputView can read it.
+		///      to PIXEL_SHADER_RESOURCE, so RefreshImGui can read it.
 		/// [JP] viewのアクティブな出力チェーンをRENDER_TARGETから
-		///      PIXEL_SHADER_RESOURCEへ戻す。RefreshImGuiOutputViewが
+		///      PIXEL_SHADER_RESOURCEへ戻す。RefreshImGuiが
 		///      読み取れるようにするため。
 		void EndDebugOverlay(D3D12CommandList* cmdList, RaytracingView view);
 

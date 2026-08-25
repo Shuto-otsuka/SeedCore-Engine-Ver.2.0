@@ -7,6 +7,8 @@ namespace SeedCore
 	class CriManager;
 	class FontManager;
 	class EffekseerManager;
+	class DlssManager;
+	class SwapChain;
 
 	/**
 	* [EN]
@@ -77,6 +79,17 @@ namespace SeedCore
 
 		/**
 		* [EN]
+		* Binds the process-wide DlssManager instance.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* プロセス全体の DlssManager インスタンスを束縛する。
+		*/
+		static void BindDlssManager(DlssManager* manager);
+
+		/**
+		* [EN]
 		* Returns the bound JoltManager instance (must have been bound
 		* via BindJoltManager beforehand).
 		*
@@ -127,6 +140,19 @@ namespace SeedCore
 		*/
 		static EffekseerManager& GetEffekseerManager();
 
+		/**
+		* [EN]
+		* Returns the bound DlssManager instance (must have been bound via
+		* BindDlssManager beforehand).
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* 束縛済みの DlssManager インスタンスを返す（事前に BindDlssManager
+		* で束縛されている必要がある）。
+		*/
+		static DlssManager& GetDlssManager();
+
 	private:
 		/// [EN] The bound process-wide JoltManager instance, or nullptr if not yet bound.
 		/// [JP] 束縛済みのプロセス全体の JoltManager インスタンス。まだ束縛されていなければ nullptr。
@@ -143,5 +169,9 @@ namespace SeedCore
 		/// [EN] The bound process-wide EffekseerManager instance, or nullptr if not yet bound.
 		/// [JP] 束縛済みのプロセス全体の EffekseerManager インスタンス。まだ束縛されていなければ nullptr。
 		static EffekseerManager* effekseerManager_;
+
+		/// [EN] The bound process-wide DlssManager instance, or nullptr if not yet bound.
+		/// [JP] 束縛済みのプロセス全体の DlssManager インスタンス。まだ束縛されていなければ nullptr。
+		static DlssManager* dlssManager_;
 	};
 }

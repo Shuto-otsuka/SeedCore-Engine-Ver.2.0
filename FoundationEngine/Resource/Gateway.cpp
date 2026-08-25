@@ -4,6 +4,7 @@
 #include <AudioEngine/CRI/CriManager.h>
 #include <GraphicsEngine/Font/FontManager.h>
 #include <GraphicsEngine/Effect/Effekseer/EffekseerManager.h>
+#include <GraphicsEngine/DLSS/DlssManager.h>
 
 namespace SeedCore
 {
@@ -11,6 +12,7 @@ namespace SeedCore
 	CriManager* Gateway::criManager_ = nullptr;
 	FontManager* Gateway::fontManager_ = nullptr;
 	EffekseerManager* Gateway::effekseerManager_ = nullptr;
+	DlssManager* Gateway::dlssManager_ = nullptr;
 
 	/**
 	* [EN]
@@ -66,6 +68,20 @@ namespace SeedCore
 	void Gateway::BindEffekseerManager(EffekseerManager* manager)
 	{
 		effekseerManager_ = manager;
+	}
+
+	/**
+	* [EN]
+	* Binds the process-wide DlssManager instance.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* プロセス全体の DlssManager インスタンスを束縛する。
+	*/
+	void Gateway::BindDlssManager(DlssManager* manager)
+	{
+		dlssManager_ = manager;
 	}
 
 	/**
@@ -130,5 +146,21 @@ namespace SeedCore
 	EffekseerManager& Gateway::GetEffekseerManager()
 	{
 		return *effekseerManager_;
+	}
+
+	/**
+	* [EN]
+	* Returns the bound DlssManager instance (must have been bound via
+	* BindDlssManager beforehand).
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 束縛済みの DlssManager インスタンスを返す（事前に BindDlssManager
+	* で束縛されている必要がある）。
+	*/
+	DlssManager& Gateway::GetDlssManager()
+	{
+		return *dlssManager_;
 	}
 }

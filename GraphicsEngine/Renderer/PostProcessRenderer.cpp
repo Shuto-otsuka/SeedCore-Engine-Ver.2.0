@@ -1484,13 +1484,13 @@ namespace SeedCore
 	/**
 	* [EN]
 	* Transitions view's active output chain from RENDER_TARGET back to
-	* PIXEL_SHADER_RESOURCE, so RefreshImGuiOutputView can read it.
+	* PIXEL_SHADER_RESOURCE, so RefreshImGui can read it.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
 	* viewのアクティブな出力チェーンをRENDER_TARGETからPIXEL_SHADER_RESOURCE
-	* へ戻す。RefreshImGuiOutputViewが読み取れるようにするため。
+	* へ戻す。RefreshImGuiが読み取れるようにするため。
 	*/
 	void PostProcessRenderer::EndDebugOverlay(D3D12CommandList* cmdList, RaytracingView view)
 	{

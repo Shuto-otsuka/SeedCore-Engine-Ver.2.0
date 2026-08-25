@@ -14,6 +14,10 @@ namespace SeedCore
 
 		void Present(ID3D12Device* device);
 
+		void VerticalSync(Bool vsync);
+
+		Bool VerticalSync()const;
+
 		Size BufferCount()const;
 
 		D3D12_CPU_DESCRIPTOR_HANDLE Handle()const;
@@ -32,5 +36,6 @@ namespace SeedCore
 		Float width_{ 1920 };
 		Float height_{ 1080 };
 		Size bufferCount_{ 3 };
+		Bool vsync_{ false };
 	};
 }

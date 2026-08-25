@@ -197,6 +197,7 @@
 #include <External/DLSS/Include/sl.h>
 #include <External/DLSS/Include/sl_helpers.h>
 #include <External/DLSS/Include/sl_dlss.h>
+#include <External/DLSS/Include/sl_deepdvc.h>
 #pragma pop_macro("free")
 #endif
 

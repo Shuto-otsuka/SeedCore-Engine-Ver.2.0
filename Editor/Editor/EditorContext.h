@@ -86,6 +86,7 @@ namespace SeedCore
 		RaytracingContext raytracing_;
 		ResolutionPreset outputResolution_ = ResolutionPreset::HD;
 		Bool resizeRequested_ = false;
+		Bool vsync_ = false;
 	};
 
 	struct TimelinePreviewContext

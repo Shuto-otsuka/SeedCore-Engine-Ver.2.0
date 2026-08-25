@@ -44,9 +44,7 @@ namespace SeedCore
 			convex = true;
 		}
 
-		shapeHandle_ = convex
-			? actor.GetPhysics().CreateConvexShape(meshID_, meshCollision.Positions())
-			: actor.GetPhysics().CreateMeshShape(meshID_, meshCollision.Positions(), meshCollision.Indices());
+		shapeHandle_ = convex ? actor.GetPhysics().CreateConvexShape(meshID_, meshCollision.Positions()) : actor.GetPhysics().CreateMeshShape(meshID_, meshCollision.Positions(), meshCollision.Indices());
 
 		if (shapeHandle_.empty())
 		{

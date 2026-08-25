@@ -6,8 +6,6 @@ namespace SeedCore
 #if !SC_RENDER_DOC_USAGE
 	namespace
 	{
-		/// [JP] DirectX::SimpleMath::Matrix(row-major)を sl::float4x4(同じく
-		///      row-major、単純な4行の配列)へそのままコピーする。
 		sl::float4x4 ToSlMatrix(const Matrix& m)
 		{
 			sl::float4x4 result{};
@@ -38,7 +36,6 @@ namespace SeedCore
 	}
 #endif
 
-
 	Bool DlssManager::Initialize()
 	{
 #if !SC_RENDER_DOC_USAGE
@@ -47,8 +44,8 @@ namespace SeedCore
 		sl::Feature features[] =
 		{
 			sl::kFeatureDLSS,
-			sl::kFeaturePCL,
 			sl::kFeatureReflex,
+			sl::kFeatureDeepDVC,
 			sl::kFeatureDLSS_G,
 			sl::kFeatureDLSS_RR,
 		};
@@ -76,12 +73,15 @@ namespace SeedCore
 
 		sr = slInit(preference);
 		SC_SL_CHECK(sr, "Streamlineエンジンの初期化に失敗しました。アプリケーションIDやプラグインパスを確認してください。");
-	
+
 		sr = slIsFeatureLoaded(sl::kFeatureDLSS, loadResult_.isDlss_);
 		SC_SL_CHECK(sr, "DLSS機能のロード状態を確認できませんでした。");
 
 		sr = slIsFeatureLoaded(sl::kFeatureReflex, loadResult_.isReflex_);
 		SC_SL_CHECK(sr, "Reflex機能のロード状態を確認できませんでした。");
+
+		sr = slIsFeatureLoaded(sl::kFeatureDeepDVC, loadResult_.isDeepDVC_);
+		SC_SL_CHECK(sr, "Deep DVC機能のロード状態を確認できませんでした。");
 
 		sr = slIsFeatureLoaded(sl::kFeatureDLSS_G, loadResult_.isDlssFG_);
 		SC_SL_CHECK(sr, "DLSS FG機能のロード状態を確認できませんでした。");
@@ -90,6 +90,21 @@ namespace SeedCore
 		SC_SL_CHECK(sr, "DLSS RR機能のロード状態を確認できませんでした。");
 #endif
 		return true;
+	}
+
+	void DlssManager::Finalize()
+	{
+#if !SC_RENDER_DOC_USAGE
+		sl::Result sr{ sl::Result::eOk };
+
+		/// [EN] sl.deepdvc (Streamline SDK 2.12.0) does not export a freeResources callback, so this call is a no-op until NVIDIA implements it.
+		/// [JP] sl.deepdvc(Streamline SDK 2.12.0)はfreeResourcesコールバックをエクスポートしていないため、NVIDIA側が実装するまではこの呼び出しは何もしない。
+		//slFreeResources(sl::kFeatureDeepDVC, sl::ViewportHandle(0));
+		//slFreeResources(sl::kFeatureDeepDVC, sl::ViewportHandle(1));
+
+		sr = slShutdown();
+		SC_SL_CHECK(sr, "Streamlineのシャットダウン中にエラーが発生しました。");
+#endif
 	}
 
 	Bool DlssManager::Prepare(ID3D12Device* device)
@@ -112,6 +127,9 @@ namespace SeedCore
 
 		sr = slIsFeatureSupported(sl::kFeatureReflex, dlssData);
 		SC_SL_CHECK(sr, "Reflex機能が現在のGPUでサポートされているか確認できませんでした。");
+
+		sr = slIsFeatureSupported(sl::kFeatureDeepDVC, dlssData);
+		SC_SL_CHECK(sr, "Deep DVC機能が現在のGPUでサポートされているか確認できませんでした。");
 
 		sr = slIsFeatureSupported(sl::kFeatureDLSS_G, dlssData);
 		SC_SL_CHECK(sr, "DLSS FG機能が現在のGPUでサポートされているか確認できませんでした。");
@@ -155,9 +173,6 @@ namespace SeedCore
 		inputSize.width = static_cast<Uint32>(tags.width_);
 		inputSize.height = static_cast<Uint32>(tags.height_);
 
-		/// [JP] 出力側(アップスケール後)は入力側と解像度が違う — scaling-output-color
-		///      タグに入力側の size を使い回すと、DLSS-RR が出力バッファを入力
-		///      解像度としか認識できず正しくアップスケールされない。
 		sl::Extent outputSize{};
 		outputSize.top = 0;
 		outputSize.left = 0;
@@ -187,12 +202,6 @@ namespace SeedCore
 
 		sl::ViewportHandle viewport(viewportIndex);
 
-		/// [JP] EditorCamera::Update() は projection_ = nonJitterProjection_ に
-		///      ._31/._32 のNDCオフセットを足してジッタを掛けている
-		///      (projection_._31 += jitter.x*2/width、
-		///       projection_._32 -= jitter.y*2/height)。Streamline は行列に
-		///      ジッタを含めず jitterOffset で別に受け取りたいので、その逆算で
-		///      ピクセル単位のジッタ量を復元する。
 		Float width = scene.screenSize_.x;
 		Float height = scene.screenSize_.y;
 		sl::float2 jitterOffset((scene.projection_._31 - scene.nonJitterProjection_._31) * width * 0.5f, -(scene.projection_._32 - scene.nonJitterProjection_._32) * height * 0.5f);
@@ -222,10 +231,6 @@ namespace SeedCore
 		constants.cameraFOV = scene.fieldOfView_;
 		constants.cameraAspectRatio = width / height;
 
-		/// [JP] このエンジンは reverse-Z(GI/AOのraygenコメント参照)。G-Buffer
-		///      速度は (current_ndc - previous_ndc) * 0.5 でカメラ移動込みの
-		///      スクリーン空間デルタとして書かれる(AmbientOcclusionDenoiseCS.hlsl
-		///      等参照)ので mvecScale=1、cameraMotionIncluded=true。
 		constants.depthInverted = sl::Boolean::eTrue;
 		constants.cameraMotionIncluded = sl::Boolean::eTrue;
 		constants.motionVectors3D = sl::Boolean::eFalse;
@@ -236,6 +241,121 @@ namespace SeedCore
 
 		sl::Result sr = slSetConstants(constants, *currentToken_, viewport);
 		SC_SL_CHECK(sr, "DLSS共通カメラ定数(sl::Constants)の設定に失敗しました");
+#endif
+	}
+
+	void DlssManager::ReflexEnable(Bool enable)
+	{
+		reflexEnabled_ = enable;
+	}
+
+	Bool DlssManager::ReflexEnable()const
+	{
+		return reflexEnabled_;
+	}
+
+	void DlssManager::DeepDVCEnable(Bool enable)
+	{
+		deepDVCEnabled_ = enable;
+	}
+
+	Bool DlssManager::DeepDVCEnable()const
+	{
+		return deepDVCEnabled_;
+	}
+
+	void DlssManager::RayReconstructionEnable(Bool enable)
+	{
+		rayReconstructionEnabled_ = enable;
+	}
+
+	Bool DlssManager::RayReconstructionEnable()const
+	{
+		return rayReconstructionEnabled_;
+	}
+
+	void DlssManager::FrameGenerationEnable(Bool enable)
+	{
+		frameGenerationEnabled_ = enable;
+	}
+
+	Bool DlssManager::FrameGenerationEnable()const
+	{
+		return frameGenerationEnabled_;
+	}
+
+	void DlssManager::Reflex(Bool useBoost)
+	{
+		reflexUseBoost_ = useBoost;
+	}
+
+	void DlssManager::DeepDVC(Float intensity, Float saturationBoost)
+	{
+		deepDVCIntensity_ = intensity;
+		deepDVCSaturationBoost_ = saturationBoost;
+	}
+
+	void DlssManager::EvaluateReflex()
+	{
+#if !SC_RENDER_DOC_USAGE
+		if (!currentToken_)
+		{
+			return;
+		}
+
+		sl::ReflexOptions reflexOptions{};
+		reflexOptions.mode = reflexEnabled_ ? (reflexUseBoost_ ? sl::ReflexMode::eLowLatencyWithBoost : sl::ReflexMode::eLowLatency) : sl::ReflexMode::eOff;
+
+		sl::Result sr = slReflexSetOptions(reflexOptions);
+		SC_SL_CHECK(sr, "Reflexオプションの設定に失敗しました");
+
+		sr = slReflexSleep(*currentToken_);
+		SC_SL_CHECK(sr, "Reflexのスリープに失敗しました");
+#endif
+	}
+
+	void DlssManager::EvaluateDeepDVC(ID3D12CommandList* cmdList, ID3D12Resource* colorBuffer, Uint32 viewportIndex, Uint32 width, Uint32 height)
+	{
+#if !SC_RENDER_DOC_USAGE
+		if (!currentToken_ || !deepDVCEnabled_ || !loadResult_.isDeepDVC_)
+		{
+			return;
+		}
+
+		sl::Result sr{ sl::Result::eOk };
+		sl::ViewportHandle viewport(viewportIndex);
+
+		sl::Resource colorResource = { sl::ResourceType::eTex2d, colorBuffer, static_cast<Uint32>(D3D12_RESOURCE_STATE_UNORDERED_ACCESS) };
+
+		sl::Extent extent{};
+		extent.top = 0;
+		extent.left = 0;
+		extent.width = width;
+		extent.height = height;
+
+		sl::ResourceTag deepDVCTags[1] =
+		{
+			{ &colorResource, sl::kBufferTypeScalingOutputColor, sl::ResourceLifecycle::eValidUntilEvaluate, &extent },
+		};
+
+		sr = slSetTagForFrame(*currentToken_, viewport, deepDVCTags, static_cast<Uint32>(std::size(deepDVCTags)), cmdList);
+		SC_SL_CHECK(sr, "DeepDVC用リソースタグの設定に失敗しました");
+
+		sl::DeepDVCOptions deepDVCOptions{};
+		deepDVCOptions.mode = sl::DeepDVCMode::eOn;
+		deepDVCOptions.intensity = deepDVCIntensity_;
+		deepDVCOptions.saturationBoost = deepDVCSaturationBoost_;
+
+		sr = slDeepDVCSetOptions(viewport, deepDVCOptions);
+		SC_SL_CHECK(sr, "DeepDVCオプションの設定に失敗しました");
+
+		const sl::BaseStructure* inputs[] =
+		{
+			&viewport,
+		};
+
+		sr = slEvaluateFeature(sl::kFeatureDeepDVC, *currentToken_, inputs, static_cast<Uint32>(std::size(inputs)), cmdList);
+		SC_SL_CHECK(sr, "DeepDVCの実行に失敗しました");
 #endif
 	}
 
@@ -301,19 +421,9 @@ namespace SeedCore
 		{
 			&viewport,
 		};
-		
+
 		sr = slEvaluateFeature(sl::kFeatureDLSS, *currentToken_, inputs, static_cast<Uint32>(std::size(inputs)), cmdList);
 		SC_SL_CHECK(sr, "DLSSの実行に失敗しました");
-#endif
-	}
-
-	void DlssManager::Finalize()
-	{
-#if !SC_RENDER_DOC_USAGE
-		sl::Result sr{ sl::Result::eOk };
-
-		sr = slShutdown();
-		SC_SL_CHECK(sr, "Streamlineのシャットダウン中にエラーが発生しました。");
 #endif
 	}
 }

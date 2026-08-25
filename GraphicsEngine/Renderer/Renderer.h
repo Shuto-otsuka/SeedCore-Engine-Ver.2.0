@@ -55,32 +55,11 @@ namespace SeedCore
 
 		void Create(ID3D12Device* device, ID3D12CommandQueue* commandQueue, Uint32 swapBufferCount, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, Uint32 width, Uint32 height);
 
-		/// [EN] Resizes every resolution-dependent sub-object in the same order
-		///      Create() constructs them, given the caller has already drained
-		///      the GPU (see Graphics::Resize). nativeWidth/nativeHeight is the
-		///      G-Buffer/render resolution; outputWidth/outputHeight is the
-		///      DLSS-RR/PostProcess upscale target (equal to native when DLSS-RR
-		///      is off).
-		/// [JP] Create() が構築するのと同じ順序で、解像度に依存する全サブ
-		///      オブジェクトをリサイズする。呼び出し側が既にGPUをドレイン済み
-		///      であること(Graphics::Resize 参照)。nativeWidth/nativeHeight は
-		///      G-Buffer/レンダー解像度、outputWidth/outputHeight は
-		///      DLSS-RR/PostProcess のアップスケール先(DLSS-RR オフ時はネイティブ
-		///      と同じ)。
 		void Resize(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, Uint32 nativeWidth, Uint32 nativeHeight, Uint32 outputWidth, Uint32 outputHeight);
 
+	public:
 		void BeginEditorFrame(D3D12CommandList* cmdList);
 
-		/// [EN] scene is that view's camera SceneConstantBuffer (view/
-		///      projection/jitter/etc.) - needed here (not just Gather()'s
-		///      LOD-reference camera) because DLSS Ray Reconstruction, when
-		///      active, needs the actual per-view camera state for
-		///      reprojection (see DlssManager::Constants).
-		/// [JP] scene はそのビューのカメラの SceneConstantBuffer(view/
-		///      projection/ジッタ等)。Gather() の LOD 参照用カメラとは別に
-		///      ここで必要な理由: DLSS Ray Reconstruction が有効な間、
-		///      リプロジェクションに実際のビューごとのカメラ状態が要る
-		///      (DlssManager::Constants 参照)。
 		void EndEditorFrame(D3D12CommandList* cmdList, const SceneConstantBuffer& scene);
 
 		void BeginGameFrame(D3D12CommandList* cmdList);
@@ -99,118 +78,30 @@ namespace SeedCore
 
 		void EndModelTransformFrame(D3D12CommandList* cmdList);
 
-		/// [EN] colliderInstances is gathered by the caller (Editor: it alone
-		///      links both PhysicsEngine and GraphicsEngine, so it is the only
-		///      layer allowed to read Collider component fields) and simply
-		///      forwarded into ColliderRenderer — Renderer/GraphicsEngine never
-		///      references PhysicsEngine types directly.
-		/// [JP] colliderInstances は呼び出し側（Editor: PhysicsEngine と
-		///      GraphicsEngine の両方にリンクする唯一の層であり、Collider
-		///      コンポーネントのフィールドを読める唯一の層）が集めたものを
-		///      そのまま ColliderRenderer へ渡すだけ — Renderer/GraphicsEngine
-		///      は PhysicsEngine の型を一切参照しない。
-		void Gather(LoaderSystem& loaderSystem, ResourceCache& resourceCache, World& world, const SceneConstantBuffer& scene, const DynamicArray<ColliderInstance>& colliderInstances, Entity selectedEntity = Entity::Null());
+	public:
+		void GatherScenePreview(LoaderSystem& loaderSystem, ResourceCache& resourceCache, World& world, const SceneConstantBuffer& scene, const DynamicArray<ColliderInstance>& colliderInstances, Entity selectedEntity = Entity::Null());
 
-		/// [EN] Isolated single-model preview gather (Timeline panel), fully
-		///      independent of ModelRenderer/World — see TimelineRenderer.
-		/// [JP] 単体モデルプレビュー用の独立した gather(Timelineパネル)。
-		///      ModelRenderer/World と完全に独立 — TimelineRenderer 参照。
 		void GatherTimelinePreview(LoaderSystem& loaderSystem, ResourceCache& resourceCache, Uint32 meshAssetId, Uint32 animationAssetId, Float time, const Matrix& worldMatrix);
 
-		/// [EN] Isolated single-model preview gather (Model Transform panel),
-		///      fully independent of ModelRenderer/World — see ModelTransformRenderer.
-		/// [JP] 単体モデルプレビュー用の独立した gather(モデル変換パネル)。
-		///      ModelRenderer/World と完全に独立 — ModelTransformRenderer 参照。
 		void GatherModelTransformPreview(LoaderSystem& loaderSystem, ResourceCache& resourceCache, Uint32 meshAssetId, Uint32 animationAssetId, Float time, const Matrix& worldMatrix);
 
-		/// [EN] Stored on Renderer (not threaded through Flush's parameters) so
-		///      adding future tunables — for this or other raytraced effects —
-		///      never grows EditorFlush/GameFlush's signatures: just add a field
-		///      to the settings struct and a new SetXSettings() call site.
-		/// [JP] Flush の引数で通さず Renderer に保持する。これにより今後
-		///      チューニング項目が増えても（このシャドウ機能でも他のレイトレ
-		///      機能でも）EditorFlush/GameFlush のシグネチャは変わらない —
-		///      設定構造体にフィールドを足し、新しい SetXSettings() の呼び出し
-		///      を1つ足すだけで済む。
-		void SetRaytracingSettings(const RaytracingContext& settings);
+	public:
+		void Raytracing(const RaytracingContext& settings);
 
-		/// [EN] Must be called once, after Graphics::Initialize() constructs
-		///      its DlssManager and before the first EndEditorFrame/
-		///      EndGameFrame - Renderer does not own DlssManager's Streamline
-		///      SDK lifecycle (Graphics does, alongside the swap chain), it
-		///      only needs a pointer to drive Tag()/EvaluateRayReconstruction()
-		///      when DLSS-RR is enabled.
-		/// [JP] Graphics::Initialize() が DlssManager を構築した後、最初の
-		///      EndEditorFrame/EndGameFrame より前に1度だけ呼ぶこと。
-		///      Renderer は DlssManager の Streamline SDK ライフサイクルを
-		///      所有しない(Graphics がスワップチェインと一緒に所有する) —
-		///      DLSS-RR 有効時に Tag()/EvaluateRayReconstruction() を駆動する
-		///      ためのポインタが要るだけ。
-		void SetDlssManager(DlssManager* dlssManager);
-
-		/// [EN] Cached from the last SetRaytracingSettings() call. Lets a caller that runs before this frame's EditorFlush (e.g. Graphics::EditorRender building the scene constant buffer) know whether the post-tonemap debug overlay will end up drawing at PostProcessOutputSize() (true) or the native resolution (false) later this same frame - see EndEditorFrame.
-		/// [JP] 直近の SetRaytracingSettings() 呼び出しからキャッシュ。この関数を、今フレームのEditorFlushより前に実行される呼び出し側(例えばシーン定数バッファを組み立てるGraphics::EditorRender)が、トーンマップ後デバッグオーバーレイが今フレーム後でPostProcessOutputSize()(true)とネイティブ解像度(false)のどちらで描画することになるかを知るために使う - EndEditorFrame参照。
-		[[nodiscard]] Bool IsDlssRayReconstructionEnabled()const { return dlssRayReconstructionEnabled_; }
-
-		/// [EN] PostProcessRenderer's DLSS-RR-upscaled output resolution - see IsDlssRayReconstructionEnabled().
-		/// [JP] PostProcessRendererのDLSS-RRアップスケール後出力解像度 - IsDlssRayReconstructionEnabled()参照。
 		[[nodiscard]] Vector2 PostProcessOutputSize()const;
 
+	public:
 		void EditorFlush(D3D12CommandList* cmdList, SceneSystem* sceneSystem, Float deltaTime, ViewMode viewMode);
 
-		/**
-		* [EN]
-		* Advances the game view's frame. The GameView PostProcess/TAAU
-		* bindless index refresh (and IndicesSystem::UploadGame()) always
-		* runs, even when hasActiveCamera is false - EndGameFrame dispatches
-		* TAAU/PostProcess for the game view unconditionally every frame
-		* regardless of camera state (see its own comment), so those indices
-		* must stay current or the dispatch ends up reading a resource a
-		* later Resize() has since destroyed. Only the geometry/lighting
-		* draw calls are skipped when hasActiveCamera is false.
-		*
-		* ---------------------------------------------------------------------
-		*
-		* [JP]
-		* GameViewのフレームを進める。GameViewのPostProcess/TAAU用bindless
-		* indexの更新(と IndicesSystem::UploadGame())は hasActiveCamera が
-		* false でも必ず実行する - EndGameFrameはカメラの状態に関わらず毎
-		* フレームGameView用のTAAU/PostProcessをディスパッチするため(そちらの
-		* コメント参照)、これらのindexを最新に保っておかないと、後続の
-		* Resize()で破棄済みとなったリソースをディスパッチが読み続けることに
-		* なる。hasActiveCamera が false のときスキップされるのはジオメトリ/
-		* ライティング描画だけ。
-		*/
 		void GameFlush(D3D12CommandList* cmdList, SceneSystem* sceneSystem, Float deltaTime, Bool hasActiveCamera);
 
 		void CanvasFlush(D3D12CommandList* cmdList, SceneSystem* sceneSystem);
 
-		/// [EN] Draws the preview instances using TimelineRenderer's own
-		///      ConstantIndices/StructuredIndices buffers — never touches
-		///      IndicesSystem, so it cannot corrupt what Editor/Game/Canvas's
-		///      already-recorded draw calls read from their shared, per-frame
-		///      -ring constant buffers when the GPU actually executes them.
-		/// [JP] TimelineRenderer 自身の ConstantIndices/StructuredIndices
-		///      バッファで描画する — IndicesSystem には一切触れないため、
-		///      Editor/Game/Canvas が既に記録済みの描画コマンドが GPU 実行時に
-		///      読む共有・フレームリング定数バッファを壊すことがない。
 		void TimelineFlush(D3D12CommandList* cmdList, const SceneConstantBuffer& scene);
 
-		/// [EN] Draws the preview instances using ModelTransformRenderer's own
-		///      ConstantIndices/StructuredIndices buffers — never touches
-		///      IndicesSystem, so it cannot corrupt what Editor/Game/Canvas's
-		///      already-recorded draw calls read from their shared, per-frame
-		///      -ring constant buffers when the GPU actually executes them.
-		/// [JP] ModelTransformRenderer 自身の ConstantIndices/StructuredIndices
-		///      バッファで描画する — IndicesSystem には一切触れないため、
-		///      Editor/Game/Canvas が既に記録済みの描画コマンドが GPU 実行時に
-		///      読む共有・フレームリング定数バッファを壊すことがない。
 		void ModelTransformFlush(D3D12CommandList* cmdList, const SceneConstantBuffer& scene);
 
-		/// [EN] Per-pass GPU times for the profiler panel. Values lag the current
-		///      frame by a couple of frames (see GpuProfiler).
-		/// [JP] プロファイラパネル向けのパス別 GPU 時間。値は現在のフレームより
-		///      数フレーム遅れる(GpuProfiler 参照)。
+	public:
 		[[nodiscard]] const GpuProfiler& GetGpuProfiler()const;
 
 		[[nodiscard]] FrameBuffer* GetEditorFrameBuffer()const;
@@ -225,6 +116,7 @@ namespace SeedCore
 
 		[[nodiscard]] D3D12_GPU_DESCRIPTOR_HANDLE CanvasFrameBufferGPUHandle()const;
 
+	public:
 		void RegisterImGuiShaderResourceViews(ID3D12Device* device, DescriptorHeap* imguiHeap);
 
 		[[nodiscard]] D3D12_GPU_DESCRIPTOR_HANDLE EditorImGuiGPUHandle()const;
@@ -237,39 +129,15 @@ namespace SeedCore
 
 		[[nodiscard]] D3D12_GPU_DESCRIPTOR_HANDLE ModelTransformImGuiGPUHandle()const;
 
-		[[nodiscard]] EffekseerManager* GetEffekseerManager()const;
+	private:
+		void RefreshImGui(RaytracingView view);
 
 	private:
-		/// [EN] Re-points the Editor/Game ImGui SRV at whichever
-		///      PostProcessRenderer output resource is active THIS frame (SD
-		///      or DLSS-RR's UHD chain — see PostProcessRenderer::OutputResource).
-		///      RegisterImGuiShaderResourceViews only creates this descriptor
-		///      ONCE at Editor startup; without a per-frame refresh, toggling
-		///      DLSS-RR on switches which resource PostProcessRenderer writes
-		///      into but the already-created ImGui descriptor keeps pointing
-		///      at the old (now permanently stale) one, so the viewport freezes
-		///      on whatever was last drawn there. Called at the end of
-		///      EndEditorFrame/EndGameFrame, after PostProcessRenderer::
-		///      Dispatch has decided this frame's chain. No-op before ImGui is
-		///      initialized (imguiHeap_ still null).
-		/// [JP] Editor/Game の ImGui SRV を、そのフレームで実際にアクティブな
-		///      PostProcessRenderer 出力リソース(SD、またはDLSS-RRのUHD
-		///      チェーン — PostProcessRenderer::OutputResource 参照)へ
-		///      再設定する。RegisterImGuiShaderResourceViews はこの
-		///      ディスクリプタを Editor 起動時に一度だけ作る — 毎フレーム
-		///      更新しないと、DLSS-RR をオンにした瞬間 PostProcessRenderer の
-		///      書き込み先は切り替わるのに、既に作成済みの ImGui
-		///      ディスクリプタは古い(以後二度と更新されない)リソースを
-		///      指したままになり、ビューポートが最後に描画された絵で固まって
-		///      見える。EndEditorFrame/EndGameFrame の末尾、
-		///      PostProcessRenderer::Dispatch がそのフレームのチェーンを
-		///      決めた後に呼ぶ。ImGui 初期化前(imguiHeap_ がまだ null)は
-		///      何もしない。
-		void RefreshImGuiOutputView(RaytracingView view);
-
 		RootSignature rootSignature_;
 		PipelineStateObject pipelineStateObject_;
 		RaytracingStateObject raytracingStateObject_;
+
+		ResourcePtr<EffekseerManager> effekseerManager_;
 
 		ResourcePtr<IndicesSystem> indicesSystem_;
 
@@ -277,6 +145,7 @@ namespace SeedCore
 
 		ConstraintSystem constraintSystem_;
 
+	private:
 		ResourcePtr<ImageRenderer> imageRenderer_;
 
 		ResourcePtr<FontRenderer> fontRenderer_;
@@ -299,32 +168,16 @@ namespace SeedCore
 
 		ResourcePtr<EffekseerRenderer> effekseerRenderer_;
 
-		ResourcePtr<EffekseerManager> effekseerManager_;
-
 		ResourcePtr<PostProcessRenderer> postProcessRenderer_;
 
 		ResourcePtr<DlssRayReconstructionRenderer> dlssRayReconstructionRenderer_;
 
 		ResourcePtr<TaauUpsamplingRenderer> taauUpsamplingRenderer_;
 
-		DlssManager* dlssManager_ = nullptr;
-
-		/// [EN] Cached from the last SetRaytracingSettings() call. Read in
-		///      EndEditorFrame/EndGameFrame to decide whether to run
-		///      DlssRayReconstructionRenderer before PostProcessRenderer, and
-		///      in EditorFlush/GameFlush to decide which output chain
-		///      PostProcessRenderer::PrepareView should target.
-		/// [JP] 直近の SetRaytracingSettings() 呼び出しからキャッシュ。
-		///      EndEditorFrame/EndGameFrame で DlssRayReconstructionRenderer を
-		///      PostProcessRenderer より前に走らせるか判断するのに使い、
-		///      EditorFlush/GameFlush では PostProcessRenderer::PrepareView が
-		///      どちらの出力チェーンを対象にするか判断するのに使う。
-		Bool dlssRayReconstructionEnabled_ = false;
-
-		/// [EN] Cached from the last SetRaytracingSettings() call. Passed into
+		/// [EN] Cached from the last Raytracing() call. Passed into
 		///      DlssRayReconstructionRenderer::Dispatch/TaauUpsamplingRenderer's
 		///      render-scale calculation in EndEditorFrame/EndGameFrame.
-		/// [JP] 直近の SetRaytracingSettings() 呼び出しからキャッシュ。
+		/// [JP] 直近の Raytracing() 呼び出しからキャッシュ。
 		///      EndEditorFrame/EndGameFrame で DlssRayReconstructionRenderer::
 		///      Dispatch / TaauUpsamplingRenderer のレンダースケール計算に渡す。
 		UpscaleMode upscaleMode_ = UpscaleMode::Balanced;
@@ -342,11 +195,11 @@ namespace SeedCore
 		/// [JP] プロシージャル空の雲の風スクロール用に蓄積する経過時間。
 		Float skyTotalTime_ = 0.0f;
 
-		/// [EN] Cached from the last SetRaytracingSettings() call. daySystem_ is
+		/// [EN] Cached from the last Raytracing() call. daySystem_ is
 		///      already advanced upstream (Editor::Engine, before RaytracingContext
 		///      is pushed down) - Gather() only computes this frame's sun/moon
 		///      state from it via CelestialSystem::Compute (pure, no deltaTime).
-		/// [JP] 直近の SetRaytracingSettings() 呼び出しからキャッシュ。daySystem_
+		/// [JP] 直近の Raytracing() 呼び出しからキャッシュ。daySystem_
 		///      は上流(Editor::Engine、RaytracingContext を渡す前)で既に
 		///      進めてある - Gather() はそこから CelestialSystem::Compute
 		///      (純関数、deltaTime不要)でこのフレームの太陽/月状態を計算するだけ。
