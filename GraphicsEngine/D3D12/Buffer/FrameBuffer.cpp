@@ -6,7 +6,7 @@
 
 namespace SeedCore
 {
-	FrameBuffer::FrameBuffer(ID3D12Device* device, DescriptorHeap* renderTargetViewHeap, BindlessHeap* shaderResourceViewHeap, Uint32 width, Uint32 height, DXGI_FORMAT format, DescriptorHeap* depthStencilViewHeap, Float optimizedClearColorR, Float optimizedClearColorG, Float optimizedClearColorB, Float optimizedClearColorA) :renderTargetViewHeap_(renderTargetViewHeap), depthStencilViewHeap_(depthStencilViewHeap), format_(format), optimizedClearColorR_(optimizedClearColorR), optimizedClearColorG_(optimizedClearColorG), optimizedClearColorB_(optimizedClearColorB), optimizedClearColorA_(optimizedClearColorA)
+	FrameBuffer::FrameBuffer(ID3D12Device* device, DescriptorHeap* renderTargetViewHeap, BindlessHeap* shaderResourceViewHeap, Uint32 width, Uint32 height, DXGI_FORMAT format, DescriptorHeap* depthStencilViewHeap, Float optimizedClearColorR, Float optimizedClearColorG, Float optimizedClearColorB, Float optimizedClearColorA) :format_(format), optimizedClearColorR_(optimizedClearColorR), optimizedClearColorG_(optimizedClearColorG), optimizedClearColorB_(optimizedClearColorB), optimizedClearColorA_(optimizedClearColorA), renderTargetViewHeap_(renderTargetViewHeap), depthStencilViewHeap_(depthStencilViewHeap)
 	{
 		CreateResources(device, shaderResourceViewHeap, width, height);
 	}

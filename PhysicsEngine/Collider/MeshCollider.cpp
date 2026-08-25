@@ -2,6 +2,7 @@
 #include <PhysicsEngine/Physics/Physics.h>
 #include <PhysicsEngine/Physics/PhysicsSystem.h>
 #include <PhysicsEngine/Rigidbody/Rigidbody.h>
+#include <FoundationEngine/ECS/World.h>
 #include <FoundationEngine/ECS/Actor.h>
 #include <FoundationEngine/Log/Warning.h>
 

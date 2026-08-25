@@ -880,6 +880,12 @@ namespace SeedCore
 				ImGui::CloseCurrentPopup();
 			}
 
+			if (ImGui::MenuItem("新規 C# スクリプト"))
+			{
+				// TODO C#
+				ImGui::CloseCurrentPopup();
+			}
+
 			ImGui::Separator();
 
 			if (ImGui::MenuItem("切り取り"))
@@ -1008,6 +1014,12 @@ namespace SeedCore
 			if (ImGui::MenuItem("新規 C++ スクリプト"))
 			{
 				RequestCreateScript(selectedDirectory_);
+				ImGui::CloseCurrentPopup();
+			}
+
+			if (ImGui::MenuItem("新規 C# スクリプト"))
+			{
+				// TODO C#
 				ImGui::CloseCurrentPopup();
 			}
 

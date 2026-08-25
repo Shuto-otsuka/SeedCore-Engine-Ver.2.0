@@ -42,8 +42,8 @@ namespace SeedCore
 
 		if (resolutionChanged)
 		{
-			focus_ = { 100000.0f + width * 0.5f, 100000.0f + height * 0.5f, 100000.0f };
-			eye_ = { focus_.x, focus_.y, focus_.z - 10.0f };
+			focus_ = Vector3(100000.0f + width * 0.5f, 100000.0f + height * 0.5f, 100000.0f);
+			eye_ = Vector3(focus_.x, focus_.y, focus_.z - 10.0f);
 		}
 	}
 

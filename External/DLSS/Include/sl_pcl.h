@@ -88,7 +88,15 @@ enum class PCLMarker: uint32_t
 
 // c++23 has to_underlying implementation
 #if __cplusplus == 202302L
+#if __clang__
+template<class T>
+constexpr auto to_underlying(T value)
+{
+    return std::underlying_type_t<T>(value);
+}
+#else
 using to_underlying = std::to_underlying;
+#endif
 #else
 // Return `enum class` member as value of underlying type (i.e. an int).  Basically same as:
 // static_cast<std::underlying_type_t<decltype(value)>>(value);
