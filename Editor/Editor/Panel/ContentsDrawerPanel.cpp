@@ -212,8 +212,8 @@ namespace SeedCore
 
 		static const std::set<std::string> excludeDirectories =
 		{
-			"AIEngine", "AudioEngine", "CompiledShaderObject",
-			"Editor", "External", "FoundationEngine", "GraphicsEngine",
+			"AIEngine", "AudioEngine", "CompiledShaderObject", "Editor",
+			"External", "FoundationEngine", "GraphicsEngine", "Logs",
 			"Package", "PhysicsEngine", "Runtime", "SeedCore", "Tools",
 			".vs", "x64", ".git",
 		};

@@ -713,6 +713,7 @@ namespace SeedCore
 			"External",
 			"FoundationEngine",
 			"GraphicsEngine",
+			"Logs",
 			"Package",
 			"PhysicsEngine",
 			"Runtime",
