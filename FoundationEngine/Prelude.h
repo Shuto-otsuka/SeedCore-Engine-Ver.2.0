@@ -23,6 +23,10 @@
 #define SC_AUDIO_VERTION "2.00.0"
 #endif
 
+#ifndef SC_ENCRYPTION_KEY_SEED
+#define SC_ENCRYPTION_KEY_SEED "8e5d9cac-4c56-4513-813c-09a0f1168a83"
+#endif
+
 #ifndef _CRT_SECURE_NO_WARNINGS
 #define _CRT_SECURE_NO_WARNINGS
 #endif
@@ -190,6 +194,7 @@
 #include <objbase.h>
 #include <oleauto.h>
 #include <crtdbg.h>
+#include <psapi.h>
 
 #if !SC_RENDER_DOC_USAGE
 #pragma push_macro("free")

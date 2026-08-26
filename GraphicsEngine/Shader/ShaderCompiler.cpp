@@ -3,6 +3,7 @@
 #include <FoundationEngine/File/FileUtility.h>
 #include <FoundationEngine/Log/Error.h>
 #include <FoundationEngine/Log/Warning.h>
+#include <FoundationEngine/Serialization/Binary/BinaryArchive.h>
 
 namespace SeedCore
 {
@@ -55,7 +56,18 @@ namespace SeedCore
 	{
 		HRESULT hr{ S_OK };
 
-		DynamicArray<Uint8> binaryData = FileUtility::LoadFileBinary(filePath);
+		DynamicArray<Uint8> binaryData;
+		BinaryInputArchive archive;
+		if (archive.Read(filePath))
+		{
+			archive.TryField("data", binaryData);
+		}
+
+		if (binaryData.empty())
+		{
+			binaryData = FileUtility::LoadFileBinary(filePath);
+		}
+
 		if (binaryData.empty())
 		{
 			return {};
@@ -100,7 +112,7 @@ namespace SeedCore
 	{
 		auto pos = hlslPath.find_last_of("/\\");
 		std::string filename = (pos != std::string::npos) ? hlslPath.substr(pos + 1) : hlslPath;
-		filename = filename.substr(0, filename.size() - 5) + ".cso";
+		filename = filename.substr(0, filename.size() - 5) + ".dx.cso";
 		return String("../CompiledShaderObject/Application/" + filename);
 	}
 
@@ -242,10 +254,21 @@ namespace SeedCore
 			///      DXIL オフセットを HLSL のソース/行へ解決できるようにする
 			///      ためだけ。
 			std::string filename = std::filesystem::path(path).filename().string();
-			filename = filename.substr(0, filename.size() - 5) + ".cso";
+			filename = filename.substr(0, filename.size() - 5) + ".dbg.cso";
 			SaveCso(String("../CompiledShaderObject/Develop/" + filename), compileResult.objectBlob.Get());
 #else
-			SaveCso(csoPath, compileResult.objectBlob.Get());
+			std::filesystem::path csoFs(csoPath.str());
+			if (csoFs.has_parent_path())
+			{
+				std::filesystem::create_directories(csoFs.parent_path());
+			}
+
+			const Uint8* objectBegin = static_cast<const Uint8*>(compileResult.objectBlob->GetBufferPointer());
+			DynamicArray<Uint8> objectBytes(objectBegin, objectBegin + compileResult.objectBlob->GetBufferSize());
+
+			BinaryOutputArchive cacheArchive;
+			cacheArchive.Field("data", objectBytes);
+			cacheArchive.Write(csoPath);
 #endif
 		}
 

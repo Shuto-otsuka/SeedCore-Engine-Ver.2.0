@@ -11,12 +11,16 @@
 // Add fields INSIDE a group and adjust that group's padding; never let a
 // group stop being a multiple of 16 bytes.
 
-struct SpriteIndices                      // 1 row
+struct SpriteIndices                      // 2 rows
 {
 	uint image_index_;
 	uint image_billboard_index_;
 	uint font_index_;
 	uint font_billboard_index_;
+	uint ui_color_alpha_index_;
+	uint sprite_padding0_;
+	uint sprite_padding1_;
+	uint sprite_padding2_;
 };
 
 struct ModelIndices                       // 2 rows

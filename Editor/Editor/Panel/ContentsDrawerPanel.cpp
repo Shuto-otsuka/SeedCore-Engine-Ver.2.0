@@ -1,6 +1,7 @@
 #include <Editor/Editor/Panel/ContentsDrawerPanel.h>
 #include <Editor/Editor/EditorContext.h>
 #include <Editor/Editor/ImGui/ImGuiTexture.h>
+#include <Editor/Editor/ImGui/ImGuiRenderer.h>
 #include <FoundationEngine/Resource/ResourceCache.h>
 #include <FoundationEngine/Resource/Prefab.h>
 #include <FoundationEngine/ECS/Actor.h>
@@ -8,6 +9,7 @@
 #include <GraphicsEngine/Texture/Texture.h>
 #include <GraphicsEngine/D3D12/Descriptor/BindlessHeap.h>
 #include <GraphicsEngine/D3D12/Descriptor/DescriptorHeap.h>
+#include <GraphicsEngine/Graphics.h>
 #include <FoundationEngine/Log/Warning.h>
 #include <FoundationEngine/Log/Notice.h>
 #include <Editor/Editor/Build/VisualStudioAutomation.h>
@@ -44,7 +46,8 @@ namespace SeedCore
 
 		if (directoryWatchHandle_ != INVALID_HANDLE_VALUE && WaitForSingleObject(directoryWatchHandle_, 0) == WAIT_OBJECT_0)
 		{
-			context_.worldContext_.resource_->Reload(*context_.worldContext_.loader_, context_.graphicsContext_.device_, context_.graphicsContext_.cmdQueue_, *context_.graphicsContext_.bc7Shader_);
+			D3D12Context* d3d12Context = context_.graphicsContext_.graphics_->GetContext();
+			context_.worldContext_.resource_->Reload(*context_.worldContext_.loader_, d3d12Context->GetDevice(), d3d12Context->GetDirectQueue(), context_.graphicsContext_.graphics_->GetBC7CompressShader());
 			needsRebuild_ = true;
 			FindNextChangeNotification(directoryWatchHandle_);
 		}
@@ -184,7 +187,8 @@ namespace SeedCore
 						std::filesystem::path savedPath = Prefab::SaveToDirectory(dropped, directory);
 						if (!savedPath.empty())
 						{
-							context_.worldContext_.resource_->Reload(*context_.worldContext_.loader_, context_.graphicsContext_.device_, context_.graphicsContext_.cmdQueue_, *context_.graphicsContext_.bc7Shader_);
+							D3D12Context* d3d12Context = context_.graphicsContext_.graphics_->GetContext();
+							context_.worldContext_.resource_->Reload(*context_.worldContext_.loader_, d3d12Context->GetDevice(), d3d12Context->GetDirectQueue(), context_.graphicsContext_.graphics_->GetBC7CompressShader());
 							needsRebuild_ = true;
 
 							std::string relative = std::filesystem::relative(savedPath, context_.worldContext_.resource_->ProjectRootPath()).string();
@@ -720,7 +724,7 @@ namespace SeedCore
 
 			ImageResource* imageResource = context_.worldContext_.resource_->GetImageResource();
 			Handle<Texture> handle = imageResource->GetHandle(asset.assetID_);
-			Texture* texture = imageResource->Resolve(*context_.worldContext_.loader_, context_.graphicsContext_.bindlessHeap_, handle, context_.uiFrame_);
+			Texture* texture = imageResource->Resolve(*context_.worldContext_.loader_, context_.graphicsContext_.graphics_->GetBindlessHeap(), handle, context_.uiFrame_);
 			if (texture && texture->resource_)
 			{
 				texture->pinned_ = true;
@@ -732,10 +736,11 @@ namespace SeedCore
 				/// [JP] shader-visible ヒープは CPU 書き込み専用のため CopyDescriptorsSimple の
 				///      コピー元にできない。代わりにテクスチャリソースから ImGui ヒープへ
 				///      SRV を直接作成する（desc null = リソース全体のデフォルトビュー）。
-				Uint descIndex = context_.graphicsContext_.descHeap_->AllocateIndex();
-				D3D12_CPU_DESCRIPTOR_HANDLE dest = context_.graphicsContext_.descHeap_->CPUHandle(descIndex);
-				context_.graphicsContext_.device_->CreateShaderResourceView(texture->resource_.Get(), nullptr, dest);
-				ImTextureID textureID = static_cast<ImTextureID>(context_.graphicsContext_.descHeap_->GPUHandle(descIndex).ptr);
+				DescriptorHeap* descHeap = context_.graphicsContext_.imgui_->GetDescriptorHeap();
+				Uint descIndex = descHeap->AllocateIndex();
+				D3D12_CPU_DESCRIPTOR_HANDLE dest = descHeap->CPUHandle(descIndex);
+				context_.graphicsContext_.graphics_->GetContext()->GetDevice()->CreateShaderResourceView(texture->resource_.Get(), nullptr, dest);
+				ImTextureID textureID = static_cast<ImTextureID>(descHeap->GPUHandle(descIndex).ptr);
 				thumbnailCache_.insert({ asset.assetID_, textureID });
 				return textureID;
 			}
@@ -801,7 +806,7 @@ namespace SeedCore
 		{
 			ImageResource* imageResource = context_.worldContext_.resource_->GetImageResource();
 			Handle<Texture> handle = imageResource->GetHandle(asset.assetID_);
-			Texture* texture = imageResource->Resolve(*context_.worldContext_.loader_, context_.graphicsContext_.bindlessHeap_, handle, context_.uiFrame_);
+			Texture* texture = imageResource->Resolve(*context_.worldContext_.loader_, context_.graphicsContext_.graphics_->GetBindlessHeap(), handle, context_.uiFrame_);
 			if (texture && texture->resource_)
 			{
 				D3D12_RESOURCE_DESC desc = texture->resource_->GetDesc();

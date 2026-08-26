@@ -68,6 +68,8 @@ namespace SeedCore
 
 		void DeepDVC(Bool enable, Float intensity, Float saturationBoost);
 
+		void FrameGeneration(Bool enable);
+
 	public:
 		D3D12Context* GetContext()const;
 

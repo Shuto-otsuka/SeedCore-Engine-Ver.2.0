@@ -1,4 +1,6 @@
 #include <FoundationEngine/Serialization/Binary/BinaryArchive.h>
+#include <FoundationEngine/Serialization/Encryption/Aes256.h>
+#include <FoundationEngine/Serialization/Encryption/Sha256.h>
 
 namespace SeedCore
 {
@@ -34,7 +36,19 @@ namespace SeedCore
 			return false;
 		}
 
-		ofs.write(body_.data(), body_.size());
+		static const DynamicArray<Byte> key = Sha256::Hash(reinterpret_cast<const Byte*>(SC_ENCRYPTION_KEY_SEED), std::strlen(SC_ENCRYPTION_KEY_SEED));
+
+		DynamicArray<Byte> iv(16);
+		std::random_device randomDevice;
+		for (Byte& ivByte : iv)
+		{
+			ivByte = static_cast<Byte>(randomDevice());
+		}
+
+		DynamicArray<Byte> ciphertext = Aes256::Encrypt(key, iv, body_);
+
+		ofs.write(iv.data(), iv.size());
+		ofs.write(ciphertext.data(), ciphertext.size());
 		return true;
 	}
 
@@ -78,10 +92,28 @@ namespace SeedCore
 		Size fileSize = static_cast<Size>(ifs.tellg());
 		ifs.seekg(0, std::ios::beg);
 
-		ownedData_.resize(fileSize);
-		if (fileSize > 0 && !ifs.read(ownedData_.data(), fileSize))
+		DynamicArray<Byte> rawData(fileSize);
+		if (fileSize > 0 && !ifs.read(rawData.data(), fileSize))
 		{
 			SC_LOG_WARNING("\"{}\" の読み込みに失敗しました。", filePath.c_str());
+			return false;
+		}
+
+		if (rawData.size() < 16)
+		{
+			SC_LOG_WARNING("\"{}\" の暗号化データが不正です。", filePath.c_str());
+			return false;
+		}
+
+		static const DynamicArray<Byte> key = Sha256::Hash(reinterpret_cast<const Byte*>(SC_ENCRYPTION_KEY_SEED), std::strlen(SC_ENCRYPTION_KEY_SEED));
+
+		DynamicArray<Byte> iv(rawData.begin(), rawData.begin() + 16);
+		DynamicArray<Byte> ciphertext(rawData.begin() + 16, rawData.end());
+
+		ownedData_ = Aes256::Decrypt(key, iv, ciphertext);
+		if (ownedData_.empty() && !ciphertext.empty())
+		{
+			SC_LOG_WARNING("\"{}\" の復号に失敗しました。", filePath.c_str());
 			return false;
 		}
 

@@ -37,6 +37,10 @@ namespace SeedCore
 
 		swapChain->Release();
 
+		/// [EN] Disables DXGI's automatic Alt+Enter fullscreen toggle (which would call SetFullscreenState on its own, bypassing FrameGenerationSuppress and risking the Present() deadlock DLSS-G warns about) so fullscreen switching is instead handled explicitly by the host.
+		/// [JP] DXGIの自動Alt+Enterフルスクリーン切り替えを無効化する(自動処理はFrameGenerationSuppressを経由せずSetFullscreenStateを呼んでしまい、DLSS-Gが警告するPresent()デッドロックのリスクがあるため)。フルスクリーン切り替えはホスト側で明示的に行う。
+		factory->MakeWindowAssociation(hwnd, DXGI_MWA_NO_ALT_ENTER);
+
 		descHeap_ = MakePtr<DescriptorHeap>();
 		if (!descHeap_->Create(device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, static_cast<Uint>(bufferCount_)))
 		{
@@ -56,6 +60,13 @@ namespace SeedCore
 		}
 
 		return SUCCEEDED(hr);
+	}
+
+	void SwapChain::Destroy()
+	{
+		backBuffers_.clear();
+		descHeap_.reset();
+		swapChain_.Reset();
 	}
 
 	void SwapChain::Present(ID3D12Device* device)
@@ -99,5 +110,12 @@ namespace SeedCore
 	ID3D12DescriptorHeap* SwapChain::GetDescHeap()const
 	{
 		return descHeap_->Get();
+	}
+
+	HWND SwapChain::GetHwnd()const
+	{
+		HWND hwnd = nullptr;
+		swapChain_->GetHwnd(&hwnd);
+		return hwnd;
 	}
 }

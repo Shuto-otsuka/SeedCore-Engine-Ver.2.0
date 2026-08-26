@@ -25,6 +25,7 @@ namespace SeedCore
 		fontRenderer_ = MakePtr<FontRenderer>(rootSignature_, pipelineStateObject_);
 		movieRenderer_ = MakePtr<MovieRenderer>(rootSignature_, pipelineStateObject_);
 		outlineRenderer_ = MakePtr<OutlineRenderer>(rootSignature_, pipelineStateObject_);
+		hudComposeRenderer_ = MakePtr<HUDComposeRenderer>(rootSignature_, pipelineStateObject_);
 		colliderRenderer_ = MakePtr<ColliderRenderer>();
 		raytracingRenderer_ = MakePtr<RaytracingRenderer>(rootSignature_, pipelineStateObject_, raytracingStateObject_);
 		skyRenderer_ = MakePtr<SkyRenderer>();
@@ -60,10 +61,16 @@ namespace SeedCore
 		gameDepthStencilViewHeap_.Create(device, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 1);
 		canvasRenderTargetViewHeap_.Create(device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 1);
 		canvasDepthStencilViewHeap_.Create(device, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 1);
+		uiColorAlphaRenderTargetViewHeap_.Create(device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 1);
 
 		editorFrameBuffer_ = MakePtr<FrameBuffer>(device, &editorRenderTargetViewHeap_, bindlessHeap, width, height, DXGI_FORMAT_R16G16B16A16_FLOAT, &editorDepthStencilViewHeap_);
 		gameFrameBuffer_ = MakePtr<FrameBuffer>(device, &gameRenderTargetViewHeap_, bindlessHeap, width, height, DXGI_FORMAT_R16G16B16A16_FLOAT, &gameDepthStencilViewHeap_);
 		canvasFrameBuffer_ = MakePtr<FrameBuffer>(device, &canvasRenderTargetViewHeap_, bindlessHeap, width, height, DXGI_FORMAT_R16G16B16A16_FLOAT, &canvasDepthStencilViewHeap_);
+
+		uiColorAlphaFrameBuffer_ = MakePtr<FrameBuffer>(device, &uiColorAlphaRenderTargetViewHeap_, bindlessHeap, width, height, DXGI_FORMAT_R16G16B16A16_FLOAT, nullptr, 0.0f, 0.0f, 0.0f, 0.0f);
+		indicesSystem_->SetUIColorAlphaIndex(uiColorAlphaFrameBuffer_->ColorShaderResourceViewIndex());
+
+		hudlessBuffer_.Create(device, width, height);
 
 		geometryBuffer_.Create(device, bindlessHeap, width, height);
 		materialSortBuffer_.Create(device, bindlessHeap, *indicesSystem_, width, height);
@@ -99,6 +106,7 @@ namespace SeedCore
 		fontRenderer_->Create(device, bindlessHeap, shaderCache, *indicesSystem_);
 		movieRenderer_->Create(device, bindlessHeap, shaderCache, *indicesSystem_);
 		outlineRenderer_->Create(device, bindlessHeap, shaderCache);
+		hudComposeRenderer_->Create(device, bindlessHeap, shaderCache);
 		colliderRenderer_->Create(device, bindlessHeap, shaderCache);
 		raytracingRenderer_->Create(device, bindlessHeap, shaderCache, *indicesSystem_, width, height);
 		skyRenderer_->Create(device, bindlessHeap, shaderCache, rootSignature_, pipelineStateObject_);
@@ -125,10 +133,15 @@ namespace SeedCore
 		gameDepthStencilViewHeap_.Create(device, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 1);
 		canvasRenderTargetViewHeap_.Create(device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 1);
 		canvasDepthStencilViewHeap_.Create(device, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 1);
+		uiColorAlphaRenderTargetViewHeap_.Create(device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 1);
 
 		editorFrameBuffer_->Resize(device, bindlessHeap, nativeWidth, nativeHeight);
 		gameFrameBuffer_->Resize(device, bindlessHeap, nativeWidth, nativeHeight);
 		canvasFrameBuffer_->Resize(device, bindlessHeap, nativeWidth, nativeHeight);
+		uiColorAlphaFrameBuffer_->Resize(device, bindlessHeap, outputWidth, outputHeight);
+		indicesSystem_->SetUIColorAlphaIndex(uiColorAlphaFrameBuffer_->ColorShaderResourceViewIndex());
+
+		hudlessBuffer_.Resize(device, outputWidth, outputHeight);
 
 		geometryBuffer_.Resize(device, bindlessHeap, nativeWidth, nativeHeight);
 		materialSortBuffer_.Resize(device, bindlessHeap, *indicesSystem_, nativeWidth, nativeHeight);
@@ -284,17 +297,22 @@ namespace SeedCore
 		}
 
 		postProcessRenderer_->BeginDebugOverlay(cmdList, RaytracingView::Game);
+		postProcessRenderer_->CaptureHudless(cmdList, hudlessBuffer_, RaytracingView::Game);
 
 		D3D12_CPU_DESCRIPTOR_HANDLE gameDisplayRenderTargetView = postProcessRenderer_->OutputRenderTargetViewHandle(RaytracingView::Game);
 		D3D12_VIEWPORT gameDisplayViewport = postProcessRenderer_->Viewport(RaytracingView::Game);
-		cmdList->Get()->OMSetRenderTargets(1, &gameDisplayRenderTargetView, FALSE, nullptr);
-		cmdList->Get()->RSSetViewports(1, &gameDisplayViewport);
-		D3D12_RECT gameDisplayScissorRect = { 0, 0, static_cast<LONG>(gameDisplayViewport.Width), static_cast<LONG>(gameDisplayViewport.Height) };
-		cmdList->Get()->RSSetScissorRects(1, &gameDisplayScissorRect);
 
 		ID3D12DescriptorHeap* spriteHeap = bindlessHeap_->Heap();
 		D3D12_GPU_VIRTUAL_ADDRESS spriteConstantAddr = indicesSystem_->GameConstantAddress();
 		D3D12_GPU_VIRTUAL_ADDRESS spriteStructuredAddr = indicesSystem_->StructuredAddress();
+
+		uiColorAlphaFrameBuffer_->Begin(cmdList);
+		uiColorAlphaFrameBuffer_->Clear(cmdList, 0.0f, 0.0f, 0.0f, 0.0f);
+
+		D3D12_VIEWPORT uiColorAlphaViewport = uiColorAlphaFrameBuffer_->GetViewport();
+		cmdList->Get()->RSSetViewports(1, &uiColorAlphaViewport);
+		D3D12_RECT uiColorAlphaScissorRect = { 0, 0, static_cast<LONG>(uiColorAlphaViewport.Width), static_cast<LONG>(uiColorAlphaViewport.Height) };
+		cmdList->Get()->RSSetScissorRects(1, &uiColorAlphaScissorRect);
 
 		imageRenderer_->Upload();
 		imageRenderer_->DrawSprite(cmdList->Get(), spriteHeap, spriteConstantAddr, spriteStructuredAddr);
@@ -308,6 +326,21 @@ namespace SeedCore
 		movieRenderer_->DrawBillboard(cmdList->Get(), spriteHeap, spriteConstantAddr, spriteStructuredAddr);
 		movieRenderer_->DrawSprite(cmdList->Get(), spriteHeap, spriteConstantAddr, spriteStructuredAddr);
 		movieRenderer_->DrawFullscreen(cmdList->Get(), spriteHeap, spriteConstantAddr, spriteStructuredAddr);
+
+		uiColorAlphaFrameBuffer_->End(cmdList);
+
+		if (Gateway::GetDlssManager().FrameGenerationEnable())
+		{
+			DlssBufferTag frameGenerationBufferTag{};
+			frameGenerationBufferTag.depthBuffer_ = geometryBuffer_.DepthResource();
+			frameGenerationBufferTag.velocityBuffer_ = geometryBuffer_.ColorResource(2);
+			frameGenerationBufferTag.width_ = static_cast<Float>(nativeWidth_);
+			frameGenerationBufferTag.height_ = static_cast<Float>(nativeHeight_);
+
+			Gateway::GetDlssManager().FrameGenerationTag(frameGenerationBufferTag, cmdList->Get(), hudlessBuffer_.ColorResource(), uiColorAlphaFrameBuffer_->ColorResource(), 1, static_cast<Uint32>(gameDisplayViewport.Width), static_cast<Uint32>(gameDisplayViewport.Height));
+		}
+
+		hudComposeRenderer_->Draw(cmdList, gameDisplayRenderTargetView, gameDisplayViewport, spriteHeap, spriteConstantAddr, spriteStructuredAddr);
 
 		postProcessRenderer_->EndDebugOverlay(cmdList, RaytracingView::Game);
 

@@ -1,7 +1,9 @@
 #include <Editor/Editor/ImGui/ImGuiTexture.h>
 #include <Editor/Editor/EditorContext.h>
+#include <Editor/Editor/ImGui/ImGuiRenderer.h>
 #include <GraphicsEngine/D3D12/Descriptor/DescriptorHeap.h>
 #include <GraphicsEngine/D3D12/Context/D3D12CommandQueue.h>
+#include <GraphicsEngine/Graphics.h>
 #include <FoundationEngine/Resource/LoaderSystem.h>
 
 namespace SeedCore
@@ -10,97 +12,103 @@ namespace SeedCore
 	{
 		TextureLoader* loader = context.worldContext_.loader_->textureLoader_.get();
 
-		auto load = [&](IconType type, const String& filePath)
+		D3D12Context* d3d12Context = context.graphicsContext_.graphics_->GetContext();
+		DescriptorHeap* descHeap = context.graphicsContext_.imgui_->GetDescriptorHeap();
+
+		auto load = [&](IconType type, const Char* folder, const Char* name)
 		{
-			Uint index = context.graphicsContext_.descHeap_->AllocateIndex();
+			Uint index = descHeap->AllocateIndex();
 
 			Microsoft::WRL::ComPtr<ID3D12Resource> resource;
-			loader->CreateTexture(context.graphicsContext_.device_, context.graphicsContext_.cmdQueue_, context.graphicsContext_.descHeap_->Get(), filePath, resource, index);
+			String filePath = String(std::string("Icon/") + folder + "/" + name + ".icon");
+			loader->CreateTexture(d3d12Context->GetDevice(), d3d12Context->GetDirectQueue(), descHeap->Get(), filePath, resource, index);
 
-			icons_[static_cast<Uint>(type)] = static_cast<ImTextureID>(context.graphicsContext_.descHeap_->GPUHandle(index).ptr);
+			icons_[static_cast<Uint>(type)] = static_cast<ImTextureID>(descHeap->GPUHandle(index).ptr);
 			resources_.push_back(std::move(resource));
 		};
 
-		load(IconType::FolderInItem, String("Icon/Folder/folder_initem_icon.dds"));
-		load(IconType::FolderNoItem, String("Icon/Folder/folder_noitem_icon.dds"));
+		load(IconType::FolderInItem, "Folder", "FolderInItem");
+		load(IconType::FolderNoItem, "Folder", "FolderNoItem");
 
-		load(IconType::Model,         String("Icon/Asset/model_icon.dds"));
-		load(IconType::Effect,        String("Icon/Asset/effect_icon.dds"));
-		load(IconType::Audio,         String("Icon/Asset/audio_icon.dds"));
-		load(IconType::Font,          String("Icon/Asset/font_icon.dds"));
-		load(IconType::Sky,           String("Icon/Asset/skymap_icon.dds"));
-		load(IconType::Animation,     String("Icon/Asset/animation_icon.dds"));
-		load(IconType::MeshCollision, String("Icon/Asset/meshcollision_icon.dds"));
-		load(IconType::Movie,         String("Icon/Asset/movie_icon.dds"));
+		load(IconType::Model,         "Asset", "Model");
+		load(IconType::Effect,        "Asset", "Effect");
+		load(IconType::Audio,         "Asset", "Audio");
+		load(IconType::Font,          "Asset", "Font");
+		load(IconType::Sky,           "Asset", "Sky");
+		load(IconType::Animation,     "Asset", "Animation");
+		load(IconType::MeshCollision, "Asset", "MeshCollision");
+		load(IconType::Movie,         "Asset", "Movie");
 
-		load(IconType::Text,   String("Icon/Asset/text_icon.dds"));
-		load(IconType::Cpp,    String("Icon/Asset/cplusplus_icon.dds"));
-		load(IconType::Header, String("Icon/Asset/header_icon.dds"));
-		load(IconType::Hlsl,   String("Icon/Asset/hlsl_icon.dds"));
+		load(IconType::Text,   "Asset", "Text");
+		load(IconType::Cpp,    "Asset", "CPlusPlus");
+		load(IconType::Header, "Asset", "Header");
+		load(IconType::Hlsl,   "Asset", "Hlsl");
 
-		load(IconType::Search, String("Icon/Misc/search_icon.dds"));
+		load(IconType::Search, "Misc", "Search");
 
-		load(IconType::Play,  String("Icon/Toolbar/play_icon.dds"));
-		load(IconType::Pause, String("Icon/Toolbar/pause_icon.dds"));
-		load(IconType::Stop,  String("Icon/Toolbar/stop_icon.dds"));
+		load(IconType::Play,  "Toolbar", "Play");
+		load(IconType::Pause, "Toolbar", "Pause");
+		load(IconType::Stop,  "Toolbar", "Stop");
 
-		load(IconType::Actor,       String("Icon/Hierarchy/actor_item_non_prefab_icon.dds"));
-		load(IconType::ActorChild,  String("Icon/Hierarchy/actor_item_child_non_prefab_icon.dds"));
-		load(IconType::Prefab,      String("Icon/Hierarchy/actor_item_prefab_icon.dds"));
-		load(IconType::PrefabChild, String("Icon/Hierarchy/actor_item_child_prefab_icon.dds"));
-		load(IconType::Scene,       String("Icon/Asset/scene_icon.dds"));
+		load(IconType::Actor,       "Hierarchy", "Actor");
+		load(IconType::ActorChild,  "Hierarchy", "ActorChild");
+		load(IconType::Prefab,      "Hierarchy", "Prefab");
+		load(IconType::PrefabChild, "Hierarchy", "PrefabChild");
+		load(IconType::Scene,       "Asset", "Scene");
 
-		load(IconType::Lock,     String("Icon/Misc/lock_icon.dds"));
-		load(IconType::LockFree, String("Icon/Misc/lock_free_icon.dds"));
+		load(IconType::Lock,     "Misc", "Lock");
+		load(IconType::LockFree, "Misc", "LockFree");
 
-		load(IconType::Guizmo,      String("Icon/Viewport/guizmo_icon.dds"));
-		load(IconType::NonSelected, String("Icon/Viewport/non_selected_icon.dds"));
-		load(IconType::Translate,   String("Icon/Viewport/translation_icon.dds"));
-		load(IconType::Rotate,      String("Icon/Viewport/rotate_icon.dds"));
-		load(IconType::Scale,       String("Icon/Viewport/scaling_icon.dds"));
-		load(IconType::Camera,      String("Icon/Viewport/camera_icon.dds"));
-		load(IconType::ViewMode,    String("Icon/Viewport/view_mode_icon.dds"));
+		load(IconType::Guizmo,      "Viewport", "Guizmo");
+		load(IconType::NonSelected, "Viewport", "NonSelected");
+		load(IconType::Translate,   "Viewport", "Translate");
+		load(IconType::Rotate,      "Viewport", "Rotate");
+		load(IconType::Scale,       "Viewport", "Scale");
+		load(IconType::Camera,      "Viewport", "Camera");
+		load(IconType::ViewMode,    "Viewport", "ViewMode");
 
-		load(IconType::LogError,   String("Icon/Log/error_icon.dds"));
-		load(IconType::LogWarning, String("Icon/Log/warning_icon.dds"));
-		load(IconType::LogNotice,  String("Icon/Log/notice_icon.dds"));
+		load(IconType::LogError,   "Log", "Error");
+		load(IconType::LogWarning, "Log", "Warning");
+		load(IconType::LogNotice,  "Log", "Notice");
 
-		load(IconType::ActorActive,    String("Icon/Hierarchy/actor_active_icon.dds"));
-		load(IconType::ActorNonActive, String("Icon/Hierarchy/actor_non_active_icon.dds"));
+		load(IconType::NonCameraWarning, "Warning", "NonCamera");
 
-		load(IconType::ComponentTransform,             String("Icon/Component/transform_icon.dds"));
-		load(IconType::ComponentCamera,                String("Icon/Component/camera_icon.dds"));
-		load(IconType::ComponentFreeCameraController,  String("Icon/Component/freecameracontroller_icon.dds"));
-		load(IconType::ComponentOrbitCameraController, String("Icon/Component/orbitcameracontroller_icon.dds"));
-		load(IconType::ComponentPointLight,       String("Icon/Component/pointlight_icon.dds"));
-		load(IconType::ComponentDirectionalLight, String("Icon/Component/directionallight_icon.dds"));
-		load(IconType::ComponentSpotLight,        String("Icon/Component/spotlight_icon.dds"));
-		load(IconType::ComponentRectangleLight,   String("Icon/Component/rectanglelight_icon.dds"));
-		load(IconType::ComponentSkyLight,         String("Icon/Component/skylight_icon.dds"));
-		load(IconType::ComponentBoxCollider,      String("Icon/Component/boxcollider_icon.dds"));
-		load(IconType::ComponentSphereCollider,   String("Icon/Component/spherecollider_icon.dds"));
-		load(IconType::ComponentCapsuleCollider,  String("Icon/Component/capsulecollider_icon.dds"));
-		load(IconType::ComponentCylinderCollider, String("Icon/Component/cylindercollider_icon.dds"));
-		load(IconType::ComponentRectCollider,     String("Icon/Component/rectcollider_icon.dds"));
-		load(IconType::ComponentCircleCollider,   String("Icon/Component/circlecollider_icon.dds"));
-		load(IconType::ComponentMeshCollider,     String("Icon/Component/meshcollider_icon.dds"));
-		load(IconType::ComponentRigidbody, String("Icon/Component/rigidbody_icon.dds"));
-		load(IconType::ComponentSoftbody,  String("Icon/Component/softbody_icon.dds"));
-		load(IconType::ComponentAudioSource,   String("Icon/Component/audiosource_icon.dds"));
-		load(IconType::ComponentAudioListener, String("Icon/Component/audiolistener_icon.dds"));
-		load(IconType::ComponentImage, String("Icon/Component/image_icon.dds"));
-		load(IconType::ComponentText,  String("Icon/Component/text_icon.dds"));
-		load(IconType::ComponentMovie, String("Icon/Component/movie_icon.dds"));
-		load(IconType::ComponentMesh,  String("Icon/Component/mesh_icon.dds"));
-		load(IconType::ComponentAnimator,           String("Icon/Component/animator_icon.dds"));
-		load(IconType::ComponentPositionConstraint, String("Icon/Component/positionconstraint_icon.dds"));
-		load(IconType::ComponentRotationConstraint, String("Icon/Component/rotationconstraint_icon.dds"));
-		load(IconType::ComponentLookAtConstraint,   String("Icon/Component/lookatconstraint_icon.dds"));
-		load(IconType::ComponentParentConstraint,   String("Icon/Component/parentconstraint_icon.dds"));
-		load(IconType::ComponentWeather,     String("Icon/Component/weather_icon.dds"));
-		load(IconType::ComponentEffect,      String("Icon/Component/effect_icon.dds"));
-		load(IconType::ComponentPostProcess, String("Icon/Component/postprocess_icon.dds"));
-		load(IconType::ComponentCustom,      String("Icon/Component/customcomponent_icon.dds"));
+		load(IconType::ActorActive,    "Hierarchy", "ActorActive");
+		load(IconType::ActorNonActive, "Hierarchy", "ActorNonActive");
+
+		load(IconType::ComponentTransform,             "Component", "Transform");
+		load(IconType::ComponentCamera,                "Component", "Camera");
+		load(IconType::ComponentFreeCameraController,  "Component", "FreeCameraController");
+		load(IconType::ComponentOrbitCameraController, "Component", "OrbitCameraController");
+		load(IconType::ComponentPointLight,       "Component", "PointLight");
+		load(IconType::ComponentDirectionalLight, "Component", "DirectionalLight");
+		load(IconType::ComponentSpotLight,        "Component", "SpotLight");
+		load(IconType::ComponentRectangleLight,   "Component", "RectangleLight");
+		load(IconType::ComponentSkyLight,         "Component", "SkyLight");
+		load(IconType::ComponentBoxCollider,      "Component", "BoxCollider");
+		load(IconType::ComponentSphereCollider,   "Component", "SphereCollider");
+		load(IconType::ComponentCapsuleCollider,  "Component", "CapsuleCollider");
+		load(IconType::ComponentCylinderCollider, "Component", "CylinderCollider");
+		load(IconType::ComponentRectCollider,     "Component", "RectCollider");
+		load(IconType::ComponentCircleCollider,   "Component", "CircleCollider");
+		load(IconType::ComponentMeshCollider,     "Component", "MeshCollider");
+		load(IconType::ComponentRigidbody, "Component", "Rigidbody");
+		load(IconType::ComponentSoftbody,  "Component", "Softbody");
+		load(IconType::ComponentAudioSource,   "Component", "AudioSource");
+		load(IconType::ComponentAudioListener, "Component", "AudioListener");
+		load(IconType::ComponentImage, "Component", "Image");
+		load(IconType::ComponentText,  "Component", "Text");
+		load(IconType::ComponentMovie, "Component", "Movie");
+		load(IconType::ComponentMesh,  "Component", "Mesh");
+		load(IconType::ComponentAnimator,           "Component", "Animator");
+		load(IconType::ComponentPositionConstraint, "Component", "PositionConstraint");
+		load(IconType::ComponentRotationConstraint, "Component", "RotationConstraint");
+		load(IconType::ComponentLookAtConstraint,   "Component", "LookAtConstraint");
+		load(IconType::ComponentParentConstraint,   "Component", "ParentConstraint");
+		load(IconType::ComponentWeather,     "Component", "Weather");
+		load(IconType::ComponentEffect,      "Component", "Effect");
+		load(IconType::ComponentPostProcess, "Component", "PostProcess");
+		load(IconType::ComponentCustom,      "Component", "Custom");
 	}
 
 	ImTextureID ImGuiTexture::Icon(IconType type)const

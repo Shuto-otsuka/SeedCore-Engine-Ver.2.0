@@ -775,6 +775,10 @@ namespace SeedCore
 		Uint imageBillboardIndex_ = 0;
 		Uint fontIndex_ = 0;
 		Uint fontBillboardIndex_ = 0;
+		Uint uiColorAlphaIndex_ = 0;
+		Uint spritePadding0_ = 0;
+		Uint spritePadding1_ = 0;
+		Uint spritePadding2_ = 0;
 	};
 	static_assert(sizeof(SpriteIndices) % 16 == 0, "SpriteIndices が 16 バイト行の倍数ではありません");
 
@@ -1093,6 +1097,8 @@ namespace SeedCore
 		void SetFontSpriteIndex(Uint index);
 
 		void SetFontBillboardIndex(Uint index);
+
+		void SetUIColorAlphaIndex(Uint index);
 
 		void SetModelInstanceIndex(Uint index);
 

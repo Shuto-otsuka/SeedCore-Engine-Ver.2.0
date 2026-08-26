@@ -154,6 +154,9 @@
     <Filter Include="Model\Transparent">
       <UniqueIdentifier>{43a04064-1806-428d-97fd-2327907e7139}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Shape\HUD">
+      <UniqueIdentifier>{d40a24a7-28f0-4777-85f4-33efe3b4c038}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="D3D12\Context\D3D12Adapter.h">
@@ -766,6 +769,18 @@
     <ClInclude Include="Camera\ScreenSpace.h">
       <Filter>Camera</Filter>
     </ClInclude>
+    <ClInclude Include="Shape\HUD\HUDComposeShader.h">
+      <Filter>Shape\HUD</Filter>
+    </ClInclude>
+    <ClInclude Include="Renderer\HUDComposeRenderer.h">
+      <Filter>Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="D3D12\Buffer\HudlessBuffer.h">
+      <Filter>D3D12\Buffer</Filter>
+    </ClInclude>
+    <ClInclude Include="Movie\MovieByteStream.h">
+      <Filter>Movie</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="D3D12\Context\D3D12Adapter.cpp">
@@ -1280,6 +1295,18 @@
     <ClCompile Include="Camera\ScreenSpace.cpp">
       <Filter>Camera</Filter>
     </ClCompile>
+    <ClCompile Include="Shape\HUD\HUDComposeShader.cpp">
+      <Filter>Shape\HUD</Filter>
+    </ClCompile>
+    <ClCompile Include="Renderer\HUDComposeRenderer.cpp">
+      <Filter>Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="D3D12\Buffer\HudlessBuffer.cpp">
+      <Filter>D3D12\Buffer</Filter>
+    </ClCompile>
+    <ClCompile Include="Movie\MovieByteStream.cpp">
+      <Filter>Movie</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="Shader\Sampler.hlsli">
@@ -1730,6 +1757,12 @@
     </Text>
     <Text Include="Raytracing\Reflection\ReflectionReservoirSpatialCS.hlsl">
       <Filter>Raytracing\Reflection</Filter>
+    </Text>
+    <Text Include="Shape\HUD\HUDComposeMS.hlsl">
+      <Filter>Shape\HUD</Filter>
+    </Text>
+    <Text Include="Shape\HUD\HUDComposePS.hlsl">
+      <Filter>Shape\HUD</Filter>
     </Text>
   </ItemGroup>
 </Project>

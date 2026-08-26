@@ -1,8 +1,11 @@
 #include <Editor/Editor/Panel/VersionPanel.h>
 #include <Editor/Editor/EditorContext.h>
+#include <Editor/Editor/ImGui/ImGuiRenderer.h>
 #include <GraphicsEngine/D3D12/Descriptor/DescriptorHeap.h>
 #include <GraphicsEngine/Resource/TextureLoader.h>
 #include <GraphicsEngine/D3D12/Context/D3D12CommandQueue.h>
+#include <GraphicsEngine/D3D12/Context/D3D12Adapter.h>
+#include <GraphicsEngine/Graphics.h>
 #include <FoundationEngine/Resource/LoaderSystem.h>
 
 namespace SeedCore
@@ -16,11 +19,15 @@ namespace SeedCore
 		localtime_s(&local, &t);
 		Bool isDaytime = (local.tm_hour >= 6 && local.tm_hour < 18);
 
-		String logoPath = isDaytime ? String("../Runtime/Logo/day_logo.dds") : String("../Runtime/Logo/night_logo.dds");
+		String logoPath = isDaytime ? String("../Runtime/Logo/Day.logo") : String("../Runtime/Logo/Night.logo");
 
-		Uint index = context.graphicsContext_.descHeap_->AllocateIndex();
-		loader->CreateTexture(context.graphicsContext_.device_, context.graphicsContext_.cmdQueue_, context.graphicsContext_.descHeap_->Get(), logoPath, logoResource_, index);
-		logoTextureId_ = static_cast<ImTextureID>(context.graphicsContext_.descHeap_->GPUHandle(index).ptr);
+		D3D12Context* d3d12Context = context.graphicsContext_.graphics_->GetContext();
+		DescriptorHeap* descHeap = context.graphicsContext_.imgui_->GetDescriptorHeap();
+		IDXGIAdapter4* adapter = d3d12Context->GetAdapter()->Get();
+
+		Uint index = descHeap->AllocateIndex();
+		loader->CreateTexture(d3d12Context->GetDevice(), d3d12Context->GetDirectQueue(), descHeap->Get(), logoPath, logoResource_, index);
+		logoTextureId_ = static_cast<ImTextureID>(descHeap->GPUHandle(index).ptr);
 
 		if (logoResource_)
 		{
@@ -29,10 +36,10 @@ namespace SeedCore
 			logoHeight_ = static_cast<Float>(desc.Height);
 		}
 
-		if (context.graphicsContext_.adapter_)
+		if (adapter)
 		{
 			DXGI_ADAPTER_DESC1 adapterDesc{};
-			context.graphicsContext_.adapter_->GetDesc1(&adapterDesc);
+			adapter->GetDesc1(&adapterDesc);
 
 			Char buf[256]{};
 			WideCharToMultiByte(CP_UTF8, 0, adapterDesc.Description, -1, buf, sizeof(buf), nullptr, nullptr);

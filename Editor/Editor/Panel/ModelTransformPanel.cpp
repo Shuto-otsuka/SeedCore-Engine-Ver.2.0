@@ -6,6 +6,7 @@
 #include <GraphicsEngine/Model/Crister.h>
 #include <GraphicsEngine/Model/ModelResource.h>
 #include <GraphicsEngine/D3D12/Context/D3D12CommandQueue.h>
+#include <GraphicsEngine/Graphics.h>
 #include <GraphicsEngine/Model/Mesh.h>
 #include <GraphicsEngine/Camera/PreviewCamera.h>
 #include <GraphicsEngine/Camera/PreviewCameraController.h>
@@ -341,11 +342,14 @@ namespace SeedCore
 		ModelResource* modelResource = context_.worldContext_.resource_->GetModelResource();
 		BindlessHeap* heap = context_.worldContext_.resource_->Heap();
 
+		D3D12Context* d3d12Context = context_.graphicsContext_.graphics_->GetContext();
+		BC7CompressShader& bc7Shader = context_.graphicsContext_.graphics_->GetBC7CompressShader();
+
 		if (isSourceAsset)
 		{
 			context_.worldContext_.resource_->WriteAssetMeta(assetId, editConvention_);
 			modelResource->Unload(*context_.worldContext_.loader_, assetId, heap);
-			modelResource->Load(*context_.worldContext_.loader_, context_.graphicsContext_.device_, context_.graphicsContext_.cmdQueue_, heap, *context_.graphicsContext_.bc7Shader_, *context_.worldContext_.resource_, assetId);
+			modelResource->Load(*context_.worldContext_.loader_, d3d12Context->GetDevice(), d3d12Context->GetDirectQueue(), heap, bc7Shader, *context_.worldContext_.resource_, assetId);
 		}
 		else
 		{
@@ -363,7 +367,7 @@ namespace SeedCore
 
 			context_.worldContext_.resource_->WriteAssetMeta(assetId, editConvention_);
 			modelResource->Unload(*context_.worldContext_.loader_, assetId, heap);
-			modelResource->Load(*context_.worldContext_.loader_, context_.graphicsContext_.device_, context_.graphicsContext_.cmdQueue_, heap, *context_.graphicsContext_.bc7Shader_, *context_.worldContext_.resource_, assetId);
+			modelResource->Load(*context_.worldContext_.loader_, d3d12Context->GetDevice(), d3d12Context->GetDirectQueue(), heap, bc7Shader, *context_.worldContext_.resource_, assetId);
 		}
 	}
 
@@ -442,7 +446,8 @@ namespace SeedCore
 		baseTransformPivot_ = Vector3(0.0f, 0.0f, 0.0f);
 
 		BindlessHeap* heap = context_.worldContext_.resource_->Heap();
+		D3D12Context* d3d12Context = context_.graphicsContext_.graphics_->GetContext();
 		modelResource->Unload(*context_.worldContext_.loader_, assetId, heap);
-		modelResource->Load(*context_.worldContext_.loader_, context_.graphicsContext_.device_, context_.graphicsContext_.cmdQueue_, heap, *context_.graphicsContext_.bc7Shader_, *context_.worldContext_.resource_, assetId);
+		modelResource->Load(*context_.worldContext_.loader_, d3d12Context->GetDevice(), d3d12Context->GetDirectQueue(), heap, context_.graphicsContext_.graphics_->GetBC7CompressShader(), *context_.worldContext_.resource_, assetId);
 	}
 }

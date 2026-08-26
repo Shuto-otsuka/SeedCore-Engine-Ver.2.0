@@ -81,14 +81,9 @@ namespace SeedCore
 		editorContext_.cameraContext_.modelTransformCamera_ = &modelTransformCamera_;
 		editorContext_.cameraContext_.timelineCameraController_ = &timelineCameraController_;
 		editorContext_.cameraContext_.modelTransformCameraController_ = &modelTransformCameraController_;
-		editorContext_.graphicsContext_.device_ = device;
-		editorContext_.graphicsContext_.cmdQueue_ = graphics_->GetContext()->GetDirectQueue();
-		editorContext_.graphicsContext_.bc7Shader_ = &graphics_->GetBC7CompressShader();
-		editorContext_.graphicsContext_.adapter_ = graphics_->GetContext()->GetAdapter()->Get();
-		editorContext_.graphicsContext_.descHeap_ = imgui_->GetDescriptorHeap();
-		editorContext_.graphicsContext_.bindlessHeap_ = graphics_->GetBindlessHeap();
-		editorContext_.cameraContext_.cameraSystem_ = &graphics_->GetCameraSystem();
+		editorContext_.graphicsContext_.graphics_ = graphics_.get();
 		editorContext_.graphicsContext_.imgui_ = imgui_.get();
+		editorContext_.cameraContext_.cameraSystem_ = &graphics_->GetCameraSystem();
 
 		InputSystem::Initialize();
 		LayerRegistry::Load();
@@ -102,12 +97,13 @@ namespace SeedCore
 		editorContext_.viewportContext_.outputResolution_ = gameConfig_.resolution_;
 		editorContext_.viewportContext_.raytracing_.dlssRayReconstructionEnabled_ = gameConfig_.useDlss_;
 		editorContext_.viewportContext_.raytracing_.upscaleMode_ = gameConfig_.upscaleMode_;
+		editorContext_.viewportContext_.frameGeneration_.enabled_ = gameConfig_.useFrameGeneration_;
 		editorContext_.viewportContext_.vsync_ = gameConfig_.vsync_;
 		editorContext_.viewportContext_.resizeRequested_ = true;
 
 		graphics_->Reflex(gameConfig_.useReflex_, false);
 		graphics_->DeepDVC(gameConfig_.useDeepDVC_, 0.5f, 0.25f);
-		Gateway::GetDlssManager().FrameGenerationEnable(gameConfig_.useFrameGeneration_);
+		graphics_->FrameGeneration(editorContext_.viewportContext_.frameGeneration_.enabled_);
 
 		if (!editorConfig_.lastScenePath_.str().empty())
 		{
@@ -246,6 +242,13 @@ namespace SeedCore
 					graphics_->Resize(nativeWidth, nativeHeight, outputWidth, outputHeight, imgui_->GetDescriptorHeap());
 				}
 
+				if (editorContext_.viewportContext_.recreateRequested_)
+				{
+					editorContext_.viewportContext_.recreateRequested_ = false;
+
+					graphics_->FrameGeneration(editorContext_.viewportContext_.frameGeneration_.enabled_);
+				}
+
 				graphics_->Begin();
 
 				if (!graphics_->IsSplashFinished())
@@ -326,6 +329,7 @@ namespace SeedCore
 
 				graphics_->Raytracing(editor_->GetRaytracingSettings());
 				graphics_->VerticalSync(editorContext_.viewportContext_.vsync_);
+
 				graphics_->EditorRender(worldTimer_, editorCamera_, *loaderSystem_, *resource_, *world_, editor_->GetViewMode(), PhysicsSystem::GatherColliderInstances(*world_), editor_->GetSelectedEntity());
 				graphics_->GameRender(gameTimer_, *loaderSystem_, *resource_, *world_);
 				graphics_->CanvasRender(worldTimer_, canvasCamera_, *loaderSystem_, *resource_, *world_);

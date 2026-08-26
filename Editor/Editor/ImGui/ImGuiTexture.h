@@ -50,6 +50,8 @@ namespace SeedCore
 		LogWarning,
 		LogNotice,
 
+		NonCameraWarning,
+
 		ActorActive,
 		ActorNonActive,
 

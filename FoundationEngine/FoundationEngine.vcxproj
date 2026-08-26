@@ -154,6 +154,8 @@
     <ClCompile Include="Resource\ResourceCache.cpp">
     </ClCompile>
     <ClCompile Include="Serialization\Binary\BinaryArchive.cpp" />
+    <ClCompile Include="Serialization\Encryption\Aes256.cpp" />
+    <ClCompile Include="Serialization\Encryption\Sha256.cpp" />
     <ClCompile Include="Serialization\Json\JsonArchive.cpp" />
     <ClCompile Include="Time\GameTimer.cpp">
     </ClCompile>
@@ -246,6 +248,8 @@
     <ClInclude Include="Resource\ScenePool.h" />
     <ClInclude Include="SeedScript.h" />
     <ClInclude Include="Serialization\Binary\BinaryArchive.h" />
+    <ClInclude Include="Serialization\Encryption\Aes256.h" />
+    <ClInclude Include="Serialization\Encryption\Sha256.h" />
     <ClInclude Include="Serialization\Json\JsonArchive.h" />
     <ClInclude Include="Serialization\SerializeSupport.h" />
     <ClInclude Include="Time\GameTimer.h" />

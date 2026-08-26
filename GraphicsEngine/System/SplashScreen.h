@@ -30,13 +30,13 @@ namespace SeedCore
 		///      showFiction_) before the logo, in that order - each a single
 		///      centered/letterboxed image drawn through the same t0 slot and
 		///      texture_aspect_/show_logo_ path as the day/night logo (see
-		///      Draw()'s phase selection). Runtime/Logo/seedcore_warning_notice.dds
-		///      and seedcore_fiction_notice.dds.
+		///      Draw()'s phase selection). Runtime/Logo/Warning.sub.logo
+		///      and Fiction.sub.logo.
 		/// [JP] 警告/フィクション免責画面。showWarning_/showFiction_が立っていれば
 		///      ロゴの前に、その順で表示される - どちらも day/night ロゴと同じ
 		///      t0スロット・texture_aspect_/show_logo_の経路で描画される単一の
 		///      中央寄せ/レターボックス画像（Draw()のフェーズ選択参照）。
-		///      Runtime/Logo/seedcore_warning_notice.dds と seedcore_fiction_notice.dds。
+		///      Runtime/Logo/Warning.sub.logo と Fiction.sub.logo。
 		Microsoft::WRL::ComPtr<ID3D12Resource> warningResource_;
 		Microsoft::WRL::ComPtr<ID3D12Resource> fictionResource_;
 
@@ -46,33 +46,33 @@ namespace SeedCore
 		/// [EN] The CRI ADX2 middleware attribution logo, shown after Fiction and
 		///      before the engine's own day/night logo (always on, unlike
 		///      warning/fiction - middleware attribution isn't optional). Drawn
-		///      through the same t0 slot/path as the others. Runtime/Logo/criware_logo.dds.
+		///      through the same t0 slot/path as the others. Runtime/Logo/CriWare.logo.
 		/// [JP] CRI ADX2 ミドルウェアのクレジットロゴ。Fiction の後、エンジン
 		///      自体の昼夜ロゴの前に表示される（warning/fictionと違い常時表示 -
 		///      ミドルウェアのクレジット表記は任意ではないため）。他と同じ
-		///      t0スロット/経路で描画される。Runtime/Logo/criware_logo.dds。
+		///      t0スロット/経路で描画される。Runtime/Logo/CriWare.logo。
 		Microsoft::WRL::ComPtr<ID3D12Resource> criLogoResource_;
 
 		Uint criLogoTextureIndex_ = 0;
 
 		/// [EN] The loading-phase background - drawn behind the progress bar,
 		///      covering the full screen (crop-to-fill, not letterboxed like the
-		///      logo/bar - see SplashScreenPS.hlsl). Runtime/Logo/seedcore_progress_background.dds.
+		///      logo/bar - see SplashScreenPS.hlsl). Runtime/Logo/ProgressBackground.sub.logo.
 		/// [JP] ロード演出フェーズの背景 - 進捗バーの後ろに、画面全体を覆うように
 		///      描画される（ロゴ/バーと違いレターボックスせず、はみ出す分は
 		///      クロップする - SplashScreenPS.hlsl参照）。
-		///      Runtime/Logo/seedcore_progress_background.dds。
+		///      Runtime/Logo/ProgressBackground.sub.logo。
 		Microsoft::WRL::ComPtr<ID3D12Resource> progressBackgroundResource_;
 
 		Uint progressBackgroundTextureIndex_ = 0;
 
 		/// [EN] The loading-phase progress bar's fill sprite and its border/frame
 		///      overlay - drawn after the logo fades out, masked by the load
-		///      progress ratio (see SplashScreenPS.hlsl). Runtime/Logo/seedcore_progress_bar.dds and seedcore_progress_frame.dds.
+		///      progress ratio (see SplashScreenPS.hlsl). Runtime/Logo/ProgressBar.sub.logo and ProgressFrame.sub.logo.
 		/// [JP] ロード演出フェーズの進捗バーの塗りつぶしスプライトと、その縁取り/
 		///      フレームのオーバーレイ - ロゴがフェードアウトした後に描画され、
 		///      ロード進捗率でマスクされる（SplashScreenPS.hlsl参照）。
-		///      Runtime/Logo/seedcore_progress_bar.dds と seedcore_progress_frame.dds。
+		///      Runtime/Logo/ProgressBar.sub.logo と ProgressFrame.sub.logo。
 		Microsoft::WRL::ComPtr<ID3D12Resource> progressBarResource_;
 		Microsoft::WRL::ComPtr<ID3D12Resource> progressFrameResource_;
 

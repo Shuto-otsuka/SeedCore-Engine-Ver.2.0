@@ -1,7 +1,8 @@
 #include <Editor/Editor/Panel/ProfilerPanel.h>
 #include <Editor/Editor/EditorContext.h>
+#include <GraphicsEngine/Graphics.h>
+#include <GraphicsEngine/D3D12/Context/D3D12Adapter.h>
 #include <GraphicsEngine/Profiler/ProfilerStats.h>
-#include <Psapi.h>
 
 namespace SeedCore
 {
@@ -64,10 +65,11 @@ namespace SeedCore
 			ImGui::ProgressBar(cpuRatio, ImVec2(-1.0f, 0.0f), cpuOverlay);
 		}
 
-		if (context_.graphicsContext_.adapter_)
+		IDXGIAdapter4* adapter = context_.graphicsContext_.graphics_->GetContext()->GetAdapter()->Get();
+		if (adapter)
 		{
 			DXGI_QUERY_VIDEO_MEMORY_INFO localInfo{};
-			context_.graphicsContext_.adapter_->QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &localInfo);
+			adapter->QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &localInfo);
 
 			Float usedMB = static_cast<Float>(localInfo.CurrentUsage) / (1024.0f * 1024.0f);
 			Float budgetMB = static_cast<Float>(localInfo.Budget) / (1024.0f * 1024.0f);

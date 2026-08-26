@@ -2,6 +2,8 @@
 #include <GraphicsEngine/D3D12/Context/D3D12CommandQueue.h>
 #include <FoundationEngine/Log/DxFail.h>
 #include <FoundationEngine/Log/Error.h>
+#include <FoundationEngine/Serialization/Binary/BinaryArchive.h>
+#include <FoundationEngine/File/FileUtility.h>
 
 namespace SeedCore
 {
@@ -12,11 +14,83 @@ namespace SeedCore
 		DirectX::ResourceUploadBatch resourceUpload(device);
 		resourceUpload.Begin();
 
-		hr = DirectX::CreateDDSTextureFromFile(device, resourceUpload, filePath.w_str().c_str(), &resource);
+		std::string extension = std::filesystem::path(filePath.str()).extension().string();
+		std::transform(extension.begin(), extension.end(), extension.begin(), [](Uchar c) { return static_cast<Char>(std::tolower(c)); });
 
-		if (FAILED(hr))
+		if (extension == ".icon" || extension == ".logo" || extension == ".texture")
 		{
-			hr = DirectX::CreateWICTextureFromFile(device, resourceUpload, filePath.w_str().c_str(), &resource, false);
+			BinaryInputArchive archive;
+			if (archive.Read(filePath))
+			{
+				DynamicArray<Byte> data;
+				archive.TryField("data", data);
+				if (!data.empty())
+				{
+					hr = DirectX::CreateDDSTextureFromMemory(device, resourceUpload, reinterpret_cast<const Uint8*>(data.data()), data.size(), &resource);
+
+					if (FAILED(hr))
+					{
+						hr = DirectX::CreateWICTextureFromMemory(device, resourceUpload, reinterpret_cast<const Uint8*>(data.data()), data.size(), &resource);
+					}
+				}
+			}
+		}
+		else
+		{
+			/// [EN] Source-preferred, mirroring ModelLoader's ".crister" cache
+			///      handling: only trust the sibling ".texture" cache when it's
+			///      newer than the source image. Otherwise (re)load from source
+			///      and (re)bake the encrypted cache.
+			/// [JP] ソース優先、ModelLoaderの".crister"キャッシュ扱いと同じ構図:
+			///      隣の".texture"キャッシュは、ソース画像より新しい時だけ信用
+			///      する。それ以外はソースから(再)ロードし、暗号化キャッシュを
+			///      (再)ベイクする。
+			std::filesystem::path sourceFsPath(filePath.str());
+			std::filesystem::path cacheFsPath = sourceFsPath;
+			cacheFsPath.replace_extension(".texture");
+
+			Bool loadedFromCache = false;
+			if (std::filesystem::exists(cacheFsPath) && std::filesystem::exists(sourceFsPath) && std::filesystem::last_write_time(cacheFsPath) >= std::filesystem::last_write_time(sourceFsPath))
+			{
+				BinaryInputArchive archive;
+				if (archive.Read(String(cacheFsPath.string())))
+				{
+					DynamicArray<Byte> data;
+					archive.TryField("data", data);
+					if (!data.empty())
+					{
+						hr = DirectX::CreateDDSTextureFromMemory(device, resourceUpload, reinterpret_cast<const Uint8*>(data.data()), data.size(), &resource);
+
+						if (FAILED(hr))
+						{
+							hr = DirectX::CreateWICTextureFromMemory(device, resourceUpload, reinterpret_cast<const Uint8*>(data.data()), data.size(), &resource);
+						}
+
+						loadedFromCache = SUCCEEDED(hr) && resource;
+					}
+				}
+			}
+
+			if (!loadedFromCache)
+			{
+				hr = DirectX::CreateDDSTextureFromFile(device, resourceUpload, filePath.w_str().c_str(), &resource);
+
+				if (FAILED(hr))
+				{
+					hr = DirectX::CreateWICTextureFromFile(device, resourceUpload, filePath.w_str().c_str(), &resource, false);
+				}
+
+				if (SUCCEEDED(hr) && resource)
+				{
+					DynamicArray<Uint8> sourceBytes = FileUtility::LoadFileBinary(filePath);
+					if (!sourceBytes.empty())
+					{
+						BinaryOutputArchive cacheArchive;
+						cacheArchive.Field("data", sourceBytes);
+						cacheArchive.Write(String(cacheFsPath.string()));
+					}
+				}
+			}
 		}
 
 		if (FAILED(hr) || !resource)

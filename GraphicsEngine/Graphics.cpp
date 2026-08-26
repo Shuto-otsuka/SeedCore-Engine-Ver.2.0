@@ -109,6 +109,8 @@ namespace SeedCore
 
 	void Graphics::Resize(Uint32 nativeWidth, Uint32 nativeHeight, Uint32 outputWidth, Uint32 outputHeight, DescriptorHeap* imguiHeap)
 	{
+		dlssManager_->FrameGenerationSuppress(true);
+
 		WaitForGpuIdle();
 
 		nativeWidth_ = nativeWidth;
@@ -122,6 +124,8 @@ namespace SeedCore
 		{
 			RegisterImGuiShaderResourceViews(context_->GetDevice(), imguiHeap);
 		}
+
+		dlssManager_->FrameGenerationSuppress(false);
 	}
 
 	void Graphics::Finalize()
@@ -368,6 +372,7 @@ namespace SeedCore
 		///      先に処理したビューが誤ったトークンを使う事故になる)。
 		dlssManager_->BeginFrame();
 		dlssManager_->EvaluateReflex();
+		dlssManager_->EvaluateFrameGeneration(1);
 
 		auto cmdList = context_->GetDirectList();
 		auto backBuffer = swapChain_->BackBuffer();
@@ -429,6 +434,24 @@ namespace SeedCore
 	{
 		dlssManager_->DeepDVCEnable(enable);
 		dlssManager_->DeepDVC(intensity, saturationBoost);
+	}
+
+	void Graphics::FrameGeneration(Bool enable)
+	{
+		if (dlssManager_->FrameGenerationEnable() == enable)
+		{
+			return;
+		}
+
+		HWND hwnd = swapChain_->GetHwnd();
+
+		WaitForGpuIdle();
+
+		swapChain_->Destroy();
+
+		dlssManager_->FrameGenerationEnable(enable);
+
+		swapChain_->Create(context_->GetFactory(), context_->GetDevice(), context_->GetDirectQueue()->GetCommandQueue(), hwnd);
 	}
 
 	D3D12Context* Graphics::GetContext()const

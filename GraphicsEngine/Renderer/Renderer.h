@@ -23,6 +23,7 @@
 #include <GraphicsEngine/Renderer/MovieRenderer.h>
 #include <GraphicsEngine/Renderer/ModelRenderer.h>
 #include <GraphicsEngine/Renderer/OutlineRenderer.h>
+#include <GraphicsEngine/Renderer/HUDComposeRenderer.h>
 #include <GraphicsEngine/Renderer/ColliderRenderer.h>
 #include <GraphicsEngine/Renderer/RaytracingRenderer.h>
 #include <GraphicsEngine/Renderer/SkyRenderer.h>
@@ -30,6 +31,7 @@
 #include <GraphicsEngine/Renderer/ModelTransformRenderer.h>
 #include <GraphicsEngine/Renderer/EffekseerRenderer.h>
 #include <GraphicsEngine/Renderer/PostProcessRenderer.h>
+#include <GraphicsEngine/D3D12/Buffer/HudlessBuffer.h>
 #include <GraphicsEngine/Renderer/DlssRayReconstructionRenderer.h>
 #include <GraphicsEngine/Renderer/TaauUpsamplingRenderer.h>
 #include <GraphicsEngine/Renderer/ViewMode.h>
@@ -155,6 +157,8 @@ namespace SeedCore
 		ResourcePtr<ModelRenderer> modelRenderer_;
 
 		ResourcePtr<OutlineRenderer> outlineRenderer_;
+
+		ResourcePtr<HUDComposeRenderer> hudComposeRenderer_;
 
 		ResourcePtr<ColliderRenderer> colliderRenderer_;
 
@@ -289,11 +293,17 @@ namespace SeedCore
 
 		DescriptorHeap canvasDepthStencilViewHeap_;
 
+		DescriptorHeap uiColorAlphaRenderTargetViewHeap_;
+
 		ResourcePtr<FrameBuffer> editorFrameBuffer_;
 
 		ResourcePtr<FrameBuffer> gameFrameBuffer_;
 
 		ResourcePtr<FrameBuffer> canvasFrameBuffer_;
+
+		ResourcePtr<FrameBuffer> uiColorAlphaFrameBuffer_;
+
+		HudlessBuffer hudlessBuffer_;
 
 		BindlessHeap* bindlessHeap_ = nullptr;
 

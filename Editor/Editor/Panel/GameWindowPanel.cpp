@@ -33,13 +33,15 @@ namespace SeedCore
 		}
 	}
 
-	GameWindowPanel::GameWindowPanel(CameraSystem& cameraSystem) : cameraSystem_(cameraSystem)
+	GameWindowPanel::GameWindowPanel(CameraSystem& cameraSystem, ImGuiTexture& imguiTexture) : cameraSystem_(cameraSystem), imguiTexture_(imguiTexture)
 	{
 		/// No Code
 	}
 
 	void GameWindowPanel::Draw(D3D12_GPU_DESCRIPTOR_HANDLE frameBufferHandle, Float toolbarHeight)
 	{
+		ImTextureID displayTextureId = cameraSystem_.HasActiveCamera() ? ImTextureID(frameBufferHandle.ptr) : imguiTexture_.Icon(IconType::NonCameraWarning);
+
 		if ((ImGui::IsKeyDown(ImGuiKey_LeftCtrl) || ImGui::IsKeyDown(ImGuiKey_RightCtrl)) && ImGui::IsKeyPressed(ImGuiKey_F11))
 		{
 			fullscreen_ = !fullscreen_;
@@ -106,7 +108,7 @@ namespace SeedCore
 				Float offsetY = ImFloor((regionSize.y - imageHeight) * 0.5f);
 
 				ImGui::SetCursorPos(ImVec2(offsetX, offsetY));
-				ImGui::Image(ImTextureID(frameBufferHandle.ptr), ImVec2(imageWidth, imageHeight));
+				ImGui::Image(displayTextureId, ImVec2(imageWidth, imageHeight));
 				imageHovered_ = ImGui::IsItemHovered();
 			}
 			else
@@ -168,7 +170,7 @@ namespace SeedCore
 				ImGui::SetCursorScreenPos(screenPos);
 
 				ImGui::PushStyleVar(ImGuiStyleVar_ImageBorderSize, 0.0f);
-				ImGui::Image(ImTextureID(frameBufferHandle.ptr), ImVec2(imageWidth, imageHeight));
+				ImGui::Image(displayTextureId, ImVec2(imageWidth, imageHeight));
 				ImGui::PopStyleVar();
 				imageHovered_ = ImGui::IsItemHovered();
 

@@ -104,6 +104,11 @@ namespace SeedCore
 		structuredIndices_.sprite_.fontBillboardIndex_ = index;
 	}
 
+	void IndicesSystem::SetUIColorAlphaIndex(Uint index)
+	{
+		structuredIndices_.sprite_.uiColorAlphaIndex_ = index;
+	}
+
 	void IndicesSystem::SetModelInstanceIndex(Uint index)
 	{
 		structuredIndices_.model_.instanceIndex_ = index;

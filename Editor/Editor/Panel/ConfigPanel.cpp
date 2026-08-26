@@ -189,7 +189,7 @@ namespace SeedCore
 		gameConfig_.useDlss_ = context_.viewportContext_.raytracing_.dlssRayReconstructionEnabled_;
 		gameConfig_.upscaleMode_ = context_.viewportContext_.raytracing_.upscaleMode_;
 		gameConfig_.resolution_ = context_.viewportContext_.outputResolution_;
-		gameConfig_.useFrameGeneration_ = Gateway::GetDlssManager().FrameGenerationEnable();
+		gameConfig_.useFrameGeneration_ = context_.viewportContext_.frameGeneration_.enabled_;
 		gameConfig_.vsync_ = context_.viewportContext_.vsync_;
 		gameConfig_.useReflex_ = Gateway::GetDlssManager().ReflexEnable();
 		gameConfig_.useDeepDVC_ = Gateway::GetDlssManager().DeepDVCEnable();
@@ -285,7 +285,7 @@ namespace SeedCore
 		ImGui::TextDisabled("グラフィックス");
 		ImGui::Spacing();
 
-		ImGui::BeginDisabled(gameConfig_.useFrameGeneration_);
+		ImGui::BeginDisabled(gameConfig_.useFrameGeneration_ && !Gateway::GetDlssManager().FrameGenerationVSyncSupported());
 		if (ImGui::Checkbox("垂直同期(VSync)", &gameConfig_.vsync_))
 		{
 			changed = true;
@@ -332,8 +332,10 @@ namespace SeedCore
 		if (ImGui::Checkbox("フレーム生成(FG)を使用する", &gameConfig_.useFrameGeneration_))
 		{
 			changed = true;
-			Gateway::GetDlssManager().FrameGenerationEnable(gameConfig_.useFrameGeneration_);
+			context_.viewportContext_.frameGeneration_.enabled_ = gameConfig_.useFrameGeneration_;
+			context_.viewportContext_.recreateRequested_ = true;
 		}
+		ImGui::SetItemTooltip("Editor状態では画面に反映されません。Runtime出力後、実際の機能をご確認ください。");
 
 		ImGui::TextDisabled("(エディターのレンダー解像度/DLSS-RR/TAAUプレビューに即時反映されます)");
 

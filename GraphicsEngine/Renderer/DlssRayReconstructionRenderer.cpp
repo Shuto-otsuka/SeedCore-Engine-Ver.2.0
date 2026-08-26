@@ -273,7 +273,7 @@ namespace SeedCore
 		///      reset=falseはカメラカット検出を今は行っていないため常に不変
 		///      (既知の残課題)。
 		dlssManager->Constants(scene, viewportIndex, false);
-		dlssManager->Tag(tags, cmd, target.outputResource_.Get(), viewportIndex, outputWidth, outputHeight);
+		dlssManager->RayReconstructionTag(tags, cmd, target.outputResource_.Get(), viewportIndex, outputWidth, outputHeight);
 		dlssManager->EvaluateRayReconstruction(cmd, scene, viewportIndex, outputWidth, outputHeight, mode);
 
 		cmdList->Barrier(target.outputResource_.Get(), target.outputState_, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);

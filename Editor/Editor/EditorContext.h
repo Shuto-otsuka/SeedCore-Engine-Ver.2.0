@@ -14,7 +14,6 @@ namespace SeedCore
 	class World;
 	class ResourceCache;
 	class SystemScheduler;
-	class DescriptorHeap;
 	class GameTimer;
 	class EditorCamera;
 	class EditorCameraController;
@@ -23,9 +22,7 @@ namespace SeedCore
 	class PreviewCameraController;
 	class CameraSystem;
 	struct LoaderSystem;
-	class BC7CompressShader;
-	class BindlessHeap;
-	class D3D12CommandQueue;
+	class Graphics;
 	class ImGuiRenderer;
 	class AnimatorControllerPanel;
 	class TimelinePanel;
@@ -42,14 +39,9 @@ namespace SeedCore
 
 	struct GraphicsContext
 	{
-		ImGuiRenderer* imgui_ = nullptr;
+		Graphics* graphics_ = nullptr;
 
-		ID3D12Device* device_ = nullptr;
-		D3D12CommandQueue* cmdQueue_ = nullptr;
-		BC7CompressShader* bc7Shader_ = nullptr;
-		IDXGIAdapter4* adapter_ = nullptr;
-		DescriptorHeap* descHeap_ = nullptr;
-		BindlessHeap* bindlessHeap_ = nullptr;
+		ImGuiRenderer* imgui_ = nullptr;
 	};
 
 	struct CameraContext
@@ -79,14 +71,21 @@ namespace SeedCore
 		Uint32 requestedSceneAssetID_ = 0;
 	};
 
+	struct FrameGenerationContext
+	{
+		Bool enabled_ = false;
+	};
+
 	struct ViewportContext
 	{
 		GuizmoContext guizmo_;
 		ViewMode viewMode_ = ViewMode::Lit;
 		RaytracingContext raytracing_;
+		FrameGenerationContext frameGeneration_;
 		ResolutionPreset outputResolution_ = ResolutionPreset::HD;
-		Bool resizeRequested_ = false;
 		Bool vsync_ = false;
+		Bool resizeRequested_ = false;
+		Bool recreateRequested_ = false;
 	};
 
 	struct TimelinePreviewContext

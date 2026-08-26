@@ -15,29 +15,21 @@ namespace SeedCore
 
 		TextureLoader loader;
 
-		dayTextureIndex_ = bindlessHeap->AllocateIndex();
-		loader.CreateTexture(device, cmdQueue, bindlessHeap->Heap(), String("../Runtime/Logo/day_logo.dds"), dayResource_, dayTextureIndex_);
+		auto load = [&](const Char* name, const Char* tag, Uint& textureIndex, Microsoft::WRL::ComPtr<ID3D12Resource>& resource)
+		{
+			textureIndex = bindlessHeap->AllocateIndex();
+			String filePath = String(std::string("../Runtime/Logo/") + name + "." + tag);
+			loader.CreateTexture(device, cmdQueue, bindlessHeap->Heap(), filePath, resource, textureIndex);
+		};
 
-		nightTextureIndex_ = bindlessHeap->AllocateIndex();
-		loader.CreateTexture(device, cmdQueue, bindlessHeap->Heap(), String("../Runtime/Logo/night_logo.dds"), nightResource_, nightTextureIndex_);
-
-		warningTextureIndex_ = bindlessHeap->AllocateIndex();
-		loader.CreateTexture(device, cmdQueue, bindlessHeap->Heap(), String("../Runtime/Logo/seedcore_warning_notice.dds"), warningResource_, warningTextureIndex_);
-
-		fictionTextureIndex_ = bindlessHeap->AllocateIndex();
-		loader.CreateTexture(device, cmdQueue, bindlessHeap->Heap(), String("../Runtime/Logo/seedcore_fiction_notice.dds"), fictionResource_, fictionTextureIndex_);
-
-		criLogoTextureIndex_ = bindlessHeap->AllocateIndex();
-		loader.CreateTexture(device, cmdQueue, bindlessHeap->Heap(), String("../Runtime/Logo/criware_logo.dds"), criLogoResource_, criLogoTextureIndex_);
-
-		progressBackgroundTextureIndex_ = bindlessHeap->AllocateIndex();
-		loader.CreateTexture(device, cmdQueue, bindlessHeap->Heap(), String("../Runtime/Logo/seedcore_progress_background.dds"), progressBackgroundResource_, progressBackgroundTextureIndex_);
-
-		progressBarTextureIndex_ = bindlessHeap->AllocateIndex();
-		loader.CreateTexture(device, cmdQueue, bindlessHeap->Heap(), String("../Runtime/Logo/seedcore_progress_bar.dds"), progressBarResource_, progressBarTextureIndex_);
-
-		progressFrameTextureIndex_ = bindlessHeap->AllocateIndex();
-		loader.CreateTexture(device, cmdQueue, bindlessHeap->Heap(), String("../Runtime/Logo/seedcore_progress_frame.dds"), progressFrameResource_, progressFrameTextureIndex_);
+		load("Day",   "logo", dayTextureIndex_, dayResource_);
+		load("Night", "logo", nightTextureIndex_, nightResource_);
+		load("Warning", "sub.logo", warningTextureIndex_, warningResource_);
+		load("Fiction", "sub.logo", fictionTextureIndex_, fictionResource_);
+		load("CriWare", "logo", criLogoTextureIndex_, criLogoResource_);
+		load("ProgressBackground", "sub.logo", progressBackgroundTextureIndex_, progressBackgroundResource_);
+		load("ProgressBar",        "sub.logo", progressBarTextureIndex_, progressBarResource_);
+		load("ProgressFrame",      "sub.logo", progressFrameTextureIndex_, progressFrameResource_);
 
 		HRESULT hr{ S_OK };
 
@@ -321,7 +313,7 @@ namespace SeedCore
 			textureAspect = static_cast<Float>(desc.Width) / static_cast<Float>(desc.Height);
 		}
 
-		/// [JP] progress_bar.dds/progress_frame.dds は同じレイアウトの重ね合わせ前提なので、バーの縦横比だけ取得すれば両方に使える。
+		/// [JP] ProgressBar.sub.logo/ProgressFrame.sub.logo は同じレイアウトの重ね合わせ前提なので、バーの縦横比だけ取得すれば両方に使える。
 		Float barAspect = 1.0f;
 		if (progressBarResource_)
 		{

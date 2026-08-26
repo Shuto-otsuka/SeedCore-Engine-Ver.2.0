@@ -1,5 +1,11 @@
 #include <GraphicsEngine/DLSS/DlssManager.h>
 #include <FoundationEngine/Log/SlFail.h>
+#include <FoundationEngine/File/FileDirectory.h>
+#include <FoundationEngine/Log/Warning.h>
+
+#ifndef _DEBUG
+#include <External/DLSS/Include/sl_security.h>
+#endif
 
 namespace SeedCore
 {
@@ -41,6 +47,17 @@ namespace SeedCore
 #if !SC_RENDER_DOC_USAGE
 		sl::Result sr{ sl::Result::eOk };
 
+		/// [EN] sl.interposer.dll intercepts every D3D12/Vulkan call the engine makes, so verify it is the genuine NVIDIA-signed binary before slInit loads it - a replaced module at this location could hijack the entire graphics pipeline. Skipped in Debug, since development/self-built SL DLLs are unsigned per the Streamline security guide.
+		/// [JP] sl.interposer.dllはエンジンが行う全てのD3D12/Vulkan呼び出しを横取りするため、slInitで読み込む前に本物のNVIDIA署名付きバイナリか検証する - ここが差し替えられるとグラフィックスパイプライン全体を乗っ取られかねない。開発版/自前ビルドのSL DLLは署名が無いため(Streamlineセキュリティガイド)、Debugではスキップする。
+#ifndef _DEBUG
+		std::wstring interposerPath = FileDirectory::ExecutableDirectory() + L"\\sl.interposer.dll";
+		if (!sl::security::verifyEmbeddedSignature(interposerPath.c_str()))
+		{
+			SC_LOG_WARNING("sl.interposer.dllの署名検証に失敗しました - 改ざんされた/非公式のモジュールの可能性があります");
+			return false;
+		}
+#endif
+
 		sl::Feature features[] =
 		{
 			sl::kFeatureDLSS,
@@ -67,7 +84,7 @@ namespace SeedCore
 		preference.numFeaturesToLoad = static_cast<Uint32>(std::size(features));
      	preference.engine = sl::EngineType::eCustom;
 		preference.engineVersion = "2.0";
-		preference.projectId = "8e5d9cac-4c56-4513-813c-09a0f1168a83";
+		preference.projectId = SC_ENCRYPTION_KEY_SEED;
 		preference.renderAPI = sl::RenderAPI::eD3D12;
 		preference.flags = sl::PreferenceFlags::eDisableCLStateTracking | sl::PreferenceFlags::eAllowOTA | sl::PreferenceFlags::eLoadDownloadedPlugins | sl::PreferenceFlags::eUseFrameBasedResourceTagging | sl::PreferenceFlags::eDisableDebugText;
 
@@ -148,7 +165,7 @@ namespace SeedCore
 #endif
 	}
 
-	void DlssManager::Tag(DlssBufferTag tags, ID3D12CommandList* cmdList, ID3D12Resource* outPutBuffer, Uint32 viewportIndex, Uint32 outputWidth, Uint32 outputHeight)
+	void DlssManager::RayReconstructionTag(DlssBufferTag tags, ID3D12CommandList* cmdList, ID3D12Resource* outPutBuffer, Uint32 viewportIndex, Uint32 outputWidth, Uint32 outputHeight)
 	{
 #if !SC_RENDER_DOC_USAGE
 		if (!currentToken_)
@@ -179,9 +196,13 @@ namespace SeedCore
 		outputSize.width = outputWidth;
 		outputSize.height = outputHeight;
 
+		/// [EN] DLSS-G reads the same Depth/MotionVectors buffers at Present() time, after slEvaluateFeature has already returned, so while FG is enabled these two need the wider eValidUntilPresent lifecycle instead of eValidUntilEvaluate.
+		/// [JP] DLSS-G(FG)はslEvaluateFeatureが戻った後のPresent()時にも同じDepth/MotionVectorsバッファを読むため、FG有効時はこの2つだけeValidUntilEvaluateではなく、より広いeValidUntilPresentが必要。
+		sl::ResourceLifecycle depthMotionVectorsLifecycle = frameGenerationEnabled_ ? sl::ResourceLifecycle::eValidUntilPresent : sl::ResourceLifecycle::eValidUntilEvaluate;
+
 		tags_[0] = { &colorResource,           sl::kBufferTypeScalingInputColor,  sl::ResourceLifecycle::eValidUntilEvaluate, &inputSize };
-		tags_[1] = { &depthResource,           sl::kBufferTypeDepth,              sl::ResourceLifecycle::eValidUntilEvaluate, &inputSize };
-		tags_[2] = { &velocityResource,        sl::kBufferTypeMotionVectors,      sl::ResourceLifecycle::eValidUntilEvaluate, &inputSize };
+		tags_[1] = { &depthResource,           sl::kBufferTypeDepth,              depthMotionVectorsLifecycle,                &inputSize };
+		tags_[2] = { &velocityResource,        sl::kBufferTypeMotionVectors,      depthMotionVectorsLifecycle,                &inputSize };
 		tags_[3] = { &albedoResource,          sl::kBufferTypeAlbedo,             sl::ResourceLifecycle::eValidUntilEvaluate, &inputSize };
 		tags_[4] = { &normalRoughnessResource, sl::kBufferTypeNormalRoughness,    sl::ResourceLifecycle::eValidUntilEvaluate, &inputSize };
 		tags_[5] = { &specularAlbedoResource,  sl::kBufferTypeSpecularAlbedo,     sl::ResourceLifecycle::eValidUntilEvaluate, &inputSize };
@@ -189,6 +210,46 @@ namespace SeedCore
 
 		sr = slSetTagForFrame(*currentToken_, viewport, tags_, static_cast<Uint32>(std::size(tags_)), cmdList);
 		SC_SL_CHECK(sr, "フレームへのタグ設定に失敗しました");
+#endif
+	}
+
+	void DlssManager::FrameGenerationTag(DlssBufferTag tags, ID3D12CommandList* cmdList, ID3D12Resource* hudlessResource, ID3D12Resource* uiColorAlphaResource, Uint32 viewportIndex, Uint32 outputWidth, Uint32 outputHeight)
+	{
+#if !SC_RENDER_DOC_USAGE
+		if (!currentToken_)
+		{
+			return;
+		}
+
+		sl::ViewportHandle viewport(viewportIndex);
+
+		sl::Resource depthResource           = { sl::ResourceType::eTex2d, tags.depthBuffer_,     static_cast<Uint32>(tags.depthBufferState_) };
+		sl::Resource velocityResource        = { sl::ResourceType::eTex2d, tags.velocityBuffer_,  static_cast<Uint32>(tags.velocityBufferState_) };
+		sl::Resource hudlessResourceTag      = { sl::ResourceType::eTex2d, hudlessResource,       static_cast<Uint32>(D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE) };
+		sl::Resource uiColorAlphaResourceTag = { sl::ResourceType::eTex2d, uiColorAlphaResource,  static_cast<Uint32>(D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE) };
+
+		sl::Extent inputSize{};
+		inputSize.top = 0;
+		inputSize.left = 0;
+		inputSize.width = static_cast<Uint32>(tags.width_);
+		inputSize.height = static_cast<Uint32>(tags.height_);
+
+		sl::Extent outputSize{};
+		outputSize.top = 0;
+		outputSize.left = 0;
+		outputSize.width = outputWidth;
+		outputSize.height = outputHeight;
+
+		sl::ResourceTag frameGenerationTags[4] =
+		{
+			{ &depthResource,           sl::kBufferTypeDepth,           sl::ResourceLifecycle::eValidUntilPresent, &inputSize },
+			{ &velocityResource,        sl::kBufferTypeMotionVectors,   sl::ResourceLifecycle::eValidUntilPresent, &inputSize },
+			{ &hudlessResourceTag,      sl::kBufferTypeHUDLessColor,    sl::ResourceLifecycle::eValidUntilPresent, &outputSize },
+			{ &uiColorAlphaResourceTag, sl::kBufferTypeUIColorAndAlpha, sl::ResourceLifecycle::eValidUntilPresent, &outputSize },
+		};
+
+		sl::Result sr = slSetTagForFrame(*currentToken_, viewport, frameGenerationTags, static_cast<Uint32>(std::size(frameGenerationTags)), cmdList);
+		SC_SL_CHECK(sr, "DLSS-G用リソースタグの設定に失敗しました");
 #endif
 	}
 
@@ -264,6 +325,31 @@ namespace SeedCore
 		return deepDVCEnabled_;
 	}
 
+	void DlssManager::FrameGenerationEnable(Bool enable)
+	{
+		frameGenerationEnabled_ = enable;
+
+#if !SC_RENDER_DOC_USAGE
+		sl::Result sr = slSetFeatureLoaded(sl::kFeatureDLSS_G, enable);
+		SC_SL_CHECK(sr, "DLSS-Gのロード状態切り替えに失敗しました");
+#endif
+	}
+
+	Bool DlssManager::FrameGenerationEnable()const
+	{
+		return frameGenerationEnabled_;
+	}
+
+	void DlssManager::FrameGenerationSuppress(Bool suppress)
+	{
+		frameGenerationSuppressed_ = suppress;
+	}
+
+	Bool DlssManager::FrameGenerationVSyncSupported()const
+	{
+		return frameGenerationVSyncSupported_;
+	}
+
 	void DlssManager::RayReconstructionEnable(Bool enable)
 	{
 		rayReconstructionEnabled_ = enable;
@@ -272,16 +358,6 @@ namespace SeedCore
 	Bool DlssManager::RayReconstructionEnable()const
 	{
 		return rayReconstructionEnabled_;
-	}
-
-	void DlssManager::FrameGenerationEnable(Bool enable)
-	{
-		frameGenerationEnabled_ = enable;
-	}
-
-	Bool DlssManager::FrameGenerationEnable()const
-	{
-		return frameGenerationEnabled_;
 	}
 
 	void DlssManager::Reflex(Bool useBoost)
@@ -356,6 +432,32 @@ namespace SeedCore
 
 		sr = slEvaluateFeature(sl::kFeatureDeepDVC, *currentToken_, inputs, static_cast<Uint32>(std::size(inputs)), cmdList);
 		SC_SL_CHECK(sr, "DeepDVCの実行に失敗しました");
+#endif
+	}
+
+	void DlssManager::EvaluateFrameGeneration(Uint32 viewportIndex)
+	{
+#if !SC_RENDER_DOC_USAGE
+		if (!currentToken_ || !loadResult_.isDlssFG_)
+		{
+			return;
+		}
+
+		sl::ViewportHandle viewport(viewportIndex);
+
+		sl::DLSSGOptions options{};
+		options.mode = (frameGenerationEnabled_ && !frameGenerationSuppressed_) ? sl::DLSSGMode::eOn : sl::DLSSGMode::eOff;
+
+		sl::Result sr = slDLSSGSetOptions(viewport, options);
+		SC_SL_CHECK(sr, "DLSS-Gオプションの設定に失敗しました");
+
+		/// [EN] bIsVsyncSupportAvailable is only meaningful once DLSS-G has actually evaluated at least once, so a failure here (e.g. before that point) is expected and left silent - frameGenerationVSyncSupported_ simply keeps its previous value.
+		/// [JP] bIsVsyncSupportAvailableはDLSS-Gが一度でも実行された後でないと意味を持たないため、それ以前の失敗は想定内として無視する - frameGenerationVSyncSupported_は直前の値を保持したままになる。
+		sl::DLSSGState state{};
+		if (slDLSSGGetState(viewport, state, &options) == sl::Result::eOk)
+		{
+			frameGenerationVSyncSupported_ = (state.bIsVsyncSupportAvailable == sl::Boolean::eTrue);
+		}
 #endif
 	}
 

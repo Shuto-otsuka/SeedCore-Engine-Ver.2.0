@@ -39,6 +39,7 @@
     <ClInclude Include="D3D12\Buffer\FrameBuffer.h" />
     <ClInclude Include="D3D12\Buffer\GeometryBuffer.h" />
     <ClInclude Include="D3D12\Buffer\HiZBuffer.h" />
+    <ClInclude Include="D3D12\Buffer\HudlessBuffer.h" />
     <ClInclude Include="D3D12\Buffer\IndexBuffer.h" />
     <ClInclude Include="D3D12\Buffer\ReservoirBuffer.h" />
     <ClInclude Include="D3D12\Buffer\StructuredBuffer.h" />
@@ -130,6 +131,7 @@
     <ClInclude Include="Model\SoftbodyMesh.h" />
     <ClInclude Include="Model\Transparent\OITBuffer.h" />
     <ClInclude Include="Movie\Movie.h" />
+    <ClInclude Include="Movie\MovieByteStream.h" />
     <ClInclude Include="Movie\MovieLoader.h" />
     <ClInclude Include="Movie\MovieResource.h" />
     <ClInclude Include="Movie\MovieShader.h" />
@@ -177,6 +179,7 @@
     <ClInclude Include="Renderer\EffekseerRenderer.h" />
     <ClInclude Include="Renderer\FontRenderer.h" />
     <ClInclude Include="Renderer\GlobalIlluminationRenderer.h" />
+    <ClInclude Include="Renderer\HUDComposeRenderer.h" />
     <ClInclude Include="Renderer\ImageRenderer.h" />
     <ClInclude Include="Renderer\ModelRenderer.h" />
     <ClInclude Include="Renderer\ModelTransformRenderer.h" />
@@ -202,6 +205,7 @@
     <ClInclude Include="Shader\ShaderCache.h" />
     <ClInclude Include="Shader\ShaderCompiler.h" />
     <ClInclude Include="Shape\Collider\ColliderLineShader.h" />
+    <ClInclude Include="Shape\HUD\HUDComposeShader.h" />
     <ClInclude Include="Shape\Outline\OutlineShader.h" />
     <ClInclude Include="Sky\Skymap.h" />
     <ClInclude Include="Sky\SkymapCache.h" />
@@ -232,6 +236,7 @@
     <ClCompile Include="Camera\PreviewCameraController.cpp" />
     <ClCompile Include="Camera\ScreenSpace.cpp" />
     <ClCompile Include="D3D12\Buffer\DepthResizeBuffer.cpp" />
+    <ClCompile Include="D3D12\Buffer\HudlessBuffer.cpp" />
     <ClCompile Include="D3D12\Buffer\ReservoirBuffer.cpp" />
     <ClCompile Include="DLSS\DlssBackgroundVelocityShader.cpp" />
     <ClCompile Include="DLSS\DlssNormalRoughnessShader.cpp" />
@@ -272,6 +277,7 @@
     <ClCompile Include="Model\SkinnedPositionShader.cpp" />
     <ClCompile Include="Model\SoftbodyMesh.cpp" />
     <ClCompile Include="Model\Transparent\OITBuffer.cpp" />
+    <ClCompile Include="Movie\MovieByteStream.cpp" />
     <ClCompile Include="Movie\MovieLoader.cpp" />
     <ClCompile Include="Movie\MovieResource.cpp" />
     <ClCompile Include="Movie\MovieShader.cpp" />
@@ -396,6 +402,7 @@
     <ClCompile Include="Renderer\EffekseerRenderer.cpp" />
     <ClCompile Include="Renderer\FontRenderer.cpp" />
     <ClCompile Include="Renderer\GlobalIlluminationRenderer.cpp" />
+    <ClCompile Include="Renderer\HUDComposeRenderer.cpp" />
     <ClCompile Include="Renderer\ImageRenderer.cpp" />
     <ClCompile Include="Renderer\ModelRenderer.cpp" />
     <ClCompile Include="Renderer\ModelTransformRenderer.cpp" />
@@ -423,6 +430,7 @@
     <ClCompile Include="Shader\ShaderCompiler.cpp">
     </ClCompile>
     <ClCompile Include="Shape\Collider\ColliderLineShader.cpp" />
+    <ClCompile Include="Shape\HUD\HUDComposeShader.cpp" />
     <ClCompile Include="Shape\Outline\OutlineShader.cpp" />
     <ClCompile Include="Sky\Skymap.cpp" />
     <ClCompile Include="Sky\SkymapCache.cpp" />
@@ -1018,6 +1026,14 @@
   </ItemGroup>
   <ItemGroup>
     <Text Include="Raytracing\Reflection\ReflectionReservoirSpatialCS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Shape\HUD\HUDComposeMS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Shape\HUD\HUDComposePS.hlsl">
       <FileType>Document</FileType>
     </Text>
   </ItemGroup>

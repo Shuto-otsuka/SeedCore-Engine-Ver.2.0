@@ -12,6 +12,8 @@ namespace SeedCore
 
 		Bool Create(IDXGIFactory7* factory, ID3D12Device* device, ID3D12CommandQueue* cmdQueue, HWND hwnd);
 
+		void Destroy();
+
 		void Present(ID3D12Device* device);
 
 		void VerticalSync(Bool vsync);
@@ -25,6 +27,8 @@ namespace SeedCore
 		ID3D12Resource* BackBuffer()const;
 
 		ID3D12DescriptorHeap* GetDescHeap()const;
+
+		HWND GetHwnd()const;
 
 	private:
 		Microsoft::WRL::ComPtr<IDXGISwapChain4> swapChain_;

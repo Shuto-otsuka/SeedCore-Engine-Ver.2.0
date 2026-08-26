@@ -16,7 +16,7 @@ namespace SeedCore
 		inspectorPanel_ = MakePtr<InspectorPanel>(context_, imguiTexture_);
 		toolPanel_ = MakePtr<ToolPanel>(context_, imguiTexture_);
 		editorWindowPanel_ = MakePtr<EditorWindowPanel>(context_, imguiTexture_);
-		gameWindowPanel_ = MakePtr<GameWindowPanel>(*context_.cameraContext_.cameraSystem_);
+		gameWindowPanel_ = MakePtr<GameWindowPanel>(*context_.cameraContext_.cameraSystem_, imguiTexture_);
 		canvasViewPanel_ = MakePtr<CanvasViewPanel>(context_, imguiTexture_);
 		contentsDrawerPanel_ = MakePtr<ContentsDrawerPanel>(context_, imguiTexture_);
 		controlPanel_ = MakePtr<ControlPanel>(context_, imguiTexture_);

@@ -1,6 +1,7 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
 #include <GraphicsEngine/D3D12/Descriptor/DescriptorHeap.h>
+#include <GraphicsEngine/D3D12/Buffer/HudlessBuffer.h>
 #include <GraphicsEngine/PostProcess/PostEffect/AutoExposure.h>
 #include <GraphicsEngine/PostProcess/PostEffect/ToneMapping.h>
 #include <GraphicsEngine/PostProcess/PostEffect/KawaseBloom.h>
@@ -207,6 +208,8 @@ namespace SeedCore
 		///      PIXEL_SHADER_RESOURCEへ戻す。RefreshImGuiが
 		///      読み取れるようにするため。
 		void EndDebugOverlay(D3D12CommandList* cmdList, RaytracingView view);
+
+		void CaptureHudless(D3D12CommandList* cmdList, HudlessBuffer& hudlessBuffer, RaytracingView view);
 
 	private:
 		struct View

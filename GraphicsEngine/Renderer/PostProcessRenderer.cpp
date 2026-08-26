@@ -1503,6 +1503,22 @@ namespace SeedCore
 		sharpenState = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
 	}
 
+	void PostProcessRenderer::CaptureHudless(D3D12CommandList* cmdList, HudlessBuffer& hudlessBuffer, RaytracingView view)
+	{
+		View& target = ViewFor(view);
+
+		Microsoft::WRL::ComPtr<ID3D12Resource>& sharpenResource = target.activeIsUpscaled_ ? target.sharpenResourceUpscaled_ : target.sharpenResource_;
+		D3D12_RESOURCE_STATES& sharpenState = target.activeIsUpscaled_ ? target.sharpenStateUpscaled_ : target.sharpenState_;
+
+		cmdList->Barrier(sharpenResource.Get(), sharpenState, D3D12_RESOURCE_STATE_COPY_SOURCE);
+		sharpenState = D3D12_RESOURCE_STATE_COPY_SOURCE;
+
+		hudlessBuffer.Capture(cmdList, sharpenResource.Get());
+
+		cmdList->Barrier(sharpenResource.Get(), sharpenState, D3D12_RESOURCE_STATE_RENDER_TARGET);
+		sharpenState = D3D12_RESOURCE_STATE_RENDER_TARGET;
+	}
+
 	void PostProcessRenderer::UnorderedAccessBarrier(D3D12CommandList* cmdList, ID3D12Resource* resource)
 	{
 		D3D12_RESOURCE_BARRIER barrier{};

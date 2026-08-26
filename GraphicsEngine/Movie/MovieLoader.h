@@ -33,6 +33,8 @@ namespace SeedCore
 	private:
 		Microsoft::WRL::ComPtr<IMFSourceReader> sourceReader_;
 
+		Microsoft::WRL::ComPtr<IMFByteStream> byteStream_;
+
 		DynamicArray<Byte> pixelBuffer_;
 
 		Int width_ = 0;

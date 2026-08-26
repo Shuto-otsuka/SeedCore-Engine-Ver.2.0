@@ -50,12 +50,12 @@ namespace SeedCore
 		wcex.cbClsExtra = 0;
 		wcex.cbWndExtra = 0;
 		wcex.hInstance = instance_;
-		wcex.hIcon = static_cast<HICON>(LoadImageW(nullptr, L"../Runtime/Logo/seedcore_icon.ico", IMAGE_ICON, 0, 0, LR_LOADFROMFILE | LR_DEFAULTSIZE));
+		wcex.hIcon = static_cast<HICON>(LoadImageW(nullptr, L"../Runtime/Logo/SeedCore.ico", IMAGE_ICON, 0, 0, LR_LOADFROMFILE | LR_DEFAULTSIZE));
 		wcex.hCursor = LoadCursor(nullptr, IDC_ARROW);
 		wcex.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
 		wcex.lpszMenuName = nullptr;
 		wcex.lpszClassName = boot.WindowDesc_.Title_;
-		wcex.hIconSm = static_cast<HICON>(LoadImageW(nullptr, L"../Runtime/Logo/seedcore_icon.ico", IMAGE_ICON, 16, 16, LR_LOADFROMFILE));
+		wcex.hIconSm = static_cast<HICON>(LoadImageW(nullptr, L"../Runtime/Logo/SeedCore.ico", IMAGE_ICON, 16, 16, LR_LOADFROMFILE));
 		RegisterClassExW(&wcex);
 
 		RECT rect{ 0, 0, static_cast<LONG>(boot.WindowDesc_.Width_), static_cast<LONG>(boot.WindowDesc_.Height_) };

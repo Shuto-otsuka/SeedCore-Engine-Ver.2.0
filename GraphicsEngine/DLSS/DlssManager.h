@@ -50,7 +50,9 @@ namespace SeedCore
 
 		void BeginFrame();
 
-		void Tag(DlssBufferTag tags, ID3D12CommandList* cmdList, ID3D12Resource* outPutBuffer, Uint32 viewportIndex, Uint32 outputWidth, Uint32 outputHeight);
+		void RayReconstructionTag(DlssBufferTag tags, ID3D12CommandList* cmdList, ID3D12Resource* outPutBuffer, Uint32 viewportIndex, Uint32 outputWidth, Uint32 outputHeight);
+
+		void FrameGenerationTag(DlssBufferTag tags, ID3D12CommandList* cmdList, ID3D12Resource* hudlessResource, ID3D12Resource* uiColorAlphaResource, Uint32 viewportIndex, Uint32 outputWidth, Uint32 outputHeight);
 
 		void Constants(const SceneConstantBuffer& scene, Uint32 viewportIndex, Bool reset);
 
@@ -63,13 +65,17 @@ namespace SeedCore
 
 		Bool DeepDVCEnable()const;
 
-		void RayReconstructionEnable(Bool enable);
-
-		Bool RayReconstructionEnable()const;
-
 		void FrameGenerationEnable(Bool enable);
 
 		Bool FrameGenerationEnable()const;
+
+		void FrameGenerationSuppress(Bool suppress);
+
+		Bool FrameGenerationVSyncSupported()const;
+
+		void RayReconstructionEnable(Bool enable);
+
+		Bool RayReconstructionEnable()const;
 
 	public:
 		void Reflex(Bool useBoost);
@@ -80,6 +86,8 @@ namespace SeedCore
 		void EvaluateReflex();
 
 		void EvaluateDeepDVC(ID3D12CommandList* cmdList, ID3D12Resource* colorBuffer, Uint32 viewportIndex, Uint32 width, Uint32 height);
+
+		void EvaluateFrameGeneration(Uint32 viewportIndex);
 
 		void EvaluateRayReconstruction(ID3D12CommandList* cmdList, const SceneConstantBuffer& scene, Uint32 viewportIndex, Uint32 outputWidth, Uint32 outputHeight, UpscaleMode mode);
 
@@ -95,9 +103,11 @@ namespace SeedCore
 		Float deepDVCIntensity_ = 0.5f;
 		Float deepDVCSaturationBoost_ = 0.25f;
 
-		Bool rayReconstructionEnabled_ = false;
-
 		Bool frameGenerationEnabled_ = false;
+		Bool frameGenerationSuppressed_ = false;
+		Bool frameGenerationVSyncSupported_ = false;
+
+		Bool rayReconstructionEnabled_ = false;
 
 #if !SC_RENDER_DOC_USAGE
 		sl::ResourceTag tags_[7]{};

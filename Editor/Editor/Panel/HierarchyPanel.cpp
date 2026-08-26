@@ -10,6 +10,7 @@
 #include <FoundationEngine/Resource/ResourceCache.h>
 #include <FoundationEngine/File/FileDialog.h>
 #include <GraphicsEngine/Camera/EditorCamera.h>
+#include <GraphicsEngine/Graphics.h>
 #include <FoundationEngine/ECS/Component/Bounds.h>
 
 namespace SeedCore
@@ -446,7 +447,8 @@ namespace SeedCore
 			return;
 		}
 
-		context_.worldContext_.resource_->Reload(*context_.worldContext_.loader_, context_.graphicsContext_.device_, context_.graphicsContext_.cmdQueue_, *context_.graphicsContext_.bc7Shader_);
+		D3D12Context* d3d12Context = context_.graphicsContext_.graphics_->GetContext();
+		context_.worldContext_.resource_->Reload(*context_.worldContext_.loader_, d3d12Context->GetDevice(), d3d12Context->GetDirectQueue(), context_.graphicsContext_.graphics_->GetBC7CompressShader());
 
 		/// [EN] Rebind this Actor's Apply target to the newly-saved file, so a later
 		///      "Prefab に適用" writes to this new Prefab instead of any Prefab it
