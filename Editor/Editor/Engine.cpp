@@ -92,7 +92,7 @@ namespace SeedCore
 		GetModuleFileNameA(nullptr, exePathBuffer, MAX_PATH);
 		std::filesystem::path pluginDirectory = std::filesystem::path(exePathBuffer).parent_path();
 		pluginHost_.Initialize(pluginDirectory, ImGui::GetCurrentContext());
-		pluginHost_.LoadAll(*world_);
+		pluginHost_.Load(*world_);
 		hotReload_.Initialize(pluginHost_);
 
 		editorConfig_.Load();
@@ -145,7 +145,7 @@ namespace SeedCore
 
 		if (world_)
 		{
-			pluginHost_.UnloadAll(*world_);
+			pluginHost_.Unload(*world_);
 		}
 
 		InputSystem::Finalize();

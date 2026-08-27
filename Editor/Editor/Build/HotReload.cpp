@@ -32,7 +32,7 @@ namespace SeedCore
 	void HotReload::Initialize(PluginHost& pluginHost)
 	{
 		pluginHost_ = &pluginHost;
-		userProjectPlugin_ = pluginHost.FindByStem("UserProject");
+		userProjectPlugin_ = pluginHost.Find("UserProject");
 	}
 
 	std::filesystem::path HotReload::UserProjectSourceDirectory()
@@ -361,7 +361,7 @@ namespace SeedCore
 			/// [JP] Initialize 時点ではプラグインが存在しなかった可能性がある(例: このセッション中に UserProject.dll が初めてビルドされた) — ビルドが生成した今、拾い直す。
 			if (!userProjectPlugin_ && pluginHost_)
 			{
-				userProjectPlugin_ = pluginHost_->FindByStem("UserProject");
+				userProjectPlugin_ = pluginHost_->Find("UserProject");
 			}
 
 			if (pluginHost_ && userProjectPlugin_)
