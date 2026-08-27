@@ -2239,10 +2239,21 @@ namespace SeedCore
 					++common;
 				}
 
-				newNode->prefixLength_ = static_cast<Uint8>(Min<Uint32>(common, Art::MAX_PREFIX));
-				std::memcpy(newNode->prefix_, existingBytes.data() + depth, newNode->prefixLength_);
+				const Uint32 effectiveCommon = Min<Uint32>(common, Art::MAX_PREFIX);
+				newNode->prefixLength_ = static_cast<Uint8>(effectiveCommon);
+				std::memcpy(newNode->prefix_, existingBytes.data() + depth, effectiveCommon);
 
-				Uint32 splitDepth = depth + common;
+				Uint32 splitDepth = depth + effectiveCommon;
+
+				if (common > Art::MAX_PREFIX)
+				{
+					Uint8 sharedByte = existingBytes[splitDepth];
+					newNode->add(sharedByte, existing);
+					node = newNode;
+					NodePtr* slot = newNode->find(sharedByte);
+					return insert_implementation(*slot, originalKey, key, std::move(value), splitDepth + 1);
+				}
+
 				Uint8 oldByte = (splitDepth < existingBytes.size()) ? existingBytes[splitDepth] : 0;
 				Uint8 newByte = (splitDepth < key.size()) ? key[splitDepth] : 0;
 

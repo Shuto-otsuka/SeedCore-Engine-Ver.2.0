@@ -119,6 +119,18 @@ namespace SeedCore
 		//slFreeResources(sl::kFeatureDeepDVC, sl::ViewportHandle(0));
 		//slFreeResources(sl::kFeatureDeepDVC, sl::ViewportHandle(1));
 
+		if (loadResult_.isDeepDVC_)
+		{
+			sr = slSetFeatureLoaded(sl::kFeatureDeepDVC, false);
+			SC_SL_CHECK(sr, "DeepDVC機能のアンロードに失敗しました。");
+		}
+		
+		if (loadResult_.isDlssFG_)
+		{
+			sr = slSetFeatureLoaded(sl::kFeatureDLSS_G, false);
+			SC_SL_CHECK(sr, "DLSS FG機能のアンロードに失敗しました。");
+		}
+
 		sr = slShutdown();
 		SC_SL_CHECK(sr, "Streamlineのシャットダウン中にエラーが発生しました。");
 #endif

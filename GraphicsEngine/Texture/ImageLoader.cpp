@@ -81,7 +81,7 @@ namespace SeedCore
 				heap->DeferRelease(texture->resource_);
 				totalResidentBytes_ -= texture->sizeBytes_;
 			}
-			auto found = std::ranges::find(loadedHandles_, handle);
+			auto found = std::ranges::find_if(loadedHandles_, [handle](const auto& candidate){ return candidate == handle; });
 			if (found != loadedHandles_.end())
 			{
 				loadedHandles_.erase(found);
