@@ -259,7 +259,7 @@ namespace SeedCore
 
 			/// [EN] Inline path-compressed key-byte prefix shared by all descendants.
 			/// [JP] 全子孫が共有する、パス圧縮されたインラインのキーバイト接頭辞。
-			Uint8 prefix_[MAX_PREFIX];
+			Uint8 prefix_[MAX_PREFIX] = {};
 
 			/// [EN] Number of children currently stored in this node.
 			/// [JP] このノードに現在格納されている子の数。
@@ -363,6 +363,10 @@ namespace SeedCore
 			*/
 			void add(Uint8 byte, NodePtr child)
 			{
+				if (numberChildren_ >= 4)
+				{
+					return;
+				}
 				Uint8 index = static_cast<Uint8>(numberChildren_);
 				while (index > 0 && keys_[index - 1] > byte)
 				{
@@ -428,11 +432,11 @@ namespace SeedCore
 
 			/// [EN] Sorted key bytes, parallel to children_.
 			/// [JP] children_ と対をなす、ソート済みのキーバイト列。
-			StaticArray<Uint8, 4> keys_;
+			StaticArray<Uint8, 4> keys_{};
 
 			/// [EN] Child pointers, parallel to keys_.
 			/// [JP] keys_ と対をなす子ポインタ列。
-			StaticArray<NodePtr, 4> children_;
+			StaticArray<NodePtr, 4> children_{};
 		};
 
 		/**
@@ -486,6 +490,10 @@ namespace SeedCore
 			*/
 			void add(Uint8 byte, NodePtr child)
 			{
+				if (numberChildren_ >= 16)
+				{
+					return;
+				}
 				Uint16 index = numberChildren_;
 				while (index > 0 && keys_[index - 1] > byte)
 				{
@@ -523,11 +531,11 @@ namespace SeedCore
 
 			/// [EN] Sorted key bytes, parallel to children_.
 			/// [JP] children_ と対をなす、ソート済みのキーバイト列。
-			StaticArray<Uint8, 16> keys_;
+			StaticArray<Uint8, 16> keys_{};
 
 			/// [EN] Child pointers, parallel to keys_.
 			/// [JP] keys_ と対をなす子ポインタ列。
-			StaticArray<NodePtr, 16> children_;
+			StaticArray<NodePtr, 16> children_{};
 		};
 
 		/**
@@ -580,10 +588,18 @@ namespace SeedCore
 			*/
 			void add(Uint8 byte, NodePtr child)
 			{
+				if (numberChildren_ >= 48)
+				{
+					return;
+				}
 				Uint8 slot = 0;
-				while (children_[slot] != nullptr)
+				while (slot < 48 && children_[slot] != nullptr)
 				{
 					++slot;
+				}
+				if (slot >= 48)
+				{
+					return;
 				}
 				index_[byte] = slot;
 				children_[slot] = child;
@@ -613,7 +629,7 @@ namespace SeedCore
 
 			/// [EN] Child pointers, sparsely populated and indexed via index_.
 			/// [JP] index_ 経由でアクセスされる、疎に埋まった子ポインタ列。
-			StaticArray<NodePtr, 48>  children_;
+			StaticArray<NodePtr, 48>  children_{};
 		};
 
 		/**
@@ -684,7 +700,7 @@ namespace SeedCore
 
 			/// [EN] Child pointers, directly indexed by key byte (nullptr = absent).
 			/// [JP] キーバイトで直接インデックスされる子ポインタ列（nullptr = 不在）。
-			StaticArray<NodePtr, 256> children_;
+			StaticArray<NodePtr, 256> children_{};
 		};
 
 		/**
@@ -2239,7 +2255,7 @@ namespace SeedCore
 					++common;
 				}
 
-				const Uint32 effectiveCommon = Min<Uint32>(common, Art::MAX_PREFIX);
+				const Uint32 effectiveCommon = Min<Uint32>(common, static_cast<Uint32>(Art::MAX_PREFIX));
 				newNode->prefixLength_ = static_cast<Uint8>(effectiveCommon);
 				std::memcpy(newNode->prefix_, existingBytes.data() + depth, effectiveCommon);
 
