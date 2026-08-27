@@ -25,6 +25,7 @@
 #include <Editor/Editor/ImGui/ImGuiRenderer.h>
 #include <Editor/Editor/Build/HotReload.h>
 #include <Editor/Editor/Build/Config.h>
+#include <FoundationEngine/Plugin/PluginHost.h>
 
 namespace SeedCore
 {
@@ -70,6 +71,8 @@ namespace SeedCore
 		ResourcePtr<ImGuiRenderer> imgui_;
 
 		ResourcePtr<LoaderSystem> loaderSystem_;
+
+		PluginHost pluginHost_;
 
 		HotReload hotReload_;
 

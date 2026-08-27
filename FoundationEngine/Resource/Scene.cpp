@@ -42,6 +42,21 @@ namespace SeedCore
 
 	/**
 	* [EN]
+	* Discards any captured actor data, releasing the memory it held.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 取得済みの actor データを破棄し、それが保持していたメモリを解放する。
+	*/
+	void Scene::Clear()
+	{
+		nodes_.clear();
+		nodes_.shrink_to_fit();
+	}
+
+	/**
+	* [EN]
 	* Recreates the captured scene as new actors in world, returning
 	* every instantiated actor (roots and descendants alike).
 	*
@@ -258,6 +273,22 @@ namespace SeedCore
 		}
 
 		transitionSystem_.Update(*world_, *resource_, deltaTime);
+	}
+
+	/**
+	* [EN]
+	* Aborts any in-progress process-wide scene transition and returns it
+	* to Idle (see SceneTransitionSystem::Reset).
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 進行中のプロセス全体のシーン遷移を中断し、Idle へ戻す
+	* （SceneTransitionSystem::Reset を参照）。
+	*/
+	void Scene::Reset()
+	{
+		transitionSystem_.Reset();
 	}
 
 	/**

@@ -182,6 +182,29 @@ namespace SeedCore
 
 		/**
 		* [EN]
+		* Aborts any in-progress transition and returns the state machine
+		* to Idle: waits out a pending background load, drops the retained
+		* previous/loading-scene actor pointers without destroying them
+		* (the caller is expected to be rebuilding the world), and clears
+		* all fade/timer state. Used when leaving editor Play mode so a
+		* transition started during Play does not resume afterward against
+		* stale actors.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* 進行中の遷移を中断し、状態機械を Idle へ戻す: 進行中の
+		* バックグラウンド読み込みを待ち切り、保持していた
+		* previous/loading シーンの actor ポインタを破棄せずに手放し
+		* （呼び出し側が world を再構築する想定）、フェード/タイマーの
+		* 状態を全てクリアする。エディタの Play モードを抜ける際に、
+		* Play 中に開始された遷移がその後に古くなった actor に対して
+		* 再開しないようにするために使う。
+		*/
+		void Reset();
+
+		/**
+		* [EN]
 		* Returns the current fade overlay alpha (0 = fully visible scene, 1 = fully covered).
 		*
 		* ---------------------------------------------------------------------
@@ -237,9 +260,10 @@ namespace SeedCore
 		* [JP]
 		* pendingFlow_ 経由で executor 上において path のバックグラウンド
 		* 読み込みを開始し、pendingLoadSucceeded_ をリセットして、結果の
-		* future を保存する。
+		* future を保存する。path はまず cache でアセット名として解決される
+		* （"Foo.scene" のような単なるファイル名でもよい）。
 		*/
-		void BeginBackgroundLoad(JobExecutor& executor, const std::filesystem::path& path);
+		void BeginBackgroundLoad(ResourceCache& cache, JobExecutor& executor, const std::filesystem::path& path);
 
 		/**
 		* [EN]

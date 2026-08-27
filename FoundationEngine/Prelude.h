@@ -27,6 +27,8 @@
 #define SC_ENCRYPTION_KEY_SEED "8e5d9cac-4c56-4513-813c-09a0f1168a83"
 #endif
 
+#define SC_RENDER_DOC_USAGE 0
+
 #ifndef _CRT_SECURE_NO_WARNINGS
 #define _CRT_SECURE_NO_WARNINGS
 #endif
@@ -71,8 +73,6 @@
 #define SC_PAYLOAD_FIELD_EX(displayName, assetType)
 
 #define SC_SERIALIZE_FIELD()
-
-#define SC_RENDER_DOC_USAGE 0
 
 #ifdef FOUNDATIONENGINE_EXPORTS
 #define SEEDCORE_API __declspec(dllexport)

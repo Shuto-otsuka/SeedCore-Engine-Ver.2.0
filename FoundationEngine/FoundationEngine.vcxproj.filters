@@ -64,6 +64,9 @@
     <Filter Include="Serialization\Encryption">
       <UniqueIdentifier>{439cb8d7-1026-42ba-b7d3-68cb7fe0617f}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Plugin">
+      <UniqueIdentifier>{5ba222e3-10a6-4eef-8556-a8e10ac414a7}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="JobSystem\FlowBuilder.cpp">
@@ -267,6 +270,12 @@
     </ClCompile>
     <ClCompile Include="Serialization\Encryption\Aes256.cpp">
       <Filter>Serialization\Encryption</Filter>
+    </ClCompile>
+    <ClCompile Include="Plugin\PluginModule.cpp">
+      <Filter>Plugin</Filter>
+    </ClCompile>
+    <ClCompile Include="Plugin\PluginHost.cpp">
+      <Filter>Plugin</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -664,6 +673,12 @@
     </ClInclude>
     <ClInclude Include="Serialization\Encryption\Aes256.h">
       <Filter>Serialization\Encryption</Filter>
+    </ClInclude>
+    <ClInclude Include="Plugin\PluginModule.h">
+      <Filter>Plugin</Filter>
+    </ClInclude>
+    <ClInclude Include="Plugin\PluginHost.h">
+      <Filter>Plugin</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

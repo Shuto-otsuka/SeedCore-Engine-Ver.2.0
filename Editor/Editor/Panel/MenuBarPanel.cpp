@@ -6,6 +6,7 @@
 #include <FoundationEngine/Resource/Scene.h>
 #include <FoundationEngine/Resource/ResourceCache.h>
 #include <FoundationEngine/ECS/World.h>
+#include <FoundationEngine/Time/GameTimer.h>
 
 namespace SeedCore
 {
@@ -16,11 +17,16 @@ namespace SeedCore
 
 	void MenuBarPanel::Draw()
 	{
+		const Bool isPlaying = context_.worldContext_.gameTimer_->IsPlaying();
+
 		if (context_.sceneContext_.requestedSceneAssetID_ != 0)
 		{
 			Uint32 assetID = context_.sceneContext_.requestedSceneAssetID_;
 			context_.sceneContext_.requestedSceneAssetID_ = 0;
-			RequestSceneSwitch(PendingSceneOp::OpenAsset, {}, assetID);
+			if (!isPlaying)
+			{
+				RequestSceneSwitch(PendingSceneOp::OpenAsset, {}, assetID);
+			}
 		}
 
 		if (context_.exitRequested_)
@@ -30,19 +36,19 @@ namespace SeedCore
 		}
 
 		ImGuiIO& io = ImGui::GetIO();
-		if (io.KeyCtrl && !io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_N, false))
+		if (!isPlaying && io.KeyCtrl && !io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_N, false))
 		{
 			RequestSceneSwitch(PendingSceneOp::New, {}, 0);
 		}
-		if (io.KeyCtrl && !io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_O, false))
+		if (!isPlaying && io.KeyCtrl && !io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_O, false))
 		{
 			OpenScene();
 		}
-		if (io.KeyCtrl && io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_S, false))
+		if (!isPlaying && io.KeyCtrl && io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_S, false))
 		{
 			SaveScene();
 		}
-		if (io.KeyCtrl && !io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_S, false))
+		if (!isPlaying && io.KeyCtrl && !io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_S, false))
 		{
 			OverwriteSaveScene();
 		}
@@ -79,6 +85,7 @@ namespace SeedCore
 		{
 			if (ImGui::BeginMenu("ファイル"))
 			{
+				ImGui::BeginDisabled(isPlaying);
 				if (ImGui::MenuItem("Runtimeビルドでexeを出力"))
 				{
 					BuildRuntime();
@@ -100,6 +107,7 @@ namespace SeedCore
 				{
 					OverwriteSaveScene();
 				}
+				ImGui::EndDisabled();
 				ImGui::Separator();
 				if (ImGui::MenuItem("終了", "Alt+F4"))
 				{

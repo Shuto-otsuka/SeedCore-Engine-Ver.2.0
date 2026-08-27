@@ -55,7 +55,7 @@ namespace SeedCore
 	{
 		Scene::Load(world, cache, loadingScene);
 
-		BeginBackgroundLoad(executor, targetScene);
+		BeginBackgroundLoad(cache, executor, targetScene);
 		state_ = State::WaitingForBackgroundLoad;
 	}
 
@@ -105,7 +105,7 @@ namespace SeedCore
 		fadeTimer_ = 0.0f;
 		fadeAlpha_ = 0.0f;
 
-		BeginBackgroundLoad(executor, targetScene);
+		BeginBackgroundLoad(cache, executor, targetScene);
 		state_ = State::FadingOut;
 	}
 
@@ -160,14 +160,25 @@ namespace SeedCore
 			previousActors_.push_back(actor.get());
 		}
 
+		std::filesystem::path resolvedLoadingScene = loadingScene;
+		Uint32 loadingSceneAssetID = cache.GetAssetID(String(loadingScene.string()));
+		if (loadingSceneAssetID != 0)
+		{
+			Asset* loadingSceneAsset = cache.GetAsset(loadingSceneAssetID);
+			if (loadingSceneAsset)
+			{
+				resolvedLoadingScene = std::filesystem::path(loadingSceneAsset->fullpath_.c_str());
+			}
+		}
+
 		Scene loadingSceneObj;
 		loadingSceneActors_.clear();
-		if (loadingSceneObj.Read(loadingScene))
+		if (loadingSceneObj.Read(resolvedLoadingScene))
 		{
 			loadingSceneActors_ = loadingSceneObj.Instantiate(world, cache);
 		}
 
-		BeginBackgroundLoad(executor, targetScene);
+		BeginBackgroundLoad(cache, executor, targetScene);
 		state_ = State::CoveringWithLoadingScene;
 	}
 
@@ -304,6 +315,42 @@ namespace SeedCore
 
 	/**
 	* [EN]
+	* Aborts any in-progress transition and returns the state machine to
+	* Idle: waits out a pending background load, drops the retained
+	* previous/loading-scene actor pointers without destroying them (the
+	* caller is expected to be rebuilding the world), and clears all
+	* fade/timer state.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 進行中の遷移を中断し、状態機械を Idle へ戻す: 進行中の
+	* バックグラウンド読み込みを待ち切り、保持していた
+	* previous/loading シーンの actor ポインタを破棄せずに手放し
+	* （呼び出し側が world を再構築する想定）、フェード/タイマーの
+	* 状態を全てクリアする。
+	*/
+	void SceneTransitionSystem::Reset()
+	{
+		if (pendingLoad_.valid())
+		{
+			pendingLoad_.wait();
+		}
+		pendingFlow_.Clear();
+		pendingLoadSucceeded_ = false;
+
+		previousActors_.clear();
+		loadingSceneActors_.clear();
+
+		fadeAlpha_ = 0.0f;
+		fadeTimer_ = 0.0f;
+		transitionTimer_ = 0.0f;
+
+		state_ = State::Idle;
+	}
+
+	/**
+	* [EN]
 	* Returns the current fade overlay alpha (0 = fully visible scene, 1 = fully covered).
 	*
 	* ---------------------------------------------------------------------
@@ -328,16 +375,28 @@ namespace SeedCore
 	* [JP]
 	* pendingFlow_ 経由で executor 上において path のバックグラウンド
 	* 読み込みを開始し、pendingLoadSucceeded_ をリセットして、結果の
-	* future を保存する。
+	* future を保存する。path はまず cache でアセット名として解決される
+	* （"Foo.scene" のような単なるファイル名でもよい）。
 	*/
-	void SceneTransitionSystem::BeginBackgroundLoad(JobExecutor& executor, const std::filesystem::path& path)
+	void SceneTransitionSystem::BeginBackgroundLoad(ResourceCache& cache, JobExecutor& executor, const std::filesystem::path& path)
 	{
+		std::filesystem::path resolvedPath = path;
+		Uint32 assetID = cache.GetAssetID(String(path.string()));
+		if (assetID != 0)
+		{
+			Asset* asset = cache.GetAsset(assetID);
+			if (asset)
+			{
+				resolvedPath = std::filesystem::path(asset->fullpath_.c_str());
+			}
+		}
+
 		pendingLoadSucceeded_ = false;
 
 		pendingFlow_.Clear();
-		pendingFlow_.emplace([this, path]()
+		pendingFlow_.emplace([this, resolvedPath]()
 			{
-				pendingLoadSucceeded_ = pendingScene_.Read(path);
+				pendingLoadSucceeded_ = pendingScene_.Read(resolvedPath);
 			});
 
 		pendingLoad_ = executor.Run(pendingFlow_);

@@ -1,8 +1,8 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
 #include <FoundationEngine/ECS/Entity.h>
-#include <FoundationEngine/ECS/WorldSnapshot.h>
 #include <FoundationEngine/ECS/History.h>
+#include <FoundationEngine/Resource/Scene.h>
 #include <Editor/Editor/GizmoContext.h>
 #include <GraphicsEngine/Renderer/ViewMode.h>
 #include <GraphicsEngine/Raytracing/RaytracingContext.h>
@@ -65,7 +65,7 @@ namespace SeedCore
 
 	struct SceneContext
 	{
-		WorldSnapshot worldSnapshot_;
+		Scene playModeScene_;
 		History history_;
 		std::filesystem::path currentScenePath_;
 		Uint32 requestedSceneAssetID_ = 0;

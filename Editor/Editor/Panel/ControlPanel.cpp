@@ -3,6 +3,9 @@
 #include <Editor/Editor/ImGui/ImGuiTexture.h>
 #include <FoundationEngine/Time/GameTimer.h>
 #include <FoundationEngine/ECS/System/SystemScheduler.h>
+#include <FoundationEngine/ECS/World.h>
+#include <FoundationEngine/ECS/Entity.h>
+#include <FoundationEngine/Resource/Scene.h>
 
 namespace SeedCore
 {
@@ -60,8 +63,8 @@ namespace SeedCore
 
 			if (!isPlaying && ImGui::IsKeyPressed(ImGuiKey_F5))
 			{
+				context_.sceneContext_.playModeScene_.Capture(*context_.worldContext_.world_);
 				BeginPlayMemCheck();
-				context_.sceneContext_.worldSnapshot_.Capture(*context_.worldContext_.world_);
 				context_.worldContext_.gameTimer_->Play();
 				isPlaying = true;
 				ImGui::SetWindowFocus("ゲームビュー");
@@ -69,8 +72,14 @@ namespace SeedCore
 			if (isPlaying && ImGui::IsKeyPressed(ImGuiKey_F7))
 			{
 				context_.worldContext_.gameTimer_->Stop();
-				context_.sceneContext_.worldSnapshot_.Restore(*context_.worldContext_.world_);
+				Scene::Reset();
+				context_.worldContext_.world_->DestroyActors();
+				context_.sceneContext_.playModeScene_.Instantiate(*context_.worldContext_.world_, *context_.worldContext_.resource_);
+				context_.sceneContext_.playModeScene_.Clear();
 				context_.worldContext_.system_->Reset();
+				context_.selectionContext_.selectedActor_ = nullptr;
+				context_.selectionContext_.selectedActors_.clear();
+				context_.selectionContext_.selectedEntity_ = Entity::Null();
 				isPlaying = false;
 				EndPlayMemCheck();
 				ImGui::SetWindowFocus("エディタービュー");
@@ -107,8 +116,8 @@ namespace SeedCore
 			{
 				if (ImGui::ImageButton("##Play", imguiTexture_.Icon(IconType::Play), buttonSize))
 				{
+					context_.sceneContext_.playModeScene_.Capture(*context_.worldContext_.world_);
 					BeginPlayMemCheck();
-					context_.sceneContext_.worldSnapshot_.Capture(*context_.worldContext_.world_);
 					context_.worldContext_.gameTimer_->Play();
 					ImGui::SetWindowFocus("ゲームビュー");
 				}
@@ -152,8 +161,14 @@ namespace SeedCore
 				if (ImGui::ImageButton("##Stop", imguiTexture_.Icon(IconType::Stop), buttonSize))
 				{
 					context_.worldContext_.gameTimer_->Stop();
-					context_.sceneContext_.worldSnapshot_.Restore(*context_.worldContext_.world_);
+					Scene::Reset();
+					context_.worldContext_.world_->DestroyActors();
+					context_.sceneContext_.playModeScene_.Instantiate(*context_.worldContext_.world_, *context_.worldContext_.resource_);
+					context_.sceneContext_.playModeScene_.Clear();
 					context_.worldContext_.system_->Reset();
+					context_.selectionContext_.selectedActor_ = nullptr;
+					context_.selectionContext_.selectedActors_.clear();
+					context_.selectionContext_.selectedEntity_ = Entity::Null();
 					EndPlayMemCheck();
 					ImGui::SetWindowFocus("エディタービュー");
 				}

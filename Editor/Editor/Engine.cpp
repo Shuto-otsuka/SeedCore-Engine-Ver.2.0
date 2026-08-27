@@ -88,7 +88,12 @@ namespace SeedCore
 		InputSystem::Initialize();
 		LayerRegistry::Load();
 
-		hotReload_.Load(*world_);
+		Char exePathBuffer[MAX_PATH]{};
+		GetModuleFileNameA(nullptr, exePathBuffer, MAX_PATH);
+		std::filesystem::path pluginDirectory = std::filesystem::path(exePathBuffer).parent_path() / "Plugins";
+		pluginHost_.Initialize(pluginDirectory, ImGui::GetCurrentContext());
+		pluginHost_.LoadAll(*world_);
+		hotReload_.Initialize(pluginHost_);
 
 		editorConfig_.Load();
 		editorConfig_.Apply(editorCamera_, editorCameraController_, *imgui_);
@@ -140,7 +145,7 @@ namespace SeedCore
 
 		if (world_)
 		{
-			hotReload_.Unload(*world_);
+			pluginHost_.UnloadAll(*world_);
 		}
 
 		InputSystem::Finalize();
@@ -224,6 +229,7 @@ namespace SeedCore
 				InputSystem::Update();
 
 				hotReload_.Tick(*world_);
+				pluginHost_.Tick(*world_);
 
 				editorContext_.uiFrame_++;
 

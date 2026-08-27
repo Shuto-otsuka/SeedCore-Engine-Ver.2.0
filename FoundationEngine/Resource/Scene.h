@@ -52,6 +52,17 @@ namespace SeedCore
 
 		/**
 		* [EN]
+		* Discards any captured actor data, releasing the memory it held.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* 取得済みの actor データを破棄し、それが保持していたメモリを解放する。
+		*/
+		void Clear();
+
+		/**
+		* [EN]
 		* Recreates the captured scene as new actors in world, returning
 		* every instantiated actor (roots and descendants alike).
 		*
@@ -163,6 +174,23 @@ namespace SeedCore
 		* プロセス全体のシーン遷移状態機械を deltaTime だけ進める。
 		*/
 		static void Update(Float deltaTime);
+
+		/**
+		* [EN]
+		* Aborts any in-progress process-wide scene transition and returns
+		* it to Idle (see SceneTransitionSystem::Reset). Call when leaving
+		* editor Play mode so a transition started during Play does not
+		* resume afterward against stale actors.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* 進行中のプロセス全体のシーン遷移を中断し、Idle へ戻す
+		* （SceneTransitionSystem::Reset を参照）。エディタの Play モードを
+		* 抜ける際に呼び、Play 中に開始された遷移がその後に古くなった
+		* actor に対して再開しないようにする。
+		*/
+		static void Reset();
 
 		/**
 		* [EN]

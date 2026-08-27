@@ -330,9 +330,18 @@ def main():
 
     os.makedirs(output_dir, exist_ok=True)
 
-    # --- Bin: Runtime.exe + DLL 一式 ---
-    exe_src_dir = os.path.join(project_root, "Runtime", "Build", "x64", "Release")
-    exe_path = os.path.join(exe_src_dir, "Runtime.exe")
+    build_dir = os.path.join(project_root, "Runtime", "Build", "x64", "Release")
+
+    # --- Launcher.exe: パッケージルートに置く、プレイヤーが起動する薄い exe ---
+    launcher_path = os.path.join(build_dir, "Launcher.exe")
+    if not os.path.exists(launcher_path):
+        print(f"Launcher.exe が見つかりません: {launcher_path}")
+        return 1
+    shutil.copy2(launcher_path, os.path.join(output_dir, "Launcher.exe"))
+    print(f"Launcher コピー完了: {os.path.join(output_dir, 'Launcher.exe')}")
+
+    # --- Bin: Runtime.exe + エンジン / サードパーティ DLL ---
+    exe_path = os.path.join(build_dir, "Runtime.exe")
     if not os.path.exists(exe_path):
         print(f"Runtime.exe が見つかりません: {exe_path}")
         return 1
@@ -340,10 +349,22 @@ def main():
     bin_dir = os.path.join(output_dir, "Bin")
     os.makedirs(bin_dir, exist_ok=True)
     shutil.copy2(exe_path, os.path.join(bin_dir, "Runtime.exe"))
-    for file in os.listdir(exe_src_dir):
+    for file in os.listdir(build_dir):
         if file.lower().endswith(".dll"):
-            shutil.copy2(os.path.join(exe_src_dir, file), os.path.join(bin_dir, file))
+            shutil.copy2(os.path.join(build_dir, file), os.path.join(bin_dir, file))
     print(f"Bin コピー完了: {bin_dir}")
+
+    # --- Plugins: UserProject.dll を Bin/Plugins/SeedCore/ へ ---
+    # UserProject.vcxproj の OutDir が Build\...\Release\Plugins\SeedCore\ なので、
+    # 他のエンジン DLL と混ざらず、Runtime.exe から見て Bin\Plugins\SeedCore\ に対応する。
+    plugin_src = os.path.join(build_dir, "Plugins", "SeedCore", "UserProject.dll")
+    if not os.path.exists(plugin_src):
+        print(f"UserProject.dll が見つかりません: {plugin_src}")
+        return 1
+    plugin_dst_dir = os.path.join(bin_dir, "Plugins", "SeedCore")
+    os.makedirs(plugin_dst_dir, exist_ok=True)
+    shutil.copy2(plugin_src, os.path.join(plugin_dst_dir, "UserProject.dll"))
+    print(f"Plugins コピー完了: {plugin_dst_dir}")
 
     # --- CompiledShaderObject は丸ごとコピー ---
     shader_src = os.path.join(project_root, "CompiledShaderObject")

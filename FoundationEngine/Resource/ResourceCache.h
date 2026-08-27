@@ -713,6 +713,7 @@ namespace SeedCore
 			"External",
 			"FoundationEngine",
 			"GraphicsEngine",
+			"Launcher",
 			"Logs",
 			"Package",
 			"PhysicsEngine",
@@ -728,7 +729,7 @@ namespace SeedCore
 		/// [JP] 対応する .meta ファイルを持たないファイル拡張子（その GUID は代わりにパスハッシュから導出される）。
 		std::set<std::string_view> noMetaExtensions_ =
 		{
-			".h", ".cpp", ".hlsli", ".hlsl"
+			".h", ".cpp", ".cs", ".hlsli", ".hlsl"
 		};
 	};
 }

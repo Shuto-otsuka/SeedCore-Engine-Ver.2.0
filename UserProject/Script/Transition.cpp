@@ -11,6 +11,6 @@ void Transition::OnTick(float elapsedTime)
 {
 	if (SeedCore::InputSystem::KeyState(SeedCore::InputSystem::Key::Space, SeedCore::InputSystem::OnPressed))
 	{
-		SeedCore::Scene::Change("transitiontest_0.scene", 0.3f, 0.3f);
+		SeedCore::Scene::Change("skeletal_test.scene", 1.0f, 1.0f);
 	}
 }

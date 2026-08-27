@@ -132,6 +132,8 @@
     <ClCompile Include="Log\LogSystem.cpp">
     </ClCompile>
     <ClCompile Include="Math\Random\Hash.cpp" />
+    <ClCompile Include="Plugin\PluginHost.cpp" />
+    <ClCompile Include="Plugin\PluginModule.cpp" />
     <ClCompile Include="Pool\InternPool.cpp">
     </ClCompile>
     <ClCompile Include="Pool\ObjectPool.cpp">
@@ -233,6 +235,8 @@
     <ClInclude Include="Math\Ray.h" />
     <ClInclude Include="Math\Vector.h" />
     <ClInclude Include="Memory\ChunkAllocator.h" />
+    <ClInclude Include="Plugin\PluginHost.h" />
+    <ClInclude Include="Plugin\PluginModule.h" />
     <ClInclude Include="Pool\InternPool.h" />
     <ClInclude Include="Pool\ObjectPool.h" />
     <ClInclude Include="Pool\StablePool.h" />

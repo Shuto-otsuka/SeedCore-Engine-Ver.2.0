@@ -1,56 +1,22 @@
 #include <Editor/Editor/Build/HotReload.h>
 #include <FoundationEngine/Log/Warning.h>
 #include <FoundationEngine/Log/Notice.h>
-#include <FoundationEngine/ECS/Actor.h>
-#include <FoundationEngine/ECS/World.h>
-#include <FoundationEngine/ECS/ComponentRegistry.h>
-#include <FoundationEngine/ECS/ReflectionRegistry.h>
-#include <FoundationEngine/ECS/PayloadRegistry.h>
+#include <FoundationEngine/Plugin/PluginHost.h>
+#include <FoundationEngine/Plugin/PluginModule.h>
 #include <Windows.h>
-#include <psapi.h>
 
 namespace SeedCore
 {
-	/// [EN] Returns every key currently in registry, used to snapshot a registry's contents before a module load.
-	/// [JP] registry に現在ある全てのキーを返す。モジュールをロードする前にレジストリの内容をスナップショットするために使う。
-	template<typename Map>
-	static DynamicArray<String> CollectRegistryKeys(const Map& registry)
+	namespace
 	{
-		DynamicArray<String> keys;
-		for (const auto& [name, value] : registry)
-		{
-			keys.push_back(name);
-		}
-		return keys;
+		/// [EN] How long a source edit must stay unchanged before a build is triggered. Sits directly on the edit-to-reload path, so it's kept just long enough to outlast an editor's save (a single fast write, unlike a link).
+		/// [JP] ソース編集を検知してからビルドを開始するまでに、変化なしで待つ時間。編集からリロードまでの待ち時間に直接乗るため、エディタの保存(リンクとは違い一度の短い書き込み)を取りこぼさない範囲で短くしてある。
+		constexpr Uint64 SourceStableWindowMilliseconds = 150;
+
+		/// [EN] How often the UserProject source tree is rescanned, in milliseconds.
+		/// [JP] UserProject のソースツリーを再スキャンする間隔(ミリ秒)。
+		constexpr Uint64 SourceScanIntervalMilliseconds = 150;
 	}
-
-	/// [EN] Returns the keys present in registry but absent from previousKeys — i.e. those a just-loaded module's static initializers added.
-	/// [JP] registry には存在するが previousKeys には無いキー、つまりロードされたばかりのモジュールの静的初期化子が追加したキーを返す。
-	template<typename Map>
-	static DynamicArray<String> FindAddedRegistryKeys(const Map& registry, const DynamicArray<String>& previousKeys)
-	{
-		DynamicArray<String> added;
-		for (const auto& [name, value] : registry)
-		{
-			if (std::find(previousKeys.begin(), previousKeys.end(), name) == previousKeys.end())
-			{
-				added.push_back(name);
-			}
-		}
-		return added;
-	}
-
-	/// [EN] How long a timestamp must stay unchanged before it's trusted (MSBuild can touch a file's write time more than once while writing it). Only the externally-built DLL is judged this way now, so it can stay conservative.
-	/// [JP] タイムスタンプを信用するまでに変化なしで待つ時間(MSBuildは書き込み中に最終更新時刻を複数回更新することがあるため)。現在この判定を使うのは外部でビルドされたDLLだけなので、余裕を持った値のままでよい。
-	static constexpr Uint64 StableWindowMilliseconds = 500;
-
-	/// [EN] How long a source edit must stay unchanged before a build is triggered. Sits directly on the edit-to-reload path, so it's kept just long enough to outlast an editor's save (which is a single fast write, unlike a link).
-	/// [JP] ソース編集を検知してからビルドを開始するまでに、変化なしで待つ時間。編集からリロードまでの待ち時間に直接乗るため、エディタの保存(リンクとは違い一度の短い書き込み)を取りこぼさない範囲で短くしてある。
-	static constexpr Uint64 SourceStableWindowMilliseconds = 150;
-
-	/// [EN] How often the UserProject source tree is rescanned, in milliseconds.
-	/// [JP] UserProject のソースツリーを再スキャンする間隔(ミリ秒)。
-	static constexpr Uint64 SourceScanIntervalMilliseconds = 150;
 
 	HotReload::~HotReload()
 	{
@@ -64,12 +30,10 @@ namespace SeedCore
 		}
 	}
 
-	std::filesystem::path HotReload::SourceDllPath()
+	void HotReload::Initialize(PluginHost& pluginHost)
 	{
-		Char buffer[MAX_PATH]{};
-		GetModuleFileNameA(nullptr, buffer, MAX_PATH);
-		std::filesystem::path exeDirectory = std::filesystem::path(buffer).parent_path();
-		return exeDirectory / "UserProject.dll";
+		pluginHost_ = &pluginHost;
+		userProjectPlugin_ = pluginHost.FindByStem("UserProject");
 	}
 
 	std::filesystem::path HotReload::UserProjectSourceDirectory()
@@ -256,8 +220,6 @@ namespace SeedCore
 		/// [JP] このプロセスにデバッガがアタッチされていると、モジュールがロードされている間 UserProject.pdb は開かれたままになる(シャドウコピーも内部的には元のPDBパスを指しているため) — そのため同じ固定パスへ再リンクすると、リロードのたびに LNK1201 で失敗する。ビルドごとに別のPDB名を与えることでロックを完全に回避でき、ホットリロードしたゲームプレイコードにブレークポイントも張れるままになる。Tick() のデバウンス時間はティックの分解能より遥かに長いため、2つのビルドでティック値が衝突することはない。
 		std::wstring hotReloadPdbName = std::format(L"UserProject_HotReload_{}", GetTickCount64());
 
-		CleanupStaleArtifacts();
-
 		std::wstring commandLine = std::format(L"\"{}\" \"{}\" /nologo /verbosity:minimal /p:Configuration={} /p:Platform=x64 /p:BuildProjectReferences=false /p:HotReloadPdbName={} /p:SolutionDir=\"{}\"", msbuildPath_.wstring(), UserProjectVcxprojPath().wstring(), configuration, hotReloadPdbName, solutionDirArgument);
 
 		SECURITY_ATTRIBUTES securityAttributes{};
@@ -299,60 +261,6 @@ namespace SeedCore
 		buildOutput_.clear();
 
 		SC_LOG_NOTICE("HotReload: UserProject の自動ビルドを開始しました。");
-	}
-
-	void HotReload::UnregisterModuleReflection()
-	{
-		auto& reflectionRegistry = ReflectionRegistry::GetRegistry();
-		for (const String& name : registeredReflectionNames_)
-		{
-			reflectionRegistry.erase(name);
-		}
-		registeredReflectionNames_.clear();
-
-		auto& payloadRegistry = PayloadRegistry::GetRegistry();
-		for (const String& name : registeredPayloadNames_)
-		{
-			payloadRegistry.erase(name);
-		}
-		registeredPayloadNames_.clear();
-	}
-
-	void HotReload::CleanupStaleArtifacts()const
-	{
-		std::error_code errorCode;
-		std::filesystem::path outputDirectory = SourceDllPath().parent_path();
-
-		std::filesystem::directory_iterator iterator(outputDirectory, errorCode);
-		if (errorCode)
-		{
-			return;
-		}
-
-		for (const auto& entry : iterator)
-		{
-			std::filesystem::path path = entry.path();
-			std::wstring name = path.filename().wstring();
-
-			if (!name.starts_with(L"UserProject_"))
-			{
-				continue;
-			}
-
-			std::filesystem::path extension = path.extension();
-			if (extension != L".dll" && extension != L".pdb")
-			{
-				continue;
-			}
-
-			if (!shadowPath_.empty() && path == shadowPath_)
-			{
-				continue;
-			}
-
-			std::error_code removeError;
-			std::filesystem::remove(path, removeError);
-		}
 	}
 
 	void HotReload::DrainBuildOutput()
@@ -417,224 +325,6 @@ namespace SeedCore
 		buildOutput_.clear();
 	}
 
-	Bool HotReload::IsOwnedByLoadedModule(ComponentID id)const
-	{
-		if (!handle_)
-		{
-			return false;
-		}
-
-		const void* address = ComponentRegistry::Get(id).construct_;
-		if (!address)
-		{
-			return false;
-		}
-
-		MODULEINFO moduleInfo{};
-		if (!K32GetModuleInformation(GetCurrentProcess(), handle_, &moduleInfo, sizeof(moduleInfo)))
-		{
-			return false;
-		}
-
-		const Byte* base = static_cast<const Byte*>(moduleInfo.lpBaseOfDll);
-		const Byte* target = static_cast<const Byte*>(address);
-		return target >= base && target < base + moduleInfo.SizeOfImage;
-	}
-
-	void HotReload::CaptureAndDestroyOwnedComponents(World& world)
-	{
-		capturedComponents_.clear();
-
-		for (const ResourcePtr<Actor>& actorPtr : world.GetActors())
-		{
-			Actor* actor = actorPtr.get();
-
-			DynamicArray<ComponentID> ownedIDs;
-			for (ComponentID id : actor->ComponentBaseIDList())
-			{
-				if (IsOwnedByLoadedModule(id))
-				{
-					ownedIDs.push_back(id);
-				}
-			}
-
-			for (ComponentID id : ownedIDs)
-			{
-				void* data = world.GetComponent(actor->GetEntity(), id);
-				if (data)
-				{
-					String name = ComponentRegistry::GetName(id);
-					capturedComponents_.emplace_back(actor, CaptureComponent(name, data));
-				}
-
-				actor->RemoveComponent(id);
-			}
-		}
-
-		/// [EN] Collected during a read-only pass over GetRegistry() and unregistered afterwards — ComponentRegistry::Unregister() erases from the very map GetRegistry() returns a reference to, so mutating it mid-iteration would be unsafe.
-		/// [JP] GetRegistry() を読み取り専用で走査する間に集めておき、走査後にまとめて登録解除する — ComponentRegistry::Unregister() は GetRegistry() が参照を返しているまさにそのマップから削除するため、走査中に変更するのは安全ではない。
-		DynamicArray<ComponentID> ownedComponentIDs;
-		for (const auto& [id, metadata] : ComponentRegistry::GetRegistry())
-		{
-			if (!IsOwnedByLoadedModule(id))
-			{
-				continue;
-			}
-
-			if (metadata.storage_ == ComponentStorage::SparseSet)
-			{
-				world.UnregisterSparseSetStorage(id);
-			}
-
-			ownedComponentIDs.push_back(id);
-		}
-
-		/// [EN] Must happen before FreeLibrary() unloads the module (Unload() calls this before FreeLibrary()) — otherwise a stale std::type_index left behind in ComponentRegistry::TypeIndex() would point at a type_info living in freed memory, crashing the next Register<T>() call that happens to probe the same slot.
-		/// [JP] FreeLibrary() がモジュールをアンロードするより前に行う必要がある(Unload() はこれを FreeLibrary() より前に呼ぶ) — そうしなければ ComponentRegistry::TypeIndex() に残った古い std::type_index が解放済みメモリ上の type_info を指したままになり、以後同じスロットを探査する Register<T>() 呼び出しでクラッシュする。
-		for (ComponentID id : ownedComponentIDs)
-		{
-			ComponentRegistry::Unregister(id);
-		}
-	}
-
-	void HotReload::RestoreCapturedComponents(World& world)
-	{
-		for (const auto& [actor, component] : capturedComponents_)
-		{
-			ComponentID id = ComponentRegistry::GetComponentID(component.componentName_);
-			if (!id)
-			{
-				continue;
-			}
-
-			actor->AddComponent(id);
-
-			void* data = world.GetComponent(actor->GetEntity(), id);
-			if (data)
-			{
-				ApplyComponent(component, data);
-			}
-		}
-
-		capturedComponents_.clear();
-	}
-
-	Bool HotReload::Load(World& world)
-	{
-		std::filesystem::path sourcePath = SourceDllPath();
-
-		Uint64 writeTime = GetLastWriteTime(sourcePath);
-		if (writeTime == 0)
-		{
-			SC_LOG_WARNING("HotReload: UserProject.dll が見つかりません。");
-			return false;
-		}
-
-		std::filesystem::path shadowPath = sourcePath;
-		shadowPath.replace_filename(std::format(L"UserProject_{}.dll", writeTime));
-
-		/// [EN] The linker's own process has already exited (guaranteeing the file is fully written), but a brief exclusive lock right after that — most commonly Windows Defender's real-time scan of a freshly written executable — can still make the very next copy attempt fail with a sharing violation. Retrying a few times with a short wait clears this without needing to fall all the way back to the slower timestamp-stability watcher.
-		/// [JP] リンカのプロセス自体は既に終了している(ファイルが書き終わっている保証はある)が、その直後の一瞬の排他ロック — 多くの場合 Windows Defender による書き込み直後の実行ファイルへのリアルタイムスキャン — によって、直後のコピー試行が共有違反で失敗することがある。短い待機を挟んで数回リトライすれば、より遅いタイムスタンプ安定待ちまで後退せずに解消できる。
-		std::error_code errorCode;
-		constexpr Int maxAttempts = 5;
-		for (Int attempt = 0; attempt < maxAttempts; ++attempt)
-		{
-			errorCode.clear();
-			std::filesystem::copy_file(sourcePath, shadowPath, std::filesystem::copy_options::overwrite_existing, errorCode);
-			if (!errorCode)
-			{
-				break;
-			}
-			Sleep(50);
-		}
-
-		if (errorCode)
-		{
-			SC_LOG_WARNING("HotReload: UserProject.dll のシャドウコピーに失敗しました。");
-			return false;
-		}
-
-		/// [EN] Snapshotted before the load so the module's own static initializers, which run inside LoadLibraryW, show up as a clean diff afterwards. Diffing is used instead of naming types explicitly because reflection is also registered for non-component types (nested structs), which no other registry enumerates.
-		/// [JP] ロード前にスナップショットを取ることで、LoadLibraryW の内部で走るモジュール自身の静的初期化子による追加を、後から差分として綺麗に取り出せる。型名を明示的に列挙せず差分を使うのは、リフレクションがコンポーネント以外の型(ネストされた構造体)に対しても登録され、それらを列挙できるレジストリが他に無いため。
-		DynamicArray<String> reflectionKeysBefore = CollectRegistryKeys(ReflectionRegistry::GetRegistry());
-		DynamicArray<String> payloadKeysBefore = CollectRegistryKeys(PayloadRegistry::GetRegistry());
-
-		HMODULE handle = LoadLibraryW(shadowPath.c_str());
-		if (!handle)
-		{
-			SC_LOG_WARNING("HotReload: UserProject.dll のロードに失敗しました。");
-			return false;
-		}
-
-		registeredReflectionNames_ = FindAddedRegistryKeys(ReflectionRegistry::GetRegistry(), reflectionKeysBefore);
-		registeredPayloadNames_ = FindAddedRegistryKeys(PayloadRegistry::GetRegistry(), payloadKeysBefore);
-
-		auto onGameLoad = reinterpret_cast<OnGameLoadFn>(GetProcAddress(handle, "SC_OnGameLoad"));
-		auto onGameUnload = reinterpret_cast<OnGameUnloadFn>(GetProcAddress(handle, "SC_OnGameUnload"));
-		auto setImGuiContext = reinterpret_cast<SetImGuiContextFn>(GetProcAddress(handle, "SC_SetImGuiContext"));
-
-		if (!onGameLoad || !onGameUnload)
-		{
-			SC_LOG_WARNING("HotReload: SC_OnGameLoad/SC_OnGameUnload が見つかりません。");
-
-			/// [EN] The module's initializers already ran, so its registry entries exist even though the load is being abandoned; they must go before FreeLibrary or they would outlive their own code with no later Unload to clean them up (handle_ is never set on this path).
-			/// [JP] モジュールの初期化子は既に走っているため、ロードを中止する場合でもレジストリのエントリは存在している。この経路では handle_ が設定されず後の Unload で片付けられないので、FreeLibrary より前に削除しなければ、自身のコードより長く生き残ってしまう。
-			UnregisterModuleReflection();
-
-			FreeLibrary(handle);
-			return false;
-		}
-
-		handle_ = handle;
-		shadowPath_ = shadowPath;
-		lastWriteTime_ = writeTime;
-		onGameLoad_ = onGameLoad;
-		onGameUnload_ = onGameUnload;
-		setImGuiContext_ = setImGuiContext;
-
-		/// [EN] Must run before onGameLoad_, since UserProject.dll's own ImGui copy is otherwise uninitialized.
-		/// [JP] onGameLoad_ より先に実行する必要がある — そうしないと UserProject.dll 自身のImGuiコピーが未初期化のままになる。
-		if (setImGuiContext_)
-		{
-			setImGuiContext_(ImGui::GetCurrentContext());
-		}
-
-		onGameLoad_(world);
-
-		RestoreCapturedComponents(world);
-
-		SC_LOG_NOTICE("HotReload: UserProject.dll をロードしました。");
-
-		return true;
-	}
-
-	void HotReload::Unload(World& world)
-	{
-		if (!handle_)
-		{
-			return;
-		}
-
-		/// [EN] Runs first: capturing field values goes through ReflectionRegistry, so the entries must still be present and callable at this point.
-		/// [JP] 最初に実行する: フィールド値の取得は ReflectionRegistry を経由するため、この時点ではエントリがまだ存在し呼び出し可能である必要がある。
-		CaptureAndDestroyOwnedComponents(world);
-
-		onGameUnload_(world);
-
-		UnregisterModuleReflection();
-
-		FreeLibrary(handle_);
-
-		std::error_code errorCode;
-		std::filesystem::remove(shadowPath_, errorCode);
-
-		handle_ = nullptr;
-		onGameLoad_ = nullptr;
-		onGameUnload_ = nullptr;
-		setImGuiContext_ = nullptr;
-		shadowPath_.clear();
-	}
-
 	void HotReload::Tick(World& world)
 	{
 		PollBuildProcess();
@@ -667,28 +357,17 @@ namespace SeedCore
 		if (reloadRequested_)
 		{
 			reloadRequested_ = false;
-			Unload(world);
-			Load(world);
-			return;
-		}
 
-		/// [EN] Still watched so a build started outside the editor (a normal Visual Studio build of UserProject) is picked up too. Builds this class started take the reloadRequested_ path above and never reach here, because Load() refreshes lastWriteTime_.
-		/// [JP] エディタの外で行われたビルド(Visual Studio による通常の UserProject ビルド)も拾えるよう、監視自体は残している。このクラスが起動したビルドは上の reloadRequested_ の経路を通り、Load() が lastWriteTime_ を更新するため、ここには到達しない。
-		Uint64 dllWriteTime = GetLastWriteTime(SourceDllPath());
-		if (dllWriteTime != 0 && dllWriteTime != lastWriteTime_)
-		{
-			if (dllWriteTime == pendingDllWriteTime_)
+			/// [EN] The plugin may not have been present at Initialize (e.g. UserProject.dll built for the first time during this session) — pick it up now that a build has produced it.
+			/// [JP] Initialize 時点ではプラグインが存在しなかった可能性がある(例: このセッション中に UserProject.dll が初めてビルドされた) — ビルドが生成した今、拾い直す。
+			if (!userProjectPlugin_ && pluginHost_)
 			{
-				if (nowTick - pendingDllStableSinceTick_ >= StableWindowMilliseconds)
-				{
-					Unload(world);
-					Load(world);
-				}
+				userProjectPlugin_ = pluginHost_->FindByStem("UserProject");
 			}
-			else
+
+			if (pluginHost_ && userProjectPlugin_)
 			{
-				pendingDllWriteTime_ = dllWriteTime;
-				pendingDllStableSinceTick_ = nowTick;
+				pluginHost_->ReloadModule(world, *userProjectPlugin_);
 			}
 		}
 	}
