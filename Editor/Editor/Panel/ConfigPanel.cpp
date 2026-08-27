@@ -194,9 +194,9 @@ namespace SeedCore
 		gameConfig_.useReflex_ = Gateway::GetDlssManager().ReflexEnable();
 		gameConfig_.useDeepDVC_ = Gateway::GetDlssManager().DeepDVCEnable();
 
-		std::fill(initialScenePathBuffer_.begin(), initialScenePathBuffer_.end(), '\0');
+		std::ranges::fill(initialScenePathBuffer_, '\0');
 		std::string initialScenePath = gameConfig_.initialScenePath_.str();
-		std::copy(initialScenePath.begin(), initialScenePath.end(), initialScenePathBuffer_.begin());
+		std::ranges::copy(initialScenePath, initialScenePathBuffer_.begin());
 
 		show_ = true;
 	}
@@ -396,7 +396,7 @@ namespace SeedCore
 			{
 				InputSystem::RegisterAction(String(std::string(newActionBuffer_.c_str())));
 				InputSystem::SaveBindings();
-				std::fill(newActionBuffer_.begin(), newActionBuffer_.end(), '\0');
+				std::ranges::fill(newActionBuffer_, '\0');
 			}
 			ImGui::EndDisabled();
 		}

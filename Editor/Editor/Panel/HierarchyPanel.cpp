@@ -457,7 +457,7 @@ namespace SeedCore
 		///      これにより以降の「Prefab に適用」は、元々インスタンス化された Prefab
 		///      ではなく、この新しい Prefab に書き込まれる。
 		std::string relative = std::filesystem::relative(savedPath, context_.worldContext_.resource_->ProjectRootPath()).string();
-		std::replace(relative.begin(), relative.end(), '\\', '/');
+		std::ranges::replace(relative, '\\', '/');
 		Uint32 newAssetID = context_.worldContext_.resource_->GetAssetID(String(relative));
 		if (newAssetID != 0)
 		{
@@ -474,22 +474,11 @@ namespace SeedCore
 
 		while (true)
 		{
-			Bool exists = false;
-
-			for (auto& actor : context_.worldContext_.world_->GetActors())
+			Bool exists = std::ranges::any_of(context_.worldContext_.world_->GetActors(), [&](const auto& actor)
 			{
 				const Name* name = actor->GetComponent<Name>();
-				if (!name)
-				{
-					continue;
-				}
-
-				if (name->name_ == uniqueName)
-				{
-					exists = true;
-					break;
-				}
-			}
+				return name && name->name_ == uniqueName;
+			});
 
 			if (!exists)
 			{
@@ -504,7 +493,7 @@ namespace SeedCore
 
 	Bool HierarchyPanel::IsSelected(Actor* actor)const
 	{
-		return std::find(context_.selectionContext_.selectedActors_.begin(), context_.selectionContext_.selectedActors_.end(), actor) != context_.selectionContext_.selectedActors_.end();
+		return std::ranges::contains(context_.selectionContext_.selectedActors_, actor);
 	}
 
 	void HierarchyPanel::HandleNodeSelection(Actor* actor, Bool ctrl, Bool shift)
@@ -540,7 +529,7 @@ namespace SeedCore
 		}
 		else if (ctrl)
 		{
-			auto it = std::find(context_.selectionContext_.selectedActors_.begin(), context_.selectionContext_.selectedActors_.end(), actor);
+			auto it = std::ranges::find(context_.selectionContext_.selectedActors_, actor);
 			if (it != context_.selectionContext_.selectedActors_.end())
 			{
 				context_.selectionContext_.selectedActors_.erase(it);
@@ -564,7 +553,7 @@ namespace SeedCore
 
 	void HierarchyPanel::DeleteActor(Actor* actor)
 	{
-		auto it = std::find(context_.selectionContext_.selectedActors_.begin(), context_.selectionContext_.selectedActors_.end(), actor);
+		auto it = std::ranges::find(context_.selectionContext_.selectedActors_, actor);
 		if (it != context_.selectionContext_.selectedActors_.end())
 		{
 			context_.selectionContext_.selectedActors_.erase(it);
@@ -605,15 +594,7 @@ namespace SeedCore
 			///      duplicated as part of that ancestor's subtree.
 			/// [JP] 祖先も選択されている Actor はスキップする — その祖先のサブツリーの
 			///      一部として既に複製されるため。
-			Bool ancestorSelected = false;
-			for (Actor* other : toDuplicate)
-			{
-				if (other != actor && actor->Descendant(other))
-				{
-					ancestorSelected = true;
-					break;
-				}
-			}
+			Bool ancestorSelected = std::ranges::any_of(toDuplicate, [&](Actor* other) { return other != actor && actor->Descendant(other); });
 			if (ancestorSelected)
 			{
 				continue;
@@ -654,7 +635,7 @@ namespace SeedCore
 
 		auto& actors = context_.worldContext_.world_->GetActors();
 
-		auto actorIt = std::find_if(actors.begin(), actors.end(), [actor](const ResourcePtr<Actor>& a) { return a.get() == actor; });
+		auto actorIt = std::ranges::find(actors, actor, [](const ResourcePtr<Actor>& a) { return a.get(); });
 		if (actorIt == actors.end())
 		{
 			return;
@@ -663,7 +644,7 @@ namespace SeedCore
 		ResourcePtr<Actor> moved = std::move(*actorIt);
 		actors.erase(actorIt);
 
-		auto afterIt = std::find_if(actors.begin(), actors.end(), [after](const ResourcePtr<Actor>& a) { return a.get() == after; });
+		auto afterIt = std::ranges::find(actors, after, [](const ResourcePtr<Actor>& a) { return a.get(); });
 		if (afterIt == actors.end())
 		{
 			actors.push_back(std::move(moved));

@@ -192,7 +192,7 @@ namespace SeedCore
 							needsRebuild_ = true;
 
 							std::string relative = std::filesystem::relative(savedPath, context_.worldContext_.resource_->ProjectRootPath()).string();
-							std::replace(relative.begin(), relative.end(), '\\', '/');
+							std::ranges::replace(relative, '\\', '/');
 							Uint32 newAssetID = context_.worldContext_.resource_->GetAssetID(String(relative));
 							if (newAssetID != 0)
 							{
@@ -239,7 +239,7 @@ namespace SeedCore
 			}
 
 			std::string relativePath = std::filesystem::relative(it->path(), projectRoot, errorCode).string();
-			std::replace(relativePath.begin(), relativePath.end(), '\\', '/');
+			std::ranges::replace(relativePath, '\\', '/');
 
 			DirectoryNode* current = &root_;
 			std::istringstream stream(relativePath);
@@ -1200,13 +1200,7 @@ namespace SeedCore
 		/// [EN] Sanitize down to a valid C++ identifier: keep only alnum/underscore, and prefix an underscore if the result would otherwise start with a digit (or be empty).
 		/// [JP] 有効なC++識別子まで削る: 英数字とアンダースコアのみを残し、結果が数字始まり(または空)になる場合はアンダースコアを前置する。
 		std::string sanitized;
-		for (Char character : requestedName)
-		{
-			if (std::isalnum(static_cast<unsigned char>(character)) || character == '_')
-			{
-				sanitized.push_back(character);
-			}
-		}
+		std::ranges::copy_if(requestedName, std::back_inserter(sanitized), [](Char character) { return std::isalnum(static_cast<unsigned char>(character)) || character == '_'; });
 		if (sanitized.empty())
 		{
 			sanitized = "NewScript";

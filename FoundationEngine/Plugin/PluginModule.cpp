@@ -11,38 +11,6 @@
 
 namespace SeedCore
 {
-	namespace
-	{
-		/// [EN] Returns every key currently in registry, used to snapshot a registry's contents before a module load.
-		/// [JP] registry に現在ある全てのキーを返す。モジュールをロードする前にレジストリの内容をスナップショットするために使う。
-		template<typename Map>
-		DynamicArray<String> CollectRegistryKeys(const Map& registry)
-		{
-			DynamicArray<String> keys;
-			for (const auto& [name, value] : registry)
-			{
-				keys.push_back(name);
-			}
-			return keys;
-		}
-
-		/// [EN] Returns the keys present in registry but absent from previousKeys - i.e. those a just-loaded module's static initializers added.
-		/// [JP] registry には存在するが previousKeys には無いキー、つまりロードされたばかりのモジュールの静的初期化子が追加したキーを返す。
-		template<typename Map>
-		DynamicArray<String> FindAddedRegistryKeys(const Map& registry, const DynamicArray<String>& previousKeys)
-		{
-			DynamicArray<String> added;
-			for (const auto& [name, value] : registry)
-			{
-				if (std::find(previousKeys.begin(), previousKeys.end(), name) == previousKeys.end())
-				{
-					added.push_back(name);
-				}
-			}
-			return added;
-		}
-	}
-
 	/**
 	* [EN]
 	* Constructs a module bound to sourcePath (the real DLL on disk), not
@@ -62,261 +30,6 @@ namespace SeedCore
 	PluginModule::~PluginModule()
 	{
 		/// No Code
-	}
-
-	/**
-	* [EN]
-	* Returns the source DLL's current last-write time (0 if it cannot be
-	* read).
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* 元 DLL の現在の最終更新時刻を返す（読み取れない場合は 0）。
-	*/
-	Uint64 PluginModule::GetLastWriteTime(const std::filesystem::path& path)
-	{
-		WIN32_FILE_ATTRIBUTE_DATA attributeData{};
-		if (!GetFileAttributesExW(path.c_str(), GetFileExInfoStandard, &attributeData))
-		{
-			return 0;
-		}
-
-		ULARGE_INTEGER writeTime{};
-		writeTime.LowPart = attributeData.ftLastWriteTime.dwLowDateTime;
-		writeTime.HighPart = attributeData.ftLastWriteTime.dwHighDateTime;
-		return writeTime.QuadPart;
-	}
-
-	const std::filesystem::path& PluginModule::SourcePath()const
-	{
-		return sourcePath_;
-	}
-
-	Bool PluginModule::IsLoaded()const
-	{
-		return handle_ != nullptr;
-	}
-
-	Bool PluginModule::SourceChanged()const
-	{
-		Uint64 writeTime = GetLastWriteTime(sourcePath_);
-		return writeTime != 0 && writeTime != lastWriteTime_;
-	}
-
-	/**
-	* [EN]
-	* Best-effort deletion of leftover shadow DLLs / hot-reload PDBs for
-	* this module's stem in its directory. The currently loaded shadow
-	* copy is skipped.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* このモジュールの stem に対応する、ディレクトリ内に残ったシャドウ
-	* DLL / ホットリロード用 PDB を可能な範囲で削除する。現在ロード中の
-	* シャドウコピーは対象外。
-	*/
-	void PluginModule::CleanupStaleArtifacts()const
-	{
-		std::error_code errorCode;
-		std::filesystem::path directory = sourcePath_.parent_path();
-		std::wstring prefix = sourcePath_.stem().wstring() + L"_";
-
-		std::filesystem::directory_iterator iterator(directory, errorCode);
-		if (errorCode)
-		{
-			return;
-		}
-
-		for (const auto& entry : iterator)
-		{
-			std::filesystem::path path = entry.path();
-			std::wstring name = path.filename().wstring();
-
-			if (!name.starts_with(prefix))
-			{
-				continue;
-			}
-
-			std::filesystem::path extension = path.extension();
-			if (extension != L".dll" && extension != L".pdb")
-			{
-				continue;
-			}
-
-			if (!shadowPath_.empty() && path == shadowPath_)
-			{
-				continue;
-			}
-
-			std::error_code removeError;
-			std::filesystem::remove(path, removeError);
-		}
-	}
-
-	/**
-	* [EN]
-	* Returns whether id's ComponentMetadata function pointers live inside
-	* this module (handle_).
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* id の ComponentMetadata の関数ポインタが、このモジュール（handle_）の
-	* 中にあるかどうかを返す。
-	*/
-	Bool PluginModule::IsOwnedByLoadedModule(ComponentID id)const
-	{
-		if (!handle_)
-		{
-			return false;
-		}
-
-		const void* address = ComponentRegistry::Get(id).construct_;
-		if (!address)
-		{
-			return false;
-		}
-
-		MODULEINFO moduleInfo{};
-		if (!K32GetModuleInformation(GetCurrentProcess(), handle_, &moduleInfo, sizeof(moduleInfo)))
-		{
-			return false;
-		}
-
-		const Byte* base = static_cast<const Byte*>(moduleInfo.lpBaseOfDll);
-		const Byte* target = static_cast<const Byte*>(address);
-		return target >= base && target < base + moduleInfo.SizeOfImage;
-	}
-
-	/**
-	* [EN]
-	* Erases every reflection/payload entry this module registered.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* このモジュールが登録したリフレクション/ペイロードのエントリを全て
-	* 削除する。
-	*/
-	void PluginModule::UnregisterModuleReflection()
-	{
-		auto& reflectionRegistry = ReflectionRegistry::GetRegistry();
-		for (const String& name : registeredReflectionNames_)
-		{
-			reflectionRegistry.erase(name);
-		}
-		registeredReflectionNames_.clear();
-
-		auto& payloadRegistry = PayloadRegistry::GetRegistry();
-		for (const String& name : registeredPayloadNames_)
-		{
-			payloadRegistry.erase(name);
-		}
-		registeredPayloadNames_.clear();
-	}
-
-	/**
-	* [EN]
-	* For every live component whose code lives in handle_: captures its
-	* fields into capturedComponents_, removes it from its Actor, then
-	* destroys that type's now-empty sparse-set storage container.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* handle_ 内にコードがある全ての生きたコンポーネントについて:
-	* フィールドを capturedComponents_ へ取得し、その Actor から削除した
-	* 上で、空になったその型のスパースセットストレージコンテナを破棄する。
-	*/
-	void PluginModule::CaptureAndDestroyOwnedComponents(World& world)
-	{
-		capturedComponents_.clear();
-
-		for (const ResourcePtr<Actor>& actorPtr : world.GetActors())
-		{
-			Actor* actor = actorPtr.get();
-
-			DynamicArray<ComponentID> ownedIDs;
-			for (ComponentID id : actor->ComponentBaseIDList())
-			{
-				if (IsOwnedByLoadedModule(id))
-				{
-					ownedIDs.push_back(id);
-				}
-			}
-
-			for (ComponentID id : ownedIDs)
-			{
-				void* data = world.GetComponent(actor->GetEntity(), id);
-				if (data)
-				{
-					String name = ComponentRegistry::GetName(id);
-					capturedComponents_.emplace_back(actor, CaptureComponent(name, data));
-				}
-
-				actor->RemoveComponent(id);
-			}
-		}
-
-		/// [EN] Collected during a read-only pass over GetRegistry() and unregistered afterwards - ComponentRegistry::Unregister() erases from the very map GetRegistry() returns a reference to, so mutating it mid-iteration would be unsafe.
-		/// [JP] GetRegistry() を読み取り専用で走査する間に集めておき、走査後にまとめて登録解除する - ComponentRegistry::Unregister() は GetRegistry() が参照を返しているまさにそのマップから削除するため、走査中に変更するのは安全ではない。
-		DynamicArray<ComponentID> ownedComponentIDs;
-		for (const auto& [id, metadata] : ComponentRegistry::GetRegistry())
-		{
-			if (!IsOwnedByLoadedModule(id))
-			{
-				continue;
-			}
-
-			if (metadata.storage_ == ComponentStorage::SparseSet)
-			{
-				world.UnregisterSparseSetStorage(id);
-			}
-
-			ownedComponentIDs.push_back(id);
-		}
-
-		/// [EN] Must happen before FreeLibrary() unloads the module - otherwise a stale std::type_index left behind in ComponentRegistry::TypeIndex() would point at a type_info living in freed memory, crashing the next Register<T>() call that happens to probe the same slot.
-		/// [JP] FreeLibrary() がモジュールをアンロードするより前に行う必要がある - そうしなければ ComponentRegistry::TypeIndex() に残った古い std::type_index が解放済みメモリ上の type_info を指したままになり、以後同じスロットを探査する Register<T>() 呼び出しでクラッシュする。
-		for (ComponentID id : ownedComponentIDs)
-		{
-			ComponentRegistry::Unregister(id);
-		}
-	}
-
-	/**
-	* [EN]
-	* Re-adds every component in capturedComponents_ to its original Actor
-	* and restores its captured field values.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* capturedComponents_ の各コンポーネントを元の Actor へ再追加し、
-	* 取得済みのフィールド値を復元する。
-	*/
-	void PluginModule::RestoreCapturedComponents(World& world)
-	{
-		for (const auto& [actor, component] : capturedComponents_)
-		{
-			ComponentID id = ComponentRegistry::GetComponentID(component.componentName_);
-			if (!id)
-			{
-				continue;
-			}
-
-			actor->AddComponent(id);
-
-			void* data = world.GetComponent(actor->GetEntity(), id);
-			if (data)
-			{
-				ApplyComponent(component, data);
-			}
-		}
-
-		capturedComponents_.clear();
 	}
 
 	/**
@@ -428,14 +141,14 @@ namespace SeedCore
 
 	/**
 	* [EN]
-	* Captures and destroys every component this module owns, calls
-	* SC_OnGameUnload, unregisters the module's reflection/payload
+	* Destroys and captures every component this module owns, calls
+	* SC_OnGameUnload, unregisters the module's reflection / payload
 	* entries, frees the module, and deletes its shadow copy.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* このモジュールが所有する全コンポーネントを取得・破棄し、
+	* このモジュールが所有する全コンポーネントを破棄・取得し、
 	* SC_OnGameUnload を呼び、モジュールのリフレクション/ペイロード
 	* エントリを登録解除し、モジュールを解放してシャドウコピーを削除する。
 	*/
@@ -448,7 +161,7 @@ namespace SeedCore
 
 		/// [EN] Runs first: capturing field values goes through ReflectionRegistry, so the entries must still be present and callable at this point.
 		/// [JP] 最初に実行する: フィールド値の取得は ReflectionRegistry を経由するため、この時点ではエントリがまだ存在し呼び出し可能である必要がある。
-		CaptureAndDestroyOwnedComponents(world);
+		DestroyCapturedComponents(world);
 
 		onGameUnload_(world);
 
@@ -479,5 +192,277 @@ namespace SeedCore
 	{
 		Unload(world);
 		return Load(world, imguiContext);
+	}
+
+	/**
+	* [EN]
+	* Returns whether the source DLL's last-write time differs from the one
+	* seen at the last Load - i.e. it was rebuilt.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 元 DLL の最終更新時刻が直近の Load 時点と異なるか - つまりリビルド
+	* されたか - を返す。
+	*/
+	Bool PluginModule::SourceChanged()const
+	{
+		Uint64 writeTime = GetLastWriteTime(sourcePath_);
+		return writeTime != 0 && writeTime != lastWriteTime_;
+	}
+
+	/**
+	* [EN]
+	* The real DLL path on disk this module is bound to.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* このモジュールが紐づく、ディスク上の実 DLL パス。
+	*/
+	const std::filesystem::path& PluginModule::SourcePath()const
+	{
+		return sourcePath_;
+	}
+
+	/**
+	* [EN]
+	* Whether the module is currently loaded.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* モジュールが現在ロードされているか。
+	*/
+	Bool PluginModule::IsLoaded()const
+	{
+		return handle_ != nullptr;
+	}
+
+	/**
+	* [EN]
+	* Best-effort deletion of leftover shadow DLLs / hot-reload PDBs for
+	* this module's stem in its directory. The currently loaded shadow copy
+	* is skipped.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* このモジュールの stem に対応する、ディレクトリ内に残ったシャドウ
+	* DLL / ホットリロード用 PDB を可能な範囲で削除する。現在ロード中の
+	* シャドウコピーは対象外。
+	*/
+	void PluginModule::CleanupStaleArtifacts()const
+	{
+		std::error_code errorCode;
+		std::filesystem::path directory = sourcePath_.parent_path();
+		std::wstring prefix = sourcePath_.stem().wstring() + L"_";
+
+		std::filesystem::directory_iterator iterator(directory, errorCode);
+		if (errorCode)
+		{
+			return;
+		}
+
+		for (const auto& entry : iterator)
+		{
+			std::filesystem::path path = entry.path();
+			std::wstring name = path.filename().wstring();
+
+			if (!name.starts_with(prefix))
+			{
+				continue;
+			}
+
+			std::filesystem::path extension = path.extension();
+			if (extension != L".dll" && extension != L".pdb")
+			{
+				continue;
+			}
+
+			if (!shadowPath_.empty() && path == shadowPath_)
+			{
+				continue;
+			}
+
+			std::error_code removeError;
+			std::filesystem::remove(path, removeError);
+		}
+	}
+
+	/**
+	* [EN]
+	* Returns the source DLL's current last-write time (0 if it cannot be
+	* read).
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 元 DLL の現在の最終更新時刻を返す（読み取れない場合は 0）。
+	*/
+	Uint64 PluginModule::GetLastWriteTime(const std::filesystem::path& path)
+	{
+		WIN32_FILE_ATTRIBUTE_DATA attributeData{};
+		if (!GetFileAttributesExW(path.c_str(), GetFileExInfoStandard, &attributeData))
+		{
+			return 0;
+		}
+
+		ULARGE_INTEGER writeTime{};
+		writeTime.LowPart = attributeData.ftLastWriteTime.dwLowDateTime;
+		writeTime.HighPart = attributeData.ftLastWriteTime.dwHighDateTime;
+		return writeTime.QuadPart;
+	}
+
+	/**
+	* [EN]
+	* Erases every reflection / payload entry this module registered.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* このモジュールが登録したリフレクション/ペイロードのエントリを全て
+	* 削除する。
+	*/
+	void PluginModule::UnregisterModuleReflection()
+	{
+		auto& reflectionRegistry = ReflectionRegistry::GetRegistry();
+		for (const String& name : registeredReflectionNames_)
+		{
+			reflectionRegistry.erase(name);
+		}
+		registeredReflectionNames_.clear();
+
+		auto& payloadRegistry = PayloadRegistry::GetRegistry();
+		for (const String& name : registeredPayloadNames_)
+		{
+			payloadRegistry.erase(name);
+		}
+		registeredPayloadNames_.clear();
+	}
+
+	/**
+	* [EN]
+	* For every live component whose code lives in handle_: captures its
+	* reflected fields into capturedComponents_, removes it from its Actor,
+	* then destroys that type's now-empty sparse-set storage container.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* handle_ 内にコードがある全ての生きたコンポーネントについて: その
+	* リフレクションフィールドを capturedComponents_ へ取得し、その Actor
+	* から削除した上で、空になったその型のスパースセットストレージ
+	* コンテナを破棄する。
+	*/
+	void PluginModule::DestroyCapturedComponents(World& world)
+	{
+		/// [EN] Whether id's ComponentMetadata function pointers live inside this module (handle_).
+		/// [JP] id の ComponentMetadata の関数ポインタが、このモジュール（handle_）の中にあるかどうか。
+		auto isOwnedByLoadedModule = [this](ComponentID id) -> Bool
+		{
+			if (!handle_)
+			{
+				return false;
+			}
+
+			const void* address = ComponentRegistry::Get(id).construct_;
+			if (!address)
+			{
+				return false;
+			}
+
+			MODULEINFO moduleInfo{};
+			if (!K32GetModuleInformation(GetCurrentProcess(), handle_, &moduleInfo, sizeof(moduleInfo)))
+			{
+				return false;
+			}
+
+			const Byte* base = static_cast<const Byte*>(moduleInfo.lpBaseOfDll);
+			const Byte* target = static_cast<const Byte*>(address);
+			return target >= base && target < base + moduleInfo.SizeOfImage;
+		};
+
+		capturedComponents_.clear();
+
+		for (const ResourcePtr<Actor>& actorPtr : world.GetActors())
+		{
+			Actor* actor = actorPtr.get();
+
+			DynamicArray<ComponentID> ownedIDs;
+			std::ranges::copy_if(actor->ComponentBaseIDList(), std::back_inserter(ownedIDs), isOwnedByLoadedModule);
+
+			for (ComponentID id : ownedIDs)
+			{
+				void* data = world.GetComponent(actor->GetEntity(), id);
+				if (data)
+				{
+					String name = ComponentRegistry::GetName(id);
+					capturedComponents_.emplace_back(actor, CaptureComponent(name, data));
+				}
+
+				actor->RemoveComponent(id);
+			}
+		}
+
+		/// [EN] Collected during a read-only pass over GetRegistry() and unregistered afterwards - ComponentRegistry::Unregister() erases from the very map GetRegistry() returns a reference to, so mutating it mid-iteration would be unsafe.
+		/// [JP] GetRegistry() を読み取り専用で走査する間に集めておき、走査後にまとめて登録解除する - ComponentRegistry::Unregister() は GetRegistry() が参照を返しているまさにそのマップから削除するため、走査中に変更するのは安全ではない。
+		DynamicArray<ComponentID> ownedComponentIDs;
+		for (const auto& [id, metadata] : ComponentRegistry::GetRegistry())
+		{
+			if (!isOwnedByLoadedModule(id))
+			{
+				continue;
+			}
+
+			if (metadata.storage_ == ComponentStorage::SparseSet)
+			{
+				world.UnregisterSparseSetStorage(id);
+			}
+
+			ownedComponentIDs.push_back(id);
+		}
+
+		/// [EN] Must happen before FreeLibrary() unloads the module - otherwise a stale std::type_index left behind in ComponentRegistry::TypeIndex() would point at a type_info living in freed memory, crashing the next Register<T>() call that happens to probe the same slot.
+		/// [JP] FreeLibrary() がモジュールをアンロードするより前に行う必要がある - そうしなければ ComponentRegistry::TypeIndex() に残った古い std::type_index が解放済みメモリ上の type_info を指したままになり、以後同じスロットを探査する Register<T>() 呼び出しでクラッシュする。
+		for (ComponentID id : ownedComponentIDs)
+		{
+			ComponentRegistry::Unregister(id);
+		}
+	}
+
+	/**
+	* [EN]
+	* Re-adds every component in capturedComponents_ to its original Actor
+	* and restores its captured field values, then clears
+	* capturedComponents_.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* capturedComponents_ の各コンポーネントを元の Actor へ再追加し、
+	* 取得済みのフィールド値を復元した上で、capturedComponents_ を
+	* クリアする。
+	*/
+	void PluginModule::RestoreCapturedComponents(World& world)
+	{
+		for (const auto& [actor, component] : capturedComponents_)
+		{
+			ComponentID id = ComponentRegistry::GetComponentID(component.componentName_);
+			if (!id)
+			{
+				continue;
+			}
+
+			actor->AddComponent(id);
+
+			void* data = world.GetComponent(actor->GetEntity(), id);
+			if (data)
+			{
+				ApplyComponent(component, data);
+			}
+		}
+
+		capturedComponents_.clear();
 	}
 }

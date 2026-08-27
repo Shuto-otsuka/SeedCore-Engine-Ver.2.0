@@ -1,60 +1,40 @@
 #include <FoundationEngine/Plugin/PluginHost.h>
 #include <FoundationEngine/Log/Notice.h>
 #include <Windows.h>
+#include <algorithm>
 
 namespace SeedCore
 {
-	namespace
-	{
-		/// [EN] How long a plugin DLL's write time must stay unchanged before a reload is triggered (MSBuild can touch a file's write time more than once while writing it).
-		/// [JP] プラグイン DLL の更新時刻が、リロードをトリガーするまでに変化なしで安定していなければならない時間（MSBuild は書き込み中に最終更新時刻を複数回更新することがあるため）。
-		constexpr Uint64 StableWindowMilliseconds = 500;
-
-		/// [EN] How often the plugin directory is rescanned for added/removed DLLs, in milliseconds.
-		/// [JP] プラグインディレクトリの DLL 追加/削除を再スキャンする間隔（ミリ秒）。
-		constexpr Uint64 RescanIntervalMilliseconds = 500;
-	}
-
-	Bool PluginHost::IsShadowCopy(const std::filesystem::path& path)
-	{
-		std::wstring stem = path.stem().wstring();
-		Size underscore = stem.rfind(L'_');
-		if (underscore == std::wstring::npos || underscore + 1 >= stem.size())
-		{
-			return false;
-		}
-
-		for (Size index = underscore + 1; index < stem.size(); ++index)
-		{
-			if (stem[index] < L'0' || stem[index] > L'9')
-			{
-				return false;
-			}
-		}
-		return true;
-	}
-
-	void PluginHost::Initialize(const std::filesystem::path& pluginDirectory, ImGuiContext* imguiContext)
-	{
-		pluginDirectory_ = pluginDirectory;
-		imguiContext_ = imguiContext;
-
-		std::error_code errorCode;
-		std::filesystem::create_directories(pluginDirectory_, errorCode);
-	}
-
 	/**
 	* [EN]
-	* Discovers every non-shadow *.dll in the plugin directory and loads
-	* each as a PluginModule.
+	* Binds the plugin directory to scan (typically the directory the
+	* executable lives in) and the ImGui context to forward to each
+	* plugin. Must be called once before Load.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* プラグインディレクトリ内のシャドウコピーでない全 *.dll を発見し、
-	* それぞれ PluginModule としてロードする。
+	* 走査するプラグインディレクトリ（通常は実行ファイルが置かれている
+	* ディレクトリ）と、各プラグインへ渡す ImGui コンテキストを束縛する。
+	* Load の前に一度呼び出す必要がある。
 	*/
-	void PluginHost::LoadAll(World& world)
+	void PluginHost::Initialize(const std::filesystem::path& pluginDirectory, ImGuiContext* imguiContext)
+	{
+		pluginDirectory_ = pluginDirectory;
+		imguiContext_ = imguiContext;
+	}
+
+	/**
+	* [EN]
+	* Loads every gameplay plugin found in the plugin directory.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* プラグインディレクトリ内で見つかった全ゲームプレイプラグインを
+	* ロードする。
+	*/
+	void PluginHost::Load(World& world)
 	{
 		if (!std::filesystem::exists(pluginDirectory_))
 		{
@@ -67,51 +47,6 @@ namespace SeedCore
 
 	/**
 	* [EN]
-	* Recursively scans the plugin directory and loads every non-shadow
-	* *.dll not already loaded.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* プラグインディレクトリを再帰的に走査し、シャドウコピーでなく未ロード
-	* の全 *.dll をロードする。
-	*/
-	void PluginHost::ScanAndLoad(World& world)
-	{
-		std::error_code errorCode;
-		auto iterator = std::filesystem::recursive_directory_iterator(pluginDirectory_, std::filesystem::directory_options::skip_permission_denied, errorCode);
-		if (errorCode)
-		{
-			return;
-		}
-
-		for (const auto& entry : iterator)
-		{
-			std::filesystem::path path = entry.path();
-			if (path.extension() != L".dll" || IsShadowCopy(path))
-			{
-				continue;
-			}
-
-			if (FindByStem(path.stem()) != nullptr)
-			{
-				continue;
-			}
-
-			ResourcePtr<PluginModule> module = MakePtr<PluginModule>(path);
-			if (!module->Load(world, imguiContext_))
-			{
-				continue;
-			}
-
-			Entry loaded;
-			loaded.module_ = std::move(module);
-			entries_.push_back(std::move(loaded));
-		}
-	}
-
-	/**
-	* [EN]
 	* Unloads and releases every loaded plugin.
 	*
 	* ---------------------------------------------------------------------
@@ -119,51 +54,13 @@ namespace SeedCore
 	* [JP]
 	* ロード済みの全プラグインをアンロードして解放する。
 	*/
-	void PluginHost::UnloadAll(World& world)
+	void PluginHost::Unload(World& world)
 	{
 		for (Entry& entry : entries_)
 		{
 			entry.module_->Unload(world);
 		}
 		entries_.clear();
-	}
-
-	PluginModule* PluginHost::FindByStem(const std::filesystem::path& stem)const
-	{
-		for (const Entry& entry : entries_)
-		{
-			if (entry.module_->SourcePath().stem() == stem)
-			{
-				return entry.module_.get();
-			}
-		}
-		return nullptr;
-	}
-
-	/**
-	* [EN]
-	* Reloads a single plugin now, bypassing the timestamp debounce, and
-	* clears that plugin's pending debounce state.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* タイムスタンプのデバウンスを飛ばして単一プラグインを今すぐリロード
-	* し、そのプラグインのデバウンス待ち状態をクリアする。
-	*/
-	void PluginHost::ReloadModule(World& world, PluginModule& module)
-	{
-		module.Reload(world, imguiContext_);
-
-		for (Entry& entry : entries_)
-		{
-			if (entry.module_.get() == &module)
-			{
-				entry.pendingWriteTime_ = 0;
-				entry.pendingStableSinceTick_ = 0;
-				break;
-			}
-		}
 	}
 
 	/**
@@ -193,7 +90,7 @@ namespace SeedCore
 
 			if (writeTime == entry.pendingWriteTime_)
 			{
-				if (nowTick - entry.pendingStableSinceTick_ >= StableWindowMilliseconds)
+				if (nowTick - entry.pendingStableSinceTick_ >= stableWindowMilliseconds_)
 				{
 					entry.module_->Reload(world, imguiContext_);
 					entry.pendingWriteTime_ = 0;
@@ -207,7 +104,7 @@ namespace SeedCore
 			}
 		}
 
-		if (nowTick - lastRescanTick_ < RescanIntervalMilliseconds)
+		if (nowTick - lastRescanTick_ < rescanIntervalMilliseconds_)
 		{
 			return;
 		}
@@ -215,18 +112,153 @@ namespace SeedCore
 
 		/// [EN] Drop plugins whose source DLL has disappeared.
 		/// [JP] 元 DLL が消えたプラグインを外す。
-		for (Size index = entries_.size(); index > 0; --index)
+		std::erase_if(entries_, [&world](Entry& entry)
 		{
-			Entry& entry = entries_[index - 1];
-			if (!std::filesystem::exists(entry.module_->SourcePath()))
+			if (std::filesystem::exists(entry.module_->SourcePath()))
 			{
-				entry.module_->Unload(world);
-				entries_.erase(entries_.begin() + (index - 1));
+				return false;
 			}
-		}
+			entry.module_->Unload(world);
+			return true;
+		});
 
 		/// [EN] Load plugins newly dropped into the directory.
 		/// [JP] ディレクトリに新たに置かれたプラグインをロードする。
 		ScanAndLoad(world);
+	}
+
+	/**
+	* [EN]
+	* Returns the loaded plugin whose source DLL file name stem equals
+	* stem (e.g. "UserProject"), or nullptr if none is loaded.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 元 DLL のファイル名 stem が stem（例: "UserProject"）に一致する
+	* ロード済みプラグインを返す。無ければ nullptr。
+	*/
+	PluginModule* PluginHost::Find(const std::filesystem::path& stem)const
+	{
+		auto found = std::ranges::find(entries_, stem, [](const Entry& entry){ return entry.module_->SourcePath().stem(); });
+		return found != entries_.end() ? found->module_.get() : nullptr;
+	}
+
+	/**
+	* [EN]
+	* Reloads a single plugin now, bypassing the timestamp debounce, and
+	* clears that plugin's pending debounce state.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* タイムスタンプのデバウンスを飛ばして単一プラグインを今すぐリロード
+	* し、そのプラグインのデバウンス待ち状態をクリアする。
+	*/
+	void PluginHost::ReloadModule(World& world, PluginModule& module)
+	{
+		module.Reload(world, imguiContext_);
+
+		auto found = std::ranges::find(entries_, &module, [](const Entry& entry){ return entry.module_.get(); });
+		if (found != entries_.end())
+		{
+			found->pendingWriteTime_ = 0;
+			found->pendingStableSinceTick_ = 0;
+		}
+	}
+
+	/**
+	* [EN]
+	* Scans the plugin directory (non-recursively) and loads every
+	* gameplay plugin (*.dll exporting SC_OnGameLoad / SC_OnGameUnload)
+	* that is not already loaded. Shadow copies and engine / third-party
+	* DLLs are skipped; a DLL that fails the plugin check is remembered in
+	* rejectedFileNames_ so a later rescan does not probe it again.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* プラグインディレクトリを（非再帰で）走査し、未ロードの全ゲーム
+	* プレイプラグイン（SC_OnGameLoad / SC_OnGameUnload をエクスポート
+	* する *.dll）をロードする。シャドウコピーとエンジン/サードパーティ
+	* DLL はスキップし、プラグインチェックに落ちた DLL は
+	* rejectedFileNames_ に記憶して以後の再スキャンで再プローブしない。
+	*/
+	void PluginHost::ScanAndLoad(World& world)
+	{
+		/// [EN] A shadow copy this host produced, named "<stem>_<digits>.dll".
+		/// [JP] この host が生成したシャドウコピー。"<stem>_<数字>.dll" という名前。
+		auto isShadowCopy = [](const std::filesystem::path& path) -> Bool
+		{
+			std::wstring stem = path.stem().wstring();
+			Size underscore = stem.rfind(L'_');
+			if (underscore == std::wstring::npos || underscore + 1 >= stem.size())
+			{
+				return false;
+			}
+			std::wstring_view digits = std::wstring_view(stem).substr(underscore + 1);
+			return std::ranges::all_of(digits, [](wchar_t character){ return character >= L'0' && character <= L'9'; });
+		};
+
+		/// [EN] A gameplay plugin, not engine / third-party code sharing the directory. Already-loaded modules (e.g. SeedCore.dll) are rejected at once; the rest are probed with DONT_RESOLVE_DLL_REFERENCES so no DllMain runs and no dependencies load.
+		/// [JP] ディレクトリを共有しているだけのエンジン/サードパーティコードではなく、ゲームプレイプラグインかどうか。既にロード済みのモジュール（例: SeedCore.dll）は即除外し、残りは DONT_RESOLVE_DLL_REFERENCES でプローブするため DllMain は走らず依存もロードされない。
+		auto isPluginCandidate = [](const std::filesystem::path& path) -> Bool
+		{
+			if (GetModuleHandleW(path.filename().c_str()))
+			{
+				return false;
+			}
+			HMODULE probe = LoadLibraryExW(path.c_str(), nullptr, DONT_RESOLVE_DLL_REFERENCES);
+			if (!probe)
+			{
+				return false;
+			}
+			Bool hasEntryPoints = GetProcAddress(probe, "SC_OnGameLoad") != nullptr && GetProcAddress(probe, "SC_OnGameUnload") != nullptr;
+			FreeLibrary(probe);
+			return hasEntryPoints;
+		};
+
+		std::error_code errorCode;
+		std::filesystem::directory_iterator iterator(pluginDirectory_, errorCode);
+		if (errorCode)
+		{
+			return;
+		}
+
+		for (const auto& entry : iterator)
+		{
+			std::filesystem::path path = entry.path();
+			if (path.extension() != L".dll" || isShadowCopy(path))
+			{
+				continue;
+			}
+
+			if (Find(path.stem()) != nullptr)
+			{
+				continue;
+			}
+
+			String fileName = String(path.filename().string());
+			if (std::ranges::contains(rejectedFileNames_, fileName))
+			{
+				continue;
+			}
+
+			if (!isPluginCandidate(path))
+			{
+				rejectedFileNames_.push_back(fileName);
+				continue;
+			}
+
+			ResourcePtr<PluginModule> module = MakePtr<PluginModule>(path);
+			if (!module->Load(world, imguiContext_))
+			{
+				continue;
+			}
+
+			Entry loaded;
+			loaded.module_ = std::move(module);
+			entries_.push_back(std::move(loaded));
+		}
 	}
 }

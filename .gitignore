@@ -107,6 +107,7 @@ Runtime/[Ii]ntermediate/
 ipch/
 *.VC.db
 *.VC.VC.opendb
+Package/
 
 ## Visual Studio DB
 *.VC.db

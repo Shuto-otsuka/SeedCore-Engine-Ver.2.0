@@ -93,7 +93,7 @@ namespace SeedCore
 	*/
 	void Actor::RemoveComponent(ComponentID id)
 	{
-		auto it = std::find(componentBaseIDs_.begin(), componentBaseIDs_.end(), id);
+		auto it = std::ranges::find(componentBaseIDs_, id);
 		if (it != componentBaseIDs_.end())
 		{
 			/// [EN] It's a ComponentBase-derived component: fire OnDestroy while its storage is still valid, before the component is actually removed.
@@ -212,8 +212,7 @@ namespace SeedCore
 		/// [JP] まず、以前の親（あれば）の子リストから切り離す。
 		if (parent_)
 		{
-			auto& siblings = parent_->children_;
-			siblings.erase(std::remove(siblings.begin(), siblings.end(), this), siblings.end());
+			std::erase(parent_->children_, this);
 		}
 
 		parent_ = parent;
@@ -278,7 +277,7 @@ namespace SeedCore
 	*/
 	void Actor::MoveChildAfter(Actor* child, Actor* after)
 	{
-		auto childIt = std::find(children_.begin(), children_.end(), child);
+		auto childIt = std::ranges::find(children_, child);
 		if (childIt == children_.end())
 		{
 			return;
@@ -288,7 +287,7 @@ namespace SeedCore
 		/// [JP] child を現在の位置から先に削除する。こうすることで、after を基準に再挿入する際、after 自身のインデックスがずれてしまうのを防ぐ。
 		children_.erase(childIt);
 
-		auto afterIt = std::find(children_.begin(), children_.end(), after);
+		auto afterIt = std::ranges::find(children_, after);
 		if (afterIt == children_.end())
 		{
 			/// [EN] after isn't among the children (or was itself just removed): fall back to appending at the end.

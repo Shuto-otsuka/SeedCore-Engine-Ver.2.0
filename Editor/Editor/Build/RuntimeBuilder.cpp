@@ -265,7 +265,7 @@ namespace SeedCore
 		{
 			for (Size index = 0; index < projectNames.size(); ++index)
 			{
-				if (!projectSeen_[index] && accumulated.find(projectNames[index]) != std::string::npos)
+				if (!projectSeen_[index] && accumulated.contains(projectNames[index]))
 				{
 					projectSeen_[index] = true;
 					++completedProjects_;

@@ -111,10 +111,7 @@ namespace SeedCore
 		Actor* parent = actor->GetParent();
 		parentPersistentId_ = parent ? parent->GetPersistentID() : 0;
 
-		for (Actor* child : actor->GetChildren())
-		{
-			childPersistentIds_.push_back(child->GetPersistentID());
-		}
+		std::ranges::transform(actor->GetChildren(), std::back_inserter(childPersistentIds_), [](Actor* child) { return child->GetPersistentID(); });
 	}
 
 	/**
@@ -319,10 +316,7 @@ namespace SeedCore
 			entry.oldActive_ = current->IsActive();
 			entries_.push_back(entry);
 
-			for (Actor* child : current->GetChildren())
-			{
-				pending.push_back(child);
-			}
+			std::ranges::copy(current->GetChildren(), std::back_inserter(pending));
 		}
 	}
 

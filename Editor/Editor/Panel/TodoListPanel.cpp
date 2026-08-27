@@ -139,7 +139,7 @@ namespace SeedCore
 					items_.push_back(item);
 					changed = true;
 				}
-				std::fill(newItemBuffer_.begin(), newItemBuffer_.end(), '\0');
+				std::ranges::fill(newItemBuffer_, '\0');
 				ImGui::SetKeyboardFocusHere(-1);
 			}
 

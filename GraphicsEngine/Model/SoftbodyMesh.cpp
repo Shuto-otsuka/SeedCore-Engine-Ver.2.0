@@ -69,7 +69,7 @@ namespace SeedCore
 				Uint32 newVertexCount = 0;
 				for (Uint32 corner = 0; corner < 3; corner++)
 				{
-					if (localIndexMap.find(globalVertices[corner]) == localIndexMap.end())
+					if (!localIndexMap.contains(globalVertices[corner]))
 					{
 						newVertexCount++;
 					}
@@ -297,7 +297,7 @@ namespace SeedCore
 		bound.radius_ = (positionMax - positionMin_).Length() * 0.5f;
 		bound.coneAxis_ = Vector3(0.0f, 0.0f, 1.0f);
 		bound.coneCutoff_ = -1.0f;
-		std::fill(scratchBounds_.begin(), scratchBounds_.end(), bound);
+		std::ranges::fill(scratchBounds_, bound);
 
 		vertexBuffer_->Update(scratchVertices_.data(), static_cast<Uint>(scratchVertices_.size()));
 		meshletBuffer_->Update(meshlets_.data(), static_cast<Uint>(meshlets_.size()));

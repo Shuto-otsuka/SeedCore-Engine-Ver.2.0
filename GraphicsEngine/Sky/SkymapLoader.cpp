@@ -15,7 +15,7 @@ namespace SeedCore
 		skymap->SetHandle(handle);
 
 		std::string extension = std::filesystem::path(filePath.str()).extension().string();
-		std::transform(extension.begin(), extension.end(), extension.begin(), [](Uchar c) { return static_cast<Char>(std::tolower(c)); });
+		std::ranges::transform(extension, extension.begin(), [](Uchar c) { return static_cast<Char>(std::tolower(c)); });
 
 		Bool loaded = false;
 		if (extension == ".skymap")

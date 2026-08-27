@@ -55,7 +55,7 @@ namespace SeedCore
 
 			if (current == rootNodeIndex)
 			{
-				std::reverse(chain.begin(), chain.end());
+				std::ranges::reverse(chain);
 				return chain;
 			}
 

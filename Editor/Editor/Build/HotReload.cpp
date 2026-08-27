@@ -3,7 +3,6 @@
 #include <FoundationEngine/Log/Notice.h>
 #include <FoundationEngine/Plugin/PluginHost.h>
 #include <FoundationEngine/Plugin/PluginModule.h>
-#include <Windows.h>
 
 namespace SeedCore
 {

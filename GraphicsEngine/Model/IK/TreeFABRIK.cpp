@@ -5,7 +5,7 @@ namespace SeedCore
 {
 	void TreeFABRIK::Solve(const Crister& crister, Int rootNodeIndex, const DynamicArray<Target>& targets, std::unordered_map<Int, Vector3>& jointPositions, Float tolerance, Int maxIterations)
 	{
-		if (targets.empty() || jointPositions.find(rootNodeIndex) == jointPositions.end())
+		if (targets.empty() || !jointPositions.contains(rootNodeIndex))
 		{
 			return;
 		}
@@ -17,7 +17,7 @@ namespace SeedCore
 
 		for (const Target& target : targets)
 		{
-			if (jointPositions.find(target.nodeIndex_) == jointPositions.end())
+			if (!jointPositions.contains(target.nodeIndex_))
 			{
 				continue;
 			}
@@ -36,12 +36,12 @@ namespace SeedCore
 				}
 
 				Int parentIndex = crister.Nodes()[current].parentIndex_;
-				if (parentIndex < 0 || jointPositions.find(parentIndex) == jointPositions.end())
+				if (parentIndex < 0 || !jointPositions.contains(parentIndex))
 				{
 					break;
 				}
 
-				if (segmentLengths.find(current) == segmentLengths.end())
+				if (!segmentLengths.contains(current))
 				{
 					segmentLengths[current] = Vector3::Distance(jointPositions[current], jointPositions[parentIndex]);
 				}
@@ -84,7 +84,7 @@ namespace SeedCore
 
 		for (Int childIndex : crister.Nodes()[nodeIndex].children_)
 		{
-			if (activeNodes.find(childIndex) == activeNodes.end())
+			if (!activeNodes.contains(childIndex))
 			{
 				continue;
 			}
@@ -113,7 +113,7 @@ namespace SeedCore
 
 		for (Int childIndex : crister.Nodes()[nodeIndex].children_)
 		{
-			if (activeNodes.find(childIndex) == activeNodes.end())
+			if (!activeNodes.contains(childIndex))
 			{
 				continue;
 			}

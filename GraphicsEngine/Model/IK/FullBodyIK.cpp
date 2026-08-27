@@ -273,7 +273,7 @@ namespace SeedCore
 				firstAncestors.push_back(current);
 				current = crister.Nodes()[current].parentIndex_;
 			}
-			std::reverse(firstAncestors.begin(), firstAncestors.end());
+			std::ranges::reverse(firstAncestors);
 		}
 
 		DynamicArray<std::unordered_set<Int>> otherAncestorSets;
@@ -292,15 +292,7 @@ namespace SeedCore
 		Int groupRootNodeIndex = -1;
 		for (Int candidate : firstAncestors)
 		{
-			Bool allContain = true;
-			for (const auto& ancestorSet : otherAncestorSets)
-			{
-				if (ancestorSet.find(candidate) == ancestorSet.end())
-				{
-					allContain = false;
-					break;
-				}
-			}
+			Bool allContain = std::ranges::all_of(otherAncestorSets, [candidate](const auto& ancestorSet) { return ancestorSet.contains(candidate); });
 
 			if (!allContain)
 			{
@@ -370,13 +362,7 @@ namespace SeedCore
 				Int nodeIndex = stack.back();
 				stack.pop_back();
 				processOrder.push_back(nodeIndex);
-				for (Int childIndex : crister.Nodes()[nodeIndex].children_)
-				{
-					if (unionNodes.find(childIndex) != unionNodes.end())
-					{
-						stack.push_back(childIndex);
-					}
-				}
+				std::ranges::copy_if(crister.Nodes()[nodeIndex].children_, std::back_inserter(stack), [&unionNodes](Int childIndex) { return unionNodes.contains(childIndex); });
 			}
 		}
 
@@ -384,7 +370,7 @@ namespace SeedCore
 
 		for (Int nodeIndex : processOrder)
 		{
-			if (targetPositions.find(nodeIndex) != targetPositions.end())
+			if (targetPositions.contains(nodeIndex))
 			{
 				continue;
 			}
@@ -394,7 +380,7 @@ namespace SeedCore
 
 			for (Int childIndex : crister.Nodes()[nodeIndex].children_)
 			{
-				if (unionNodes.find(childIndex) == unionNodes.end())
+				if (!unionNodes.contains(childIndex))
 				{
 					continue;
 				}
@@ -418,7 +404,7 @@ namespace SeedCore
 
 		for (Int nodeIndex : processOrder)
 		{
-			Bool isLeafTarget = targetPositions.find(nodeIndex) != targetPositions.end();
+			Bool isLeafTarget = targetPositions.contains(nodeIndex);
 			if (isLeafTarget)
 			{
 				continue;
@@ -452,7 +438,7 @@ namespace SeedCore
 				Float bestWeight = -1.0f;
 				for (Int childIndex : crister.Nodes()[nodeIndex].children_)
 				{
-					if (unionNodes.find(childIndex) == unionNodes.end())
+					if (!unionNodes.contains(childIndex))
 					{
 						continue;
 					}
@@ -515,7 +501,7 @@ namespace SeedCore
 
 			Quaternion originalParentWorldRotation = Quaternion::Identity;
 			Quaternion solvedParentWorldRotation = Quaternion::Identity;
-			if (unionNodes.find(parentIndex) != unionNodes.end())
+			if (unionNodes.contains(parentIndex))
 			{
 				originalParentWorldRotation = originalRotations[parentIndex];
 				solvedParentWorldRotation = solvedWorldRotations[parentIndex];

@@ -61,14 +61,8 @@ namespace SeedCore
 	Size LayerRegistry::Find(const String& name)
 	{
 		DynamicArray<String>& names = Names();
-		for (Size index = 0; index < names.size(); ++index)
-		{
-			if (names[index] == name)
-			{
-				return index;
-			}
-		}
-		return InvalidIndex;
+		auto found = std::ranges::find(names, name);
+		return found != names.end() ? static_cast<Size>(found - names.begin()) : InvalidIndex;
 	}
 
 	/**

@@ -249,21 +249,13 @@ namespace SeedCore
 				context_.sceneContext_.history_.Push(MakePtr<ActorTagCommand>(*context_.worldContext_.world_, actor->GetPersistentID(), newTag, true));
 				actor->AddTag(newTag);
 			}
-			std::fill(newTagBuffer_.begin(), newTagBuffer_.end(), '\0');
+			std::ranges::fill(newTagBuffer_, '\0');
 			ImGui::SetKeyboardFocusHere(-1);
 		}
 
 		const DynamicArray<String>& allNames = TagRegistry::GetNames();
 
-		Bool hasActiveTag = false;
-		for (Size index = 0; index < allNames.size(); ++index)
-		{
-			if (!TagRegistry::IsRemoved(index))
-			{
-				hasActiveTag = true;
-				break;
-			}
-		}
+		Bool hasActiveTag = std::ranges::any_of(std::views::iota(Size{ 0 }, allNames.size()), [](Size index) { return !TagRegistry::IsRemoved(index); });
 
 		if (hasActiveTag)
 		{
@@ -335,9 +327,9 @@ namespace SeedCore
 			{
 				for (Size index = 0; index < LayerRegistry::LayerCount; ++index)
 				{
-					std::fill(layerNameBuffers_[index].begin(), layerNameBuffers_[index].end(), '\0');
+					std::ranges::fill(layerNameBuffers_[index], '\0');
 					std::string name = layerNames[index].str();
-					std::copy(name.begin(), name.end(), layerNameBuffers_[index].begin());
+					std::ranges::copy(name, layerNameBuffers_[index].begin());
 				}
 			}
 
@@ -732,7 +724,7 @@ namespace SeedCore
 					payloadIt->second(componentData, fields);
 				}
 
-				std::stable_sort(fields.begin(), fields.end(), [](const FieldInfo& a, const FieldInfo& b) { return a.offset_ < b.offset_; });
+				std::ranges::stable_sort(fields, [](const FieldInfo& a, const FieldInfo& b) { return a.offset_ < b.offset_; });
 				DrawFieldList(fields, componentData, entity, componentBaseID, 0);
 
 				static_cast<ComponentBase*>(componentData)->DispatchInspectorGUI();
@@ -767,7 +759,7 @@ namespace SeedCore
 			payloadIt->second(componentData, fields);
 		}
 
-		std::stable_sort(fields.begin(), fields.end(), [](const FieldInfo& a, const FieldInfo& b) { return a.offset_ < b.offset_; });
+		std::ranges::stable_sort(fields, [](const FieldInfo& a, const FieldInfo& b) { return a.offset_ < b.offset_; });
 		DrawFieldList(fields, componentData, entity, componentID, 0);
 
 		ImGui::PopID();
@@ -880,7 +872,7 @@ namespace SeedCore
 						{
 							DynamicArray<FieldInfo> nestedFields;
 							reflectionIt->second(nestedData, nestedFields);
-							std::stable_sort(nestedFields.begin(), nestedFields.end(), [](const FieldInfo& a, const FieldInfo& b) { return a.offset_ < b.offset_; });
+							std::ranges::stable_sort(nestedFields, [](const FieldInfo& a, const FieldInfo& b) { return a.offset_ < b.offset_; });
 
 							Size nestedBaseOffset = baseOffset + field.offset_;
 
@@ -1420,7 +1412,7 @@ namespace SeedCore
 			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(dropType))
 			{
 				Int droppedValue = *static_cast<const Int*>(payload->Data);
-				Bool alreadyExists = std::find(existingValues.begin(), existingValues.end(), droppedValue) != existingValues.end();
+				Bool alreadyExists = std::ranges::contains(existingValues, droppedValue);
 				if (!alreadyExists)
 				{
 					context_.sceneContext_.history_.Push(MakePtr<PayloadArrayCommand>(field.array_.add_, field.array_.remove_, field.array_.lastPtr_, existingValues.size(), droppedValue, true));

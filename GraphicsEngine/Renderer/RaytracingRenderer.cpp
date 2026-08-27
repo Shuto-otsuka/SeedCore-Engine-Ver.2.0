@@ -147,7 +147,7 @@ namespace SeedCore
 				///      glTF の慣例として、あるメッシュを参照する全 Node は
 				///      そのメッシュ用に1つのウェイト配列を共有する、
 				///      Animation::weights_ のコメント参照)へ振り分ける。
-				if (animator && std::any_of(crister->SubMeshes().begin(), crister->SubMeshes().end(), [](const SubMesh& subMesh) { return !subMesh.morphs_.empty(); }))
+				if (animator && std::ranges::any_of(crister->SubMeshes(), [](const SubMesh& subMesh) { return !subMesh.morphs_.empty(); }))
 				{
 					const auto& subMeshesForMorph = crister->SubMeshes();
 					const auto& nodesForMorph = crister->Nodes();
@@ -184,7 +184,7 @@ namespace SeedCore
 					}
 				}
 
-				if (!instance.hasSkeletalPose_ && blasCache_.find(crister) == blasCache_.end())
+				if (!instance.hasSkeletalPose_ && !blasCache_.contains(crister))
 				{
 					Bool alreadyPending = false;
 					for (const Crister* pending : pendingBlasBuilds_)
@@ -507,7 +507,7 @@ namespace SeedCore
 			geometryDesc.indexBuffer_ = crister->IndexBufferAddress();
 			geometryDesc.indexCount_ = crister->IndexCount();
 			geometryDesc.indexFormat_ = DXGI_FORMAT_R32_UINT;
-			geometryDesc.opaque_ = std::all_of(crister->Materials().begin(), crister->Materials().end(), [](const Material& material) { return material.alphaMode_ == 0; });
+			geometryDesc.opaque_ = std::ranges::all_of(crister->Materials(), [](const Material& material) { return material.alphaMode_ == 0; });
 
 			ResourcePtr<BottomLevelAccelerationStructure> blas = MakePtr<BottomLevelAccelerationStructure>();
 			if (blas->Build(device5, commandList4, &geometryDesc, 1))
@@ -569,7 +569,7 @@ namespace SeedCore
 				continue;
 			}
 
-			Bool notCached = reflectionMaterialTableCache_.find(pending.crister_) == reflectionMaterialTableCache_.end();
+			Bool notCached = !reflectionMaterialTableCache_.contains(pending.crister_);
 			Bool wasDirty = pending.crister_->IsMaterialsDirty();
 			if (!notCached && !wasDirty)
 			{
@@ -842,7 +842,7 @@ namespace SeedCore
 			geometryDesc.indexBuffer_ = crister->IndexBufferAddress();
 			geometryDesc.indexCount_ = crister->IndexCount();
 			geometryDesc.indexFormat_ = DXGI_FORMAT_R32_UINT;
-			geometryDesc.opaque_ = std::all_of(crister->Materials().begin(), crister->Materials().end(), [](const Material& material) { return material.alphaMode_ == 0; });
+			geometryDesc.opaque_ = std::ranges::all_of(crister->Materials(), [](const Material& material) { return material.alphaMode_ == 0; });
 
 			ResourcePtr<BottomLevelAccelerationStructure>& skinnedBlas = skinnedBlasCache_[frameIndex][pending.entityID_];
 			if (!skinnedBlas)
@@ -889,7 +889,7 @@ namespace SeedCore
 			geometryDesc.indexBuffer_ = crister->IndexBufferAddress();
 			geometryDesc.indexCount_ = crister->IndexCount();
 			geometryDesc.indexFormat_ = DXGI_FORMAT_R32_UINT;
-			geometryDesc.opaque_ = std::all_of(crister->Materials().begin(), crister->Materials().end(), [](const Material& material) { return material.alphaMode_ == 0; });
+			geometryDesc.opaque_ = std::ranges::all_of(crister->Materials(), [](const Material& material) { return material.alphaMode_ == 0; });
 
 			ResourcePtr<BottomLevelAccelerationStructure>& morphedBlas = morphedBlasCache_[frameIndex][pending.entityID_];
 			if (!morphedBlas)

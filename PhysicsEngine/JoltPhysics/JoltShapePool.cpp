@@ -140,10 +140,7 @@ namespace SeedCore
 
 		JPH::VertexList vertices;
 		vertices.reserve(positions.size());
-		for (const Vector3& position : positions)
-		{
-			vertices.push_back(JPH::Float3(position.x, position.y, position.z));
-		}
+		std::ranges::transform(positions, std::back_inserter(vertices), [](const Vector3& position) { return JPH::Float3(position.x, position.y, position.z); });
 
 		JPH::IndexedTriangleList triangles;
 		triangles.reserve(indices.size() / 3);
@@ -185,10 +182,7 @@ namespace SeedCore
 
 		JPH::Array<JPH::Vec3> points;
 		points.reserve(positions.size());
-		for (const Vector3& position : positions)
-		{
-			points.push_back(JPH::Vec3(position.x, position.y, position.z));
-		}
+		std::ranges::transform(positions, std::back_inserter(points), [](const Vector3& position) { return JPH::Vec3(position.x, position.y, position.z); });
 
 		JPH::ConvexHullShapeSettings settings(points, JPH::cDefaultConvexRadius);
 		settings.SetEmbedded();

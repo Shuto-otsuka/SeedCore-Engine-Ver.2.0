@@ -90,7 +90,7 @@ namespace SeedCore
 
 		Char exePathBuffer[MAX_PATH]{};
 		GetModuleFileNameA(nullptr, exePathBuffer, MAX_PATH);
-		std::filesystem::path pluginDirectory = std::filesystem::path(exePathBuffer).parent_path() / "Plugins";
+		std::filesystem::path pluginDirectory = std::filesystem::path(exePathBuffer).parent_path();
 		pluginHost_.Initialize(pluginDirectory, ImGui::GetCurrentContext());
 		pluginHost_.LoadAll(*world_);
 		hotReload_.Initialize(pluginHost_);

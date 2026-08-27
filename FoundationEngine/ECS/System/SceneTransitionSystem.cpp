@@ -155,10 +155,7 @@ namespace SeedCore
 		/// [EN] Snapshot the current scene's actors so they can be destroyed once the cover phase finishes (not immediately, to avoid a visible pop).
 		/// [JP] 現在のシーンの actor をスナップショットしておく。覆い隠しフェーズが完了した時点で破棄できるようにするため（見た目の飛びを避けるため即座には破棄しない）。
 		previousActors_.clear();
-		for (auto& actor : world.GetActors())
-		{
-			previousActors_.push_back(actor.get());
-		}
+		std::ranges::transform(world.GetActors(), std::back_inserter(previousActors_), [](const auto& actor) { return actor.get(); });
 
 		std::filesystem::path resolvedLoadingScene = loadingScene;
 		Uint32 loadingSceneAssetID = cache.GetAssetID(String(loadingScene.string()));

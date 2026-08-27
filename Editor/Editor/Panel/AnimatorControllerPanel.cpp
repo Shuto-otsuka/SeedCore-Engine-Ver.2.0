@@ -582,16 +582,7 @@ namespace SeedCore
 							///      保つ。
 							needsPositionSync_ = true;
 
-							Bool removedTransition = false;
-							for (Size transitionIndex = target_->transitions_.size(); transitionIndex > 0; --transitionIndex)
-							{
-								AnimationTransition& transition = target_->transitions_[transitionIndex - 1];
-								if (transition.fromState_ == static_cast<Int>(stateIndex) || transition.toState_ == static_cast<Int>(stateIndex))
-								{
-									target_->transitions_.erase(target_->transitions_.begin() + (transitionIndex - 1));
-									removedTransition = true;
-								}
-							}
+							Bool removedTransition = std::erase_if(target_->transitions_, [stateIndex](const AnimationTransition& transition) { return transition.fromState_ == static_cast<Int>(stateIndex) || transition.toState_ == static_cast<Int>(stateIndex); }) > 0;
 
 							for (AnimationTransition& transition : target_->transitions_)
 							{

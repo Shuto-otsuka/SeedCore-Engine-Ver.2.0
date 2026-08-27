@@ -219,7 +219,7 @@ namespace SeedCore
 				///      モーフウェイトアニメーションは、このメッシュがスキン
 				///      済みかどうかに関わらずサンプリング済みの Animation を
 				///      必要とするため。
-				Bool hasMorphs = std::any_of(crister->SubMeshes().begin(), crister->SubMeshes().end(), [](const SubMesh& subMesh) { return !subMesh.morphs_.empty(); });
+				Bool hasMorphs = std::ranges::any_of(crister->SubMeshes(), [](const SubMesh& subMesh) { return !subMesh.morphs_.empty(); });
 				Animator* animator = (skins.empty() && !hasMorphs) ? nullptr : actor->GetComponent<Animator>();
 				if (animator)
 				{
@@ -256,7 +256,7 @@ namespace SeedCore
 								std::unordered_map<Int, Vector3> scaleOverrides;
 								animation->SamplePose(sampleTime, translationOverrides, rotationOverrides, scaleOverrides);
 
-								if (std::any_of(crister->SubMeshes().begin(), crister->SubMeshes().end(), [](const SubMesh& subMesh) { return !subMesh.morphs_.empty(); }))
+								if (std::ranges::any_of(crister->SubMeshes(), [](const SubMesh& subMesh) { return !subMesh.morphs_.empty(); }))
 								{
 									animation->SampleMorphWeights(sampleTime, animatedMorphWeights_[entityID]);
 								}

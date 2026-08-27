@@ -9,7 +9,7 @@ namespace SeedCore
 
 	Bool Animation::HasTranslationChannel(Int nodeIndex)const
 	{
-		return translations_.find(nodeIndex) != translations_.end();
+		return translations_.contains(nodeIndex);
 	}
 
 	Int Animation::FindRootMotionNode()const

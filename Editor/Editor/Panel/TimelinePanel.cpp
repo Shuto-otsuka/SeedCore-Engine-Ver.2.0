@@ -40,7 +40,7 @@ namespace SeedCore
 			{
 				order[orderIndex] = orderIndex;
 			}
-			std::sort(order.begin(), order.end(), [&](Size a, Size b) { return keys[a].time_ < keys[b].time_; });
+			std::ranges::sort(order, [&](Size a, Size b) { return keys[a].time_ < keys[b].time_; });
 			return order;
 		}
 

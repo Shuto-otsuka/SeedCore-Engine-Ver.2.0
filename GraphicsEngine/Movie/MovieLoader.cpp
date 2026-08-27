@@ -19,7 +19,7 @@ namespace SeedCore
 
 		std::filesystem::path sourceFsPath(filePath);
 		std::string extension = sourceFsPath.extension().string();
-		std::transform(extension.begin(), extension.end(), extension.begin(), [](Uchar c) { return static_cast<Char>(std::tolower(c)); });
+		std::ranges::transform(extension, extension.begin(), [](Uchar c) { return static_cast<Char>(std::tolower(c)); });
 
 		Microsoft::WRL::ComPtr<IMFAttributes> attributes;
 		HRESULT hr = MFCreateAttributes(attributes.ReleaseAndGetAddressOf(), 1);

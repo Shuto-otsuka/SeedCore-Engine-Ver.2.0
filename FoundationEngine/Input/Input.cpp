@@ -657,23 +657,7 @@ namespace SeedCore
 			return false;
 		}
 
-		for (Key key : iterator->second.keys_)
-		{
-			if (KeyState(key, mode))
-			{
-				return true;
-			}
-		}
-
-		for (SDL_GamepadButton button : iterator->second.gamepadButtons_)
-		{
-			if (GamepadState(button, mode))
-			{
-				return true;
-			}
-		}
-
-		return false;
+		return std::ranges::any_of(iterator->second.keys_, [&](Key key) { return KeyState(key, mode); }) || std::ranges::any_of(iterator->second.gamepadButtons_, [&](SDL_GamepadButton button) { return GamepadState(button, mode); });
 	}
 
 	/**
@@ -704,7 +688,7 @@ namespace SeedCore
 	void Input::BindKey(String action, Key key)
 	{
 		ActionBinding& binding = GetOrCreateActionBinding(action);
-		if (std::find(binding.keys_.begin(), binding.keys_.end(), key) == binding.keys_.end())
+		if (!std::ranges::contains(binding.keys_, key))
 		{
 			binding.keys_.push_back(key);
 		}
@@ -723,7 +707,7 @@ namespace SeedCore
 	void Input::BindGamepadButton(String action, SDL_GamepadButton button)
 	{
 		ActionBinding& binding = GetOrCreateActionBinding(action);
-		if (std::find(binding.gamepadButtons_.begin(), binding.gamepadButtons_.end(), button) == binding.gamepadButtons_.end())
+		if (!std::ranges::contains(binding.gamepadButtons_, button))
 		{
 			binding.gamepadButtons_.push_back(button);
 		}
@@ -747,7 +731,7 @@ namespace SeedCore
 		}
 
 		DynamicArray<Key>& keys = iterator->second.keys_;
-		keys.erase(std::remove(keys.begin(), keys.end(), key), keys.end());
+		std::erase(keys, key);
 	}
 
 	/**
@@ -768,7 +752,7 @@ namespace SeedCore
 		}
 
 		DynamicArray<SDL_GamepadButton>& gamepadButtons = iterator->second.gamepadButtons_;
-		gamepadButtons.erase(std::remove(gamepadButtons.begin(), gamepadButtons.end(), button), gamepadButtons.end());
+		std::erase(gamepadButtons, button);
 	}
 
 	/**
@@ -784,7 +768,7 @@ namespace SeedCore
 	{
 		if (actionBindings_.erase(action))
 		{
-			actionOrder_.erase(std::remove(actionOrder_.begin(), actionOrder_.end(), action), actionOrder_.end());
+			std::erase(actionOrder_, action);
 		}
 	}
 
@@ -836,7 +820,7 @@ namespace SeedCore
 	void Input::BindAxisKeys(String action, DirectionalKeys keys)
 	{
 		ActionBinding& binding = GetOrCreateActionBinding(action);
-		if (std::find(binding.axisKeys_.begin(), binding.axisKeys_.end(), keys) == binding.axisKeys_.end())
+		if (!std::ranges::contains(binding.axisKeys_, keys))
 		{
 			binding.axisKeys_.push_back(keys);
 		}
@@ -860,7 +844,7 @@ namespace SeedCore
 		}
 
 		DynamicArray<DirectionalKeys>& axisKeys = iterator->second.axisKeys_;
-		axisKeys.erase(std::remove(axisKeys.begin(), axisKeys.end(), keys), axisKeys.end());
+		std::erase(axisKeys, keys);
 	}
 
 	/**
@@ -876,7 +860,7 @@ namespace SeedCore
 	void Input::BindStick(String action, StickSide side)
 	{
 		ActionBinding& binding = GetOrCreateActionBinding(action);
-		if (std::find(binding.sticks_.begin(), binding.sticks_.end(), side) == binding.sticks_.end())
+		if (!std::ranges::contains(binding.sticks_, side))
 		{
 			binding.sticks_.push_back(side);
 		}
@@ -900,7 +884,7 @@ namespace SeedCore
 		}
 
 		DynamicArray<StickSide>& sticks = iterator->second.sticks_;
-		sticks.erase(std::remove(sticks.begin(), sticks.end(), side), sticks.end());
+		std::erase(sticks, side);
 	}
 
 	/**
@@ -1055,15 +1039,8 @@ namespace SeedCore
 		{
 			ActionBinding& binding = GetOrCreateActionBinding(record.action_);
 
-			for (Int32 key : record.keys_)
-			{
-				binding.keys_.push_back(static_cast<Key>(key));
-			}
-
-			for (Int32 button : record.gamepadButtons_)
-			{
-				binding.gamepadButtons_.push_back(static_cast<SDL_GamepadButton>(button));
-			}
+			std::ranges::transform(record.keys_, std::back_inserter(binding.keys_), [](Int32 key) { return static_cast<Key>(key); });
+			std::ranges::transform(record.gamepadButtons_, std::back_inserter(binding.gamepadButtons_), [](Int32 button) { return static_cast<SDL_GamepadButton>(button); });
 
 			for (const AxisKeysRecord& axisKeysRecord : record.axisKeys_)
 			{
@@ -1075,10 +1052,7 @@ namespace SeedCore
 				binding.axisKeys_.push_back(axisKeys);
 			}
 
-			for (Int32 side : record.sticks_)
-			{
-				binding.sticks_.push_back(static_cast<StickSide>(side));
-			}
+			std::ranges::transform(record.sticks_, std::back_inserter(binding.sticks_), [](Int32 side) { return static_cast<StickSide>(side); });
 		}
 	}
 
@@ -1108,15 +1082,8 @@ namespace SeedCore
 			ActionBindingRecord record;
 			record.action_ = action;
 
-			for (Key key : binding.keys_)
-			{
-				record.keys_.push_back(static_cast<Int32>(key));
-			}
-
-			for (SDL_GamepadButton button : binding.gamepadButtons_)
-			{
-				record.gamepadButtons_.push_back(static_cast<Int32>(button));
-			}
+			std::ranges::transform(binding.keys_, std::back_inserter(record.keys_), [](Key key) { return static_cast<Int32>(key); });
+			std::ranges::transform(binding.gamepadButtons_, std::back_inserter(record.gamepadButtons_), [](SDL_GamepadButton button) { return static_cast<Int32>(button); });
 
 			for (const DirectionalKeys& axisKeys : binding.axisKeys_)
 			{
@@ -1128,10 +1095,7 @@ namespace SeedCore
 				record.axisKeys_.push_back(axisKeysRecord);
 			}
 
-			for (StickSide side : binding.sticks_)
-			{
-				record.sticks_.push_back(static_cast<Int32>(side));
-			}
+			std::ranges::transform(binding.sticks_, std::back_inserter(record.sticks_), [](StickSide side) { return static_cast<Int32>(side); });
 
 			records.push_back(std::move(record));
 		}

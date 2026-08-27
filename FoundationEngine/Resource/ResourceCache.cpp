@@ -413,7 +413,7 @@ namespace SeedCore
 
 		for (auto& asset : assetsMap_ | std::ranges::views::values)
 		{
-			if (asset.path_.str().find(key.c_str()) != std::string::npos)
+			if (asset.path_.str().contains(key.c_str()))
 			{
 				result.push_back(&asset);
 			}
@@ -918,7 +918,7 @@ namespace SeedCore
 			}
 
 			std::string rootPath = std::filesystem::relative(entry.path(), root).string();
-			std::replace(rootPath.begin(), rootPath.end(), '\\', '/');
+			std::ranges::replace(rootPath, '\\', '/');
 
 			if (existingPaths.contains(rootPath))
 			{
@@ -928,7 +928,7 @@ namespace SeedCore
 			Asset asset;
 
 			std::string fullPath = std::filesystem::absolute(entry.path()).string();
-			std::replace(fullPath.begin(), fullPath.end(), '\\', '/');
+			std::ranges::replace(fullPath, '\\', '/');
 			asset.fullpath_ = String(fullPath);
 
 			asset.path_ = String(rootPath);
@@ -1074,7 +1074,7 @@ namespace SeedCore
 			searchMap_.insert(asset.path_, asset.assetID_);
 
 			std::string directory = std::filesystem::path(asset.path_.c_str()).parent_path().string();
-			std::replace(directory.begin(), directory.end(), '\\', '/');
+			std::ranges::replace(directory, '\\', '/');
 		}
 	}
 

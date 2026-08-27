@@ -340,40 +340,38 @@ def main():
     shutil.copy2(launcher_path, os.path.join(output_dir, "Launcher.exe"))
     print(f"Launcher コピー完了: {os.path.join(output_dir, 'Launcher.exe')}")
 
-    # --- Bin: Runtime.exe + エンジン / サードパーティ DLL ---
+    # --- Plugins: Runtime.exe + エンジン / サードパーティ DLL + UserProject.dll(プラグイン) ---
+    # ランチャーが Plugins\Runtime.exe を作業ディレクトリ Plugins\ で起動するので、
+    # SeedCore.dll 等が隣で解決され、PluginHost は UserProject.dll をこのフォルダから拾う。
     exe_path = os.path.join(build_dir, "Runtime.exe")
     if not os.path.exists(exe_path):
         print(f"Runtime.exe が見つかりません: {exe_path}")
         return 1
 
-    bin_dir = os.path.join(output_dir, "Bin")
-    os.makedirs(bin_dir, exist_ok=True)
-    shutil.copy2(exe_path, os.path.join(bin_dir, "Runtime.exe"))
+    plugins_dir = os.path.join(output_dir, "Plugins")
+    os.makedirs(plugins_dir, exist_ok=True)
+    shutil.copy2(exe_path, os.path.join(plugins_dir, "Runtime.exe"))
     for file in os.listdir(build_dir):
-        if file.lower().endswith(".dll"):
-            shutil.copy2(os.path.join(build_dir, file), os.path.join(bin_dir, file))
-    print(f"Bin コピー完了: {bin_dir}")
+        if not file.lower().endswith(".dll"):
+            continue
+        # PluginModule のシャドウコピー（Foo_<数字>.dll）は出荷しない。
+        if re.search(r'_\d+\.dll$', file, re.IGNORECASE):
+            continue
+        shutil.copy2(os.path.join(build_dir, file), os.path.join(plugins_dir, file))
 
-    # --- Plugins: UserProject.dll を Bin/Plugins/SeedCore/ へ ---
-    # UserProject.vcxproj の OutDir が Build\...\Release\Plugins\SeedCore\ なので、
-    # 他のエンジン DLL と混ざらず、Runtime.exe から見て Bin\Plugins\SeedCore\ に対応する。
-    plugin_src = os.path.join(build_dir, "Plugins", "SeedCore", "UserProject.dll")
-    if not os.path.exists(plugin_src):
-        print(f"UserProject.dll が見つかりません: {plugin_src}")
+    if not os.path.exists(os.path.join(plugins_dir, "UserProject.dll")):
+        print(f"UserProject.dll が見つかりません: {os.path.join(build_dir, 'UserProject.dll')}")
         return 1
-    plugin_dst_dir = os.path.join(bin_dir, "Plugins", "SeedCore")
-    os.makedirs(plugin_dst_dir, exist_ok=True)
-    shutil.copy2(plugin_src, os.path.join(plugin_dst_dir, "UserProject.dll"))
-    print(f"Plugins コピー完了: {plugin_dst_dir}")
+    print(f"Plugins コピー完了: {plugins_dir}")
 
-    # --- CompiledShaderObject は丸ごとコピー ---
-    shader_src = os.path.join(project_root, "CompiledShaderObject")
-    shader_dst = os.path.join(output_dir, "CompiledShaderObject")
+    # --- CompiledShaderObject/Application だけコピー（Develop はエディタ専用） ---
+    shader_src = os.path.join(project_root, "CompiledShaderObject", "Application")
+    shader_dst = os.path.join(output_dir, "CompiledShaderObject", "Application")
     if os.path.isdir(shader_src):
         if os.path.exists(shader_dst):
             shutil.rmtree(shader_dst)
         shutil.copytree(shader_src, shader_dst)
-        print(f"CompiledShaderObject コピー完了: {shader_dst}")
+        print(f"CompiledShaderObject/Application コピー完了: {shader_dst}")
 
     # --- Scene / Prefab は丸ごとコピー（フィルタしない） ---
     scene_paths = []

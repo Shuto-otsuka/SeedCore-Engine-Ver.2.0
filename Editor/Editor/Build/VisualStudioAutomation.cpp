@@ -205,7 +205,7 @@ namespace SeedCore
 			/// [EN] The on-disk file already having this exact Include="name" is a strong (not perfect — a name could theoretically appear as some unrelated attribute value elsewhere, but Include="X" for a Filter is a distinctive enough substring in practice) signal that Visual Studio's live model just hasn't caught up with a change made outside it. Creating the filter here anyway would write a second <Filter> node for the same name.
 			/// [JP] ディスク上のファイルに既にこの Include="name" が存在するというのは、Visual Studioのライブなモデルが外部での変更にまだ追いついていないだけ、という強いシグナルになる(完璧ではない — 理論上どこか無関係な属性値として同じ文字列が出現しうるが、フィルタの Include="X" は実用上十分に特徴的な部分文字列)。それでもここでフィルタを作成してしまうと、同じ名前の <Filter> ノードが2つ目書き込まれてしまう。
 			std::wstring includeNeedle = L"Include=\"" + name + L"\"";
-			if (onDiskFiltersContent.find(includeNeedle) != std::wstring::npos)
+			if (onDiskFiltersContent.contains(includeNeedle))
 			{
 				filters->Release();
 				return nullptr;

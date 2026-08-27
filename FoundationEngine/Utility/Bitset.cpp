@@ -85,7 +85,7 @@ namespace SeedCore
 	*/
 	void Bitset::clear()
 	{
-		std::fill(data_.begin(), data_.end(), 0ULL);
+		std::ranges::fill(data_, 0ULL);
 	}
 
 	/**
@@ -99,7 +99,7 @@ namespace SeedCore
 	*/
 	void Bitset::fill()
 	{
-		std::fill(data_.begin(), data_.end(), ~0ULL);
+		std::ranges::fill(data_, ~0ULL);
 
 		clear_unused_bits();
 	}

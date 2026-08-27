@@ -15,7 +15,7 @@ namespace SeedCore
 		resourceUpload.Begin();
 
 		std::string extension = std::filesystem::path(filePath.str()).extension().string();
-		std::transform(extension.begin(), extension.end(), extension.begin(), [](Uchar c) { return static_cast<Char>(std::tolower(c)); });
+		std::ranges::transform(extension, extension.begin(), [](Uchar c) { return static_cast<Char>(std::tolower(c)); });
 
 		if (extension == ".icon" || extension == ".logo" || extension == ".texture")
 		{

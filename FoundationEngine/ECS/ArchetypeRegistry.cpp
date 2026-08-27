@@ -37,7 +37,7 @@ namespace SeedCore
 	Archetype* ArchetypeRegistry::GetOrCreate(const DynamicArray<ComponentID>& layout)
 	{
 		DynamicArray<ComponentID> sortedLayout = layout;
-		std::sort(sortedLayout.begin(), sortedLayout.end());
+		std::ranges::sort(sortedLayout);
 
 		/// [EN] Combine every component ID into a single order-independent hash (sortedLayout is sorted, so the same set of components always yields the same hash).
 		/// [JP] 全コンポーネント ID を単一の順序非依存なハッシュへ結合する（sortedLayout はソート済みのため、同じコンポーネント集合は常に同じハッシュになる）。

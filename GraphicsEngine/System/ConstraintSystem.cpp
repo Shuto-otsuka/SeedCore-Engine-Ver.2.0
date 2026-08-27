@@ -54,7 +54,7 @@ namespace SeedCore
 		for (Actor* actor : dirty)
 		{
 			Actor* parent = actor->GetParent();
-			if (!parent || dirty.find(parent) == dirty.end())
+			if (!parent || !dirty.contains(parent))
 			{
 				Matrix parentMatrix = parent ? parent->GetWorldMatrix() : Matrix::Identity;
 				UpdateActor(actor, parentMatrix, world, dirty);
@@ -208,7 +208,7 @@ namespace SeedCore
 
 		for (Actor* child : actor->GetChildren())
 		{
-			if (dirty.find(child) != dirty.end())
+			if (dirty.contains(child))
 			{
 				UpdateActor(child, worldMatrix, world, dirty);
 			}

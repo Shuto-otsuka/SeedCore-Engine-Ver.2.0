@@ -43,14 +43,7 @@ namespace SeedCore
 				String("Active"),
 			};
 
-			for (const String& entry : builtin)
-			{
-				if (name == entry)
-				{
-					return true;
-				}
-			}
-			return false;
+			return std::ranges::contains(builtin, name);
 		}
 
 		/**
@@ -320,15 +313,8 @@ namespace SeedCore
 						continue;
 					}
 
-					const SerializedField* match = nullptr;
-					for (const SerializedField& saved : savedFields)
-					{
-						if (saved.name_ == field.name_)
-						{
-							match = &saved;
-							break;
-						}
-					}
+					auto matchIt = std::ranges::find(savedFields, field.name_, &SerializedField::name_);
+					const SerializedField* match = matchIt != savedFields.end() ? &*matchIt : nullptr;
 					if (!match)
 					{
 						continue;
@@ -352,15 +338,8 @@ namespace SeedCore
 			{
 				const FieldInfo& field = fields[index];
 
-				const SerializedField* match = nullptr;
-				for (const SerializedField& saved : savedFields)
-				{
-					if (saved.name_ == field.name_)
-					{
-						match = &saved;
-						break;
-					}
-				}
+				auto matchIt = std::ranges::find(savedFields, field.name_, &SerializedField::name_);
+				const SerializedField* match = matchIt != savedFields.end() ? &*matchIt : nullptr;
 
 				if (field.array_.size_ > 0 || field.array_.add_)
 				{

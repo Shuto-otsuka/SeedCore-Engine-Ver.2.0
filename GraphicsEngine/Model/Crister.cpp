@@ -27,7 +27,7 @@ namespace SeedCore
 	*/
 	Crister::~Crister()
 	{
-		auto found = std::find(streamingRegistry_.begin(), streamingRegistry_.end(), this);
+		auto found = std::ranges::find(streamingRegistry_, this);
 		if (found != streamingRegistry_.end())
 		{
 			streamingRegistry_.erase(found);
@@ -1701,7 +1701,7 @@ namespace SeedCore
 		///      ミップをアップロードしてフォールバック LOD/解像度で即描画可能に
 		///      する。より細かいページ/ミップは ModelRenderer::Gather から
 		///      オンデマンドで常駐する。
-		if (std::find(streamingRegistry_.begin(), streamingRegistry_.end(), this) == streamingRegistry_.end())
+		if (!std::ranges::contains(streamingRegistry_, this))
 		{
 			streamingRegistry_.push_back(this);
 		}
@@ -2773,7 +2773,7 @@ namespace SeedCore
 			}
 		}
 
-		std::sort(candidates.begin(), candidates.end(), [](const Candidate& a, const Candidate& b)
+		std::ranges::sort(candidates, [](const Candidate& a, const Candidate& b)
 		{
 			return a.lastUsedFrame_ < b.lastUsedFrame_;
 		});
@@ -2839,7 +2839,7 @@ namespace SeedCore
 			}
 		}
 
-		std::sort(candidates.begin(), candidates.end(), [](const Candidate& a, const Candidate& b)
+		std::ranges::sort(candidates, [](const Candidate& a, const Candidate& b)
 		{
 			return a.lastUsedFrame_ < b.lastUsedFrame_;
 		});

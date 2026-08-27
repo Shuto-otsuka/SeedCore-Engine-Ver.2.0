@@ -161,7 +161,7 @@ namespace SeedCore
 
 		auto drawCategory = [&](const std::string& category, DynamicArray<std::pair<String, ComponentID>>& entries)
 		{
-			std::sort(entries.begin(), entries.end(), [](const auto& a, const auto& b)
+			std::ranges::sort(entries, [](const auto& a, const auto& b)
 				{
 					return a.first.str() < b.first.str();
 				});
@@ -246,14 +246,7 @@ namespace SeedCore
 			String("Bounds")
 		};
 
-		for (const auto& builtin : builtinComponents)
-		{
-			if (componentName == builtin)
-			{
-				return true;
-			}
-		}
-		return false;
+		return std::ranges::contains(builtinComponents, componentName);
 	}
 
 	Bool AddComponentPanel::CheckFilterMatch(const String& componentName, const std::string& filterText)const
@@ -264,23 +257,7 @@ namespace SeedCore
 		}
 
 		std::string targetName = componentName.str();
-		for (Size charIndex = 0; charIndex + filterText.size() <= targetName.size(); ++charIndex)
-		{
-			Bool isMatch = true;
-			for (Size filterIndex = 0; filterIndex < filterText.size(); ++filterIndex)
-			{
-				if (std::tolower(targetName[charIndex + filterIndex]) != std::tolower(filterText[filterIndex]))
-				{
-					isMatch = false;
-					break;
-				}
-			}
-
-			if (isMatch)
-			{
-				return true;
-			}
-		}
-		return false;
+		auto found = std::ranges::search(targetName, filterText, [](char a, char b) { return std::tolower(a) == std::tolower(b); });
+		return !found.empty();
 	}
 }

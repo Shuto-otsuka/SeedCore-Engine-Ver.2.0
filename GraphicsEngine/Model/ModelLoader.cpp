@@ -375,7 +375,7 @@ namespace SeedCore
 				}
 
 				Uint32 vertexOffset = static_cast<Uint32>(crister.vertices_.size());
-				if (gltfPrimitive.attributes.find("POSITION") == gltfPrimitive.attributes.end())
+				if (!gltfPrimitive.attributes.contains("POSITION"))
 				{
 					continue;
 				}
@@ -1299,7 +1299,7 @@ namespace SeedCore
 					Uint32 newVerts = 0;
 					for (Int index = 0; index < 3; index++)
 					{
-						if (localVertexMap.find(triangle[index]) == localVertexMap.end())
+						if (!localVertexMap.contains(triangle[index]))
 						{
 							newVerts++;
 						}

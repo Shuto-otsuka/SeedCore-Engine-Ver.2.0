@@ -135,16 +135,7 @@ namespace SeedCore
 		for (Size sourceIndex = 0; sourceIndex < sourceLayout.size(); ++sourceIndex)
 		{
 			ComponentID componentID = sourceLayout[sourceIndex];
-			Bool movedToDest = false;
-			for (const ComponentID& destID : destLayout)
-			{
-				if (destID == componentID)
-				{
-					movedToDest = true; 
-					break;
-				}
-			}
-			if (movedToDest)
+			if (std::ranges::contains(destLayout, componentID))
 			{
 				const ComponentMetadata& meta = ComponentRegistry::Get(componentID);
 				Uint8* slot = sourceChunk->Data(sourceIndex) + (meta.size_ * sourceRow);
@@ -329,14 +320,7 @@ namespace SeedCore
 			{
 				return false;
 			}
-			for (const ComponentID& cid : it->second.archetype_->Layout())
-			{
-				if (cid == id)
-				{
-					return true;
-				}
-			}
-			return false;
+			return std::ranges::contains(it->second.archetype_->Layout(), id);
 		}
 	}
 
@@ -439,7 +423,7 @@ namespace SeedCore
 		/// [EN] Fall back to auto-allocation if persistentId is unset (0) or already claimed by another live actor (e.g. the same prefab instantiated twice), so two actors never collide on the same ID.
 		/// [JP] persistentId が未設定(0)、または既に他の生存中の actor に使用されている(例: 同じ prefab を2回インスタンス化した場合)場合は、自動割り当てにフォールバックする。これにより2つの actor が同じIDで衝突することはない。
 		Uint32 resolvedId = persistentId;
-		if (resolvedId == 0 || persistentIdLookup_.find(resolvedId) != persistentIdLookup_.end())
+		if (resolvedId == 0 || persistentIdLookup_.contains(resolvedId))
 		{
 			resolvedId = AllocatePersistentID();
 		}
@@ -508,7 +492,7 @@ namespace SeedCore
 
 		DestroyEntity(actor->GetEntity());
 
-		auto it = std::find_if(actors_.begin(), actors_.end(), [actor](const ResourcePtr<Actor>& a) { return a.get() == actor; });
+		auto it = std::ranges::find(actors_, actor, [](const ResourcePtr<Actor>& a) { return a.get(); });
 
 		if (it != actors_.end())
 		{
@@ -615,15 +599,12 @@ namespace SeedCore
 	*/
 	Actor* World::GetActor(const String& name)const
 	{
-		for (const ResourcePtr<Actor>& actor : actors_)
+		auto found = std::ranges::find_if(actors_, [&](const ResourcePtr<Actor>& actor)
 		{
 			const Name* nameComponent = GetComponent<Name>(actor->GetEntity());
-			if (nameComponent && nameComponent->name_ == name)
-			{
-				return actor.get();
-			}
-		}
-		return nullptr;
+			return nameComponent && nameComponent->name_ == name;
+		});
+		return found != actors_.end() ? found->get() : nullptr;
 	}
 
 	/**
@@ -807,7 +788,7 @@ namespace SeedCore
 		/// [JP] id は現在のアーキタイプに含まれていない: 拡張されたレイアウトを構築し（安定したアーキタイプハッシュのため ComponentID でソート順を維持する）、移行する。
 		DynamicArray<ComponentID> newLayout1 = record.archetype_->Layout();
 		newLayout1.push_back(id);
-		std::sort(newLayout1.begin(), newLayout1.end(),
+		std::ranges::sort(newLayout1,
 			[](ComponentID a, ComponentID b)
 			{
 				return reinterpret_cast<std::uintptr_t>(a) < reinterpret_cast<std::uintptr_t>(b);
@@ -863,17 +844,14 @@ namespace SeedCore
 		EntityRecord& record = it->second;
 
 		const DynamicArray<ComponentID>& layout = record.archetype_->Layout();
-		for (Size index = 0; index < layout.size(); ++index)
+		if (std::ranges::contains(layout, id))
 		{
-			if (layout[index] == id)
-			{
-				return;
-			}
+			return;
 		}
 
 		DynamicArray<ComponentID> newLayout = record.archetype_->Layout();
 		newLayout.push_back(id);
-		std::sort(newLayout.begin(), newLayout.end(),
+		std::ranges::sort(newLayout,
 			[](ComponentID a, ComponentID b)
 			{
 				return reinterpret_cast<std::uintptr_t>(a) < reinterpret_cast<std::uintptr_t>(b);
@@ -909,16 +887,7 @@ namespace SeedCore
 		EntityRecord& record = it->second;
 
 		const DynamicArray<ComponentID>& layout = record.archetype_->Layout();
-		Bool found = false;
-		for (const ComponentID& cid : layout)
-		{
-			if (cid == id)
-			{
-				found = true;
-				break;
-			}
-		}
-		if (!found)
+		if (!std::ranges::contains(layout, id))
 		{
 			return;
 		}
@@ -926,13 +895,7 @@ namespace SeedCore
 		/// [EN] Build the reduced layout by copying every component except id (already sorted, since it's a subset of the sorted source layout).
 		/// [JP] id 以外の全コンポーネントをコピーして、減らされたレイアウトを構築する（ソート済みのソースレイアウトの部分集合であるため、既にソート済みになる）。
 		DynamicArray<ComponentID> newLayout;
-		for (const ComponentID& cid : layout)
-		{
-			if (cid != id)
-			{
-				newLayout.push_back(cid);
-			}
-		}
+		std::ranges::remove_copy(layout, std::back_inserter(newLayout), id);
 
 		Archetype* newArchetype = ArchetypeRegistry::GetOrCreate(newLayout);
 		MoveEntity(entityID, record.archetype_, record.chunk_, newArchetype);
@@ -992,12 +955,10 @@ namespace SeedCore
 
 		/// [EN] Reuse the first chunk with spare capacity, if any.
 		/// [JP] 空き容量のある最初のチャンクがあれば、それを再利用する。
-		for (Chunk* chunk : chunkList)
+		auto spare = std::ranges::find_if(chunkList, [](Chunk* chunk) { return !chunk->Full(); });
+		if (spare != chunkList.end())
 		{
-			if (!chunk->Full())
-			{
-				return chunk;
-			}
+			return *spare;
 		}
 
 		/// [EN] Every existing chunk is full: allocate a fresh one and register it with this archetype.
