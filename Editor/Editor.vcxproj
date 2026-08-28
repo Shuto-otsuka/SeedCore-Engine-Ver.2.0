@@ -187,6 +187,7 @@
     <ClCompile Include="Editor\Panel\TodoListPanel.cpp" />
     <ClCompile Include="Editor\Panel\ToolPanel.cpp" />
     <ClCompile Include="Editor\Panel\VersionPanel.cpp" />
+    <ClCompile Include="Editor\ViewportPicking.cpp" />
     <ClCompile Include="Prelude.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
@@ -283,6 +284,7 @@
     <ClInclude Include="Editor\Panel\TodoListPanel.h" />
     <ClInclude Include="Editor\Panel\ToolPanel.h" />
     <ClInclude Include="Editor\Panel\VersionPanel.h" />
+    <ClInclude Include="Editor\ViewportPicking.h" />
     <ClInclude Include="Editor\Window.h" />
   </ItemGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">

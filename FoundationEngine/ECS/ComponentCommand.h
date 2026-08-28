@@ -45,8 +45,7 @@ namespace SeedCore
 		* world/entity/componentID/offset がフィールドを特定し、
 		* oldValue/newValue がUndo/Redoでそこへ書き込む値。
 		*/
-		ComponentCommand(World& world, Entity entity, ComponentID componentID, Size offset, const T& oldValue, const T& newValue)
-			: world_(world), entity_(entity), componentID_(componentID), offset_(offset), oldValue_(oldValue), newValue_(newValue)
+		ComponentCommand(World& world, Entity entity, ComponentID componentID, Size offset, const T& oldValue, const T& newValue) : world_(world), entity_(entity), componentID_(componentID), offset_(offset), oldValue_(oldValue), newValue_(newValue)
 		{
 			/// No Code
 		}
@@ -170,8 +169,7 @@ namespace SeedCore
 		* pointer がフィールドを直接特定し、oldValue/newValue が
 		* Undo/Redoでそこへ書き込む値。
 		*/
-		PointerCommand(T* pointer, const T& oldValue, const T& newValue)
-			: pointer_(pointer), oldValue_(oldValue), newValue_(newValue)
+		PointerCommand(T* pointer, const T& oldValue, const T& newValue) : pointer_(pointer), oldValue_(oldValue), newValue_(newValue)
 		{
 			/// No Code
 		}

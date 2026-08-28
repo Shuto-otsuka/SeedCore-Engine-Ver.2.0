@@ -3,6 +3,7 @@
 #include <FoundationEngine/ECS/Actor.h>
 #include <FoundationEngine/ECS/World.h>
 #include <FoundationEngine/ECS/ComponentCommand.h>
+#include <FoundationEngine/ECS/CompoundCommand.h>
 #include <GraphicsEngine/Camera/EditorCamera.h>
 
 namespace SeedCore
@@ -147,6 +148,10 @@ namespace SeedCore
 
 			if (!isDragging && wasDragging_)
 			{
+				/// [EN] One drag over a multi-selection produces up to one edit per actor per changed channel - group them into a single CompoundCommand so Ctrl+Z reverts the whole drag at once instead of one actor's one channel.
+				/// [JP] 複数選択を1回ドラッグすると、actor ごと・変化したチャンネルごとに最大1編集が出る - それらを1つの CompoundCommand にまとめ、Ctrl+Z がドラッグ全体を一度に取り消せるようにする(1 actor の1チャンネルだけではなく)。
+				ResourcePtr<CompoundCommand> dragCommand = MakePtr<CompoundCommand>();
+
 				for (Size index = 0; index < dragEntities_.size(); ++index)
 				{
 					Entity entity = dragEntities_[index];
@@ -160,7 +165,7 @@ namespace SeedCore
 						Vector3 newPosition(positionData[0], positionData[1], positionData[2]);
 						if (newPosition != dragStartPositions_[index])
 						{
-							context_.sceneContext_.history_.Push(MakePtr<ComponentCommand<Vector3>>(*context_.worldContext_.world_, entity, positionID, 0, dragStartPositions_[index], newPosition));
+							dragCommand->Add(MakePtr<ComponentCommand<Vector3>>(*context_.worldContext_.world_, entity, positionID, 0, dragStartPositions_[index], newPosition));
 						}
 					}
 					if (rotationData)
@@ -168,7 +173,7 @@ namespace SeedCore
 						Vector3 newRotation(rotationData[0], rotationData[1], rotationData[2]);
 						if (newRotation != dragStartRotations_[index])
 						{
-							context_.sceneContext_.history_.Push(MakePtr<ComponentCommand<Vector3>>(*context_.worldContext_.world_, entity, rotationID, 0, dragStartRotations_[index], newRotation));
+							dragCommand->Add(MakePtr<ComponentCommand<Vector3>>(*context_.worldContext_.world_, entity, rotationID, 0, dragStartRotations_[index], newRotation));
 						}
 					}
 					if (scaleData)
@@ -176,9 +181,14 @@ namespace SeedCore
 						Vector3 newScale(scaleData[0], scaleData[1], scaleData[2]);
 						if (newScale != dragStartScales_[index])
 						{
-							context_.sceneContext_.history_.Push(MakePtr<ComponentCommand<Vector3>>(*context_.worldContext_.world_, entity, scaleID, 0, dragStartScales_[index], newScale));
+							dragCommand->Add(MakePtr<ComponentCommand<Vector3>>(*context_.worldContext_.world_, entity, scaleID, 0, dragStartScales_[index], newScale));
 						}
 					}
+				}
+
+				if (!dragCommand->Empty())
+				{
+					context_.sceneContext_.history_.Push(std::move(dragCommand));
 				}
 			}
 

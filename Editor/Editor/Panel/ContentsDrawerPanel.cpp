@@ -7,6 +7,8 @@
 #include <FoundationEngine/ECS/Actor.h>
 #include <GraphicsEngine/Texture/ImageResource.h>
 #include <GraphicsEngine/Texture/Texture.h>
+#include <GraphicsEngine/Model/ModelResource.h>
+#include <GraphicsEngine/Model/Crister.h>
 #include <GraphicsEngine/D3D12/Descriptor/BindlessHeap.h>
 #include <GraphicsEngine/D3D12/Descriptor/DescriptorHeap.h>
 #include <GraphicsEngine/Graphics.h>
@@ -957,6 +959,34 @@ namespace SeedCore
 				ImGui::CloseCurrentPopup();
 			}
 
+			if (asset.type_ == AssetType::Model && ImGui::BeginMenu("アセットアクション"))
+			{
+				if (ImGui::BeginMenu("コリジョン生成"))
+				{
+					if (ImGui::MenuItem("Proxy"))
+					{
+						GenerateMeshCollision(asset, MeshCollisionDetail::Proxy);
+						ImGui::CloseCurrentPopup();
+					}
+
+					if (ImGui::MenuItem("Exact"))
+					{
+						GenerateMeshCollision(asset, MeshCollisionDetail::Exact);
+						ImGui::CloseCurrentPopup();
+					}
+
+					ImGui::EndMenu();
+				}
+
+				if (ImGui::MenuItem("モデル変換"))
+				{
+					context_.modelTransformPreviewContext_.requestedAssetId_ = asset.assetID_;
+					ImGui::CloseCurrentPopup();
+				}
+
+				ImGui::EndMenu();
+			}
+
 			ImGui::Separator();
 
 			if (ImGui::MenuItem("切り取り"))
@@ -1004,6 +1034,25 @@ namespace SeedCore
 
 			ImGui::EndPopup();
 		}
+	}
+
+	void ContentsDrawerPanel::GenerateMeshCollision(const Asset& asset, MeshCollisionDetail detail)
+	{
+		D3D12Context* d3d12Context = context_.graphicsContext_.graphics_->GetContext();
+
+		Bool baked = context_.worldContext_.resource_->GetModelResource()->GenerateCollision(*context_.worldContext_.loader_, d3d12Context->GetDevice(), d3d12Context->GetDirectQueue(), context_.graphicsContext_.graphics_->GetBindlessHeap(), context_.graphicsContext_.graphics_->GetBC7CompressShader(), *context_.worldContext_.resource_, asset.assetID_, detail);
+		if (!baked)
+		{
+			SC_LOG_WARNING("ContentsDrawerPanel: コリジョン生成に失敗しました: {}", asset.path_.c_str());
+			return;
+		}
+
+		/// [EN] Rescan so the just-written ".collision" sibling is picked up as its own asset, and rebuild the tree so it shows in the panel.
+		/// [JP] 書き出した ".collision" 兄弟を個別アセットとして拾えるよう再スキャンし、パネルに出るようツリーを再構築する。
+		context_.worldContext_.resource_->Reload(*context_.worldContext_.loader_, d3d12Context->GetDevice(), d3d12Context->GetDirectQueue(), context_.graphicsContext_.graphics_->GetBC7CompressShader());
+		needsRebuild_ = true;
+
+		SC_LOG_NOTICE("ContentsDrawerPanel: コリジョンを生成しました: {}", asset.path_.c_str());
 	}
 
 	void ContentsDrawerPanel::DrawBackgroundContextMenu()

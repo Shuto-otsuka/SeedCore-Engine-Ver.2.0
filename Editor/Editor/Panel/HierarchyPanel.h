@@ -6,6 +6,7 @@ namespace SeedCore
 	struct EditorContext;
 	class ImGuiTexture;
 	class Actor;
+	class CompoundCommand;
 
 	class HierarchyPanel
 	{
@@ -26,7 +27,7 @@ namespace SeedCore
 
 		Bool IsSelected(Actor* actor)const;
 
-		void DeleteActor(Actor* actor);
+		void DeleteActor(Actor* actor, CompoundCommand* group = nullptr);
 
 		void DeleteSelection();
 
@@ -44,6 +45,22 @@ namespace SeedCore
 		* （両者が親を持たない場合はルート Actor の中で）。
 		*/
 		void MoveAfter(Actor* actor, Actor* after);
+
+		/**
+		* [EN]
+		* Returns the persistent ID of the sibling directly before `actor`
+		* under its current parent, or 0 if it is the first child or has no
+		* parent. Captured before a reparent so its old slot can be restored
+		* on undo.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* `actor` の現在の親の下で、その直前にある兄弟の永続 ID を返す。
+		* 先頭の子である、または親を持たない場合は 0。再親付けの前に取得し、
+		* undo で元の位置を復元できるようにする。
+		*/
+		Uint32 PrevSiblingPersistentId(Actor* actor)const;
 
 	private:
 		EditorContext& context_;

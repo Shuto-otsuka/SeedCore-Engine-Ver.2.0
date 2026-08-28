@@ -920,7 +920,7 @@ namespace SeedCore
 						existingValues.push_back(*static_cast<Int*>(ptr));
 					}
 
-					DrawPayloadArrayAppendSlot(field, existingValues);
+					DrawPayloadArrayAppendSlot(field, existingValues, entity, componentID);
 
 					ImGui::Spacing();
 					ImGui::Text("%s一覧:", field.name_.c_str());
@@ -955,7 +955,7 @@ namespace SeedCore
 							auto& removedElement = fields[index + 1 + removeIndex];
 							void* removedPtr = removedElement.directPtr_ ? removedElement.directPtr_ : (static_cast<Uint8*>(baseData) + removedElement.offset_);
 							Int removedValue = *static_cast<Int*>(removedPtr);
-							context_.sceneContext_.history_.Push(MakePtr<PayloadArrayCommand>(field.array_.add_, field.array_.remove_, field.array_.lastPtr_, removeIndex, removedValue, false));
+							context_.sceneContext_.history_.Push(MakePtr<PayloadArrayCommand>(*context_.worldContext_.world_, entity, componentID, field.name_, removeIndex, removedValue, false));
 							field.array_.remove_(removeIndex);
 						}
 					}
@@ -973,7 +973,7 @@ namespace SeedCore
 						ImGui::SameLine();
 						if (ImGui::SmallButton("+"))
 						{
-							context_.sceneContext_.history_.Push(MakePtr<ArrayAppendCommand>(field.array_.add_, field.array_.remove_, count));
+							context_.sceneContext_.history_.Push(MakePtr<ArrayAppendCommand>(*context_.worldContext_.world_, entity, componentID, field.name_, count));
 							field.array_.add_();
 						}
 					}
@@ -1397,7 +1397,7 @@ namespace SeedCore
 		ImGui::Selectable(label.c_str());
 	}
 
-	void InspectorPanel::DrawPayloadArrayAppendSlot(const FieldInfo& field, const DynamicArray<Int>& existingValues)
+	void InspectorPanel::DrawPayloadArrayAppendSlot(const FieldInfo& field, const DynamicArray<Int>& existingValues, Entity entity, ComponentID componentID)
 	{
 		const Char* dropType = GetPayloadDropType(field.assetType_);
 		if (!dropType || !field.array_.add_ || !field.array_.lastPtr_)
@@ -1415,7 +1415,7 @@ namespace SeedCore
 				Bool alreadyExists = std::ranges::contains(existingValues, droppedValue);
 				if (!alreadyExists)
 				{
-					context_.sceneContext_.history_.Push(MakePtr<PayloadArrayCommand>(field.array_.add_, field.array_.remove_, field.array_.lastPtr_, existingValues.size(), droppedValue, true));
+					context_.sceneContext_.history_.Push(MakePtr<PayloadArrayCommand>(*context_.worldContext_.world_, entity, componentID, field.name_, existingValues.size(), droppedValue, true));
 					field.array_.add_();
 					*static_cast<Int*>(field.array_.lastPtr_()) = droppedValue;
 				}

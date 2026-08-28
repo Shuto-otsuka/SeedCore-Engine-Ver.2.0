@@ -6,6 +6,11 @@
 #include <GraphicsEngine/Model/Animation/Animator.h>
 #include <GraphicsEngine/Model/Animation/AnimatorControllerState.h>
 #include <GraphicsEngine/Camera/EditorCamera.h>
+#include <GraphicsEngine/Camera/CanvasCamera.h>
+#include <GraphicsEngine/Texture/Image.h>
+#include <GraphicsEngine/Font/Text.h>
+#include <GraphicsEngine/Movie/Movie.h>
+#include <GraphicsEngine/D3D12/SwapChain/GraphicsResolution.h>
 #include <FoundationEngine/ECS/Component/Bounds.h>
 
 namespace SeedCore
@@ -127,6 +132,11 @@ namespace SeedCore
 		{
 			modelTransformPanel_->Open();
 		}
+		if (context_.modelTransformPreviewContext_.requestedAssetId_ != 0)
+		{
+			modelTransformPanel_->Open(context_.modelTransformPreviewContext_.requestedAssetId_);
+			context_.modelTransformPreviewContext_.requestedAssetId_ = 0;
+		}
 		shortCutKeyPanel_->Draw();
 		specMemoPanel_->Draw();
 		todoListPanel_->Draw();
@@ -188,28 +198,62 @@ namespace SeedCore
 				context_.sceneContext_.history_.Redo();
 			}
 
-			/// [EN] Unreal-style "frame selected": Ctrl+F slides the editor
-			///      viewport camera to the currently selected actor (see
-			///      EditorCamera::FocusOn, and HierarchyPanel's
-			///      double-click, which does the same).
-			/// [JP] Unreal 風の「選択対象にフレーム」: Ctrl+F で現在選択中の
-			///      アクターへエディタビューポートのカメラがスライドする
-			///      （EditorCamera::FocusOn 参照。HierarchyPanel の
-			///      ダブルクリックも同じ処理）。
-			if (ctrlPressed && ImGui::IsKeyPressed(ImGuiKey_F) && context_.selectionContext_.selectedActor_ && context_.cameraContext_.editorCamera_)
+			/// [EN] Unreal-style "frame selected": Ctrl+F slides a viewport
+			///      camera to the selected actor. Kept in sync with
+			///      HierarchyPanel's double-click, which does the same - a
+			///      Sprite-view Image/Text/Movie animates the CanvasView
+			///      camera and pulls that panel forward (it is drawn only in
+			///      the 2D canvas, offset +100000); a skinned actor (has an
+			///      Animator) pans to the pivot at the current distance
+			///      because its bind-pose Bounds is unreliable for a dolly
+			///      fit; anything else dollies to fit its world-space Bounds
+			///      centre. See HierarchyPanel::Draw for the full rationale.
+			/// [JP] Unreal 風の「選択対象にフレーム」: Ctrl+F で選択中の
+			///      アクターへビューポートのカメラがスライドする。
+			///      HierarchyPanel のダブルクリックと同期 - 表示形式が
+			///      Sprite の Image/Text/Movie は CanvasView のカメラを
+			///      アニメーションで寄せ、そのパネルを前面に出す（2D
+			///      キャンバスにしか描かれず +100000 ずれる）。スキンアクター
+			///      （Animator を持つ）はバインドポーズ Bounds がドリー
+			///      フィットに使えないため、現在の距離のままピボットへパン。
+			///      それ以外はワールド空間 Bounds 中心へドリーフィット。
+			///      詳細は HierarchyPanel::Draw のコメント参照。
+			if (ctrlPressed && ImGui::IsKeyPressed(ImGuiKey_F) && context_.selectionContext_.selectedActor_)
 			{
 				Actor* selectedActor = context_.selectionContext_.selectedActor_;
 				const Matrix& worldMatrix = selectedActor->GetWorldMatrix();
 
-				Float radius = 0.0f;
-				const Bounds* bounds = selectedActor->GetComponent<Bounds>();
-				if (bounds)
-				{
-					Float worldScale = Max(Max(Vector3(worldMatrix._11, worldMatrix._12, worldMatrix._13).Length(), Vector3(worldMatrix._21, worldMatrix._22, worldMatrix._23).Length()), Vector3(worldMatrix._31, worldMatrix._32, worldMatrix._33).Length());
-					radius = bounds->extent_.Length() * worldScale;
-				}
+				const Image* image = selectedActor->GetComponent<Image>();
+				const Text* text = selectedActor->GetComponent<Text>();
+				const Movie* movie = selectedActor->GetComponent<Movie>();
+				Bool isCanvasActor = (image && image->viewType_ == Image::ViewType::Sprite) || (text && text->viewType_ == Text::ViewType::Sprite) || (movie && movie->displayMode_ == Movie::DisplayMode::Sprite);
 
-				context_.cameraContext_.editorCamera_->FocusOn(Vector3(worldMatrix._41, worldMatrix._42, worldMatrix._43), radius);
+				if (isCanvasActor && context_.cameraContext_.canvasCamera_)
+				{
+					Vector3 canvasTarget = Vector3(100000.0f + worldMatrix._41, 100000.0f + (ScResolution::SC_HD.Height - worldMatrix._42), 100000.0f);
+					context_.cameraContext_.canvasCamera_->FocusOn(canvasTarget);
+
+					ImGui::SetWindowFocus("キャンバスビュー");
+				}
+				else if (context_.cameraContext_.editorCamera_)
+				{
+					Bool skinned = selectedActor->GetComponent<Animator>() != nullptr;
+
+					Float radius = 0.0f;
+					Vector3 target = Vector3(worldMatrix._41, worldMatrix._42, worldMatrix._43);
+
+					const Bounds* bounds = selectedActor->GetComponent<Bounds>();
+					if (bounds && !skinned)
+					{
+						Float worldScale = Max(Max(Vector3(worldMatrix._11, worldMatrix._12, worldMatrix._13).Length(), Vector3(worldMatrix._21, worldMatrix._22, worldMatrix._23).Length()), Vector3(worldMatrix._31, worldMatrix._32, worldMatrix._33).Length());
+						radius = bounds->extent_.Length() * worldScale;
+						target = Vector3::Transform(bounds->center_, worldMatrix);
+					}
+
+					context_.cameraContext_.editorCamera_->FocusOn(target, radius);
+
+					ImGui::SetWindowFocus("エディタービュー");
+				}
 			}
 		}
 	}

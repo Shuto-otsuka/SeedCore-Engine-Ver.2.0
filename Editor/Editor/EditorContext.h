@@ -101,6 +101,7 @@ namespace SeedCore
 		Bool previewActive_ = false;
 		Uint32 previewMeshAssetId_ = 0;
 		Matrix previewWorldMatrix_ = Matrix::Identity;
+		Uint32 requestedAssetId_ = 0;
 	};
 
 	struct PanelContext

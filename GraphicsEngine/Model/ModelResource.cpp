@@ -26,48 +26,32 @@ namespace SeedCore
 			return Handle<Crister>::null();
 		}
 
-		/// [EN] Auto-derive collision geometry the same way SplitClips
-		///      auto-derives animation clips: write both a Proxy and a Full
-		///      ".collision" cache next to the source model, each becoming
-		///      its own AssetType::MeshCollision asset on the next scan.
-		///      The Proxy sibling keeps the model's plain name (it's the
-		///      common case); Full gets a "_full" suffix. Unlike
-		///      ModelLoader's ".crister" cache, this does NOT re-derive from
-		///      source every load: ".collision" is derived from data already
-		///      resident in the just-loaded Crister (not an external file
-		///      that can change out from under it), so once a sibling exists
-		///      on disk it is trusted and left alone. Delete it manually to
-		///      force a rebake.
-		/// [JP] SplitClips がアニメーションクリップを自動導出するのと同じ
-		///      仕組みで、衝突ジオメトリも自動導出する: ソースモデルの隣に
-		///      Proxy と Full 両方の ".collision" キャッシュを書き出し、
-		///      それぞれ次回スキャンで AssetType::MeshCollision アセットになる。
-		///      Proxy 側はモデルと同じ素の名前（よく使う方のため）、Full 側は
-		///      "_full" サフィックスを付ける。ModelLoader の ".crister"
-		///      キャッシュと違い、毎回ソースから再導出はしない — ".collision"
-		///      は既にロード済みの Crister（外部から書き換わりうるファイルでは
-		///      ない）から導出するため、隣に既にあればそれを信頼してそのまま
-		///      にする。再ベイクしたい場合は手動で削除すること。
-		if (Crister* crister = loader.modelLoader_->Get(handle))
-		{
-			std::filesystem::path proxyPath(asset->fullpath_.c_str());
-			proxyPath.replace_extension(".collision");
-			if (!std::filesystem::exists(proxyPath))
-			{
-				loader.meshCollisionLoader_->Bake(*crister, MeshCollisionDetail::Proxy, String(proxyPath.string()));
-			}
-
-			std::filesystem::path fullPath(asset->fullpath_.c_str());
-			fullPath.replace_extension("");
-			fullPath += "_full.collision";
-			if (!std::filesystem::exists(fullPath))
-			{
-				loader.meshCollisionLoader_->Bake(*crister, MeshCollisionDetail::Full, String(fullPath.string()));
-			}
-		}
-
 		assetHandleMap_.insert({ assetId, handle });
 		return handle;
+	}
+
+	Bool ModelResource::GenerateCollision(LoaderSystem& loader, ID3D12Device* device, D3D12CommandQueue* cmdQueue, BindlessHeap* heap, BC7CompressShader& bc7Shader, ResourceCache& cache, Uint32 assetId, MeshCollisionDetail detail)
+	{
+		Asset* asset = cache.GetAsset(assetId);
+		if (!asset)
+		{
+			return false;
+		}
+
+		/// [EN] The bake reads CPU-resident cluster data off the Crister, so the model has to be loaded first - Load() is a no-op when it already is.
+		/// [JP] ベイクは Crister の CPU 常駐クラスタデータを読むため、先にモデルをロードしておく必要がある - 既にロード済みなら Load() は何もしない。
+		Handle<Crister> handle = Load(loader, device, cmdQueue, heap, bc7Shader, cache, assetId);
+		Crister* crister = loader.modelLoader_->Get(handle);
+		if (!crister)
+		{
+			return false;
+		}
+
+		std::filesystem::path collisionPath(asset->fullpath_.c_str());
+		collisionPath.replace_extension("");
+		collisionPath += (detail == MeshCollisionDetail::Exact) ? ".exact.collision" : ".proxy.collision";
+
+		return loader.meshCollisionLoader_->Bake(*crister, detail, String(collisionPath.string()));
 	}
 
 	Handle<Crister> ModelResource::GetHandle(Uint32 assetId)const

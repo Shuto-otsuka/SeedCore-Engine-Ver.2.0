@@ -1031,7 +1031,7 @@ namespace SeedCore
 
 		/// [EN] Each SubMesh's LOD 0 (most detailed) cluster.
 		/// [JP] 各 SubMesh の LOD 0（最も詳細な）クラスタ。
-		Full,
+		Exact,
 	};
 
 	/**

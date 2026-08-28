@@ -277,6 +277,9 @@
     <ClCompile Include="Plugin\PluginHost.cpp">
       <Filter>Plugin</Filter>
     </ClCompile>
+    <ClCompile Include="ECS\CompoundCommand.cpp">
+      <Filter>ESC</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Log\DxFail.h">
@@ -679,6 +682,9 @@
     </ClInclude>
     <ClInclude Include="Plugin\PluginHost.h">
       <Filter>Plugin</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\CompoundCommand.h">
+      <Filter>ESC</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

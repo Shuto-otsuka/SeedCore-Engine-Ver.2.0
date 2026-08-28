@@ -5,12 +5,19 @@
 #include <FoundationEngine/ECS/Actor.h>
 #include <FoundationEngine/ECS/Component/Name.h>
 #include <FoundationEngine/ECS/ActorCommand.h>
+#include <FoundationEngine/ECS/CompoundCommand.h>
 #include <FoundationEngine/Resource/ActorSerialization.h>
 #include <FoundationEngine/Resource/Prefab.h>
 #include <FoundationEngine/Resource/ResourceCache.h>
 #include <FoundationEngine/File/FileDialog.h>
 #include <GraphicsEngine/Camera/EditorCamera.h>
+#include <GraphicsEngine/Camera/CanvasCamera.h>
 #include <GraphicsEngine/Graphics.h>
+#include <GraphicsEngine/Texture/Image.h>
+#include <GraphicsEngine/Font/Text.h>
+#include <GraphicsEngine/Movie/Movie.h>
+#include <GraphicsEngine/Model/Animation/Animator.h>
+#include <GraphicsEngine/D3D12/SwapChain/GraphicsResolution.h>
 #include <FoundationEngine/ECS/Component/Bounds.h>
 
 namespace SeedCore
@@ -70,8 +77,9 @@ namespace SeedCore
 						Actor* dropped = *static_cast<Actor* const*>(preview->Data);
 						Actor* oldParent = dropped->GetParent();
 						Uint32 oldParentId = oldParent ? oldParent->GetPersistentID() : 0;
+						Uint32 oldPrevSiblingId = PrevSiblingPersistentId(dropped);
 						dropped->SetParent(nullptr);
-						context_.sceneContext_.history_.Push(MakePtr<ActorReparentCommand>(*context_.worldContext_.world_, dropped->GetPersistentID(), oldParentId, 0));
+						context_.sceneContext_.history_.Push(MakePtr<ActorReparentCommand>(*context_.worldContext_.world_, dropped->GetPersistentID(), oldParentId, oldPrevSiblingId, 0));
 					}
 				}
 
@@ -269,35 +277,94 @@ namespace SeedCore
 		Bool treeClicked = ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen();
 
 		/// [EN] Unreal-style "frame selected": double-clicking an actor row
-		///      slides the editor viewport camera to it (see EditorCamera::
-		///      FocusOn). Uses the actor's cached world matrix translation
-		///      rather than its Position component so it still works for
-		///      children (world-space, parent chain composed in).
+		///      slides a viewport camera to it. An Image/Text/Movie whose
+		///      view type is Sprite is drawn only in the 2D canvas
+		///      (ImageRenderer/FontRenderer/MovieRenderer offset it by
+		///      +100000 into canvas space), so framing it with the 3D editor
+		///      camera would just fly that off to the canvas origin - those
+		///      animate the CanvasView camera and pull the canvas panel
+		///      forward instead. The same components in Billboard/Fullscreen
+		///      mode are ordinary world-space geometry and take the 3D path
+		///      like everything else. The 3D path frames the editor camera on
+		///      the actor's world-space Bounds centre (Vector3::Transform of
+		///      the local centre by the composed world matrix), not the raw
+		///      pivot - a skeletal mesh's pivot is usually at the feet / DCC
+		///      origin while the body sits well above it, so framing the
+		///      pivot puts the character off screen.
 		/// [JP] Unreal 風の「選択対象にフレーム」: アクター行をダブルクリック
-		///      するとエディタビューポートのカメラがそこへスライドする
-		///      （EditorCamera::FocusOn 参照）。Position コンポーネントでは
-		///      なくアクターのキャッシュ済みワールド行列の平行移動成分を
-		///      使うため、子アクター（親チェーン込みのワールド空間）でも
-		///      正しく動作する。
-		if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && context_.cameraContext_.editorCamera_)
+		///      するとビューポートのカメラがそこへスライドする。表示形式が
+		///      Sprite の Image/Text/Movie は 2D キャンバスにしか描かれない
+		///      （ImageRenderer/FontRenderer/MovieRenderer が +100000 で
+		///      キャンバス空間へずらす）ので、3D エディタカメラでフレーム
+		///      するとキャンバス原点へ飛んでいくだけ - これらは CanvasView の
+		///      カメラをアニメーションで寄せ、キャンバスパネルを前面に出す。
+		///      同じコンポーネントでも Billboard/Fullscreen のときは通常の
+		///      ワールド空間ジオメトリなので、他と同じく 3D 経路をとる。
+		///      3D 経路は、生のピボットではなくアクターのワールド空間 Bounds
+		///      中心（合成ワールド行列でローカル中心を Vector3::Transform
+		///      したもの）へフレームする - スケルタルメッシュのピボットは
+		///      通常、足元 / DCC 原点にあり本体はその上方にあるため、
+		///      ピボットへフレームするとキャラが画面外になる。
+		if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
 		{
 			const Matrix& worldMatrix = actor->GetWorldMatrix();
 
-			/// [EN] Bounds-fit dolly distance when this actor has a Mesh
-			///      (auto-derived Bounds — see Bounds's class comment);
-			///      otherwise FocusOn's radius<=0 default just pans in.
-			/// [JP] このアクターに Mesh があれば（自動導出された Bounds —
-			///      Bounds のクラスコメント参照）、それに合わせたドリー距離。
-			///      無ければ FocusOn の radius<=0 デフォルトでパンのみ。
-			Float radius = 0.0f;
-			const Bounds* bounds = actor->GetComponent<Bounds>();
-			if (bounds)
-			{
-				Float worldScale = Max(Max(Vector3(worldMatrix._11, worldMatrix._12, worldMatrix._13).Length(), Vector3(worldMatrix._21, worldMatrix._22, worldMatrix._23).Length()), Vector3(worldMatrix._31, worldMatrix._32, worldMatrix._33).Length());
-				radius = bounds->extent_.Length() * worldScale;
-			}
+			const Image* image = actor->GetComponent<Image>();
+			const Text* text = actor->GetComponent<Text>();
+			const Movie* movie = actor->GetComponent<Movie>();
+			Bool isCanvasActor = (image && image->viewType_ == Image::ViewType::Sprite) || (text && text->viewType_ == Text::ViewType::Sprite) || (movie && movie->displayMode_ == Movie::DisplayMode::Sprite);
 
-			context_.cameraContext_.editorCamera_->FocusOn(Vector3(worldMatrix._41, worldMatrix._42, worldMatrix._43), radius);
+			if (isCanvasActor && context_.cameraContext_.canvasCamera_)
+			{
+				/// [EN] The canvas-space point this actor is drawn at - the same +100000 / Y-flip the renderers apply. CanvasCamera::FocusOn animates the slide (see its comment).
+				/// [JP] このアクターが描かれるキャンバス空間の点 - レンダラーが掛けるのと同じ +100000 / Y 反転。スライドのアニメーションは CanvasCamera::FocusOn が行う（同コメント参照）。
+				Vector3 canvasTarget = Vector3(100000.0f + worldMatrix._41, 100000.0f + (ScResolution::SC_HD.Height - worldMatrix._42), 100000.0f);
+				context_.cameraContext_.canvasCamera_->FocusOn(canvasTarget);
+
+				ImGui::SetWindowFocus("キャンバスビュー");
+			}
+			else if (context_.cameraContext_.editorCamera_)
+			{
+				/// [EN] An actor with an Animator is skinned: its Bounds is
+				///      ModelRenderer's copy of the crister's bind-pose vertex
+				///      AABB, which neither tracks the animated pose nor
+				///      excludes helper/off-model geometry baked into the bind
+				///      pose - so a dolly radius derived from it (and its
+				///      centre) can be wildly off and fling the camera away.
+				///      Pan to the pivot at the current distance instead. Any
+				///      other actor gets the bounds-fit dolly onto its
+				///      world-space Bounds centre; every actor has a Bounds
+				///      (default 0.5 half-extent, centre 0) so a non-mesh
+				///      actor just pans onto its pivot with a small radius.
+				/// [JP] Animator を持つアクターはスキン付き: その Bounds は
+				///      ModelRenderer が持つ crister のバインドポーズ頂点 AABB
+				///      の写しで、アニメ後のポーズを追わず、バインドポーズに
+				///      焼き込まれたヘルパー/モデル外ジオメトリも除外しない -
+				///      そこから出したドリー radius(と中心)は大きくズレて
+				///      カメラを飛ばしうる。代わりに現在の距離のままピボットへ
+				///      パンする。それ以外のアクターはワールド空間 Bounds
+				///      中心へのバウンズフィットドリー。全アクターが Bounds を
+				///      持つ(デフォルトは半径 0.5、中心 0)ので、メッシュでない
+				///      アクターは小さな radius でピボットへパンするだけになる。
+				Bool skinned = actor->GetComponent<Animator>() != nullptr;
+
+				Float radius = 0.0f;
+				Vector3 target = Vector3(worldMatrix._41, worldMatrix._42, worldMatrix._43);
+
+				const Bounds* bounds = actor->GetComponent<Bounds>();
+				if (bounds && !skinned)
+				{
+					Float worldScale = Max(Max(Vector3(worldMatrix._11, worldMatrix._12, worldMatrix._13).Length(), Vector3(worldMatrix._21, worldMatrix._22, worldMatrix._23).Length()), Vector3(worldMatrix._31, worldMatrix._32, worldMatrix._33).Length());
+					radius = bounds->extent_.Length() * worldScale;
+					target = Vector3::Transform(bounds->center_, worldMatrix);
+				}
+
+				context_.cameraContext_.editorCamera_->FocusOn(target, radius);
+
+				/// [EN] Pull the 3D viewport forward too - symmetric with the canvas branch above, so the camera move is actually visible when the double-click came from another dock (e.g. while the canvas view was on top).
+				/// [JP] 3D ビューポートも前面に出す - 上のキャンバス分岐と対称。別のドック（例: キャンバスビューが手前のとき）からダブルクリックしてもカメラ移動が実際に見えるように。
+				ImGui::SetWindowFocus("エディタービュー");
+			}
 		}
 
 		rows_.push_back({ actor, ImGui::GetItemRectMin(), ImGui::GetItemRectMax() });
@@ -332,8 +399,9 @@ namespace SeedCore
 					{
 						Actor* oldParent = dropped->GetParent();
 						Uint32 oldParentId = oldParent ? oldParent->GetPersistentID() : 0;
+						Uint32 oldPrevSiblingId = PrevSiblingPersistentId(dropped);
 						dropped->SetParent(actor);
-						context_.sceneContext_.history_.Push(MakePtr<ActorReparentCommand>(*context_.worldContext_.world_, dropped->GetPersistentID(), oldParentId, actor->GetPersistentID()));
+						context_.sceneContext_.history_.Push(MakePtr<ActorReparentCommand>(*context_.worldContext_.world_, dropped->GetPersistentID(), oldParentId, oldPrevSiblingId, actor->GetPersistentID()));
 					}
 				}
 			}
@@ -551,7 +619,7 @@ namespace SeedCore
 		context_.selectionContext_.selectedEntity_ = context_.selectionContext_.selectedActor_ ? context_.selectionContext_.selectedActor_->GetEntity() : Entity::Null();
 	}
 
-	void HierarchyPanel::DeleteActor(Actor* actor)
+	void HierarchyPanel::DeleteActor(Actor* actor, CompoundCommand* group)
 	{
 		auto it = std::ranges::find(context_.selectionContext_.selectedActors_, actor);
 		if (it != context_.selectionContext_.selectedActors_.end())
@@ -565,16 +633,34 @@ namespace SeedCore
 			context_.selectionContext_.selectedEntity_ = context_.selectionContext_.selectedActor_ ? context_.selectionContext_.selectedActor_->GetEntity() : Entity::Null();
 		}
 
-		context_.sceneContext_.history_.Push(MakePtr<ActorDeleteCommand>(*context_.worldContext_.world_, *context_.worldContext_.resource_, actor));
+		/// [EN] The command must be built (it captures the actor's subtree) before DestroyActor runs. When part of a multi-delete it goes into group instead of the history, so one Ctrl+Z reverts the whole selection.
+		/// [JP] コマンドは actor のサブツリーを取得するため DestroyActor より前に構築する。複数削除の一部なら履歴ではなく group へ入れ、Ctrl+Z 一回で選択全体を戻せるようにする。
+		ResourcePtr<Command> command = MakePtr<ActorDeleteCommand>(*context_.worldContext_.world_, *context_.worldContext_.resource_, actor);
+		if (group)
+		{
+			group->Add(std::move(command));
+		}
+		else
+		{
+			context_.sceneContext_.history_.Push(std::move(command));
+		}
+
 		context_.worldContext_.world_->DestroyActor(actor);
 	}
 
 	void HierarchyPanel::DeleteSelection()
 	{
 		DynamicArray<Actor*> toDelete = context_.selectionContext_.selectedActors_;
+
+		ResourcePtr<CompoundCommand> group = MakePtr<CompoundCommand>();
 		for (Actor* actor : toDelete)
 		{
-			DeleteActor(actor);
+			DeleteActor(actor, group.get());
+		}
+
+		if (!group->Empty())
+		{
+			context_.sceneContext_.history_.Push(std::move(group));
 		}
 	}
 
@@ -587,6 +673,8 @@ namespace SeedCore
 
 		DynamicArray<Actor*> toDuplicate = context_.selectionContext_.selectedActors_;
 		DynamicArray<Actor*> newSelection;
+
+		ResourcePtr<CompoundCommand> group = MakePtr<CompoundCommand>();
 
 		for (Actor* actor : toDuplicate)
 		{
@@ -612,10 +700,15 @@ namespace SeedCore
 			DynamicArray<SerializedActorNode> nodes;
 			CaptureActorNode(duplicate, -1, nodes);
 			Actor* duplicateParent = duplicate->GetParent();
-			context_.sceneContext_.history_.Push(MakePtr<ActorCreateCommand>(*context_.worldContext_.world_, *context_.worldContext_.resource_, nodes, duplicateParent ? duplicateParent->GetPersistentID() : 0));
+			group->Add(MakePtr<ActorCreateCommand>(*context_.worldContext_.world_, *context_.worldContext_.resource_, nodes, duplicateParent ? duplicateParent->GetPersistentID() : 0, actor->GetPersistentID()));
 
 			MoveAfter(duplicate, actor);
 			newSelection.push_back(duplicate);
+		}
+
+		if (!group->Empty())
+		{
+			context_.sceneContext_.history_.Push(std::move(group));
 		}
 
 		context_.selectionContext_.selectedActors_ = newSelection;
@@ -653,5 +746,23 @@ namespace SeedCore
 		{
 			actors.insert(afterIt + 1, std::move(moved));
 		}
+	}
+
+	Uint32 HierarchyPanel::PrevSiblingPersistentId(Actor* actor)const
+	{
+		Actor* parent = actor->GetParent();
+		if (!parent)
+		{
+			return 0;
+		}
+
+		const DynamicArray<Actor*>& siblings = parent->GetChildren();
+		auto it = std::ranges::find(siblings, actor);
+		if (it == siblings.end() || it == siblings.begin())
+		{
+			return 0;
+		}
+
+		return (*(it - 1))->GetPersistentID();
 	}
 }

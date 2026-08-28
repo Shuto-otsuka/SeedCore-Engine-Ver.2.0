@@ -24,24 +24,25 @@ namespace SeedCore
 
 		/// [EN] Calls crister.BakeCollision to compute the geometry at the
 		///      given detail, then writes it out as a ".collision" binary
-		///      file at filePath, next to the source model — same
-		///      shape as AnimationLoader::SplitClips. Doesn't touch the pool
-		///      or return a handle; the written file becomes its own
-		///      AssetType::MeshCollision asset on the next scan, loaded
-		///      through Load() like any other ".collision" asset. Called
-		///      once per detail level from ModelResource::Load, so a single
-		///      Model ends up with both a Proxy and a Full ".collision"
-		///      sibling for MeshCollider::meshID_ to pick between.
+		///      file at filePath (overwriting any existing one). Doesn't
+		///      touch the pool or return a handle; the written file becomes
+		///      its own AssetType::MeshCollision asset on the next scan,
+		///      loaded through Load() like any other ".collision" asset.
+		///      Driven by ModelResource::GenerateCollision, which is invoked
+		///      from the content drawer's "コリジョン生成" asset action
+		///      (models do not auto-derive collision on load). Returns false
+		///      if the bake or the file write failed.
 		/// [JP] crister.BakeCollision で指定した detail のジオメトリを計算し、
-		///      ソースモデルの隣に ".collision" のバイナリファイルとして
-		///      書き出す — AnimationLoader::SplitClips と同じ形。プールにも
-		///      触れずハンドルも返さない — 書き出したファイルは次回スキャンで
-		///      個別の AssetType::MeshCollision アセットになり、他の
-		///      ".collision" アセットと同じく Load() で読み込まれる。
-		///      ModelResource::Load から detail ごとに1回ずつ呼ばれるため、
-		///      1つの Model につき Proxy と Full 両方の ".collision" が
-		///      隣に揃い、MeshCollider::meshID_ はどちらか選んで参照できる。
-		void Bake(const Crister& crister, MeshCollisionDetail detail, String filePath);
+		///      ".collision" のバイナリファイルとして filePath へ書き出す
+		///      （既存があれば上書き）。プールにも触れずハンドルも返さない
+		///      — 書き出したファイルは次回スキャンで個別の
+		///      AssetType::MeshCollision アセットになり、他の ".collision"
+		///      アセットと同じく Load() で読み込まれる。ModelResource::
+		///      GenerateCollision から駆動され、そちらはコンテンツドロワーの
+		///      「コリジョン生成」アセットアクションから呼ばれる（モデルは
+		///      ロード時に衝突を自動生成しない）。ベイクまたはファイル書き込みに
+		///      失敗した場合は false を返す。
+		Bool Bake(const Crister& crister, MeshCollisionDetail detail, String filePath);
 
 	private:
 		StablePool<MeshCollision> pool_;

@@ -41,16 +41,16 @@ namespace SeedCore
 		pool_.Destroy(handle);
 	}
 
-	void MeshCollisionLoader::Bake(const Crister& crister, MeshCollisionDetail detail, String filePath)
+	Bool MeshCollisionLoader::Bake(const Crister& crister, MeshCollisionDetail detail, String filePath)
 	{
 		MeshCollision meshCollision;
 		if (!crister.BakeCollision(detail, meshCollision.positions_, meshCollision.indices_))
 		{
-			return;
+			return false;
 		}
 
 		BinaryOutputArchive archive;
 		meshCollision.Serialize(archive);
-		archive.Write(filePath);
+		return archive.Write(filePath);
 	}
 }

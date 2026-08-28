@@ -287,6 +287,14 @@ namespace SeedCore
 		/// [JP] child を現在の位置から先に削除する。こうすることで、after を基準に再挿入する際、after 自身のインデックスがずれてしまうのを防ぐ。
 		children_.erase(childIt);
 
+		if (after == nullptr)
+		{
+			/// [EN] A null anchor means "move to the front of the sibling list" (there is nothing to come after).
+			/// [JP] アンカーが null の場合は「兄弟リストの先頭へ移動」を意味する（後ろに来る対象が無いため）。
+			children_.insert(children_.begin(), child);
+			return;
+		}
+
 		auto afterIt = std::ranges::find(children_, after);
 		if (afterIt == children_.end())
 		{

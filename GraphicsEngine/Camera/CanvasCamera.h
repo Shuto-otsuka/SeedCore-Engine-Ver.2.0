@@ -14,6 +14,20 @@ namespace SeedCore
 
 		void Focus(Vector3 focus);
 
+		/// [EN] Starts an animated slide of eye_/focus_ so focus_ lands on
+		///      focusTarget's XY, keeping the current zoom (the eye-to-focus
+		///      offset) and both Z values. Advances during Tick() over
+		///      focusDuration_ seconds; calling it again mid-animation
+		///      restarts from the current in-flight eye/focus. Any direct
+		///      Eye()/Focus() write (the panel's pan or view-reset) cancels it.
+		/// [JP] eye_/focus_ をアニメーションさせながらスライドさせ、focus_ を
+		///      focusTarget の XY に合わせる。現在のズーム（eye-focus
+		///      オフセット）と両者の Z は保つ。Tick() 内で focusDuration_ 秒
+		///      かけて進行する。アニメーション中に再度呼ぶと、その時点の
+		///      （進行中の）eye/focus から再スタートする。Eye()/Focus() を
+		///      直接書き込む（パネルのパン / ビューリセット）と中断される。
+		void FocusOn(Vector3 focusTarget);
+
 		void Up(Vector3 up);
 
 		void Near(Float nearPlane);
@@ -72,6 +86,16 @@ namespace SeedCore
 		Vector3 eye_ = { 100640,100360,99990 };
 
 		Vector3 focus_ = { 100640,100360,100000 };
+
+		/// [EN] FocusOn's in-flight animation state — see FocusOn's comment.
+		/// [JP] FocusOn の進行中アニメーション状態 — FocusOn のコメント参照。
+		Bool focusing_ = false;
+		Vector3 focusStartEye_ = { 0,0,0 };
+		Vector3 focusStartFocus_ = { 0,0,0 };
+		Vector3 focusTargetEye_ = { 0,0,0 };
+		Vector3 focusTargetFocus_ = { 0,0,0 };
+		Float focusElapsed_ = 0.0f;
+		Float focusDuration_ = 0.35f;
 
 		Vector3 up_ = { 0,1,0 };
 

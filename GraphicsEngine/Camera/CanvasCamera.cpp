@@ -6,6 +6,21 @@ namespace SeedCore
 	{
 		previousViewProjection_ = currentViewProjection_;
 
+		if (focusing_)
+		{
+			focusElapsed_ += elapsedTime;
+			Float t = Clamp(focusElapsed_ / focusDuration_, 0.0f, 1.0f);
+			Float smoothT = t * t * (3.0f - 2.0f * t);
+
+			eye_ = Vector3::Lerp(focusStartEye_, focusTargetEye_, smoothT);
+			focus_ = Vector3::Lerp(focusStartFocus_, focusTargetFocus_, smoothT);
+
+			if (t >= 1.0f)
+			{
+				focusing_ = false;
+			}
+		}
+
 		view_ = Matrix::CreateLookAt(eye_, focus_, up_);
 
 		aspectRatio_ = width_ / height_;
@@ -44,17 +59,35 @@ namespace SeedCore
 		{
 			focus_ = Vector3(100000.0f + width * 0.5f, 100000.0f + height * 0.5f, 100000.0f);
 			eye_ = Vector3(focus_.x, focus_.y, focus_.z - 10.0f);
+			focusing_ = false;
 		}
 	}
 
 	void CanvasCamera::Eye(Vector3 eye)
 	{
 		eye_ = eye;
+		focusing_ = false;
 	}
 
 	void CanvasCamera::Focus(Vector3 focus)
 	{
 		focus_ = focus;
+		focusing_ = false;
+	}
+
+	void CanvasCamera::FocusOn(Vector3 focusTarget)
+	{
+		/// [EN] Keep the current eye-to-focus offset (zoom / direction) and both Z values; only the XY of eye_/focus_ slides. Tick() runs the interpolation.
+		/// [JP] 現在の eye-focus オフセット（ズーム / 向き）と両者の Z を保ち、eye_/focus_ の XY だけをスライドさせる。補間は Tick() が行う。
+		Vector3 offset = eye_ - focus_;
+
+		focusStartEye_ = eye_;
+		focusStartFocus_ = focus_;
+		focusTargetFocus_ = Vector3(focusTarget.x, focusTarget.y, focus_.z);
+		focusTargetEye_ = Vector3(focusTarget.x + offset.x, focusTarget.y + offset.y, eye_.z);
+
+		focusElapsed_ = 0.0f;
+		focusing_ = true;
 	}
 
 	void CanvasCamera::Up(Vector3 up)

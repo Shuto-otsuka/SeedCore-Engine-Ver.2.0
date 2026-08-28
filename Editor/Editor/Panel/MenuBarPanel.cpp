@@ -118,13 +118,13 @@ namespace SeedCore
 
 			if (ImGui::BeginMenu("編集"))
 			{
-				if (ImGui::MenuItem("元に戻す"))
+				if (ImGui::MenuItem("元に戻す", "Ctrl+Z", false, !isPlaying))
 				{
-
+					context_.sceneContext_.history_.Undo();
 				}
-				if (ImGui::MenuItem("やり直す"))
+				if (ImGui::MenuItem("やり直す", "Ctrl+Y", false, !isPlaying))
 				{
-
+					context_.sceneContext_.history_.Redo();
 				}
 				ImGui::Separator();
 				if (ImGui::MenuItem("レイヤー編集"))

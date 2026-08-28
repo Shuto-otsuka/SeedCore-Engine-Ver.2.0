@@ -9,6 +9,8 @@
 #include <GraphicsEngine/D3D12/SwapChain/GraphicsResolution.h>
 #include <FoundationEngine/ECS/Query.h>
 #include <FoundationEngine/ECS/Component/Active.h>
+#include <FoundationEngine/ECS/Component/Bounds.h>
+#include <FoundationEngine/ECS/ComponentRegistry.h>
 
 namespace SeedCore
 {
@@ -41,6 +43,10 @@ namespace SeedCore
 		hasSelectedBillboardInstance_ = false;
 
 		Float spriteReferenceScale = (ScResolution::SC_HD.Height > 0.0f) ? (nativeScreenSize.y / ScResolution::SC_HD.Height) : 1.0f;
+
+		/// [EN] Cached once so each Image actor's Bounds can be synced to its texture rect below (mirrors ModelRenderer's Mesh -> Bounds sync), giving 2D elements a viewport-pickable box.
+		/// [JP] 各 Image アクターの Bounds を下でテクスチャ矩形に同期できるよう一度だけキャッシュする(ModelRenderer の Mesh -> Bounds 同期と同じ)。これで 2D 要素にビューポートでピック可能なボックスが付く。
+		ComponentID boundsComponentID = ComponentRegistry::GetComponentID<Bounds>();
 
 		Query<Read<Active>, Read<Image>> query(world);
 		query.ForEach([&](EntityID entityID, const Active& active, const Image& image)
@@ -88,6 +94,20 @@ namespace SeedCore
 				{
 					D3D12_RESOURCE_DESC desc = texture->resource_->GetDesc();
 					textureSize = Vector2(static_cast<Float>(desc.Width), static_cast<Float>(desc.Height));
+				}
+
+				/// [EN] Sync this actor's Bounds (every actor has one) to the sprite's local-space rect: half-extents = textureSize/2, centre shifted by the pivot the same way ImageBillboardMS.hlsl shifts the quad (0.5 - pivotNorm on X, pivotNorm - 0.5 on Y). The actor's world matrix then rotates/scales it, so ViewportPicking gets a correct OBB for the drawn sprite.
+				/// [JP] このアクターの Bounds(全アクターが持つ)をスプライトのローカル空間矩形へ同期する: 半径 = textureSize/2、中心は ImageBillboardMS.hlsl がクアッドをずらすのと同じ形(X は 0.5 - pivotNorm、Y は pivotNorm - 0.5)で pivot ぶんずらす。アクターのワールド行列がこれを回転/スケールするので、ViewportPicking は描画済みスプライトの正しい OBB を得る。
+				if (boundsComponentID)
+				{
+					void* boundsRaw = world.GetComponent(entityID, boundsComponentID);
+					if (boundsRaw)
+					{
+						Vector2 pivotNorm = (textureSize.x > 0.0f && textureSize.y > 0.0f) ? Vector2(image.pivot_.x / textureSize.x, image.pivot_.y / textureSize.y) : Vector2(0.5f, 0.5f);
+						Bounds* bounds = static_cast<Bounds*>(boundsRaw);
+						bounds->center_ = Vector3((0.5f - pivotNorm.x) * textureSize.x, (pivotNorm.y - 0.5f) * textureSize.y, 0.0f);
+						bounds->extent_ = Vector3(textureSize.x * 0.5f, textureSize.y * 0.5f, 1.0f);
+					}
 				}
 
 				Uint selected = (selectedEntity.Exists() && actor->GetEntity() == selectedEntity) ? 1 : 0;

@@ -9,6 +9,8 @@
 #include <GraphicsEngine/D3D12/SwapChain/GraphicsResolution.h>
 #include <FoundationEngine/ECS/Query.h>
 #include <FoundationEngine/ECS/Component/Active.h>
+#include <FoundationEngine/ECS/Component/Bounds.h>
+#include <FoundationEngine/ECS/ComponentRegistry.h>
 
 namespace SeedCore
 {
@@ -44,6 +46,10 @@ namespace SeedCore
 		billboardInstances_.clear();
 
 		Float spriteReferenceScale = (ScResolution::SC_HD.Height > 0.0f) ? (nativeScreenSize.y / ScResolution::SC_HD.Height) : 1.0f;
+
+		/// [EN] Cached once so each sprite-view Text actor's Bounds can be synced to its measured text box below (mirrors ImageRenderer's Image -> Bounds sync), giving canvas text a pickable box in CanvasViewPanel.
+		/// [JP] 各スプライトビュー Text アクターの Bounds を下で計測したテキストボックスへ同期できるよう一度だけキャッシュする(ImageRenderer の Image -> Bounds 同期と同じ)。これでキャンバステキストが CanvasViewPanel でピック可能なボックスを持つ。
+		ComponentID boundsComponentID = ComponentRegistry::GetComponentID<Bounds>();
 
 		Query<Read<Active>, Read<Text>> query(world);
 		query.ForEach([&](EntityID entityID, const Active& active, const Text& text)
@@ -114,6 +120,13 @@ namespace SeedCore
 
 				const Bool isSprite = (text.viewType_ == Text::ViewType::Sprite);
 
+				/// [EN] Canvas text box in unscaled glyph space, relative to the pivot, accumulated over every drawn glyph (same convention as ImageRenderer's Bounds: the actor's world scale is applied by the picker, not stored). Stays inverted (min > max) when the text draws nothing.
+				/// [JP] pivot 基準・未スケールのグリフ空間でのキャンバステキストボックス。描画される全グリフにわたって蓄積する(ImageRenderer の Bounds と同じ規約: アクターのワールドスケールはピッカー側で掛ける、保存しない)。何も描画しないときは反転(min > max)のまま。
+				Float textBoxMinX = FLT_MAX;
+				Float textBoxMaxX = -FLT_MAX;
+				Float textBoxMinY = FLT_MAX;
+				Float textBoxMaxY = -FLT_MAX;
+
 				Float lineTop = 0.0f;
 				std::istringstream stream(text.text_.str());
 				std::string line;
@@ -139,6 +152,13 @@ namespace SeedCore
 
 								if (isSprite)
 								{
+									/// [EN] Grow the canvas text box by this glyph (unscaled, pivot-relative - matches canvasInstance.localPosition_/localSize_ divided by scale).
+									/// [JP] このグリフぶんキャンバステキストボックスを広げる(未スケール・pivot 基準 - canvasInstance.localPosition_/localSize_ をスケールで割ったものと一致)。
+									textBoxMinX = Min(textBoxMinX, glyphLeft - text.pivot_.x);
+									textBoxMaxX = Max(textBoxMaxX, glyphLeft - text.pivot_.x + glyphWidth);
+									textBoxMinY = Min(textBoxMinY, text.pivot_.y - glyphTop - glyphHeight);
+									textBoxMaxY = Max(textBoxMaxY, text.pivot_.y - glyphTop);
+
 									FontSpriteInstance instance{};
 									instance.size_ = Vector2(glyphWidth * scale.x, glyphHeight * scale.y);
 									instance.uvMin_ = uvMin;
@@ -241,6 +261,19 @@ namespace SeedCore
 					}
 
 					lineTop += lineAdvance;
+				}
+
+				/// [EN] Sync this actor's Bounds (every actor has one) to the measured canvas text box: half-extents = box size / 2, centre = box midpoint offset from the text origin. The picker applies the actor's world scale/rotation, so CanvasViewPanel gets a correct box for the drawn text.
+				/// [JP] このアクターの Bounds(全アクターが持つ)を計測したキャンバステキストボックスへ同期する: 半径 = ボックスサイズ / 2、中心 = テキスト原点からのボックス中点オフセット。ピッカーがアクターのワールドスケール/回転を掛けるので、CanvasViewPanel は描画済みテキストの正しいボックスを得る。
+				if (isSprite && boundsComponentID && textBoxMinX <= textBoxMaxX)
+				{
+					void* boundsRaw = world.GetComponent(entityID, boundsComponentID);
+					if (boundsRaw)
+					{
+						Bounds* bounds = static_cast<Bounds*>(boundsRaw);
+						bounds->center_ = Vector3((textBoxMinX + textBoxMaxX) * 0.5f, (textBoxMinY + textBoxMaxY) * 0.5f, 0.0f);
+						bounds->extent_ = Vector3((textBoxMaxX - textBoxMinX) * 0.5f, (textBoxMaxY - textBoxMinY) * 0.5f, 1.0f);
+					}
 				}
 			});
 	}

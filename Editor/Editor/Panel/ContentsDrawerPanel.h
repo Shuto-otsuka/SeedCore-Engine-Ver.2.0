@@ -6,6 +6,7 @@ namespace SeedCore
 {
 	struct EditorContext;
 	class ImGuiTexture;
+	enum class MeshCollisionDetail;
 
 	class ContentsDrawerPanel
 	{
@@ -62,6 +63,8 @@ namespace SeedCore
 		void DrawFolderContextMenu(const std::string& relativePath, const std::string& folderName);
 
 		void DrawAssetContextMenu(const Asset& asset);
+
+		void GenerateMeshCollision(const Asset& asset, MeshCollisionDetail detail);
 
 		void DrawBackgroundContextMenu();
 

@@ -75,6 +75,27 @@ namespace SeedCore
 		show_ = true;
 	}
 
+	void ModelTransformPanel::Open(Uint32 assetId)
+	{
+		show_ = true;
+		SetTarget(assetId);
+
+		/// [EN] Prime the selection edge-detector with whatever is selected right now, so this asset target is not immediately overridden by an unchanged scene selection on the next Draw.
+		/// [JP] 選択のエッジ検出を「今選択されているもの」で初期化し、次の Draw で変化していないシーン選択にこのアセットターゲットが即座に上書きされないようにする。
+		const Mesh* mesh = context_.selectionContext_.selectedActor_ ? context_.selectionContext_.selectedActor_->GetComponent<Mesh>() : nullptr;
+		lastSelectionMeshId_ = (mesh && mesh->meshID_ != 0) ? mesh->meshID_ : 0;
+	}
+
+	void ModelTransformPanel::SetTarget(Uint32 assetId)
+	{
+		targetMeshAssetId_ = assetId;
+		editConvention_ = context_.worldContext_.resource_->ReadAxisConvention(assetId);
+		baseTransformPosition_ = Vector3(0.0f, 0.0f, 0.0f);
+		baseTransformRotation_ = Vector3(0.0f, 0.0f, 0.0f);
+		baseTransformScale_ = Vector3(1.0f, 1.0f, 1.0f);
+		baseTransformPivot_ = Vector3(0.0f, 0.0f, 0.0f);
+	}
+
 	void ModelTransformPanel::SetPreviewHandle(D3D12_GPU_DESCRIPTOR_HANDLE previewHandle)
 	{
 		previewHandle_ = previewHandle;
@@ -98,23 +119,22 @@ namespace SeedCore
 		if (ImGui::Begin("モデル変換", &show_))
 		{
 			const Mesh* mesh = context_.selectionContext_.selectedActor_ ? context_.selectionContext_.selectedActor_->GetComponent<Mesh>() : nullptr;
+			Uint32 selectionMeshId = (mesh && mesh->meshID_ != 0) ? mesh->meshID_ : 0;
 
-			if (!mesh || mesh->meshID_ == 0)
+			/// [EN] Follow the scene selection only when it actually changes, not merely when it differs from the current target - otherwise opening the panel on a content-drawer asset while an actor is selected would snap straight back to that actor's mesh.
+			/// [JP] シーン選択に追従するのは選択が実際に変わったときだけで、現在のターゲットと違うというだけでは追従しない - そうしないと、Actor を選択したままコンテンツドロワーのアセットでパネルを開いた瞬間に、その Actor のメッシュへ戻ってしまう。
+			if (selectionMeshId != 0 && selectionMeshId != lastSelectionMeshId_)
+			{
+				SetTarget(selectionMeshId);
+			}
+			lastSelectionMeshId_ = selectionMeshId;
+
+			if (targetMeshAssetId_ == 0)
 			{
 				ImGui::TextDisabled("対象のメッシュがありません");
 			}
 			else
 			{
-				if (mesh->meshID_ != targetMeshAssetId_)
-				{
-					targetMeshAssetId_ = mesh->meshID_;
-					editConvention_ = context_.worldContext_.resource_->ReadAxisConvention(targetMeshAssetId_);
-					baseTransformPosition_ = Vector3(0.0f, 0.0f, 0.0f);
-					baseTransformRotation_ = Vector3(0.0f, 0.0f, 0.0f);
-					baseTransformScale_ = Vector3(1.0f, 1.0f, 1.0f);
-					baseTransformPivot_ = Vector3(0.0f, 0.0f, 0.0f);
-				}
-
 				ModelResource* modelResource = context_.worldContext_.resource_->GetModelResource();
 				Handle<Crister> handle = modelResource->GetHandle(targetMeshAssetId_);
 				Crister* crister = handle.empty() ? nullptr : modelResource->Resolve(*context_.worldContext_.loader_, handle);

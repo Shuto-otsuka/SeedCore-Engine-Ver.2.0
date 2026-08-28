@@ -8,6 +8,8 @@
 #include <GraphicsEngine/D3D12/SwapChain/GraphicsResolution.h>
 #include <FoundationEngine/ECS/Query.h>
 #include <FoundationEngine/ECS/Component/Active.h>
+#include <FoundationEngine/ECS/Component/Bounds.h>
+#include <FoundationEngine/ECS/ComponentRegistry.h>
 
 namespace SeedCore
 {
@@ -43,6 +45,10 @@ namespace SeedCore
 		hasSelectedBillboardInstance_ = false;
 
 		Float spriteReferenceScale = (ScResolution::SC_HD.Height > 0.0f) ? (nativeScreenSize.y / ScResolution::SC_HD.Height) : 1.0f;
+
+		/// [EN] Cached once so each Sprite-mode Movie actor's Bounds can be synced to its canvas rect below (mirrors ImageRenderer's Image -> Bounds sync), giving canvas movies a pickable box in CanvasViewPanel.
+		/// [JP] 各スプライトモード Movie アクターの Bounds を下でキャンバス矩形へ同期できるよう一度だけキャッシュする(ImageRenderer の Image -> Bounds 同期と同じ)。これでキャンバス動画が CanvasViewPanel でピック可能なボックスを持つ。
+		ComponentID boundsComponentID = ComponentRegistry::GetComponentID<Bounds>();
 
 		Query<Read<Active>, Read<Movie>> query(world);
 		query.ForEach([&](EntityID entityID, const Active& active, const Movie& movie)
@@ -124,6 +130,20 @@ namespace SeedCore
 					canvasInstance.faceCamera_ = 1;
 					canvasInstance.selected_ = selected;
 					billboardInstances_.push_back(canvasInstance);
+
+					/// [EN] Sync this actor's Bounds (every actor has one) to the canvas movie's local-space rect: half-extents = size/2, centre shifted by the pivot the same way MovieBillboardMS.hlsl shifts the quad (0.5 - pivotNorm on X, pivotNorm - 0.5 on Y). Unscaled - the picker applies the actor's world scale.
+					/// [JP] このアクターの Bounds(全アクターが持つ)をキャンバス動画のローカル空間矩形へ同期する: 半径 = size/2、中心は MovieBillboardMS.hlsl がクアッドをずらすのと同じ形(X は 0.5 - pivotNorm、Y は pivotNorm - 0.5)で pivot ぶんずらす。未スケール - ピッカーがアクターのワールドスケールを掛ける。
+					if (boundsComponentID)
+					{
+						void* boundsRaw = world.GetComponent(entityID, boundsComponentID);
+						if (boundsRaw)
+						{
+							Vector2 pivotNorm = (size.x > 0.0f && size.y > 0.0f) ? Vector2(movie.pivot_.x / size.x, movie.pivot_.y / size.y) : Vector2(0.5f, 0.5f);
+							Bounds* bounds = static_cast<Bounds*>(boundsRaw);
+							bounds->center_ = Vector3((0.5f - pivotNorm.x) * size.x, (pivotNorm.y - 0.5f) * size.y, 0.0f);
+							bounds->extent_ = Vector3(size.x * 0.5f, size.y * 0.5f, 1.0f);
+						}
+					}
 				}
 				else
 				{

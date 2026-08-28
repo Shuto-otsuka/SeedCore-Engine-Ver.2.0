@@ -133,6 +133,9 @@
     <ClCompile Include="Editor\Panel\LayerSettingsPanel.cpp">
       <Filter>Editor\Panel</Filter>
     </ClCompile>
+    <ClCompile Include="Editor\ViewportPicking.cpp">
+      <Filter>Editor</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Editor\ImGui\ImGuiCommon.h">
@@ -257,6 +260,9 @@
     </ClInclude>
     <ClInclude Include="Editor\Panel\LayerSettingsPanel.h">
       <Filter>Editor\Panel</Filter>
+    </ClInclude>
+    <ClInclude Include="Editor\ViewportPicking.h">
+      <Filter>Editor</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

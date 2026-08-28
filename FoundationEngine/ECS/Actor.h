@@ -294,14 +294,15 @@ namespace SeedCore
 		/**
 		* [EN]
 		* Repositions child (must already be a child of this Actor) so it comes
-		* immediately after after in the children order. Appends to the end if
-		* after is not found among the children.
+		* immediately after after in the children order. A null after moves child
+		* to the front; an after that isn't among the children appends it to the end.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
 		* child（既にこの Actor の子であること）を、子の並び順で after の
-		* 直後に来るよう再配置する。after が子の中に見つからない場合は末尾に追加する。
+		* 直後に来るよう再配置する。after が null の場合は先頭へ、after が子の
+		* 中に見つからない場合は末尾に移動する。
 		*/
 		SEEDCORE_API void MoveChildAfter(Actor* child, Actor* after);
 

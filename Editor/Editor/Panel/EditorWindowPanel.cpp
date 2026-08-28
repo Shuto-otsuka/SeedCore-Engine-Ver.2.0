@@ -1,160 +1,16 @@
 #include <Editor/Editor/Panel/EditorWindowPanel.h>
 #include <Editor/Editor/EditorContext.h>
 #include <Editor/Editor/ImGui/ImGuiTexture.h>
+#include <Editor/Editor/ViewportPicking.h>
 #include <GraphicsEngine/Camera/EditorCamera.h>
 #include <GraphicsEngine/Camera/EditorCameraController.h>
-#include <FoundationEngine/ECS/Component/Bounds.h>
 #include <FoundationEngine/Input/InputSystem.h>
 #include <FoundationEngine/ECS/World.h>
 #include <FoundationEngine/ECS/Actor.h>
-#include <FoundationEngine/ECS/ComponentRegistry.h>
 
 namespace SeedCore
 {
-	namespace
-	{
-		/// [EN] Slab-method ray/AABB test, run entirely in the box's own
-		///      local space (rayOriginLocal/rayDirectionLocal already
-		///      transformed there by the caller) — this doubles as an OBB
-		///      test for a rotated/scaled actor without needing dedicated
-		///      OBB math (see PickActor). outT is the local-space ray
-		///      parameter to report as this box's pick distance: the entry
-		///      point when the ray starts outside the box (the common
-		///      case), or the EXIT point when the ray origin starts inside
-		///      it — e.g. the camera standing inside a large stage/room
-		///      model. Reporting entry (which would be negative/clamped to
-		///      0) for the inside-the-box case would make that enclosing
-		///      box register as an always-wins, distance-0 hit, so nothing
-		///      inside it (smaller props) could ever be picked instead.
-		/// [JP] スラブ法によるレイ/AABB判定。箱自身のローカル空間で完全に
-		///      行う（rayOriginLocal/rayDirectionLocal は呼び出し側で
-		///      あらかじめそこへ変換済み）— これにより、回転/スケールした
-		///      アクターに対しても専用の OBB 演算を用意せずに OBB 判定として
-		///      機能する（PickActor 参照）。outT はこの箱のピック距離として
-		///      報告するローカル空間レイパラメータ: レイが箱の外から
-		///      始まる通常のケースでは侵入点、レイの起点が箱の内側にある
-		///      場合（例: カメラが巨大なステージ/部屋モデルの内側にいる）は
-		///      脱出点を使う。内側ケースで侵入点（負になり0にクランプされる）
-		///      を報告すると、その箱が常に距離0で勝ってしまい、内部にある
-		///      小物が絶対に選択できなくなるため。
-		Bool RayIntersectsLocalAABB(const Vector3& rayOriginLocal, const Vector3& rayDirectionLocal, const Vector3& boundsMin, const Vector3& boundsMax, Float& outT)
-		{
-			Float origin[3] = { rayOriginLocal.x, rayOriginLocal.y, rayOriginLocal.z };
-			Float direction[3] = { rayDirectionLocal.x, rayDirectionLocal.y, rayDirectionLocal.z };
-			Float boundsMinArray[3] = { boundsMin.x, boundsMin.y, boundsMin.z };
-			Float boundsMaxArray[3] = { boundsMax.x, boundsMax.y, boundsMax.z };
-
-			Float tMin = -FLT_MAX;
-			Float tMax = FLT_MAX;
-
-			for (Int axis = 0; axis < 3; axis++)
-			{
-				if (std::abs(direction[axis]) < 1e-8f)
-				{
-					if (origin[axis] < boundsMinArray[axis] || origin[axis] > boundsMaxArray[axis])
-					{
-						return false;
-					}
-					continue;
-				}
-
-				Float inverseDirection = 1.0f / direction[axis];
-				Float t0 = (boundsMinArray[axis] - origin[axis]) * inverseDirection;
-				Float t1 = (boundsMaxArray[axis] - origin[axis]) * inverseDirection;
-				if (t0 > t1)
-				{
-					std::swap(t0, t1);
-				}
-
-				tMin = Max(tMin, t0);
-				tMax = Min(tMax, t1);
-				if (tMin > tMax)
-				{
-					return false;
-				}
-			}
-
-			if (tMax < 0.0f)
-			{
-				/// [EN] Whole box is behind the ray origin.
-				/// [JP] 箱全体がレイの起点より後ろにある。
-				return false;
-			}
-
-			outT = (tMin >= 0.0f) ? tMin : tMax;
-			return true;
-		}
-
-		/// [EN] Finds the actor whose Bounds (see Bounds's class comment)
-		///      the ray hits closest to rayOrigin, or nullptr if none.
-		///      Transforms the ray into each candidate's local space via
-		///      its inverse world matrix so Bounds (stored local-space) acts
-		///      as an OBB, then converts the local hit back to world space
-		///      to rank candidates by true world-space distance (raw local
-		///      ray parameters aren't comparable across actors with
-		///      different scales).
-		/// [JP] レイが最も近くで当たる Bounds（Bounds のクラスコメント参照）
-		///      を持つアクターを探す。無ければ nullptr。各候補の逆ワールド
-		///      行列でレイをローカル空間へ変換し、Bounds（ローカル空間で
-		///      保持）を OBB として機能させる。ローカルのヒット点はワールド
-		///      空間へ変換し直してから比較する（スケールの異なるアクター間
-		///      では、生のローカルレイパラメータは比較できないため）。
-		Actor* PickActor(World& world, const Vector3& rayOrigin, const Vector3& rayDirection)
-		{
-			ComponentID boundsComponentID = ComponentRegistry::GetComponentID<Bounds>();
-			if (!boundsComponentID)
-			{
-				return nullptr;
-			}
-
-			Actor* closestActor = nullptr;
-			Float closestDistance = FLT_MAX;
-
-			for (EntityID entityID : world.GetComponents<Bounds>())
-			{
-				Actor* actor = world.GetActor(entityID);
-				if (!actor)
-				{
-					continue;
-				}
-
-				const Bounds* bounds = actor->GetComponent<Bounds>();
-				if (!bounds)
-				{
-					continue;
-				}
-
-				Matrix worldMatrix = actor->GetWorldMatrix();
-				Matrix inverseWorld = worldMatrix.Invert();
-
-				Vector3 localOrigin = Vector3::Transform(rayOrigin, inverseWorld);
-				Vector3 localDirection = Vector3::TransformNormal(rayDirection, inverseWorld);
-
-				Vector3 boundsMin = bounds->center_ - bounds->extent_;
-				Vector3 boundsMax = bounds->center_ + bounds->extent_;
-
-				Float localT;
-				if (!RayIntersectsLocalAABB(localOrigin, localDirection, boundsMin, boundsMax, localT))
-				{
-					continue;
-				}
-
-				Vector3 localHitPoint = localOrigin + localDirection * localT;
-				Vector3 worldHitPoint = Vector3::Transform(localHitPoint, worldMatrix);
-				Float worldDistance = Vector3::Distance(rayOrigin, worldHitPoint);
-
-				if (worldDistance < closestDistance)
-				{
-					closestDistance = worldDistance;
-					closestActor = actor;
-				}
-			}
-
-			return closestActor;
-		}
-	}
-
-	EditorWindowPanel::EditorWindowPanel(EditorContext& context, ImGuiTexture& imguiTexture) :context_(context), imguiTexture_(imguiTexture), guizmoPanel_(context)
+	EditorWindowPanel::EditorWindowPanel(EditorContext& context, ImGuiTexture& imguiTexture) : context_(context), imguiTexture_(imguiTexture), guizmoPanel_(context)
 	{
 		/// No Code
 	}
@@ -457,12 +313,12 @@ namespace SeedCore
 				///      not over a gizmo handle) on the viewport image
 				///      unprojects the mouse into a world-space ray and
 				///      picks the closest actor whose Bounds it hits (see
-				///      PickActor). Clicking empty space clears selection,
-				///      matching Unreal's click-to-deselect.
+				///      ViewportPicking). Clicking empty space clears
+				///      selection, matching Unreal's click-to-deselect.
 				/// [JP] クリックで選択: ビューポート画像上での単純な左クリック
 				///      （ドラッグでもギズモハンドル上でもない）を、ワールド
 				///      空間のレイへ逆投影し、その Bounds に当たる最も近い
-				///      アクターを選択する（PickActor 参照）。何もない場所を
+				///      アクターを選択する（ViewportPicking 参照）。何もない場所を
 				///      クリックすると選択解除する（Unrealの挙動と同じ）。
 				if (ImGui::IsWindowHovered() && !ImGuizmo::IsUsing() && !ImGuizmo::IsOver() && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && context_.cameraContext_.editorCamera_ && context_.worldContext_.world_)
 				{
@@ -481,7 +337,7 @@ namespace SeedCore
 						Vector3 rayDirection = farPoint - rayOrigin;
 						rayDirection.Normalize();
 
-						Actor* hitActor = PickActor(*context_.worldContext_.world_, rayOrigin, rayDirection);
+						Actor* hitActor = ViewportPicking::Pick(*context_.worldContext_.world_, rayOrigin, rayDirection);
 
 						context_.selectionContext_.selectedActors_.clear();
 						if (hitActor)

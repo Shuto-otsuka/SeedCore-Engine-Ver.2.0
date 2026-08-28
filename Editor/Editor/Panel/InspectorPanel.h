@@ -54,7 +54,7 @@ namespace SeedCore
 
 		void DrawPayloadArrayRow(const FieldInfo& field, void* pointer);
 
-		void DrawPayloadArrayAppendSlot(const FieldInfo& field, const DynamicArray<Int>& existingValues);
+		void DrawPayloadArrayAppendSlot(const FieldInfo& field, const DynamicArray<Int>& existingValues, Entity entity, ComponentID componentID);
 
 		const Char* GetPayloadDropType(PayloadAssetType assetType)const;
 

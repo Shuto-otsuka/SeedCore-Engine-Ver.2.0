@@ -97,6 +97,23 @@ namespace SeedCore
 		/// [JP] 向きは常に保つ。距離は radius が画角に収まる値（バウンズ
 		///      フィットのドリー）か、現在の eye-focus 間距離のまま
 		///      （パンのみ）のどちらか — ヘッダのコメント参照。
+		/// [EN] A degenerate Bounds (e.g. a skinned mesh whose bind-pose AABB
+		///      has a stray far vertex) can hand us a non-finite target or
+		///      radius; ignore the call rather than lerp eye_/focus_ to NaN
+		///      and leave the view permanently broken.
+		/// [JP] 退化した Bounds(例: バインドポーズ AABB に遠くの外れ頂点を
+		///      持つスキンメッシュ)は非有限な target や radius を渡してくる
+		///      ことがある。eye_/focus_ を NaN へ補間してビューを永久に
+		///      壊すより、その呼び出しを無視する。
+		if (!std::isfinite(targetPosition.x) || !std::isfinite(targetPosition.y) || !std::isfinite(targetPosition.z))
+		{
+			return;
+		}
+		if (!std::isfinite(radius))
+		{
+			radius = 0.0f;
+		}
+
 		Vector3 offset = eye_ - focus_;
 		Float currentDistance = offset.Length();
 		if (currentDistance < 1e-6f)

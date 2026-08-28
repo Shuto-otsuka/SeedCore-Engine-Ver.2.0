@@ -636,13 +636,13 @@ namespace SeedCore
 				continue;
 			}
 
-			/// [EN] Full takes the SubMesh's first (LOD 0, most detailed)
+			/// [EN] Exact takes the SubMesh's first (LOD 0, most detailed)
 			///      cluster; Proxy takes its last (coarsest) cluster — same
 			///      range the RT proxy geometry already uses.
-			/// [JP] Full は SubMesh の最初のクラスタ（LOD 0、最も詳細）、
+			/// [JP] Exact は SubMesh の最初のクラスタ（LOD 0、最も詳細）、
 			///      Proxy は最後のクラスタ（最も粗い）を取る — RT プロキシ
 			///      ジオメトリが既に使っているのと同じ範囲。
-			Uint32 clusterIndex = detail == MeshCollisionDetail::Full ? subMesh.clusterOffset_ : subMesh.clusterOffset_ + subMesh.clusterCount_ - 1;
+			Uint32 clusterIndex = detail == MeshCollisionDetail::Exact ? subMesh.clusterOffset_ : subMesh.clusterOffset_ + subMesh.clusterCount_ - 1;
 
 			if (clusterIndex >= clusters_.size())
 			{

@@ -40,6 +40,7 @@
     </ClCompile>
     <ClCompile Include="ECS\Component\ComponentBase.cpp">
     </ClCompile>
+    <ClCompile Include="ECS\CompoundCommand.cpp" />
     <ClCompile Include="ECS\Entity.cpp">
     </ClCompile>
     <ClInclude Include="ECS\ComponentCommand.h" />
@@ -49,6 +50,7 @@
     <ClInclude Include="ECS\Component\ComponentBase.h" />
     <ClInclude Include="ECS\Component\InspectorDrawable.h" />
     <ClInclude Include="ECS\Component\Spawner.h" />
+    <ClInclude Include="ECS\CompoundCommand.h" />
     <ClInclude Include="ECS\Entity.h" />
     <ClCompile Include="ECS\EntityRecord.cpp">
     </ClCompile>
