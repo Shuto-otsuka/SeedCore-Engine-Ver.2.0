@@ -1,12 +1,23 @@
 #include <FoundationEngine/Resource/Prefab.h>
+#include <FoundationEngine/Resource/ResourceCache.h>
+#include <FoundationEngine/Resource/PrefabPool.h>
 #include <FoundationEngine/ECS/Actor.h>
 #include <FoundationEngine/ECS/World.h>
 #include <FoundationEngine/ECS/Component/Name.h>
 #include <FoundationEngine/Log/Error.h>
+#include <FoundationEngine/Log/Warning.h>
 #include <FoundationEngine/Serialization/Json/JsonArchive.h>
 
 namespace SeedCore
 {
+	/// [EN] Process-wide World bound by Initialize; null until then. See Prefab.h for why the static Spawn() layer exists.
+	/// [JP] Initialize によって束縛される、プロセス全体の World。それまでは null。静的な Spawn() 層が存在する理由は Prefab.h を参照。
+	World* Prefab::world_ = nullptr;
+
+	/// [EN] Process-wide ResourceCache bound by Initialize; null until then.
+	/// [JP] Initialize によって束縛される、プロセス全体の ResourceCache。それまでは null。
+	ResourceCache* Prefab::resource_ = nullptr;
+
 	/**
 	* [EN]
 	* Records root and every descendant into nodes_, replacing any
@@ -76,6 +87,93 @@ namespace SeedCore
 		}
 
 		return instantiated.empty() ? nullptr : instantiated[0];
+	}
+
+	/**
+	* [EN]
+	* Binds the process-wide World/ResourceCache that the static Spawn()
+	* overloads use. Must be called once, before any Spawn() call,
+	* alongside Scene::Initialize.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 静的な Spawn() オーバーロードが使用する、プロセス全体の
+	* World/ResourceCache を束縛する。いずれかの Spawn() を呼ぶ前に、
+	* Scene::Initialize と並べて一度だけ呼び出す必要がある。
+	*/
+	void Prefab::Initialize(World& world, ResourceCache& cache)
+	{
+		world_ = &world;
+		resource_ = &cache;
+	}
+
+	/**
+	* [EN]
+	* Loads the .prefab asset identified by assetID and instantiates it
+	* in the bound World under parent (when given). Returns the new
+	* subtree's root Actor, or nullptr if Initialize() has not run, the
+	* asset could not be loaded, or nothing was instantiated.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* assetID で識別される .prefab アセットを読み込み、束縛済みの World
+	* 内、parent が指定されていればその下へインスタンス化する。新しい
+	* サブツリーのルート Actor を返す。Initialize() が未実行、アセットを
+	* 読み込めなかった、または何もインスタンス化されなかった場合は
+	* nullptr を返す。
+	*/
+	Actor* Prefab::Spawn(Uint32 assetID, Actor* parent)
+	{
+		if (world_ == nullptr || resource_ == nullptr)
+		{
+			return nullptr;
+		}
+
+		/// [EN] PrefabPool caches by asset ID, so repeatedly spawning the same prefab reloads nothing - each call pays only the per-instance Instantiate() cost.
+		/// [JP] PrefabPool はアセット ID でキャッシュするため、同じプレハブを繰り返し spawn しても再読み込みは発生しない - 毎回かかるのはインスタンスごとの Instantiate() のコストだけ。
+		PrefabPool& pool = resource_->GetPrefabPool();
+		Prefab* prefab = pool.Get(pool.Load(assetID, *resource_));
+		if (prefab == nullptr)
+		{
+			return nullptr;
+		}
+
+		/// [EN] Pass assetID as sourceAssetID so the new root is registered as an instance of this prefab (inspector "apply to prefab" then targets the right asset).
+		/// [JP] assetID を sourceAssetID として渡し、新しいルートをこのプレハブのインスタンスとして登録する（インスペクタの「プレハブに適用」が正しいアセットを対象にする）。
+		return prefab->Instantiate(*world_, *resource_, parent, assetID);
+	}
+
+	/**
+	* [EN]
+	* Resolves name (which must carry the ".prefab" extension) to an
+	* asset ID via the bound ResourceCache, then delegates to
+	* Spawn(Uint32, Actor*). Logs a warning and returns nullptr if name
+	* does not resolve.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* name（".prefab" 拡張子を含むこと）を、束縛済みの ResourceCache
+	* 経由でアセット ID へ解決し、Spawn(Uint32, Actor*) へ委譲する。
+	* name が解決できなければ警告をログ出力して nullptr を返す。
+	*/
+	Actor* Prefab::Spawn(const String& name, Actor* parent)
+	{
+		if (resource_ == nullptr)
+		{
+			return nullptr;
+		}
+
+		Uint32 assetID = resource_->GetAssetID(name);
+		if (assetID == 0)
+		{
+			SC_LOG_WARNING("Prefab::Spawn: プレハブ \"{}\" が見つかりません。", name.c_str());
+			return nullptr;
+		}
+
+		return Spawn(assetID, parent);
 	}
 
 	/**

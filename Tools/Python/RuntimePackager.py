@@ -15,10 +15,12 @@ NO_META_EXTENSIONS = {".h", ".cpp", ".hlsli", ".hlsl"}
 # Scene/Prefab は丸ごとコピー済みなので、参照 Asset コピーの対象からは除く。
 SKIP_ASSET_COPY_EXTENSIONS = {".scene", ".prefab"}
 
-# SeedCore::Scene::GetAsset(path) の呼び出しと、その引数を抜き出す簡易パターン。
-# ゲームプレイコードから動的に Asset を引く唯一の入口（Scene.h/.cpp 参照）。
+# SeedCore::Scene::GetAsset(path) / SeedCore::Prefab::Spawn(name, ...) の呼び出しと、
+# その第1引数を抜き出す簡易パターン。ゲームプレイコードが名前文字列で Asset を
+# 動的ロードする入口はこの2つ（Scene.h/.cpp, Prefab.h/.cpp 参照）。
+# 第1引数を , か ) まで読むので Prefab::Spawn の第2引数(parent)は無視される。
 # 引数に入れ子の括弧がある呼び方（関数呼び出しの合成など）は想定しない。
-GET_ASSET_CALL_PATTERN = re.compile(r'Scene::GetAsset\s*\(\s*([^()]*?)\s*\)')
+GET_ASSET_CALL_PATTERN = re.compile(r'(?:Scene::GetAsset|Prefab::Spawn)\s*\(\s*([^,()]*?)\s*[,)]')
 
 # 引数全体がちょうど1つの文字列リテラルであることを確認するパターン（エスケープされた " も1文字として飲み込む）。
 STRING_LITERAL_FULL_PATTERN = re.compile(r'^"((?:[^"\\]|\\.)*)"$')
@@ -194,12 +196,19 @@ def strip_comments(content):
 
 def scan_source_for_asset_references(user_project_root, relpath_to_guid):
     """
-    UserProject 以下の .cpp/.h を走査し、Scene::GetAsset(...) の呼び出しを
-    見つける。ゲームプレイコードがコードから直接パス文字列で Asset を
-    動的ロードする唯一の入口が Scene::GetAsset なので（FoundationEngine/
-    Resource/Scene.h/.cpp 参照）、それだけを対象に完全一致でスキャンする。
-    引数が文字列リテラルでない場合は、静的に解決できない旨を警告する。
+    UserProject 以下の .cpp/.h を走査し、Scene::GetAsset(...) と
+    Prefab::Spawn(...) の呼び出しを見つける。ゲームプレイコードが名前文字列で
+    Asset を動的ロードする入口はこの2つ（FoundationEngine/Resource/Scene.h/.cpp,
+    Prefab.h/.cpp 参照）。引数はまずプロジェクトルート相対パスとして完全一致で
+    引き、外れたらファイル名だけで引く（ResourceCache::GetAssetID と同じ挙動。
+    同名ファイルが複数あれば最初に見つかったものを使う）。引数が文字列
+    リテラルでない場合は、静的に解決できない旨を警告する。
     """
+    # ファイル名 -> guid のフォールバック索引（同名複数なら最初の1つ）。
+    filename_to_guid = {}
+    for rel_path, guid in relpath_to_guid.items():
+        filename_to_guid.setdefault(os.path.basename(rel_path), guid)
+
     referenced_ids = set()
 
     for root, _, files in os.walk(user_project_root):
@@ -224,17 +233,17 @@ def scan_source_for_asset_references(user_project_root, relpath_to_guid):
 
                 literal_match = STRING_LITERAL_FULL_PATTERN.match(arg)
                 if not literal_match:
-                    print(f"警告: Scene::GetAsset() に文字列リテラル以外の引数が渡されています ({rel_source_path}:{line_number}) — RuntimePackager はこの Asset を自動検出できません")
+                    print(f"警告: Scene::GetAsset()/Prefab::Spawn() に文字列リテラル以外の引数が渡されています ({rel_source_path}:{line_number}) — RuntimePackager はこの Asset を自動検出できません")
                     continue
 
                 literal = literal_match.group(1)
                 literal = literal.replace('\\\\', '\\').replace('\\', '/')
 
-                asset_id = relpath_to_guid.get(literal)
+                asset_id = relpath_to_guid.get(literal) or filename_to_guid.get(os.path.basename(literal))
                 if asset_id:
                     referenced_ids.add(asset_id)
                 else:
-                    print(f"警告: Scene::GetAsset(\"{literal}\") が既知の Asset パスと一致しません ({rel_source_path}:{line_number})")
+                    print(f"警告: Scene::GetAsset()/Prefab::Spawn() の引数 \"{literal}\" が既知の Asset パスと一致しません ({rel_source_path}:{line_number})")
 
     return referenced_ids
 

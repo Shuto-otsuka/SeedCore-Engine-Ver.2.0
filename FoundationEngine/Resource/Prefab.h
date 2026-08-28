@@ -76,6 +76,79 @@ namespace SeedCore
 
 		/**
 		* [EN]
+		* Binds the process-wide World/ResourceCache that the static
+		* Spawn() overloads use. Must be called once, before any Spawn()
+		* call, alongside Scene::Initialize. Exists so gameplay scripts
+		* (SeedScript) can instantiate prefabs at runtime without
+		* threading a World/ResourceCache reference through themselves --
+		* neither is otherwise reachable from a script.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* 静的な Spawn() オーバーロードが使用する、プロセス全体の
+		* World/ResourceCache を束縛する。いずれかの Spawn() を呼ぶ前に、
+		* Scene::Initialize と並べて一度だけ呼び出す必要がある。ゲーム
+		* プレイスクリプト（SeedScript）が World/ResourceCache 参照を
+		* 自前で引き回さずにランタイムでプレハブをインスタンス化できる
+		* ようにするために存在する -- どちらもスクリプトからは他に
+		* 到達手段が無い。
+		*/
+		static void Initialize(World& world, ResourceCache& cache);
+
+		/**
+		* [EN]
+		* Loads the .prefab asset identified by assetID (via the bound
+		* ResourceCache's PrefabPool) and instantiates it in the bound
+		* World, parented under parent when given. Returns the new
+		* subtree's root Actor, or nullptr if Initialize() has not run,
+		* the asset could not be loaded, or nothing was instantiated. The
+		* new root is stamped with assetID as its source prefab, so
+		* inspector "apply to prefab" edits target the right asset.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* assetID で識別される .prefab アセットを（束縛済みの
+		* ResourceCache の PrefabPool 経由で）読み込み、束縛済みの World
+		* 内、parent が指定されていればその下へインスタンス化する。新しい
+		* サブツリーのルート Actor を返す。Initialize() が未実行、アセットを
+		* 読み込めなかった、または何もインスタンス化されなかった場合は
+		* nullptr を返す。新しいルートには assetID が元プレハブとして
+		* 刻印されるため、インスペクタの「プレハブに適用」編集が正しい
+		* アセットを対象にできる。
+		*/
+		static Actor* Spawn(Uint32 assetID, Actor* parent = nullptr);
+
+		/**
+		* [EN]
+		* Resolves name to an asset ID via the bound ResourceCache, then
+		* delegates to Spawn(Uint32, Actor*). name must include the
+		* ".prefab" extension; it is matched against asset filenames (a
+		* bare filename is enough -- the subfolder does not matter) and is
+		* not stem-matched, so "Enemy" will not find "Enemy.prefab". Pass
+		* a string literal so Tools/Python/RuntimePackager.py can
+		* statically detect the reference and bundle the asset into a
+		* package build. Logs a warning and returns nullptr if name does
+		* not resolve.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* 束縛済みの ResourceCache 経由で name をアセット ID へ解決し、
+		* Spawn(Uint32, Actor*) へ委譲する。name は ".prefab" 拡張子を
+		* 含める必要がある。アセットのファイル名と照合され（サブフォルダ
+		* は問わず、ファイル名だけで良い）、stem 一致はしないため
+		* "Enemy" では "Enemy.prefab" は見つからない。
+		* Tools/Python/RuntimePackager.py が参照を静的に検出して
+		* パッケージビルドへアセットを同梱できるよう、文字列リテラルを
+		* 渡すこと。name が解決できなければ警告をログ出力して nullptr を
+		* 返す。
+		*/
+		static Actor* Spawn(const String& name, Actor* parent = nullptr);
+
+		/**
+		* [EN]
 		* Writes this prefab's captured data to path as JSON. Returns
 		* whether the file was written successfully.
 		*
@@ -175,5 +248,13 @@ namespace SeedCore
 		/// [EN] Asset ID of the prefab this one was originally derived from, if any (0 if none).
 		/// [JP] このプレハブが元々派生した元プレハブのアセット ID（無ければ0）。
 		Uint32 basePrefabAssetID_ = 0;
+
+		/// [EN] Process-wide World bound by Initialize, used by the static Spawn() overloads. Null until Initialize() runs.
+		/// [JP] Initialize によって束縛される、プロセス全体の World。静的な Spawn() オーバーロードが使用する。Initialize() 実行までは null。
+		static World* world_;
+
+		/// [EN] Process-wide ResourceCache bound by Initialize, used to resolve prefab names/IDs and load prefab assets.
+		/// [JP] Initialize によって束縛される、プロセス全体の ResourceCache。プレハブ名/ID の解決とプレハブアセットの読み込みに使う。
+		static ResourceCache* resource_;
 	};
 }

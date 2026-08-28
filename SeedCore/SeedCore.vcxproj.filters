@@ -7,5 +7,6 @@
     <ClInclude Include="ScInput.h" />
     <ClInclude Include="ScMath.h" />
     <ClInclude Include="ScScene.h" />
+    <ClInclude Include="ScPrefab.h" />
   </ItemGroup>
 </Project>

@@ -41,6 +41,7 @@
   <ItemGroup>
     <ClInclude Include="ScInput.h" />
     <ClInclude Include="ScMath.h" />
+    <ClInclude Include="ScPrefab.h" />
     <ClInclude Include="ScScene.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">

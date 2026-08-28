@@ -2,6 +2,7 @@
 #include <FoundationEngine/Utility/Bootstrap.h>
 #include <FoundationEngine/Input/InputSystem.h>
 #include <FoundationEngine/Resource/Gateway.h>
+#include <FoundationEngine/Resource/Prefab.h>
 #include <FoundationEngine/ECS/LayerRegistry.h>
 
 #include <GraphicsEngine/D3D12/Context/D3D12CommandList.h>
@@ -68,6 +69,7 @@ namespace SeedCore
 		resource_->Async();
 
 		Scene::Initialize(*world_, *resource_, *executor_);
+		Prefab::Initialize(*world_, *resource_);
 
 		editorContext_.worldContext_.world_ = world_.get();
 		editorContext_.worldContext_.resource_ = resource_.get();
