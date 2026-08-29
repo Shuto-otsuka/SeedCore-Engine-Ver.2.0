@@ -17,6 +17,9 @@
 # コリジョン
 *.collision
 
+# マテリアル
+*.material
+
 # ナビメッシュ
 *.navmesh
 

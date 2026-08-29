@@ -1,21 +1,21 @@
-#include <GraphicsEngine/Renderer/TimelineRenderer.h>
+#include <GraphicsEngine/Renderer/MaterialRenderer.h>
 #include <GraphicsEngine/Profiler/ProfilerStats.h>
 #include <GraphicsEngine/Model/Crister.h>
 #include <GraphicsEngine/Model/ModelResource.h>
-#include <GraphicsEngine/Model/Animation/AnimationResource.h>
+#include <GraphicsEngine/Model/Material/MaterialResource.h>
 #include <GraphicsEngine/D3D12/Descriptor/BindlessHeap.h>
 #include <GraphicsEngine/D3D12/Context/D3D12CommandList.h>
 
 namespace SeedCore
 {
-	TimelineRenderer::TimelineRenderer(RootSignature& rootSignature, PipelineStateObject& pipelineStateObject) : modelShader_(rootSignature, pipelineStateObject)
+	MaterialRenderer::MaterialRenderer(RootSignature& rootSignature, PipelineStateObject& pipelineStateObject) : modelShader_(rootSignature, pipelineStateObject)
 	{
 		/// No Code
 	}
 
-	TimelineRenderer::~TimelineRenderer() = default;
+	MaterialRenderer::~MaterialRenderer() = default;
 
-	void TimelineRenderer::Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, Uint32 width, Uint32 height)
+	void MaterialRenderer::Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, Uint32 width, Uint32 height)
 	{
 		bindlessHeap_ = bindlessHeap;
 		maxInstanceCount_ = 2048;
@@ -28,16 +28,6 @@ namespace SeedCore
 
 		renderTargetViewHeap_.Create(device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 1);
 		depthStencilViewHeap_.Create(device, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 1);
-		/// [EN] optimizedClearColor* must match every Clear() call's color —
-		///      D3D12 bakes this into the resource at creation for a fast
-		///      clear path; a mismatch (e.g. this sky-blue vs. the default
-		///      gray) still clears correctly but falls back to a slower path
-		///      and emits a debug-layer warning.
-		/// [JP] optimizedClearColor*は毎回のClear()呼び出しの色と一致させる
-		///      必要がある — D3D12はリソース作成時にこれを焼き込んで高速な
-		///      クリアパスを使う。不一致(例: このスカイブルーとデフォルトの
-		///      グレー)でも正しくクリアはされるが、遅いパスにフォールバック
-		///      しデバッグレイヤーの警告が出る。
 		frameBuffer_ = MakePtr<FrameBuffer>(device, &renderTargetViewHeap_, bindlessHeap, width, height, DXGI_FORMAT_R16G16B16A16_FLOAT, &depthStencilViewHeap_, 0.45f, 0.65f, 0.9f, 1.0f);
 
 		sceneSystem_ = MakePtr<SceneSystem>(device, bindlessHeap);
@@ -46,14 +36,14 @@ namespace SeedCore
 		structuredIndicesBuffer_ = MakePtr<ConstantBuffer<StructuredIndices>>(device, bindlessHeap);
 	}
 
-	void TimelineRenderer::Resize(ID3D12Device* device, BindlessHeap* bindlessHeap, Uint32 width, Uint32 height)
+	void MaterialRenderer::Resize(ID3D12Device* device, BindlessHeap* bindlessHeap, Uint32 width, Uint32 height)
 	{
 		renderTargetViewHeap_.Create(device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 1);
 		depthStencilViewHeap_.Create(device, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 1);
 		frameBuffer_->Resize(device, bindlessHeap, width, height);
 	}
 
-	void TimelineRenderer::Gather(LoaderSystem& loaderSystem, ModelResource& modelResource, AnimationResource& animationResource, Uint32 meshAssetId, Uint32 animationAssetId, Float time, const Matrix& worldMatrix)
+	void MaterialRenderer::Gather(LoaderSystem& loaderSystem, ModelResource& modelResource, MaterialResource& materialResource, Uint32 meshAssetId, Uint32 surfaceAssetId, const Matrix& worldMatrix)
 	{
 		opaqueInstances_.clear();
 		transparentInstances_.clear();
@@ -81,61 +71,13 @@ namespace SeedCore
 		const auto& skins = crister->Skins();
 		const auto& nodes = crister->Nodes();
 
-		DynamicArray<Matrix> poseGlobalTransforms;
-		Bool hasPose = false;
-
-		if (!skins.empty() && animationAssetId != 0)
-		{
-			Handle<Animation> animationHandle = animationResource.GetHandle(animationAssetId);
-			Animation* animation = animationHandle.empty() ? nullptr : animationResource.Resolve(loaderSystem, animationHandle);
-
-			if (animation)
-			{
-				Float duration = animation->Duration();
-				Float sampleTime = duration > 0.0f ? std::fmod(time, duration) : time;
-
-				std::unordered_map<Int, Vector3> translationOverrides;
-				std::unordered_map<Int, Quaternion> rotationOverrides;
-				std::unordered_map<Int, Vector3> scaleOverrides;
-				animation->SamplePose(sampleTime, translationOverrides, rotationOverrides, scaleOverrides);
-
-				poseGlobalTransforms.resize(nodes.size(), Matrix::Identity);
-
-				std::function<void(Int, const Matrix&)> traverse = [&](Int nodeIndex, const Matrix& parentGlobal)
-					{
-						const Node& node = nodes[nodeIndex];
-
-						auto translationIt = translationOverrides.find(nodeIndex);
-						Vector3 translation = (translationIt != translationOverrides.end()) ? translationIt->second : node.translation_;
-
-						auto rotationIt = rotationOverrides.find(nodeIndex);
-						Quaternion rotation = (rotationIt != rotationOverrides.end()) ? rotationIt->second : node.rotation_;
-
-						auto scaleIt = scaleOverrides.find(nodeIndex);
-						Vector3 scale = (scaleIt != scaleOverrides.end()) ? scaleIt->second : node.scale_;
-
-						Matrix scaleMatrix = Matrix::CreateScale(scale.x, scale.y, scale.z);
-						Matrix rotationMatrix = Matrix::CreateFromQuaternion(rotation);
-						Matrix translationMatrix = Matrix::CreateTranslation(translation.x, translation.y, translation.z);
-						Matrix localTransform = scaleMatrix * rotationMatrix * translationMatrix;
-
-						Matrix global = localTransform * parentGlobal;
-						poseGlobalTransforms[nodeIndex] = global;
-
-						for (Int childIndex : node.children_)
-						{
-							traverse(childIndex, global);
-						}
-					};
-
-				for (Int rootNodeIndex : crister->Stages()[crister->DefaultStage()].nodes_)
-				{
-					traverse(rootNodeIndex, Matrix::Identity);
-				}
-
-				hasPose = true;
-			}
-		}
+		/// [EN] The one Surface the viewer selected, applied to every submesh.
+		///      Null when surfaceAssetId is 0 (or not loaded) - each submesh
+		///      then falls back to the mesh's own embedded surface.
+		/// [JP] ビューアが選択した1つの Surface。全 submesh へ適用する。
+		///      surfaceAssetId が 0(または未ロード)なら null - 各 submesh は
+		///      メッシュ内蔵の Surface へフォールバックする。
+		Surface* previewSurface = surfaceAssetId != 0 ? materialResource.Resolve(loaderSystem, materialResource.GetHandle(surfaceAssetId)) : nullptr;
 
 		Uint boneBase = 0;
 		Bool boneOverflow = false;
@@ -153,12 +95,11 @@ namespace SeedCore
 			}
 			else
 			{
-				boneBase = 0;
 				for (const Skin& skin : skins)
 				{
 					for (Size joint = 0; joint < skin.joints_.size(); joint++)
 					{
-						const Matrix& globalTransform = hasPose ? poseGlobalTransforms[skin.joints_[joint]] : nodes[skin.joints_[joint]].globalTransform_;
+						const Matrix& globalTransform = nodes[skin.joints_[joint]].globalTransform_;
 
 						if (joint < skin.inverseBindMatrices_.size())
 						{
@@ -175,7 +116,7 @@ namespace SeedCore
 
 		for (const auto& subMesh : subMeshes)
 		{
-			const Surface& material = surfaces[subMesh.surfaceIndex_];
+			const Surface& material = previewSurface ? *previewSurface : surfaces[subMesh.surfaceIndex_];
 
 			Bool skinned = subMesh.skinIndex_ >= 0 && subMesh.skinIndex_ < static_cast<Int>(skins.size()) && !boneOverflow;
 
@@ -184,12 +125,6 @@ namespace SeedCore
 				continue;
 			}
 
-			/// [EN] No CPU-side camera exists for the preview, so LOD selection
-			///      simply asks for the finest cluster and renders whatever of
-			///      the chain happens to already be resident.
-			/// [JP] プレビューにはCPU側カメラが存在しないため、LOD選択は単純に
-			///      最も精細なクラスタを要求し、チェーンのうち既に常駐している
-			///      ものだけを描画する。
 			DynamicArray<Uint32> residentClusters;
 			if (skinned)
 			{
@@ -335,7 +270,7 @@ namespace SeedCore
 		}
 	}
 
-	void TimelineRenderer::Upload()
+	void MaterialRenderer::Upload()
 	{
 		if (uploaded_)
 		{
@@ -362,17 +297,13 @@ namespace SeedCore
 		}
 	}
 
-	void TimelineRenderer::Begin(D3D12CommandList* cmdList)
+	void MaterialRenderer::Begin(D3D12CommandList* cmdList)
 	{
-		/// [EN] Sky-blue clear instead of the default flat gray, since the
-		///      preview has no skybox/background of its own.
-		/// [JP] プレビュー自体には空/背景が無いため、デフォルトのフラット
-		///      グレーではなく空色でクリアする。
 		frameBuffer_->Begin(cmdList);
 		frameBuffer_->Clear(cmdList, 0.45f, 0.65f, 0.9f, 1.0f);
 	}
 
-	void TimelineRenderer::Draw(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const SceneConstantBuffer& scene)
+	void MaterialRenderer::Draw(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const SceneConstantBuffer& scene)
 	{
 		sceneSystem_->Upload(scene);
 
@@ -409,22 +340,13 @@ namespace SeedCore
 		}
 	}
 
-	void TimelineRenderer::End(D3D12CommandList* cmdList)
+	void MaterialRenderer::End(D3D12CommandList* cmdList)
 	{
 		frameBuffer_->End(cmdList);
 	}
 
-	void TimelineRenderer::RegisterImGuiShaderResourceView(ID3D12Device* device, DescriptorHeap* imguiHeap)
+	void MaterialRenderer::RegisterImGuiShaderResourceView(ID3D12Device* device, DescriptorHeap* imguiHeap)
 	{
-		/// [EN] Called again on every resize - DescriptorHeap is a bump
-		///      allocator with no FreeIndex, so only allocate once and
-		///      reuse the same slot on every later call (see
-		///      Renderer::RegisterImGuiShaderResourceViews for the same
-		///      pattern/rationale).
-		/// [JP] リサイズのたびに再度呼ばれる - DescriptorHeap は FreeIndex を
-		///      持たない増加専用アロケータなので、最初の1回だけ確保し、以降は
-		///      同じスロットを使い回す(同じパターン/理由は
-		///      Renderer::RegisterImGuiShaderResourceViews 参照)。
 		Bool alreadyRegistered = imguiHeap_ != nullptr;
 		imguiHeap_ = imguiHeap;
 
@@ -444,7 +366,7 @@ namespace SeedCore
 		device->CreateShaderResourceView(frameBuffer_->ColorResource(), &shaderResourceViewDescription, imguiHeap->CPUHandle(imguiShaderResourceViewIndex_));
 	}
 
-	D3D12_GPU_DESCRIPTOR_HANDLE TimelineRenderer::ImGuiGPUHandle()const
+	D3D12_GPU_DESCRIPTOR_HANDLE MaterialRenderer::ImGuiGPUHandle()const
 	{
 		return imguiHeap_->GPUHandle(imguiShaderResourceViewIndex_);
 	}

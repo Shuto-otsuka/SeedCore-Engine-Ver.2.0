@@ -284,7 +284,7 @@ namespace SeedCore
 	{
 		Uint32 clusterOffset_ = 0;
 		Uint32 clusterCount_ = 0;
-		Uint32 materialIndex_ = 0;
+		Uint32 surfaceIndex_ = 0;
 		Uint32 indexOffset_ = 0;
 		Uint32 indexCount_ = 0;
 
@@ -385,7 +385,7 @@ namespace SeedCore
 		{
 			archive.Field("cluster_offset", clusterOffset_);
 			archive.Field("cluster_count", clusterCount_);
-			archive.Field("material_index", materialIndex_);
+			archive.Field("surface_index", surfaceIndex_);
 			archive.Field("index_offset", indexOffset_);
 			archive.Field("index_count", indexCount_);
 			archive.Field("skin_index", skinIndex_);
@@ -753,6 +753,7 @@ namespace SeedCore
 		Unlit = 1,
 		Phong = 2,
 		Toon = 3,
+		Lambert = 4,
 	};
 
 	/**
@@ -771,8 +772,10 @@ namespace SeedCore
 	* （Upload() 時に TextureBindlessIndex 経由で実際の bindless
 	* インデックスへ解決される）。
 	*/
-	struct Material
+	struct Surface
 	{
+		std::string name_;
+
 		Color baseColor_ = { 1,1,1,1 };
 		Float metallic_ = 0.0f;
 		Float roughness_ = 1.0f;
@@ -801,6 +804,7 @@ namespace SeedCore
 		template<class Archive>
 		void Serialize(Archive& archive)
 		{
+			archive.Field("name", name_);
 			archive.Field("base_color", baseColor_);
 			archive.Field("metallic", metallic_);
 			archive.Field("roughness", roughness_);
@@ -1130,7 +1134,7 @@ namespace SeedCore
 		DynamicArray<Cluster> clusters_;
 		DynamicArray<Stage> stages_;
 		DynamicArray<SubMesh> subMeshes_;
-		DynamicArray<Material> materials_;
+		DynamicArray<Surface> surfaces_;
 		DynamicArray<Node> nodes_;
 		DynamicArray<Skin> skins_;
 		DynamicArray<Bitmap> bitmaps_;
@@ -1180,7 +1184,7 @@ namespace SeedCore
 			archive.Field("clusters", clusters_);
 			archive.Field("stages", stages_);
 			archive.Field("sub_meshes", subMeshes_);
-			archive.Field("materials", materials_);
+			archive.Field("surfaces", surfaces_);
 			archive.Field("nodes", nodes_);
 			archive.Field("skins", skins_);
 			archive.Field("bitmaps", bitmaps_);
@@ -1579,16 +1583,16 @@ namespace SeedCore
 
 		/**
 		* [EN]
-		* Returns every Material (PBR factors + KHR_materials_* extensions +
+		* Returns every Surface (PBR factors + KHR_materials_* extensions +
 		* texture indices) parsed from the source glTF.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* ソース glTF から解析された、全 Material（PBR ファクタ +
+		* ソース glTF から解析された、全 Surface（PBR ファクタ +
 		* KHR_materials_* 拡張 + テクスチャインデックス）を返す。
 		*/
-		[[nodiscard]] const DynamicArray<Material>& Materials()const;
+		[[nodiscard]] const DynamicArray<Surface>& Surfaces()const;
 
 		/**
 		* [EN]
@@ -1763,14 +1767,14 @@ namespace SeedCore
 
 		/**
 		* [EN]
-		* Maps a glTF image index (as stored in Material) to the bindless
+		* Maps a glTF image index (as stored in Surface) to the bindless
 		* heap index of the uploaded GPU texture. Returns 0xFFFFFFFF when
 		* not present.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* glTF の image インデックス（Material に格納されている値）を、
+		* glTF の image インデックス（Surface に格納されている値）を、
 		* アップロード済み GPU テクスチャの bindless ヒープインデックスに
 		* 変換する。無ければ 0xFFFFFFFF。
 		*/

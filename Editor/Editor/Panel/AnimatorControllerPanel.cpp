@@ -1435,4 +1435,9 @@ namespace SeedCore
 			ImGui::TextDisabled("ノードを選択してください");
 		}
 	}
+
+	[[nodiscard]] Bool AnimatorControllerPanel::IsFocused()const
+	{
+		return isFocused_;
+	}
 }

@@ -118,8 +118,12 @@
     <ClInclude Include="Model\IK\IKPose.h" />
     <ClInclude Include="Model\IK\TreeFABRIK.h" />
     <ClInclude Include="Model\IK\TwoBoneIK.h" />
+    <ClInclude Include="Model\Material\Material.h" />
+    <ClInclude Include="Model\Material\MaterialLoader.h" />
     <ClInclude Include="Model\Material\MaterialResolveShader.h" />
+    <ClInclude Include="Model\Material\MaterialResource.h" />
     <ClInclude Include="Model\Material\MaterialSortBuffer.h" />
+    <ClInclude Include="Model\Material\MaterialState.h" />
     <ClInclude Include="Model\Mesh.h" />
     <ClInclude Include="Model\ModelInstanceData.h" />
     <ClInclude Include="Model\ModelLoader.h" />
@@ -181,6 +185,7 @@
     <ClInclude Include="Renderer\GlobalIlluminationRenderer.h" />
     <ClInclude Include="Renderer\HUDComposeRenderer.h" />
     <ClInclude Include="Renderer\ImageRenderer.h" />
+    <ClInclude Include="Renderer\MaterialRenderer.h" />
     <ClInclude Include="Renderer\ModelRenderer.h" />
     <ClInclude Include="Renderer\ModelTransformRenderer.h" />
     <ClInclude Include="Renderer\MovieRenderer.h" />
@@ -266,7 +271,10 @@
     <ClCompile Include="Model\IK\IKPose.cpp" />
     <ClCompile Include="Model\IK\TreeFABRIK.cpp" />
     <ClCompile Include="Model\IK\TwoBoneIK.cpp" />
+    <ClCompile Include="Model\Material\Material.cpp" />
+    <ClCompile Include="Model\Material\MaterialLoader.cpp" />
     <ClCompile Include="Model\Material\MaterialResolveShader.cpp" />
+    <ClCompile Include="Model\Material\MaterialResource.cpp" />
     <ClCompile Include="Model\Material\MaterialSortBuffer.cpp" />
     <ClCompile Include="Model\ModelCommon.cpp" />
     <ClCompile Include="Model\ModelLoader.cpp" />
@@ -404,6 +412,7 @@
     <ClCompile Include="Renderer\GlobalIlluminationRenderer.cpp" />
     <ClCompile Include="Renderer\HUDComposeRenderer.cpp" />
     <ClCompile Include="Renderer\ImageRenderer.cpp" />
+    <ClCompile Include="Renderer\MaterialRenderer.cpp" />
     <ClCompile Include="Renderer\ModelRenderer.cpp" />
     <ClCompile Include="Renderer\ModelTransformRenderer.cpp" />
     <ClCompile Include="Renderer\MovieRenderer.cpp" />

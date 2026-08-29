@@ -18,6 +18,7 @@ namespace SeedCore
 		modelLoader_ = MakePtr<ModelLoader>();
 		animationLoader_ = MakePtr<AnimationLoader>();
 		meshCollisionLoader_ = MakePtr<MeshCollisionLoader>();
+		materialLoader_ = MakePtr<MaterialLoader>();
 		skymapLoader_ = MakePtr<SkymapLoader>();
 		effekseerLoader_ = MakePtr<EffekseerLoader>();
 	}

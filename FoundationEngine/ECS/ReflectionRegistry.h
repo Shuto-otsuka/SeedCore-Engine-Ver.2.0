@@ -117,6 +117,10 @@ namespace SeedCore
 		/// [JP] 焼き込み済みの衝突ジオメトリアセット（.collision）。
 		MeshCollision,
 
+		/// [EN] Standalone material asset (.material).
+		/// [JP] 単体マテリアルアセット（.material）。
+		Material,
+
 		/// [EN] Sky asset.
 		/// [JP] スカイアセット。
 		Sky,

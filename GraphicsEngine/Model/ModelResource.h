@@ -45,26 +45,55 @@ namespace SeedCore
 
 		/**
 		* [EN]
-		* Bakes a ".collision" sibling for the model asset assetId at the
-		* given detail, overwriting any existing one, and returns whether it
-		* succeeded. The model is loaded first if it is not already resident.
-		* Proxy writes "<name>.proxy.collision", Exact "<name>.exact.collision"
-		* -- each becomes its own AssetType::MeshCollision asset on the next
-		* ResourceCache scan. Invoked from the content drawer's "コリジョン生成"
-		* asset action; models no longer auto-derive collision on load.
+		* Bakes a ".collision" file for the model asset assetId at the given
+		* detail into a "<model stem>.Collisions/" sibling folder, overwriting
+		* any existing one, and returns whether it succeeded. The model is
+		* loaded first if it is not already resident. Proxy writes
+		* "proxy.collision", Exact "exact.collision" -- each becomes its own
+		* AssetType::MeshCollision asset on the next ResourceCache scan.
+		* Invoked from the content drawer's "コリジョン生成" asset action;
+		* models no longer auto-derive collision on load.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
 		* モデルアセット assetId に対して、指定した detail の ".collision"
-		* 兄弟ファイルをベイクし（既存があれば上書き）、成否を返す。モデルが
-		* 未常駐なら先にロードする。Proxy は "<名前>.proxy.collision"、Exact は
-		* "<名前>.exact.collision" を書き出し、それぞれ次回の ResourceCache
-		* スキャンで個別の AssetType::MeshCollision アセットになる。コンテンツ
-		* ドロワーの「コリジョン生成」アセットアクションから呼ばれる。モデルは
+		* ファイルを "<モデル名>.Collisions/" 兄弟フォルダへベイクし（既存が
+		* あれば上書き）、成否を返す。モデルが未常駐なら先にロードする。
+		* Proxy は "proxy.collision"、Exact は "exact.collision" を書き出し、
+		* それぞれ次回の ResourceCache スキャンで個別の
+		* AssetType::MeshCollision アセットになる。コンテンツドロワーの
+		* 「コリジョン生成」アセットアクションから呼ばれる。モデルは
 		* ロード時に衝突を自動生成しなくなった。
 		*/
 		Bool GenerateCollision(LoaderSystem& loader, ID3D12Device* device, D3D12CommandQueue* cmdQueue, BindlessHeap* heap, BC7CompressShader& bc7Shader, ResourceCache& cache, Uint32 assetId, MeshCollisionDetail detail);
+
+		/**
+		* [EN]
+		* Writes one ".material" sibling file per Crister material slot into
+		* "<model dir>/<model stem>.Materials/", named after each Material's
+		* name_. The model is loaded first if not already resident. When
+		* overwrite is false, slots whose file already exists are left alone
+		* (import-time extraction); when true every file is rewritten from the
+		* current embedded material (the content drawer's "マテリアル抽出"
+		* asset action). The written files become AssetType::Material assets
+		* on the next ResourceCache scan. Returns false when the model has no
+		* materials or a write failed.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* Crister のマテリアルスロット1つにつき1つの ".material" 兄弟ファイルを
+		* "<モデルのディレクトリ>/<モデル名>.Materials/" へ、各 Material の
+		* name_ を名前にして書き出す。モデルが未常駐なら先にロードする。
+		* overwrite が false のとき、既にファイルが存在するスロットはそのまま
+		* にする（インポート時抽出）。true のときは現在の内蔵マテリアルから
+		* 全ファイルを書き直す（コンテンツドロワーの「マテリアル抽出」
+		* アセットアクション）。書き出したファイルは次回の ResourceCache
+		* スキャンで AssetType::Material アセットになる。モデルにマテリアルが
+		* 無い、または書き込みに失敗した場合は false を返す。
+		*/
+		Bool GenerateMaterial(LoaderSystem& loader, ID3D12Device* device, D3D12CommandQueue* cmdQueue, BindlessHeap* heap, BC7CompressShader& bc7Shader, ResourceCache& cache, Uint32 assetId, Bool overwrite);
 
 		/**
 		* [EN]

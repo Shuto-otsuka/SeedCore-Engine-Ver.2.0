@@ -341,17 +341,17 @@ namespace SeedCore
 		///      no material (gltfPrimitive.material == -1). Per the glTF spec this
 		///      is a valid state that must fall back to a default material, not be
 		///      reinterpreted as an index: assigning -1 directly into the Uint32
-		///      materialIndex_ would wrap to 0xFFFFFFFF and cause an out-of-bounds
+		///      surfaceIndex_ would wrap to 0xFFFFFFFF and cause an out-of-bounds
 		///      read in ModelRenderer/TimelineRenderer/ModelTransformRenderer's
-		///      materials[subMesh.materialIndex_].
+		///      surfaces[subMesh.surfaceIndex_].
 		/// [JP] プリミティブがマテリアルを持たない場合（gltfPrimitive.material == -1）
 		///      に使う、遅延生成の共有デフォルトマテリアル。glTF 仕様上これは正当な
 		///      状態でありデフォルトマテリアルへフォールバックすべきで、そのまま
-		///      インデックスとして解釈してはならない: -1 を Uint32 の materialIndex_
+		///      インデックスとして解釈してはならない: -1 を Uint32 の surfaceIndex_
 		///      にそのまま代入すると 0xFFFFFFFF にラップし、
 		///      ModelRenderer/TimelineRenderer/ModelTransformRenderer の
-		///      materials[subMesh.materialIndex_] で範囲外アクセスを引き起こす。
-		Int defaultMaterialIndex = -1;
+		///      surfaces[subMesh.surfaceIndex_] で範囲外アクセスを引き起こす。
+		Int defaultSurfaceIndex = -1;
 
 		for (Size meshIndex = 0; meshIndex < model.meshes.size(); meshIndex++)
 		{
@@ -362,16 +362,16 @@ namespace SeedCore
 				subMesh.meshIndex_ = static_cast<Int>(meshIndex);
 				if (gltfPrimitive.material >= 0)
 				{
-					subMesh.materialIndex_ = static_cast<Uint32>(gltfPrimitive.material);
+					subMesh.surfaceIndex_ = static_cast<Uint32>(gltfPrimitive.material);
 				}
 				else
 				{
-					if (defaultMaterialIndex < 0)
+					if (defaultSurfaceIndex < 0)
 					{
-						defaultMaterialIndex = static_cast<Int>(crister.materials_.size());
-						crister.materials_.emplace_back();
+						defaultSurfaceIndex = static_cast<Int>(crister.surfaces_.size());
+						crister.surfaces_.emplace_back();
 					}
-					subMesh.materialIndex_ = static_cast<Uint32>(defaultMaterialIndex);
+					subMesh.surfaceIndex_ = static_cast<Uint32>(defaultSurfaceIndex);
 				}
 
 				Uint32 vertexOffset = static_cast<Uint32>(crister.vertices_.size());
@@ -763,7 +763,10 @@ namespace SeedCore
 	{
 		for (const tinygltf::Material& gltfMaterial : model.materials)
 		{
-			Material& material = crister.materials_.emplace_back();
+			Surface& material = crister.surfaces_.emplace_back();
+
+			Size materialIndex = crister.surfaces_.size() - 1;
+			material.name_ = gltfMaterial.name.empty() ? ("Material_" + std::to_string(materialIndex)) : gltfMaterial.name;
 
 			const auto& pbr = gltfMaterial.pbrMetallicRoughness;
 			material.baseColor_ = Color(static_cast<Float>(pbr.baseColorFactor[0]), static_cast<Float>(pbr.baseColorFactor[1]), static_cast<Float>(pbr.baseColorFactor[2]), static_cast<Float>(pbr.baseColorFactor[3]));

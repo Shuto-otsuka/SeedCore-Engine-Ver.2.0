@@ -148,9 +148,9 @@ namespace SeedCore
 				{
 					boneControllerRequested_ = true;
 				}
-				if (ImGui::MenuItem("マテリアル"))
+				if (ImGui::MenuItem("マテリアルビューア"))
 				{
-					materialRequested_ = true;
+					materialViewerRequested_ = true;
 				}
 				if (ImGui::MenuItem("モデル変換"))
 				{
@@ -375,11 +375,11 @@ namespace SeedCore
 		return false;
 	}
 
-	Bool MenuBarPanel::ConsumeMaterialRequest()
+	Bool MenuBarPanel::ConsumeMaterialViewerRequest()
 	{
-		if (materialRequested_)
+		if (materialViewerRequested_)
 		{
-			materialRequested_ = false;
+			materialViewerRequested_ = false;
 			return true;
 		}
 		return false;

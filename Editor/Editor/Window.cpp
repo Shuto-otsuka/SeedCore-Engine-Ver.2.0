@@ -95,7 +95,7 @@ namespace SeedCore
 		return false;
 	}
 
-	void Window::RestoreAccessibilitySettings()
+	void Window::RestoreAccessibility()
 	{
 		SystemParametersInfo(SPI_SETSTICKYKEYS, sizeof(STICKYKEYS), &originalStickyKeys_, 0);
 		SystemParametersInfo(SPI_SETTOGGLEKEYS, sizeof(TOGGLEKEYS), &originalToggleKeys_, 0);
@@ -131,7 +131,7 @@ namespace SeedCore
 		}
 		case WM_DESTROY:
 		{
-			RestoreAccessibilitySettings();
+			RestoreAccessibility();
 			PostQuitMessage(0);
 		}
 		break;
@@ -163,16 +163,6 @@ namespace SeedCore
 		break;
 		case WM_SETFOCUS:
 		{
-			/// [EN] Regaining focus after a modal (e.g. the native file-open
-			///      dialog used by scene load) can leave modifier keys stuck
-			///      "down" in ImGui, because their KeyUp was delivered to the
-			///      modal, not us. A stuck Shift/Ctrl breaks ImGui mouse-wheel
-			///      scrolling. Clear ImGui's key state on focus gain to resync.
-			/// [JP] モーダル（シーン読み込みのネイティブファイルダイアログ等）から
-			///      フォーカスが戻ると、修飾キーの KeyUp がモーダルに吸われて
-			///      ImGui 側でキーが「押しっぱなし」で固着することがある。Shift/Ctrl
-			///      が固着すると ImGui のホイールスクロールが壊れるため、フォーカス
-			///      復帰時に ImGui のキー状態をクリアして再同期する。
 			ImGuiRenderer::ClearInputKeys();
 		}
 		break;

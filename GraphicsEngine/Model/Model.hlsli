@@ -54,6 +54,7 @@ struct ModelMeshletBound
 #define SHADING_MODEL_UNLIT 1
 #define SHADING_MODEL_PHONG 2
 #define SHADING_MODEL_TOON 3
+#define SHADING_MODEL_LAMBERT 4
 
 struct ModelInstance
 {

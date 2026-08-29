@@ -37,6 +37,7 @@ namespace SeedCore
 		load(IconType::Sky,           "Asset", "Sky");
 		load(IconType::Animation,     "Asset", "Animation");
 		load(IconType::MeshCollision, "Asset", "MeshCollision");
+		load(IconType::Material,      "Asset", "Material");
 		load(IconType::Movie,         "Asset", "Movie");
 
 		load(IconType::Text,   "Asset", "Text");

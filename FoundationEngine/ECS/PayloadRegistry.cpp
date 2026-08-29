@@ -10,6 +10,7 @@
 #pragma comment(linker, "/include:_force_payload_SkyLight")
 #pragma comment(linker, "/include:_force_payload_Mesh")
 #pragma comment(linker, "/include:_force_payload_Animator")
+#pragma comment(linker, "/include:_force_payload_Material")
 #pragma comment(linker, "/include:_force_payload_Movie")
 #pragma comment(linker, "/include:_force_payload_Image")
 #pragma comment(linker, "/include:_force_payload_MeshCollider")

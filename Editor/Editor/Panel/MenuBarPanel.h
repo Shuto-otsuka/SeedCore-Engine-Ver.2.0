@@ -38,7 +38,7 @@ namespace SeedCore
 
 		Bool ConsumeBoneControllerRequest();
 
-		Bool ConsumeMaterialRequest();
+		Bool ConsumeMaterialViewerRequest();
 
 		Bool ConsumeModelTransformRequest();
 
@@ -82,7 +82,7 @@ namespace SeedCore
 		Bool animatorControllerRequested_ = false;
 		Bool timelineRequested_ = false;
 		Bool boneControllerRequested_ = false;
-		Bool materialRequested_ = false;
+		Bool materialViewerRequested_ = false;
 		Bool modelTransformRequested_ = false;
 
 		GraphicsMenuPanel graphicsMenuPanel_;

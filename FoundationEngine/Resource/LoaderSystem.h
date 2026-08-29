@@ -6,6 +6,7 @@
 #include <GraphicsEngine/Model/ModelLoader.h>
 #include <GraphicsEngine/Model/Animation/AnimationLoader.h>
 #include <GraphicsEngine/Model/Collision/MeshCollisionLoader.h>
+#include <GraphicsEngine/Model/Material/MaterialLoader.h>
 #include <GraphicsEngine/Sky/SkymapLoader.h>
 #include <GraphicsEngine/Effect/Effekseer/EffekseerLoader.h>
 
@@ -46,6 +47,10 @@ namespace SeedCore
 		/// [EN] Loads and bakes mesh collision geometry.
 		/// [JP] 衝突ジオメトリを読み込み、焼き込む。
 		ResourcePtr<MeshCollisionLoader> meshCollisionLoader_;
+
+		/// [EN] Loads and saves standalone ".material" assets.
+		/// [JP] 単体 ".material" アセットの読み書きを行う。
+		ResourcePtr<MaterialLoader> materialLoader_;
 
 		/// [EN] Loads skybox/environment map assets.
 		/// [JP] スカイボックス/環境マップアセットを読み込む。

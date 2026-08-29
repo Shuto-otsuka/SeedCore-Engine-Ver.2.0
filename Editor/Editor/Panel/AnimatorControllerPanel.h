@@ -26,7 +26,7 @@ namespace SeedCore
 
 		void DrawDetails();
 
-		[[nodiscard]] Bool IsFocused()const { return isFocused_; }
+		[[nodiscard]] Bool IsFocused()const;
 
 	private:
 		void DrawNodeEditor();

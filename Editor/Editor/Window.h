@@ -20,7 +20,7 @@ namespace SeedCore
 
 		Bool ConsumeCloseRequested();
 
-		void RestoreAccessibilitySettings();
+		void RestoreAccessibility();
 
 	private:
 		static LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);

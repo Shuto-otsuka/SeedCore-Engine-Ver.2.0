@@ -59,10 +59,10 @@ namespace SeedCore
 	};
 
 	/// [EN] Mirrors Reflection.hlsli's ReflectionMaterialData — one entry per
-	///      material slot in a mesh's Crister::Materials() list. Uploaded once
+	///      material slot in a mesh's Crister::Surfaces() list. Uploaded once
 	///      per unique Crister (RaytracingRenderer::BuildReflectionMaterialTable).
 	/// [JP] Reflection.hlsli の ReflectionMaterialData と対応。メッシュの
-	///      Crister::Materials() 一覧のマテリアル1枠につき1エントリ。ユニークな
+	///      Crister::Surfaces() 一覧のマテリアル1枠につき1エントリ。ユニークな
 	///      Crister ごとに一度だけアップロードする
 	///      (RaytracingRenderer::BuildReflectionMaterialTable)。
 	struct ReflectionMaterialData
@@ -127,20 +127,20 @@ namespace SeedCore
 		/// [EN] Bindless SRV of StructuredBuffer<uint>, one entry per triangle,
 		///      mapping PrimitiveIndex() to an index into materialDataIndex_'s
 		///      array. Built once per unique Crister from each SubMesh's
-		///      materialIndex_ / indexOffset_ / indexCount_ - a multi-material
+		///      surfaceIndex_ / indexOffset_ / indexCount_ - a multi-material
 		///      mesh (e.g. a Cornell box modeled as one Crister with a
 		///      red/green/white wall per submesh) needs this: using only
-		///      Materials()[0] for the whole instance made every ray-traced
+		///      Surfaces()[0] for the whole instance made every ray-traced
 		///      bounce off such a mesh come back the same single colour
 		///      regardless of which wall it actually hit, silently killing
 		///      color bleeding.
 		/// [JP] StructuredBuffer<uint> の bindless SRV。三角形1つにつき1要素で、
 		///      PrimitiveIndex() を materialDataIndex_ の配列インデックスへ
 		///      対応付ける。ユニークな Crister ごとに一度だけ、各 SubMesh の
-		///      materialIndex_ / indexOffset_ / indexCount_ から構築する —
+		///      surfaceIndex_ / indexOffset_ / indexCount_ から構築する —
 		///      複数マテリアルのメッシュ(例: 赤/緑/白の壁をサブメッシュに持つ
 		///      1つの Crister で作った Cornell box)にはこれが必須: インスタンス
-		///      全体で Materials()[0] だけを使っていたときは、そのメッシュに
+		///      全体で Surfaces()[0] だけを使っていたときは、そのメッシュに
 		///      当たったレイトレのバウンスが、実際にどの壁に当たったかに
 		///      関わらず全部同じ1色で返ってきており、色滲みが黙って死んでいた。
 		Uint32 triangleMaterialIndexBufferIndex_ = 0;

@@ -12,6 +12,7 @@
 #include <FoundationEngine/Resource/LoaderSystem.h>
 #include <GraphicsEngine/Movie/MovieResource.h>
 #include <GraphicsEngine/Texture/ImageResource.h>
+#include <GraphicsEngine/Model/Material/MaterialResource.h>
 #include <GraphicsEngine/D3D12/SwapChain/GraphicsResolution.h>
 
 namespace SeedCore
@@ -31,6 +32,7 @@ namespace SeedCore
 		skyRenderer_ = MakePtr<SkyRenderer>();
 		timelineRenderer_ = MakePtr<TimelineRenderer>(rootSignature_, pipelineStateObject_);
 		modelTransformRenderer_ = MakePtr<ModelTransformRenderer>(rootSignature_, pipelineStateObject_);
+		materialRenderer_ = MakePtr<MaterialRenderer>(rootSignature_, pipelineStateObject_);
 		effekseerRenderer_ = MakePtr<EffekseerRenderer>();
 		postProcessRenderer_ = MakePtr<PostProcessRenderer>(rootSignature_, pipelineStateObject_);
 		dlssRayReconstructionRenderer_ = MakePtr<DlssRayReconstructionRenderer>(rootSignature_, pipelineStateObject_);
@@ -112,6 +114,7 @@ namespace SeedCore
 		skyRenderer_->Create(device, bindlessHeap, shaderCache, rootSignature_, pipelineStateObject_);
 		timelineRenderer_->Create(device, bindlessHeap, shaderCache, width, height);
 		modelTransformRenderer_->Create(device, bindlessHeap, shaderCache, width, height);
+		materialRenderer_->Create(device, bindlessHeap, shaderCache, width, height);
 		postProcessRenderer_->Create(device, bindlessHeap, shaderCache, width, height, width, height);
 		dlssRayReconstructionRenderer_->Create(device, bindlessHeap, shaderCache, *indicesSystem_, width, height, width, height);
 		taauUpsamplingRenderer_->Create(device, bindlessHeap, shaderCache, width, height);
@@ -174,6 +177,7 @@ namespace SeedCore
 		raytracingRenderer_->Resize(device, bindlessHeap, nativeWidth, nativeHeight);
 		timelineRenderer_->Resize(device, bindlessHeap, nativeWidth, nativeHeight);
 		modelTransformRenderer_->Resize(device, bindlessHeap, nativeWidth, nativeHeight);
+		materialRenderer_->Resize(device, bindlessHeap, nativeWidth, nativeHeight);
 		postProcessRenderer_->Resize(device, bindlessHeap, nativeWidth, nativeHeight, outputWidth, outputHeight);
 		dlssRayReconstructionRenderer_->Resize(device, bindlessHeap, *indicesSystem_, nativeWidth, nativeHeight, outputWidth, outputHeight);
 		taauUpsamplingRenderer_->Resize(device, bindlessHeap, outputWidth, outputHeight);
@@ -378,6 +382,16 @@ namespace SeedCore
 		modelTransformRenderer_->End(cmdList);
 	}
 
+	void Renderer::BeginMaterialFrame(D3D12CommandList* cmdList)
+	{
+		materialRenderer_->Begin(cmdList);
+	}
+
+	void Renderer::EndMaterialFrame(D3D12CommandList* cmdList)
+	{
+		materialRenderer_->End(cmdList);
+	}
+
 	void Renderer::GatherScenePreview(LoaderSystem& loaderSystem, ResourceCache& resourceCache, World& world, const SceneConstantBuffer& scene, const DynamicArray<ColliderInstance>& colliderInstances, Entity selectedEntity)
 	{
 		colliderRenderer_->Clear();
@@ -389,8 +403,9 @@ namespace SeedCore
 		constraintSystem_.Execute(world);
 
 		ModelResource* modelResource = resourceCache.GetModelResource();
+		MaterialResource* materialResource = resourceCache.GetMaterialResource();
 		AnimationResource* animationResource = resourceCache.GetAnimationResource();
-		modelRenderer_->Gather(loaderSystem, *modelResource, *animationResource, world, scene, selectedEntity);
+		modelRenderer_->Gather(loaderSystem, *modelResource, *materialResource, *animationResource, world, scene, selectedEntity);
 		raytracingRenderer_->Gather(loaderSystem, *modelResource, world, *modelRenderer_);
 
 		ImageResource* imageResource = resourceCache.GetImageResource();
@@ -429,6 +444,13 @@ namespace SeedCore
 		ModelResource* modelResource = resourceCache.GetModelResource();
 		AnimationResource* animationResource = resourceCache.GetAnimationResource();
 		modelTransformRenderer_->Gather(loaderSystem, *modelResource, *animationResource, meshAssetId, animationAssetId, time, worldMatrix);
+	}
+
+	void Renderer::GatherMaterialPreview(LoaderSystem& loaderSystem, ResourceCache& resourceCache, Uint32 meshAssetId, Uint32 surfaceAssetId, const Matrix& worldMatrix)
+	{
+		ModelResource* modelResource = resourceCache.GetModelResource();
+		MaterialResource* materialResource = resourceCache.GetMaterialResource();
+		materialRenderer_->Gather(loaderSystem, *modelResource, *materialResource, meshAssetId, surfaceAssetId, worldMatrix);
 	}
 
 	void Renderer::Raytracing(const RaytracingContext& settings)
@@ -958,6 +980,14 @@ namespace SeedCore
 		modelTransformRenderer_->Draw(cmdList, heap, scene);
 	}
 
+	void Renderer::MaterialFlush(D3D12CommandList* cmdList, const SceneConstantBuffer& scene)
+	{
+		ID3D12DescriptorHeap* heap = bindlessHeap_->Heap();
+
+		materialRenderer_->Upload();
+		materialRenderer_->Draw(cmdList, heap, scene);
+	}
+
 	FrameBuffer* Renderer::GetEditorFrameBuffer()const
 	{
 		return editorFrameBuffer_.get();
@@ -1044,6 +1074,7 @@ namespace SeedCore
 
 		timelineRenderer_->RegisterImGuiShaderResourceView(device, imguiHeap);
 		modelTransformRenderer_->RegisterImGuiShaderResourceView(device, imguiHeap);
+		materialRenderer_->RegisterImGuiShaderResourceView(device, imguiHeap);
 	}
 
 	void Renderer::RefreshImGui(RaytracingView view)
@@ -1086,5 +1117,10 @@ namespace SeedCore
 	D3D12_GPU_DESCRIPTOR_HANDLE Renderer::ModelTransformImGuiGPUHandle()const
 	{
 		return modelTransformRenderer_->ImGuiGPUHandle();
+	}
+
+	D3D12_GPU_DESCRIPTOR_HANDLE Renderer::MaterialImGuiGPUHandle()const
+	{
+		return materialRenderer_->ImGuiGPUHandle();
 	}
 }

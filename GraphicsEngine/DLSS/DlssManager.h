@@ -119,9 +119,13 @@ namespace SeedCore
 #if !SC_RENDER_DOC_USAGE
 	inline void ScDlssErrorCallback(sl::LogType type, const Char* message)
 	{
+		if (type != sl::LogType::eError)
+		{
+			return;
+		}
+
 		Char buffer[512];
-		const Char* prefix = (type == sl::LogType::eError) ? "DLSS Error" : "DLSS Info";
-		wsprintfA(buffer, "[%s]: %s\n", prefix, message);
+		wsprintfA(buffer, "[DLSS Error]: %s\n", message);
 		OutputDebugStringA(buffer);
 	}
 #endif

@@ -94,8 +94,10 @@ namespace SeedCore
 
 		PreviewCamera timelineCamera_;
 		PreviewCamera modelTransformCamera_;
+		PreviewCamera materialCamera_;
 		PreviewCameraController timelineCameraController_;
 		PreviewCameraController modelTransformCameraController_;
+		PreviewCameraController materialCameraController_;
 
 		WeatherSystem weatherSystem_;
 	};

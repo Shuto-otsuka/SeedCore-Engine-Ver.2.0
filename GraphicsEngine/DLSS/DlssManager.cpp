@@ -82,7 +82,7 @@ namespace SeedCore
 		preference.logMessageCallback = ScDlssErrorCallback;
 		preference.featuresToLoad = features;
 		preference.numFeaturesToLoad = static_cast<Uint32>(std::size(features));
-     	preference.engine = sl::EngineType::eCustom;
+		preference.engine = sl::EngineType::eCustom;
 		preference.engineVersion = "2.0";
 		preference.projectId = SC_ENCRYPTION_KEY_SEED;
 		preference.renderAPI = sl::RenderAPI::eD3D12;

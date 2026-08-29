@@ -2,6 +2,7 @@
 #include <Editor/Editor/EditorContext.h>
 #include <Editor/Editor/ImGui/ImGuiTexture.h>
 #include <Editor/Editor/ImGui/ImGuiRenderer.h>
+#include <Editor/Editor/Panel/MaterialViewerPanel.h>
 #include <FoundationEngine/Resource/ResourceCache.h>
 #include <FoundationEngine/Resource/Prefab.h>
 #include <FoundationEngine/ECS/Actor.h>
@@ -702,6 +703,8 @@ namespace SeedCore
 			return imguiTexture_.Icon(IconType::Animation);
 		case AssetType::MeshCollision:
 			return imguiTexture_.Icon(IconType::MeshCollision);
+		case AssetType::Material:
+			return imguiTexture_.Icon(IconType::Material);
 		case AssetType::Movie:
 			return imguiTexture_.Icon(IconType::Movie);
 		case AssetType::Prefab:
@@ -827,6 +830,12 @@ namespace SeedCore
 			return;
 		}
 
+		if (asset.type_ == AssetType::Material)
+		{
+			context_.panelContext_.materialViewerPanel_->Open();
+			return;
+		}
+
 		std::wstring widePath = asset.fullpath_.w_str();
 		ShellExecuteW(NULL, L"open", widePath.c_str(), NULL, NULL, SW_SHOWNORMAL);
 	}
@@ -851,6 +860,8 @@ namespace SeedCore
 			return "ASSET_ANIMATION";
 		case AssetType::MeshCollision:
 			return "ASSET_MESHCOLLISION";
+		case AssetType::Material:
+			return "ASSET_MATERIAL";
 		case AssetType::Skymap:
 			return "ASSET_SKY";
 		case AssetType::Prefab:
@@ -984,6 +995,12 @@ namespace SeedCore
 					ImGui::CloseCurrentPopup();
 				}
 
+				if (ImGui::MenuItem("マテリアル生成"))
+				{
+					GenerateMaterial(asset);
+					ImGui::CloseCurrentPopup();
+				}
+
 				ImGui::EndMenu();
 			}
 
@@ -1053,6 +1070,25 @@ namespace SeedCore
 		needsRebuild_ = true;
 
 		SC_LOG_NOTICE("ContentsDrawerPanel: コリジョンを生成しました: {}", asset.path_.c_str());
+	}
+
+	void ContentsDrawerPanel::GenerateMaterial(const Asset& asset)
+	{
+		D3D12Context* d3d12Context = context_.graphicsContext_.graphics_->GetContext();
+
+		Bool written = context_.worldContext_.resource_->GetModelResource()->GenerateMaterial(*context_.worldContext_.loader_, d3d12Context->GetDevice(), d3d12Context->GetDirectQueue(), context_.graphicsContext_.graphics_->GetBindlessHeap(), context_.graphicsContext_.graphics_->GetBC7CompressShader(), *context_.worldContext_.resource_, asset.assetID_, true);
+		if (!written)
+		{
+			SC_LOG_WARNING("ContentsDrawerPanel: マテリアル生成に失敗しました: {}", asset.path_.c_str());
+			return;
+		}
+
+		/// [EN] Rescan so the just-written ".material" siblings are picked up as their own assets, and rebuild the tree so they show in the panel.
+		/// [JP] 書き出した ".material" 兄弟を個別アセットとして拾えるよう再スキャンし、パネルに出るようツリーを再構築する。
+		context_.worldContext_.resource_->Reload(*context_.worldContext_.loader_, d3d12Context->GetDevice(), d3d12Context->GetDirectQueue(), context_.graphicsContext_.graphics_->GetBC7CompressShader());
+		needsRebuild_ = true;
+
+		SC_LOG_NOTICE("ContentsDrawerPanel: マテリアルを生成しました: {}", asset.path_.c_str());
 	}
 
 	void ContentsDrawerPanel::DrawBackgroundContextMenu()

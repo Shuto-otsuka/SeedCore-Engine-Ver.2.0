@@ -29,6 +29,7 @@
 #include <GraphicsEngine/Renderer/SkyRenderer.h>
 #include <GraphicsEngine/Renderer/TimelineRenderer.h>
 #include <GraphicsEngine/Renderer/ModelTransformRenderer.h>
+#include <GraphicsEngine/Renderer/MaterialRenderer.h>
 #include <GraphicsEngine/Renderer/EffekseerRenderer.h>
 #include <GraphicsEngine/Renderer/PostProcessRenderer.h>
 #include <GraphicsEngine/D3D12/Buffer/HudlessBuffer.h>
@@ -80,12 +81,18 @@ namespace SeedCore
 
 		void EndModelTransformFrame(D3D12CommandList* cmdList);
 
+		void BeginMaterialFrame(D3D12CommandList* cmdList);
+
+		void EndMaterialFrame(D3D12CommandList* cmdList);
+
 	public:
 		void GatherScenePreview(LoaderSystem& loaderSystem, ResourceCache& resourceCache, World& world, const SceneConstantBuffer& scene, const DynamicArray<ColliderInstance>& colliderInstances, Entity selectedEntity = Entity::Null());
 
 		void GatherTimelinePreview(LoaderSystem& loaderSystem, ResourceCache& resourceCache, Uint32 meshAssetId, Uint32 animationAssetId, Float time, const Matrix& worldMatrix);
 
 		void GatherModelTransformPreview(LoaderSystem& loaderSystem, ResourceCache& resourceCache, Uint32 meshAssetId, Uint32 animationAssetId, Float time, const Matrix& worldMatrix);
+
+		void GatherMaterialPreview(LoaderSystem& loaderSystem, ResourceCache& resourceCache, Uint32 meshAssetId, Uint32 surfaceAssetId, const Matrix& worldMatrix);
 
 	public:
 		void Raytracing(const RaytracingContext& settings);
@@ -102,6 +109,8 @@ namespace SeedCore
 		void TimelineFlush(D3D12CommandList* cmdList, const SceneConstantBuffer& scene);
 
 		void ModelTransformFlush(D3D12CommandList* cmdList, const SceneConstantBuffer& scene);
+
+		void MaterialFlush(D3D12CommandList* cmdList, const SceneConstantBuffer& scene);
 
 	public:
 		[[nodiscard]] const GpuProfiler& GetGpuProfiler()const;
@@ -130,6 +139,8 @@ namespace SeedCore
 		[[nodiscard]] D3D12_GPU_DESCRIPTOR_HANDLE TimelineImGuiGPUHandle()const;
 
 		[[nodiscard]] D3D12_GPU_DESCRIPTOR_HANDLE ModelTransformImGuiGPUHandle()const;
+
+		[[nodiscard]] D3D12_GPU_DESCRIPTOR_HANDLE MaterialImGuiGPUHandle()const;
 
 	private:
 		void RefreshImGui(RaytracingView view);
@@ -169,6 +180,7 @@ namespace SeedCore
 		ResourcePtr<TimelineRenderer> timelineRenderer_;
 
 		ResourcePtr<ModelTransformRenderer> modelTransformRenderer_;
+		ResourcePtr<MaterialRenderer> materialRenderer_;
 
 		ResourcePtr<EffekseerRenderer> effekseerRenderer_;
 

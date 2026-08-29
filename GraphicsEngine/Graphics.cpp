@@ -361,6 +361,36 @@ namespace SeedCore
 		renderer_->EndModelTransformFrame(context_->GetDirectList());
 	}
 
+	void Graphics::MaterialRender(WorldTimer& timer, const PreviewCamera& materialCamera, LoaderSystem& loaderSystem, ResourceCache& resourceCache, Uint32 meshAssetId, Uint32 surfaceAssetId, const Matrix& worldMatrix)
+	{
+		renderer_->GatherMaterialPreview(loaderSystem, resourceCache, meshAssetId, surfaceAssetId, worldMatrix);
+
+		SceneConstantBuffer previewSceneConstantBuffer{};
+		previewSceneConstantBuffer.view_ = materialCamera.View();
+		previewSceneConstantBuffer.inverseView_ = materialCamera.InverseView();
+		previewSceneConstantBuffer.projection_ = materialCamera.Projection();
+		previewSceneConstantBuffer.inverseProjection_ = materialCamera.InverseProjection();
+		previewSceneConstantBuffer.nonJitterProjection_ = materialCamera.NonJitterProjection();
+		previewSceneConstantBuffer.currentViewProjection_ = materialCamera.CurrentViewProjection();
+		previewSceneConstantBuffer.previousViewProjection_ = materialCamera.PreviousViewProjection();
+		previewSceneConstantBuffer.inverseViewProjection_ = materialCamera.InverseViewProjection();
+		previewSceneConstantBuffer.nonJitterViewProjection_ = materialCamera.NonJitterViewProjection();
+		previewSceneConstantBuffer.cameraPosition_ = Vector4(materialCamera.Eye().x, materialCamera.Eye().y, materialCamera.Eye().z, 1.0f);
+		previewSceneConstantBuffer.cameraFocus_ = Vector4(materialCamera.Focus().x, materialCamera.Focus().y, materialCamera.Focus().z, 1.0f);
+		previewSceneConstantBuffer.fieldOfView_ = materialCamera.Fov();
+		previewSceneConstantBuffer.nearPlane_ = materialCamera.Near();
+		previewSceneConstantBuffer.farPlane_ = materialCamera.Far();
+		previewSceneConstantBuffer.totalTime_ = timer.TotalTime();
+		previewSceneConstantBuffer.deltaTime_ = timer.DeltaTime();
+		previewSceneConstantBuffer.screenSize_ = Vector2(static_cast<Float>(nativeWidth_), static_cast<Float>(nativeHeight_));
+		previewSceneConstantBuffer.inverseScreenSize_ = Vector2(1.0f / nativeWidth_, 1.0f / nativeHeight_);
+		previewSceneConstantBuffer.displaySize_ = previewSceneConstantBuffer.screenSize_;
+
+		renderer_->BeginMaterialFrame(context_->GetDirectList());
+		renderer_->MaterialFlush(context_->GetDirectList(), previewSceneConstantBuffer);
+		renderer_->EndMaterialFrame(context_->GetDirectList());
+	}
+
 	void Graphics::Begin()
 	{
 		context_->BeginFrame();
@@ -522,6 +552,11 @@ namespace SeedCore
 	D3D12_GPU_DESCRIPTOR_HANDLE Graphics::ModelTransformImGuiGPUHandle()const
 	{
 		return renderer_->ModelTransformImGuiGPUHandle();
+	}
+
+	D3D12_GPU_DESCRIPTOR_HANDLE Graphics::MaterialImGuiGPUHandle()const
+	{
+		return renderer_->MaterialImGuiGPUHandle();
 	}
 
 	CameraSystem& Graphics::GetCameraSystem()

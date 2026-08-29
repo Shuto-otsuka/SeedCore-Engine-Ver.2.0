@@ -1787,18 +1787,18 @@ namespace SeedCore
 
 	/**
 	* [EN]
-	* Returns every Material (PBR factors + KHR_materials_* extensions +
+	* Returns every Surface (PBR factors + KHR_materials_* extensions +
 	* texture indices) parsed from the source glTF.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* ソース glTF から解析された、全 Material（PBR ファクタ +
+	* ソース glTF から解析された、全 Surface（PBR ファクタ +
 	* KHR_materials_* 拡張 + テクスチャインデックス）を返す。
 	*/
-	const DynamicArray<Material>& Crister::Materials()const
+	const DynamicArray<Surface>& Crister::Surfaces()const
 	{
-		return materials_;
+		return surfaces_;
 	}
 
 	/**
@@ -2016,14 +2016,14 @@ namespace SeedCore
 
 	/**
 	* [EN]
-	* Maps a glTF image index (as stored in Material) to the bindless
+	* Maps a glTF image index (as stored in Surface) to the bindless
 	* heap index of the uploaded GPU texture. Returns 0xFFFFFFFF when
 	* not present.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* glTF の image インデックス（Material に格納されている値）を、
+	* glTF の image インデックス（Surface に格納されている値）を、
 	* アップロード済み GPU テクスチャの bindless ヒープインデックスに
 	* 変換する。無ければ 0xFFFFFFFF。
 	*/

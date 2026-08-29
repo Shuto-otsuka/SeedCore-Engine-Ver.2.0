@@ -14,6 +14,7 @@ namespace SeedCore
 	class ModelResource;
 	class AnimationResource;
 	class MeshCollisionResource;
+	class MaterialResource;
 	class BindlessHeap;
 	class D3D12CommandQueue;
 	class BC7CompressShader;
@@ -72,6 +73,10 @@ namespace SeedCore
 		/// [EN] Baked mesh collision geometry (.collision).
 		/// [JP] 焼き込み済みの衝突ジオメトリ（.collision）。
 		MeshCollision,
+
+		/// [EN] Standalone material (.material).
+		/// [JP] 単体マテリアル（.material）。
+		Material,
 
 		/// [EN] Extension not recognized by Scan.
 		/// [JP] Scan が認識しない拡張子。
@@ -429,6 +434,17 @@ namespace SeedCore
 
 		/**
 		* [EN]
+		* Returns the material resource manager.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* マテリアルリソースマネージャを返す。
+		*/
+		MaterialResource* GetMaterialResource()const;
+
+		/**
+		* [EN]
 		* Returns the Effekseer effect resource manager.
 		*
 		* ---------------------------------------------------------------------
@@ -609,6 +625,10 @@ namespace SeedCore
 		/// [JP] 読み込み済みの衝突ジオメトリリソースを所有するマネージャ。
 		ResourcePtr<MeshCollisionResource> meshCollisionResource_;
 
+		/// [EN] Manager owning loaded standalone material (.material) resources.
+		/// [JP] 読み込み済みの単体マテリアル(.material)リソースを所有するマネージャ。
+		ResourcePtr<MaterialResource> materialResource_;
+
 		/// [EN] Manager owning loaded Effekseer effect resources.
 		/// [JP] 読み込み済みのEffekseerエフェクトリソースを所有するマネージャ。
 		ResourcePtr<EffekseerResource> effekseerResource_;
@@ -692,6 +712,7 @@ namespace SeedCore
 			".gltf", ".glb", ".crister",
 			".animation",
 			".collision",
+			".material",
 			".navmesh",
 			".efkefc", ".effekseer", ".zephyr",
 			".mp3", ".wav", ".acb", ".awb", ".audio",

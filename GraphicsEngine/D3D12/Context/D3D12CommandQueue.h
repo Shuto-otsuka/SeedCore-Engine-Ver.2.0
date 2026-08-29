@@ -66,6 +66,6 @@ namespace SeedCore
 
 		D3D12CommandType type_;
 
-		Uint64 lastFenceValue_{ 0 };
+		Uint64 lastFenceValue_ = 0;
 	};
 }

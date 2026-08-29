@@ -122,6 +122,11 @@ float3 EvalDirectLightDispatch(uint shading_model, float3 normal, float3 view, f
 		return EvalDirectLightToon(normal, view, light_direction, diffuse_color, f0, shininess);
 	}
 
+	if (shading_model == SHADING_MODEL_LAMBERT)
+	{
+		return diffuse_color * saturate(dot(normal, light_direction));
+	}
+
 	return EvalDirectLight(normal, view, light_direction, diffuse_color, f0, roughness, clearcoat, clearcoat_roughness, clearcoat_normal, sheen_color, sheen_roughness, anisotropy_tangent, anisotropy_bitangent, anisotropy_strength);
 }
 

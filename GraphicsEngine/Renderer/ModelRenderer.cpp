@@ -2,6 +2,7 @@
 #include <GraphicsEngine/Profiler/ProfilerStats.h>
 #include <GraphicsEngine/Model/Crister.h>
 #include <GraphicsEngine/Model/ModelResource.h>
+#include <GraphicsEngine/Model/Material/MaterialResource.h>
 #include <GraphicsEngine/D3D12/Descriptor/BindlessHeap.h>
 #include <GraphicsEngine/D3D12/PipelineState/PipelineStateObject.h>
 #include <GraphicsEngine/D3D12/Context/D3D12CommandList.h>
@@ -13,6 +14,7 @@
 #include <FoundationEngine/ECS/Actor.h>
 #include <FoundationEngine/ECS/World.h>
 #include <GraphicsEngine/Model/Mesh.h>
+#include <GraphicsEngine/Model/Material/Material.h>
 #include <FoundationEngine/ECS/Component/Bounds.h>
 #include <GraphicsEngine/Model/Animation/Animator.h>
 #include <GraphicsEngine/Model/Animation/AnimationResource.h>
@@ -63,7 +65,7 @@ namespace SeedCore
 		oitBuffer_.Resize(device, bindlessHeap, indicesSystem, width, height);
 	}
 
-	void ModelRenderer::Gather(LoaderSystem& loaderSystem, ModelResource& modelResource, AnimationResource& animationResource, World& world, const SceneConstantBuffer& scene, Entity selectedEntity)
+	void ModelRenderer::Gather(LoaderSystem& loaderSystem, ModelResource& modelResource, MaterialResource& materialResource, AnimationResource& animationResource, World& world, const SceneConstantBuffer& scene, Entity selectedEntity)
 	{
 		streamingFrame_++;
 		geometryStreamingRequests_.clear();
@@ -188,10 +190,13 @@ namespace SeedCore
 				previousWorldMatrices_[entityID] = worldMatrix;
 
 				const auto& subMeshes = crister->SubMeshes();
-				const auto& materials = crister->Materials();
 				const auto& clusters = crister->Clusters();
 				const auto& skins = crister->Skins();
 				const auto& nodes = crister->Nodes();
+
+				static const DynamicArray<Uint32> noMaterialIDs;
+				const Material* materialComponent = actor->GetComponent<Material>();
+				const DynamicArray<Uint32>& materialIDs = materialComponent ? materialComponent->materialIDs_ : noMaterialIDs;
 
 				/// [EN] If this Actor has an Animator currently in a valid state
 				///      with an assigned animation, sample that animation's pose
@@ -552,7 +557,7 @@ namespace SeedCore
 
 				for (const auto& subMesh : subMeshes)
 				{
-					const Material& material = materials[subMesh.materialIndex_];
+					Surface material = materialResource.Resolve(loaderSystem, *crister, subMesh.surfaceIndex_, materialIDs);
 
 					/// [EN] Whether this SubMesh renders through the skeletal path.
 					///      Skinned SubMeshes stay on LOD 0: the QEM-generated LOD
@@ -1005,9 +1010,9 @@ namespace SeedCore
 			Matrix previousWorldMatrix = previousWorldIt != previousWorldMatrices_.end() ? previousWorldIt->second : worldMatrix;
 			previousWorldMatrices_[entityID] = worldMatrix;
 
-			const auto& materials = crister->Materials();
-			Material defaultMaterial;
-			const Material& material = materials.empty() ? defaultMaterial : materials[0];
+			static const DynamicArray<Uint32> noMaterialIDs;
+			const Material* materialComponent = actor->GetComponent<Material>();
+			Surface material = materialResource.Resolve(loaderSystem, *crister, 0, materialComponent ? materialComponent->materialIDs_ : noMaterialIDs);
 
 			constexpr Uint32 maxMeshletsPerDispatch = 32;
 			Uint32 remaining = softbodyMesh->MeshletCount();

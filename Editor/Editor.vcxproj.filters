@@ -127,14 +127,14 @@
     <ClCompile Include="Editor\Panel\BoneControllerPanel.cpp">
       <Filter>Editor\Panel</Filter>
     </ClCompile>
-    <ClCompile Include="Editor\Panel\MaterialPanel.cpp">
-      <Filter>Editor\Panel</Filter>
-    </ClCompile>
     <ClCompile Include="Editor\Panel\LayerSettingsPanel.cpp">
       <Filter>Editor\Panel</Filter>
     </ClCompile>
     <ClCompile Include="Editor\ViewportPicking.cpp">
       <Filter>Editor</Filter>
+    </ClCompile>
+    <ClCompile Include="Editor\Panel\MaterialViewerPanel.cpp">
+      <Filter>Editor\Panel</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -255,14 +255,14 @@
     <ClInclude Include="Editor\Panel\BoneControllerPanel.h">
       <Filter>Editor\Panel</Filter>
     </ClInclude>
-    <ClInclude Include="Editor\Panel\MaterialPanel.h">
-      <Filter>Editor\Panel</Filter>
-    </ClInclude>
     <ClInclude Include="Editor\Panel\LayerSettingsPanel.h">
       <Filter>Editor\Panel</Filter>
     </ClInclude>
     <ClInclude Include="Editor\ViewportPicking.h">
       <Filter>Editor</Filter>
+    </ClInclude>
+    <ClInclude Include="Editor\Panel\MaterialViewerPanel.h">
+      <Filter>Editor\Panel</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

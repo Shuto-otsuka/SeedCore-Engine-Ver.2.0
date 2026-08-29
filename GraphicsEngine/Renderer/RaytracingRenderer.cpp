@@ -265,7 +265,7 @@ namespace SeedCore
 	* [EN]
 	* Builds the two small per-Crister GPU tables Reflection.hlsli's
 	* ResolveReflectionMaterial reads: the mesh's material list, and a
-	* per-triangle index into it (from each SubMesh's materialIndex_ over its
+	* per-triangle index into it (from each SubMesh's surfaceIndex_ over its
 	* own [indexOffset_/3, (indexOffset_+indexCount_)/3) triangle range).
 	* Called once per unique Crister from the pendingBlasBuilds_ loop above -
 	* same lifecycle as the BLAS, never rebuilt per frame.
@@ -280,7 +280,7 @@ namespace SeedCore
 	* [JP]
 	* Reflection.hlsli の ResolveReflectionMaterial が読む、Crister ごとの
 	* 小さな GPU テーブルを2つ構築する: メッシュのマテリアル一覧と、そこへの
-	* 三角形ごとのインデックス(各 SubMesh の materialIndex_ を、その
+	* 三角形ごとのインデックス(各 SubMesh の surfaceIndex_ を、その
 	* [indexOffset_/3, (indexOffset_+indexCount_)/3) の三角形範囲へ書き込んで
 	* 作る)。上の pendingBlasBuilds_ ループから、ユニークな Crister ごとに
 	* 一度だけ呼ばれる — BLAS と同じライフサイクルで、毎フレーム再構築しない。
@@ -301,7 +301,7 @@ namespace SeedCore
 
 		// ---- マテリアル配列 ----
 		{
-			const DynamicArray<Material>& materials = crister->Materials();
+			const DynamicArray<Surface>& materials = crister->Surfaces();
 
 			DynamicArray<ReflectionMaterialData> materialData;
 			if (materials.empty())
@@ -311,7 +311,7 @@ namespace SeedCore
 			else
 			{
 				materialData.reserve(materials.size());
-				for (const Material& material : materials)
+				for (const Surface& material : materials)
 				{
 					ReflectionMaterialData entry{};
 					entry.baseColor_[0] = material.baseColor_.R();
@@ -385,7 +385,7 @@ namespace SeedCore
 					Uint32 triangleIndex = firstTriangle + offset;
 					if (triangleIndex < triangleCount)
 					{
-						triangleMaterialIndices[triangleIndex] = subMesh.materialIndex_;
+						triangleMaterialIndices[triangleIndex] = subMesh.surfaceIndex_;
 					}
 				}
 			}
@@ -507,7 +507,7 @@ namespace SeedCore
 			geometryDesc.indexBuffer_ = crister->IndexBufferAddress();
 			geometryDesc.indexCount_ = crister->IndexCount();
 			geometryDesc.indexFormat_ = DXGI_FORMAT_R32_UINT;
-			geometryDesc.opaque_ = std::ranges::all_of(crister->Materials(), [](const Material& material) { return material.alphaMode_ == 0; });
+			geometryDesc.opaque_ = std::ranges::all_of(crister->Surfaces(), [](const Surface& material) { return material.alphaMode_ == 0; });
 
 			ResourcePtr<BottomLevelAccelerationStructure> blas = MakePtr<BottomLevelAccelerationStructure>();
 			if (blas->Build(device5, commandList4, &geometryDesc, 1))
@@ -745,10 +745,10 @@ namespace SeedCore
 				commandList4->Dispatch((subMesh.raytracingVertexCount_ + 63) / 64, 1, 1);
 			}
 
-			D3D12_RESOURCE_BARRIER blendedUavBarrier{};
-			blendedUavBarrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
-			blendedUavBarrier.UAV.pResource = blendedBuffer.resource_.Get();
-			commandList4->ResourceBarrier(1, &blendedUavBarrier);
+			D3D12_RESOURCE_BARRIER blendedBarrier{};
+			blendedBarrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+			blendedBarrier.UAV.pResource = blendedBuffer.resource_.Get();
+			commandList4->ResourceBarrier(1, &blendedBarrier);
 		}
 
 		for (const PendingInstance& pending : pendingInstances_)
@@ -842,7 +842,7 @@ namespace SeedCore
 			geometryDesc.indexBuffer_ = crister->IndexBufferAddress();
 			geometryDesc.indexCount_ = crister->IndexCount();
 			geometryDesc.indexFormat_ = DXGI_FORMAT_R32_UINT;
-			geometryDesc.opaque_ = std::ranges::all_of(crister->Materials(), [](const Material& material) { return material.alphaMode_ == 0; });
+			geometryDesc.opaque_ = std::ranges::all_of(crister->Surfaces(), [](const Surface& material) { return material.alphaMode_ == 0; });
 
 			ResourcePtr<BottomLevelAccelerationStructure>& skinnedBlas = skinnedBlasCache_[frameIndex][pending.entityID_];
 			if (!skinnedBlas)
@@ -889,7 +889,7 @@ namespace SeedCore
 			geometryDesc.indexBuffer_ = crister->IndexBufferAddress();
 			geometryDesc.indexCount_ = crister->IndexCount();
 			geometryDesc.indexFormat_ = DXGI_FORMAT_R32_UINT;
-			geometryDesc.opaque_ = std::ranges::all_of(crister->Materials(), [](const Material& material) { return material.alphaMode_ == 0; });
+			geometryDesc.opaque_ = std::ranges::all_of(crister->Surfaces(), [](const Surface& material) { return material.alphaMode_ == 0; });
 
 			ResourcePtr<BottomLevelAccelerationStructure>& morphedBlas = morphedBlasCache_[frameIndex][pending.entityID_];
 			if (!morphedBlas)

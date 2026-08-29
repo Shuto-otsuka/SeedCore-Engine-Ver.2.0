@@ -76,7 +76,7 @@ namespace SeedCore
 		Matrix inverseTransposeWorld = worldMatrix.Invert().Transpose();
 
 		const auto& subMeshes = crister->SubMeshes();
-		const auto& materials = crister->Materials();
+		const auto& surfaces = crister->Surfaces();
 		const auto& clusters = crister->Clusters();
 		const auto& skins = crister->Skins();
 		const auto& nodes = crister->Nodes();
@@ -175,7 +175,7 @@ namespace SeedCore
 
 		for (const auto& subMesh : subMeshes)
 		{
-			const Material& material = materials[subMesh.materialIndex_];
+			const Surface& material = surfaces[subMesh.surfaceIndex_];
 
 			Bool skinned = subMesh.skinIndex_ >= 0 && subMesh.skinIndex_ < static_cast<Int>(skins.size()) && !boneOverflow;
 

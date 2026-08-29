@@ -81,8 +81,10 @@ namespace SeedCore
 		editorContext_.cameraContext_.canvasCamera_ = &canvasCamera_;
 		editorContext_.cameraContext_.timelineCamera_ = &timelineCamera_;
 		editorContext_.cameraContext_.modelTransformCamera_ = &modelTransformCamera_;
+		editorContext_.cameraContext_.materialCamera_ = &materialCamera_;
 		editorContext_.cameraContext_.timelineCameraController_ = &timelineCameraController_;
 		editorContext_.cameraContext_.modelTransformCameraController_ = &modelTransformCameraController_;
+		editorContext_.cameraContext_.materialCameraController_ = &materialCameraController_;
 		editorContext_.graphicsContext_.graphics_ = graphics_.get();
 		editorContext_.graphicsContext_.imgui_ = imgui_.get();
 		editorContext_.cameraContext_.cameraSystem_ = &graphics_->GetCameraSystem();
@@ -142,7 +144,7 @@ namespace SeedCore
 
 		if (window_)
 		{
-			window_->RestoreAccessibilitySettings();
+			window_->RestoreAccessibility();
 		}
 
 		if (world_)
@@ -318,6 +320,7 @@ namespace SeedCore
 				canvasCamera_.Tick(window_->GetTimer().Delta());
 				timelineCamera_.Tick(window_->GetTimer().Delta());
 				modelTransformCamera_.Tick(window_->GetTimer().Delta());
+				materialCamera_.Tick(window_->GetTimer().Delta());
 
 				if (editorContext_.viewportContext_.raytracing_.daySystemEnabled_)
 				{
@@ -352,10 +355,15 @@ namespace SeedCore
 					graphics_->ModelTransformRender(worldTimer_, modelTransformCamera_, *loaderSystem_, *resource_, editorContext_.modelTransformPreviewContext_.previewMeshAssetId_, 0, 0.0f, editorContext_.modelTransformPreviewContext_.previewWorldMatrix_);
 				}
 
+				if (editorContext_.materialPreviewContext_.previewActive_)
+				{
+					graphics_->MaterialRender(worldTimer_, materialCamera_, *loaderSystem_, *resource_, editorContext_.materialPreviewContext_.previewMeshAssetId_, editorContext_.materialPreviewContext_.previewSurfaceAssetId_, editorContext_.materialPreviewContext_.previewWorldMatrix_);
+				}
+
 				graphics_->Clear();
 
 				imgui_->DockSpaceBegin(editor_->DrawToolbar());
-				editor_->Draw(graphics_->EditorImGuiGPUHandle(), graphics_->GameImGuiGPUHandle(), graphics_->CanvasImGuiGPUHandle(), graphics_->TimelineImGuiGPUHandle(), graphics_->ModelTransformImGuiGPUHandle(), graphics_->GetGpuProfiler());
+				editor_->Draw(graphics_->EditorImGuiGPUHandle(), graphics_->GameImGuiGPUHandle(), graphics_->CanvasImGuiGPUHandle(), graphics_->TimelineImGuiGPUHandle(), graphics_->ModelTransformImGuiGPUHandle(), graphics_->MaterialImGuiGPUHandle(), graphics_->GetGpuProfiler());
 				imgui_->DockSpaceEnd();
 
 				imgui_->Render(graphics_->GetContext()->GetDirectList()->Get());

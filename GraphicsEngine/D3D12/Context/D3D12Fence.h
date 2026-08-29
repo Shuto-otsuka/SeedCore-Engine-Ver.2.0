@@ -16,6 +16,6 @@ namespace SeedCore
 	private:
 		Microsoft::WRL::ComPtr<ID3D12Fence> fence_;
 
-		Uint64 fenceValue_{ 0 };
+		Uint64 fenceValue_ = 0;
 	};
 }

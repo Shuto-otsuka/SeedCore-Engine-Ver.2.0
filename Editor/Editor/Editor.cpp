@@ -5,6 +5,7 @@
 #include <FoundationEngine/Time/GameTimer.h>
 #include <GraphicsEngine/Model/Animation/Animator.h>
 #include <GraphicsEngine/Model/Animation/AnimatorControllerState.h>
+#include <GraphicsEngine/Model/Material/MaterialState.h>
 #include <GraphicsEngine/Camera/EditorCamera.h>
 #include <GraphicsEngine/Camera/CanvasCamera.h>
 #include <GraphicsEngine/Texture/Image.h>
@@ -35,12 +36,13 @@ namespace SeedCore
 		animatorControllerPanel_ = MakePtr<AnimatorControllerPanel>(context_);
 		timelinePanel_ = MakePtr<TimelinePanel>(context_);
 		boneControllerPanel_ = MakePtr<BoneControllerPanel>(context_);
-		materialPanel_ = MakePtr<MaterialPanel>(context_);
+		materialViewerPanel_ = MakePtr<MaterialViewerPanel>(context_);
 		modelTransformPanel_ = MakePtr<ModelTransformPanel>(context_);
 
 		context_.panelContext_.animatorControllerPanel_ = &*animatorControllerPanel_;
 		context_.panelContext_.timelinePanel_ = &*timelinePanel_;
 		context_.panelContext_.layerSettingsPanel_ = &*layerSettingsPanel_;
+		context_.panelContext_.materialViewerPanel_ = &*materialViewerPanel_;
 
 		SC_LOG_NOTICE("エディターの初期化が完了しました");
 	}
@@ -124,9 +126,14 @@ namespace SeedCore
 		{
 			boneControllerPanel_->Open();
 		}
-		if (menuBarPanel_->ConsumeMaterialRequest())
+		if (menuBarPanel_->ConsumeMaterialViewerRequest())
 		{
-			materialPanel_->Open();
+			materialViewerPanel_->Open();
+		}
+		if (MaterialPanelRequest::openRequested_)
+		{
+			MaterialPanelRequest::openRequested_ = false;
+			materialViewerPanel_->Open();
 		}
 		if (menuBarPanel_->ConsumeModelTransformRequest())
 		{
@@ -147,10 +154,11 @@ namespace SeedCore
 		return toolbarHeight_;
 	}
 
-	void Editor::Draw(D3D12_GPU_DESCRIPTOR_HANDLE editorFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE gameFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE canvasFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE timelinePreviewFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE modelTransformPreviewFrameBufferHandle, const GpuProfiler& gpuProfiler)
+	void Editor::Draw(D3D12_GPU_DESCRIPTOR_HANDLE editorFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE gameFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE canvasFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE timelinePreviewFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE modelTransformPreviewFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE materialPreviewFrameBufferHandle, const GpuProfiler& gpuProfiler)
 	{
 		timelinePanel_->SetPreviewHandle(timelinePreviewFrameBufferHandle);
 		modelTransformPanel_->SetPreviewHandle(modelTransformPreviewFrameBufferHandle);
+		materialViewerPanel_->SetPreviewHandle(materialPreviewFrameBufferHandle);
 
 		/// [EN] Must run after DockSpaceBegin() (called by Engine before this
 		///      function) so ImGui::DockSpace() has already created/refreshed
@@ -171,7 +179,7 @@ namespace SeedCore
 		animatorControllerPanel_->Draw();
 		timelinePanel_->Draw();
 		boneControllerPanel_->Draw();
-		materialPanel_->Draw();
+		materialViewerPanel_->Draw();
 		modelTransformPanel_->Draw();
 
 		gameWindowPanel_->Draw(gameFrameBufferHandle, toolbarHeight_);

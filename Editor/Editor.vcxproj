@@ -177,7 +177,7 @@
     <ClCompile Include="Editor\Panel\EnvironmentMenuPanel.cpp" />
     <ClCompile Include="Editor\Panel\GraphicsMenuPanel.cpp" />
     <ClCompile Include="Editor\Panel\LayerSettingsPanel.cpp" />
-    <ClCompile Include="Editor\Panel\MaterialPanel.cpp" />
+    <ClCompile Include="Editor\Panel\MaterialViewerPanel.cpp" />
     <ClCompile Include="Editor\Panel\ModelTransformPanel.cpp" />
     <ClCompile Include="Editor\Panel\ProfilerPanel.cpp" />
     <ClCompile Include="Editor\Panel\RaytracingPanel.cpp" />
@@ -273,7 +273,7 @@
     <ClInclude Include="Editor\Panel\HierarchyPanel.h" />
     <ClInclude Include="Editor\Panel\InspectorPanel.h" />
     <ClInclude Include="Editor\Panel\LayerSettingsPanel.h" />
-    <ClInclude Include="Editor\Panel\MaterialPanel.h" />
+    <ClInclude Include="Editor\Panel\MaterialViewerPanel.h" />
     <ClInclude Include="Editor\Panel\MenuBarPanel.h" />
     <ClInclude Include="Editor\Panel\ModelTransformPanel.h" />
     <ClInclude Include="Editor\Panel\ProfilerPanel.h" />

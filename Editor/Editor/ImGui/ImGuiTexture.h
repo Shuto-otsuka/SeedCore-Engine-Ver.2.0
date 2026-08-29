@@ -17,6 +17,7 @@ namespace SeedCore
 		Sky,
 		Animation,
 		MeshCollision,
+		Material,
 		Movie,
 
 		Text,

@@ -307,19 +307,19 @@ namespace SeedCore
 
 		/// [EN] Per-Crister GPU tables consumed by
 		///      Reflection.hlsli::ResolveReflectionMaterial - the materials
-		///      array (Crister::Materials(), or one white fallback entry if
+		///      array (Crister::Surfaces(), or one white fallback entry if
 		///      empty) and the per-triangle index into it (built from every
-		///      SubMesh's materialIndex_/indexOffset_/indexCount_). Both live
+		///      SubMesh's surfaceIndex_/indexOffset_/indexCount_). Both live
 		///      on an UPLOAD heap and are written once via Map/memcpy: they are
 		///      small, built once per unique mesh (cached like the BLAS below,
 		///      never rebuilt per-frame), and read rarely enough (one lookup
 		///      per ray hit) that the DEFAULT-heap-plus-copy dance is not worth
 		///      it here.
 		/// [JP] Reflection.hlsli::ResolveReflectionMaterial が読む、Crister
-		///      ごとの GPU テーブル — マテリアル配列(Crister::Materials()、
+		///      ごとの GPU テーブル — マテリアル配列(Crister::Surfaces()、
 		///      無ければ白1件のフォールバック)と、そこへの三角形ごとの
 		///      インデックス(各 SubMesh の
-		///      materialIndex_/indexOffset_/indexCount_ から構築)。どちらも
+		///      surfaceIndex_/indexOffset_/indexCount_ から構築)。どちらも
 		///      UPLOAD ヒープに置き Map/memcpy で一度だけ書く — 小さく、
 		///      ユニークなメッシュごとに一度しか構築せず(下の BLAS と同じく
 		///      キャッシュ、毎フレーム再構築しない)、読み取り頻度もレイが

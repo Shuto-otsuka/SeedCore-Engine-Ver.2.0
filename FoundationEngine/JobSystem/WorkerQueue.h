@@ -243,7 +243,7 @@ namespace SeedCore
 
 		/// [EN] Locally cached copy of top_, used by the owning thread to avoid re-reading the atomic on every push.
 		/// [JP] top_ をローカルにキャッシュした値。所有スレッドが push の度にアトミック変数を読み直すのを避けるために使用する。
-		Int64 cacheTop_{ 0 };
+		Int64 cacheTop_ = 0;
 
 		/// [EN] Pointer to the currently active ring buffer. Cache-line aligned to avoid false sharing.
 		/// [JP] 現在使用中のリングバッファへのポインタ。偽共有を避けるためキャッシュライン境界に整列。

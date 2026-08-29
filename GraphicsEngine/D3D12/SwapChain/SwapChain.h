@@ -37,9 +37,9 @@ namespace SeedCore
 
 		DynamicArray<Microsoft::WRL::ComPtr<ID3D12Resource>> backBuffers_;
 
-		Float width_{ 1920 };
-		Float height_{ 1080 };
-		Size bufferCount_{ 3 };
-		Bool vsync_{ false };
+		Float width_ = 1920;
+		Float height_ = 1080;
+		Size bufferCount_ = 3;
+		Bool vsync_ = false;
 	};
 }

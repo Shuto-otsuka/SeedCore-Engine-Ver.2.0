@@ -66,6 +66,8 @@ namespace SeedCore
 
 		void GenerateMeshCollision(const Asset& asset, MeshCollisionDetail detail);
 
+		void GenerateMaterial(const Asset& asset);
+
 		void DrawBackgroundContextMenu();
 
 		Bool DrawInlineRename(const std::filesystem::path& itemFullPath, const std::string& displayName, Float width = -1.0f);

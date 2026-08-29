@@ -76,6 +76,15 @@ namespace SeedCore
 			return;
 		}
 
+		if (model.animations.empty())
+		{
+			return;
+		}
+
+		std::filesystem::path directory = path.parent_path() / (path.stem().string() + ".Animations");
+		std::error_code directoryError;
+		std::filesystem::create_directories(directory, directoryError);
+
 		for (Size clipIndex = 0; clipIndex < model.animations.size(); ++clipIndex)
 		{
 			const tinygltf::Animation& gltfAnimation = model.animations[clipIndex];
@@ -92,7 +101,7 @@ namespace SeedCore
 				}
 			}
 
-			std::filesystem::path clipPath = path.parent_path() / (clipName + ".animation");
+			std::filesystem::path clipPath = directory / (clipName + ".animation");
 
 			BinaryOutputArchive archive;
 			animation.Serialize(archive);

@@ -4,6 +4,7 @@
 #include <Editor/Editor/Panel/AnimatorControllerPanel.h>
 #include <Editor/Editor/Panel/TimelinePanel.h>
 #include <Editor/Editor/Panel/LayerSettingsPanel.h>
+#include <Editor/Editor/Panel/MaterialViewerPanel.h>
 #include <FoundationEngine/ECS/World.h>
 #include <FoundationEngine/ECS/Actor.h>
 #include <FoundationEngine/ECS/Component.h>
@@ -13,13 +14,18 @@
 #include <FoundationEngine/ECS/ComponentLifecycleCommand.h>
 #include <FoundationEngine/ECS/ArrayFieldCommand.h>
 #include <FoundationEngine/ECS/ActorCommand.h>
-#include <FoundationEngine/Resource/ResourceCache.h>
 #include <FoundationEngine/ECS/ReflectionRegistry.h>
 #include <FoundationEngine/ECS/PayloadRegistry.h>
 #include <FoundationEngine/ECS/TagRegistry.h>
 #include <FoundationEngine/ECS/LayerRegistry.h>
+#include <FoundationEngine/Resource/ResourceCache.h>
+#include <FoundationEngine/Resource/LoaderSystem.h>
 #include <FoundationEngine/Resource/Prefab.h>
 #include <FoundationEngine/Time/GameTimer.h>
+#include <GraphicsEngine/Model/Mesh.h>
+#include <GraphicsEngine/Model/ModelResource.h>
+#include <GraphicsEngine/Model/Material/Material.h>
+#include <GraphicsEngine/Model/Crister.h>
 
 namespace SeedCore
 {
@@ -51,6 +57,13 @@ namespace SeedCore
 			if (context_.panelContext_.timelinePanel_ && context_.panelContext_.timelinePanel_->IsFocused())
 			{
 				context_.panelContext_.timelinePanel_->DrawDetails();
+				ImGui::End();
+				return;
+			}
+
+			if (context_.panelContext_.materialViewerPanel_ && context_.panelContext_.materialViewerPanel_->IsFocused())
+			{
+				context_.panelContext_.materialViewerPanel_->DrawDetails();
 				ImGui::End();
 				return;
 			}
@@ -524,6 +537,35 @@ namespace SeedCore
 	void InspectorPanel::DrawComponents(Actor* actor)
 	{
 		Entity entity = actor->GetEntity();
+
+		if (const Mesh* mesh = actor->GetComponent<Mesh>(); mesh && mesh->meshID_ != 0 && !actor->GetComponent<Material>())
+		{
+			Material* materialComponent = actor->AddComponent<Material>();
+			ModelResource* modelResource = context_.worldContext_.resource_->GetModelResource();
+			Crister* crister = modelResource->Resolve(*context_.worldContext_.loader_, modelResource->GetHandle(mesh->meshID_));
+			Asset* modelAsset = context_.worldContext_.resource_->GetAsset(mesh->meshID_);
+			if (materialComponent && crister && modelAsset)
+			{
+				std::filesystem::path modelPath(modelAsset->fullpath_.c_str());
+				std::filesystem::path directory = modelPath.parent_path() / (modelPath.stem().string() + ".Materials");
+				const DynamicArray<Surface>& surfaces = crister->Surfaces();
+				materialComponent->materialIDs_.resize(surfaces.size(), 0);
+				for (Size slot = 0; slot < surfaces.size(); slot++)
+				{
+					std::string target = (directory / (surfaces[slot].name_ + ".material")).string();
+					std::ranges::replace(target, '\\', '/');
+					for (const auto& [assetId, asset] : context_.worldContext_.resource_->AssetList())
+					{
+						if (asset.type_ == AssetType::Material && asset.fullpath_.str() == target)
+						{
+							materialComponent->materialIDs_[slot] = assetId;
+							break;
+						}
+					}
+				}
+			}
+		}
+
 		const DynamicArray<ComponentID>& layout = context_.worldContext_.world_->GetLayout(entity);
 
 		static const String nameString("Name");
@@ -1290,6 +1332,8 @@ namespace SeedCore
 			return "ASSET_ANIMATION";
 		case PayloadAssetType::MeshCollision:
 			return "ASSET_MESHCOLLISION";
+		case PayloadAssetType::Material:
+			return "ASSET_MATERIAL";
 		case PayloadAssetType::Sky:
 			return "ASSET_SKY";
 		case PayloadAssetType::Prefab:

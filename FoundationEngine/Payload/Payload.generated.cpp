@@ -8,6 +8,7 @@
 #include <GraphicsEngine/Font/Text.h>
 #include <GraphicsEngine/Light/SkyLight.h>
 #include <GraphicsEngine/Model/Animation/Animator.h>
+#include <GraphicsEngine/Model/Material/Material.h>
 #include <GraphicsEngine/Model/Mesh.h>
 #include <GraphicsEngine/Movie/Movie.h>
 #include <GraphicsEngine/Texture/Image.h>
@@ -22,6 +23,7 @@ extern "C" int _force_payload_Text = 0;
 extern "C" int _force_payload_SkyLight = 0;
 extern "C" int _force_payload_Mesh = 0;
 extern "C" int _force_payload_Animator = 0;
+extern "C" int _force_payload_Material = 0;
 extern "C" int _force_payload_Movie = 0;
 extern "C" int _force_payload_Image = 0;
 extern "C" int _force_payload_MeshCollider = 0;
@@ -170,6 +172,35 @@ namespace SeedCore
 			}
 		};
 		static Register_Animator global_Animator_register;
+
+		// ---- GraphicsEngine/Model/Material/Material.h ----
+		struct Register_Material
+		{
+			Register_Material()
+			{
+				PayloadRegistry::Register(String("Material"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
+					Material& obj = *static_cast<Material*>(ptr);
+					{
+						auto& arr = obj.materialIDs_;
+						FieldInfo header;
+						header.name_ = String("マテリアル");
+						header.offset_ = 0;
+						header.type_ = AttributeType::Int;
+						header.assetType_ = PayloadAssetType::Material;
+						header.array_.size_ = arr.size();
+						header.array_.add_ = [&obj]() { obj.materialIDs_.push_back({}); };
+						header.array_.remove_ = [&obj](Size idx) { if (idx < obj.materialIDs_.size()) obj.materialIDs_.erase(obj.materialIDs_.begin() + idx); };
+						header.array_.lastPtr_ = [&obj]() -> void* { return &obj.materialIDs_.back(); };
+						outInfo.push_back(std::move(header));
+						for (Size i = 0; i < arr.size(); ++i)
+						{
+							outInfo.push_back({ String("[" + std::to_string(i) + "]"), 0, AttributeType::Int, PayloadAssetType::Material, &arr[i] });
+						}
+					}
+				});
+			}
+		};
+		static Register_Material global_Material_register;
 
 		// ---- GraphicsEngine/Movie/Movie.h ----
 		struct Register_Movie
