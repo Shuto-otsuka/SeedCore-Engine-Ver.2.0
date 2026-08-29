@@ -95,12 +95,14 @@ namespace SeedCore
 		load(IconType::ComponentMeshCollider,     "Component", "MeshCollider");
 		load(IconType::ComponentRigidbody, "Component", "Rigidbody");
 		load(IconType::ComponentSoftbody,  "Component", "Softbody");
+		load(IconType::ComponentCharacterController, "Component", "CharacterController");
 		load(IconType::ComponentAudioSource,   "Component", "AudioSource");
 		load(IconType::ComponentAudioListener, "Component", "AudioListener");
 		load(IconType::ComponentImage, "Component", "Image");
 		load(IconType::ComponentText,  "Component", "Text");
 		load(IconType::ComponentMovie, "Component", "Movie");
 		load(IconType::ComponentMesh,  "Component", "Mesh");
+		load(IconType::ComponentMaterial, "Component", "Material");
 		load(IconType::ComponentAnimator,           "Component", "Animator");
 		load(IconType::ComponentPositionConstraint, "Component", "PositionConstraint");
 		load(IconType::ComponentRotationConstraint, "Component", "RotationConstraint");
@@ -109,6 +111,7 @@ namespace SeedCore
 		load(IconType::ComponentWeather,     "Component", "Weather");
 		load(IconType::ComponentEffect,      "Component", "Effect");
 		load(IconType::ComponentPostProcess, "Component", "PostProcess");
+		load(IconType::ComponentSpawner,     "Component", "Spawner");
 		load(IconType::ComponentCustom,      "Component", "Custom");
 	}
 
@@ -168,12 +171,14 @@ namespace SeedCore
 			{ "MeshCollider", IconType::ComponentMeshCollider },
 			{ "Rigidbody", IconType::ComponentRigidbody },
 			{ "Softbody", IconType::ComponentSoftbody },
+			{ "CharacterController", IconType::ComponentCharacterController },
 			{ "AudioSource", IconType::ComponentAudioSource },
 			{ "AudioListener", IconType::ComponentAudioListener },
 			{ "Image", IconType::ComponentImage },
 			{ "Text", IconType::ComponentText },
 			{ "Movie", IconType::ComponentMovie },
 			{ "Mesh", IconType::ComponentMesh },
+			{ "Material", IconType::ComponentMaterial },
 			{ "Animator", IconType::ComponentAnimator },
 			{ "PositionConstraint", IconType::ComponentPositionConstraint },
 			{ "RotationConstraint", IconType::ComponentRotationConstraint },
@@ -182,6 +187,7 @@ namespace SeedCore
 			{ "Weather", IconType::ComponentWeather },
 			{ "Effect", IconType::ComponentEffect },
 			{ "PostProcess", IconType::ComponentPostProcess },
+			{ "Spawner", IconType::ComponentSpawner },
 		};
 
 		auto found = table.find(componentName.str());

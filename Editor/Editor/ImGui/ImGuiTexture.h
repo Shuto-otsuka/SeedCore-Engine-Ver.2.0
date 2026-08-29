@@ -83,12 +83,14 @@ namespace SeedCore
 		ComponentMeshCollider,
 		ComponentRigidbody,
 		ComponentSoftbody,
+		ComponentCharacterController,
 		ComponentAudioSource,
 		ComponentAudioListener,
 		ComponentImage,
 		ComponentText,
 		ComponentMovie,
 		ComponentMesh,
+		ComponentMaterial,
 		ComponentAnimator,
 		ComponentPositionConstraint,
 		ComponentRotationConstraint,
@@ -97,6 +99,7 @@ namespace SeedCore
 		ComponentWeather,
 		ComponentEffect,
 		ComponentPostProcess,
+		ComponentSpawner,
 		ComponentCustom,
 
 		Count

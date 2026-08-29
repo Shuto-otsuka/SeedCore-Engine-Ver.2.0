@@ -12,6 +12,7 @@ namespace SeedCore
 
 	public:
 		void OnInspectorGUI();
+
 	};
 	REGISTER_COMPONENT(Material, "Geometry");
 }
