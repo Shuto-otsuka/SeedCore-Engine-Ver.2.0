@@ -88,8 +88,8 @@ namespace SeedCore
 		const Position* position = actor.GetComponent<Position>();
 		const Rotation* rotation = actor.GetComponent<Rotation>();
 
-		desc.position_ = position ? Vector3{ position->x, position->y, position->z } : Vector3{ 0.0f, 0.0f, 0.0f };
-		desc.rotation_ = rotation ? Quaternion::CreateFromYawPitchRoll(ToRadians(rotation->y), ToRadians(rotation->x), ToRadians(rotation->z)) : Quaternion::Identity;
+		desc.position_ = position ? Vector3{ position->x_, position->y_, position->z_ } : Vector3{ 0.0f, 0.0f, 0.0f };
+		desc.rotation_ = rotation ? Quaternion::CreateFromYawPitchRoll(ToRadians(rotation->y_), ToRadians(rotation->x_), ToRadians(rotation->z_)) : Quaternion::Identity;
 		desc.userData_ = static_cast<EntityID>(actor.GetEntity().GetHandle().index_);
 	}
 
@@ -127,8 +127,8 @@ namespace SeedCore
 			const Position* position = actor.GetComponent<Position>();
 			const Rotation* rotation = actor.GetComponent<Rotation>();
 
-			outPosition = position ? Vector3(position->x, position->y, position->z) : Vector3(0.0f, 0.0f, 0.0f);
-			outRotation = rotation ? Quaternion::CreateFromYawPitchRoll(ToRadians(rotation->y), ToRadians(rotation->x), ToRadians(rotation->z)) : Quaternion::Identity;
+			outPosition = position ? Vector3(position->x_, position->y_, position->z_) : Vector3(0.0f, 0.0f, 0.0f);
+			outRotation = rotation ? Quaternion::CreateFromYawPitchRoll(ToRadians(rotation->y_), ToRadians(rotation->x_), ToRadians(rotation->z_)) : Quaternion::Identity;
 		}
 
 		template<typename DispatchFunction>

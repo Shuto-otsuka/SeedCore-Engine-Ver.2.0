@@ -1,6 +1,6 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
-#include <FoundationEngine/ECS/ComponentRegistry.h>
+#include <FoundationEngine/SeedScript.h>
 
 namespace SeedCore
 {

@@ -1917,7 +1917,7 @@ namespace SeedCore
 			resolved = ResolvedAxisConvention::Resolve(AxisConvention{});
 		}
 
-		for (auto& node : crister.nodes_)
+		for (Node& node : crister.nodes_)
 		{
 			ConvertRotationByBasis(node.rotation_, resolved.basis_);
 			ConvertPositionByBasis(node.translation_, resolved.basis_);
@@ -1925,7 +1925,7 @@ namespace SeedCore
 		CumulateTransforms(crister);
 
 		Float tangentSign = resolved.isMirror_ ? -1.0f : 1.0f;
-		for (auto& vertex : crister.vertices_)
+		for (Vertex& vertex : crister.vertices_)
 		{
 			ConvertPositionByBasis(vertex.position_, resolved.basis_);
 			ConvertPositionByBasis(vertex.normal_, resolved.basis_);
@@ -1933,7 +1933,7 @@ namespace SeedCore
 			vertex.tangent_.w *= tangentSign;
 		}
 
-		for (auto& skin : crister.skins_)
+		for (Skin& skin : crister.skins_)
 		{
 			for (Matrix& inverseBindMatrix : skin.inverseBindMatrices_)
 			{

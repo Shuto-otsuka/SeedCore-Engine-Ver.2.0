@@ -23,7 +23,7 @@ namespace SeedCore
 
 		auto& actors = world.GetActors();
 
-		for (auto& actor : actors)
+		for (ResourcePtr<Actor>& actor : actors)
 		{
 			ActorData actorData;
 
@@ -228,9 +228,9 @@ namespace SeedCore
 	{
 		/// [EN] Destruct every captured component's live representation in its byte buffer before releasing the buffers themselves, to avoid leaking any owned resources (e.g. Strings) inside them.
 		/// [JP] バッファ自体を解放する前に、取得済みの各コンポーネントのバイトバッファ内にある有効な表現を破棄する。中に保持されているリソース（String など）のリークを防ぐため。
-		for (auto& actorData : actors_)
+		for (ActorData& actorData : actors_)
 		{
-			for (auto& compData : actorData.components_)
+			for (ComponentData& compData : actorData.components_)
 			{
 				const ComponentMetadata& meta = ComponentRegistry::Get(compData.id_);
 				meta.destruct_(compData.data_.data());

@@ -173,7 +173,7 @@ namespace SeedCore
 			}
 		}
 
-		for (const auto& subMesh : subMeshes)
+		for (const SubMesh& subMesh : subMeshes)
 		{
 			const Surface& material = surfaces[subMesh.surfaceIndex_];
 

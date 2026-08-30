@@ -16,8 +16,8 @@ namespace SeedCore
 		const Rotation* rotation = actor.GetComponent<Rotation>();
 
 		CharacterDesc desc;
-		desc.position_ = position ? Vector3(position->x, position->y, position->z) : Vector3(0.0f, 0.0f, 0.0f);
-		desc.rotation_ = rotation ? Quaternion::CreateFromYawPitchRoll(ToRadians(rotation->y), ToRadians(rotation->x), ToRadians(rotation->z)) : Quaternion::Identity;
+		desc.position_ = position ? Vector3(position->x_, position->y_, position->z_) : Vector3(0.0f, 0.0f, 0.0f);
+		desc.rotation_ = rotation ? Quaternion::CreateFromYawPitchRoll(ToRadians(rotation->y_), ToRadians(rotation->x_), ToRadians(rotation->z_)) : Quaternion::Identity;
 		desc.radius_ = radius_;
 		desc.height_ = height_;
 		desc.maxSlopeAngle_ = ToRadians(maxSlopeAngle_);
@@ -140,18 +140,18 @@ namespace SeedCore
 		Position* position = world.GetComponent<Position>(entity);
 		if (position)
 		{
-			position->x = static_cast<Float>(outPosition.GetX());
-			position->y = static_cast<Float>(outPosition.GetY());
-			position->z = static_cast<Float>(outPosition.GetZ());
+			position->x_ = static_cast<Float>(outPosition.GetX());
+			position->y_ = static_cast<Float>(outPosition.GetY());
+			position->z_ = static_cast<Float>(outPosition.GetZ());
 		}
 
 		Rotation* rotation = world.GetComponent<Rotation>(entity);
 		if (rotation)
 		{
 			const Vector3 euler = Quaternion(outRotation.GetX(), outRotation.GetY(), outRotation.GetZ(), outRotation.GetW()).ToEuler();
-			rotation->x = ToDegrees(euler.x);
-			rotation->y = ToDegrees(euler.y);
-			rotation->z = ToDegrees(euler.z);
+			rotation->x_ = ToDegrees(euler.x);
+			rotation->y_ = ToDegrees(euler.y);
+			rotation->z_ = ToDegrees(euler.z);
 		}
 	}
 
@@ -210,9 +210,9 @@ namespace SeedCore
 		Position* positionComponent = world.GetComponent<Position>(entity);
 		if (positionComponent)
 		{
-			positionComponent->x = position.x;
-			positionComponent->y = position.y;
-			positionComponent->z = position.z;
+			positionComponent->x_ = position.x;
+			positionComponent->y_ = position.y;
+			positionComponent->z_ = position.z;
 		}
 	}
 

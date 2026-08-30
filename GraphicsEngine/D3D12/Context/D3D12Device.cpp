@@ -18,7 +18,7 @@ namespace SeedCore
 			D3D_FEATURE_LEVEL_11_0,
 		};
 
-		for (auto level : levels)
+		for (D3D_FEATURE_LEVEL level : levels)
 		{
 			hr = D3D12CreateDevice(adapter, level, IID_PPV_ARGS(&device_));
 

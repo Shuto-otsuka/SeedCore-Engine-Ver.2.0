@@ -84,6 +84,10 @@ namespace SeedCore
 		ComponentRigidbody,
 		ComponentSoftbody,
 		ComponentCharacterController,
+		ComponentHingeJoint,
+		ComponentFixedJoint,
+		ComponentSpringJoint,
+		ComponentSliderJoint,
 		ComponentAudioSource,
 		ComponentAudioListener,
 		ComponentImage,
@@ -100,6 +104,7 @@ namespace SeedCore
 		ComponentEffect,
 		ComponentPostProcess,
 		ComponentSpawner,
+		ComponentLifetime,
 		ComponentCustom,
 
 		Count

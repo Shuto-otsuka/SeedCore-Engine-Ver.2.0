@@ -115,15 +115,16 @@ namespace SeedCore
 			{
 				if (spawner->randomSpawn_)
 				{
-					position->x = spawnPosition.x + RandomRange(-spawner->randomRadius_, spawner->randomRadius_);
-					position->y = spawnPosition.y + RandomRange(-spawner->randomRadius_, spawner->randomRadius_);
-					position->z = spawnPosition.z + RandomRange(-spawner->randomRadius_, spawner->randomRadius_);
+					std::uniform_real_distribution<Float> jitter(-spawner->randomRadius_, spawner->randomRadius_);
+					position->x_ = spawnPosition.x + jitter(randomEngine_);
+					position->y_ = spawnPosition.y + jitter(randomEngine_);
+					position->z_ = spawnPosition.z + jitter(randomEngine_);
 				}
 				else
 				{
-					position->x = spawnPosition.x;
-					position->y = spawnPosition.y;
-					position->z = spawnPosition.z;
+					position->x_ = spawnPosition.x;
+					position->y_ = spawnPosition.y;
+					position->z_ = spawnPosition.z;
 				}
 			}
 
@@ -148,20 +149,5 @@ namespace SeedCore
 	void SpawnerSystem::Reset()
 	{
 		runtimeState_.clear();
-	}
-
-	/**
-	* [EN]
-	* Returns a uniformly distributed random value in [minValue, maxValue).
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* [minValue, maxValue) の範囲で一様分布する乱数値を返す。
-	*/
-	Float SpawnerSystem::RandomRange(Float minValue, Float maxValue)
-	{
-		std::uniform_real_distribution<Float> distribution(minValue, maxValue);
-		return distribution(randomEngine_);
 	}
 }

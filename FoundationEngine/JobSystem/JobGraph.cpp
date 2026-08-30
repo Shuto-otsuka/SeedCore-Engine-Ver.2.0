@@ -65,7 +65,7 @@ namespace SeedCore
 	{
 		/// [EN] Return every node back to the object pool before clearing the container itself.
 		/// [JP] コンテナ自体をクリアする前に、すべてのノードをオブジェクトプールへ返却する。
-		for (auto node : nodes_)
+		for (JobNode* node : nodes_)
 		{
 			recycle(node);
 		}

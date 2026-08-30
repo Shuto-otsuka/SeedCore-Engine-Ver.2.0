@@ -21,8 +21,8 @@ namespace SeedCore
 		{
 			Vector3 direction = Vector3::Forward;
 
-			Float ry = ToRadians(rotation->y);
-			Float rx = ToRadians(rotation->x);
+			Float ry = ToRadians(rotation->y_);
+			Float rx = ToRadians(rotation->x_);
 			Matrix rotMatrix = Matrix::CreateFromYawPitchRoll(ry, rx, 0.0f);
 			direction = Vector3::TransformNormal(Vector3::Forward, rotMatrix);
 			direction.Normalize();
@@ -69,7 +69,7 @@ namespace SeedCore
 			Vector3 forward = Vector3::Transform(Vector3::Forward, rotation_);
 			Vector3 right = Vector3::Transform(Vector3::Right, rotation_);
 			Vector3 up = Vector3::Transform(Vector3::Up, rotation_);
-			Vector3 eye(position->x, position->y, position->z);
+			Vector3 eye(position->x_, position->y_, position->z_);
 			Float speed = moveSpeed_ * elapsedTime;
 
 			/// [JP] Shift 押下中は移動速度に倍率を掛ける（Unreal風の高速移動）。
@@ -104,9 +104,9 @@ namespace SeedCore
 			}
 
 			Position* mutablePosition = const_cast<Position*>(position);
-			mutablePosition->x = eye.x;
-			mutablePosition->y = eye.y;
-			mutablePosition->z = eye.z;
+			mutablePosition->x_ = eye.x;
+			mutablePosition->y_ = eye.y;
+			mutablePosition->z_ = eye.z;
 		}
 
 		/// [JP] 中ボタンドラッグでパン（Unreal風）。掴んだ景色が指に追従する向き。
@@ -119,7 +119,7 @@ namespace SeedCore
 			{
 				Vector3 right = Vector3::Transform(Vector3::Right, rotation_);
 				Vector3 up = Vector3::Transform(Vector3::Up, rotation_);
-				Vector3 eye(position->x, position->y, position->z);
+				Vector3 eye(position->x_, position->y_, position->z_);
 
 				Float pan = panSpeed_;
 				if (InputSystem::KeyState(InputSystem::Key::Shift))
@@ -131,9 +131,9 @@ namespace SeedCore
 				eye += up * dy * pan;
 
 				Position* mutablePosition = const_cast<Position*>(position);
-				mutablePosition->x = eye.x;
-				mutablePosition->y = eye.y;
-				mutablePosition->z = eye.z;
+				mutablePosition->x_ = eye.x;
+				mutablePosition->y_ = eye.y;
+				mutablePosition->z_ = eye.z;
 			}
 		}
 
@@ -141,7 +141,7 @@ namespace SeedCore
 		if (Abs(wheel) > 0.0f)
 		{
 			Vector3 forward = Vector3::Transform(Vector3::Forward, rotation_);
-			Vector3 eye(position->x, position->y, position->z);
+			Vector3 eye(position->x_, position->y_, position->z_);
 
 			Float scroll = scrollSpeed_;
 			if (InputSystem::KeyState(InputSystem::Key::Shift))
@@ -152,9 +152,9 @@ namespace SeedCore
 			eye += forward * wheel * scroll;
 
 			Position* mutablePosition = const_cast<Position*>(position);
-			mutablePosition->x = eye.x;
-			mutablePosition->y = eye.y;
-			mutablePosition->z = eye.z;
+			mutablePosition->x_ = eye.x;
+			mutablePosition->y_ = eye.y;
+			mutablePosition->z_ = eye.z;
 		}
 
 		Vector3 forward = Vector3::Transform(Vector3::Forward, rotation_);
@@ -162,9 +162,9 @@ namespace SeedCore
 		Float pitch = ToDegrees(Asin(-forward.y));
 
 		Rotation* mutableRotation = const_cast<Rotation*>(rotation);
-		mutableRotation->x = pitch;
-		mutableRotation->y = yaw;
-		mutableRotation->z = 0.0f;
+		mutableRotation->x_ = pitch;
+		mutableRotation->y_ = yaw;
+		mutableRotation->z_ = 0.0f;
 	}
 
 	void FreeCameraController::OnLateTick(Float elapsedTime)

@@ -91,10 +91,10 @@ namespace SeedCore
 				}
 				hasActiveCamera_ = true;
 
-				const Vector3 eye = Vector3(position.x, position.y, position.z);
-				const Float rx = ToRadians(rotation.x);
-				const Float ry = ToRadians(rotation.y);
-				const Float rz = ToRadians(rotation.z);
+				const Vector3 eye = Vector3(position.x_, position.y_, position.z_);
+				const Float rx = ToRadians(rotation.x_);
+				const Float ry = ToRadians(rotation.y_);
+				const Float rz = ToRadians(rotation.z_);
 
 				const Matrix rotMatrix = Matrix::CreateFromYawPitchRoll(ry, rx, rz);
 				const Vector3 forward = Vector3::TransformNormal(Vector3::Forward, rotMatrix);

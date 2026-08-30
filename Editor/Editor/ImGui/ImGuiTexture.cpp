@@ -96,6 +96,10 @@ namespace SeedCore
 		load(IconType::ComponentRigidbody, "Component", "Rigidbody");
 		load(IconType::ComponentSoftbody,  "Component", "Softbody");
 		load(IconType::ComponentCharacterController, "Component", "CharacterController");
+		load(IconType::ComponentHingeJoint,  "Component", "HingeJoint");
+		load(IconType::ComponentFixedJoint,  "Component", "FixedJoint");
+		load(IconType::ComponentSpringJoint, "Component", "SpringJoint");
+		load(IconType::ComponentSliderJoint, "Component", "SliderJoint");
 		load(IconType::ComponentAudioSource,   "Component", "AudioSource");
 		load(IconType::ComponentAudioListener, "Component", "AudioListener");
 		load(IconType::ComponentImage, "Component", "Image");
@@ -112,6 +116,7 @@ namespace SeedCore
 		load(IconType::ComponentEffect,      "Component", "Effect");
 		load(IconType::ComponentPostProcess, "Component", "PostProcess");
 		load(IconType::ComponentSpawner,     "Component", "Spawner");
+		load(IconType::ComponentLifetime,    "Component", "Lifetime");
 		load(IconType::ComponentCustom,      "Component", "Custom");
 	}
 
@@ -172,6 +177,10 @@ namespace SeedCore
 			{ "Rigidbody", IconType::ComponentRigidbody },
 			{ "Softbody", IconType::ComponentSoftbody },
 			{ "CharacterController", IconType::ComponentCharacterController },
+			{ "HingeJoint", IconType::ComponentHingeJoint },
+			{ "FixedJoint", IconType::ComponentFixedJoint },
+			{ "SpringJoint", IconType::ComponentSpringJoint },
+			{ "SliderJoint", IconType::ComponentSliderJoint },
 			{ "AudioSource", IconType::ComponentAudioSource },
 			{ "AudioListener", IconType::ComponentAudioListener },
 			{ "Image", IconType::ComponentImage },
@@ -188,6 +197,7 @@ namespace SeedCore
 			{ "Effect", IconType::ComponentEffect },
 			{ "PostProcess", IconType::ComponentPostProcess },
 			{ "Spawner", IconType::ComponentSpawner },
+			{ "Lifetime", IconType::ComponentLifetime },
 		};
 
 		auto found = table.find(componentName.str());

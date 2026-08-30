@@ -387,17 +387,17 @@ namespace SeedCore
 												Rotation* rotationComponent = world.GetComponent<Rotation>(entity);
 												Scale* scaleComponent = world.GetComponent<Scale>(entity);
 
-												Matrix scaleMatrix = scaleComponent ? Matrix::CreateScale(scaleComponent->x, scaleComponent->y, scaleComponent->z) : Matrix::Identity;
-												Matrix rotationMatrix = rotationComponent ? Matrix::CreateFromYawPitchRoll(ToRadians(rotationComponent->y), ToRadians(rotationComponent->x), ToRadians(rotationComponent->z)) : Matrix::Identity;
+												Matrix scaleMatrix = scaleComponent ? Matrix::CreateScale(scaleComponent->x_, scaleComponent->y_, scaleComponent->z_) : Matrix::Identity;
+												Matrix rotationMatrix = rotationComponent ? Matrix::CreateFromYawPitchRoll(ToRadians(rotationComponent->y_), ToRadians(rotationComponent->x_), ToRadians(rotationComponent->z_)) : Matrix::Identity;
 
 												Vector3 localDelta = Vector3::TransformNormal(delta, scaleMatrix * rotationMatrix);
 
 												Position* positionComponent = world.GetComponent<Position>(entity);
 												if (positionComponent)
 												{
-													positionComponent->x += localDelta.x;
-													positionComponent->y += localDelta.y;
-													positionComponent->z += localDelta.z;
+													positionComponent->x_ += localDelta.x;
+													positionComponent->y_ += localDelta.y;
+													positionComponent->z_ += localDelta.z;
 												}
 											}
 										}
@@ -555,7 +555,7 @@ namespace SeedCore
 					}
 				}
 
-				for (const auto& subMesh : subMeshes)
+				for (const SubMesh& subMesh : subMeshes)
 				{
 					Surface material = materialResource.Resolve(loaderSystem, *crister, subMesh.surfaceIndex_, materialIDs);
 
@@ -1148,7 +1148,7 @@ namespace SeedCore
 
 		constexpr Uint maxTextureUploadsPerFrame = 8;
 		Uint textureUploads = 0;
-		for (const auto& request : textureStreamingRequests_)
+		for (const TextureStreamingRequest& request : textureStreamingRequests_)
 		{
 			if (textureUploads >= maxTextureUploadsPerFrame)
 			{

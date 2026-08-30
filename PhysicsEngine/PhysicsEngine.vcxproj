@@ -32,7 +32,12 @@
     <ClInclude Include="Collider\RectCollider.h" />
     <ClInclude Include="Collider\SphereCollider.h" />
     <ClInclude Include="Collider\CylinderCollider.h" />
+    <ClInclude Include="Joint\FixedJoint.h" />
+    <ClInclude Include="Joint\HingeJoint.h" />
+    <ClInclude Include="Joint\SliderJoint.h" />
+    <ClInclude Include="Joint\SpringJoint.h" />
     <ClInclude Include="JoltPhysics\JoltCharacterContactListener.h" />
+    <ClInclude Include="JoltPhysics\JoltConstraintPool.h" />
     <ClInclude Include="JoltPhysics\JoltContactListener.h" />
     <ClInclude Include="JoltPhysics\JoltExecutorBridge.h" />
     <ClInclude Include="JoltPhysics\JoltLayerdef.h" />
@@ -52,7 +57,12 @@
     <ClCompile Include="Collider\MeshCollider.cpp" />
     <ClCompile Include="Collider\RectCollider.cpp" />
     <ClCompile Include="Collider\SphereCollider.cpp" />
+    <ClCompile Include="Joint\FixedJoint.cpp" />
+    <ClCompile Include="Joint\HingeJoint.cpp" />
+    <ClCompile Include="Joint\SliderJoint.cpp" />
+    <ClCompile Include="Joint\SpringJoint.cpp" />
     <ClCompile Include="JoltPhysics\JoltCharacterContactListener.cpp" />
+    <ClCompile Include="JoltPhysics\JoltConstraintPool.cpp" />
     <ClCompile Include="JoltPhysics\JoltContactListener.cpp" />
     <ClCompile Include="JoltPhysics\JoltLayerdef.cpp" />
     <ClCompile Include="JoltPhysics\JoltShapePool.cpp" />

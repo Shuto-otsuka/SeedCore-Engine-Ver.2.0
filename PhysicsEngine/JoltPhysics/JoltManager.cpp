@@ -35,6 +35,7 @@ namespace SeedCore
 	{
 		/// [EN] Shapes must be released before UnregisterTypes.
 		/// [JP] Shapeの解放はUnregisterTypesより前に行う必要がある。
+		constraintPool_.Clear(physicsSystem_);
 		shapePool_.Clear();
 
 		if (executor_)
@@ -57,6 +58,11 @@ namespace SeedCore
 	JoltShapePool& JoltManager::GetShapePool()
 	{
 		return shapePool_;
+	}
+
+	JoltConstraintPool& JoltManager::GetConstraintPool()
+	{
+		return constraintPool_;
 	}
 
 	JPH::BodyInterface& JoltManager::GetBodyInterface()

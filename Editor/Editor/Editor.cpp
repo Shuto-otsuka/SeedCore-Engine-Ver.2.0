@@ -47,8 +47,51 @@ namespace SeedCore
 		SC_LOG_NOTICE("エディターの初期化が完了しました");
 	}
 
+	void Editor::PruneDeadSelection()
+	{
+		World* world = context_.worldContext_.world_;
+		if (!world)
+		{
+			return;
+		}
+
+		SelectionContext& selection = context_.selectionContext_;
+
+		const DynamicArray<ResourcePtr<Actor>>& liveActors = world->GetActors();
+
+		std::erase_if(selection.selectedActors_, [&liveActors](Actor* actor)
+		{
+			for (const ResourcePtr<Actor>& liveActor : liveActors)
+			{
+				if (liveActor.get() == actor)
+				{
+					return false;
+				}
+			}
+			return true;
+		});
+
+		Bool primaryAlive = false;
+		for (const ResourcePtr<Actor>& liveActor : liveActors)
+		{
+			if (liveActor.get() == selection.selectedActor_)
+			{
+				primaryAlive = true;
+				break;
+			}
+		}
+
+		if (!primaryAlive)
+		{
+			selection.selectedActor_ = selection.selectedActors_.empty() ? nullptr : selection.selectedActors_.back();
+			selection.selectedEntity_ = selection.selectedActor_ ? selection.selectedActor_->GetEntity() : Entity::Null();
+		}
+	}
+
 	Float Editor::DrawToolbar()
 	{
+		PruneDeadSelection();
+
 		/// [EN] Must run before any ImGuizmo call this frame (per ImGuizmo's
 		///      own contract: "call BeginFrame right after ImGui NewFrame").
 		///      DrawToolbar() runs first each frame (Engine::MainLoop calls it

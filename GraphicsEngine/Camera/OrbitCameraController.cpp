@@ -19,7 +19,7 @@ namespace SeedCore
 
 		if (!initialized_)
 		{
-			Vector3 eye(position->x, position->y, position->z);
+			Vector3 eye(position->x_, position->y_, position->z_);
 			Vector3 target(targetX_, targetY_, targetZ_);
 			Vector3 offset = eye - target;
 			distance_ = offset.Length();
@@ -59,9 +59,9 @@ namespace SeedCore
 		Vector3 eye = target + offset * distance_;
 
 		Position* mutablePosition = const_cast<Position*>(position);
-		mutablePosition->x = eye.x;
-		mutablePosition->y = eye.y;
-		mutablePosition->z = eye.z;
+		mutablePosition->x_ = eye.x;
+		mutablePosition->y_ = eye.y;
+		mutablePosition->z_ = eye.z;
 
 		Vector3 direction = target - eye;
 		direction.Normalize();
@@ -69,9 +69,9 @@ namespace SeedCore
 		Float rotationX = ToDegrees(Asin(-direction.y));
 
 		Rotation* mutableRotation = const_cast<Rotation*>(rotation);
-		mutableRotation->x = rotationX;
-		mutableRotation->y = rotationY;
-		mutableRotation->z = 0.0f;
+		mutableRotation->x_ = rotationX;
+		mutableRotation->y_ = rotationY;
+		mutableRotation->z_ = 0.0f;
 	}
 
 	void OrbitCameraController::OnLateTick(Float elapsedTime)

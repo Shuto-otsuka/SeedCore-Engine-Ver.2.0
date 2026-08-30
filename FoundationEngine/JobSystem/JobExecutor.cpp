@@ -252,7 +252,7 @@ namespace SeedCore
 
 		notifier_.notify_all();
 
-		for (auto& worker : workers_)
+		for (JobWorker& worker : workers_)
 		{
 			if (worker.thread_.joinable())
 			{
@@ -806,7 +806,7 @@ namespace SeedCore
 			[[fallthrough]];
 		case JobNode::MULTI_CONDITION:
 		{
-			for (auto cond : conds)
+			for (Int cond : conds)
 			{
 				if (cond >= 0 && static_cast<Size>(cond) < node->numberSuccessors_)
 				{

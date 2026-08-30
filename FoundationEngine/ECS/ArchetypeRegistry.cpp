@@ -42,7 +42,7 @@ namespace SeedCore
 		/// [EN] Combine every component ID into a single order-independent hash (sortedLayout is sorted, so the same set of components always yields the same hash).
 		/// [JP] 全コンポーネント ID を単一の順序非依存なハッシュへ結合する（sortedLayout はソート済みのため、同じコンポーネント集合は常に同じハッシュになる）。
 		Size hash = 0;
-		for (const auto& id : sortedLayout)
+		for (ComponentID id : sortedLayout)
 		{
 			hash ^= reinterpret_cast<uintptr_t>(id) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
 		}

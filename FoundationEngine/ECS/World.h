@@ -358,15 +358,7 @@ namespace SeedCore
 				return static_cast<SparseSetStorage<T>*>(it->second.get())->data_.Length();
 			}
 
-			Uint32 count = 0;
-			for (const auto& actor : GetActors())
-			{
-				if (actor->HasComponent(id))
-				{
-					count++;
-				}
-			}
-			return count;
+			return static_cast<Uint32>(std::ranges::count_if(GetActors(), [id](const ResourcePtr<Actor>& actor) { return actor->HasComponent(id); }));
 		}
 
 		/**
@@ -422,7 +414,7 @@ namespace SeedCore
 				/// [JP] アーキタイプ格納には「Tを持つ全エンティティ」への
 				///      O(1) インデックスが無い — 全 actor を走査し、T を
 				///      持つものだけ残す。
-				for (const auto& actor : GetActors())
+				for (const ResourcePtr<Actor>& actor : GetActors())
 				{
 					if (actor->HasComponent(id))
 					{

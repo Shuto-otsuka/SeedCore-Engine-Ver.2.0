@@ -63,14 +63,14 @@ namespace SeedCore
 		* [EN]
 		* Begins an asynchronous transition to targetScene: immediately
 		* swaps in loadingScene, starts background-loading targetScene,
-		* and enters WaitingForBackgroundLoad (swapped in once ready via Update).
+		* and enters WaitingBackground (swapped in once ready via Update).
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
 		* targetScene への非同期遷移を開始する: loadingScene を即座に
 		* 切り替え、targetScene のバックグラウンド読み込みを開始し、
-		* WaitingForBackgroundLoad 状態に入る（準備完了後 Update 経由で
+		* WaitingBackground 状態に入る（準備完了後 Update 経由で
 		* 切り替えられる）。
 		*/
 		void LoadScene(World& world, ResourceCache& cache, JobExecutor& executor, const std::filesystem::path& targetScene, const std::filesystem::path& loadingScene);
@@ -124,7 +124,7 @@ namespace SeedCore
 		* Begins an asynchronous transition to targetScene using a
 		* loading-scene cover/reveal effect: instantiates loadingScene
 		* over the current scene, starts background-loading targetScene,
-		* and enters CoveringWithLoadingScene (the previous scene's
+		* and enters CoveringLoad (the previous scene's
 		* actors are destroyed once the cover finishes, the target scene
 		* is instantiated once loading finishes, and the loading scene's
 		* actors are destroyed once the reveal finishes).
@@ -135,7 +135,7 @@ namespace SeedCore
 		* ローディングシーンによる覆い隠し/表出エフェクトを使用して
 		* targetScene への非同期遷移を開始する: loadingScene を現在の
 		* シーンの上にインスタンス化し、targetScene のバックグラウンド
-		* 読み込みを開始し、CoveringWithLoadingScene 状態に入る
+		* 読み込みを開始し、CoveringLoad 状態に入る
 		* （覆い隠しが完了した時点で以前のシーンの actor が破棄され、
 		* 読み込みが完了した時点でターゲットシーンがインスタンス化され、
 		* 表出が完了した時点でローディングシーンの actor が破棄される）。
@@ -216,8 +216,15 @@ namespace SeedCore
 		Float GetFadeAlpha()const;
 
 	private:
-		/// [EN] The transition's current phase.
-		/// [JP] 遷移の現在のフェーズ。
+		/**
+		* [EN]
+		* The transition's current phase.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* 遷移の現在のフェーズ。
+		*/
 		enum class State
 		{
 			/// [EN] No transition in progress.
@@ -226,7 +233,7 @@ namespace SeedCore
 
 			/// [EN] A background load has been started; waiting for it to finish before swapping scenes.
 			/// [JP] バックグラウンド読み込みが開始されている。シーンを切り替える前に、その完了を待っている。
-			WaitingForBackgroundLoad,
+			WaitingBackground,
 
 			/// [EN] Fading the current scene out to fully covered.
 			/// [JP] 現在のシーンを、完全に覆われた状態までフェードアウトしている。
@@ -238,15 +245,15 @@ namespace SeedCore
 
 			/// [EN] Waiting for the cover duration to elapse before destroying the previous scene's actors.
 			/// [JP] 以前のシーンの actor を破棄する前に、覆い隠し期間が経過するのを待っている。
-			CoveringWithLoadingScene,
+			CoveringLoad,
 
 			/// [EN] Waiting (with the loading scene shown) for the background load to finish.
 			/// [JP] （ローディングシーンを表示したまま）バックグラウンド読み込みの完了を待っている。
-			WaitingWithLoadingScene,
+			WaitingLoading,
 
 			/// [EN] Waiting for the reveal duration to elapse before destroying the loading scene's actors.
 			/// [JP] ローディングシーンの actor を破棄する前に、表出期間が経過するのを待っている。
-			RevealingTarget,
+			Revealing,
 		};
 
 		/**
@@ -263,19 +270,7 @@ namespace SeedCore
 		* future を保存する。path はまず cache でアセット名として解決される
 		* （"Foo.scene" のような単なるファイル名でもよい）。
 		*/
-		void BeginBackgroundLoad(ResourceCache& cache, JobExecutor& executor, const std::filesystem::path& path);
-
-		/**
-		* [EN]
-		* Returns whether the current background load (if any) has finished.
-		*
-		* ---------------------------------------------------------------------
-		*
-		* [JP]
-		* 現在のバックグラウンド読み込み（あれば）が完了しているかどうかを
-		* 返す。
-		*/
-		Bool IsBackgroundLoadReady()const;
+		void BackgroundLoad(ResourceCache& cache, JobExecutor& executor, const std::filesystem::path& path);
 
 		/**
 		* [EN]
@@ -288,8 +283,9 @@ namespace SeedCore
 		* バックグラウンド読み込みが成功していれば、現在の全 actor を
 		* 破棄し、pendingScene_ を world へインスタンス化する。
 		*/
-		void SwapToLoadedScene(World& world, ResourceCache& cache);
+		void SwapLoad(World& world, ResourceCache& cache);
 
+	private:
 		/// [EN] The transition's current phase.
 		/// [JP] 遷移の現在のフェーズ。
 		State state_ = State::Idle;
@@ -326,12 +322,12 @@ namespace SeedCore
 		/// [JP] 設定されたフェードインフェーズの長さ。
 		Float fadeInDuration_ = 0.3f;
 
-		/// [EN] Actors from the previous scene, kept alive until CoveringWithLoadingScene finishes.
-		/// [JP] 以前のシーンの actor 群。CoveringWithLoadingScene が完了するまで保持される。
+		/// [EN] Actors from the previous scene, kept alive until CoveringLoad finishes.
+		/// [JP] 以前のシーンの actor 群。CoveringLoad が完了するまで保持される。
 		DynamicArray<Actor*> previousActors_;
 
-		/// [EN] Actors instantiated from the loading scene, kept alive until RevealingTarget finishes.
-		/// [JP] ローディングシーンからインスタンス化された actor 群。RevealingTarget が完了するまで保持される。
+		/// [EN] Actors instantiated from the loading scene, kept alive until Revealing finishes.
+		/// [JP] ローディングシーンからインスタンス化された actor 群。Revealing が完了するまで保持される。
 		DynamicArray<Actor*> loadingSceneActors_;
 
 		/// [EN] Elapsed time within the current cover/reveal phase.

@@ -19,6 +19,9 @@
     <Filter Include="CharacterController">
       <UniqueIdentifier>{ffb3171d-bafe-49b1-a07d-491ba0daaf23}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Joint">
+      <UniqueIdentifier>{31400a74-9028-44a5-89c4-db40332979de}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="JoltPhysics\JoltManager.h">
@@ -73,6 +76,21 @@
       <Filter>JoltPhysics</Filter>
     </ClInclude>
     <ClInclude Include="JoltPhysics\JoltCharacterContactListener.h">
+      <Filter>JoltPhysics</Filter>
+    </ClInclude>
+    <ClInclude Include="Joint\FixedJoint.h">
+      <Filter>Joint</Filter>
+    </ClInclude>
+    <ClInclude Include="Joint\HingeJoint.h">
+      <Filter>Joint</Filter>
+    </ClInclude>
+    <ClInclude Include="Joint\SliderJoint.h">
+      <Filter>Joint</Filter>
+    </ClInclude>
+    <ClInclude Include="Joint\SpringJoint.h">
+      <Filter>Joint</Filter>
+    </ClInclude>
+    <ClInclude Include="JoltPhysics\JoltConstraintPool.h">
       <Filter>JoltPhysics</Filter>
     </ClInclude>
   </ItemGroup>
@@ -130,6 +148,21 @@
       <Filter>JoltPhysics</Filter>
     </ClCompile>
     <ClCompile Include="JoltPhysics\JoltCharacterContactListener.cpp">
+      <Filter>JoltPhysics</Filter>
+    </ClCompile>
+    <ClCompile Include="Joint\FixedJoint.cpp">
+      <Filter>Joint</Filter>
+    </ClCompile>
+    <ClCompile Include="Joint\HingeJoint.cpp">
+      <Filter>Joint</Filter>
+    </ClCompile>
+    <ClCompile Include="Joint\SliderJoint.cpp">
+      <Filter>Joint</Filter>
+    </ClCompile>
+    <ClCompile Include="Joint\SpringJoint.cpp">
+      <Filter>Joint</Filter>
+    </ClCompile>
+    <ClCompile Include="JoltPhysics\JoltConstraintPool.cpp">
       <Filter>JoltPhysics</Filter>
     </ClCompile>
   </ItemGroup>

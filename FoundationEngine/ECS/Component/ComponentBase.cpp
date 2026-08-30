@@ -41,7 +41,7 @@ namespace SeedCore
 	* [JP]
 	* このコンポーネントの表示名/型名を返す。
 	*/
-	const String& ComponentBase::GetComponentName()const
+	const String& ComponentBase::GetName()const
 	{
 		return componentName_;
 	}

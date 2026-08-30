@@ -129,20 +129,17 @@ namespace SeedCore
 		///      array. Built once per unique Crister from each SubMesh's
 		///      surfaceIndex_ / indexOffset_ / indexCount_ - a multi-material
 		///      mesh (e.g. a Cornell box modeled as one Crister with a
-		///      red/green/white wall per submesh) needs this: using only
-		///      Surfaces()[0] for the whole instance made every ray-traced
-		///      bounce off such a mesh come back the same single colour
-		///      regardless of which wall it actually hit, silently killing
-		///      color bleeding.
+		///      red/green/white wall per submesh) needs this so a ray-traced
+		///      bounce resolves the material of the exact triangle it hit,
+		///      not one surface for the whole instance.
 		/// [JP] StructuredBuffer<uint> の bindless SRV。三角形1つにつき1要素で、
 		///      PrimitiveIndex() を materialDataIndex_ の配列インデックスへ
 		///      対応付ける。ユニークな Crister ごとに一度だけ、各 SubMesh の
 		///      surfaceIndex_ / indexOffset_ / indexCount_ から構築する —
 		///      複数マテリアルのメッシュ(例: 赤/緑/白の壁をサブメッシュに持つ
-		///      1つの Crister で作った Cornell box)にはこれが必須: インスタンス
-		///      全体で Surfaces()[0] だけを使っていたときは、そのメッシュに
-		///      当たったレイトレのバウンスが、実際にどの壁に当たったかに
-		///      関わらず全部同じ1色で返ってきており、色滲みが黙って死んでいた。
+		///      1つの Crister で作った Cornell box)では、レイトレのバウンスが
+		///      インスタンス全体で1つの surface ではなく、実際に当たった三角形の
+		///      マテリアルを解決するためにこれが必須。
 		Uint32 triangleMaterialIndexBufferIndex_ = 0;
 
 		/// [EN] The compressed vertex UVs are UNORM within this AABB, so the

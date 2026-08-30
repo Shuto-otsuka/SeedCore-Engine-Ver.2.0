@@ -14,6 +14,10 @@
 #pragma comment(linker, "/include:_force_payload_Movie")
 #pragma comment(linker, "/include:_force_payload_Image")
 #pragma comment(linker, "/include:_force_payload_MeshCollider")
+#pragma comment(linker, "/include:_force_payload_FixedJoint")
+#pragma comment(linker, "/include:_force_payload_HingeJoint")
+#pragma comment(linker, "/include:_force_payload_SliderJoint")
+#pragma comment(linker, "/include:_force_payload_SpringJoint")
 // [PAYLOAD_AUTO_END]
 
 namespace SeedCore

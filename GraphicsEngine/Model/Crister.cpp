@@ -1082,14 +1082,14 @@ namespace SeedCore
 			}
 		}
 
-		for (auto& node : nodes_)
+		for (Node& node : nodes_)
 		{
 			ConvertRotationByBasis(node.rotation_, deltaBasis);
 			ConvertPositionByBasis(node.translation_, deltaBasis);
 		}
 		CumulateTransforms();
 
-		for (auto& skin : skins_)
+		for (Skin& skin : skins_)
 		{
 			for (Matrix& inverseBindMatrix : skin.inverseBindMatrices_)
 			{
@@ -1097,14 +1097,14 @@ namespace SeedCore
 			}
 		}
 
-		for (auto& light : lights_)
+		for (PunctualLight& light : lights_)
 		{
 			ConvertPositionByBasis(light.position_, deltaBasis);
 			ConvertPositionByBasis(light.direction_, deltaBasis);
 			light.direction_.Normalize();
 		}
 
-		for (auto& bound : meshletBounds_)
+		for (MeshletBound& bound : meshletBounds_)
 		{
 			ConvertPositionByBasis(bound.center_, deltaBasis);
 			ConvertPositionByBasis(bound.coneAxis_, deltaBasis);
@@ -1238,7 +1238,7 @@ namespace SeedCore
 		CumulateTransforms();
 
 		Matrix inverseFullTransform = fullTransform.Invert();
-		for (auto& skin : skins_)
+		for (Skin& skin : skins_)
 		{
 			for (Matrix& inverseBindMatrix : skin.inverseBindMatrices_)
 			{
@@ -1246,7 +1246,7 @@ namespace SeedCore
 			}
 		}
 
-		for (auto& light : lights_)
+		for (PunctualLight& light : lights_)
 		{
 			light.position_ = Vector3::Transform(light.position_, fullTransform);
 			light.direction_ = Vector3::TransformNormal(light.direction_, linearBasis);
@@ -1254,7 +1254,7 @@ namespace SeedCore
 		}
 
 		Float radiusScale = Max(Max(std::abs(clampedScale.x), std::abs(clampedScale.y)), std::abs(clampedScale.z));
-		for (auto& bound : meshletBounds_)
+		for (MeshletBound& bound : meshletBounds_)
 		{
 			bound.center_ = Vector3::Transform(bound.center_, fullTransform);
 			bound.coneAxis_ = Vector3::TransformNormal(bound.coneAxis_, linearBasis);

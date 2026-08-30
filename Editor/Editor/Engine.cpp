@@ -301,7 +301,7 @@ namespace SeedCore
 					}
 				}
 
-				system_->Run(*world_, *resource_, *executor_, gameTimer_.DeltaTime(), gameTimer_.IsPlaying());
+				system_->Run(*world_, *resource_, gameTimer_.DeltaTime(), gameTimer_.IsPlaying());
 
 				if (gameTimer_.IsPlaying())
 				{

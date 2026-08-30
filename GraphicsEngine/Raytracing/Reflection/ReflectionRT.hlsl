@@ -38,13 +38,12 @@
 * G-Buffer の面で視線を反射し、1ピクセル1フレームにつき GGX 重点サンプリング
 * したレイを【1本】撃つ(SkyMath.hlsli の ImportanceSampleGgx — IBL キューブの
 * プリフィルタに SpecularPrefilterCS.hlsl が使うのと同じハーフベクトル分布)。
-* roughness 0 では常に法線と一致するため、ノイズ無しの旧・厳密ミラーレイへ
-* 縮退する。以前は1ピクセル4本撃って平均することでコストを抑えていたが、
-* 今は ReSTIR reservoir(ReflectionReSTIR.hlsli)が今フレームの1候補を
-* リプロジェクション済みの時間的履歴と同じディスパッチ内でストリーム結合し、
-* 続くパス(ReflectionReservoirSpatialCS.hlsl)で近傍数点とも結合する —
-* 4本の冗長なトレースを、既にトレース済みの近傍の結果の再利用へ置き換える。
-* GlobalIlluminationRT.hlsl が GI で既に行っているのと同じトレードオフ。
+* roughness 0 では常に法線と一致するため、ノイズ無しの厳密ミラーレイへ
+* 縮退する。1ピクセル1本で足りるのは ReSTIR reservoir(ReflectionReSTIR.hlsli)が
+* 今フレームの1候補をリプロジェクション済みの時間的履歴と同じディスパッチ内で
+* ストリーム結合し、続くパス(ReflectionReservoirSpatialCS.hlsl)で近傍数点とも
+* 結合するため — 冗長なトレースの代わりに、既にトレース済みの近傍の結果を再利用する。
+* GlobalIlluminationRT.hlsl が GI で行っているのと同じトレードオフ。
 * 解決した reservoir のヒット距離は出力アルファへ書く(捨てない) —
 * デノイザの二重リプロジェクション(面モーション+ヒット点仮想モーション)が
 * このヒット距離を面のスペキュラ支配方向へ延長した仮想位置をリプロジェクション

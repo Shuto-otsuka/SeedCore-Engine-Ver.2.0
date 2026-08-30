@@ -22,9 +22,9 @@ namespace SeedCore
 
 		query.ForEach([&](const Velocity& velocity, Position& position)
 			{
-				position.x += velocity.x * deltaTime;
-				position.y += velocity.y * deltaTime;
-				position.z += velocity.z * deltaTime;
+				position.x_ += velocity.x_ * deltaTime;
+				position.y_ += velocity.y_ * deltaTime;
+				position.z_ += velocity.z_ * deltaTime;
 			});
 	}
 }

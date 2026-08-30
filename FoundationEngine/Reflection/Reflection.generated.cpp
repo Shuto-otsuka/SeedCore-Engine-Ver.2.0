@@ -1,5 +1,6 @@
 #include <FoundationEngine/Prelude.h>
 #include <FoundationEngine/ECS/ReflectionRegistry.h>
+#include <FoundationEngine/ECS/Component/Lifetime.h>
 #include <FoundationEngine/ECS/Component/Name.h>
 #include <FoundationEngine/ECS/Component/Position.h>
 #include <FoundationEngine/ECS/Component/Rotation.h>
@@ -32,9 +33,14 @@
 #include <PhysicsEngine/Collider/MeshCollider.h>
 #include <PhysicsEngine/Collider/RectCollider.h>
 #include <PhysicsEngine/Collider/SphereCollider.h>
+#include <PhysicsEngine/Joint/FixedJoint.h>
+#include <PhysicsEngine/Joint/HingeJoint.h>
+#include <PhysicsEngine/Joint/SliderJoint.h>
+#include <PhysicsEngine/Joint/SpringJoint.h>
 #include <PhysicsEngine/Rigidbody/Rigidbody.h>
 #include <PhysicsEngine/Softbody/Softbody.h>
 
+extern "C" int _force_reflection_Lifetime = 0;
 extern "C" int _force_reflection_Name = 0;
 extern "C" int _force_reflection_Position = 0;
 extern "C" int _force_reflection_Rotation = 0;
@@ -85,6 +91,10 @@ extern "C" int _force_reflection_CylinderCollider = 0;
 extern "C" int _force_reflection_MeshCollider = 0;
 extern "C" int _force_reflection_RectCollider = 0;
 extern "C" int _force_reflection_SphereCollider = 0;
+extern "C" int _force_reflection_FixedJoint = 0;
+extern "C" int _force_reflection_HingeJoint = 0;
+extern "C" int _force_reflection_SliderJoint = 0;
+extern "C" int _force_reflection_SpringJoint = 0;
 extern "C" int _force_reflection_Rigidbody = 0;
 extern "C" int _force_reflection_Softbody = 0;
 
@@ -92,6 +102,27 @@ namespace SeedCore
 {
 	 namespace ScReflection
 	 {
+		// ---- FoundationEngine/ECS/Component/Lifetime.h ----
+		struct Register_Lifetime
+		{
+			Register_Lifetime()
+			{
+				ReflectionRegistry::Register(String("Lifetime"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
+					Lifetime& obj = *static_cast<Lifetime*>(ptr);
+					{
+						FieldInfo fi;
+						fi.name_ = String("生存時間(秒)");
+						fi.offset_ = offsetof(Lifetime, duration_);
+						fi.type_ = AttributeType::Float;
+						fi.clampMin_ = 0.05f;
+						fi.clampMax_ = 3600.0f;
+						outInfo.push_back(std::move(fi));
+					}
+				});
+			}
+		};
+		static Register_Lifetime global_Lifetime_register;
+
 		// ---- FoundationEngine/ECS/Component/Name.h ----
 		struct Register_Name
 		{
@@ -2418,6 +2449,136 @@ namespace SeedCore
 			}
 		};
 		static Register_SphereCollider global_SphereCollider_register;
+
+		// ---- PhysicsEngine/Joint/FixedJoint.h ----
+		struct Register_FixedJoint
+		{
+			Register_FixedJoint()
+			{
+				ReflectionRegistry::Register(String("FixedJoint"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
+					FixedJoint& obj = *static_cast<FixedJoint*>(ptr);
+					outInfo.push_back({ String("有効"), offsetof(FixedJoint, enabled_), AttributeType::Bool });
+				});
+			}
+		};
+		static Register_FixedJoint global_FixedJoint_register;
+
+		// ---- PhysicsEngine/Joint/HingeJoint.h ----
+		struct Register_HingeJoint
+		{
+			Register_HingeJoint()
+			{
+				ReflectionRegistry::Register(String("HingeJoint"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
+					HingeJoint& obj = *static_cast<HingeJoint*>(ptr);
+					outInfo.push_back({ String("有効"), offsetof(HingeJoint, enabled_), AttributeType::Bool });
+					outInfo.push_back({ String("アンカー(ローカル)"), offsetof(HingeJoint, anchor_), AttributeType::Vector3 });
+					outInfo.push_back({ String("ヒンジ軸(ローカル)"), offsetof(HingeJoint, axis_), AttributeType::Vector3 });
+					outInfo.push_back({ String("角度制限を使う"), offsetof(HingeJoint, useLimits_), AttributeType::Bool });
+					{
+						FieldInfo fi;
+						fi.name_ = String("最小角(度)");
+						fi.offset_ = offsetof(HingeJoint, minAngle_);
+						fi.type_ = AttributeType::Float;
+						fi.clampMin_ = -180.0f;
+						fi.clampMax_ = 0.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("最大角(度)");
+						fi.offset_ = offsetof(HingeJoint, maxAngle_);
+						fi.type_ = AttributeType::Float;
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 180.0f;
+						outInfo.push_back(std::move(fi));
+					}
+				});
+			}
+		};
+		static Register_HingeJoint global_HingeJoint_register;
+
+		// ---- PhysicsEngine/Joint/SliderJoint.h ----
+		struct Register_SliderJoint
+		{
+			Register_SliderJoint()
+			{
+				ReflectionRegistry::Register(String("SliderJoint"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
+					SliderJoint& obj = *static_cast<SliderJoint*>(ptr);
+					outInfo.push_back({ String("有効"), offsetof(SliderJoint, enabled_), AttributeType::Bool });
+					outInfo.push_back({ String("スライド軸(ローカル)"), offsetof(SliderJoint, axis_), AttributeType::Vector3 });
+					outInfo.push_back({ String("可動範囲制限を使う"), offsetof(SliderJoint, useLimits_), AttributeType::Bool });
+					{
+						FieldInfo fi;
+						fi.name_ = String("最小距離");
+						fi.offset_ = offsetof(SliderJoint, minDistance_);
+						fi.type_ = AttributeType::Float;
+						fi.clampMin_ = -1000.0f;
+						fi.clampMax_ = 0.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("最大距離");
+						fi.offset_ = offsetof(SliderJoint, maxDistance_);
+						fi.type_ = AttributeType::Float;
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 1000.0f;
+						outInfo.push_back(std::move(fi));
+					}
+				});
+			}
+		};
+		static Register_SliderJoint global_SliderJoint_register;
+
+		// ---- PhysicsEngine/Joint/SpringJoint.h ----
+		struct Register_SpringJoint
+		{
+			Register_SpringJoint()
+			{
+				ReflectionRegistry::Register(String("SpringJoint"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
+					SpringJoint& obj = *static_cast<SpringJoint*>(ptr);
+					outInfo.push_back({ String("有効"), offsetof(SpringJoint, enabled_), AttributeType::Bool });
+					outInfo.push_back({ String("アンカー(ローカル)"), offsetof(SpringJoint, anchor_), AttributeType::Vector3 });
+					{
+						FieldInfo fi;
+						fi.name_ = String("最小距離");
+						fi.offset_ = offsetof(SpringJoint, minDistance_);
+						fi.type_ = AttributeType::Float;
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 1000.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("最大距離");
+						fi.offset_ = offsetof(SpringJoint, maxDistance_);
+						fi.type_ = AttributeType::Float;
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 1000.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("剛性(Hz)");
+						fi.offset_ = offsetof(SpringJoint, frequency_);
+						fi.type_ = AttributeType::Float;
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 30.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("減衰");
+						fi.offset_ = offsetof(SpringJoint, damping_);
+						fi.type_ = AttributeType::Float;
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 1.0f;
+						outInfo.push_back(std::move(fi));
+					}
+				});
+			}
+		};
+		static Register_SpringJoint global_SpringJoint_register;
 
 		// ---- PhysicsEngine/Rigidbody/Rigidbody.h ----
 		struct Register_Rigidbody

@@ -16,7 +16,7 @@ namespace SeedCore
 		Uint32 errorCount = 0;
 		Uint32 warningCount = 0;
 		Uint32 noticeCount = 0;
-		for (const auto& entry : logs)
+		for (const LogEntry& entry : logs)
 		{
 			switch (entry.level_)
 			{

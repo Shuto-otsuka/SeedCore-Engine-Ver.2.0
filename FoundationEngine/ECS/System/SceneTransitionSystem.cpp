@@ -41,22 +41,22 @@ namespace SeedCore
 	* [EN]
 	* Begins an asynchronous transition to targetScene: immediately
 	* swaps in loadingScene, starts background-loading targetScene, and
-	* enters WaitingForBackgroundLoad (swapped in once ready via Update).
+	* enters WaitingBackground (swapped in once ready via Update).
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
 	* targetScene への非同期遷移を開始する: loadingScene を即座に
 	* 切り替え、targetScene のバックグラウンド読み込みを開始し、
-	* WaitingForBackgroundLoad 状態に入る（準備完了後 Update 経由で
+	* WaitingBackground 状態に入る（準備完了後 Update 経由で
 	* 切り替えられる）。
 	*/
 	void SceneTransitionSystem::LoadScene(World& world, ResourceCache& cache, JobExecutor& executor, const std::filesystem::path& targetScene, const std::filesystem::path& loadingScene)
 	{
 		Scene::Load(world, cache, loadingScene);
 
-		BeginBackgroundLoad(cache, executor, targetScene);
-		state_ = State::WaitingForBackgroundLoad;
+		BackgroundLoad(cache, executor, targetScene);
+		state_ = State::WaitingBackground;
 	}
 
 	/**
@@ -105,7 +105,7 @@ namespace SeedCore
 		fadeTimer_ = 0.0f;
 		fadeAlpha_ = 0.0f;
 
-		BeginBackgroundLoad(cache, executor, targetScene);
+		BackgroundLoad(cache, executor, targetScene);
 		state_ = State::FadingOut;
 	}
 
@@ -136,7 +136,7 @@ namespace SeedCore
 	* Begins an asynchronous transition to targetScene using a
 	* loading-scene cover/reveal effect: instantiates loadingScene over
 	* the current scene, starts background-loading targetScene, and
-	* enters CoveringWithLoadingScene.
+	* enters CoveringLoad.
 	*
 	* ---------------------------------------------------------------------
 	*
@@ -144,7 +144,7 @@ namespace SeedCore
 	* ローディングシーンによる覆い隠し/表出エフェクトを使用して
 	* targetScene への非同期遷移を開始する: loadingScene を現在の
 	* シーンの上にインスタンス化し、targetScene のバックグラウンド
-	* 読み込みを開始し、CoveringWithLoadingScene 状態に入る。
+	* 読み込みを開始し、CoveringLoad 状態に入る。
 	*/
 	void SceneTransitionSystem::LoadScene(World& world, ResourceCache& cache, JobExecutor& executor, const std::filesystem::path& targetScene, const std::filesystem::path& loadingScene, Float coverDuration, Float revealDuration)
 	{
@@ -175,8 +175,8 @@ namespace SeedCore
 			loadingSceneActors_ = loadingSceneObj.Instantiate(world, cache);
 		}
 
-		BeginBackgroundLoad(cache, executor, targetScene);
-		state_ = State::CoveringWithLoadingScene;
+		BackgroundLoad(cache, executor, targetScene);
+		state_ = State::CoveringLoad;
 	}
 
 	/**
@@ -217,26 +217,24 @@ namespace SeedCore
 	{
 		switch (state_)
 		{
-		case State::WaitingForBackgroundLoad:
-			if (IsBackgroundLoadReady())
+		case State::WaitingBackground:
+			if (pendingLoad_.valid() && pendingLoad_.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
 			{
-				SwapToLoadedScene(world, cache);
+				SwapLoad(world, cache);
 				state_ = State::Idle;
 			}
 			break;
-
 		case State::FadingOut:
 			fadeTimer_ += deltaTime;
 			fadeAlpha_ = fadeOutDuration_ > 0.0f ? Clamp(fadeTimer_ / fadeOutDuration_, 0.0f, 1.0f) : 1.0f;
 
-			if (fadeAlpha_ >= 1.0f && IsBackgroundLoadReady())
+			if (fadeAlpha_ >= 1.0f && pendingLoad_.valid() && pendingLoad_.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
 			{
-				SwapToLoadedScene(world, cache);
+				SwapLoad(world, cache);
 				fadeTimer_ = 0.0f;
 				state_ = State::FadingIn;
 			}
 			break;
-
 		case State::FadingIn:
 			fadeTimer_ += deltaTime;
 			fadeAlpha_ = fadeInDuration_ > 0.0f ? 1.0f - Clamp(fadeTimer_ / fadeInDuration_, 0.0f, 1.0f) : 0.0f;
@@ -247,8 +245,7 @@ namespace SeedCore
 				state_ = State::Idle;
 			}
 			break;
-
-		case State::CoveringWithLoadingScene:
+		case State::CoveringLoad:
 			transitionTimer_ += deltaTime;
 
 			if (transitionTimer_ >= coverDuration_)
@@ -259,12 +256,11 @@ namespace SeedCore
 				}
 				previousActors_.clear();
 
-				state_ = State::WaitingWithLoadingScene;
+				state_ = State::WaitingLoading;
 			}
 			break;
-
-		case State::WaitingWithLoadingScene:
-			if (IsBackgroundLoadReady())
+		case State::WaitingLoading:
+			if (pendingLoad_.valid() && pendingLoad_.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
 			{
 				if (pendingLoadSucceeded_)
 				{
@@ -272,11 +268,10 @@ namespace SeedCore
 				}
 
 				transitionTimer_ = 0.0f;
-				state_ = State::RevealingTarget;
+				state_ = State::Revealing;
 			}
 			break;
-
-		case State::RevealingTarget:
+		case State::Revealing:
 			transitionTimer_ += deltaTime;
 
 			if (transitionTimer_ >= revealDuration_)
@@ -290,7 +285,6 @@ namespace SeedCore
 				state_ = State::Idle;
 			}
 			break;
-
 		default:
 			break;
 		}
@@ -375,7 +369,7 @@ namespace SeedCore
 	* future を保存する。path はまず cache でアセット名として解決される
 	* （"Foo.scene" のような単なるファイル名でもよい）。
 	*/
-	void SceneTransitionSystem::BeginBackgroundLoad(ResourceCache& cache, JobExecutor& executor, const std::filesystem::path& path)
+	void SceneTransitionSystem::BackgroundLoad(ResourceCache& cache, JobExecutor& executor, const std::filesystem::path& path)
 	{
 		std::filesystem::path resolvedPath = path;
 		Uint32 assetID = cache.GetAssetID(String(path.string()));
@@ -401,21 +395,6 @@ namespace SeedCore
 
 	/**
 	* [EN]
-	* Returns whether the current background load (if any) has finished.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* 現在のバックグラウンド読み込み（あれば）が完了しているかどうかを
-	* 返す。
-	*/
-	Bool SceneTransitionSystem::IsBackgroundLoadReady()const
-	{
-		return pendingLoad_.valid() && pendingLoad_.wait_for(std::chrono::seconds(0)) == std::future_status::ready;
-	}
-
-	/**
-	* [EN]
 	* If the background load succeeded, destroys every current actor
 	* and instantiates pendingScene_ into world.
 	*
@@ -425,7 +404,7 @@ namespace SeedCore
 	* バックグラウンド読み込みが成功していれば、現在の全 actor を
 	* 破棄し、pendingScene_ を world へインスタンス化する。
 	*/
-	void SceneTransitionSystem::SwapToLoadedScene(World& world, ResourceCache& cache)
+	void SceneTransitionSystem::SwapLoad(World& world, ResourceCache& cache)
 	{
 		if (!pendingLoadSucceeded_)
 		{

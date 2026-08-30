@@ -68,6 +68,27 @@ namespace SeedCore
 				return;
 			}
 
+			if (locked_ && lockedActor_)
+			{
+				Bool lockedAlive = false;
+				if (context_.worldContext_.world_)
+				{
+					for (const ResourcePtr<Actor>& liveActor : context_.worldContext_.world_->GetActors())
+					{
+						if (liveActor.get() == lockedActor_)
+						{
+							lockedAlive = true;
+							break;
+						}
+					}
+				}
+				if (!lockedAlive)
+				{
+					locked_ = false;
+					lockedActor_ = nullptr;
+				}
+			}
+
 			Actor* actor = locked_ ? lockedActor_ : context_.selectionContext_.selectedActor_;
 
 			if (actor && actor->GetEntity().Exists())
@@ -321,7 +342,16 @@ namespace SeedCore
 	void InspectorPanel::DrawLayer(Actor* actor)
 	{
 		const DynamicArray<String>& layerNames = LayerRegistry::GetNames();
+		if (layerNames.empty())
+		{
+			return;
+		}
+
 		Size currentLayer = actor->GetLayer();
+		if (currentLayer >= layerNames.size())
+		{
+			currentLayer = 0;
+		}
 
 		ImGui::TextDisabled("レイヤー");
 
@@ -1263,7 +1293,7 @@ namespace SeedCore
 			if (entries)
 			{
 				const Char* preview = "Unknown";
-				for (const auto& entry : *entries)
+				for (const EnumEntry& entry : *entries)
 				{
 					if (entry.value_ == *current)
 					{
@@ -1273,7 +1303,7 @@ namespace SeedCore
 				}
 				if (ImGui::BeginCombo(label, preview))
 				{
-					for (const auto& entry : *entries)
+					for (const EnumEntry& entry : *entries)
 					{
 						Bool selected = (entry.value_ == *current);
 						if (ImGui::Selectable(entry.name_.c_str(), selected))

@@ -414,19 +414,19 @@ namespace SeedCore
 		const Position* position = actor->GetComponent<Position>();
 		if (position)
 		{
-			node.position_ = Vector3(position->x, position->y, position->z);
+			node.position_ = Vector3(position->x_, position->y_, position->z_);
 		}
 
 		const Rotation* rotation = actor->GetComponent<Rotation>();
 		if (rotation)
 		{
-			node.rotation_ = Vector3(rotation->x, rotation->y, rotation->z);
+			node.rotation_ = Vector3(rotation->x_, rotation->y_, rotation->z_);
 		}
 
 		const Scale* scale = actor->GetComponent<Scale>();
 		if (scale)
 		{
-			node.scale_ = Vector3(scale->x, scale->y, scale->z);
+			node.scale_ = Vector3(scale->x_, scale->y_, scale->z_);
 		}
 
 		node.parentIndex_ = parentIndex;
@@ -622,25 +622,25 @@ namespace SeedCore
 		Position* position = const_cast<Position*>(actor->GetComponent<Position>());
 		if (position)
 		{
-			position->x = node.position_.x;
-			position->y = node.position_.y;
-			position->z = node.position_.z;
+			position->x_ = node.position_.x;
+			position->y_ = node.position_.y;
+			position->z_ = node.position_.z;
 		}
 
 		Rotation* rotation = const_cast<Rotation*>(actor->GetComponent<Rotation>());
 		if (rotation)
 		{
-			rotation->x = node.rotation_.x;
-			rotation->y = node.rotation_.y;
-			rotation->z = node.rotation_.z;
+			rotation->x_ = node.rotation_.x;
+			rotation->y_ = node.rotation_.y;
+			rotation->z_ = node.rotation_.z;
 		}
 
 		Scale* scale = const_cast<Scale*>(actor->GetComponent<Scale>());
 		if (scale)
 		{
-			scale->x = node.scale_.x;
-			scale->y = node.scale_.y;
-			scale->z = node.scale_.z;
+			scale->x_ = node.scale_.x;
+			scale->y_ = node.scale_.y;
+			scale->z_ = node.scale_.z;
 		}
 
 		actor->SetActive(node.active_);

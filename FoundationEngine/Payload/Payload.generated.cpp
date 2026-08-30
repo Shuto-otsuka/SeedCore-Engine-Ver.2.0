@@ -13,6 +13,10 @@
 #include <GraphicsEngine/Movie/Movie.h>
 #include <GraphicsEngine/Texture/Image.h>
 #include <PhysicsEngine/Collider/MeshCollider.h>
+#include <PhysicsEngine/Joint/FixedJoint.h>
+#include <PhysicsEngine/Joint/HingeJoint.h>
+#include <PhysicsEngine/Joint/SliderJoint.h>
+#include <PhysicsEngine/Joint/SpringJoint.h>
 
 extern "C" int _force_payload_Spawner = 0;
 extern "C" int _force_payload_LookAtConstraint = 0;
@@ -27,6 +31,10 @@ extern "C" int _force_payload_Material = 0;
 extern "C" int _force_payload_Movie = 0;
 extern "C" int _force_payload_Image = 0;
 extern "C" int _force_payload_MeshCollider = 0;
+extern "C" int _force_payload_FixedJoint = 0;
+extern "C" int _force_payload_HingeJoint = 0;
+extern "C" int _force_payload_SliderJoint = 0;
+extern "C" int _force_payload_SpringJoint = 0;
 
 namespace SeedCore
 {
@@ -240,6 +248,58 @@ namespace SeedCore
 			}
 		};
 		static Register_MeshCollider global_MeshCollider_register;
+
+		// ---- PhysicsEngine/Joint/FixedJoint.h ----
+		struct Register_FixedJoint
+		{
+			Register_FixedJoint()
+			{
+				PayloadRegistry::Register(String("FixedJoint"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
+					FixedJoint& obj = *static_cast<FixedJoint*>(ptr);
+					outInfo.push_back({ String("接続先アクター"), offsetof(FixedJoint, connectedActor_), AttributeType::Int, PayloadAssetType::Actor });
+				});
+			}
+		};
+		static Register_FixedJoint global_FixedJoint_register;
+
+		// ---- PhysicsEngine/Joint/HingeJoint.h ----
+		struct Register_HingeJoint
+		{
+			Register_HingeJoint()
+			{
+				PayloadRegistry::Register(String("HingeJoint"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
+					HingeJoint& obj = *static_cast<HingeJoint*>(ptr);
+					outInfo.push_back({ String("接続先アクター"), offsetof(HingeJoint, connectedActor_), AttributeType::Int, PayloadAssetType::Actor });
+				});
+			}
+		};
+		static Register_HingeJoint global_HingeJoint_register;
+
+		// ---- PhysicsEngine/Joint/SliderJoint.h ----
+		struct Register_SliderJoint
+		{
+			Register_SliderJoint()
+			{
+				PayloadRegistry::Register(String("SliderJoint"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
+					SliderJoint& obj = *static_cast<SliderJoint*>(ptr);
+					outInfo.push_back({ String("接続先アクター"), offsetof(SliderJoint, connectedActor_), AttributeType::Int, PayloadAssetType::Actor });
+				});
+			}
+		};
+		static Register_SliderJoint global_SliderJoint_register;
+
+		// ---- PhysicsEngine/Joint/SpringJoint.h ----
+		struct Register_SpringJoint
+		{
+			Register_SpringJoint()
+			{
+				PayloadRegistry::Register(String("SpringJoint"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
+					SpringJoint& obj = *static_cast<SpringJoint*>(ptr);
+					outInfo.push_back({ String("接続先アクター"), offsetof(SpringJoint, connectedActor_), AttributeType::Int, PayloadAssetType::Actor });
+				});
+			}
+		};
+		static Register_SpringJoint global_SpringJoint_register;
 
 	}
 }

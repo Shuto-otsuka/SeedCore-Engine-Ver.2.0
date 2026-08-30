@@ -114,7 +114,7 @@ namespace SeedCore
 			}
 		}
 
-		for (const auto& subMesh : subMeshes)
+		for (const SubMesh& subMesh : subMeshes)
 		{
 			const Surface& material = previewSurface ? *previewSurface : surfaces[subMesh.surfaceIndex_];
 

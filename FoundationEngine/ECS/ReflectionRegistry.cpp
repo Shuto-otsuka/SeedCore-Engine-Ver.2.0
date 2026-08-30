@@ -1,6 +1,7 @@
 #include <FoundationEngine/ECS/ReflectionRegistry.h>
 
 // [REFLECTION_AUTO_BEGIN]
+#pragma comment(linker, "/include:_force_reflection_Lifetime")
 #pragma comment(linker, "/include:_force_reflection_Name")
 #pragma comment(linker, "/include:_force_reflection_Position")
 #pragma comment(linker, "/include:_force_reflection_Rotation")
@@ -51,6 +52,10 @@
 #pragma comment(linker, "/include:_force_reflection_MeshCollider")
 #pragma comment(linker, "/include:_force_reflection_RectCollider")
 #pragma comment(linker, "/include:_force_reflection_SphereCollider")
+#pragma comment(linker, "/include:_force_reflection_FixedJoint")
+#pragma comment(linker, "/include:_force_reflection_HingeJoint")
+#pragma comment(linker, "/include:_force_reflection_SliderJoint")
+#pragma comment(linker, "/include:_force_reflection_SpringJoint")
 #pragma comment(linker, "/include:_force_reflection_Rigidbody")
 #pragma comment(linker, "/include:_force_reflection_Softbody")
 // [REFLECTION_AUTO_END]

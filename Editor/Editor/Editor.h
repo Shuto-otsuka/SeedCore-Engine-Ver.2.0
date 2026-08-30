@@ -51,6 +51,9 @@ namespace SeedCore
 		[[nodiscard]] Bool IsGameViewImageHovered()const { return gameWindowPanel_->IsImageHovered(); }
 
 	private:
+		void PruneDeadSelection();
+
+	private:
 		EditorContext& context_;
 
 		Float toolbarHeight_ = 0.0f;

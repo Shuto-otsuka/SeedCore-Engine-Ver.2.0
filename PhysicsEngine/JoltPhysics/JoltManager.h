@@ -2,6 +2,7 @@
 #include <FoundationEngine/Prelude.h>
 #include <PhysicsEngine/JoltPhysics/JoltExecutorBridge.h>
 #include <PhysicsEngine/JoltPhysics/JoltShapePool.h>
+#include <PhysicsEngine/JoltPhysics/JoltConstraintPool.h>
 #include <PhysicsEngine/JoltPhysics/JoltContactListener.h>
 
 namespace SeedCore
@@ -23,6 +24,8 @@ namespace SeedCore
 
 		JoltShapePool& GetShapePool();
 
+		JoltConstraintPool& GetConstraintPool();
+
 		JPH::BodyInterface& GetBodyInterface();
 
 		JPH::PhysicsSystem& GetPhysicsSystem();
@@ -35,6 +38,8 @@ namespace SeedCore
 
 	private:
 		JoltShapePool shapePool_;
+
+		JoltConstraintPool constraintPool_;
 
 		ResourcePtr<JoltExecutorBridge> executor_;
 

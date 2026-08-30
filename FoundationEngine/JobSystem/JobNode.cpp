@@ -203,7 +203,7 @@ namespace SeedCore
 	void JobNode::ReleaseAll(HybridArray<JobNode*>& nodes)
 	{
 		auto& release = semaphores_->release_;
-		for (const auto& semaphore : release)
+		for (Semaphore* semaphore : release)
 		{
 			semaphore->release(nodes);
 		}

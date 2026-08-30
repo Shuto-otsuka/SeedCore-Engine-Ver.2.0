@@ -56,17 +56,17 @@ namespace SeedCore
 
 		if (position)
 		{
-			position->x = outPosition.x;
-			position->y = outPosition.y;
-			position->z = outPosition.z;
+			position->x_ = outPosition.x;
+			position->y_ = outPosition.y;
+			position->z_ = outPosition.z;
 		}
 
 		if (rotation)
 		{
 			const Vector3 euler = outRotation.ToEuler();
-			rotation->x = ToDegrees(euler.x);
-			rotation->y = ToDegrees(euler.y);
-			rotation->z = ToDegrees(euler.z);
+			rotation->x_ = ToDegrees(euler.x);
+			rotation->y_ = ToDegrees(euler.y);
+			rotation->z_ = ToDegrees(euler.z);
 		}
 	}
 

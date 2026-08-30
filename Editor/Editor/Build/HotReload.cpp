@@ -138,7 +138,7 @@ namespace SeedCore
 
 		PROCESS_INFORMATION processInfo{};
 
-		std::vector<wchar_t> mutableCommandLine(commandLine.begin(), commandLine.end());
+		DynamicArray<wchar_t> mutableCommandLine(commandLine.begin(), commandLine.end());
 		mutableCommandLine.push_back(L'\0');
 
 		Bool created = CreateProcessW(nullptr, mutableCommandLine.data(), nullptr, nullptr, TRUE, CREATE_NO_WINDOW, nullptr, nullptr, &startupInfo, &processInfo);

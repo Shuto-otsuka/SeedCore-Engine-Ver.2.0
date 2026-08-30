@@ -49,6 +49,7 @@
     <ClInclude Include="ECS\Component\Bounds.h" />
     <ClInclude Include="ECS\Component\ComponentBase.h" />
     <ClInclude Include="ECS\Component\InspectorDrawable.h" />
+    <ClInclude Include="ECS\Component\Lifetime.h" />
     <ClInclude Include="ECS\Component\Spawner.h" />
     <ClInclude Include="ECS\CompoundCommand.h" />
     <ClInclude Include="ECS\Entity.h" />
@@ -61,6 +62,7 @@
     </ClCompile>
     <ClCompile Include="ECS\ReflectionRegistry.cpp">
     </ClCompile>
+    <ClCompile Include="ECS\System\LifetimeSystem.cpp" />
     <ClCompile Include="ECS\System\MoveSystem.cpp" />
     <ClCompile Include="ECS\System\SpawnerSystem.cpp" />
     <ClCompile Include="ECS\System\SystemScheduler.cpp">
@@ -75,6 +77,7 @@
     <ClInclude Include="ECS\LayerCollisionMatrix.h" />
     <ClInclude Include="ECS\LayerRegistry.h" />
     <ClInclude Include="ECS\PayloadRegistry.h" />
+    <ClInclude Include="ECS\System\LifetimeSystem.h" />
     <ClInclude Include="ECS\System\MoveSystem.h" />
     <ClInclude Include="ECS\System\SpawnerSystem.h" />
     <ClInclude Include="ECS\System\TransformSystem.h" />

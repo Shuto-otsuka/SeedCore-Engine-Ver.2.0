@@ -1,6 +1,6 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
-#include <FoundationEngine/ECS/ComponentRegistry.h>
+#include <FoundationEngine/SeedScript.h>
 
 namespace SeedCore
 {
@@ -18,17 +18,17 @@ namespace SeedCore
 		/// [EN] Rotation about the X axis.
 		/// [JP] X 軸周りの回転。
 		SC_SERIALIZE_FIELD()
-		Float x;
+		Float x_;
 
 		/// [EN] Rotation about the Y axis.
 		/// [JP] Y 軸周りの回転。
 		SC_SERIALIZE_FIELD()
-		Float y;
+		Float y_;
 
 		/// [EN] Rotation about the Z axis.
 		/// [JP] Z 軸周りの回転。
 		SC_SERIALIZE_FIELD()
-		Float z;
+		Float z_;
 	};
 	REGISTER_COMPONENT(Rotation, "Core", ComponentStorage::Archetype);
 }

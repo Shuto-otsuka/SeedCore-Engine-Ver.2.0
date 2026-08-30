@@ -17,7 +17,7 @@ namespace SeedCore
 	*/
 	Archetype::Archetype(const DynamicArray<ComponentID>& layout) : layout_(layout)
 	{
-		for (const auto& id : layout)
+		for (ComponentID id : layout)
 		{
 			/// [EN] Grow the signature bitset lazily to fit each component's dense internal ID before setting its bit.
 			/// [JP] 各コンポーネントの密な内部 ID にビットを立てる前に、それを収められるようシグネチャビットセットを遅延的に拡張する。

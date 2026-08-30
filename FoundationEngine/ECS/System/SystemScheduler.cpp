@@ -4,37 +4,33 @@
 #include <FoundationEngine/ECS/World.h>
 #include <FoundationEngine/ECS/Actor.h>
 #include <FoundationEngine/ECS/Component/ComponentBase.h>
-#include <FoundationEngine/JobSystem/JobExecutor.h>
 
 namespace SeedCore
 {
 	/**
 	* [EN]
-	* Runs one frame: drives Awake/Start (if isPlaying), builds and runs
-	* the archetype/sparse system flows, drives MoveSystem then
-	* SpawnerSystem (if isPlaying, both before TransformSystem so this
-	* frame's motion and any newly spawned actor's position are
-	* reflected in this same frame's world matrix), runs the built-in
-	* TransformSystem, then drives Tick/LateTick (if isPlaying).
+	* Runs one frame: drives Awake/Start (if isPlaying), drives
+	* MoveSystem then SpawnerSystem then LifetimeSystem (if isPlaying,
+	* all before TransformSystem so this frame's motion and any newly
+	* spawned actor's position are reflected in this same frame's world
+	* matrix), runs the built-in TransformSystem, then drives Tick/
+	* LateTick (if isPlaying).
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
 	* 1フレーム分を実行する: （isPlaying であれば）Awake/Start を
-	* 駆動し、アーキタイプ/スパースのシステムフローを構築・実行し、
-	* （isPlaying であれば、TransformSystem より前に — 今フレームの移動や
-	* 新しく生成された actor の位置が同じフレームのワールド行列に反映
-	* されるように）MoveSystem、続けて SpawnerSystem を駆動し、組み込みの
-	* TransformSystem を実行し、（isPlaying であれば）Tick/LateTick を
-	* 駆動する。
+	* 駆動し、（isPlaying であれば、TransformSystem より前に — 今フレームの
+	* 移動や新しく生成された actor の位置が同じフレームのワールド行列に
+	* 反映されるように）MoveSystem、続けて SpawnerSystem、LifetimeSystem を
+	* 駆動し、組み込みの TransformSystem を実行し、（isPlaying であれば）
+	* Tick/LateTick を駆動する。
 	*/
-	void SystemScheduler::Run(World& world, ResourceCache& cache, JobExecutor& executor, Float elapsedTime, Bool isPlaying)
+	void SystemScheduler::Run(World& world, ResourceCache& cache, Float elapsedTime, Bool isPlaying)
 	{
 		if (isPlaying)
 		{
-			/// [EN] Fire Awake/Start exactly once per component, in that order, before any Tick runs.
-			/// [JP] Tick が実行される前に、Awake/Start をコンポーネントごとにちょうど1回、その順序で発火する。
-			for (auto& actor : world.GetActors())
+			for (ResourcePtr<Actor>& actor : world.GetActors())
 			{
 				Entity entity = actor->GetEntity();
 				EntityID entityID = static_cast<Uint32>(entity.GetHandle().index_);
@@ -56,6 +52,23 @@ namespace SeedCore
 							component->awake_(component);
 						}
 					}
+				}
+			}
+
+			for (ResourcePtr<Actor>& actor : world.GetActors())
+			{
+				Entity entity = actor->GetEntity();
+				EntityID entityID = static_cast<Uint32>(entity.GetHandle().index_);
+
+				for (ComponentID id : actor->ComponentBaseIDList())
+				{
+					void* data = world.GetComponent(entityID, id);
+					if (!data)
+					{
+						continue;
+					}
+
+					ComponentBase* component = static_cast<ComponentBase*>(data);
 					if (!component->started_)
 					{
 						component->started_ = true;
@@ -67,21 +80,6 @@ namespace SeedCore
 				}
 			}
 		}
-
-		JobTaskflow archetypeFlow;
-		JobTaskflow sparseFlow;
-
-		archetypeTasks_.clear();
-		sparseTasks_.clear();
-
-		BuildFlow(world, archetypeFlow, archetypeSystems_, archetypeTasks_);
-		BuildFlow(world, sparseFlow, sparseSystems_, sparseTasks_);
-
-		ResolveDependencies(archetypeSystems_, archetypeTasks_);
-		ResolveDependencies(sparseSystems_, sparseTasks_);
-
-		executor.Run(archetypeFlow).wait();
-		executor.Run(sparseFlow).wait();
 
 		/// [EN] Spawn before TransformSystem::Execute (not alongside
 		///      Tick/LateTick below) so a newly spawned actor's world
@@ -102,13 +100,14 @@ namespace SeedCore
 		{
 			moveSystem_.Execute(world, elapsedTime);
 			spawnerSystem_.Update(world, cache, elapsedTime);
+			lifetimeSystem_.Update(world, elapsedTime);
 		}
 
 		transformSystem_.Execute(world);
 
 		if (isPlaying)
 		{
-			for (auto& actor : world.GetActors())
+			for (ResourcePtr<Actor>& actor : world.GetActors())
 			{
 				Entity entity = actor->GetEntity();
 				EntityID entityID = static_cast<Uint32>(entity.GetHandle().index_);
@@ -129,7 +128,7 @@ namespace SeedCore
 				}
 			}
 
-			for (auto& actor : world.GetActors())
+			for (ResourcePtr<Actor>& actor : world.GetActors())
 			{
 				Entity entity = actor->GetEntity();
 				EntityID entityID = static_cast<Uint32>(entity.GetHandle().index_);
@@ -165,7 +164,7 @@ namespace SeedCore
 	*/
 	void SystemScheduler::Step(World& world, Float fixedTime)
 	{
-		for (auto& actor : world.GetActors())
+		for (ResourcePtr<Actor>& actor : world.GetActors())
 		{
 			Entity entity = actor->GetEntity();
 			EntityID entityID = static_cast<Uint32>(entity.GetHandle().index_);
@@ -199,63 +198,6 @@ namespace SeedCore
 	void SystemScheduler::Reset()
 	{
 		spawnerSystem_.Reset();
-	}
-
-	/**
-	* [EN]
-	* Emplaces one JobTask per entry in systems onto flow (each invoking
-	* that system's execute_ trampoline), appending the resulting tasks
-	* to tasks.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* systems の各エントリに対して1つの JobTask を flow へ追加する
-	* （それぞれがそのシステムの execute_ トランポリンを呼び出す）。
-	* 結果として得られたタスクを tasks へ追加する。
-	*/
-	void SystemScheduler::BuildFlow(World& world, JobTaskflow& flow, DynamicArray<Entry>& systems, DynamicArray<JobTask>& tasks)
-	{
-		for (Size index = 0; index < systems.size(); ++index)
-		{
-			JobTask task = flow.emplace([&, index]()
-				{
-					systems[index].execute_(systems[index].system_, world, flow);
-				});
-
-			tasks.push_back(task);
-		}
-	}
-
-	/**
-	* [EN]
-	* Establishes precedence edges between tasks so that any pair of
-	* systems with conflicting access (a write overlapping the other's
-	* read or write) runs in registration order rather than concurrently.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* アクセスが競合する（一方の書き込みが、もう一方の読み取りまたは
-	* 書き込みと重なる）システムのペアが、並行実行ではなく登録順に
-	* 実行されるよう、tasks 間に先行関係エッジを設定する。
-	*/
-	void SystemScheduler::ResolveDependencies(DynamicArray<Entry>& systems, DynamicArray<JobTask>& tasks)
-	{
-		for (Size index = 0; index < systems.size(); ++index)
-		{
-			for (Size otherIndex = index + 1; otherIndex < systems.size(); ++otherIndex)
-			{
-				Bool conflict =
-					(systems[index].writeSignature_ & systems[otherIndex].readSignature_).any() ||
-					(systems[index].writeSignature_ & systems[otherIndex].writeSignature_).any() ||
-					(systems[otherIndex].writeSignature_ & systems[index].readSignature_).any();
-
-				if (conflict)
-				{
-					tasks[otherIndex].Succeed(tasks[index]);
-				}
-			}
-		}
+		lifetimeSystem_.Reset();
 	}
 }

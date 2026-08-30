@@ -2,6 +2,7 @@
 #include <FoundationEngine/Prelude.h>
 #include <FoundationEngine/ECS/EcsID.h>
 #include <PhysicsEngine/JoltPhysics/JoltShapePool.h>
+#include <PhysicsEngine/JoltPhysics/JoltConstraintPool.h>
 
 namespace SeedCore
 {
@@ -36,6 +37,36 @@ namespace SeedCore
 		JPH::EAllowedDOFs allowedDOFs_ = JPH::EAllowedDOFs::All;
 		EntityID userData_ = 0;
 		Bool isSensor_ = false;
+	};
+
+	struct HingeJointDesc
+	{
+		Vector3 anchor_ = { 0.0f, 0.0f, 0.0f };
+		Vector3 axis_ = { 0.0f, 1.0f, 0.0f };
+		Bool useLimits_ = false;
+		Float minAngle_ = 0.0f;
+		Float maxAngle_ = 0.0f;
+	};
+
+	struct FixedJointDesc
+	{
+	};
+
+	struct SpringJointDesc
+	{
+		Vector3 anchor_ = { 0.0f, 0.0f, 0.0f };
+		Float minDistance_ = 0.0f;
+		Float maxDistance_ = 0.0f;
+		Float frequency_ = 2.0f;
+		Float damping_ = 0.5f;
+	};
+
+	struct SliderJointDesc
+	{
+		Vector3 axis_ = { 1.0f, 0.0f, 0.0f };
+		Bool useLimits_ = false;
+		Float minDistance_ = 0.0f;
+		Float maxDistance_ = 0.0f;
 	};
 
 	struct RaycastHit
@@ -126,6 +157,17 @@ namespace SeedCore
 		EntityID GetBodyEntityID(JPH::BodyID bodyID)const;
 
 	public:
+		ConstraintHandle CreateHingeJoint(JPH::BodyID bodyA, JPH::BodyID bodyB, const HingeJointDesc& desc);
+
+		ConstraintHandle CreateFixedJoint(JPH::BodyID bodyA, JPH::BodyID bodyB, const FixedJointDesc& desc);
+
+		ConstraintHandle CreateSpringJoint(JPH::BodyID bodyA, JPH::BodyID bodyB, const SpringJointDesc& desc);
+
+		ConstraintHandle CreateSliderJoint(JPH::BodyID bodyA, JPH::BodyID bodyB, const SliderJointDesc& desc);
+
+		void DestroyJoint(ConstraintHandle handle);
+
+	public:
 		Bool Raycast(const Vector3& origin, const Vector3& direction, Float maxDistance, RaycastHit& outHit, Uint32 layerMask = 0xFFFFFFFF)const;
 
 		Bool Spherecast(const Vector3& origin, Float radius, const Vector3& direction, Float maxDistance, RaycastHit& outHit, Uint32 layerMask = 0xFFFFFFFF)const;
@@ -139,6 +181,8 @@ namespace SeedCore
 		DynamicArray<EntityID> Overlap2D(ShapeHandle shape, const Vector2& position, Float rotation, Float z = 0.0f, Uint32 layerMask = 0xFFFFFFFF)const;
 
 	private:
+		ConstraintHandle CreateConstraint(JPH::BodyID bodyA, JPH::BodyID bodyB, const JPH::TwoBodyConstraintSettings& settings);
+
 		Bool PassesLayerMask(JPH::BodyID bodyID, Uint32 layerMask)const;
 
 	private:

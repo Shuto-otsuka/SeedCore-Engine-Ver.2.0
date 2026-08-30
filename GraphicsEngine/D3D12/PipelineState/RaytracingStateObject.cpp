@@ -29,7 +29,7 @@ namespace SeedCore
 		D3D12_DXIL_LIBRARY_DESC dxilDesc{};
 		dxilDesc.DXILLibrary = key.libraryShader_;
 
-		std::vector<D3D12_EXPORT_DESC> exports;
+		DynamicArray<D3D12_EXPORT_DESC> exports;
 		if (!rayGenName.empty())
 		{
 			exports.push_back({ rayGenName.c_str(), nullptr, D3D12_EXPORT_FLAG_NONE });

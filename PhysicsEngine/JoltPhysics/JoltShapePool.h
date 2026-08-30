@@ -101,10 +101,14 @@ namespace SeedCore
 			Uint32 refCount_ = 0;
 		};
 
+	private:
 		ShapeHandle Register(JPH::ShapeRefC shape, Uint64 cacheKey);
 
-		std::vector<Slot> slots_;
-		std::vector<Uint64> freeIndices_;
+	private:
+		DynamicArray<Slot> slots_;
+
+		DynamicArray<Uint64> freeIndices_;
+
 		std::unordered_map<Uint64, ShapeHandle> cache_;
 	};
 }

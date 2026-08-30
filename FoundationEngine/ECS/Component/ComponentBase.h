@@ -79,7 +79,7 @@ namespace SeedCore
 		* [JP]
 		* このコンポーネントの表示名/型名を返す。
 		*/
-		const String& GetComponentName()const;
+		const String& GetName()const;
 
 		/**
 		* [EN]

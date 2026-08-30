@@ -20,7 +20,7 @@ namespace SeedCore
 	*/
 	void TransformSystem::Execute(World& world)
 	{
-		for (auto& actor : world.GetActors())
+		for (ResourcePtr<Actor>& actor : world.GetActors())
 		{
 			if (actor->GetParent() == nullptr)
 			{
@@ -54,21 +54,21 @@ namespace SeedCore
 
 		if (scale)
 		{
-			local *= Matrix::CreateScale(scale->x, scale->y, scale->z);
+			local *= Matrix::CreateScale(scale->x_, scale->y_, scale->z_);
 		}
 
 		if (rotation)
 		{
 			local *= Matrix::CreateFromYawPitchRoll(
-				DirectX::XMConvertToRadians(rotation->y),
-				DirectX::XMConvertToRadians(rotation->x),
-				DirectX::XMConvertToRadians(rotation->z)
+				DirectX::XMConvertToRadians(rotation->y_),
+				DirectX::XMConvertToRadians(rotation->x_),
+				DirectX::XMConvertToRadians(rotation->z_)
 			);
 		}
 
 		if (position)
 		{
-			local *= Matrix::CreateTranslation(position->x, position->y, position->z);
+			local *= Matrix::CreateTranslation(position->x_, position->y_, position->z_);
 		}
 
 		Matrix worldMatrix = local * parentMatrix;

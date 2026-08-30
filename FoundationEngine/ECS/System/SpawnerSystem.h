@@ -128,23 +128,12 @@ namespace SeedCore
 			DynamicArray<SpawnedInstance> instances_;
 		};
 
-		/**
-		* [EN]
-		* Returns a uniformly distributed random value in [minValue, maxValue).
-		*
-		* ---------------------------------------------------------------------
-		*
-		* [JP]
-		* [minValue, maxValue) の範囲で一様分布する乱数値を返す。
-		*/
-		Float RandomRange(Float minValue, Float maxValue);
-
 		/// [EN] Runtime progress for every entity currently holding a Spawner, keyed by EntityID.
 		/// [JP] 現在 Spawner を持つ全エンティティのランタイム進行状況。EntityID をキーとする。
 		FlatMap<EntityID, RuntimeState> runtimeState_;
 
-		/// [EN] Random engine backing RandomRange, used for randomSpawn_'s position jitter.
-		/// [JP] RandomRange を支える乱数エンジン。randomSpawn_ の位置ジッターに使う。
+		/// [EN] Random engine used for randomSpawn_'s position jitter.
+		/// [JP] randomSpawn_ の位置ジッターに使う乱数エンジン。
 		std::mt19937 randomEngine_ = std::mt19937(std::random_device{}());
 	};
 }

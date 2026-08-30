@@ -258,6 +258,13 @@
 #include <External/JoltPhysics/Jolt/Physics/Character/CharacterVirtual.h>
 #include <External/JoltPhysics/Jolt/Physics/Body/Body.h>
 #include <External/JoltPhysics/Jolt/Physics/Body/BodyLock.h>
+#include <External/JoltPhysics/Jolt/Physics/Body/BodyLockMulti.h>
+#include <External/JoltPhysics/Jolt/Physics/Constraints/TwoBodyConstraint.h>
+#include <External/JoltPhysics/Jolt/Physics/Constraints/SpringSettings.h>
+#include <External/JoltPhysics/Jolt/Physics/Constraints/HingeConstraint.h>
+#include <External/JoltPhysics/Jolt/Physics/Constraints/FixedConstraint.h>
+#include <External/JoltPhysics/Jolt/Physics/Constraints/DistanceConstraint.h>
+#include <External/JoltPhysics/Jolt/Physics/Constraints/SliderConstraint.h>
 #include <External/JoltPhysics/Jolt/Physics/Collision/NarrowPhaseQuery.h>
 #include <External/JoltPhysics/Jolt/Physics/Collision/RayCast.h>
 #include <External/JoltPhysics/Jolt/Physics/Collision/CastResult.h>

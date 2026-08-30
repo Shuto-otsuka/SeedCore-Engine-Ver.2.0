@@ -280,6 +280,9 @@
     <ClCompile Include="ECS\CompoundCommand.cpp">
       <Filter>ESC</Filter>
     </ClCompile>
+    <ClCompile Include="ECS\System\LifetimeSystem.cpp">
+      <Filter>ESC\System</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Log\DxFail.h">
@@ -685,6 +688,12 @@
     </ClInclude>
     <ClInclude Include="ECS\CompoundCommand.h">
       <Filter>ESC</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\Component\Lifetime.h">
+      <Filter>ESC\Component</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\System\LifetimeSystem.h">
+      <Filter>ESC\System</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -68,7 +68,7 @@ namespace SeedCore
 
 		/// [EN] For array fields, one entry per element; for nested-struct fields, the struct's own captured field list. Empty for plain scalar fields.
 		/// [JP] 配列フィールドの場合は要素ごとの1エントリ。ネストされた構造体フィールドの場合はその構造体自身の取得済みフィールド一覧。単純なスカラーフィールドの場合は空。
-		std::vector<SerializedField> children_;
+		DynamicArray<SerializedField> children_;
 
 		/**
 		* [EN]

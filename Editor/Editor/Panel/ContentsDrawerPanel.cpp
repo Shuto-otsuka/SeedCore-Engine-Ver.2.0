@@ -113,7 +113,7 @@ namespace SeedCore
 			if (!searchKey.empty())
 			{
 				auto results = context_.worldContext_.resource_->Search(String(searchKey));
-				for (auto* asset : results)
+				for (Asset* asset : results)
 				{
 					ImGui::PushID(asset->assetID_);
 
@@ -490,7 +490,7 @@ namespace SeedCore
 			}
 		}
 
-		for (const auto* asset : target->assets)
+		for (const Asset* asset : target->assets)
 		{
 			Bool isCut = clipboardAction_ == ClipboardAction::Cut && !clipboardIsDirectory_ && clipboardPath_ == std::filesystem::path(asset->fullpath_.str());
 			if (isCut)
@@ -612,7 +612,7 @@ namespace SeedCore
 			++index;
 		}
 
-		for (const auto* asset : target->assets)
+		for (const Asset* asset : target->assets)
 		{
 			if (index > 0 && index % columns != 0)
 			{

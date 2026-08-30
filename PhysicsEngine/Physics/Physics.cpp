@@ -314,6 +314,141 @@ namespace SeedCore
 		return static_cast<EntityID>(lock.GetBody().GetUserData());
 	}
 
+	ConstraintHandle Physics::CreateHingeJoint(JPH::BodyID bodyA, JPH::BodyID bodyB, const HingeJointDesc& desc)
+	{
+		JPH::BodyInterface& bodyInterface = joltPhysics_.GetBodyInterface();
+		JPH::RVec3 bodyPosition = bodyInterface.GetPosition(bodyA);
+		JPH::Quat bodyRotation = bodyInterface.GetRotation(bodyA);
+
+		JPH::Vec3 worldPosition(bodyPosition.GetX(), bodyPosition.GetY(), bodyPosition.GetZ());
+		JPH::Vec3 worldAnchor = worldPosition + bodyRotation * JPH::Vec3(desc.anchor_.x, desc.anchor_.y, desc.anchor_.z);
+		JPH::Vec3 worldAxis = (bodyRotation * JPH::Vec3(desc.axis_.x, desc.axis_.y, desc.axis_.z)).NormalizedOr(JPH::Vec3::sAxisY());
+		JPH::Vec3 worldNormal = worldAxis.GetNormalizedPerpendicular();
+
+		JPH::HingeConstraintSettings settings;
+		settings.mSpace = JPH::EConstraintSpace::WorldSpace;
+		settings.mPoint1 = settings.mPoint2 = JPH::RVec3(worldAnchor);
+		settings.mHingeAxis1 = settings.mHingeAxis2 = worldAxis;
+		settings.mNormalAxis1 = settings.mNormalAxis2 = worldNormal;
+		if (desc.useLimits_)
+		{
+			settings.mLimitsMin = ToRadians(desc.minAngle_);
+			settings.mLimitsMax = ToRadians(desc.maxAngle_);
+		}
+
+		return CreateConstraint(bodyA, bodyB, settings);
+	}
+
+	ConstraintHandle Physics::CreateFixedJoint(JPH::BodyID bodyA, JPH::BodyID bodyB, const FixedJointDesc&)
+	{
+		JPH::FixedConstraintSettings settings;
+		settings.mSpace = JPH::EConstraintSpace::WorldSpace;
+		settings.mAutoDetectPoint = true;
+
+		return CreateConstraint(bodyA, bodyB, settings);
+	}
+
+	ConstraintHandle Physics::CreateSpringJoint(JPH::BodyID bodyA, JPH::BodyID bodyB, const SpringJointDesc& desc)
+	{
+		JPH::BodyInterface& bodyInterface = joltPhysics_.GetBodyInterface();
+		JPH::RVec3 positionA = bodyInterface.GetPosition(bodyA);
+		JPH::Quat rotationA = bodyInterface.GetRotation(bodyA);
+
+		JPH::Vec3 worldPositionA(positionA.GetX(), positionA.GetY(), positionA.GetZ());
+		JPH::Vec3 anchorSelf = worldPositionA + rotationA * JPH::Vec3(desc.anchor_.x, desc.anchor_.y, desc.anchor_.z);
+
+		JPH::Vec3 anchorOther = anchorSelf;
+		if (!bodyB.IsInvalid())
+		{
+			JPH::RVec3 positionB = bodyInterface.GetPosition(bodyB);
+			anchorOther = JPH::Vec3(positionB.GetX(), positionB.GetY(), positionB.GetZ());
+		}
+
+		JPH::DistanceConstraintSettings settings;
+		settings.mSpace = JPH::EConstraintSpace::WorldSpace;
+		settings.mPoint1 = JPH::RVec3(anchorOther);
+		settings.mPoint2 = JPH::RVec3(anchorSelf);
+		if (desc.minDistance_ == 0.0f && desc.maxDistance_ == 0.0f)
+		{
+			settings.mMinDistance = -1.0f;
+			settings.mMaxDistance = -1.0f;
+		}
+		else
+		{
+			settings.mMinDistance = desc.minDistance_;
+			settings.mMaxDistance = desc.maxDistance_;
+		}
+		settings.mLimitsSpringSettings = JPH::SpringSettings(JPH::ESpringMode::FrequencyAndDamping, desc.frequency_, desc.damping_);
+
+		return CreateConstraint(bodyA, bodyB, settings);
+	}
+
+	ConstraintHandle Physics::CreateSliderJoint(JPH::BodyID bodyA, JPH::BodyID bodyB, const SliderJointDesc& desc)
+	{
+		JPH::BodyInterface& bodyInterface = joltPhysics_.GetBodyInterface();
+		JPH::Quat rotationA = bodyInterface.GetRotation(bodyA);
+		JPH::Vec3 worldAxis = (rotationA * JPH::Vec3(desc.axis_.x, desc.axis_.y, desc.axis_.z)).NormalizedOr(JPH::Vec3::sAxisX());
+
+		JPH::SliderConstraintSettings settings;
+		settings.mSpace = JPH::EConstraintSpace::WorldSpace;
+		settings.mAutoDetectPoint = true;
+		settings.SetSliderAxis(worldAxis);
+		if (desc.useLimits_)
+		{
+			settings.mLimitsMin = desc.minDistance_;
+			settings.mLimitsMax = desc.maxDistance_;
+		}
+
+		return CreateConstraint(bodyA, bodyB, settings);
+	}
+
+	void Physics::DestroyJoint(ConstraintHandle handle)
+	{
+		joltPhysics_.GetConstraintPool().Release(joltPhysics_.GetPhysicsSystem(), handle);
+	}
+
+	ConstraintHandle Physics::CreateConstraint(JPH::BodyID bodyA, JPH::BodyID bodyB, const JPH::TwoBodyConstraintSettings& settings)
+	{
+		if (bodyA.IsInvalid())
+		{
+			return ConstraintHandle::null();
+		}
+
+		JPH::PhysicsSystem& physicsSystem = joltPhysics_.GetPhysicsSystem();
+		const JPH::BodyLockInterface& lockInterface = physicsSystem.GetBodyLockInterface();
+
+		JPH::Constraint* constraint = nullptr;
+
+		if (bodyB.IsInvalid())
+		{
+			JPH::BodyLockWrite lock(lockInterface, bodyA);
+			if (!lock.Succeeded())
+			{
+				return ConstraintHandle::null();
+			}
+			constraint = settings.Create(JPH::Body::sFixedToWorld, lock.GetBody());
+		}
+		else
+		{
+			JPH::BodyID bodyIDs[2] = { bodyB, bodyA };
+			JPH::BodyLockMultiWrite lock(lockInterface, bodyIDs, 2);
+			JPH::Body* body1 = lock.GetBody(0);
+			JPH::Body* body2 = lock.GetBody(1);
+			if (body1 == nullptr || body2 == nullptr)
+			{
+				return ConstraintHandle::null();
+			}
+			constraint = settings.Create(*body1, *body2);
+		}
+
+		if (constraint == nullptr)
+		{
+			return ConstraintHandle::null();
+		}
+
+		return joltPhysics_.GetConstraintPool().Add(physicsSystem, constraint);
+	}
+
 	Bool Physics::Raycast(const Vector3& origin, const Vector3& direction, Float maxDistance, RaycastHit& outHit, Uint32 layerMask)const
 	{
 		JPH::Vec3 dir(direction.x, direction.y, direction.z);
