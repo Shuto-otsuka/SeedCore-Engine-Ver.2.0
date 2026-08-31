@@ -1,6 +1,7 @@
 #include <FoundationEngine/ECS/World.h>
 #include <FoundationEngine/ECS/Actor.h>
 #include <FoundationEngine/ECS/Component/Name.h>
+#include <FoundationEngine/Log/Assert.h>
 
 namespace SeedCore
 {
@@ -20,8 +21,11 @@ namespace SeedCore
 	*/
 	Entity World::CreateEntity()
 	{
+		SC_ASSERT(queryIterationDepth_ == 0, "Query::ForEach の走査中に CreateEntity が呼ばれました。ForEach の後へ遅延させるか、コマンドバッファ経由にしてください。");
+
 		Handle<Entity> handle = entityPool_.Create();
-		EntityID id = static_cast<Uint32>(handle.index_);
+		Entity entity(handle);
+		EntityID id = entity.GetID();
 
 		/// [EN] Every new entity starts in the empty archetype (no components) and is migrated as components are added.
 		/// [JP] 新しいエンティティはすべて、空のアーキタイプ（コンポーネントなし）から開始し、コンポーネントが追加されるたびに移行される。
@@ -32,7 +36,39 @@ namespace SeedCore
 		chunk->Add(id);
 		Uint32 row = chunk->EntityCount() - 1;
 		records_[id] = { archetype,chunk,row };
-		return Entity(handle);
+		return entity;
+	}
+
+	/**
+	* [EN]
+	* Marks the start of a Query::ForEach traversal. While a traversal is
+	* in progress, structural changes assert, since they can reallocate
+	* the chunks being iterated.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* Query::ForEach の走査開始を記録する。走査中は構造変更がアサートする。
+	* 反復中のチャンクを再確保し得るため。
+	*/
+	void World::BeginQueryIteration()
+	{
+		++queryIterationDepth_;
+	}
+
+	/**
+	* [EN]
+	* Marks the end of a Query::ForEach traversal (pairs with BeginQueryIteration).
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* Query::ForEach の走査終了を記録する（BeginQueryIteration と対になる）。
+	*/
+	void World::EndQueryIteration()
+	{
+		SC_ASSERT(queryIterationDepth_ > 0, "EndQueryIteration が BeginQueryIteration より多く呼ばれました。");
+		--queryIterationDepth_;
 	}
 
 	/**
@@ -48,7 +84,9 @@ namespace SeedCore
 	*/
 	void World::DestroyEntity(Entity entity)
 	{
-		EntityID entityID = static_cast<Uint32>(entity.GetHandle().index_);
+		SC_ASSERT(queryIterationDepth_ == 0, "Query::ForEach の走査中に DestroyEntity が呼ばれました。ForEach の後へ遅延させるか、コマンドバッファ経由にしてください。");
+
+		EntityID entityID = entity.GetID();
 
 		/// [EN] Drop entityID's entry from every sparse-set-stored component, regardless of whether it actually has one (Remove is a no-op if absent).
 		/// [JP] スパースセット格納の全コンポーネントから entityID のエントリを削除する。実際に持っているかどうかに関わらず（無ければ Remove は無操作）。
@@ -63,18 +101,21 @@ namespace SeedCore
 			return;
 		}
 
-		EntityRecord& record = it->second;
+		EntityRecord record = it->second;
+		records_.erase(it);
 
 		/// [EN] Swap-remove from the chunk: if another entity got moved into the vacated row, fix up its cached row index.
 		/// [JP] チャンクから swap-remove する: 空いた行へ別のエンティティが移動してきた場合、そのキャッシュされた行インデックスを修正する。
-		Uint32 movedID = record.chunk_->Remove(entityID);
+		EntityID movedID = record.chunk_->Remove(entityID);
 
-		if (movedID != UINT32_MAX)
+		if (movedID != EntityID{})
 		{
-			records_[movedID].row_ = record.row_;
+			auto movedIt = records_.find(movedID);
+			if (movedIt != records_.end())
+			{
+				movedIt->second.row_ = record.row_;
+			}
 		}
-
-		records_.erase(it);
 
 		entityPool_.Destroy(entity.GetHandle());
 	}
@@ -100,7 +141,15 @@ namespace SeedCore
 	*/
 	void World::MoveEntity(EntityID entityID, Archetype* sourceArcketype, Chunk* sourceChunk, Archetype* destArcketype)
 	{
-		EntityRecord& record = records_.at(entityID);
+		SC_ASSERT(queryIterationDepth_ == 0, "Query::ForEach の走査中にアーキタイプ移行（コンポーネントの追加/削除）が発生しました。ForEach の後へ遅延させるか、コマンドバッファ経由にしてください。");
+
+		auto recordIt = records_.find(entityID);
+		if (recordIt == records_.end())
+		{
+			return;
+		}
+
+		EntityRecord& record = recordIt->second;
 
 		Uint32 sourceRow = record.row_;
 		Chunk* destChunk = GetOrCreateChunk(destArcketype);
@@ -143,9 +192,9 @@ namespace SeedCore
 			}
 		}
 
-		Uint32 movedID = sourceChunk->Remove(entityID);
+		EntityID movedID = sourceChunk->Remove(entityID);
 
-		if (movedID != UINT32_MAX)
+		if (movedID != EntityID{})
 		{
 			auto it = records_.find(movedID);
 			if (it != records_.end())
@@ -171,9 +220,15 @@ namespace SeedCore
 	*/
 	const DynamicArray<ComponentID>& World::GetLayout(Entity entity)const
 	{
-		EntityID entityID = static_cast<Uint32>(entity.GetHandle().index_);
+		EntityID entityID = entity.GetID();
 
 		auto it = records_.find(entityID);
+
+		if (it == records_.end())
+		{
+			static const DynamicArray<ComponentID> emptyLayout;
+			return emptyLayout;
+		}
 
 		return it->second.archetype_->Layout();
 	}
@@ -195,7 +250,7 @@ namespace SeedCore
 	*/
 	void World::AddComponent(Entity entity, ComponentID id)
 	{
-		EntityID entityID = static_cast<Uint32>(entity.GetHandle().index_);
+		EntityID entityID = entity.GetID();
 		const ComponentMetadata& meta = ComponentRegistry::Get(id);
 
 		if (meta.storage_ == ComponentStorage::SparseSet)
@@ -221,7 +276,7 @@ namespace SeedCore
 	*/
 	void* World::GetComponent(Entity entity, ComponentID id)
 	{
-		EntityID entityID = static_cast<Uint32>(entity.GetHandle().index_);
+		EntityID entityID = entity.GetID();
 		const ComponentMetadata& meta = ComponentRegistry::Get(id);
 
 		if (meta.storage_ == ComponentStorage::SparseSet)
@@ -301,7 +356,7 @@ namespace SeedCore
 	*/
 	Bool World::HasComponent(Entity entity, ComponentID id)const
 	{
-		EntityID entityID = static_cast<Uint32>(entity.GetHandle().index_);
+		EntityID entityID = entity.GetID();
 		const ComponentMetadata& meta = ComponentRegistry::Get(id);
 
 		if (meta.storage_ == ComponentStorage::SparseSet)
@@ -336,7 +391,7 @@ namespace SeedCore
 	*/
 	void World::RemoveComponent(Entity entity, ComponentID id)
 	{
-		EntityID entityID = static_cast<Uint32>(entity.GetHandle().index_);
+		EntityID entityID = entity.GetID();
 		const ComponentMetadata& meta = ComponentRegistry::Get(id);
 
 		if (meta.storage_ == ComponentStorage::SparseSet)
@@ -417,7 +472,7 @@ namespace SeedCore
 		Actor* ptr = actor.get();
 		actors_.push_back(std::move(actor));
 
-		EntityID entityID = static_cast<Uint32>(ptr->GetEntity().GetHandle().index_);
+		EntityID entityID = ptr->GetEntity().GetID();
 		actorLookup_[entityID] = ptr;
 
 		/// [EN] Fall back to auto-allocation if persistentId is unset (0) or already claimed by another live actor (e.g. the same prefab instantiated twice), so two actors never collide on the same ID.
@@ -464,7 +519,7 @@ namespace SeedCore
 
 		/// [EN] Invoke OnDestroy on every ComponentBase-derived component this actor holds before tearing down its entity.
 		/// [JP] エンティティを解体する前に、この actor が保持する全ての ComponentBase 派生コンポーネントに対して OnDestroy を呼び出す。
-		EntityID entityID = static_cast<Uint32>(actor->GetEntity().GetHandle().index_);
+		EntityID entityID = actor->GetEntity().GetID();
 		for (ComponentID id : actor->ComponentBaseIDList())
 		{
 			void* data = GetComponent(entityID, id);
@@ -577,7 +632,7 @@ namespace SeedCore
 	*/
 	Actor* World::GetActor(Entity entity)const
 	{
-		return GetActor(static_cast<Uint32>(entity.GetHandle().index_));
+		return GetActor(entity.GetID());
 	}
 
 	/**
@@ -799,7 +854,13 @@ namespace SeedCore
 
 		/// [EN] The migrated slot for id was default-constructed by MoveEntity/Chunk::Add; overwrite it with the actual source value.
 		/// [JP] id 用に移行されたスロットは MoveEntity/Chunk::Add によってデフォルト構築されている。実際の source の値で上書きする。
-		EntityRecord& newRecord = records_.at(entityID);
+		auto newRecordIt = records_.find(entityID);
+		if (newRecordIt == records_.end())
+		{
+			return;
+		}
+
+		EntityRecord& newRecord = newRecordIt->second;
 		const DynamicArray<ComponentID>& newLayout2 = newRecord.archetype_->Layout();
 		for (Size index = 0; index < newLayout2.size(); ++index)
 		{

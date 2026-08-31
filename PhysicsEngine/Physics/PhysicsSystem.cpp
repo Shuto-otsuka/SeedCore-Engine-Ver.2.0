@@ -90,7 +90,7 @@ namespace SeedCore
 
 		desc.position_ = position ? Vector3{ position->x_, position->y_, position->z_ } : Vector3{ 0.0f, 0.0f, 0.0f };
 		desc.rotation_ = rotation ? Quaternion::CreateFromYawPitchRoll(ToRadians(rotation->y_), ToRadians(rotation->x_), ToRadians(rotation->z_)) : Quaternion::Identity;
-		desc.userData_ = static_cast<EntityID>(actor.GetEntity().GetHandle().index_);
+		desc.userData_ = actor.GetEntity().GetID();
 	}
 
 	JPH::BodyID PhysicsSystem::CreateColliderBody(Actor& actor, ShapeHandle shape, Bool isTrigger)

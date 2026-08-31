@@ -102,7 +102,7 @@ namespace SeedCore
 	* スロットをデフォルト構築する。チャンクが既に満杯であれば
 	* false を返す。
 	*/
-	Bool Chunk::Add(Uint32 entityID)
+	Bool Chunk::Add(EntityID entityID)
 	{
 		if (entityCount_ >= capacity_)
 		{
@@ -128,7 +128,7 @@ namespace SeedCore
 	* its component slots, then (unless it was the last row) moves the
 	* last row's components into the vacated slot. Returns the entityID
 	* of whichever entity was moved into the removed row's position, or
-	* UINT32_MAX if none was moved.
+	* a default (invalid) EntityID if none was moved.
 	*
 	* ---------------------------------------------------------------------
 	*
@@ -137,13 +137,13 @@ namespace SeedCore
 	* スロットを破棄し、（それが最後の行でない限り）最後の行の
 	* コンポーネントを空いたスロットへ移動する。削除された行の位置へ
 	* 移動されたエンティティの entityID を返す。何も移動されなかった
-	* 場合は UINT32_MAX を返す。
+	* 場合はデフォルト（無効）の EntityID を返す。
 	*/
-	Uint32 Chunk::Remove(Uint32 entityID)
+	EntityID Chunk::Remove(EntityID entityID)
 	{
 		if (entityCount_ == 0)
 		{
-			return UINT32_MAX;
+			return EntityID{};
 		}
 
 		Uint32 removeIndex = UINT32_MAX;
@@ -159,7 +159,7 @@ namespace SeedCore
 
 		if (removeIndex == UINT32_MAX)
 		{
-			return UINT32_MAX;
+			return EntityID{};
 		}
 
 		Uint32 lastIndex = entityCount_ - 1;
@@ -174,7 +174,7 @@ namespace SeedCore
 		if (removeIndex == lastIndex)
 		{
 			entityCount_--;
-			return UINT32_MAX;
+			return EntityID{};
 		}
 
 		for (Size index = 0; index < componentCount_; ++index)
@@ -185,7 +185,7 @@ namespace SeedCore
 			meta.move_(dest, source);
 		}
 
-		Uint32 movedEntityID = entityIDs_[lastIndex];
+		EntityID movedEntityID = entityIDs_[lastIndex];
 		entityIDs_[removeIndex] = movedEntityID;
 		entityCount_--;
 

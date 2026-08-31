@@ -152,24 +152,24 @@ namespace SeedCore
 					Position& obj = *static_cast<Position*>(ptr);
 					{
 						FieldInfo fi;
-						fi.name_ = String("x");
-						fi.offset_ = offsetof(Position, x);
+						fi.name_ = String("x_");
+						fi.offset_ = offsetof(Position, x_);
 						fi.type_ = AttributeType::Float;
 						fi.editorVisible_ = false;
 						outInfo.push_back(std::move(fi));
 					}
 					{
 						FieldInfo fi;
-						fi.name_ = String("y");
-						fi.offset_ = offsetof(Position, y);
+						fi.name_ = String("y_");
+						fi.offset_ = offsetof(Position, y_);
 						fi.type_ = AttributeType::Float;
 						fi.editorVisible_ = false;
 						outInfo.push_back(std::move(fi));
 					}
 					{
 						FieldInfo fi;
-						fi.name_ = String("z");
-						fi.offset_ = offsetof(Position, z);
+						fi.name_ = String("z_");
+						fi.offset_ = offsetof(Position, z_);
 						fi.type_ = AttributeType::Float;
 						fi.editorVisible_ = false;
 						outInfo.push_back(std::move(fi));
@@ -188,24 +188,24 @@ namespace SeedCore
 					Rotation& obj = *static_cast<Rotation*>(ptr);
 					{
 						FieldInfo fi;
-						fi.name_ = String("x");
-						fi.offset_ = offsetof(Rotation, x);
+						fi.name_ = String("x_");
+						fi.offset_ = offsetof(Rotation, x_);
 						fi.type_ = AttributeType::Float;
 						fi.editorVisible_ = false;
 						outInfo.push_back(std::move(fi));
 					}
 					{
 						FieldInfo fi;
-						fi.name_ = String("y");
-						fi.offset_ = offsetof(Rotation, y);
+						fi.name_ = String("y_");
+						fi.offset_ = offsetof(Rotation, y_);
 						fi.type_ = AttributeType::Float;
 						fi.editorVisible_ = false;
 						outInfo.push_back(std::move(fi));
 					}
 					{
 						FieldInfo fi;
-						fi.name_ = String("z");
-						fi.offset_ = offsetof(Rotation, z);
+						fi.name_ = String("z_");
+						fi.offset_ = offsetof(Rotation, z_);
 						fi.type_ = AttributeType::Float;
 						fi.editorVisible_ = false;
 						outInfo.push_back(std::move(fi));
@@ -224,24 +224,24 @@ namespace SeedCore
 					Scale& obj = *static_cast<Scale*>(ptr);
 					{
 						FieldInfo fi;
-						fi.name_ = String("x");
-						fi.offset_ = offsetof(Scale, x);
+						fi.name_ = String("x_");
+						fi.offset_ = offsetof(Scale, x_);
 						fi.type_ = AttributeType::Float;
 						fi.editorVisible_ = false;
 						outInfo.push_back(std::move(fi));
 					}
 					{
 						FieldInfo fi;
-						fi.name_ = String("y");
-						fi.offset_ = offsetof(Scale, y);
+						fi.name_ = String("y_");
+						fi.offset_ = offsetof(Scale, y_);
 						fi.type_ = AttributeType::Float;
 						fi.editorVisible_ = false;
 						outInfo.push_back(std::move(fi));
 					}
 					{
 						FieldInfo fi;
-						fi.name_ = String("z");
-						fi.offset_ = offsetof(Scale, z);
+						fi.name_ = String("z_");
+						fi.offset_ = offsetof(Scale, z_);
 						fi.type_ = AttributeType::Float;
 						fi.editorVisible_ = false;
 						outInfo.push_back(std::move(fi));
@@ -311,24 +311,24 @@ namespace SeedCore
 					Velocity& obj = *static_cast<Velocity*>(ptr);
 					{
 						FieldInfo fi;
-						fi.name_ = String("x");
-						fi.offset_ = offsetof(Velocity, x);
+						fi.name_ = String("x_");
+						fi.offset_ = offsetof(Velocity, x_);
 						fi.type_ = AttributeType::Float;
 						fi.editorVisible_ = false;
 						outInfo.push_back(std::move(fi));
 					}
 					{
 						FieldInfo fi;
-						fi.name_ = String("y");
-						fi.offset_ = offsetof(Velocity, y);
+						fi.name_ = String("y_");
+						fi.offset_ = offsetof(Velocity, y_);
 						fi.type_ = AttributeType::Float;
 						fi.editorVisible_ = false;
 						outInfo.push_back(std::move(fi));
 					}
 					{
 						FieldInfo fi;
-						fi.name_ = String("z");
-						fi.offset_ = offsetof(Velocity, z);
+						fi.name_ = String("z_");
+						fi.offset_ = offsetof(Velocity, z_);
 						fi.type_ = AttributeType::Float;
 						fi.editorVisible_ = false;
 						outInfo.push_back(std::move(fi));
@@ -2479,6 +2479,7 @@ namespace SeedCore
 						fi.name_ = String("最小角(度)");
 						fi.offset_ = offsetof(HingeJoint, minAngle_);
 						fi.type_ = AttributeType::Float;
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<HingeJoint*>(p); return o.useLimits_; };
 						fi.clampMin_ = -180.0f;
 						fi.clampMax_ = 0.0f;
 						outInfo.push_back(std::move(fi));
@@ -2488,6 +2489,7 @@ namespace SeedCore
 						fi.name_ = String("最大角(度)");
 						fi.offset_ = offsetof(HingeJoint, maxAngle_);
 						fi.type_ = AttributeType::Float;
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<HingeJoint*>(p); return o.useLimits_; };
 						fi.clampMin_ = 0.0f;
 						fi.clampMax_ = 180.0f;
 						outInfo.push_back(std::move(fi));
@@ -2512,6 +2514,7 @@ namespace SeedCore
 						fi.name_ = String("最小距離");
 						fi.offset_ = offsetof(SliderJoint, minDistance_);
 						fi.type_ = AttributeType::Float;
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<SliderJoint*>(p); return o.useLimits_; };
 						fi.clampMin_ = -1000.0f;
 						fi.clampMax_ = 0.0f;
 						outInfo.push_back(std::move(fi));
@@ -2521,6 +2524,7 @@ namespace SeedCore
 						fi.name_ = String("最大距離");
 						fi.offset_ = offsetof(SliderJoint, maxDistance_);
 						fi.type_ = AttributeType::Float;
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<SliderJoint*>(p); return o.useLimits_; };
 						fi.clampMin_ = 0.0f;
 						fi.clampMax_ = 1000.0f;
 						outInfo.push_back(std::move(fi));

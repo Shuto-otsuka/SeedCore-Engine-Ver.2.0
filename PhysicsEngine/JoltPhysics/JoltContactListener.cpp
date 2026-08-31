@@ -98,8 +98,8 @@ namespace SeedCore
 
 	void JoltContactListener::QueueEvent(const JPH::Body& body1, const JPH::Body& body2, ContactEventKind kind)
 	{
-		BodyInfo info1{ static_cast<EntityID>(body1.GetUserData()), body1.IsSensor() };
-		BodyInfo info2{ static_cast<EntityID>(body2.GetUserData()), body2.IsSensor() };
+		BodyInfo info1{ std::bit_cast<EntityID>(static_cast<Uint64>(body1.GetUserData())), body1.IsSensor() };
+		BodyInfo info2{ std::bit_cast<EntityID>(static_cast<Uint64>(body2.GetUserData())), body2.IsSensor() };
 
 		std::lock_guard<std::mutex> lock(mutex_);
 

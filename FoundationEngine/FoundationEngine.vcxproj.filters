@@ -478,9 +478,6 @@
     <ClInclude Include="Utility\ReadWrite.h">
       <Filter>Utility</Filter>
     </ClInclude>
-    <ClInclude Include="ECS\System\QuerySystem.h">
-      <Filter>ESC\System</Filter>
-    </ClInclude>
     <ClInclude Include="ECS\System\SystemScheduler.h">
       <Filter>ESC\System</Filter>
     </ClInclude>
@@ -694,6 +691,12 @@
     </ClInclude>
     <ClInclude Include="ECS\System\LifetimeSystem.h">
       <Filter>ESC\System</Filter>
+    </ClInclude>
+    <ClInclude Include="Utility\DynamicArray.h">
+      <Filter>Utility</Filter>
+    </ClInclude>
+    <ClInclude Include="Utility\StaticArray.h">
+      <Filter>Utility</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

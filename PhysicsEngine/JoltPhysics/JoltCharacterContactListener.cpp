@@ -18,7 +18,7 @@ namespace SeedCore
 		}
 
 		EntityID otherEntityID = Physics().GetBodyEntityID(contact.mBodyB);
-		if (otherEntityID == 0)
+		if (otherEntityID == EntityID{})
 		{
 			return;
 		}
@@ -45,7 +45,7 @@ namespace SeedCore
 		}
 
 		EntityID otherEntityID = Physics().GetBodyEntityID(contact.mBodyB);
-		if (otherEntityID == 0)
+		if (otherEntityID == EntityID{})
 		{
 			return;
 		}
@@ -72,7 +72,7 @@ namespace SeedCore
 		}
 
 		EntityID otherEntityID = Physics().GetBodyEntityID(bodyID2);
-		if (otherEntityID == 0)
+		if (otherEntityID == EntityID{})
 		{
 			return;
 		}

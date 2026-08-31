@@ -207,7 +207,6 @@
     <ClInclude Include="ECS\Query.h" />
     <ClInclude Include="ECS\ReflectionRegistry.h" />
     <ClInclude Include="ECS\SparseSet.h" />
-    <ClInclude Include="ECS\System\QuerySystem.h" />
     <ClInclude Include="ECS\System\SystemScheduler.h" />
     <ClInclude Include="ECS\System\SceneTransitionSystem.h" />
     <ClInclude Include="File\FileUtility.h" />
@@ -269,6 +268,7 @@
     <ClInclude Include="Utility\Bootstrap.h" />
     <ClInclude Include="Utility\Delegate.h" />
     <ClInclude Include="Utility\DestructiveCopy.h" />
+    <ClInclude Include="Utility\DynamicArray.h" />
     <ClInclude Include="Utility\FlatMap.h" />
     <ClInclude Include="Utility\Handle.h" />
     <ClInclude Include="Utility\IndexRange.h" />
@@ -280,6 +280,7 @@
     <ClInclude Include="Utility\ReadWrite.h" />
     <ClInclude Include="Utility\ResourcePtr.h" />
     <ClInclude Include="Utility\ResourceRef.h" />
+    <ClInclude Include="Utility\StaticArray.h" />
     <ClInclude Include="Utility\String.h" />
     <ClInclude Include="Utility\Types.h" />
   </ItemGroup>

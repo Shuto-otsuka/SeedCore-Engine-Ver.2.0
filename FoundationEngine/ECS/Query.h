@@ -138,6 +138,17 @@ namespace SeedCore
 		template<typename F>
 		void ForEach(F&& function)
 		{
+			/// [EN] Guards the traversal: any structural change on world_ while this is alive asserts, since it can reallocate the chunks being iterated.
+			/// [JP] 走査を保護する: これが生存中に world_ へ構造変更があるとアサートする。反復中のチャンクを再確保し得るため。
+			struct IterationScope
+			{
+				World& world_;
+				explicit IterationScope(World& world) :world_(world) { world_.BeginQueryIteration(); }
+				~IterationScope() { world_.EndQueryIteration(); }
+				IterationScope(const IterationScope&) = delete;
+				IterationScope& operator=(const IterationScope&) = delete;
+			} iterationScope(world_);
+
 			const auto& chunks = world_.GetChunk();
 			for (auto& [archetype, chunkList] : chunks)
 			{

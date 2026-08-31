@@ -82,6 +82,35 @@ namespace SeedCore
 
 		/**
 		* [EN]
+		* Marks the start of a Query::ForEach traversal. While a traversal
+		* is in progress, structural changes (CreateEntity / DestroyEntity /
+		* archetype migration) assert, since they can reallocate the chunks
+		* being iterated - defer such changes past the ForEach or route
+		* them through a command buffer.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* Query::ForEach の走査開始を記録する。走査中は構造変更
+		* （CreateEntity / DestroyEntity / アーキタイプ移行）がアサートする。
+		* 反復中のチャンクを再確保し得るため - そうした変更は ForEach の後へ
+		* 遅延させるか、コマンドバッファ経由にすること。
+		*/
+		void BeginQueryIteration();
+
+		/**
+		* [EN]
+		* Marks the end of a Query::ForEach traversal (pairs with BeginQueryIteration).
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* Query::ForEach の走査終了を記録する（BeginQueryIteration と対になる）。
+		*/
+		void EndQueryIteration();
+
+		/**
+		* [EN]
 		* Destroys entity, removing its record, components, and (if
 		* archetype-stored) its chunk row.
 		*
@@ -144,7 +173,7 @@ namespace SeedCore
 		void AddComponent(Entity entity, const T& value)
 		{
 			ComponentID id = ComponentRegistry::GetComponentID<T>();
-			EntityID entityID = static_cast<Uint32>(entity.GetHandle().index_);
+			EntityID entityID = entity.GetID();
 
 			const ComponentMetadata& meta = ComponentRegistry::Get(id);
 
@@ -190,7 +219,7 @@ namespace SeedCore
 		T* GetComponent(Entity entity)
 		{
 			ComponentID id = ComponentRegistry::GetComponentID<T>();
-			EntityID entityID = static_cast<Uint32>(entity.GetHandle().index_);
+			EntityID entityID = entity.GetID();
 
 			const ComponentMetadata& meta = ComponentRegistry::Get(id);
 
@@ -258,7 +287,7 @@ namespace SeedCore
 		template<typename T>
 		Bool HasComponent(Entity entity)const
 		{
-			EntityID entityID = static_cast<Uint32>(entity.GetHandle().index_);
+			EntityID entityID = entity.GetID();
 			return HasComponent<T>(entityID);
 		}
 
@@ -418,7 +447,7 @@ namespace SeedCore
 				{
 					if (actor->HasComponent(id))
 					{
-						result.push_back(static_cast<Uint32>(actor->GetEntity().GetHandle().index_));
+						result.push_back(actor->GetEntity().GetID());
 					}
 				}
 			}
@@ -878,6 +907,10 @@ namespace SeedCore
 		/// [EN] Maps an EntityID to its archetype/chunk/row location.
 		/// [JP] EntityID をそのアーキタイプ/チャンク/行の位置へ対応付ける。
 		FlatMap<EntityID, EntityRecord> records_;
+
+		/// [EN] Nesting depth of in-progress Query::ForEach traversals; nonzero means a structural change would invalidate a live chunk iteration.
+		/// [JP] 進行中の Query::ForEach 走査のネスト深度。0以外なら、構造変更が反復中のチャンクを無効化することを意味する。
+		Uint32 queryIterationDepth_ = 0;
 
 		// ============================================================
 		// Component

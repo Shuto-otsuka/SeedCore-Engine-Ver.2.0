@@ -87,6 +87,7 @@
 #include <algorithm>
 #include <atomic>
 #include <array>
+#include <bit>
 #include <cfloat>
 #include <chrono>
 #include <cmath>

@@ -246,7 +246,7 @@ namespace SeedCore
 		{
 			const Crister* crister_ = nullptr;
 			Matrix worldMatrix_ = Matrix::Identity;
-			EntityID entityID_ = 0;
+			EntityID entityID_;
 			Bool hasSkeletalPose_ = false;
 			Uint32 boneOffset_ = 0;
 

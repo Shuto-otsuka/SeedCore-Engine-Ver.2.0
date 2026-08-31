@@ -91,18 +91,18 @@ namespace SeedCore
 		*/
 		Uint32 Add(EntityID id)
 		{
-			if (id >= sparse_.size())
+			if (id.index_ >= sparse_.size())
 			{
-				sparse_.resize(id + 1, UINT32_MAX);
+				sparse_.resize(id.index_ + 1, UINT32_MAX);
 			}
 
-			if (sparse_[id] != UINT32_MAX)
+			if (sparse_[id.index_] != UINT32_MAX)
 			{
-				return sparse_[id];
+				return sparse_[id.index_];
 			}
 
 			Uint32 denseIndex = static_cast<Uint32>(dense_.size());
-			sparse_[id] = denseIndex;
+			sparse_[id.index_] = denseIndex;
 			dense_.push_back({ id, T() });
 			return denseIndex;
 		}
@@ -112,8 +112,8 @@ namespace SeedCore
 		* Removes id via swap-remove: moves the last dense element into
 		* id's vacated slot (unless id was already last). Returns the
 		* EntityID of whichever entity was moved into the removed slot
-		* (so its index cache can be updated), or UINT32_MAX if none was
-		* moved (id not found, or it was already last).
+		* (so its index cache can be updated), or a default (invalid)
+		* EntityID if none was moved (id not found, or it was already last).
 		*
 		* ---------------------------------------------------------------------
 		*
@@ -123,31 +123,31 @@ namespace SeedCore
 		* スロットへ移動したエンティティの EntityID を返す（その
 		* インデックスキャッシュを更新できるように）。何も移動されな
 		* かった場合（id が見つからない、または既に最後だった場合）は
-		* UINT32_MAX を返す。
+		* デフォルト（無効）の EntityID を返す。
 		*/
-		Uint32 Remove(EntityID id)
+		EntityID Remove(EntityID id)
 		{
 			if (!Contains(id))
 			{
-				return UINT32_MAX;
+				return EntityID{};
 			}
 
-			Uint32 removeIndex = sparse_[id];
+			Uint32 removeIndex = sparse_[id.index_];
 			Uint32 lastIndex = static_cast<Uint32>(dense_.size()) - 1;
 
 			if (removeIndex == lastIndex)
 			{
 				dense_.pop_back();
-				sparse_[id] = UINT32_MAX;
-				return UINT32_MAX;
+				sparse_[id.index_] = UINT32_MAX;
+				return EntityID{};
 			}
 
 			EntityID lastEntity = dense_[lastIndex].id_;
 			dense_[removeIndex] = dense_[lastIndex];
-			sparse_[lastEntity] = removeIndex;
+			sparse_[lastEntity.index_] = removeIndex;
 
 			dense_.pop_back();
-			sparse_[id] = UINT32_MAX;
+			sparse_[id.index_] = UINT32_MAX;
 			return lastEntity;
 		}
 
@@ -164,7 +164,7 @@ namespace SeedCore
 		*/
 		T& Get(EntityID id)
 		{
-			return dense_[sparse_[id]].data_;
+			return dense_[sparse_[id.index_]].data_;
 		}
 
 		/**
@@ -178,21 +178,27 @@ namespace SeedCore
 		*/
 		const T& Get(EntityID id)const
 		{
-			return dense_[sparse_[id]].data_;
+			return dense_[sparse_[id.index_]].data_;
 		}
 
 		/**
 		* [EN]
-		* Returns whether id currently has an entry in this set.
+		* Returns whether id currently has an entry in this set. A stale id
+		* (its slot index is in range and occupied, but by an entity of a
+		* different generation) reports false.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* id が現在このセット内にエントリを持つかどうかを返す。
+		* id が現在このセット内にエントリを持つかどうかを返す。古い id
+		* （スロットインデックスは範囲内かつ占有済みだが、別の世代の
+		* エンティティによる）は false を返す。
 		*/
 		Bool Contains(EntityID id)const
 		{
-			return id < static_cast<EntityID>(sparse_.size()) && sparse_[id] != UINT32_MAX;
+			return id.index_ < sparse_.size()
+				&& sparse_[id.index_] != UINT32_MAX
+				&& dense_[sparse_[id.index_]].id_ == id;
 		}
 
 		/**
@@ -208,7 +214,7 @@ namespace SeedCore
 		*/
 		Uint32 IndexOf(EntityID id)const
 		{
-			return sparse_[id];
+			return sparse_[id.index_];
 		}
 
 		/**

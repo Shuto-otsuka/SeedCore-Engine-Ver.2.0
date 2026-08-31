@@ -18,8 +18,8 @@ namespace SeedCore
 
 		struct ContactEvent
 		{
-			EntityID entityID_ = 0;
-			EntityID otherEntityID_ = 0;
+			EntityID entityID_;
+			EntityID otherEntityID_;
 			ContactEventKind kind_ = ContactEventKind::Enter;
 			Bool isSensor_ = false;
 		};
@@ -41,7 +41,7 @@ namespace SeedCore
 	private:
 		struct BodyInfo
 		{
-			EntityID entityID_ = 0;
+			EntityID entityID_;
 			Bool isSensor_ = false;
 		};
 

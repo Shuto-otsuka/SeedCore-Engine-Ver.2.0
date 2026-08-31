@@ -99,7 +99,7 @@ namespace SeedCore
 		{
 			/// [EN] EntityID of the instantiated prefab's root actor.
 			/// [JP] 生成されたプレハブのルート actor の EntityID。
-			EntityID entityID_ = 0;
+			EntityID entityID_;
 
 			/// [EN] Time remaining before this instance is destroyed.
 			/// [JP] このインスタンスが破棄されるまでの残り時間。

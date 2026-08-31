@@ -33,7 +33,7 @@ namespace SeedCore
 			for (ResourcePtr<Actor>& actor : world.GetActors())
 			{
 				Entity entity = actor->GetEntity();
-				EntityID entityID = static_cast<Uint32>(entity.GetHandle().index_);
+				EntityID entityID = entity.GetID();
 
 				for (ComponentID id : actor->ComponentBaseIDList())
 				{
@@ -58,7 +58,7 @@ namespace SeedCore
 			for (ResourcePtr<Actor>& actor : world.GetActors())
 			{
 				Entity entity = actor->GetEntity();
-				EntityID entityID = static_cast<Uint32>(entity.GetHandle().index_);
+				EntityID entityID = entity.GetID();
 
 				for (ComponentID id : actor->ComponentBaseIDList())
 				{
@@ -110,7 +110,7 @@ namespace SeedCore
 			for (ResourcePtr<Actor>& actor : world.GetActors())
 			{
 				Entity entity = actor->GetEntity();
-				EntityID entityID = static_cast<Uint32>(entity.GetHandle().index_);
+				EntityID entityID = entity.GetID();
 
 				for (ComponentID id : actor->ComponentBaseIDList())
 				{
@@ -131,7 +131,7 @@ namespace SeedCore
 			for (ResourcePtr<Actor>& actor : world.GetActors())
 			{
 				Entity entity = actor->GetEntity();
-				EntityID entityID = static_cast<Uint32>(entity.GetHandle().index_);
+				EntityID entityID = entity.GetID();
 
 				for (ComponentID id : actor->ComponentBaseIDList())
 				{
@@ -167,7 +167,7 @@ namespace SeedCore
 		for (ResourcePtr<Actor>& actor : world.GetActors())
 		{
 			Entity entity = actor->GetEntity();
-			EntityID entityID = static_cast<Uint32>(entity.GetHandle().index_);
+			EntityID entityID = entity.GetID();
 
 			for (ComponentID id : actor->ComponentBaseIDList())
 			{

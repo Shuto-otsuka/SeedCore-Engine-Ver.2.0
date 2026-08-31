@@ -723,7 +723,7 @@ namespace SeedCore
 		for (ComponentID componentBaseID : actor->ComponentBaseIDList())
 		{
 			String componentName = ComponentRegistry::GetName(componentBaseID);
-			EntityID entityID = static_cast<Uint32>(entity.GetHandle().index_);
+			EntityID entityID = entity.GetID();
 			void* componentData = context_.worldContext_.world_->GetComponent(entityID, componentBaseID);
 			if (!componentData)
 			{

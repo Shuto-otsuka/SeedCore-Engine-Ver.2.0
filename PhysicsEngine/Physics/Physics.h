@@ -18,7 +18,7 @@ namespace SeedCore
 		Float mass_ = 70.0f;
 		Float maxStrength_ = 100.0f;
 		JPH::ObjectLayer layer_ = 0;
-		EntityID userData_ = 0;
+		EntityID userData_;
 	};
 
 	struct RigidbodyDesc
@@ -35,7 +35,7 @@ namespace SeedCore
 		Float restitution_ = 0.0f;
 		Float gravityFactor_ = 1.0f;
 		JPH::EAllowedDOFs allowedDOFs_ = JPH::EAllowedDOFs::All;
-		EntityID userData_ = 0;
+		EntityID userData_;
 		Bool isSensor_ = false;
 	};
 
@@ -74,7 +74,7 @@ namespace SeedCore
 		Vector3 position_ = { 0.0f, 0.0f, 0.0f };
 		Vector3 normal_ = { 0.0f, 0.0f, 0.0f };
 		Float distance_ = 0.0f;
-		EntityID entityID_ = 0;
+		EntityID entityID_;
 	};
 
 	struct RaycastHit2D
@@ -82,7 +82,7 @@ namespace SeedCore
 		Vector2 position_ = { 0.0f, 0.0f };
 		Vector2 normal_ = { 0.0f, 0.0f };
 		Float distance_ = 0.0f;
-		EntityID entityID_ = 0;
+		EntityID entityID_;
 	};
 
 	struct SoftbodyDesc

@@ -69,7 +69,7 @@ namespace SeedCore
 		settings.mMass = desc.mass_;
 		settings.mMaxStrength = desc.maxStrength_;
 
-		return new JPH::CharacterVirtual(&settings, JPH::RVec3(desc.position_.x, desc.position_.y, desc.position_.z), JPH::Quat(desc.rotation_.x, desc.rotation_.y, desc.rotation_.z, desc.rotation_.w), desc.userData_, &joltPhysics_.GetPhysicsSystem());
+		return new JPH::CharacterVirtual(&settings, JPH::RVec3(desc.position_.x, desc.position_.y, desc.position_.z), JPH::Quat(desc.rotation_.x, desc.rotation_.y, desc.rotation_.z, desc.rotation_.w), std::bit_cast<JPH::uint64>(desc.userData_), &joltPhysics_.GetPhysicsSystem());
 	}
 
 	Bool Physics::SetCharacterHeight(JPH::CharacterVirtual* character, Float height, Float radius)
@@ -143,7 +143,7 @@ namespace SeedCore
 		settings.mFriction = desc.friction_;
 		settings.mRestitution = desc.restitution_;
 		settings.mGravityFactor = desc.gravityFactor_;
-		settings.mUserData = desc.userData_;
+		settings.mUserData = std::bit_cast<JPH::uint64>(desc.userData_);
 		settings.mIsSensor = desc.isSensor_;
 
 		if (desc.motionType_ != JPH::EMotionType::Static)
@@ -300,7 +300,7 @@ namespace SeedCore
 	{
 		if (bodyID.IsInvalid())
 		{
-			return 0;
+			return EntityID{};
 		}
 
 		const JPH::BodyLockInterface& lockInterface = joltPhysics_.GetPhysicsSystem().GetBodyLockInterface();
@@ -308,10 +308,10 @@ namespace SeedCore
 		JPH::BodyLockRead lock(lockInterface, bodyID);
 		if (!lock.Succeeded())
 		{
-			return 0;
+			return EntityID{};
 		}
 
-		return static_cast<EntityID>(lock.GetBody().GetUserData());
+		return std::bit_cast<EntityID>(static_cast<Uint64>(lock.GetBody().GetUserData()));
 	}
 
 	ConstraintHandle Physics::CreateHingeJoint(JPH::BodyID bodyA, JPH::BodyID bodyB, const HingeJointDesc& desc)

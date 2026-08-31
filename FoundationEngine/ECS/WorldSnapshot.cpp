@@ -172,7 +172,7 @@ namespace SeedCore
 			/// [JP] 全ての ComponentBase 派生コンポーネントの Awake/Start フラグをリセットし、次のフレームで新規アタッチされたかのように再び発火するようにする。
 			for (ComponentID id : actorData.componentBaseIDs_)
 			{
-				EntityID entityID = static_cast<Uint32>(entity.GetHandle().index_);
+				EntityID entityID = entity.GetID();
 				void* data = world.GetComponent(entityID, id);
 				if (data)
 				{

@@ -24,7 +24,7 @@ namespace SeedCore
 		desc.mass_ = mass_;
 		desc.maxStrength_ = pushForce_;
 		desc.layer_ = Layers::Pack(Layers::DYNAMIC, actor.GetLayer());
-		desc.userData_ = static_cast<EntityID>(actor.GetEntity().GetHandle().index_);
+		desc.userData_ = actor.GetEntity().GetID();
 
 		character_ = actor.GetPhysics().CreateCharacter(desc);
 

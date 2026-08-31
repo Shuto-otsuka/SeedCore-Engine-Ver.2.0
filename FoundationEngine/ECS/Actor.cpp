@@ -69,7 +69,7 @@ namespace SeedCore
 			{
 				/// [EN] Bind the concrete type's lifecycle function pointers and set its display name, now that the component actually exists in storage.
 				/// [JP] コンポーネントが実際にストレージ上に存在するようになった時点で、具体的な型のライフサイクル関数ポインタを束縛し、表示名を設定する。
-				EntityID entityID = static_cast<Uint32>(entity_.GetHandle().index_);
+				EntityID entityID = entity_.GetID();
 				void* data = world_.GetComponent(entityID, id);
 				if (data)
 				{
@@ -98,7 +98,7 @@ namespace SeedCore
 		{
 			/// [EN] It's a ComponentBase-derived component: fire OnDestroy while its storage is still valid, before the component is actually removed.
 			/// [JP] ComponentBase 派生コンポーネントである: 実際にコンポーネントが削除される前、そのストレージがまだ有効なうちに OnDestroy を発火する。
-			EntityID entityID = static_cast<Uint32>(entity_.GetHandle().index_);
+			EntityID entityID = entity_.GetID();
 			void* data = world_.GetComponent(entityID, id);
 			if (data)
 			{

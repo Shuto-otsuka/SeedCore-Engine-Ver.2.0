@@ -62,6 +62,28 @@ namespace SeedCore
 
 	/**
 	* [EN]
+	* Returns this entity's EntityID (slot index + generation), or a
+	* default (invalid) EntityID if this entity's handle is null.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* このエンティティの EntityID（スロットインデックス + 世代）を返す。
+	* このエンティティのハンドルが null ならデフォルト（無効）の EntityID
+	* を返す。
+	*/
+	EntityID Entity::GetID()const
+	{
+		if (!handle_.exists())
+		{
+			return EntityID{};
+		}
+
+		return EntityID{ static_cast<Uint32>(handle_.index_), static_cast<Uint32>(handle_.generation_) };
+	}
+
+	/**
+	* [EN]
 	* Returns whether this entity's handle still refers to a live entity.
 	*
 	* ---------------------------------------------------------------------

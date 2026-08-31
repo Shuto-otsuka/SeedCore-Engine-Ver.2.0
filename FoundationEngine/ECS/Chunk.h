@@ -97,7 +97,7 @@ namespace SeedCore
 		* スロットをデフォルト構築する。チャンクが既に満杯であれば
 		* false を返す。
 		*/
-		Bool Add(Uint32 entityID);
+		Bool Add(EntityID entityID);
 
 		/**
 		* [EN]
@@ -106,8 +106,8 @@ namespace SeedCore
 		* row) moves the last row's components into the vacated slot.
 		* Returns the entityID of whichever entity was moved into the
 		* removed row's position (so its EntityRecord can be updated),
-		* or UINT32_MAX if none was moved (entityID not found, or it was
-		* already the last row).
+		* or a default (invalid) EntityID if none was moved (entityID not
+		* found, or it was already the last row).
 		*
 		* ---------------------------------------------------------------------
 		*
@@ -118,9 +118,9 @@ namespace SeedCore
 		* 移動されたエンティティの entityID を返す（呼び出し側がその
 		* EntityRecord を更新できるように）。何も移動されなかった場合
 		* （entityID が見つからない、またはそれが既に最後の行だった場合）は
-		* UINT32_MAX を返す。
+		* デフォルト（無効）の EntityID を返す。
 		*/
-		Uint32 Remove(Uint32 entityID);
+		EntityID Remove(EntityID entityID);
 
 		/**
 		* [EN]
@@ -205,6 +205,6 @@ namespace SeedCore
 
 		/// [EN] Per-row EntityID, parallel to the component sub-arrays in buffer_.
 		/// [JP] buffer_ 内のコンポーネントサブ配列と対応する、行ごとの EntityID。
-		alignas(64) Uint32 entityIDs_[MaxEntitiesPerChunk];
+		alignas(64) EntityID entityIDs_[MaxEntitiesPerChunk];
 	};
 }

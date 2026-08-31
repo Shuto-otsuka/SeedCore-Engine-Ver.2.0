@@ -129,7 +129,7 @@ namespace SeedCore
 			}
 
 			SpawnedInstance instance;
-			instance.entityID_ = static_cast<Uint32>(spawnedActor->GetEntity().GetHandle().index_);
+			instance.entityID_ = spawnedActor->GetEntity().GetID();
 			instance.remainingLifeTime_ = spawner->lifeTime_;
 			state.instances_.push_back(instance);
 		}

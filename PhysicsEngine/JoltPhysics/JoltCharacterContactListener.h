@@ -25,7 +25,7 @@ namespace SeedCore
 	private:
 		World* world_ = nullptr;
 
-		EntityID entityID_ = 0;
+		EntityID entityID_;
 
 		std::unordered_map<JPH::BodyID, Bool> sensorCache_;
 	};
