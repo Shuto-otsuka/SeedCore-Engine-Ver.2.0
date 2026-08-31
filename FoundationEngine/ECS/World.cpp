@@ -1,6 +1,12 @@
 #include <FoundationEngine/ECS/World.h>
 #include <FoundationEngine/ECS/Actor.h>
 #include <FoundationEngine/ECS/Component/Name.h>
+#include <FoundationEngine/ECS/Component/Position.h>
+#include <FoundationEngine/ECS/Component/Rotation.h>
+#include <FoundationEngine/ECS/Component/Scale.h>
+#include <FoundationEngine/ECS/Component/Velocity.h>
+#include <FoundationEngine/ECS/Component/Active.h>
+#include <FoundationEngine/ECS/Component/Bounds.h>
 #include <FoundationEngine/Log/Assert.h>
 
 namespace SeedCore
@@ -466,34 +472,46 @@ namespace SeedCore
 	* actor にその ID を割り当てる。そうでなければ代わりに新規IDを
 	* 自動割り当てする。
 	*/
-	Actor* World::CreateActor(String name, Uint32 persistentId)
+	Actor World::CreateActor(String name, Uint32 persistentId)
 	{
-		auto actor = MakePtr<Actor>(*this, name);
-		Actor* ptr = actor.get();
-		actors_.push_back(std::move(actor));
+		Entity entity = CreateEntity();
+		EntityID entityID = entity.GetID();
 
-		EntityID entityID = ptr->GetEntity().GetID();
-		actorLookup_[entityID] = ptr;
+		actorRecords_.push_back(ActorRecord{});
+		actorRecords_.back().entity_ = entity;
+		actors_.push_back(Actor(*this, entity));
+		Size index = actors_.size() - 1;
+		actorIndex_[entityID] = index;
+
+		/// [EN] Every actor gets the same baseline set of components: a display name, an identity transform, zero velocity, active-by-default, and a small default-sized bounding box so it is viewport-pickable even without a renderable component.
+		/// [JP] 全ての actor に共通するベースラインのコンポーネント一式を付与する: 表示名、単位トランスフォーム、ゼロ速度、デフォルトでアクティブ、そして小さいデフォルトサイズの境界ボックス。
+		AddComponent(entity, Name{ name });
+		AddComponent(entity, Position{ 0.0f,0.0f,0.0f });
+		AddComponent(entity, Rotation{ 0.0f,0.0f,0.0f });
+		AddComponent(entity, Scale{ 1.0f,1.0f,1.0f });
+		AddComponent(entity, Velocity{ 0.0f,0.0f,0.0f });
+		AddComponent(entity, Active{ true });
+		AddComponent(entity, Bounds{ Vector3(0.0f, 0.0f, 0.0f), Vector3(0.5f, 0.5f, 0.5f) });
 
 		/// [EN] Fall back to auto-allocation if persistentId is unset (0) or already claimed by another live actor (e.g. the same prefab instantiated twice), so two actors never collide on the same ID.
-		/// [JP] persistentId が未設定(0)、または既に他の生存中の actor に使用されている(例: 同じ prefab を2回インスタンス化した場合)場合は、自動割り当てにフォールバックする。これにより2つの actor が同じIDで衝突することはない。
+		/// [JP] persistentId が未設定(0)、または既に他の生存中の actor に使用されている場合は、自動割り当てにフォールバックする。これにより2つの actor が同じIDで衝突することはない。
 		Uint32 resolvedId = persistentId;
-		if (resolvedId == 0 || persistentIdLookup_.contains(resolvedId))
+		if (resolvedId == 0 || persistentIdIndex_.contains(resolvedId))
 		{
 			resolvedId = AllocatePersistentID();
 		}
 
-		ptr->SetPersistentID(resolvedId);
-		persistentIdLookup_[resolvedId] = ptr;
+		actorRecords_[index].persistentId_ = resolvedId;
+		persistentIdIndex_[resolvedId] = index;
 
 		/// [EN] Keep the auto-allocation counter ahead of any explicitly-restored ID so future allocations never collide with it.
-		/// [JP] 明示的に復元されたIDより自動割り当てカウンタが常に先に進むようにし、今後の割り当てがそのIDと衝突しないようにする。
+		/// [JP] 明示的に復元されたIDより自動割り当てカウンタが常に先に進むようにする。
 		if (resolvedId >= nextPersistentId_)
 		{
 			nextPersistentId_ = resolvedId + 1;
 		}
 
-		return ptr;
+		return actors_[index];
 	}
 
 	/**
@@ -505,22 +523,31 @@ namespace SeedCore
 	* [JP]
 	* actor の内部エンティティを破棄し、このワールドから削除する。
 	*/
-	void World::DestroyActor(Actor* actor)
+	void World::DestroyActor(Actor actor)
 	{
-		/// [EN] Detach every child before detaching actor itself, so no child is left pointing at a destroyed parent.
-		/// [JP] actor 自身を親から切り離す前に、全ての子を切り離す。破棄済みの親を指す子が残らないようにする。
-		while (!actor->GetChildren().empty())
+		Entity entity = actor.GetEntity();
+		EntityID entityID = entity.GetID();
+
+		auto indexIt = actorIndex_.find(entityID);
+		if (indexIt == actorIndex_.end())
 		{
-			Actor* child = actor->GetChildren().back();
-			child->SetParent(nullptr);
+			return;
+		}
+		Size index = indexIt->second;
+
+		/// [EN] Detach every child (reparent to the scene root) before detaching actor itself, so no child is left pointing at a destroyed parent. The list is snapshotted since SetParent mutates it.
+		/// [JP] actor 自身を切り離す前に、全ての子をシーンのルートへ付け替える。SetParent がリストを変更するためスナップショットを取る。
+		DynamicArray<Entity> children = actorRecords_[index].children_;
+		for (Entity child : children)
+		{
+			Actor(*this, child).SetParent(Actor());
 		}
 
-		actor->SetParent(nullptr);
+		actor.SetParent(Actor());
 
 		/// [EN] Invoke OnDestroy on every ComponentBase-derived component this actor holds before tearing down its entity.
 		/// [JP] エンティティを解体する前に、この actor が保持する全ての ComponentBase 派生コンポーネントに対して OnDestroy を呼び出す。
-		EntityID entityID = actor->GetEntity().GetID();
-		for (ComponentID id : actor->ComponentBaseIDList())
+		for (ComponentID id : actorRecords_[index].componentBaseIDs_)
 		{
 			void* data = GetComponent(entityID, id);
 			if (data)
@@ -533,26 +560,31 @@ namespace SeedCore
 			}
 		}
 
-		auto actorLookupIt = actorLookup_.find(entityID);
-		if (actorLookupIt != actorLookup_.end())
+		Uint32 persistentId = actorRecords_[index].persistentId_;
+		if (persistentId != 0)
 		{
-			actorLookup_.erase(actorLookupIt);
+			persistentIdIndex_.erase(persistentId);
 		}
+		actorIndex_.erase(entityID);
 
-		auto persistentIdLookupIt = persistentIdLookup_.find(actor->GetPersistentID());
-		if (persistentIdLookupIt != persistentIdLookup_.end())
+		DestroyEntity(entity);
+
+		/// [EN] Swap-remove from actors_/actorRecords_: move the last actor into the vacated slot and re-point its index entries.
+		/// [JP] actors_/actorRecords_ から swap-remove する: 最後の actor を空いたスロットへ移動し、そのインデックスエントリを貼り直す。
+		Size last = actors_.size() - 1;
+		if (index != last)
 		{
-			persistentIdLookup_.erase(persistentIdLookupIt);
+			actors_[index] = actors_[last];
+			actorRecords_[index] = std::move(actorRecords_[last]);
+			actorIndex_[actorRecords_[index].entity_.GetID()] = index;
+			Uint32 movedPersistentId = actorRecords_[index].persistentId_;
+			if (movedPersistentId != 0)
+			{
+				persistentIdIndex_[movedPersistentId] = index;
+			}
 		}
-
-		DestroyEntity(actor->GetEntity());
-
-		auto it = std::ranges::find(actors_, actor, [](const ResourcePtr<Actor>& a) { return a.get(); });
-
-		if (it != actors_.end())
-		{
-			actors_.erase(it);
-		}
+		actors_.pop_back();
+		actorRecords_.pop_back();
 	}
 
 	/**
@@ -568,119 +600,211 @@ namespace SeedCore
 	{
 		while (!actors_.empty())
 		{
-			DestroyActor(actors_.back().get());
+			DestroyActor(actors_.back());
 		}
 	}
 
 	/**
 	* [EN]
-	* Returns a mutable reference to the list of Actors owned by this world.
+	* Returns the list of Actor handles owned by this world, in creation
+	* order (subject to swap-remove reordering on DestroyActor).
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* このワールドが所有する Actor 一覧への変更可能な参照を返す。
+	* このワールドが所有する Actor ハンドル一覧を返す（DestroyActor の
+	* swap-remove による並べ替えの影響を受ける）。
 	*/
-	DynamicArray<ResourcePtr<Actor>>& World::GetActors()
+	const DynamicArray<Actor>& World::GetActors()const
 	{
 		return actors_;
 	}
 
 	/**
 	* [EN]
-	* Const overload of GetActors().
+	* Reorders a parentless actor so it sits immediately after `after` in
+	* GetActors() order (or last, when `after` is invalid). Actors with a
+	* parent order themselves through Actor::MoveChild instead.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* GetActors() の const オーバーロード。
+	* 親を持たない actor を GetActors() の並び順で `after` の直後（`after`
+	* が無効なときは末尾）へ移動する。親を持つ actor の並び替えは
+	* Actor::MoveChild を使う。
 	*/
-	const DynamicArray<ResourcePtr<Actor>>& World::GetActors()const
+	void World::MoveActor(Actor actor, Actor after)
 	{
-		return actors_;
-	}
-
-	/**
-	* [EN]
-	* Returns the Actor wrapping entityID, or nullptr if entityID has no Actor.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* entityID を包む Actor を返す。entityID に Actor が無ければ
-	* nullptr を返す。
-	*/
-	Actor* World::GetActor(EntityID entityID)const
-	{
-		auto it = actorLookup_.find(entityID);
-		if (it == actorLookup_.end())
+		auto fromIt = actorIndex_.find(actor.GetEntity().GetID());
+		if (fromIt == actorIndex_.end())
 		{
-			return nullptr;
+			return;
 		}
-		return it->second;
+
+		Size fromIndex = fromIt->second;
+		Actor movedActor = actors_[fromIndex];
+		ActorRecord movedRecord = std::move(actorRecords_[fromIndex]);
+		actors_.erase(actors_.begin() + fromIndex);
+		actorRecords_.erase(actorRecords_.begin() + fromIndex);
+
+		Size insertIndex = actors_.size();
+		if (after)
+		{
+			auto afterIt = actorIndex_.find(after.GetEntity().GetID());
+			if (afterIt != actorIndex_.end())
+			{
+				Size afterIndex = (afterIt->second > fromIndex) ? afterIt->second - 1 : afterIt->second;
+				insertIndex = afterIndex + 1;
+			}
+		}
+
+		actors_.insert(actors_.begin() + insertIndex, movedActor);
+		actorRecords_.insert(actorRecords_.begin() + insertIndex, std::move(movedRecord));
+
+		actorIndex_.clear();
+		persistentIdIndex_.clear();
+		for (Size index = 0; index < actorRecords_.size(); ++index)
+		{
+			actorIndex_[actorRecords_[index].entity_.GetID()] = index;
+			Uint32 persistentId = actorRecords_[index].persistentId_;
+			if (persistentId != 0)
+			{
+				persistentIdIndex_[persistentId] = index;
+			}
+		}
 	}
 
 	/**
 	* [EN]
-	* Returns the Actor wrapping entity, or nullptr if entity has no Actor.
+	* Returns a handle to the actor wrapping entityID, or an invalid
+	* Actor if entityID has no actor (or is stale).
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* entity を包む Actor を返す。entity に Actor が無ければ nullptr
-	* を返す。
+	* entityID を包む actor へのハンドルを返す。entityID に actor が無い
+	* （または古い）場合は無効な Actor を返す。
 	*/
-	Actor* World::GetActor(Entity entity)const
+	Actor World::GetActor(EntityID entityID)const
+	{
+		auto it = actorIndex_.find(entityID);
+		if (it == actorIndex_.end())
+		{
+			return Actor();
+		}
+		return actors_[it->second];
+	}
+
+	/**
+	* [EN]
+	* Returns a handle to the actor wrapping entity, or an invalid Actor
+	* if entity has no actor (or is stale).
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* entity を包む actor へのハンドルを返す。entity に actor が無い
+	* （または古い）場合は無効な Actor を返す。
+	*/
+	Actor World::GetActor(Entity entity)const
 	{
 		return GetActor(entity.GetID());
 	}
 
 	/**
 	* [EN]
-	* Returns the first Actor whose Name component's name_ equals name,
-	* or nullptr if none match (or the actor has no Name component).
-	* Unlike the EntityID/Entity overloads above, this is O(actor count)
-	* - there is no name index - so prefer caching the result (or an
-	* EntityID/persistent ID) over calling this every frame.
+	* Returns a handle to the first actor whose Name component's name_
+	* equals name, or an invalid Actor if none match. O(actor count).
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* Name コンポーネントの name_ が name と一致する最初の Actor を返す。
-	* 一致するものが無い（または Name コンポーネントを持たない）場合は
-	* nullptr。上の EntityID/Entity 版と違い、名前用の索引は無いため
-	* O(actor数) になる - 毎フレーム呼ぶより、結果(または EntityID/
-	* 永続ID)をキャッシュしておくことを推奨する。
+	* Name コンポーネントの name_ が name と一致する最初の actor への
+	* ハンドルを返す。一致するものが無ければ無効な Actor。O(actor数)。
 	*/
-	Actor* World::GetActor(const String& name)const
+	Actor World::GetActor(const String& name)const
 	{
-		auto found = std::ranges::find_if(actors_, [&](const ResourcePtr<Actor>& actor)
+		auto found = std::ranges::find_if(actors_, [&](const Actor& actor)
 		{
-			const Name* nameComponent = GetComponent<Name>(actor->GetEntity());
+			const Name* nameComponent = GetComponent<Name>(actor.GetEntity());
 			return nameComponent && nameComponent->name_ == name;
 		});
-		return found != actors_.end() ? found->get() : nullptr;
+		return found != actors_.end() ? *found : Actor();
 	}
 
 	/**
 	* [EN]
-	* Returns the Actor whose persistent ID is persistentId, or nullptr
-	* if no live actor currently holds it.
+	* Returns a handle to the actor whose persistent ID is persistentId,
+	* or an invalid Actor if no live actor currently holds it.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* 永続IDが persistentId である Actor を返す。現在それを保持している
-	* 生存中の actor が無ければ nullptr を返す。
+	* 永続IDが persistentId である actor へのハンドルを返す。現在それを
+	* 保持している生存中の actor が無ければ無効な Actor。
 	*/
-	Actor* World::FindActor(Uint32 persistentId)const
+	Actor World::FindActor(Uint32 persistentId)const
 	{
-		auto it = persistentIdLookup_.find(persistentId);
-		if (it == persistentIdLookup_.end())
+		auto it = persistentIdIndex_.find(persistentId);
+		if (it == persistentIdIndex_.end())
 		{
-			return nullptr;
+			return Actor();
 		}
-		return it->second;
+		return actors_[it->second];
+	}
+
+	/**
+	* [EN]
+	* Returns whether entity currently identifies a live actor in this
+	* world. A stale entity returns false.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* entity がこのワールドの生存中の actor を指しているかどうかを返す。
+	* 古い entity は false を返す。
+	*/
+	Bool World::HasActor(Entity entity)const
+	{
+		return actorIndex_.contains(entity.GetID());
+	}
+
+	/**
+	* [EN]
+	* Returns a mutable reference to entity's ActorRecord, or to a shared
+	* default record if entity has no actor (so reads on an invalid actor
+	* yield defaults and writes are harmlessly discarded).
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* entity の ActorRecord への変更可能な参照を返す。entity に actor が
+	* 無ければ共有のデフォルトレコードを返す。
+	*/
+	ActorRecord& World::GetActorRecord(Entity entity)
+	{
+		auto it = actorIndex_.find(entity.GetID());
+		if (it == actorIndex_.end())
+		{
+			static ActorRecord defaultRecord;
+			defaultRecord = ActorRecord{};
+			return defaultRecord;
+		}
+		return actorRecords_[it->second];
+	}
+
+	/**
+	* [EN]
+	* Const overload of GetActorRecord.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* GetActorRecord の const オーバーロード。
+	*/
+	const ActorRecord& World::GetActorRecord(Entity entity)const
+	{
+		return const_cast<World*>(this)->GetActorRecord(entity);
 	}
 
 	// ============================================================

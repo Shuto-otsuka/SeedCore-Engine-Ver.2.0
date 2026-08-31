@@ -255,10 +255,10 @@ namespace SeedCore
 				hasDirectional = true;
 
 				Vector3 direction = light.direction_;
-				Actor* actor = world.GetActor(entityID);
+				Actor actor = world.GetActor(entityID);
 				if (actor)
 				{
-					direction = Vector3::TransformNormal(direction, actor->GetWorldMatrix());
+					direction = Vector3::TransformNormal(direction, actor.GetWorldMatrix());
 				}
 				direction.Normalize();
 
@@ -275,14 +275,14 @@ namespace SeedCore
 					return;
 				}
 
-				Actor* actor = world.GetActor(entityID);
+				Actor actor = world.GetActor(entityID);
 				if (!actor)
 				{
 					return;
 				}
 
 				PointLightData pointLightData{};
-				pointLightData.position_ = actor->GetWorldMatrix().Translation();
+				pointLightData.position_ = actor.GetWorldMatrix().Translation();
 				pointLightData.range_ = light.range_;
 				pointLightData.color_ = light.color_;
 				pointLightData.intensity_ = light.intensity_;
@@ -297,13 +297,13 @@ namespace SeedCore
 					return;
 				}
 
-				Actor* actor = world.GetActor(entityID);
+				Actor actor = world.GetActor(entityID);
 				if (!actor)
 				{
 					return;
 				}
 
-				Matrix worldMatrix = actor->GetWorldMatrix();
+				Matrix worldMatrix = actor.GetWorldMatrix();
 				Vector3 direction = Vector3::TransformNormal(light.direction_, worldMatrix);
 				direction.Normalize();
 
@@ -326,13 +326,13 @@ namespace SeedCore
 					return;
 				}
 
-				Actor* actor = world.GetActor(entityID);
+				Actor actor = world.GetActor(entityID);
 				if (!actor)
 				{
 					return;
 				}
 
-				Matrix worldMatrix = actor->GetWorldMatrix();
+				Matrix worldMatrix = actor.GetWorldMatrix();
 
 				/// [JP] 向きベクトルから正規直交基底を作る。normal=正面、right/up は
 				///      矩形の辺方向。up_ が normal_ とほぼ平行だと right が縮退するので
@@ -400,13 +400,13 @@ namespace SeedCore
 					return;
 				}
 
-				Actor* actor = world.GetActor(entityID);
+				Actor actor = world.GetActor(entityID);
 				if (!actor)
 				{
 					return;
 				}
 
-				Matrix worldMatrix = actor->GetWorldMatrix();
+				Matrix worldMatrix = actor.GetWorldMatrix();
 
 				for (const PunctualLight& light : crister->Lights())
 				{

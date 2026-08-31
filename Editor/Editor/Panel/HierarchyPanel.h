@@ -1,5 +1,6 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
+#include <FoundationEngine/ECS/Actor.h>
 
 namespace SeedCore
 {
@@ -17,17 +18,17 @@ namespace SeedCore
 		void Draw();
 
 	private:
-		void DrawActorNode(Actor* actor);
+		void DrawActorNode(Actor actor);
 
-		void SaveAsPrefab(Actor* actor);
+		void SaveAsPrefab(Actor actor);
 
 		String GetUniqueName();
 
-		void HandleNodeSelection(Actor* actor, Bool ctrl, Bool shift);
+		void HandleNodeSelection(Actor actor, Bool ctrl, Bool shift);
 
-		Bool IsSelected(Actor* actor)const;
+		Bool IsSelected(Actor actor)const;
 
-		void DeleteActor(Actor* actor, CompoundCommand* group = nullptr);
+		void DeleteActor(Actor actor, CompoundCommand* group = nullptr);
 
 		void DeleteSelection();
 
@@ -44,7 +45,7 @@ namespace SeedCore
 		* `actor` を、その兄弟の中で `after` の直後に再配置する
 		* （両者が親を持たない場合はルート Actor の中で）。
 		*/
-		void MoveAfter(Actor* actor, Actor* after);
+		void MoveAfter(Actor actor, Actor after);
 
 		/**
 		* [EN]
@@ -60,7 +61,7 @@ namespace SeedCore
 		* 先頭の子である、または親を持たない場合は 0。再親付けの前に取得し、
 		* undo で元の位置を復元できるようにする。
 		*/
-		Uint32 PrevSiblingPersistentId(Actor* actor)const;
+		Uint32 PrevSiblingPersistentId(Actor actor)const;
 
 	private:
 		EditorContext& context_;
@@ -69,7 +70,7 @@ namespace SeedCore
 
 		struct RowRect
 		{
-			Actor* actor_ = nullptr;
+			Actor actor_;
 			ImVec2 min_;
 			ImVec2 max_;
 		};
@@ -80,11 +81,11 @@ namespace SeedCore
 		///      Shift範囲選択とマーキー矩形選択のヒット判定に使う。
 		DynamicArray<RowRect> rows_;
 
-		Actor* pendingClickActor_ = nullptr;
+		Actor pendingClickActor_;
 		Bool pendingClickCtrl_ = false;
 		Bool pendingClickShift_ = false;
 
-		Actor* rangeAnchor_ = nullptr;
+		Actor rangeAnchor_;
 
 		Bool marqueeActive_ = false;
 		ImVec2 marqueeStart_ = ImVec2(0.0f, 0.0f);

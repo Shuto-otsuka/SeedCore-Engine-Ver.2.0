@@ -290,7 +290,7 @@ namespace SeedCore
 
 		/// [EN] Component field snapshots captured from the previously loaded module, awaiting restoration once the new module re-registers the type.
 		/// [JP] 直前にロードされていたモジュールから取得したコンポーネントのフィールドスナップショット。新しいモジュールが型を再登録した後に復元されるのを待っている。
-		DynamicArray<std::pair<Actor*, SerializedComponent>> capturedComponents_;
+		DynamicArray<std::pair<Actor, SerializedComponent>> capturedComponents_;
 
 		/// [EN] Type names this module added to ReflectionRegistry, determined by diffing the registry across LoadLibrary. Erased again before the module is freed.
 		/// [JP] このモジュールが ReflectionRegistry へ追加した型名。LoadLibrary の前後でレジストリを差分比較して求める。モジュールを解放する前に再び削除される。

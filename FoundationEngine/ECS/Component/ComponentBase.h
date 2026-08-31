@@ -50,14 +50,14 @@ namespace SeedCore
 
 		/**
 		* [EN]
-		* Returns the Actor this component is attached to.
+		* Returns a handle to the Actor this component is attached to.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* このコンポーネントがアタッチされている Actor を返す。
+		* このコンポーネントがアタッチされている Actor へのハンドルを返す。
 		*/
-		Actor& GetActor()const;
+		Actor GetActor()const;
 
 		/**
 		* [EN]
@@ -204,9 +204,13 @@ namespace SeedCore
 		friend class SystemScheduler;
 		friend class ComponentRegistry;
 
-		/// [EN] The Actor this component is attached to; set when the component is registered.
-		/// [JP] このコンポーネントがアタッチされている Actor。コンポーネント登録時に設定される。
-		Actor* actor_ = nullptr;
+		/// [EN] The World that owns the actor this component is attached to; set when the component is registered.
+		/// [JP] このコンポーネントがアタッチされている actor を所有する World。コンポーネント登録時に設定される。
+		World* world_ = nullptr;
+
+		/// [EN] The entity of the actor this component is attached to; set when the component is registered.
+		/// [JP] このコンポーネントがアタッチされている actor のエンティティ。コンポーネント登録時に設定される。
+		Entity entity_;
 
 		/// [EN] This component's display/type name.
 		/// [JP] このコンポーネントの表示名/型名。

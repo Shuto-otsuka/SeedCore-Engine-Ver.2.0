@@ -20,11 +20,11 @@ namespace SeedCore
 	*/
 	void TransformSystem::Execute(World& world)
 	{
-		for (ResourcePtr<Actor>& actor : world.GetActors())
+		for (Actor actor : world.GetActors())
 		{
-			if (actor->GetParent() == nullptr)
+			if (!actor.GetParent())
 			{
-				UpdateActor(actor.get(), Matrix::Identity, world);
+				UpdateActor(actor, Matrix::Identity, world);
 			}
 		}
 	}
@@ -42,9 +42,9 @@ namespace SeedCore
 	* Scale コンポーネントから）を parentMatrix と組み合わせて計算し、
 	* actor のワールド行列として保存した後、actor の子へ再帰する。
 	*/
-	void TransformSystem::UpdateActor(Actor* actor, const Matrix& parentMatrix, World& world)
+	void TransformSystem::UpdateActor(Actor actor, const Matrix& parentMatrix, World& world)
 	{
-		Entity entity = actor->GetEntity();
+		Entity entity = actor.GetEntity();
 
 		Position* position = world.GetComponent<Position>(entity);
 		Rotation* rotation = world.GetComponent<Rotation>(entity);
@@ -72,9 +72,9 @@ namespace SeedCore
 		}
 
 		Matrix worldMatrix = local * parentMatrix;
-		actor->SetWorldMatrix(worldMatrix);
+		actor.SetWorldMatrix(worldMatrix);
 
-		for (Actor* child : actor->GetChildren())
+		for (Actor child : actor.GetChildren())
 		{
 			UpdateActor(child, worldMatrix, world);
 		}

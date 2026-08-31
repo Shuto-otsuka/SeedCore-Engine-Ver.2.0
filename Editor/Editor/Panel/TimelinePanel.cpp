@@ -330,7 +330,7 @@ namespace SeedCore
 			return;
 		}
 
-		Animator* selectedTarget = context_.selectionContext_.selectedActor_ ? const_cast<Animator*>(context_.selectionContext_.selectedActor_->GetComponent<Animator>()) : nullptr;
+		Animator* selectedTarget = context_.selectionContext_.selectedActor_ ? const_cast<Animator*>(context_.selectionContext_.selectedActor_.GetComponent<Animator>()) : nullptr;
 		if (selectedTarget != target_)
 		{
 			target_ = selectedTarget;
@@ -403,7 +403,7 @@ namespace SeedCore
 					}
 				}
 
-				const Mesh* mesh = context_.selectionContext_.selectedActor_ ? context_.selectionContext_.selectedActor_->GetComponent<Mesh>() : nullptr;
+				const Mesh* mesh = context_.selectionContext_.selectedActor_ ? context_.selectionContext_.selectedActor_.GetComponent<Mesh>() : nullptr;
 				if (mesh && mesh->meshID_ != 0)
 				{
 					context_.timelinePreviewContext_.previewActive_ = true;

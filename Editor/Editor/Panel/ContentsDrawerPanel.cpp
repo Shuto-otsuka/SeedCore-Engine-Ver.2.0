@@ -185,7 +185,7 @@ namespace SeedCore
 				{
 					if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("HIERARCHY_ACTOR"))
 					{
-						Actor* dropped = *static_cast<Actor* const*>(payload->Data);
+						Actor dropped = *static_cast<const Actor*>(payload->Data);
 						std::filesystem::path directory = ResolveFullPath(selectedDirectory_);
 						std::filesystem::path savedPath = Prefab::SaveToDirectory(dropped, directory);
 						if (!savedPath.empty())
@@ -199,7 +199,7 @@ namespace SeedCore
 							Uint32 newAssetID = context_.worldContext_.resource_->GetAssetID(String(relative));
 							if (newAssetID != 0)
 							{
-								dropped->SetSourcePrefabAssetID(newAssetID);
+								dropped.SetSourcePrefabAssetID(newAssetID);
 							}
 						}
 					}

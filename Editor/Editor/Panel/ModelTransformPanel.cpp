@@ -82,7 +82,7 @@ namespace SeedCore
 
 		/// [EN] Prime the selection edge-detector with whatever is selected right now, so this asset target is not immediately overridden by an unchanged scene selection on the next Draw.
 		/// [JP] 選択のエッジ検出を「今選択されているもの」で初期化し、次の Draw で変化していないシーン選択にこのアセットターゲットが即座に上書きされないようにする。
-		const Mesh* mesh = context_.selectionContext_.selectedActor_ ? context_.selectionContext_.selectedActor_->GetComponent<Mesh>() : nullptr;
+		const Mesh* mesh = context_.selectionContext_.selectedActor_ ? context_.selectionContext_.selectedActor_.GetComponent<Mesh>() : nullptr;
 		lastSelectionMeshId_ = (mesh && mesh->meshID_ != 0) ? mesh->meshID_ : 0;
 	}
 
@@ -118,7 +118,7 @@ namespace SeedCore
 
 		if (ImGui::Begin("モデル変換", &show_))
 		{
-			const Mesh* mesh = context_.selectionContext_.selectedActor_ ? context_.selectionContext_.selectedActor_->GetComponent<Mesh>() : nullptr;
+			const Mesh* mesh = context_.selectionContext_.selectedActor_ ? context_.selectionContext_.selectedActor_.GetComponent<Mesh>() : nullptr;
 			Uint32 selectionMeshId = (mesh && mesh->meshID_ != 0) ? mesh->meshID_ : 0;
 
 			/// [EN] Follow the scene selection only when it actually changes, not merely when it differs from the current target - otherwise opening the panel on a content-drawer asset while an actor is selected would snap straight back to that actor's mesh.

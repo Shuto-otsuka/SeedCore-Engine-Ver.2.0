@@ -30,12 +30,12 @@ namespace SeedCore
 	{
 		if (isPlaying)
 		{
-			for (ResourcePtr<Actor>& actor : world.GetActors())
+			for (Actor actor : world.GetActors())
 			{
-				Entity entity = actor->GetEntity();
+				Entity entity = actor.GetEntity();
 				EntityID entityID = entity.GetID();
 
-				for (ComponentID id : actor->ComponentBaseIDList())
+				for (ComponentID id : actor.ComponentBaseIDList())
 				{
 					void* data = world.GetComponent(entityID, id);
 					if (!data)
@@ -55,12 +55,12 @@ namespace SeedCore
 				}
 			}
 
-			for (ResourcePtr<Actor>& actor : world.GetActors())
+			for (Actor actor : world.GetActors())
 			{
-				Entity entity = actor->GetEntity();
+				Entity entity = actor.GetEntity();
 				EntityID entityID = entity.GetID();
 
-				for (ComponentID id : actor->ComponentBaseIDList())
+				for (ComponentID id : actor.ComponentBaseIDList())
 				{
 					void* data = world.GetComponent(entityID, id);
 					if (!data)
@@ -107,12 +107,12 @@ namespace SeedCore
 
 		if (isPlaying)
 		{
-			for (ResourcePtr<Actor>& actor : world.GetActors())
+			for (Actor actor : world.GetActors())
 			{
-				Entity entity = actor->GetEntity();
+				Entity entity = actor.GetEntity();
 				EntityID entityID = entity.GetID();
 
-				for (ComponentID id : actor->ComponentBaseIDList())
+				for (ComponentID id : actor.ComponentBaseIDList())
 				{
 					void* data = world.GetComponent(entityID, id);
 					if (!data)
@@ -128,12 +128,12 @@ namespace SeedCore
 				}
 			}
 
-			for (ResourcePtr<Actor>& actor : world.GetActors())
+			for (Actor actor : world.GetActors())
 			{
-				Entity entity = actor->GetEntity();
+				Entity entity = actor.GetEntity();
 				EntityID entityID = entity.GetID();
 
-				for (ComponentID id : actor->ComponentBaseIDList())
+				for (ComponentID id : actor.ComponentBaseIDList())
 				{
 					void* data = world.GetComponent(entityID, id);
 					if (!data)
@@ -164,12 +164,12 @@ namespace SeedCore
 	*/
 	void SystemScheduler::Step(World& world, Float fixedTime)
 	{
-		for (ResourcePtr<Actor>& actor : world.GetActors())
+		for (Actor actor : world.GetActors())
 		{
-			Entity entity = actor->GetEntity();
+			Entity entity = actor.GetEntity();
 			EntityID entityID = entity.GetID();
 
-			for (ComponentID id : actor->ComponentBaseIDList())
+			for (ComponentID id : actor.ComponentBaseIDList())
 			{
 				void* data = world.GetComponent(entityID, id);
 				if (!data)

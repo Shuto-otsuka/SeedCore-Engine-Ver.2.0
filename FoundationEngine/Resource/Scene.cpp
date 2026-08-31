@@ -31,11 +31,11 @@ namespace SeedCore
 
 		/// [EN] Only root actors are enumerated here; CaptureActorNode recurses into each root's descendants on its own.
 		/// [JP] ここで列挙するのはルート actor のみ。各ルートの子孫への再帰は CaptureActorNode 自身が行う。
-		for (auto& actor : world.GetActors())
+		for (Actor actor : world.GetActors())
 		{
-			if (actor->GetParent() == nullptr)
+			if (!actor.GetParent())
 			{
-				CaptureActorNode(actor.get(), -1, nodes_);
+				CaptureActorNode(actor, -1, nodes_);
 			}
 		}
 	}
@@ -66,9 +66,9 @@ namespace SeedCore
 	* 取得済みのシーンを world 内に新しい actor 群として再生成し、
 	* インスタンス化された全 actor（ルート・子孫問わず）を返す。
 	*/
-	DynamicArray<Actor*> Scene::Instantiate(World& world, ResourceCache& cache)const
+	DynamicArray<Actor> Scene::Instantiate(World& world, ResourceCache& cache)const
 	{
-		DynamicArray<Actor*> instantiated;
+		DynamicArray<Actor> instantiated;
 		instantiated.reserve(nodes_.size());
 
 		/// [EN] Nodes are stored in capture order, so each node's parent (identified by an earlier index) has always already been instantiated by the time we reach it.
@@ -77,13 +77,13 @@ namespace SeedCore
 		{
 			const SerializedActorNode& node = nodes_[index];
 
-			Actor* parentActor = nullptr;
+			Actor parentActor;
 			if (node.parentIndex_ >= 0 && static_cast<Size>(node.parentIndex_) < instantiated.size())
 			{
 				parentActor = instantiated[node.parentIndex_];
 			}
 
-			Actor* actor = InstantiateActorNode(world, cache, node, parentActor, false);
+			Actor actor = InstantiateActorNode(world, cache, node, parentActor, false);
 			instantiated.push_back(actor);
 		}
 

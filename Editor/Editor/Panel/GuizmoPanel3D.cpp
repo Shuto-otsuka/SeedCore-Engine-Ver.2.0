@@ -41,7 +41,7 @@ namespace SeedCore
 			}
 		}
 
-		const DynamicArray<Actor*>& selectedActors = context_.selectionContext_.selectedActors_;
+		const DynamicArray<Actor>& selectedActors = context_.selectionContext_.selectedActors_;
 		if (selectedActors.empty())
 		{
 			return;
@@ -78,14 +78,14 @@ namespace SeedCore
 			{
 				if (selectedActors.size() == 1)
 				{
-					pivotMatrix_ = selectedActors[0]->GetWorldMatrix();
+					pivotMatrix_ = selectedActors[0].GetWorldMatrix();
 				}
 				else
 				{
 					Vector3 averagePosition = Vector3::Zero;
-					for (Actor* actor : selectedActors)
+					for (Actor actor : selectedActors)
 					{
-						averagePosition += actor->GetWorldMatrix().Translation();
+						averagePosition += actor.GetWorldMatrix().Translation();
 					}
 					averagePosition /= static_cast<Float>(selectedActors.size());
 					pivotMatrix_ = Matrix::CreateTranslation(averagePosition);
@@ -128,11 +128,11 @@ namespace SeedCore
 				dragStartScales_.clear();
 				dragStartPivotMatrix_ = pivotMatrix_;
 
-				for (Actor* actor : selectedActors)
+				for (Actor actor : selectedActors)
 				{
-					Entity entity = actor->GetEntity();
+					Entity entity = actor.GetEntity();
 					dragEntities_.push_back(entity);
-					dragStartWorldMatrices_.push_back(actor->GetWorldMatrix());
+					dragStartWorldMatrices_.push_back(actor.GetWorldMatrix());
 
 					Float* positionData = static_cast<Float*>(context_.worldContext_.world_->GetComponent(entity, positionID));
 					Float* rotationData = static_cast<Float*>(context_.worldContext_.world_->GetComponent(entity, rotationID));
@@ -255,12 +255,12 @@ namespace SeedCore
 			for (Size index = 0; index < dragEntities_.size(); ++index)
 			{
 				Entity entity = dragEntities_[index];
-				Actor* actor = context_.worldContext_.world_->GetActor(entity);
+				Actor actor = context_.worldContext_.world_->GetActor(entity);
 
 				Matrix newWorldMatrix = dragStartWorldMatrices_[index] * pivotDelta;
 
-				Actor* parentActor = actor ? actor->GetParent() : nullptr;
-				Matrix localMatrix = (parentActor) ? newWorldMatrix * parentActor->GetWorldMatrix().Invert() : newWorldMatrix;
+				Actor parentActor = actor ? actor.GetParent() : Actor();
+				Matrix localMatrix = (parentActor) ? newWorldMatrix * parentActor.GetWorldMatrix().Invert() : newWorldMatrix;
 
 				Vector3 position, scale;
 				Quaternion rotation;

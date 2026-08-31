@@ -451,7 +451,7 @@ namespace SeedCore
 			///      resizeRequested_ 分岐)を経て初めて反映されるため、ここで立てる。
 			context_.viewportContext_.resizeRequested_ = true;
 			context_.sceneContext_.currentScenePath_ = path;
-			context_.selectionContext_.selectedActor_ = nullptr;
+			context_.selectionContext_.selectedActor_ = Actor();
 			context_.selectionContext_.selectedActors_.clear();
 			SC_LOG_NOTICE("シーンを読み込みました: {}", path.string());
 			break;
@@ -469,7 +469,7 @@ namespace SeedCore
 			///      resizeRequested_ 分岐)を経て初めて反映されるため、ここで立てる。
 			context_.viewportContext_.resizeRequested_ = true;
 			context_.sceneContext_.currentScenePath_ = context_.worldContext_.resource_->GetAsset(assetID)->fullpath_.c_str();
-			context_.selectionContext_.selectedActor_ = nullptr;
+			context_.selectionContext_.selectedActor_ = Actor();
 			context_.selectionContext_.selectedActors_.clear();
 			SC_LOG_NOTICE("シーンを読み込みました: {}", context_.sceneContext_.currentScenePath_.string());
 			break;
@@ -487,7 +487,7 @@ namespace SeedCore
 		context_.worldContext_.world_->DestroyActors();
 
 		context_.sceneContext_.currentScenePath_.clear();
-		context_.selectionContext_.selectedActor_ = nullptr;
+		context_.selectionContext_.selectedActor_ = Actor();
 		context_.selectionContext_.selectedActors_.clear();
 
 		SC_LOG_NOTICE("新規シーンを作成しました");

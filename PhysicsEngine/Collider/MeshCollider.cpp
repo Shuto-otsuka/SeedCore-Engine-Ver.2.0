@@ -34,7 +34,7 @@ namespace SeedCore
 
 	void MeshCollider::Build(const MeshCollision& meshCollision)
 	{
-		Actor& actor = GetActor();
+		Actor actor = GetActor();
 		Rigidbody* rigidbody = actor.GetComponent<Rigidbody>();
 
 		Bool convex = convex_;

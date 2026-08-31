@@ -55,7 +55,7 @@ namespace SeedCore
 
 	void Softbody::Build(const Crister& crister)
 	{
-		Actor& actor = GetActor();
+		Actor actor = GetActor();
 
 		DynamicArray<Vertex> vertices;
 		SoftbodyDesc desc;

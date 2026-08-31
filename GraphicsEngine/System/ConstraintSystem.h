@@ -1,5 +1,6 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
+#include <FoundationEngine/ECS/Entity.h>
 #include <unordered_set>
 
 namespace SeedCore
@@ -13,8 +14,8 @@ namespace SeedCore
 		void Execute(World& world);
 
 	private:
-		void MarkDirtySubtree(Actor* actor, std::unordered_set<Actor*>& dirty);
+		void MarkDirtySubtree(Actor actor, std::unordered_set<EntityID>& dirty);
 
-		void UpdateActor(Actor* actor, const Matrix& parentMatrix, World& world, const std::unordered_set<Actor*>& dirty);
+		void UpdateActor(Actor actor, const Matrix& parentMatrix, World& world, const std::unordered_set<EntityID>& dirty);
 	};
 }

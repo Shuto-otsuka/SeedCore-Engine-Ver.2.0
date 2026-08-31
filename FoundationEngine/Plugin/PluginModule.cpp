@@ -385,23 +385,21 @@ namespace SeedCore
 
 		capturedComponents_.clear();
 
-		for (const ResourcePtr<Actor>& actorPtr : world.GetActors())
+		for (Actor actor : world.GetActors())
 		{
-			Actor* actor = actorPtr.get();
-
 			DynamicArray<ComponentID> ownedIDs;
-			std::ranges::copy_if(actor->ComponentBaseIDList(), std::back_inserter(ownedIDs), isOwnedByLoadedModule);
+			std::ranges::copy_if(actor.ComponentBaseIDList(), std::back_inserter(ownedIDs), isOwnedByLoadedModule);
 
 			for (ComponentID id : ownedIDs)
 			{
-				void* data = world.GetComponent(actor->GetEntity(), id);
+				void* data = world.GetComponent(actor.GetEntity(), id);
 				if (data)
 				{
 					String name = ComponentRegistry::GetName(id);
 					capturedComponents_.emplace_back(actor, CaptureComponent(name, data));
 				}
 
-				actor->RemoveComponent(id);
+				actor.RemoveComponent(id);
 			}
 		}
 
@@ -446,7 +444,7 @@ namespace SeedCore
 	*/
 	void PluginModule::RestoreCapturedComponents(World& world)
 	{
-		for (const auto& [actor, component] : capturedComponents_)
+		for (auto& [actor, component] : capturedComponents_)
 		{
 			ComponentID id = ComponentRegistry::GetComponentID(component.componentName_);
 			if (!id)
@@ -454,9 +452,9 @@ namespace SeedCore
 				continue;
 			}
 
-			actor->AddComponent(id);
+			actor.AddComponent(id);
 
-			void* data = world.GetComponent(actor->GetEntity(), id);
+			void* data = world.GetComponent(actor.GetEntity(), id);
 			if (data)
 			{
 				ApplyComponent(component, data);

@@ -337,7 +337,7 @@ namespace SeedCore
 						Vector3 rayDirection = farPoint - rayOrigin;
 						rayDirection.Normalize();
 
-						Actor* hitActor = ViewportPicking::Pick(*context_.worldContext_.world_, rayOrigin, rayDirection);
+						Actor hitActor = ViewportPicking::Pick(*context_.worldContext_.world_, rayOrigin, rayDirection);
 
 						context_.selectionContext_.selectedActors_.clear();
 						if (hitActor)
@@ -345,7 +345,7 @@ namespace SeedCore
 							context_.selectionContext_.selectedActors_.push_back(hitActor);
 						}
 						context_.selectionContext_.selectedActor_ = hitActor;
-						context_.selectionContext_.selectedEntity_ = hitActor ? hitActor->GetEntity() : Entity::Null();
+						context_.selectionContext_.selectedEntity_ = hitActor ? hitActor.GetEntity() : Entity::Null();
 					}
 				}
 

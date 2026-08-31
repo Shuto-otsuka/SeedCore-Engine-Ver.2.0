@@ -10,7 +10,7 @@ namespace SeedCore
 {
 	void CharacterController::OnAwake()
 	{
-		Actor& actor = GetActor();
+		Actor actor = GetActor();
 
 		const Position* position = actor.GetComponent<Position>();
 		const Rotation* rotation = actor.GetComponent<Rotation>();
@@ -46,7 +46,7 @@ namespace SeedCore
 			return;
 		}
 
-		Actor& actor = GetActor();
+		Actor actor = GetActor();
 
 		if (crouch_ && !isCrouched_)
 		{
@@ -201,7 +201,7 @@ namespace SeedCore
 
 		character_->SetPosition(JPH::RVec3(position.x, position.y, position.z));
 
-		Actor& actor = GetActor();
+		Actor actor = GetActor();
 		actor.GetPhysics().Refresh(character_.GetPtr());
 
 		World& world = actor.GetWorld();

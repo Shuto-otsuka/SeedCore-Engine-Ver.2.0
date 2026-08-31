@@ -112,7 +112,7 @@ namespace SeedCore
 					return;
 				}
 
-				Actor* actor = world.GetActor(entityID);
+				Actor actor = world.GetActor(entityID);
 				if (!actor)
 				{
 					return;
@@ -120,10 +120,10 @@ namespace SeedCore
 
 				PendingInstance instance{};
 				instance.crister_ = crister;
-				instance.worldMatrix_ = actor->GetWorldMatrix();
+				instance.worldMatrix_ = actor.GetWorldMatrix();
 				instance.entityID_ = entityID;
 
-				const Animator* animator = actor->GetComponent<Animator>();
+				const Animator* animator = actor.GetComponent<Animator>();
 				if (animator && crister->IsProxySkinned())
 				{
 					Uint32 boneOffset = 0;

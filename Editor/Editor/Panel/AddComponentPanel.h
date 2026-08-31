@@ -13,7 +13,7 @@ namespace SeedCore
 	public:
 		AddComponentPanel(EditorContext& context);
 
-		void Draw(Actor* actor, ImGuiTexture& imguiTexture);
+		void Draw(Actor actor, ImGuiTexture& imguiTexture);
 
 	private:
 		struct State
@@ -23,7 +23,7 @@ namespace SeedCore
 		};
 
 		void DrawSearchBar(ImGuiTexture& imguiTexture);
-		void DrawComponentList(Actor* actor, ImGuiTexture& imguiTexture);
+		void DrawComponentList(Actor actor, ImGuiTexture& imguiTexture);
 
 		/// [EN] Renders one leaf entry as a Selectable, preceded by its
 		///      Unity-style icon (ImGuiTexture::ComponentIconType): single
@@ -37,7 +37,7 @@ namespace SeedCore
 		///      ポップアップは閉じない）、ダブルクリックでコンポーネントを
 		///      追加しポップアップ階層を閉じる。既に付いているコンポーネント
 		///      は表示はするが無効化する。
-		void DrawMenuItem(Actor* actor, const String& componentName, ComponentID componentID, ImGuiTexture& imguiTexture);
+		void DrawMenuItem(Actor actor, const String& componentName, ComponentID componentID, ImGuiTexture& imguiTexture);
 
 		Bool CheckBuiltinComponent(const String& componentName)const;
 		Bool CheckFilterMatch(const String& componentName, const std::string& filterText)const;

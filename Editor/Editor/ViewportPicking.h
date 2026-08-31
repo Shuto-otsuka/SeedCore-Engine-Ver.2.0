@@ -45,7 +45,7 @@ namespace SeedCore
 		* 返す。どれにも当たらなければ nullptr。rayDirection は正規化
 		* されていなくてよい。
 		*/
-		static Actor* Pick(World& world, const Vector3& rayOrigin, const Vector3& rayDirection);
+		static Actor Pick(World& world, const Vector3& rayOrigin, const Vector3& rayDirection);
 
 	private:
 		/**

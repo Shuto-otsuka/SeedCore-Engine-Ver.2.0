@@ -9,7 +9,7 @@ namespace SeedCore
 {
 	void OrbitCameraController::OnTick(Float elapsedTime)
 	{
-		Actor& actor = GetActor();
+		Actor actor = GetActor();
 		const Position* position = actor.GetComponent<Position>();
 		const Rotation* rotation = actor.GetComponent<Rotation>();
 		if (!position || !rotation)

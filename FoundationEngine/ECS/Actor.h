@@ -12,109 +12,81 @@ namespace SeedCore
 
 	/**
 	* [EN]
-	* Higher-level, GameObject-style wrapper around a raw ECS Entity:
-	* adds a scene-graph parent/child hierarchy, an active flag, tag
-	* membership, prefab-instance bookkeeping, and convenience
-	* component accessors on top of World's low-level entity/component API.
+	* Lightweight value handle to a GameObject-style actor: pairs the
+	* owning World with a generation-checked Entity, and forwards every
+	* operation (hierarchy, active state, tags, layers, components,
+	* prefab bookkeeping) to World, where the actor's data actually
+	* lives. Copy it freely; it is 16 bytes and never dangles - a call
+	* on an actor whose entity has been destroyed resolves to nothing
+	* (nullptr / default) rather than aliasing a recycled slot. A
+	* default-constructed Actor is invalid (converts to false).
 	*
 	* Individual non-template members carry SEEDCORE_API rather than the
 	* class itself, because a class-level dllexport/dllimport propagates
-	* to member function templates under Clang (unlike MSVC) — any T used
-	* with AddComponent<T>/GetComponent<T> from outside this DLL would
-	* otherwise need its own explicit template instantiation to link under
-	* ClangCL. Left as plain templates, they're instantiated locally in
-	* every including translation unit instead, with no export needed.
+	* to member function templates under Clang (unlike MSVC).
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* 生の ECS Entity に対する、より高水準な GameObject 風のラッパー。
-	* World の低水準なエンティティ/コンポーネント API の上に、シーン
-	* グラフの親子階層、アクティブフラグ、タグ所属、プレハブ
-	* インスタンスの管理情報、および便利なコンポーネントアクセサを
-	* 追加する。
-	*
-	* クラス全体にではなく、テンプレートでない個々のメンバに SEEDCORE_API
-	* を付けている。クラス単位の dllexport/dllimport は、MSVCと異なり
-	* Clang ではメンバ関数テンプレートにも伝播してしまうため、このDLLの
-	* 外から AddComponent<T>/GetComponent<T> を使う型 T が増えるたびに、
-	* ClangCLでリンクするための明示的テンプレートインスタンス化が個別に
-	* 必要になってしまう。ただのテンプレートのままにしておけば、
-	* #include した各翻訳単位でローカルにインスタンス化されるだけで済み、
-	* エクスポートが一切不要になる。
+	* GameObject 風の actor への軽量な値ハンドル: 所有元 World と世代
+	* チェック付き Entity のペアで、全操作（階層、アクティブ状態、タグ、
+	* レイヤー、コンポーネント、プレハブ管理）を、actor のデータが実際に
+	* 存在する World へ転送する。自由にコピーしてよい。16 バイトで、
+	* ダングリングしない - エンティティが破棄された actor への呼び出しは、
+	* 再利用スロットにエイリアスするのではなく、何も無い結果
+	* （nullptr / デフォルト）に解決される。デフォルト構築された Actor は
+	* 無効（false に変換される）。
 	*/
 	class Actor
 	{
 	public:
 		/**
 		* [EN]
-		* Constructs an actor in world with the given display name,
-		* creating its underlying entity, physics resource, and the
-		* default transform/lifecycle components (Name/Position/
-		* Rotation/Scale/Velocity/Active).
+		* Default constructor: an invalid actor (no World, null entity).
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* 指定された表示名で world 内に actor を構築し、内部エンティティ、
-		* 物理リソース、およびデフォルトのトランスフォーム/ライフサイクル
-		* コンポーネント（Name/Position/Rotation/Scale/Velocity/Active）を
-		* 生成する。
+		* デフォルトコンストラクタ: 無効な actor（World 無し、null エンティティ）。
 		*/
-		SEEDCORE_API Actor(World& world, String name = String("Actor"));
+		Actor() = default;
 
 		/**
 		* [EN]
-		* Copy-constructs an actor (references bind to the same World/
-		* Physics as source; declared explicitly, rather than left
-		* compiler-generated, so it gets a stable exported symbol now
-		* that the class itself is no longer whole-class exported).
+		* Constructs a handle to the actor identified by entity within
+		* world. Does not create anything - use World::CreateActor for that.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* actor をコピー構築する（参照メンバは source と同じ World/Physics
-		* を指す）。クラス全体のエクスポートをやめたことで、暗黙生成に
-		* 任せず明示的に宣言し、安定したエクスポートシンボルを持たせている。
+		* world 内で entity が識別する actor へのハンドルを構築する。何も
+		* 生成しない - 生成には World::CreateActor を使う。
 		*/
-		SEEDCORE_API Actor(const Actor&) = default;
+		SEEDCORE_API Actor(World& world, Entity entity);
 
 		/**
 		* [EN]
-		* Move-constructs an actor. Declared explicitly for the same
-		* reason as the copy constructor above.
+		* Returns whether this handle refers to a live actor, letting an
+		* Actor be used directly in a boolean context (if, &&, ?:).
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* actor をムーブ構築する。上記のコピーコンストラクタと同じ理由で
-		* 明示的に宣言している。
+		* このハンドルが生存中の actor を指しているかどうかを返す。Actor を
+		* 真偽値コンテキスト（if、&&、?:）でそのまま使えるようにする。
 		*/
-		SEEDCORE_API Actor(Actor&&) = default;
+		SEEDCORE_API explicit operator Bool()const;
 
 		/**
 		* [EN]
-		* Destroys this actor. Declared explicitly for the same reason
-		* as the copy constructor above.
+		* Adds a copy of value as this actor's T component (T not deriving
+		* from ComponentBase).
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* この actor を破棄する。上記のコピーコンストラクタと同じ理由で
-		* 明示的に宣言している。
-		*/
-		SEEDCORE_API ~Actor() = default;
-
-		/**
-		* [EN]
-		* Adds a copy of value as this actor's T component (T not
-		* deriving from ComponentBase).
-		*
-		* ---------------------------------------------------------------------
-		*
-		* [JP]
-		* value のコピーをこの actor の T コンポーネント（T は
-		* ComponentBase から派生しない）として追加する。
+		* value のコピーをこの actor の T コンポーネント（T は ComponentBase
+		* から派生しない）として追加する。
 		*/
 		template<typename T>
 			requires(!std::derived_from<T, ComponentBase>)
@@ -139,9 +111,9 @@ namespace SeedCore
 
 		/**
 		* [EN]
-		* Type-erased overload of AddComponent: adds a
-		* default-constructed instance of the component registered
-		* under id, wiring up its lifecycle if it derives from ComponentBase.
+		* Type-erased overload of AddComponent: adds a default-constructed
+		* instance of the component registered under id, wiring up its
+		* lifecycle if it derives from ComponentBase.
 		*
 		* ---------------------------------------------------------------------
 		*
@@ -169,8 +141,8 @@ namespace SeedCore
 
 		/**
 		* [EN]
-		* Returns a mutable pointer to this actor's T component (T
-		* deriving from ComponentBase), or nullptr if absent.
+		* Returns a mutable pointer to this actor's T component (T deriving
+		* from ComponentBase), or nullptr if absent.
 		*
 		* ---------------------------------------------------------------------
 		*
@@ -184,8 +156,8 @@ namespace SeedCore
 
 		/**
 		* [EN]
-		* Removes this actor's component registered under id, invoking
-		* its OnDestroy first if it derives from ComponentBase.
+		* Removes this actor's component registered under id, invoking its
+		* OnDestroy first if it derives from ComponentBase.
 		*
 		* ---------------------------------------------------------------------
 		*
@@ -216,8 +188,8 @@ namespace SeedCore
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* この actor に現在アタッチされている、全ての ComponentBase
-		* 派生コンポーネントの ID 一覧を返す。
+		* この actor に現在アタッチされている、全ての ComponentBase 派生
+		* コンポーネントの ID 一覧を返す。
 		*/
 		SEEDCORE_API const DynamicArray<ComponentID>& ComponentBaseIDList()const;
 
@@ -256,29 +228,30 @@ namespace SeedCore
 
 		/**
 		* [EN]
-		* Reparents this actor under parent (or to the scene root if
-		* nullptr), updating both the old and new parent's children
-		* lists, and inheriting the new parent's active state.
+		* Reparents this actor under parent (or to the scene root if parent
+		* is an invalid Actor), updating both the old and new parent's
+		* children lists, and inheriting the new parent's active state.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* この actor を parent の下へ付け替える（nullptr であればシーンの
-		* ルートへ）。旧・新それぞれの親の子リストを更新し、新しい親の
-		* アクティブ状態を継承する。
+		* この actor を parent の下へ付け替える（parent が無効な Actor で
+		* あればシーンのルートへ）。旧・新それぞれの親の子リストを更新し、
+		* 新しい親のアクティブ状態を継承する。
 		*/
-		SEEDCORE_API void SetParent(Actor* parent);
+		SEEDCORE_API void SetParent(Actor parent);
 
 		/**
 		* [EN]
-		* Returns this actor's current parent, or nullptr if it has none.
+		* Returns this actor's current parent, or an invalid Actor if it
+		* has none.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* この actor の現在の親を返す。親が無ければ nullptr を返す。
+		* この actor の現在の親を返す。親が無ければ無効な Actor を返す。
 		*/
-		SEEDCORE_API Actor* GetParent()const;
+		SEEDCORE_API Actor GetParent()const;
 
 		/**
 		* [EN]
@@ -289,22 +262,23 @@ namespace SeedCore
 		* [JP]
 		* この actor の直接の子一覧を、現在の順序で返す。
 		*/
-		SEEDCORE_API const DynamicArray<Actor*>& GetChildren()const;
+		SEEDCORE_API DynamicArray<Actor> GetChildren()const;
 
 		/**
 		* [EN]
-		* Repositions child (must already be a child of this Actor) so it comes
-		* immediately after after in the children order. A null after moves child
-		* to the front; an after that isn't among the children appends it to the end.
+		* Repositions child (must already be a child of this Actor) so it
+		* comes immediately after after in the children order. An invalid
+		* after moves child to the front; an after that isn't among the
+		* children appends it to the end.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
 		* child（既にこの Actor の子であること）を、子の並び順で after の
-		* 直後に来るよう再配置する。after が null の場合は先頭へ、after が子の
+		* 直後に来るよう再配置する。after が無効なら先頭へ、after が子の
 		* 中に見つからない場合は末尾に移動する。
 		*/
-		SEEDCORE_API void MoveChildAfter(Actor* child, Actor* after);
+		SEEDCORE_API void MoveChild(Actor child, Actor after);
 
 		/**
 		* [EN]
@@ -316,7 +290,7 @@ namespace SeedCore
 		* ancestor がこの actor の親チェーンのどこかに存在するかどうかを
 		* 返す。
 		*/
-		SEEDCORE_API Bool Descendant(const Actor* ancestor)const;
+		SEEDCORE_API Bool Descendant(Actor ancestor)const;
 
 		/**
 		* [EN]
@@ -356,9 +330,9 @@ namespace SeedCore
 
 		/**
 		* [EN]
-		* Sets this actor's active state (updating both the cached flag
-		* and its Active component if present), and propagates the same
-		* state to every descendant.
+		* Sets this actor's active state (updating both the cached flag and
+		* its Active component if present), and propagates the same state
+		* to every descendant.
 		*
 		* ---------------------------------------------------------------------
 		*
@@ -371,8 +345,8 @@ namespace SeedCore
 
 		/**
 		* [EN]
-		* Adds tag to this actor's tag set, registering it in
-		* TagRegistry if it's new.
+		* Adds tag to this actor's tag set, registering it in TagRegistry
+		* if it's new.
 		*
 		* ---------------------------------------------------------------------
 		*
@@ -418,31 +392,27 @@ namespace SeedCore
 		/**
 		* [EN]
 		* Sets this actor's layer to the LayerRegistry slot at index
-		* (clamped to a valid slot if out of range). Unlike tags, an
-		* actor belongs to exactly one layer at a time.
+		* (clamped to a valid slot if out of range).
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
 		* この actor のレイヤーを、index の LayerRegistry スロットに設定
-		* する（範囲外なら有効なスロットへクランプする）。タグと異なり、
-		* actor は常にちょうど1つのレイヤーに属する。
+		* する（範囲外なら有効なスロットへクランプする）。
 		*/
 		SEEDCORE_API void SetLayer(Size index);
 
 		/**
 		* [EN]
-		* Sets this actor's layer by name via LayerRegistry::Find. Falls
-		* back to LayerRegistry::DefaultLayer if name isn't a registered
-		* layer (e.g. an empty name from a scene saved before layers existed).
+		* Sets this actor's layer by name via LayerRegistry::Find, falling
+		* back to LayerRegistry::DefaultLayer if name isn't registered.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
 		* LayerRegistry::Find 経由で、名前でこの actor のレイヤーを設定
-		* する。name が登録済みのレイヤーでなければ（例: レイヤーが存在
-		* する前に保存されたシーンの空文字列）LayerRegistry::DefaultLayer
-		* にフォールバックする。
+		* する。name が未登録であれば LayerRegistry::DefaultLayer に
+		* フォールバックする。
 		*/
 		SEEDCORE_API void SetLayer(const String& name);
 
@@ -495,117 +465,68 @@ namespace SeedCore
 
 		/**
 		* [EN]
-		* Sets the asset ID of the source prefab this actor's instance
-		* was created from (root actor only).
+		* Sets the asset ID of the source prefab this actor's instance was
+		* created from (root actor only).
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* この actor のインスタンスが生成された元のプレハブの、アセット
-		* ID を設定する（ルート actor のみ）。
+		* この actor のインスタンスが生成された元のプレハブの、アセット ID
+		* を設定する（ルート actor のみ）。
 		*/
 		SEEDCORE_API void SetSourcePrefabAssetID(Uint32 assetID);
 
 		/**
 		* [EN]
-		* Returns the asset ID of the source prefab this actor's
-		* instance was created from, or 0 if it's not an instance root.
+		* Returns the asset ID of the source prefab this actor's instance
+		* was created from, or 0 if it's not an instance root.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* この actor のインスタンスが生成された元のプレハブの、アセット
-		* ID を返す。インスタンスルートでなければ 0 を返す。
+		* この actor のインスタンスが生成された元のプレハブの、アセット ID
+		* を返す。インスタンスルートでなければ 0 を返す。
 		*/
 		SEEDCORE_API Uint32 GetSourcePrefabAssetID()const;
 
 		/**
 		* [EN]
 		* Sets this actor's persistent ID. Only World::CreateActor should
-		* call this (it resolves collisions and keeps its ID counter in
-		* sync); everyone else should treat GetPersistentID() as read-only.
+		* call this.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* この actor の永続IDを設定する。衝突解決とIDカウンタの同期を
-		* 行う World::CreateActor のみがこれを呼ぶべきであり、それ以外は
-		* GetPersistentID() を読み取り専用として扱うこと。
+		* この actor の永続IDを設定する。World::CreateActor のみがこれを
+		* 呼ぶべき。
 		*/
 		SEEDCORE_API void SetPersistentID(Uint32 id);
 
 		/**
 		* [EN]
 		* Returns this actor's persistent ID: a World-wide unique
-		* identifier that (unlike Entity, which is a runtime-only handle
-		* reset on every load) round-trips through Scene/Prefab
-		* serialization, so other actors (e.g. constraint targets) can
-		* reference this actor stably across save/load. 0 means unassigned.
+		* identifier that round-trips through Scene/Prefab serialization.
+		* 0 means unassigned.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* この actor の永続IDを返す: World全体で一意な識別子であり、
-		* （ロードの度にリセットされる実行時ハンドルである Entity とは
-		* 異なり）Scene/Prefab のシリアライズを往復する。これにより他の
-		* actor（例: コンストレイントのターゲット）が、セーブ/ロードを
-		* またいでこの actor を安定して参照できる。0 は未割り当てを意味する。
+		* この actor の永続IDを返す: World 全体で一意な識別子であり、
+		* Scene/Prefab のシリアライズを往復する。0 は未割り当てを意味する。
 		*/
 		SEEDCORE_API Uint32 GetPersistentID()const;
 
-	private:
-		/// [EN] The World that owns this actor.
-		/// [JP] この actor を所有する World。
-		World& world_;
+		/// [EN] Two actor handles are equal iff they refer to the same World and Entity.
+		/// [JP] 2つの actor ハンドルは、同じ World と Entity を指す場合にのみ等しい。
+		SEEDCORE_API Bool operator==(const Actor& other)const;
 
-		/// [EN] This actor's Physics resource.
-		/// [JP] この actor の Physics リソース。
-		Physics& physics_;
+	private:
+		/// [EN] The World that owns this actor's data; nullptr for a default-constructed (invalid) Actor.
+		/// [JP] この actor のデータを所有する World。デフォルト構築された（無効な）Actor では nullptr。
+		World* world_ = nullptr;
 
 		/// [EN] This actor's underlying entity handle.
 		/// [JP] この actor の内部エンティティハンドル。
 		Entity entity_;
-
-		/// [EN] IDs of every ComponentBase-derived component currently attached to this actor.
-		/// [JP] この actor に現在アタッチされている、全ての ComponentBase 派生コンポーネントの ID 一覧。
-		DynamicArray<ComponentID> componentBaseIDs_;
-
-		/// [EN] This actor's current parent, or nullptr if it has none.
-		/// [JP] この actor の現在の親。親が無ければ nullptr。
-		Actor* parent_ = nullptr;
-
-		/// [EN] This actor's direct children, in display order.
-		/// [JP] この actor の直接の子一覧。表示順で保持される。
-		DynamicArray<Actor*> children_;
-
-		/// [EN] Cached world-space transform matrix.
-		/// [JP] キャッシュされたワールド空間変換行列。
-		Matrix worldMatrix_ = Matrix::Identity;
-
-		/// [EN] Cached active flag, used when this actor has no Active component.
-		/// [JP] キャッシュされたアクティブフラグ。この actor が Active コンポーネントを持たない場合に使われる。
-		Bool active_ = true;
-
-		/// [EN] Bitset of tag membership, indexed by TagRegistry bit index.
-		/// [JP] タグ所属を表すビットセット。TagRegistry のビットインデックスでアクセスする。
-		Bitset tags_;
-
-		/// [EN] This actor's current layer, a LayerRegistry slot index (see LayerRegistry::DefaultLayer).
-		/// [JP] この actor の現在のレイヤー。LayerRegistry のスロットインデックス（LayerRegistry::DefaultLayer 参照）。
-		Size layer_ = 0;
-
-		/// [EN] Whether this actor was instantiated from a prefab.
-		/// [JP] この actor がプレハブからインスタンス化されたかどうか。
-		Bool fromPrefab_ = false;
-
-		/// [EN] Only set on the root Actor of a Prefab instance; identifies which
-		///      .prefab asset "Prefab に適用" should overwrite. 0 = not an instance root.
-		/// [JP] Prefab インスタンスのルート Actor にのみ設定される。「Prefab に適用」が
-		///      上書きすべき .prefab アセットを識別する。0 はインスタンスルートでないことを示す。
-		Uint32 sourcePrefabAssetID_ = 0;
-
-		/// [EN] World-wide unique identifier assigned by World::CreateActor, used to reference this actor stably across Scene/Prefab save/load. 0 = unassigned.
-		/// [JP] World::CreateActor によって割り当てられる、World 全体で一意な識別子。Scene/Prefab のセーブ/ロードをまたいでこの actor を安定して参照するために使う。0 は未割り当て。
-		Uint32 persistentId_ = 0;
 	};
 }

@@ -57,34 +57,12 @@ namespace SeedCore
 
 		SelectionContext& selection = context_.selectionContext_;
 
-		const DynamicArray<ResourcePtr<Actor>>& liveActors = world->GetActors();
+		std::erase_if(selection.selectedActors_, [](Actor actor) { return !actor; });
 
-		std::erase_if(selection.selectedActors_, [&liveActors](Actor* actor)
+		if (!selection.selectedActor_)
 		{
-			for (const ResourcePtr<Actor>& liveActor : liveActors)
-			{
-				if (liveActor.get() == actor)
-				{
-					return false;
-				}
-			}
-			return true;
-		});
-
-		Bool primaryAlive = false;
-		for (const ResourcePtr<Actor>& liveActor : liveActors)
-		{
-			if (liveActor.get() == selection.selectedActor_)
-			{
-				primaryAlive = true;
-				break;
-			}
-		}
-
-		if (!primaryAlive)
-		{
-			selection.selectedActor_ = selection.selectedActors_.empty() ? nullptr : selection.selectedActors_.back();
-			selection.selectedEntity_ = selection.selectedActor_ ? selection.selectedActor_->GetEntity() : Entity::Null();
+			selection.selectedActor_ = selection.selectedActors_.empty() ? Actor() : selection.selectedActors_.back();
+			selection.selectedEntity_ = selection.selectedActor_ ? selection.selectedActor_.GetEntity() : Entity::Null();
 		}
 	}
 
@@ -147,13 +125,13 @@ namespace SeedCore
 		}
 		if (menuBarPanel_->ConsumeAnimatorControllerRequest())
 		{
-			Animator* animator = context_.selectionContext_.selectedActor_ ? const_cast<Animator*>(context_.selectionContext_.selectedActor_->GetComponent<Animator>()) : nullptr;
+			Animator* animator = context_.selectionContext_.selectedActor_ ? const_cast<Animator*>(context_.selectionContext_.selectedActor_.GetComponent<Animator>()) : nullptr;
 			animatorControllerPanel_->Open(animator);
 		}
 		if (AnimatorControllerRequest::requested_)
 		{
 			AnimatorControllerRequest::requested_ = false;
-			Animator* animator = context_.selectionContext_.selectedActor_ ? const_cast<Animator*>(context_.selectionContext_.selectedActor_->GetComponent<Animator>()) : nullptr;
+			Animator* animator = context_.selectionContext_.selectedActor_ ? const_cast<Animator*>(context_.selectionContext_.selectedActor_.GetComponent<Animator>()) : nullptr;
 			animatorControllerPanel_->Open(animator);
 		}
 		if (menuBarPanel_->ConsumeTimelineRequest())
@@ -271,12 +249,12 @@ namespace SeedCore
 			///      詳細は HierarchyPanel::Draw のコメント参照。
 			if (ctrlPressed && ImGui::IsKeyPressed(ImGuiKey_F) && context_.selectionContext_.selectedActor_)
 			{
-				Actor* selectedActor = context_.selectionContext_.selectedActor_;
-				const Matrix& worldMatrix = selectedActor->GetWorldMatrix();
+				Actor selectedActor = context_.selectionContext_.selectedActor_;
+				const Matrix& worldMatrix = selectedActor.GetWorldMatrix();
 
-				const Image* image = selectedActor->GetComponent<Image>();
-				const Text* text = selectedActor->GetComponent<Text>();
-				const Movie* movie = selectedActor->GetComponent<Movie>();
+				const Image* image = selectedActor.GetComponent<Image>();
+				const Text* text = selectedActor.GetComponent<Text>();
+				const Movie* movie = selectedActor.GetComponent<Movie>();
 				Bool isCanvasActor = (image && image->viewType_ == Image::ViewType::Sprite) || (text && text->viewType_ == Text::ViewType::Sprite) || (movie && movie->displayMode_ == Movie::DisplayMode::Sprite);
 
 				if (isCanvasActor && context_.cameraContext_.canvasCamera_)
@@ -288,12 +266,12 @@ namespace SeedCore
 				}
 				else if (context_.cameraContext_.editorCamera_)
 				{
-					Bool skinned = selectedActor->GetComponent<Animator>() != nullptr;
+					Bool skinned = selectedActor.GetComponent<Animator>() != nullptr;
 
 					Float radius = 0.0f;
 					Vector3 target = Vector3(worldMatrix._41, worldMatrix._42, worldMatrix._43);
 
-					const Bounds* bounds = selectedActor->GetComponent<Bounds>();
+					const Bounds* bounds = selectedActor.GetComponent<Bounds>();
 					if (bounds && !skinned)
 					{
 						Float worldScale = Max(Max(Vector3(worldMatrix._11, worldMatrix._12, worldMatrix._13).Length(), Vector3(worldMatrix._21, worldMatrix._22, worldMatrix._23).Length()), Vector3(worldMatrix._31, worldMatrix._32, worldMatrix._33).Length());

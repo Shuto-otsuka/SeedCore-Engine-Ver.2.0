@@ -12,7 +12,7 @@ namespace SeedCore
 		/// No Code
 	}
 
-	void AddComponentPanel::Draw(Actor* actor, ImGuiTexture& imguiTexture)
+	void AddComponentPanel::Draw(Actor actor, ImGuiTexture& imguiTexture)
 	{
 		Float availableWidth = ImGui::GetContentRegionAvail().x;
 		Float buttonWidth = 200.0f;
@@ -106,7 +106,7 @@ namespace SeedCore
 		ImGui::GetWindowDrawList()->AddImage(imguiTexture.Icon(IconType::Search), ImVec2(inputMin.x + originalPaddingX, iconY), ImVec2(inputMin.x + originalPaddingX + iconSize, iconY + iconSize));
 	}
 
-	void AddComponentPanel::DrawComponentList(Actor* actor, ImGuiTexture& imguiTexture)
+	void AddComponentPanel::DrawComponentList(Actor actor, ImGuiTexture& imguiTexture)
 	{
 		auto& componentList = ComponentRegistry::GetComponentList();
 		std::string filterText = state_.searchBuffer.str();
@@ -201,9 +201,9 @@ namespace SeedCore
 		}
 	}
 
-	void AddComponentPanel::DrawMenuItem(Actor* actor, const String& componentName, ComponentID componentID, ImGuiTexture& imguiTexture)
+	void AddComponentPanel::DrawMenuItem(Actor actor, const String& componentName, ComponentID componentID, ImGuiTexture& imguiTexture)
 	{
-		Bool alreadyAttached = actor->HasComponent(componentID);
+		Bool alreadyAttached = actor.HasComponent(componentID);
 
 		if (alreadyAttached)
 		{
@@ -221,8 +221,8 @@ namespace SeedCore
 			state_.selectedName = componentName;
 			if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
 			{
-				context_.sceneContext_.history_.Push(MakePtr<ComponentAddCommand>(*context_.worldContext_.world_, actor->GetPersistentID(), componentID));
-				actor->AddComponent(componentID);
+				context_.sceneContext_.history_.Push(MakePtr<ComponentAddCommand>(*context_.worldContext_.world_, actor.GetPersistentID(), componentID));
+				actor.AddComponent(componentID);
 				ImGui::CloseCurrentPopup();
 			}
 		}

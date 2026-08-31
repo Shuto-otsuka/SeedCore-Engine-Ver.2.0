@@ -72,7 +72,7 @@ namespace SeedCore
 		* 取得済みのシーンを world 内に新しい actor 群として再生成し、
 		* インスタンス化された全 actor（ルート・子孫問わず）を返す。
 		*/
-		DynamicArray<Actor*> Instantiate(World& world, ResourceCache& cache)const;
+		DynamicArray<Actor> Instantiate(World& world, ResourceCache& cache)const;
 
 		/**
 		* [EN]

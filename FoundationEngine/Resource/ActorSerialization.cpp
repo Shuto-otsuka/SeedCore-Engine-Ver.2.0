@@ -399,31 +399,31 @@ namespace SeedCore
 	* outNodes へ再帰的に取得する（Scene::Capture と Prefab::Capture の
 	* 両方から使われる）。actor 自身の outNodes 内でのインデックスを返す。
 	*/
-	Int CaptureActorNode(Actor* actor, Int parentIndex, DynamicArray<SerializedActorNode>& outNodes)
+	Int CaptureActorNode(Actor actor, Int parentIndex, DynamicArray<SerializedActorNode>& outNodes)
 	{
 		SerializedActorNode node;
 
-		const Name* nameComponent = actor->GetComponent<Name>();
+		const Name* nameComponent = actor.GetComponent<Name>();
 		node.name_ = nameComponent ? nameComponent->name_ : String("Actor");
 
-		node.tags_ = actor->GetTagList();
-		node.layerName_ = actor->GetLayerName();
-		node.active_ = actor->IsActive();
-		node.persistentId_ = actor->GetPersistentID();
+		node.tags_ = actor.GetTagList();
+		node.layerName_ = actor.GetLayerName();
+		node.active_ = actor.IsActive();
+		node.persistentId_ = actor.GetPersistentID();
 
-		const Position* position = actor->GetComponent<Position>();
+		const Position* position = actor.GetComponent<Position>();
 		if (position)
 		{
 			node.position_ = Vector3(position->x_, position->y_, position->z_);
 		}
 
-		const Rotation* rotation = actor->GetComponent<Rotation>();
+		const Rotation* rotation = actor.GetComponent<Rotation>();
 		if (rotation)
 		{
 			node.rotation_ = Vector3(rotation->x_, rotation->y_, rotation->z_);
 		}
 
-		const Scale* scale = actor->GetComponent<Scale>();
+		const Scale* scale = actor.GetComponent<Scale>();
 		if (scale)
 		{
 			node.scale_ = Vector3(scale->x_, scale->y_, scale->z_);
@@ -433,16 +433,16 @@ namespace SeedCore
 
 		/// [EN] A non-root actor whose own subtree came from a prefab: record only the prefab reference, not its individual components, so re-instantiating stays in sync with the source prefab.
 		/// [JP] 自身のサブツリーがプレハブ由来である、非ルート actor: 個々のコンポーネントではなく、プレハブへの参照のみを記録する。これにより、再インスタンス化が元のプレハブと同期した状態を保つ。
-		Bool isNestedInstance = (parentIndex != -1) && (actor->GetSourcePrefabAssetID() != 0);
+		Bool isNestedInstance = (parentIndex != -1) && (actor.GetSourcePrefabAssetID() != 0);
 
 		if (isNestedInstance)
 		{
-			node.nestedPrefabAssetID_ = actor->GetSourcePrefabAssetID();
+			node.nestedPrefabAssetID_ = actor.GetSourcePrefabAssetID();
 		}
 		else
 		{
-			World& world = actor->GetWorld();
-			Entity entity = actor->GetEntity();
+			World& world = actor.GetWorld();
+			Entity entity = actor.GetEntity();
 
 			/// [EN] Capture every archetype-stored component except the built-in transform/lifecycle ones (those are captured as dedicated node fields above).
 			/// [JP] 組み込みのトランスフォーム/ライフサイクルコンポーネントを除く、全アーキタイプ格納コンポーネントを取得する（それらは上記で専用のノードフィールドとして取得済み）。
@@ -469,7 +469,7 @@ namespace SeedCore
 
 			/// [EN] Also capture every ComponentBase-derived (sparse-set-stored) component the actor holds.
 			/// [JP] actor が保持する、全 ComponentBase 派生（スパースセット格納）コンポーネントも取得する。
-			for (ComponentID id : actor->ComponentBaseIDList())
+			for (ComponentID id : actor.ComponentBaseIDList())
 			{
 				String name = ComponentRegistry::GetName(id);
 
@@ -536,7 +536,7 @@ namespace SeedCore
 
 		if (!isNestedInstance)
 		{
-			for (Actor* child : actor->GetChildren())
+			for (Actor child : actor.GetChildren())
 			{
 				CaptureActorNode(child, myIndex, outNodes);
 			}
@@ -564,9 +564,9 @@ namespace SeedCore
 	* トランスフォーム/アクティブ状態/タグを適用し、parentActor の下へ
 	* 再親化する。新しい actor を返す。失敗時は nullptr を返す。
 	*/
-	Actor* InstantiateActorNode(World& world, ResourceCache& cache, const SerializedActorNode& node, Actor* parentActor, Bool markAsPrefabInstance)
+	Actor InstantiateActorNode(World& world, ResourceCache& cache, const SerializedActorNode& node, Actor parentActor, Bool markAsPrefabInstance)
 	{
-		Actor* actor = nullptr;
+		Actor actor;
 
 		if (node.nestedPrefabAssetID_ != 0)
 		{
@@ -581,12 +581,12 @@ namespace SeedCore
 
 			if (!actor)
 			{
-				return nullptr;
+				return Actor();
 			}
 
 			/// [EN] The outer scene/prefab may have renamed this instance; apply that name on top of whatever the nested prefab itself set.
 			/// [JP] 外側のシーン/プレハブがこのインスタンスをリネームしている場合がある。ネストされたプレハブ自体が設定した名前の上から、その名前を適用する。
-			Name* nameComponent = const_cast<Name*>(actor->GetComponent<Name>());
+			Name* nameComponent = const_cast<Name*>(actor.GetComponent<Name>());
 			if (nameComponent)
 			{
 				nameComponent->name_ = node.name_;
@@ -595,7 +595,7 @@ namespace SeedCore
 		else
 		{
 			actor = world.CreateActor(node.name_, node.persistentId_);
-			actor->SetPrefabInstance(markAsPrefabInstance);
+			actor.SetPrefabInstance(markAsPrefabInstance);
 
 			/// [EN] Recreate every captured component and restore its field values.
 			/// [JP] 取得済みの各コンポーネントを再生成し、そのフィールド値を復元する。
@@ -607,9 +607,9 @@ namespace SeedCore
 					continue;
 				}
 
-				actor->AddComponent(id);
+				actor.AddComponent(id);
 
-				void* componentData = world.GetComponent(actor->GetEntity(), id);
+				void* componentData = world.GetComponent(actor.GetEntity(), id);
 				if (componentData)
 				{
 					ApplyFields(component.componentName_, componentData, component.fields_);
@@ -619,7 +619,7 @@ namespace SeedCore
 
 		/// [EN] Apply the captured transform on top of whatever the actor ended up with (freshly created or nested-prefab-instantiated).
 		/// [JP] 取得済みのトランスフォームを、actor が最終的に持つことになった状態（新規生成、またはネストされたプレハブからのインスタンス化）の上から適用する。
-		Position* position = const_cast<Position*>(actor->GetComponent<Position>());
+		Position* position = const_cast<Position*>(actor.GetComponent<Position>());
 		if (position)
 		{
 			position->x_ = node.position_.x;
@@ -627,7 +627,7 @@ namespace SeedCore
 			position->z_ = node.position_.z;
 		}
 
-		Rotation* rotation = const_cast<Rotation*>(actor->GetComponent<Rotation>());
+		Rotation* rotation = const_cast<Rotation*>(actor.GetComponent<Rotation>());
 		if (rotation)
 		{
 			rotation->x_ = node.rotation_.x;
@@ -635,7 +635,7 @@ namespace SeedCore
 			rotation->z_ = node.rotation_.z;
 		}
 
-		Scale* scale = const_cast<Scale*>(actor->GetComponent<Scale>());
+		Scale* scale = const_cast<Scale*>(actor.GetComponent<Scale>());
 		if (scale)
 		{
 			scale->x_ = node.scale_.x;
@@ -643,18 +643,18 @@ namespace SeedCore
 			scale->z_ = node.scale_.z;
 		}
 
-		actor->SetActive(node.active_);
+		actor.SetActive(node.active_);
 
 		for (const String& tag : node.tags_)
 		{
-			actor->AddTag(tag);
+			actor.AddTag(tag);
 		}
 
-		actor->SetLayer(node.layerName_);
+		actor.SetLayer(node.layerName_);
 
 		if (parentActor)
 		{
-			actor->SetParent(parentActor);
+			actor.SetParent(parentActor);
 		}
 
 		return actor;

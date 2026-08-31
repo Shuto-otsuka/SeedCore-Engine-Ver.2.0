@@ -27,13 +27,13 @@ namespace SeedCore
 
 		for (EntityID entityID : world.GetComponents<Lifetime>())
 		{
-			Actor* actor = world.GetActor(entityID);
-			if (actor == nullptr)
+			Actor actor = world.GetActor(entityID);
+			if (!actor)
 			{
 				continue;
 			}
 
-			Lifetime* lifetime = world.GetComponent<Lifetime>(actor->GetEntity());
+			Lifetime* lifetime = world.GetComponent<Lifetime>(actor.GetEntity());
 			if (lifetime == nullptr)
 			{
 				continue;
@@ -56,8 +56,8 @@ namespace SeedCore
 
 		for (EntityID entityID : expired)
 		{
-			Actor* actor = world.GetActor(entityID);
-			if (actor != nullptr)
+			Actor actor = world.GetActor(entityID);
+			if (actor)
 			{
 				world.DestroyActor(actor);
 			}

@@ -23,10 +23,10 @@ namespace SeedCore
 	*/
 	void ComponentAddCommand::Redo()
 	{
-		Actor* actor = world_.FindActor(actorPersistentId_);
+		Actor actor = world_.FindActor(actorPersistentId_);
 		if (actor)
 		{
-			actor->AddComponent(componentID_);
+			actor.AddComponent(componentID_);
 		}
 	}
 
@@ -42,10 +42,10 @@ namespace SeedCore
 	*/
 	void ComponentAddCommand::Undo()
 	{
-		Actor* actor = world_.FindActor(actorPersistentId_);
+		Actor actor = world_.FindActor(actorPersistentId_);
 		if (actor)
 		{
-			actor->RemoveComponent(componentID_);
+			actor.RemoveComponent(componentID_);
 		}
 	}
 
@@ -78,10 +78,10 @@ namespace SeedCore
 	*/
 	void ComponentRemoveCommand::Redo()
 	{
-		Actor* actor = world_.FindActor(actorPersistentId_);
+		Actor actor = world_.FindActor(actorPersistentId_);
 		if (actor)
 		{
-			actor->RemoveComponent(componentID_);
+			actor.RemoveComponent(componentID_);
 		}
 	}
 
@@ -98,15 +98,15 @@ namespace SeedCore
 	*/
 	void ComponentRemoveCommand::Undo()
 	{
-		Actor* actor = world_.FindActor(actorPersistentId_);
+		Actor actor = world_.FindActor(actorPersistentId_);
 		if (!actor)
 		{
 			return;
 		}
 
-		actor->AddComponent(componentID_);
+		actor.AddComponent(componentID_);
 
-		void* componentData = world_.GetComponent(actor->GetEntity(), componentID_);
+		void* componentData = world_.GetComponent(actor.GetEntity(), componentID_);
 		if (componentData)
 		{
 			ApplyComponent(captured_, componentData);

@@ -186,7 +186,7 @@ namespace SeedCore
 			Float rectMinY = Min(startWorldY, endWorldY);
 			Float rectMaxY = Max(startWorldY, endWorldY);
 
-			DynamicArray<Actor*> hits;
+			DynamicArray<Actor> hits;
 			Query<Read<Active>, Read<Image>, Read<Bounds>> query(world);
 			query.ForEach([&](EntityID entityID, const Active& active, const Image& image, const Bounds& bounds)
 				{
@@ -195,7 +195,7 @@ namespace SeedCore
 						return;
 					}
 
-					Actor* actor = world.GetActor(entityID);
+					Actor actor = world.GetActor(entityID);
 					if (!actor)
 					{
 						return;
@@ -204,7 +204,7 @@ namespace SeedCore
 					Vector3 worldScale;
 					Quaternion worldRotation;
 					Vector3 worldTranslation;
-					Matrix worldMatrix = actor->GetWorldMatrix();
+					Matrix worldMatrix = actor.GetWorldMatrix();
 					worldMatrix.Decompose(worldScale, worldRotation, worldTranslation);
 
 					Float rotation = worldRotation.ToEuler().x;
@@ -255,7 +255,7 @@ namespace SeedCore
 						return;
 					}
 
-					Actor* actor = world.GetActor(entityID);
+					Actor actor = world.GetActor(entityID);
 					if (!actor)
 					{
 						return;
@@ -264,7 +264,7 @@ namespace SeedCore
 					Vector3 worldScale;
 					Quaternion worldRotation;
 					Vector3 worldTranslation;
-					Matrix worldMatrix = actor->GetWorldMatrix();
+					Matrix worldMatrix = actor.GetWorldMatrix();
 					worldMatrix.Decompose(worldScale, worldRotation, worldTranslation);
 
 					Float centerX = 100000.0f + worldTranslation.x + bounds.center_.x * worldScale.x;
@@ -288,7 +288,7 @@ namespace SeedCore
 						return;
 					}
 
-					Actor* actor = world.GetActor(entityID);
+					Actor actor = world.GetActor(entityID);
 					if (!actor)
 					{
 						return;
@@ -297,7 +297,7 @@ namespace SeedCore
 					Vector3 worldScale;
 					Quaternion worldRotation;
 					Vector3 worldTranslation;
-					Matrix worldMatrix = actor->GetWorldMatrix();
+					Matrix worldMatrix = actor.GetWorldMatrix();
 					worldMatrix.Decompose(worldScale, worldRotation, worldTranslation);
 
 					Float centerX = 100000.0f + worldTranslation.x + bounds.center_.x * worldScale.x;
@@ -315,7 +315,7 @@ namespace SeedCore
 			{
 				selection.selectedActors_.clear();
 			}
-			for (Actor* actor : hits)
+			for (Actor actor : hits)
 			{
 				if (std::ranges::find(selection.selectedActors_, actor) == selection.selectedActors_.end())
 				{
@@ -330,7 +330,7 @@ namespace SeedCore
 			Float mouseWorldX = focus.x + (mouse.x - centerScreenX) * worldPerPixel;
 			Float mouseWorldY = focus.y - (mouse.y - centerScreenY) * worldPerPixel;
 
-			Actor* hit = nullptr;
+			Actor hit;
 			Query<Read<Active>, Read<Image>, Read<Bounds>> query(world);
 			query.ForEach([&](EntityID entityID, const Active& active, const Image& image, const Bounds& bounds)
 				{
@@ -339,7 +339,7 @@ namespace SeedCore
 						return;
 					}
 
-					Actor* actor = world.GetActor(entityID);
+					Actor actor = world.GetActor(entityID);
 					if (!actor)
 					{
 						return;
@@ -348,7 +348,7 @@ namespace SeedCore
 					Vector3 worldScale;
 					Quaternion worldRotation;
 					Vector3 worldTranslation;
-					Matrix worldMatrix = actor->GetWorldMatrix();
+					Matrix worldMatrix = actor.GetWorldMatrix();
 					worldMatrix.Decompose(worldScale, worldRotation, worldTranslation);
 
 					Float rotation = worldRotation.ToEuler().x;
@@ -383,7 +383,7 @@ namespace SeedCore
 						return;
 					}
 
-					Actor* actor = world.GetActor(entityID);
+					Actor actor = world.GetActor(entityID);
 					if (!actor)
 					{
 						return;
@@ -392,7 +392,7 @@ namespace SeedCore
 					Vector3 worldScale;
 					Quaternion worldRotation;
 					Vector3 worldTranslation;
-					Matrix worldMatrix = actor->GetWorldMatrix();
+					Matrix worldMatrix = actor.GetWorldMatrix();
 					worldMatrix.Decompose(worldScale, worldRotation, worldTranslation);
 
 					Float localX = mouseWorldX - (100000.0f + worldTranslation.x) - bounds.center_.x * worldScale.x;
@@ -414,7 +414,7 @@ namespace SeedCore
 						return;
 					}
 
-					Actor* actor = world.GetActor(entityID);
+					Actor actor = world.GetActor(entityID);
 					if (!actor)
 					{
 						return;
@@ -423,7 +423,7 @@ namespace SeedCore
 					Vector3 worldScale;
 					Quaternion worldRotation;
 					Vector3 worldTranslation;
-					Matrix worldMatrix = actor->GetWorldMatrix();
+					Matrix worldMatrix = actor.GetWorldMatrix();
 					worldMatrix.Decompose(worldScale, worldRotation, worldTranslation);
 
 					Float localX = mouseWorldX - (100000.0f + worldTranslation.x) - bounds.center_.x * worldScale.x;
@@ -457,8 +457,8 @@ namespace SeedCore
 			}
 		}
 
-		selection.selectedActor_ = selection.selectedActors_.empty() ? nullptr : selection.selectedActors_.back();
-		selection.selectedEntity_ = selection.selectedActor_ ? selection.selectedActor_->GetEntity() : Entity::Null();
+		selection.selectedActor_ = selection.selectedActors_.empty() ? Actor() : selection.selectedActors_.back();
+		selection.selectedEntity_ = selection.selectedActor_ ? selection.selectedActor_.GetEntity() : Entity::Null();
 
 		isBoxSelectPending_ = false;
 		isBoxSelecting_ = false;

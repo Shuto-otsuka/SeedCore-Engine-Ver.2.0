@@ -97,8 +97,8 @@ namespace SeedCore
 			return;
 		}
 
-		Actor* actor = context_.selectionContext_.selectedActor_;
-		target_ = actor ? actor->GetComponent<Material>() : nullptr;
+		Actor actor = context_.selectionContext_.selectedActor_;
+		target_ = actor ? actor.GetComponent<Material>() : nullptr;
 
 		ImGui::DockBuilderDockWindow("マテリアルビューア", context_.graphicsContext_.imgui_->GetDockSpaceID());
 		ImGui::SetNextWindowSize(ImVec2(960, 720), ImGuiCond_FirstUseEver);
@@ -106,7 +106,7 @@ namespace SeedCore
 		isFocused_ = ImGui::Begin("マテリアルビューア", &show_);
 		if (isFocused_)
 		{
-			const Mesh* mesh = actor ? actor->GetComponent<Mesh>() : nullptr;
+			const Mesh* mesh = actor ? actor.GetComponent<Mesh>() : nullptr;
 
 			if (!target_ || !mesh || mesh->meshID_ == 0)
 			{

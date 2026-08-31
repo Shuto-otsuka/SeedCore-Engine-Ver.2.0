@@ -29,7 +29,7 @@ namespace SeedCore
 	* root とその全子孫を nodes_ へ記録し、以前に取得していたデータを
 	* 置き換える。
 	*/
-	void Prefab::Capture(Actor* root)
+	void Prefab::Capture(Actor root)
 	{
 		nodes_.clear();
 		CaptureActorNode(root, -1, nodes_);
@@ -53,9 +53,9 @@ namespace SeedCore
 	* 「プレハブに適用」編集がどの .prefab アセットを上書きすべきかを
 	* 判断できるようにする。
 	*/
-	Actor* Prefab::Instantiate(World& world, ResourceCache& cache, Actor* parent, Uint32 sourceAssetID)const
+	Actor Prefab::Instantiate(World& world, ResourceCache& cache, Actor parent, Uint32 sourceAssetID)const
 	{
-		DynamicArray<Actor*> instantiated;
+		DynamicArray<Actor> instantiated;
 		instantiated.reserve(nodes_.size());
 
 		/// [EN] Nodes are stored in capture order, so each node's parent (identified by an earlier index) has always already been instantiated by the time we reach it.
@@ -64,7 +64,7 @@ namespace SeedCore
 		{
 			const PrefabNode& node = nodes_[index];
 
-			Actor* parentActor = nullptr;
+			Actor parentActor;
 			if (node.parentIndex_ >= 0 && static_cast<Size>(node.parentIndex_) < instantiated.size())
 			{
 				parentActor = instantiated[node.parentIndex_];
@@ -76,17 +76,17 @@ namespace SeedCore
 				parentActor = parent;
 			}
 
-			Actor* actor = InstantiateActorNode(world, cache, node, parentActor, true);
+			Actor actor = InstantiateActorNode(world, cache, node, parentActor, true);
 
 			if (actor && index == 0)
 			{
-				actor->SetSourcePrefabAssetID(sourceAssetID);
+				actor.SetSourcePrefabAssetID(sourceAssetID);
 			}
 
 			instantiated.push_back(actor);
 		}
 
-		return instantiated.empty() ? nullptr : instantiated[0];
+		return instantiated.empty() ? Actor() : instantiated[0];
 	}
 
 	/**
@@ -124,11 +124,11 @@ namespace SeedCore
 	* 読み込めなかった、または何もインスタンス化されなかった場合は
 	* nullptr を返す。
 	*/
-	Actor* Prefab::Spawn(Uint32 assetID, Actor* parent)
+	Actor Prefab::Spawn(Uint32 assetID, Actor parent)
 	{
 		if (world_ == nullptr || resource_ == nullptr)
 		{
-			return nullptr;
+			return Actor();
 		}
 
 		/// [EN] PrefabPool caches by asset ID, so repeatedly spawning the same prefab reloads nothing - each call pays only the per-instance Instantiate() cost.
@@ -137,7 +137,7 @@ namespace SeedCore
 		Prefab* prefab = pool.Get(pool.Load(assetID, *resource_));
 		if (prefab == nullptr)
 		{
-			return nullptr;
+			return Actor();
 		}
 
 		/// [EN] Pass assetID as sourceAssetID so the new root is registered as an instance of this prefab (inspector "apply to prefab" then targets the right asset).
@@ -159,18 +159,18 @@ namespace SeedCore
 	* 経由でアセット ID へ解決し、Spawn(Uint32, Actor*) へ委譲する。
 	* name が解決できなければ警告をログ出力して nullptr を返す。
 	*/
-	Actor* Prefab::Spawn(const String& name, Actor* parent)
+	Actor Prefab::Spawn(const String& name, Actor parent)
 	{
 		if (resource_ == nullptr)
 		{
-			return nullptr;
+			return Actor();
 		}
 
 		Uint32 assetID = resource_->GetAssetID(name);
 		if (assetID == 0)
 		{
 			SC_LOG_WARNING("Prefab::Spawn: プレハブ \"{}\" が見つかりません。", name.c_str());
-			return nullptr;
+			return Actor();
 		}
 
 		return Spawn(assetID, parent);
@@ -230,7 +230,7 @@ namespace SeedCore
 	* root を一時的な Prefab へ取得し、path へ書き込む（必要なら親
 	* ディレクトリを作成する）。保存に成功したかどうかを返す。
 	*/
-	Bool Prefab::Save(Actor* root, const std::filesystem::path& path)
+	Bool Prefab::Save(Actor root, const std::filesystem::path& path)
 	{
 		Prefab prefab;
 		prefab.Capture(root);
@@ -258,14 +258,14 @@ namespace SeedCore
 	* 避けるため、数値の接尾辞を付加する。実際に書き込まれたパスを返す。
 	* 失敗時は空のパスを返す。
 	*/
-	std::filesystem::path Prefab::SaveToDirectory(Actor* root, const std::filesystem::path& directory)
+	std::filesystem::path Prefab::SaveToDirectory(Actor root, const std::filesystem::path& directory)
 	{
 		Prefab prefab;
 		prefab.Capture(root);
 
 		std::filesystem::create_directories(directory);
 
-		const Name* name = root->GetComponent<Name>();
+		const Name* name = root.GetComponent<Name>();
 		std::string baseName = (name && !name->name_.str().empty()) ? name->name_.str() : "Actor";
 
 		/// [EN] Probe for a free filename, appending "(N)" until one doesn't already exist.

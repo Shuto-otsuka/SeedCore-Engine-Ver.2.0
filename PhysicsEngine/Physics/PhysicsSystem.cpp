@@ -21,7 +21,7 @@
 
 namespace SeedCore
 {
-	ShapeHandle PhysicsSystem::FindColliderShape(Actor& actor)
+	ShapeHandle PhysicsSystem::FindColliderShape(Actor actor)
 	{
 		if (BoxCollider* collider = actor.GetComponent<BoxCollider>())
 		{
@@ -83,7 +83,7 @@ namespace SeedCore
 		return dofs;
 	}
 
-	void PhysicsSystem::ApplyActorTransform(const Actor& actor, RigidbodyDesc& desc)
+	void PhysicsSystem::ApplyActorTransform(Actor actor, RigidbodyDesc& desc)
 	{
 		const Position* position = actor.GetComponent<Position>();
 		const Rotation* rotation = actor.GetComponent<Rotation>();
@@ -93,7 +93,7 @@ namespace SeedCore
 		desc.userData_ = actor.GetEntity().GetID();
 	}
 
-	JPH::BodyID PhysicsSystem::CreateColliderBody(Actor& actor, ShapeHandle shape, Bool isTrigger)
+	JPH::BodyID PhysicsSystem::CreateColliderBody(Actor actor, ShapeHandle shape, Bool isTrigger)
 	{
 		if (actor.GetComponent<Rigidbody>())
 		{
@@ -110,7 +110,7 @@ namespace SeedCore
 		return actor.GetPhysics().CreateRigidbody(desc);
 	}
 
-	void PhysicsSystem::DestroyColliderBody(Actor& actor, JPH::BodyID bodyID, ShapeHandle shape)
+	void PhysicsSystem::DestroyColliderBody(Actor actor, JPH::BodyID bodyID, ShapeHandle shape)
 	{
 		if (!bodyID.IsInvalid())
 		{
@@ -122,7 +122,7 @@ namespace SeedCore
 
 	namespace
 	{
-		void GetActorTransform(const Actor& actor, Vector3& outPosition, Quaternion& outRotation)
+		void GetActorTransform(Actor actor, Vector3& outPosition, Quaternion& outRotation)
 		{
 			const Position* position = actor.GetComponent<Position>();
 			const Rotation* rotation = actor.GetComponent<Rotation>();
@@ -134,15 +134,15 @@ namespace SeedCore
 		template<typename DispatchFunction>
 		void DispatchToActor(World& world, EntityID entityID, EntityID otherEntityID, DispatchFunction dispatchFunction)
 		{
-			Actor* actor = world.GetActor(entityID);
-			Actor* otherActor = world.GetActor(otherEntityID);
+			Actor actor = world.GetActor(entityID);
+			Actor otherActor = world.GetActor(otherEntityID);
 			if (!actor || !otherActor)
 			{
 				return;
 			}
 
-			Entity otherEntity = otherActor->GetEntity();
-			for (ComponentID id : actor->ComponentBaseIDList())
+			Entity otherEntity = otherActor.GetEntity();
+			for (ComponentID id : actor.ComponentBaseIDList())
 			{
 				if (ComponentBase* component = reinterpret_cast<ComponentBase*>(world.GetComponent(entityID, id)))
 				{
@@ -190,17 +190,17 @@ namespace SeedCore
 
 		for (EntityID id : world.GetComponents<BoxCollider>())
 		{
-			Actor* actor = world.GetActor(id);
+			Actor actor = world.GetActor(id);
 			if (!actor)
 			{
 				continue;
 			}
 
-			BoxCollider* collider = actor->GetComponent<BoxCollider>();
+			BoxCollider* collider = actor.GetComponent<BoxCollider>();
 
 			Vector3 actorPosition;
 			Quaternion actorRotation;
-			GetActorTransform(*actor, actorPosition, actorRotation);
+			GetActorTransform(actor, actorPosition, actorRotation);
 
 			ColliderInstance instance{};
 			instance.position_ = actorPosition + Vector3::Transform(collider->center_, actorRotation);
@@ -213,17 +213,17 @@ namespace SeedCore
 
 		for (EntityID id : world.GetComponents<SphereCollider>())
 		{
-			Actor* actor = world.GetActor(id);
+			Actor actor = world.GetActor(id);
 			if (!actor)
 			{
 				continue;
 			}
 
-			SphereCollider* collider = actor->GetComponent<SphereCollider>();
+			SphereCollider* collider = actor.GetComponent<SphereCollider>();
 
 			Vector3 actorPosition;
 			Quaternion actorRotation;
-			GetActorTransform(*actor, actorPosition, actorRotation);
+			GetActorTransform(actor, actorPosition, actorRotation);
 
 			ColliderInstance instance{};
 			instance.position_ = actorPosition;
@@ -236,17 +236,17 @@ namespace SeedCore
 
 		for (EntityID id : world.GetComponents<CapsuleCollider>())
 		{
-			Actor* actor = world.GetActor(id);
+			Actor actor = world.GetActor(id);
 			if (!actor)
 			{
 				continue;
 			}
 
-			CapsuleCollider* collider = actor->GetComponent<CapsuleCollider>();
+			CapsuleCollider* collider = actor.GetComponent<CapsuleCollider>();
 
 			Vector3 actorPosition;
 			Quaternion actorRotation;
-			GetActorTransform(*actor, actorPosition, actorRotation);
+			GetActorTransform(actor, actorPosition, actorRotation);
 
 			ColliderInstance instance{};
 			instance.position_ = actorPosition;
@@ -259,17 +259,17 @@ namespace SeedCore
 
 		for (EntityID id : world.GetComponents<CylinderCollider>())
 		{
-			Actor* actor = world.GetActor(id);
+			Actor actor = world.GetActor(id);
 			if (!actor)
 			{
 				continue;
 			}
 
-			CylinderCollider* collider = actor->GetComponent<CylinderCollider>();
+			CylinderCollider* collider = actor.GetComponent<CylinderCollider>();
 
 			Vector3 actorPosition;
 			Quaternion actorRotation;
-			GetActorTransform(*actor, actorPosition, actorRotation);
+			GetActorTransform(actor, actorPosition, actorRotation);
 
 			ColliderInstance instance{};
 			instance.position_ = actorPosition;
@@ -282,17 +282,17 @@ namespace SeedCore
 
 		for (EntityID id : world.GetComponents<RectCollider>())
 		{
-			Actor* actor = world.GetActor(id);
+			Actor actor = world.GetActor(id);
 			if (!actor)
 			{
 				continue;
 			}
 
-			RectCollider* collider = actor->GetComponent<RectCollider>();
+			RectCollider* collider = actor.GetComponent<RectCollider>();
 
 			Vector3 actorPosition;
 			Quaternion actorRotation;
-			GetActorTransform(*actor, actorPosition, actorRotation);
+			GetActorTransform(actor, actorPosition, actorRotation);
 
 			Vector3 localOffset(collider->center_.x, collider->center_.y, 0.0f);
 
@@ -307,17 +307,17 @@ namespace SeedCore
 
 		for (EntityID id : world.GetComponents<CircleCollider>())
 		{
-			Actor* actor = world.GetActor(id);
+			Actor actor = world.GetActor(id);
 			if (!actor)
 			{
 				continue;
 			}
 
-			CircleCollider* collider = actor->GetComponent<CircleCollider>();
+			CircleCollider* collider = actor.GetComponent<CircleCollider>();
 
 			Vector3 actorPosition;
 			Quaternion actorRotation;
-			GetActorTransform(*actor, actorPosition, actorRotation);
+			GetActorTransform(actor, actorPosition, actorRotation);
 
 			/// [JP] JoltShapePool::CreateCircleShape と同じく、局所形状を X軸
 			///      まわりに90度回転してから actor の回転を重ねる — 円の面が
@@ -347,13 +347,13 @@ namespace SeedCore
 
 		for (EntityID id : world.GetComponents<MeshCollider>())
 		{
-			Actor* actor = world.GetActor(id);
+			Actor actor = world.GetActor(id);
 			if (!actor)
 			{
 				continue;
 			}
 
-			MeshCollider* collider = actor->GetComponent<MeshCollider>();
+			MeshCollider* collider = actor.GetComponent<MeshCollider>();
 			if (!collider || !collider->IsPending())
 			{
 				continue;
@@ -385,19 +385,19 @@ namespace SeedCore
 
 		for (EntityID id : world.GetComponents<Softbody>())
 		{
-			Actor* actor = world.GetActor(id);
+			Actor actor = world.GetActor(id);
 			if (!actor)
 			{
 				continue;
 			}
 
-			Softbody* softbody = actor->GetComponent<Softbody>();
+			Softbody* softbody = actor.GetComponent<Softbody>();
 			if (!softbody || !softbody->IsPending())
 			{
 				continue;
 			}
 
-			const Mesh* mesh = actor->GetComponent<Mesh>();
+			const Mesh* mesh = actor.GetComponent<Mesh>();
 			if (!mesh)
 			{
 				continue;

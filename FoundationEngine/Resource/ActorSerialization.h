@@ -1,6 +1,7 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
 #include <FoundationEngine/ECS/ReflectionRegistry.h>
+#include <FoundationEngine/ECS/Actor.h>
 
 namespace SeedCore
 {
@@ -284,7 +285,7 @@ namespace SeedCore
 	* outNodes へ再帰的に取得する（Scene::Capture と Prefab::Capture の
 	* 両方から使われる）。actor 自身の outNodes 内でのインデックスを返す。
 	*/
-	SEEDCORE_API Int CaptureActorNode(Actor* actor, Int parentIndex, DynamicArray<SerializedActorNode>& outNodes);
+	SEEDCORE_API Int CaptureActorNode(Actor actor, Int parentIndex, DynamicArray<SerializedActorNode>& outNodes);
 
 	/**
 	* [EN]
@@ -305,7 +306,7 @@ namespace SeedCore
 	* トランスフォーム/アクティブ状態/タグを適用し、parentActor の下へ
 	* 再親化する。新しい actor を返す。失敗時は nullptr を返す。
 	*/
-	SEEDCORE_API Actor* InstantiateActorNode(World& world, ResourceCache& cache, const SerializedActorNode& node, Actor* parentActor, Bool markAsPrefabInstance);
+	SEEDCORE_API Actor InstantiateActorNode(World& world, ResourceCache& cache, const SerializedActorNode& node, Actor parentActor, Bool markAsPrefabInstance);
 
 	/**
 	* [EN]

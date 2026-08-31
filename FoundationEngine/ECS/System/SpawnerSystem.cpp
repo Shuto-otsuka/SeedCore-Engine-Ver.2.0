@@ -27,13 +27,13 @@ namespace SeedCore
 	{
 		for (EntityID entityID : world.GetComponents<Spawner>())
 		{
-			Actor* actor = world.GetActor(entityID);
-			if (actor == nullptr)
+			Actor actor = world.GetActor(entityID);
+			if (!actor)
 			{
 				continue;
 			}
 
-			Spawner* spawner = world.GetComponent<Spawner>(actor->GetEntity());
+			Spawner* spawner = world.GetComponent<Spawner>(actor.GetEntity());
 			if (spawner == nullptr)
 			{
 				continue;
@@ -51,8 +51,8 @@ namespace SeedCore
 					continue;
 				}
 
-				Actor* spawnedActor = world.GetActor(instance.entityID_);
-				if (spawnedActor != nullptr)
+				Actor spawnedActor = world.GetActor(instance.entityID_);
+				if (spawnedActor)
 				{
 					world.DestroyActor(spawnedActor);
 				}
@@ -102,15 +102,15 @@ namespace SeedCore
 			///      TransformSystem 経由で正しいワールド位置に描画される
 			///      一方、コライダーはそのローカルオフセットをワールド
 			///      位置と誤認したまま配置されてしまう。
-			Actor* spawnedActor = prefab->Instantiate(world, cache, nullptr);
-			if (spawnedActor == nullptr)
+			Actor spawnedActor = prefab->Instantiate(world, cache);
+			if (!spawnedActor)
 			{
 				continue;
 			}
 
-			Vector3 spawnPosition = actor->GetWorldMatrix().Translation();
+			Vector3 spawnPosition = actor.GetWorldMatrix().Translation();
 
-			Position* position = world.GetComponent<Position>(spawnedActor->GetEntity());
+			Position* position = world.GetComponent<Position>(spawnedActor.GetEntity());
 			if (position != nullptr)
 			{
 				if (spawner->randomSpawn_)
@@ -129,7 +129,7 @@ namespace SeedCore
 			}
 
 			SpawnedInstance instance;
-			instance.entityID_ = spawnedActor->GetEntity().GetID();
+			instance.entityID_ = spawnedActor.GetEntity().GetID();
 			instance.remainingLifeTime_ = spawner->lifeTime_;
 			state.instances_.push_back(instance);
 		}

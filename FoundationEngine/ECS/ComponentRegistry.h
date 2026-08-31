@@ -103,10 +103,11 @@ namespace SeedCore
 			{
 				meta.isComponentBase_ = true;
 
-				meta.setupLifecycle_ = [](void* component, void* actor)
+				meta.setupLifecycle_ = [](void* component, void* world, Entity entity)
 				{
 					T* ptr = static_cast<T*>(component);
-					ptr->actor_ = static_cast<Actor*>(actor);
+					ptr->world_ = static_cast<World*>(world);
+					ptr->entity_ = entity;
 
 					/// [EN] Each HasXxx<T> concept check below binds the corresponding type-erased function pointer only if T actually implements that lifecycle mixin, otherwise the pointer stays nullptr and ComponentBase::DispatchXxx becomes a no-op for that hook.
 					/// [JP] 以下の各 HasXxx<T> コンセプトチェックは、T が実際にそのライフサイクルミックスインを実装している場合にのみ、対応する型消去された関数ポインタを束縛する。実装していなければポインタは nullptr のままとなり、そのフックに対する ComponentBase::DispatchXxx は無操作になる。

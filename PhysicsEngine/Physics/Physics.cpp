@@ -625,12 +625,12 @@ namespace SeedCore
 		}
 
 		EntityID entityID = GetBodyEntityID(bodyID);
-		Actor* actor = world->GetActor(entityID);
+		Actor actor = world->GetActor(entityID);
 		if (!actor)
 		{
 			return true;
 		}
 
-		return (layerMask & (1u << actor->GetLayer())) != 0;
+		return (layerMask & (1u << actor.GetLayer())) != 0;
 	}
 }

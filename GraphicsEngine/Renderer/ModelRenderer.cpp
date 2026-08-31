@@ -123,7 +123,7 @@ namespace SeedCore
 				///      matrix - otherwise child actors ignore their parent.
 				/// [JP] TransformSystem が既に計算したワールド行列(親子チェーン込み)
 				///      を使う。ローカルだけで再構築すると子が親を無視してしまう。
-				Actor* actor = world.GetActor(entityID);
+				Actor actor = world.GetActor(entityID);
 				if (!actor)
 				{
 					return;
@@ -171,13 +171,13 @@ namespace SeedCore
 				///      するため。これにより Play を止めて（ボディが破棄
 				///      されて）も、最後にシミュレートしたフレームの変形
 				///      形状が画面に残り続けない（Softbody::HasBody 参照）。
-				Softbody* softbody = actor->GetComponent<Softbody>();
+				Softbody* softbody = actor.GetComponent<Softbody>();
 				if (softbody && softbody->HasBody())
 				{
 					return;
 				}
 
-				Matrix worldMatrix = actor->GetWorldMatrix();
+				Matrix worldMatrix = actor.GetWorldMatrix();
 
 				Matrix inverseTransposeWorld = worldMatrix.Invert().Transpose();
 
@@ -195,7 +195,7 @@ namespace SeedCore
 				const auto& nodes = crister->Nodes();
 
 				static const DynamicArray<Uint32> noMaterialIDs;
-				const Material* materialComponent = actor->GetComponent<Material>();
+				const Material* materialComponent = actor.GetComponent<Material>();
 				const DynamicArray<Uint32>& materialIDs = materialComponent ? materialComponent->materialIDs_ : noMaterialIDs;
 
 				/// [EN] If this Actor has an Animator currently in a valid state
@@ -225,7 +225,7 @@ namespace SeedCore
 				///      済みかどうかに関わらずサンプリング済みの Animation を
 				///      必要とするため。
 				Bool hasMorphs = std::ranges::any_of(crister->SubMeshes(), [](const SubMesh& subMesh) { return !subMesh.morphs_.empty(); });
-				Animator* animator = (skins.empty() && !hasMorphs) ? nullptr : actor->GetComponent<Animator>();
+				Animator* animator = (skins.empty() && !hasMorphs) ? nullptr : actor.GetComponent<Animator>();
 				if (animator)
 				{
 					Int stateIndex = animator->CurrentStateIndex();
@@ -383,7 +383,7 @@ namespace SeedCore
 
 											if (delta.x != 0.0f || delta.y != 0.0f || delta.z != 0.0f)
 											{
-												Entity entity = actor->GetEntity();
+												Entity entity = actor.GetEntity();
 												Rotation* rotationComponent = world.GetComponent<Rotation>(entity);
 												Scale* scaleComponent = world.GetComponent<Scale>(entity);
 
@@ -907,7 +907,7 @@ namespace SeedCore
 							instanceData.doubleSided_ = material.doubleSided_ ? 1 : 0;
 							instanceData.blend_ = material.alphaMode_ == 2 ? 1 : 0;
 
-							instanceData.selected_ = (selectedEntity.Exists() && actor->GetEntity() == selectedEntity) ? 1 : 0;
+							instanceData.selected_ = (selectedEntity.Exists() && actor.GetEntity() == selectedEntity) ? 1 : 0;
 							if (instanceData.selected_)
 							{
 								hasSelectedInstance_ = true;
@@ -954,25 +954,25 @@ namespace SeedCore
 		///      Softbody は Animator/Rigidbody と同じ SeedScript コンポーネント）。
 		for (EntityID entityID : world.GetComponents<Softbody>())
 		{
-			Actor* actor = world.GetActor(entityID);
+			Actor actor = world.GetActor(entityID);
 			if (!actor)
 			{
 				continue;
 			}
 
-			const Active* active = actor->GetComponent<Active>();
+			const Active* active = actor.GetComponent<Active>();
 			if (active && !active->active_)
 			{
 				continue;
 			}
 
-			Softbody* softbody = actor->GetComponent<Softbody>();
+			Softbody* softbody = actor.GetComponent<Softbody>();
 			if (!softbody || !softbody->HasBody())
 			{
 				continue;
 			}
 
-			const Mesh* mesh = actor->GetComponent<Mesh>();
+			const Mesh* mesh = actor.GetComponent<Mesh>();
 			if (!mesh)
 			{
 				continue;
@@ -1003,7 +1003,7 @@ namespace SeedCore
 
 			softbodyMesh->Update(softbody->GetVertexPositions());
 
-			Matrix worldMatrix = actor->GetWorldMatrix();
+			Matrix worldMatrix = actor.GetWorldMatrix();
 			Matrix inverseTransposeWorld = worldMatrix.Invert().Transpose();
 
 			auto previousWorldIt = previousWorldMatrices_.find(entityID);
@@ -1011,7 +1011,7 @@ namespace SeedCore
 			previousWorldMatrices_[entityID] = worldMatrix;
 
 			static const DynamicArray<Uint32> noMaterialIDs;
-			const Material* materialComponent = actor->GetComponent<Material>();
+			const Material* materialComponent = actor.GetComponent<Material>();
 			Surface material = materialResource.Resolve(loaderSystem, *crister, 0, materialComponent ? materialComponent->materialIDs_ : noMaterialIDs);
 
 			constexpr Uint32 maxMeshletsPerDispatch = 32;
@@ -1099,7 +1099,7 @@ namespace SeedCore
 				instanceData.doubleSided_ = material.doubleSided_ ? 1 : 0;
 				instanceData.blend_ = material.alphaMode_ == 2 ? 1 : 0;
 
-				instanceData.selected_ = (selectedEntity.Exists() && actor->GetEntity() == selectedEntity) ? 1 : 0;
+				instanceData.selected_ = (selectedEntity.Exists() && actor.GetEntity() == selectedEntity) ? 1 : 0;
 				if (instanceData.selected_)
 				{
 					hasSelectedInstance_ = true;

@@ -25,32 +25,32 @@ namespace SeedCore
 	* ローカルレイパラメータはスケールの異なるアクター間では比較できない
 	* ため)。
 	*/
-	Actor* ViewportPicking::Pick(World& world, const Vector3& rayOrigin, const Vector3& rayDirection)
+	Actor ViewportPicking::Pick(World& world, const Vector3& rayOrigin, const Vector3& rayDirection)
 	{
 		ComponentID boundsComponentID = ComponentRegistry::GetComponentID<Bounds>();
 		if (!boundsComponentID)
 		{
-			return nullptr;
+			return Actor();
 		}
 
-		Actor* closestActor = nullptr;
+		Actor closestActor;
 		Float closestDistance = FLT_MAX;
 
 		for (EntityID entityID : world.GetComponents<Bounds>())
 		{
-			Actor* actor = world.GetActor(entityID);
+			Actor actor = world.GetActor(entityID);
 			if (!actor)
 			{
 				continue;
 			}
 
-			const Bounds* bounds = actor->GetComponent<Bounds>();
+			const Bounds* bounds = actor.GetComponent<Bounds>();
 			if (!bounds)
 			{
 				continue;
 			}
 
-			Matrix worldMatrix = actor->GetWorldMatrix();
+			Matrix worldMatrix = actor.GetWorldMatrix();
 			Matrix inverseWorld = worldMatrix.Invert();
 
 			Vector3 localOrigin = Vector3::Transform(rayOrigin, inverseWorld);

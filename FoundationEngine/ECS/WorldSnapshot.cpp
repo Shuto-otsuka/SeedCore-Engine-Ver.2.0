@@ -21,13 +21,13 @@ namespace SeedCore
 	{
 		Clear();
 
-		auto& actors = world.GetActors();
+		const DynamicArray<Actor>& actors = world.GetActors();
 
-		for (ResourcePtr<Actor>& actor : actors)
+		for (Actor actor : actors)
 		{
 			ActorData actorData;
 
-			Entity entity = actor->GetEntity();
+			Entity entity = actor.GetEntity();
 			const auto& layout = world.GetLayout(entity);
 
 			/// [EN] Copy every archetype-stored component in the actor's layout into a freshly-allocated byte buffer, via the component's own copy_ function.
@@ -96,7 +96,7 @@ namespace SeedCore
 
 			/// [EN] Also remember which of those components derive from ComponentBase, so Restore can reset their lifecycle state afterward.
 			/// [JP] それらのコンポーネントのうちどれが ComponentBase から派生しているかも記録し、Restore が後でそのライフサイクル状態をリセットできるようにする。
-			actorData.componentBaseIDs_ = actor->ComponentBaseIDList();
+			actorData.componentBaseIDs_ = actor.ComponentBaseIDList();
 
 			actors_.push_back(std::move(actorData));
 		}
@@ -130,7 +130,7 @@ namespace SeedCore
 			return;
 		}
 
-		auto& actors = world.GetActors();
+		const DynamicArray<Actor>& actors = world.GetActors();
 
 		/// [EN] Restore only pairs up to whichever list is shorter, in case actors were created/destroyed since the snapshot was captured.
 		/// [JP] スナップショット取得後に actor が生成/破棄されている可能性があるため、どちらか短い方のリストの長さまでのみ対応付けて復元する。
@@ -139,8 +139,8 @@ namespace SeedCore
 		for (Size actorIndex = 0; actorIndex < count; ++actorIndex)
 		{
 			const ActorData& actorData = actors_[actorIndex];
-			Actor* actor = actors[actorIndex].get();
-			Entity entity = actor->GetEntity();
+			Actor actor = actors[actorIndex];
+			Entity entity = actor.GetEntity();
 
 			/// [EN] Dispatch OnDestroy to every ComponentBase-derived component first, while its live data (e.g. a Rigidbody's JPH body/shape handles) is still intact, so play-mode-only resources are released before the snapshot bytes overwrite it.
 			/// [JP] ComponentBase 派生の全コンポーネントへ、まず OnDestroy をディスパッチする。生きたデータ（Rigidbody の JPH ボディ/シェイプハンドルなど）がまだ有効なうちに、プレイモード限定のリソースをスナップショットのバイト列で上書きする前に解放するため。
@@ -195,7 +195,7 @@ namespace SeedCore
 		///      インデックスをずらすため、末尾から逆順に破棄する。
 		for (Size actorIndex = actors.size(); actorIndex > count; --actorIndex)
 		{
-			world.DestroyActor(actors[actorIndex - 1].get());
+			world.DestroyActor(actors[actorIndex - 1]);
 		}
 
 		Clear();

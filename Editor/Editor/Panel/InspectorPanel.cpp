@@ -68,30 +68,15 @@ namespace SeedCore
 				return;
 			}
 
-			if (locked_ && lockedActor_)
+			if (locked_ && !lockedActor_)
 			{
-				Bool lockedAlive = false;
-				if (context_.worldContext_.world_)
-				{
-					for (const ResourcePtr<Actor>& liveActor : context_.worldContext_.world_->GetActors())
-					{
-						if (liveActor.get() == lockedActor_)
-						{
-							lockedAlive = true;
-							break;
-						}
-					}
-				}
-				if (!lockedAlive)
-				{
-					locked_ = false;
-					lockedActor_ = nullptr;
-				}
+				locked_ = false;
+				lockedActor_ = Actor();
 			}
 
-			Actor* actor = locked_ ? lockedActor_ : context_.selectionContext_.selectedActor_;
+			Actor actor = locked_ ? lockedActor_ : context_.selectionContext_.selectedActor_;
 
-			if (actor && actor->GetEntity().Exists())
+			if (actor && actor.GetEntity().Exists())
 			{
 				ImGui::BeginChild("##InspectorContent", ImVec2(0, 0), ImGuiChildFlags_None, ImGuiWindowFlags_HorizontalScrollbar);
 				DrawName(actor);
@@ -111,7 +96,7 @@ namespace SeedCore
 				DrawPrefabControls(actor);
 				ImGui::Separator();
 
-				Bool disabled = !actor->IsActive();
+				Bool disabled = !actor.IsActive();
 				if (disabled)
 				{
 					ImGui::BeginDisabled();
@@ -131,14 +116,14 @@ namespace SeedCore
 			else if (locked_)
 			{
 				locked_ = false;
-				lockedActor_ = nullptr;
+				lockedActor_ = Actor();
 			}
 		}
 
 		ImGui::End();
 	}
 
-	void InspectorPanel::DrawName(Actor* actor)
+	void InspectorPanel::DrawName(Actor actor)
 	{
 		Float iconSize = ImGui::GetTextLineHeight();
 		ImTextureID lockIcon = locked_ ? imguiTexture_.Icon(IconType::Lock) : imguiTexture_.Icon(IconType::LockFree);
@@ -146,12 +131,12 @@ namespace SeedCore
 		if (ImGui::ImageButton("##Lock", lockIcon, ImVec2(iconSize, iconSize)))
 		{
 			locked_ = !locked_;
-			lockedActor_ = locked_ ? actor : nullptr;
+			lockedActor_ = locked_ ? actor : Actor();
 		}
 
 		ImGui::SameLine();
 
-		Name* nameComponent = static_cast<Name*>(context_.worldContext_.world_->GetComponent(actor->GetEntity(), ComponentRegistry::GetComponentID<Name>()));
+		Name* nameComponent = static_cast<Name*>(context_.worldContext_.world_->GetComponent(actor.GetEntity(), ComponentRegistry::GetComponentID<Name>()));
 		if (!nameComponent)
 		{
 			return;
@@ -164,22 +149,22 @@ namespace SeedCore
 		{
 			String oldValue = nameComponent->name_;
 			nameComponent->name_ = String(std::string_view(nameBuffer.c_str()));
-			context_.sceneContext_.history_.Push(MakePtr<ComponentCommand<String>>(*context_.worldContext_.world_, actor->GetEntity(), ComponentRegistry::GetComponentID<Name>(), 0, oldValue, nameComponent->name_));
+			context_.sceneContext_.history_.Push(MakePtr<ComponentCommand<String>>(*context_.worldContext_.world_, actor.GetEntity(), ComponentRegistry::GetComponentID<Name>(), 0, oldValue, nameComponent->name_));
 		}
 
 		ImGui::SameLine();
 
-		Bool active = actor->IsActive();
+		Bool active = actor.IsActive();
 		if (ImGui::Checkbox("有効", &active))
 		{
 			context_.sceneContext_.history_.Push(MakePtr<ActorActiveCommand>(*context_.worldContext_.world_, actor, active));
-			actor->SetActive(active);
+			actor.SetActive(active);
 		}
 	}
 
-	void InspectorPanel::DrawTags(Actor* actor)
+	void InspectorPanel::DrawTags(Actor actor)
 	{
-		DynamicArray<String> currentTags = actor->GetTagList();
+		DynamicArray<String> currentTags = actor.GetTagList();
 
 		std::string previewLabel;
 		for (Size index = 0; index < currentTags.size(); ++index)
@@ -261,8 +246,8 @@ namespace SeedCore
 
 		if (hasRemoveTag)
 		{
-			context_.sceneContext_.history_.Push(MakePtr<ActorTagCommand>(*context_.worldContext_.world_, actor->GetPersistentID(), removeTag, false));
-			actor->RemoveTag(removeTag);
+			context_.sceneContext_.history_.Push(MakePtr<ActorTagCommand>(*context_.worldContext_.world_, actor.GetPersistentID(), removeTag, false));
+			actor.RemoveTag(removeTag);
 		}
 		if (hasDeleteTag)
 		{
@@ -280,8 +265,8 @@ namespace SeedCore
 			if (!text.empty())
 			{
 				String newTag = String(std::string_view(text));
-				context_.sceneContext_.history_.Push(MakePtr<ActorTagCommand>(*context_.worldContext_.world_, actor->GetPersistentID(), newTag, true));
-				actor->AddTag(newTag);
+				context_.sceneContext_.history_.Push(MakePtr<ActorTagCommand>(*context_.worldContext_.world_, actor.GetPersistentID(), newTag, true));
+				actor.AddTag(newTag);
 			}
 			std::ranges::fill(newTagBuffer_, '\0');
 			ImGui::SetKeyboardFocusHere(-1);
@@ -308,17 +293,17 @@ namespace SeedCore
 
 				ImGui::PushID(static_cast<Int>(index));
 
-				Bool hasTag = actor->HasTag(tag);
+				Bool hasTag = actor.HasTag(tag);
 				if (ImGui::Checkbox(tag.c_str(), &hasTag))
 				{
-					context_.sceneContext_.history_.Push(MakePtr<ActorTagCommand>(*context_.worldContext_.world_, actor->GetPersistentID(), tag, hasTag));
+					context_.sceneContext_.history_.Push(MakePtr<ActorTagCommand>(*context_.worldContext_.world_, actor.GetPersistentID(), tag, hasTag));
 					if (hasTag)
 					{
-						actor->AddTag(tag);
+						actor.AddTag(tag);
 					}
 					else
 					{
-						actor->RemoveTag(tag);
+						actor.RemoveTag(tag);
 					}
 				}
 
@@ -326,7 +311,7 @@ namespace SeedCore
 				{
 					if (ImGui::MenuItem("タグを削除（すべてのActorから）"))
 					{
-						actor->RemoveTag(tag);
+						actor.RemoveTag(tag);
 						TagRegistry::Remove(tag);
 					}
 					ImGui::EndPopup();
@@ -339,7 +324,7 @@ namespace SeedCore
 		ImGui::EndCombo();
 	}
 
-	void InspectorPanel::DrawLayer(Actor* actor)
+	void InspectorPanel::DrawLayer(Actor actor)
 	{
 		const DynamicArray<String>& layerNames = LayerRegistry::GetNames();
 		if (layerNames.empty())
@@ -347,7 +332,7 @@ namespace SeedCore
 			return;
 		}
 
-		Size currentLayer = actor->GetLayer();
+		Size currentLayer = actor.GetLayer();
 		if (currentLayer >= layerNames.size())
 		{
 			currentLayer = 0;
@@ -383,10 +368,10 @@ namespace SeedCore
 				Bool isSelected = (index == currentLayer);
 				if (ImGui::Checkbox("##Select", &isSelected) && isSelected)
 				{
-					String oldLayerName = actor->GetLayerName();
+					String oldLayerName = actor.GetLayerName();
 					String newLayerName = layerNames[index];
-					context_.sceneContext_.history_.Push(MakePtr<ActorLayerCommand>(*context_.worldContext_.world_, actor->GetPersistentID(), oldLayerName, newLayerName));
-					actor->SetLayer(index);
+					context_.sceneContext_.history_.Push(MakePtr<ActorLayerCommand>(*context_.worldContext_.world_, actor.GetPersistentID(), oldLayerName, newLayerName));
+					actor.SetLayer(index);
 				}
 
 				ImGui::SameLine();
@@ -420,9 +405,9 @@ namespace SeedCore
 		}
 	}
 
-	void InspectorPanel::DrawPrefabControls(Actor* actor)
+	void InspectorPanel::DrawPrefabControls(Actor actor)
 	{
-		Uint32 assetID = actor->GetSourcePrefabAssetID();
+		Uint32 assetID = actor.GetSourcePrefabAssetID();
 		if (assetID == 0)
 		{
 			return;
@@ -484,7 +469,7 @@ namespace SeedCore
 	* 古くなったデータを参照し続けないよう、自分のコンポーネント一覧の走査を
 	* 即座に打ち切ること。
 	*/
-	Bool InspectorPanel::DrawComponentEntry(Actor* actor, ComponentID componentID, const String& componentName, void* componentData)
+	Bool InspectorPanel::DrawComponentEntry(Actor actor, ComponentID componentID, const String& componentName, void* componentData)
 	{
 		/// [EN] CollapsingHeader always draws its own label starting at the
 		///      left edge and ignores a preceding SameLine(), so an icon
@@ -517,8 +502,8 @@ namespace SeedCore
 		{
 			if (ImGui::MenuItem("コンポーネントを削除"))
 			{
-				context_.sceneContext_.history_.Push(MakePtr<ComponentRemoveCommand>(*context_.worldContext_.world_, actor->GetPersistentID(), componentID, componentName, componentData));
-				actor->RemoveComponent(componentID);
+				context_.sceneContext_.history_.Push(MakePtr<ComponentRemoveCommand>(*context_.worldContext_.world_, actor.GetPersistentID(), componentID, componentName, componentData));
+				actor.RemoveComponent(componentID);
 				removed = true;
 			}
 			ImGui::EndPopup();
@@ -558,19 +543,19 @@ namespace SeedCore
 
 		if (isHeaderOpen)
 		{
-			DrawReflectedFields(componentName, componentData, componentID, actor->GetEntity());
+			DrawReflectedFields(componentName, componentData, componentID, actor.GetEntity());
 		}
 
 		return false;
 	}
 
-	void InspectorPanel::DrawComponents(Actor* actor)
+	void InspectorPanel::DrawComponents(Actor actor)
 	{
-		Entity entity = actor->GetEntity();
+		Entity entity = actor.GetEntity();
 
-		if (const Mesh* mesh = actor->GetComponent<Mesh>(); mesh && mesh->meshID_ != 0 && !actor->GetComponent<Material>())
+		if (const Mesh* mesh = actor.GetComponent<Mesh>(); mesh && mesh->meshID_ != 0 && !actor.GetComponent<Material>())
 		{
-			Material* materialComponent = actor->AddComponent<Material>();
+			Material* materialComponent = actor.AddComponent<Material>();
 			ModelResource* modelResource = context_.worldContext_.resource_->GetModelResource();
 			Crister* crister = modelResource->Resolve(*context_.worldContext_.loader_, modelResource->GetHandle(mesh->meshID_));
 			Asset* modelAsset = context_.worldContext_.resource_->GetAsset(mesh->meshID_);
@@ -610,7 +595,7 @@ namespace SeedCore
 		ComponentID rotationID = ComponentRegistry::GetComponentID(rotationString);
 		ComponentID scaleID = ComponentRegistry::GetComponentID(scaleString);
 
-		Bool hasTransform = positionID && rotationID && scaleID && actor->HasComponent(positionID) && actor->HasComponent(rotationID) && actor->HasComponent(scaleID);
+		Bool hasTransform = positionID && rotationID && scaleID && actor.HasComponent(positionID) && actor.HasComponent(rotationID) && actor.HasComponent(scaleID);
 
 		if (hasTransform)
 		{
@@ -720,7 +705,7 @@ namespace SeedCore
 			}
 		}
 
-		for (ComponentID componentBaseID : actor->ComponentBaseIDList())
+		for (ComponentID componentBaseID : actor.ComponentBaseIDList())
 		{
 			String componentName = ComponentRegistry::GetName(componentBaseID);
 			EntityID entityID = entity.GetID();
@@ -745,8 +730,8 @@ namespace SeedCore
 			{
 				if (ImGui::MenuItem("コンポーネントを削除"))
 				{
-					context_.sceneContext_.history_.Push(MakePtr<ComponentRemoveCommand>(*context_.worldContext_.world_, actor->GetPersistentID(), componentBaseID, componentName, componentData));
-					actor->RemoveComponent(componentBaseID);
+					context_.sceneContext_.history_.Push(MakePtr<ComponentRemoveCommand>(*context_.worldContext_.world_, actor.GetPersistentID(), componentBaseID, componentName, componentData));
+					actor.RemoveComponent(componentBaseID);
 					removed = true;
 				}
 				ImGui::EndPopup();
@@ -1400,12 +1385,12 @@ namespace SeedCore
 		if (field.assetType_ == PayloadAssetType::Actor)
 		{
 			Uint32 targetId = static_cast<Uint32>(*value);
-			Actor* target = (targetId != 0) ? context_.worldContext_.world_->FindActor(targetId) : nullptr;
+			Actor target = (targetId != 0) ? context_.worldContext_.world_->FindActor(targetId) : Actor();
 
 			std::string buttonLabel = "ここにドロップ";
 			if (target)
 			{
-				Name* nameComponent = static_cast<Name*>(context_.worldContext_.world_->GetComponent(target->GetEntity(), ComponentRegistry::GetComponentID<Name>()));
+				Name* nameComponent = static_cast<Name*>(context_.worldContext_.world_->GetComponent(target.GetEntity(), ComponentRegistry::GetComponentID<Name>()));
 				buttonLabel = nameComponent ? nameComponent->name_.str() : "(名前なし)";
 			}
 
@@ -1416,9 +1401,9 @@ namespace SeedCore
 			{
 				if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(dropType))
 				{
-					Actor* droppedActor = *static_cast<Actor* const*>(payload->Data);
+					Actor droppedActor = *static_cast<const Actor*>(payload->Data);
 					Int oldValue = *value;
-					*value = static_cast<Int>(droppedActor->GetPersistentID());
+					*value = static_cast<Int>(droppedActor.GetPersistentID());
 					if (field.directPtr_)
 					{
 						context_.sceneContext_.history_.Push(MakePtr<PointerCommand<Int>>(value, oldValue, *value));

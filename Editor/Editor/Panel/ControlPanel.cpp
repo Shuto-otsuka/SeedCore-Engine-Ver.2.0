@@ -77,7 +77,7 @@ namespace SeedCore
 				context_.sceneContext_.playModeScene_.Instantiate(*context_.worldContext_.world_, *context_.worldContext_.resource_);
 				context_.sceneContext_.playModeScene_.Clear();
 				context_.worldContext_.system_->Reset();
-				context_.selectionContext_.selectedActor_ = nullptr;
+				context_.selectionContext_.selectedActor_ = Actor();
 				context_.selectionContext_.selectedActors_.clear();
 				context_.selectionContext_.selectedEntity_ = Entity::Null();
 				isPlaying = false;
@@ -166,7 +166,7 @@ namespace SeedCore
 					context_.sceneContext_.playModeScene_.Instantiate(*context_.worldContext_.world_, *context_.worldContext_.resource_);
 					context_.sceneContext_.playModeScene_.Clear();
 					context_.worldContext_.system_->Reset();
-					context_.selectionContext_.selectedActor_ = nullptr;
+					context_.selectionContext_.selectedActor_ = Actor();
 					context_.selectionContext_.selectedActors_.clear();
 					context_.selectionContext_.selectedEntity_ = Entity::Null();
 					EndPlayMemCheck();

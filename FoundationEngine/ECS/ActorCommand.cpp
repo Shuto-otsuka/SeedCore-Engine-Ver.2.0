@@ -44,16 +44,16 @@ namespace SeedCore
 	*/
 	void ActorCreateCommand::Redo()
 	{
-		Actor* rootParent = parentPersistentId_ ? world_.FindActor(parentPersistentId_) : nullptr;
+		Actor rootParent = parentPersistentId_ ? world_.FindActor(parentPersistentId_) : Actor();
 
-		DynamicArray<Actor*> instantiated;
+		DynamicArray<Actor> instantiated;
 		instantiated.reserve(nodes_.size());
 
 		for (Size index = 0; index < nodes_.size(); ++index)
 		{
 			const SerializedActorNode& node = nodes_[index];
 
-			Actor* parent = nullptr;
+			Actor parent;
 			if (index == 0)
 			{
 				parent = rootParent;
@@ -63,7 +63,7 @@ namespace SeedCore
 				parent = instantiated[node.parentIndex_];
 			}
 
-			Actor* actor = InstantiateActorNode(world_, cache_, node, parent, false);
+			Actor actor = InstantiateActorNode(world_, cache_, node, parent, false);
 			instantiated.push_back(actor);
 		}
 
@@ -71,7 +71,7 @@ namespace SeedCore
 		/// [JP] ルートは今 rootParent の子リスト末尾へ追加されたところ。元々続いていた兄弟の隣へ(null なら先頭へ)戻す。親がある場合のみ意味を持つ - ルートの並び順は追跡していない。
 		if (rootParent && !instantiated.empty() && instantiated[0])
 		{
-			rootParent->MoveChildAfter(instantiated[0], world_.FindActor(prevSiblingPersistentId_));
+			rootParent.MoveChild(instantiated[0], world_.FindActor(prevSiblingPersistentId_));
 		}
 	}
 
@@ -90,7 +90,7 @@ namespace SeedCore
 	{
 		for (Size index = nodes_.size(); index > 0; --index)
 		{
-			Actor* actor = world_.FindActor(nodes_[index - 1].persistentId_);
+			Actor actor = world_.FindActor(nodes_[index - 1].persistentId_);
 			if (actor)
 			{
 				world_.DestroyActor(actor);
@@ -110,18 +110,18 @@ namespace SeedCore
 	* actor自身のデータと、現在の親/子(永続ID経由)を取得する -
 	* World::DestroyActor(actor)が実際に実行される前に呼ぶこと。
 	*/
-	ActorDeleteCommand::ActorDeleteCommand(World& world, ResourceCache& cache, Actor* actor) : world_(world), cache_(cache)
+	ActorDeleteCommand::ActorDeleteCommand(World& world, ResourceCache& cache, Actor actor) : world_(world), cache_(cache)
 	{
 		DynamicArray<SerializedActorNode> nodes;
 		CaptureActorNode(actor, -1, nodes);
 		node_ = nodes[0];
 
-		persistentId_ = actor->GetPersistentID();
+		persistentId_ = actor.GetPersistentID();
 
-		Actor* parent = actor->GetParent();
-		parentPersistentId_ = parent ? parent->GetPersistentID() : 0;
+		Actor parent = actor.GetParent();
+		parentPersistentId_ = parent ? parent.GetPersistentID() : 0;
 
-		std::ranges::transform(actor->GetChildren(), std::back_inserter(childPersistentIds_), [](Actor* child) { return child->GetPersistentID(); });
+		std::ranges::transform(actor.GetChildren(), std::back_inserter(childPersistentIds_), [](const Actor& child) { return child.GetPersistentID(); });
 	}
 
 	/**
@@ -135,7 +135,7 @@ namespace SeedCore
 	*/
 	void ActorDeleteCommand::Redo()
 	{
-		Actor* actor = world_.FindActor(persistentId_);
+		Actor actor = world_.FindActor(persistentId_);
 		if (actor)
 		{
 			world_.DestroyActor(actor);
@@ -159,9 +159,9 @@ namespace SeedCore
 	*/
 	void ActorDeleteCommand::Undo()
 	{
-		Actor* parent = parentPersistentId_ ? world_.FindActor(parentPersistentId_) : nullptr;
+		Actor parent = parentPersistentId_ ? world_.FindActor(parentPersistentId_) : Actor();
 
-		Actor* actor = InstantiateActorNode(world_, cache_, node_, parent, false);
+		Actor actor = InstantiateActorNode(world_, cache_, node_, parent, false);
 		if (!actor)
 		{
 			return;
@@ -169,10 +169,10 @@ namespace SeedCore
 
 		for (Uint32 childPersistentId : childPersistentIds_)
 		{
-			Actor* child = world_.FindActor(childPersistentId);
+			Actor child = world_.FindActor(childPersistentId);
 			if (child)
 			{
-				child->SetParent(actor);
+				child.SetParent(actor);
 			}
 		}
 	}
@@ -206,14 +206,14 @@ namespace SeedCore
 	*/
 	void ActorReparentCommand::Redo()
 	{
-		Actor* actor = world_.FindActor(actorPersistentId_);
+		Actor actor = world_.FindActor(actorPersistentId_);
 		if (!actor)
 		{
 			return;
 		}
 
-		Actor* newParent = newParentPersistentId_ ? world_.FindActor(newParentPersistentId_) : nullptr;
-		actor->SetParent(newParent);
+		Actor newParent = newParentPersistentId_ ? world_.FindActor(newParentPersistentId_) : Actor();
+		actor.SetParent(newParent);
 	}
 
 	/**
@@ -231,20 +231,20 @@ namespace SeedCore
 	*/
 	void ActorReparentCommand::Undo()
 	{
-		Actor* actor = world_.FindActor(actorPersistentId_);
+		Actor actor = world_.FindActor(actorPersistentId_);
 		if (!actor)
 		{
 			return;
 		}
 
-		Actor* oldParent = oldParentPersistentId_ ? world_.FindActor(oldParentPersistentId_) : nullptr;
-		actor->SetParent(oldParent);
+		Actor oldParent = oldParentPersistentId_ ? world_.FindActor(oldParentPersistentId_) : Actor();
+		actor.SetParent(oldParent);
 
 		/// [EN] SetParent appends to the end of the new sibling list; restore the original slot by moving actor back after whichever sibling preceded it (null -> front). Root order is not tracked, so this only applies under an old parent.
 		/// [JP] SetParent は新しい兄弟リストの末尾へ追加する。元の位置を復元するため、直前にあった兄弟の後ろへ(null なら先頭へ)戻す。ルートの並び順は追跡していないので、旧親がある場合のみ行う。
 		if (oldParent)
 		{
-			oldParent->MoveChildAfter(actor, world_.FindActor(oldPrevSiblingPersistentId_));
+			oldParent.MoveChild(actor, world_.FindActor(oldPrevSiblingPersistentId_));
 		}
 	}
 
@@ -277,7 +277,7 @@ namespace SeedCore
 	*/
 	void ActorTagCommand::Redo()
 	{
-		Actor* actor = world_.FindActor(actorPersistentId_);
+		Actor actor = world_.FindActor(actorPersistentId_);
 		if (!actor)
 		{
 			return;
@@ -285,11 +285,11 @@ namespace SeedCore
 
 		if (addOnRedo_)
 		{
-			actor->AddTag(tag_);
+			actor.AddTag(tag_);
 		}
 		else
 		{
-			actor->RemoveTag(tag_);
+			actor.RemoveTag(tag_);
 		}
 	}
 
@@ -304,7 +304,7 @@ namespace SeedCore
 	*/
 	void ActorTagCommand::Undo()
 	{
-		Actor* actor = world_.FindActor(actorPersistentId_);
+		Actor actor = world_.FindActor(actorPersistentId_);
 		if (!actor)
 		{
 			return;
@@ -312,11 +312,11 @@ namespace SeedCore
 
 		if (addOnRedo_)
 		{
-			actor->RemoveTag(tag_);
+			actor.RemoveTag(tag_);
 		}
 		else
 		{
-			actor->AddTag(tag_);
+			actor.AddTag(tag_);
 		}
 	}
 
@@ -347,13 +347,13 @@ namespace SeedCore
 	*/
 	void ActorLayerCommand::Redo()
 	{
-		Actor* actor = world_.FindActor(actorPersistentId_);
+		Actor actor = world_.FindActor(actorPersistentId_);
 		if (!actor)
 		{
 			return;
 		}
 
-		actor->SetLayer(newLayerName_);
+		actor.SetLayer(newLayerName_);
 	}
 
 	/**
@@ -367,13 +367,13 @@ namespace SeedCore
 	*/
 	void ActorLayerCommand::Undo()
 	{
-		Actor* actor = world_.FindActor(actorPersistentId_);
+		Actor actor = world_.FindActor(actorPersistentId_);
 		if (!actor)
 		{
 			return;
 		}
 
-		actor->SetLayer(oldLayerName_);
+		actor.SetLayer(oldLayerName_);
 	}
 
 	/**
@@ -387,22 +387,22 @@ namespace SeedCore
 	* actorと全子孫の現在のアクティブ状態を再帰的に取得する -
 	* Actor::SetActive(newActive)が実際に実行される前に呼ぶこと。
 	*/
-	ActorActiveCommand::ActorActiveCommand(World& world, Actor* actor, Bool newActive) : world_(world), rootPersistentId_(actor->GetPersistentID()), newActive_(newActive)
+	ActorActiveCommand::ActorActiveCommand(World& world, Actor actor, Bool newActive) : world_(world), rootPersistentId_(actor.GetPersistentID()), newActive_(newActive)
 	{
-		DynamicArray<Actor*> pending;
+		DynamicArray<Actor> pending;
 		pending.push_back(actor);
 
 		while (!pending.empty())
 		{
-			Actor* current = pending.back();
+			Actor current = pending.back();
 			pending.pop_back();
 
 			Entry entry;
-			entry.persistentId_ = current->GetPersistentID();
-			entry.oldActive_ = current->IsActive();
+			entry.persistentId_ = current.GetPersistentID();
+			entry.oldActive_ = current.IsActive();
 			entries_.push_back(entry);
 
-			std::ranges::copy(current->GetChildren(), std::back_inserter(pending));
+			std::ranges::copy(current.GetChildren(), std::back_inserter(pending));
 		}
 	}
 
@@ -419,10 +419,10 @@ namespace SeedCore
 	*/
 	void ActorActiveCommand::Redo()
 	{
-		Actor* actor = world_.FindActor(rootPersistentId_);
+		Actor actor = world_.FindActor(rootPersistentId_);
 		if (actor)
 		{
-			actor->SetActive(newActive_);
+			actor.SetActive(newActive_);
 		}
 	}
 
@@ -446,13 +446,13 @@ namespace SeedCore
 
 		for (const Entry& entry : entries_)
 		{
-			Actor* actor = world_.FindActor(entry.persistentId_);
+			Actor actor = world_.FindActor(entry.persistentId_);
 			if (!actor)
 			{
 				continue;
 			}
 
-			Active* component = static_cast<Active*>(world_.GetComponent(actor->GetEntity(), activeID));
+			Active* component = static_cast<Active*>(world_.GetComponent(actor.GetEntity(), activeID));
 			if (component)
 			{
 				component->active_ = entry.oldActive_;

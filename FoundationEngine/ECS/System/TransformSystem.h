@@ -51,6 +51,6 @@ namespace SeedCore
 		* 計算し、actor のワールド行列として保存した後、actor の子へ
 		* 再帰する。
 		*/
-		void UpdateActor(class Actor* actor, const Matrix& parentMatrix, World& world);
+		void UpdateActor(class Actor actor, const Matrix& parentMatrix, World& world);
 	};
 }

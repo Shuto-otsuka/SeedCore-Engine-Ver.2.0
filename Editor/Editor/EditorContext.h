@@ -1,6 +1,7 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
 #include <FoundationEngine/ECS/Entity.h>
+#include <FoundationEngine/ECS/Actor.h>
 #include <FoundationEngine/ECS/History.h>
 #include <FoundationEngine/Resource/Scene.h>
 #include <Editor/Editor/GizmoContext.h>
@@ -62,8 +63,8 @@ namespace SeedCore
 	struct SelectionContext
 	{
 		Entity selectedEntity_ = Entity::Null();
-		Actor* selectedActor_ = nullptr;
-		DynamicArray<Actor*> selectedActors_;
+		Actor selectedActor_;
+		DynamicArray<Actor> selectedActors_;
 	};
 
 	struct SceneContext

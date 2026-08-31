@@ -52,7 +52,7 @@ namespace SeedCore
 		* root とその全子孫を nodes_ へ記録し、以前に取得していたデータを
 		* 置き換える。
 		*/
-		void Capture(Actor* root);
+		void Capture(Actor root);
 
 		/**
 		* [EN]
@@ -72,7 +72,7 @@ namespace SeedCore
 		* 「プレハブに適用」編集がどの .prefab アセットを上書きすべきかを
 		* 判断できるようにする。
 		*/
-		Actor* Instantiate(World& world, ResourceCache& cache, Actor* parent = nullptr, Uint32 sourceAssetID = 0)const;
+		Actor Instantiate(World& world, ResourceCache& cache, Actor parent = {}, Uint32 sourceAssetID = 0)const;
 
 		/**
 		* [EN]
@@ -118,12 +118,12 @@ namespace SeedCore
 		* 刻印されるため、インスペクタの「プレハブに適用」編集が正しい
 		* アセットを対象にできる。
 		*/
-		static Actor* Spawn(Uint32 assetID, Actor* parent = nullptr);
+		static Actor Spawn(Uint32 assetID, Actor parent = {});
 
 		/**
 		* [EN]
 		* Resolves name to an asset ID via the bound ResourceCache, then
-		* delegates to Spawn(Uint32, Actor*). name must include the
+		* delegates to Spawn(Uint32, Actor). name must include the
 		* ".prefab" extension; it is matched against asset filenames (a
 		* bare filename is enough -- the subfolder does not matter) and is
 		* not stem-matched, so "Enemy" will not find "Enemy.prefab". Pass
@@ -136,7 +136,7 @@ namespace SeedCore
 		*
 		* [JP]
 		* 束縛済みの ResourceCache 経由で name をアセット ID へ解決し、
-		* Spawn(Uint32, Actor*) へ委譲する。name は ".prefab" 拡張子を
+		* Spawn(Uint32, Actor) へ委譲する。name は ".prefab" 拡張子を
 		* 含める必要がある。アセットのファイル名と照合され（サブフォルダ
 		* は問わず、ファイル名だけで良い）、stem 一致はしないため
 		* "Enemy" では "Enemy.prefab" は見つからない。
@@ -145,7 +145,7 @@ namespace SeedCore
 		* 渡すこと。name が解決できなければ警告をログ出力して nullptr を
 		* 返す。
 		*/
-		static Actor* Spawn(const String& name, Actor* parent = nullptr);
+		static Actor Spawn(const String& name, Actor parent = {});
 
 		/**
 		* [EN]
@@ -184,7 +184,7 @@ namespace SeedCore
 		* root を一時的な Prefab へ取得し、path へ書き込む（必要なら親
 		* ディレクトリを作成する）。保存に成功したかどうかを返す。
 		*/
-		static Bool Save(Actor* root, const std::filesystem::path& path);
+		static Bool Save(Actor root, const std::filesystem::path& path);
 
 		/**
 		* [EN]
@@ -201,7 +201,7 @@ namespace SeedCore
 		* ファイルの上書きを避けるため、数値の接尾辞を付加する。実際に
 		* 書き込まれたパスを返す。失敗時は空のパスを返す。
 		*/
-		static std::filesystem::path SaveToDirectory(Actor* root, const std::filesystem::path& directory);
+		static std::filesystem::path SaveToDirectory(Actor root, const std::filesystem::path& directory);
 
 		/**
 		* [EN]

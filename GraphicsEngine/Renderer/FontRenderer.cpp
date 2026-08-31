@@ -75,13 +75,13 @@ namespace SeedCore
 				///      ワールド変換を読む。rotationEuler は合成後回転を
 				///      CreateFromYawPitchRoll と同じ軸(yaw/pitch/roll)で
 				///      分解したもの。
-				Actor* actor = world.GetActor(entityID);
+				Actor actor = world.GetActor(entityID);
 				if (!actor)
 				{
 					return;
 				}
 
-				Matrix worldMatrix = actor->GetWorldMatrix();
+				Matrix worldMatrix = actor.GetWorldMatrix();
 				Vector3 worldScale;
 				Quaternion worldRotation;
 				Vector3 worldTranslation;
@@ -91,7 +91,7 @@ namespace SeedCore
 				Vector2 scale = Vector2(worldScale.x, worldScale.y);
 				Vector3 rotationEuler = worldRotation.ToEuler(); // (pitch, yaw, roll)
 
-				Uint selected = (selectedEntity.Exists() && actor->GetEntity() == selectedEntity) ? 1 : 0;
+				Uint selected = (selectedEntity.Exists() && actor.GetEntity() == selectedEntity) ? 1 : 0;
 
 				Font* font = fontResource.Find(text.fontID_);
 				if (!font)

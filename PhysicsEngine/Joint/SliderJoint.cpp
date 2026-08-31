@@ -14,7 +14,7 @@ namespace SeedCore
 			return;
 		}
 
-		Actor& actor = GetActor();
+		Actor actor = GetActor();
 
 		Rigidbody* selfBody = actor.GetComponent<Rigidbody>();
 		if (!selfBody)
@@ -26,8 +26,8 @@ namespace SeedCore
 		JPH::BodyID connectedBodyID;
 		if (connectedActor_ != 0)
 		{
-			Actor* connected = actor.GetWorld().FindActor(connectedActor_);
-			Rigidbody* connectedBody = connected ? connected->GetComponent<Rigidbody>() : nullptr;
+			Actor connected = actor.GetWorld().FindActor(connectedActor_);
+			Rigidbody* connectedBody = connected ? connected.GetComponent<Rigidbody>() : nullptr;
 			if (connectedBody)
 			{
 				connectedBodyID = connectedBody->GetBodyID();

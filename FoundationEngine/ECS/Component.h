@@ -1,5 +1,6 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
+#include <FoundationEngine/ECS/Entity.h>
 
 namespace SeedCore
 {
@@ -68,9 +69,9 @@ namespace SeedCore
 		/// [JP] このコンポーネントのスパースセットストレージを構築する、型消去されたファクトリ。アーキタイプ格納コンポーネントでは nullptr。
 		ResourcePtr<InterfaceSparseSetStorage>(*createSparseStorage_)() = nullptr;
 
-		/// [EN] For ComponentBase-derived components: binds each lifecycle function pointer (awake_/start_/tick_/...) the concrete type actually implements; nullptr otherwise.
-		/// [JP] ComponentBase 派生コンポーネント向け: 具体的な型が実際に実装している各ライフサイクル関数ポインタ（awake_/start_/tick_/...）を束縛する。それ以外では nullptr。
-		void (*setupLifecycle_)(void* component, void* actor) = nullptr;
+		/// [EN] For ComponentBase-derived components: sets the component's world_/entity_ back-reference and binds each lifecycle function pointer (awake_/start_/tick_/...) the concrete type actually implements; nullptr otherwise.
+		/// [JP] ComponentBase 派生コンポーネント向け: コンポーネントの world_/entity_ 逆参照を設定し、具体的な型が実際に実装している各ライフサイクル関数ポインタ（awake_/start_/tick_/...）を束縛する。それ以外では nullptr。
+		void (*setupLifecycle_)(void* component, void* world, Entity entity) = nullptr;
 
 		/// [EN] Whether this component type derives from ComponentBase.
 		/// [JP] このコンポーネント型が ComponentBase から派生しているかどうか。

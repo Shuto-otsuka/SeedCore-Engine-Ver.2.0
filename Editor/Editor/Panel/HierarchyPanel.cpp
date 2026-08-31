@@ -35,14 +35,14 @@ namespace SeedCore
 		if (ImGui::Begin("ヒエラルキー"))
 		{
 			rows_.clear();
-			pendingClickActor_ = nullptr;
+			pendingClickActor_ = Actor();
 
 			const auto& actors = context_.worldContext_.world_->GetActors();
 			for (Size index = 0; index < actors.size(); ++index)
 			{
-				if (actors[index]->GetParent() == nullptr)
+				if (!actors[index].GetParent())
 				{
-					DrawActorNode(actors[index].get());
+					DrawActorNode(actors[index]);
 				}
 			}
 
@@ -74,12 +74,12 @@ namespace SeedCore
 
 					if (preview->IsDelivery())
 					{
-						Actor* dropped = *static_cast<Actor* const*>(preview->Data);
-						Actor* oldParent = dropped->GetParent();
-						Uint32 oldParentId = oldParent ? oldParent->GetPersistentID() : 0;
+						Actor dropped = *static_cast<const Actor*>(preview->Data);
+						Actor oldParent = dropped.GetParent();
+						Uint32 oldParentId = oldParent ? oldParent.GetPersistentID() : 0;
 						Uint32 oldPrevSiblingId = PrevSiblingPersistentId(dropped);
-						dropped->SetParent(nullptr);
-						context_.sceneContext_.history_.Push(MakePtr<ActorReparentCommand>(*context_.worldContext_.world_, dropped->GetPersistentID(), oldParentId, oldPrevSiblingId, 0));
+						dropped.SetParent(Actor());
+						context_.sceneContext_.history_.Push(MakePtr<ActorReparentCommand>(*context_.worldContext_.world_, dropped.GetPersistentID(), oldParentId, oldPrevSiblingId, 0));
 					}
 				}
 
@@ -90,7 +90,7 @@ namespace SeedCore
 					Prefab* prefab = context_.worldContext_.resource_->GetPrefabPool().Get(handle);
 					if (prefab)
 					{
-						prefab->Instantiate(*context_.worldContext_.world_, *context_.worldContext_.resource_, nullptr, assetID);
+						prefab->Instantiate(*context_.worldContext_.world_, *context_.worldContext_.resource_, Actor(), assetID);
 					}
 				}
 
@@ -175,8 +175,8 @@ namespace SeedCore
 						}
 					}
 
-					context_.selectionContext_.selectedActor_ = context_.selectionContext_.selectedActors_.empty() ? nullptr : context_.selectionContext_.selectedActors_.back();
-					context_.selectionContext_.selectedEntity_ = context_.selectionContext_.selectedActor_ ? context_.selectionContext_.selectedActor_->GetEntity() : Entity::Null();
+					context_.selectionContext_.selectedActor_ = context_.selectionContext_.selectedActors_.empty() ? Actor() : context_.selectionContext_.selectedActors_.back();
+					context_.selectionContext_.selectedEntity_ = context_.selectionContext_.selectedActor_ ? context_.selectionContext_.selectedActor_.GetEntity() : Entity::Null();
 					rangeAnchor_ = context_.selectionContext_.selectedActor_;
 
 					marqueeActive_ = false;
@@ -186,7 +186,7 @@ namespace SeedCore
 			if (pendingClickActor_)
 			{
 				HandleNodeSelection(pendingClickActor_, pendingClickCtrl_, pendingClickShift_);
-				pendingClickActor_ = nullptr;
+				pendingClickActor_ = Actor();
 			}
 
 			if (ImGui::BeginPopupContextItem("HierarchyContext"))
@@ -194,7 +194,7 @@ namespace SeedCore
 				if (ImGui::MenuItem("空のActorを作成"))
 				{
 					String uniqueName = GetUniqueName();
-					Actor* actor = context_.worldContext_.world_->CreateActor(uniqueName);
+					Actor actor = context_.worldContext_.world_->CreateActor(uniqueName);
 					DynamicArray<SerializedActorNode> nodes;
 					CaptureActorNode(actor, -1, nodes);
 					context_.sceneContext_.history_.Push(MakePtr<ActorCreateCommand>(*context_.worldContext_.world_, *context_.worldContext_.resource_, nodes));
@@ -226,7 +226,7 @@ namespace SeedCore
 			if (ImGui::Button("空のActorを追加", ImVec2(buttonWidth, 0)))
 			{
 				String uniqueName = GetUniqueName();
-				Actor* actor = context_.worldContext_.world_->CreateActor(uniqueName);
+				Actor actor = context_.worldContext_.world_->CreateActor(uniqueName);
 				DynamicArray<SerializedActorNode> nodes;
 				CaptureActorNode(actor, -1, nodes);
 				context_.sceneContext_.history_.Push(MakePtr<ActorCreateCommand>(*context_.worldContext_.world_, *context_.worldContext_.resource_, nodes));
@@ -237,18 +237,18 @@ namespace SeedCore
 		ImGui::End();
 	}
 
-	void HierarchyPanel::DrawActorNode(Actor* actor)
+	void HierarchyPanel::DrawActorNode(Actor actor)
 	{
 		const Char* label = "Actor";
-		const Name* name = actor->GetComponent<Name>();
+		const Name* name = actor.GetComponent<Name>();
 		if (name && !name->name_.str().empty())
 		{
 			label = name->name_.c_str();
 		}
 
 		Bool selected = IsSelected(actor);
-		Bool hasChildren = !actor->GetChildren().empty();
-		Bool isChild = actor->GetParent() != nullptr;
+		Bool hasChildren = !actor.GetChildren().empty();
+		Bool isChild = static_cast<Bool>(actor.GetParent());
 
 		ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_AllowOverlap;
 		if (selected)
@@ -260,10 +260,10 @@ namespace SeedCore
 			flags |= ImGuiTreeNodeFlags_Leaf;
 		}
 
-		ImGui::PushID(actor);
+		ImGui::PushID(static_cast<Int>(actor.GetEntity().GetID().index_));
 
 		ImTextureID icon;
-		if (actor->IsPrefabInstance())
+		if (actor.IsPrefabInstance())
 		{
 			icon = isChild ? imguiTexture_.Icon(IconType::PrefabChild) : imguiTexture_.Icon(IconType::Prefab);
 		}
@@ -307,11 +307,11 @@ namespace SeedCore
 		///      ピボットへフレームするとキャラが画面外になる。
 		if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
 		{
-			const Matrix& worldMatrix = actor->GetWorldMatrix();
+			const Matrix& worldMatrix = actor.GetWorldMatrix();
 
-			const Image* image = actor->GetComponent<Image>();
-			const Text* text = actor->GetComponent<Text>();
-			const Movie* movie = actor->GetComponent<Movie>();
+			const Image* image = actor.GetComponent<Image>();
+			const Text* text = actor.GetComponent<Text>();
+			const Movie* movie = actor.GetComponent<Movie>();
 			Bool isCanvasActor = (image && image->viewType_ == Image::ViewType::Sprite) || (text && text->viewType_ == Text::ViewType::Sprite) || (movie && movie->displayMode_ == Movie::DisplayMode::Sprite);
 
 			if (isCanvasActor && context_.cameraContext_.canvasCamera_)
@@ -346,12 +346,12 @@ namespace SeedCore
 				///      中心へのバウンズフィットドリー。全アクターが Bounds を
 				///      持つ(デフォルトは半径 0.5、中心 0)ので、メッシュでない
 				///      アクターは小さな radius でピボットへパンするだけになる。
-				Bool skinned = actor->GetComponent<Animator>() != nullptr;
+				Bool skinned = actor.GetComponent<Animator>() != nullptr;
 
 				Float radius = 0.0f;
 				Vector3 target = Vector3(worldMatrix._41, worldMatrix._42, worldMatrix._43);
 
-				const Bounds* bounds = actor->GetComponent<Bounds>();
+				const Bounds* bounds = actor.GetComponent<Bounds>();
 				if (bounds && !skinned)
 				{
 					Float worldScale = Max(Max(Vector3(worldMatrix._11, worldMatrix._12, worldMatrix._13).Length(), Vector3(worldMatrix._21, worldMatrix._22, worldMatrix._23).Length()), Vector3(worldMatrix._31, worldMatrix._32, worldMatrix._33).Length());
@@ -371,7 +371,7 @@ namespace SeedCore
 
 		if (ImGui::BeginDragDropSource())
 		{
-			ImGui::SetDragDropPayload("HIERARCHY_ACTOR", &actor, sizeof(Actor*));
+			ImGui::SetDragDropPayload("HIERARCHY_ACTOR", &actor, sizeof(Actor));
 			ImGui::Text("%s", label);
 			ImGui::EndDragDropSource();
 		}
@@ -380,8 +380,8 @@ namespace SeedCore
 		{
 			if (const ImGuiPayload* preview = ImGui::AcceptDragDropPayload("HIERARCHY_ACTOR", ImGuiDragDropFlags_AcceptPeekOnly))
 			{
-				Actor* dropped = *static_cast<Actor* const*>(preview->Data);
-				Bool canDrop = (dropped != actor && !actor->Descendant(dropped));
+				Actor dropped = *static_cast<const Actor*>(preview->Data);
+				Bool canDrop = (dropped != actor && !actor.Descendant(dropped));
 
 				ImVec2 min = ImGui::GetItemRectMin();
 				ImVec2 max = ImGui::GetItemRectMax();
@@ -397,11 +397,11 @@ namespace SeedCore
 
 					if (preview->IsDelivery())
 					{
-						Actor* oldParent = dropped->GetParent();
-						Uint32 oldParentId = oldParent ? oldParent->GetPersistentID() : 0;
+						Actor oldParent = dropped.GetParent();
+						Uint32 oldParentId = oldParent ? oldParent.GetPersistentID() : 0;
 						Uint32 oldPrevSiblingId = PrevSiblingPersistentId(dropped);
-						dropped->SetParent(actor);
-						context_.sceneContext_.history_.Push(MakePtr<ActorReparentCommand>(*context_.worldContext_.world_, dropped->GetPersistentID(), oldParentId, oldPrevSiblingId, actor->GetPersistentID()));
+						dropped.SetParent(actor);
+						context_.sceneContext_.history_.Push(MakePtr<ActorReparentCommand>(*context_.worldContext_.world_, dropped.GetPersistentID(), oldParentId, oldPrevSiblingId, actor.GetPersistentID()));
 					}
 				}
 			}
@@ -458,12 +458,12 @@ namespace SeedCore
 		ImGui::SameLine();
 		ImGui::Image(icon, ImVec2(iconSize, iconSize));
 		ImGui::SameLine();
-		if (!actor->IsActive())
+		if (!actor.IsActive())
 		{
 			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
 		}
 		ImGui::Text("%s", label);
-		if (!actor->IsActive())
+		if (!actor.IsActive())
 		{
 			ImGui::PopStyleColor();
 		}
@@ -476,20 +476,20 @@ namespace SeedCore
 		}
 
 		ImGui::SameLine(ImGui::GetContentRegionAvail().x + ImGui::GetCursorPosX() - iconSize);
-		ImTextureID activeIcon = actor->IsActive() ? imguiTexture_.Icon(IconType::ActorActive) : imguiTexture_.Icon(IconType::ActorNonActive);
+		ImTextureID activeIcon = actor.IsActive() ? imguiTexture_.Icon(IconType::ActorActive) : imguiTexture_.Icon(IconType::ActorNonActive);
 		ImVec2 activePosition = ImGui::GetCursorScreenPos();
-		Float activeYOffset = actor->IsActive() ? 2.0f : 0.0f;
+		Float activeYOffset = actor.IsActive() ? 2.0f : 0.0f;
 		Float activeY = activePosition.y + (ImGui::GetTextLineHeight() - iconSize) * 0.5f + activeYOffset;
 		if (ImGui::InvisibleButton("##Active", ImVec2(iconSize, ImGui::GetTextLineHeight())))
 		{
-			context_.sceneContext_.history_.Push(MakePtr<ActorActiveCommand>(*context_.worldContext_.world_, actor, !actor->IsActive()));
-			actor->SetActive(!actor->IsActive());
+			context_.sceneContext_.history_.Push(MakePtr<ActorActiveCommand>(*context_.worldContext_.world_, actor, !actor.IsActive()));
+			actor.SetActive(!actor.IsActive());
 		}
 		ImGui::GetWindowDrawList()->AddImage(activeIcon, ImVec2(activePosition.x, activeY), ImVec2(activePosition.x + iconSize, activeY + iconSize));
 
 		if (opened)
 		{
-			for (Actor* child : actor->GetChildren())
+			for (Actor child : actor.GetChildren())
 			{
 				DrawActorNode(child);
 			}
@@ -499,7 +499,7 @@ namespace SeedCore
 		ImGui::PopID();
 	}
 
-	void HierarchyPanel::SaveAsPrefab(Actor* actor)
+	void HierarchyPanel::SaveAsPrefab(Actor actor)
 	{
 		std::filesystem::path prefabDir = context_.worldContext_.resource_->ProjectRootPath() / "UserProject" / "Assets" / "Prefab";
 		std::filesystem::create_directories(prefabDir);
@@ -529,7 +529,7 @@ namespace SeedCore
 		Uint32 newAssetID = context_.worldContext_.resource_->GetAssetID(String(relative));
 		if (newAssetID != 0)
 		{
-			actor->SetSourcePrefabAssetID(newAssetID);
+			actor.SetSourcePrefabAssetID(newAssetID);
 		}
 	}
 
@@ -544,7 +544,7 @@ namespace SeedCore
 		{
 			Bool exists = std::ranges::any_of(context_.worldContext_.world_->GetActors(), [&](const auto& actor)
 			{
-				const Name* name = actor->GetComponent<Name>();
+				const Name* name = actor.GetComponent<Name>();
 				return name && name->name_ == uniqueName;
 			});
 
@@ -559,12 +559,12 @@ namespace SeedCore
 		return uniqueName;
 	}
 
-	Bool HierarchyPanel::IsSelected(Actor* actor)const
+	Bool HierarchyPanel::IsSelected(Actor actor)const
 	{
 		return std::ranges::contains(context_.selectionContext_.selectedActors_, actor);
 	}
 
-	void HierarchyPanel::HandleNodeSelection(Actor* actor, Bool ctrl, Bool shift)
+	void HierarchyPanel::HandleNodeSelection(Actor actor, Bool ctrl, Bool shift)
 	{
 		if (shift && rangeAnchor_)
 		{
@@ -615,11 +615,11 @@ namespace SeedCore
 			rangeAnchor_ = actor;
 		}
 
-		context_.selectionContext_.selectedActor_ = context_.selectionContext_.selectedActors_.empty() ? nullptr : context_.selectionContext_.selectedActors_.back();
-		context_.selectionContext_.selectedEntity_ = context_.selectionContext_.selectedActor_ ? context_.selectionContext_.selectedActor_->GetEntity() : Entity::Null();
+		context_.selectionContext_.selectedActor_ = context_.selectionContext_.selectedActors_.empty() ? Actor() : context_.selectionContext_.selectedActors_.back();
+		context_.selectionContext_.selectedEntity_ = context_.selectionContext_.selectedActor_ ? context_.selectionContext_.selectedActor_.GetEntity() : Entity::Null();
 	}
 
-	void HierarchyPanel::DeleteActor(Actor* actor, CompoundCommand* group)
+	void HierarchyPanel::DeleteActor(Actor actor, CompoundCommand* group)
 	{
 		auto it = std::ranges::find(context_.selectionContext_.selectedActors_, actor);
 		if (it != context_.selectionContext_.selectedActors_.end())
@@ -629,8 +629,8 @@ namespace SeedCore
 
 		if (context_.selectionContext_.selectedActor_ == actor)
 		{
-			context_.selectionContext_.selectedActor_ = context_.selectionContext_.selectedActors_.empty() ? nullptr : context_.selectionContext_.selectedActors_.back();
-			context_.selectionContext_.selectedEntity_ = context_.selectionContext_.selectedActor_ ? context_.selectionContext_.selectedActor_->GetEntity() : Entity::Null();
+			context_.selectionContext_.selectedActor_ = context_.selectionContext_.selectedActors_.empty() ? Actor() : context_.selectionContext_.selectedActors_.back();
+			context_.selectionContext_.selectedEntity_ = context_.selectionContext_.selectedActor_ ? context_.selectionContext_.selectedActor_.GetEntity() : Entity::Null();
 		}
 
 		/// [EN] The command must be built (it captures the actor's subtree) before DestroyActor runs. When part of a multi-delete it goes into group instead of the history, so one Ctrl+Z reverts the whole selection.
@@ -650,10 +650,10 @@ namespace SeedCore
 
 	void HierarchyPanel::DeleteSelection()
 	{
-		DynamicArray<Actor*> toDelete = context_.selectionContext_.selectedActors_;
+		DynamicArray<Actor> toDelete = context_.selectionContext_.selectedActors_;
 
 		ResourcePtr<CompoundCommand> group = MakePtr<CompoundCommand>();
-		for (Actor* actor : toDelete)
+		for (Actor actor : toDelete)
 		{
 			DeleteActor(actor, group.get());
 		}
@@ -671,18 +671,18 @@ namespace SeedCore
 			return;
 		}
 
-		DynamicArray<Actor*> toDuplicate = context_.selectionContext_.selectedActors_;
-		DynamicArray<Actor*> newSelection;
+		DynamicArray<Actor> toDuplicate = context_.selectionContext_.selectedActors_;
+		DynamicArray<Actor> newSelection;
 
 		ResourcePtr<CompoundCommand> group = MakePtr<CompoundCommand>();
 
-		for (Actor* actor : toDuplicate)
+		for (Actor actor : toDuplicate)
 		{
 			/// [EN] Skip Actors whose ancestor is also selected - they'll already be
 			///      duplicated as part of that ancestor's subtree.
 			/// [JP] 祖先も選択されている Actor はスキップする — その祖先のサブツリーの
 			///      一部として既に複製されるため。
-			Bool ancestorSelected = std::ranges::any_of(toDuplicate, [&](Actor* other) { return other != actor && actor->Descendant(other); });
+			Bool ancestorSelected = std::ranges::any_of(toDuplicate, [&](Actor other) { return other != actor && actor.Descendant(other); });
 			if (ancestorSelected)
 			{
 				continue;
@@ -691,7 +691,7 @@ namespace SeedCore
 			Prefab prefab;
 			prefab.Capture(actor);
 
-			Actor* duplicate = prefab.Instantiate(*context_.worldContext_.world_, *context_.worldContext_.resource_, actor->GetParent(), actor->GetSourcePrefabAssetID());
+			Actor duplicate = prefab.Instantiate(*context_.worldContext_.world_, *context_.worldContext_.resource_, actor.GetParent(), actor.GetSourcePrefabAssetID());
 			if (!duplicate)
 			{
 				continue;
@@ -699,8 +699,8 @@ namespace SeedCore
 
 			DynamicArray<SerializedActorNode> nodes;
 			CaptureActorNode(duplicate, -1, nodes);
-			Actor* duplicateParent = duplicate->GetParent();
-			group->Add(MakePtr<ActorCreateCommand>(*context_.worldContext_.world_, *context_.worldContext_.resource_, nodes, duplicateParent ? duplicateParent->GetPersistentID() : 0, actor->GetPersistentID()));
+			Actor duplicateParent = duplicate.GetParent();
+			group->Add(MakePtr<ActorCreateCommand>(*context_.worldContext_.world_, *context_.worldContext_.resource_, nodes, duplicateParent ? duplicateParent.GetPersistentID() : 0, actor.GetPersistentID()));
 
 			MoveAfter(duplicate, actor);
 			newSelection.push_back(duplicate);
@@ -712,57 +712,38 @@ namespace SeedCore
 		}
 
 		context_.selectionContext_.selectedActors_ = newSelection;
-		context_.selectionContext_.selectedActor_ = newSelection.empty() ? nullptr : newSelection.back();
-		context_.selectionContext_.selectedEntity_ = context_.selectionContext_.selectedActor_ ? context_.selectionContext_.selectedActor_->GetEntity() : Entity::Null();
+		context_.selectionContext_.selectedActor_ = newSelection.empty() ? Actor() : newSelection.back();
+		context_.selectionContext_.selectedEntity_ = context_.selectionContext_.selectedActor_ ? context_.selectionContext_.selectedActor_.GetEntity() : Entity::Null();
 		rangeAnchor_ = context_.selectionContext_.selectedActor_;
 	}
 
-	void HierarchyPanel::MoveAfter(Actor* actor, Actor* after)
+	void HierarchyPanel::MoveAfter(Actor actor, Actor after)
 	{
-		Actor* parent = actor->GetParent();
+		Actor parent = actor.GetParent();
 		if (parent)
 		{
-			parent->MoveChildAfter(actor, after);
+			parent.MoveChild(actor, after);
 			return;
 		}
 
-		auto& actors = context_.worldContext_.world_->GetActors();
-
-		auto actorIt = std::ranges::find(actors, actor, [](const ResourcePtr<Actor>& a) { return a.get(); });
-		if (actorIt == actors.end())
-		{
-			return;
-		}
-
-		ResourcePtr<Actor> moved = std::move(*actorIt);
-		actors.erase(actorIt);
-
-		auto afterIt = std::ranges::find(actors, after, [](const ResourcePtr<Actor>& a) { return a.get(); });
-		if (afterIt == actors.end())
-		{
-			actors.push_back(std::move(moved));
-		}
-		else
-		{
-			actors.insert(afterIt + 1, std::move(moved));
-		}
+		context_.worldContext_.world_->MoveActor(actor, after);
 	}
 
-	Uint32 HierarchyPanel::PrevSiblingPersistentId(Actor* actor)const
+	Uint32 HierarchyPanel::PrevSiblingPersistentId(Actor actor)const
 	{
-		Actor* parent = actor->GetParent();
+		Actor parent = actor.GetParent();
 		if (!parent)
 		{
 			return 0;
 		}
 
-		const DynamicArray<Actor*>& siblings = parent->GetChildren();
+		const DynamicArray<Actor>& siblings = parent.GetChildren();
 		auto it = std::ranges::find(siblings, actor);
 		if (it == siblings.end() || it == siblings.begin())
 		{
 			return 0;
 		}
 
-		return (*(it - 1))->GetPersistentID();
+		return (*(it - 1)).GetPersistentID();
 	}
 }

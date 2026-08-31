@@ -82,13 +82,13 @@ namespace SeedCore
 					return;
 				}
 
-				Actor* actor = world.GetActor(entityID);
+				Actor actor = world.GetActor(entityID);
 				if (!actor)
 				{
 					return;
 				}
 
-				Matrix worldMatrix = actor->GetWorldMatrix();
+				Matrix worldMatrix = actor.GetWorldMatrix();
 				Vector3 worldScale;
 				Quaternion worldRotation;
 				Vector3 worldTranslation;
@@ -100,7 +100,7 @@ namespace SeedCore
 					size = Vector2(static_cast<Float>(nativeWidth), static_cast<Float>(nativeHeight));
 				}
 
-				Uint selected = (selectedEntity.Exists() && actor->GetEntity() == selectedEntity) ? 1 : 0;
+				Uint selected = (selectedEntity.Exists() && actor.GetEntity() == selectedEntity) ? 1 : 0;
 
 				if (movie.displayMode_ == Movie::DisplayMode::Sprite)
 				{

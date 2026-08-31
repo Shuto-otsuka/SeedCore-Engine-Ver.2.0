@@ -13,9 +13,9 @@ namespace SeedCore
 	* [JP]
 	* このコンポーネントがアタッチされている Actor を返す。
 	*/
-	Actor& ComponentBase::GetActor()const
+	Actor ComponentBase::GetActor()const
 	{
-		return *actor_;
+		return Actor(*world_, entity_);
 	}
 
 	/**
@@ -29,7 +29,7 @@ namespace SeedCore
 	*/
 	World& ComponentBase::GetWorld()const
 	{
-		return actor_->GetWorld();
+		return *world_;
 	}
 
 	/**

@@ -144,7 +144,7 @@ namespace SeedCore
 		* actor自身のデータと、現在の親/子(永続ID経由)を取得する -
 		* World::DestroyActor(actor)が実際に実行される前に呼ぶこと。
 		*/
-		ActorDeleteCommand(World& world, ResourceCache& cache, Actor* actor);
+		ActorDeleteCommand(World& world, ResourceCache& cache, Actor actor);
 
 		/**
 		* [EN]
@@ -480,7 +480,7 @@ namespace SeedCore
 		* actorと全子孫の現在のアクティブ状態を再帰的に取得する -
 		* Actor::SetActive(newActive)が実際に実行される前に呼ぶこと。
 		*/
-		ActorActiveCommand(World& world, Actor* actor, Bool newActive);
+		ActorActiveCommand(World& world, Actor actor, Bool newActive);
 
 		/**
 		* [EN]

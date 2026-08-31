@@ -19,6 +19,70 @@ namespace SeedCore
 {
 	/**
 	* [EN]
+	* The data behind one Actor: its scene-graph hierarchy, active state,
+	* tag/layer membership, cached world matrix, prefab-instance
+	* bookkeeping, and the list of ComponentBase-derived components it
+	* carries. Lives in World (keyed by EntityID); the Actor value handle
+	* only holds a {World*, Entity} pair and forwards here.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 1つの Actor の裏にあるデータ: シーングラフの階層、アクティブ状態、
+	* タグ/レイヤー所属、キャッシュされたワールド行列、プレハブ
+	* インスタンスの管理情報、および持っている ComponentBase 派生
+	* コンポーネント一覧。World 内に（EntityID をキーに）存在する。
+	* Actor 値ハンドルは {World*, Entity} のペアだけを持ち、ここへ転送する。
+	*/
+	struct ActorRecord
+	{
+		/// [EN] The entity this record's actor wraps.
+		/// [JP] このレコードの actor が包むエンティティ。
+		Entity entity_;
+
+		/// [EN] This actor's current parent, or a null Entity if it is a scene root.
+		/// [JP] この actor の現在の親。シーンのルートなら null Entity。
+		Entity parent_;
+
+		/// [EN] This actor's direct children, in display order.
+		/// [JP] この actor の直接の子一覧。表示順で保持される。
+		DynamicArray<Entity> children_;
+
+		/// [EN] IDs of every ComponentBase-derived component currently attached to this actor.
+		/// [JP] この actor に現在アタッチされている、全ての ComponentBase 派生コンポーネントの ID 一覧。
+		DynamicArray<ComponentID> componentBaseIDs_;
+
+		/// [EN] Cached world-space transform matrix.
+		/// [JP] キャッシュされたワールド空間変換行列。
+		Matrix worldMatrix_ = Matrix::Identity;
+
+		/// [EN] Cached active flag, used when this actor has no Active component.
+		/// [JP] キャッシュされたアクティブフラグ。この actor が Active コンポーネントを持たない場合に使われる。
+		Bool active_ = true;
+
+		/// [EN] Bitset of tag membership, indexed by TagRegistry bit index.
+		/// [JP] タグ所属を表すビットセット。TagRegistry のビットインデックスでアクセスする。
+		Bitset tags_;
+
+		/// [EN] This actor's current layer, a LayerRegistry slot index.
+		/// [JP] この actor の現在のレイヤー。LayerRegistry のスロットインデックス。
+		Size layer_ = 0;
+
+		/// [EN] Whether this actor was instantiated from a prefab.
+		/// [JP] この actor がプレハブからインスタンス化されたかどうか。
+		Bool fromPrefab_ = false;
+
+		/// [EN] Only set on the root Actor of a Prefab instance; the .prefab asset ID "Prefab に適用" overwrites. 0 = not an instance root.
+		/// [JP] Prefab インスタンスのルート Actor にのみ設定される。「Prefab に適用」が上書きする .prefab アセット ID。0 はインスタンスルートでないことを示す。
+		Uint32 sourcePrefabAssetID_ = 0;
+
+		/// [EN] World-wide unique identifier assigned by World::CreateActor, round-tripped through Scene/Prefab save/load. 0 = unassigned.
+		/// [JP] World::CreateActor が割り当てる World 全体で一意な識別子。Scene/Prefab のセーブ/ロードを往復する。0 は未割り当て。
+		Uint32 persistentId_ = 0;
+	};
+
+	/**
+	* [EN]
 	* Central owner of a scene's ECS state: entities, archetype-chunked
 	* and sparse-set component storage, physics resources, and the
 	* higher-level Actor wrappers built on top of raw entities. All
@@ -387,7 +451,7 @@ namespace SeedCore
 				return static_cast<SparseSetStorage<T>*>(it->second.get())->data_.Length();
 			}
 
-			return static_cast<Uint32>(std::ranges::count_if(GetActors(), [id](const ResourcePtr<Actor>& actor) { return actor->HasComponent(id); }));
+			return static_cast<Uint32>(std::ranges::count_if(GetActors(), [id](const Actor& actor) { return actor.HasComponent(id); }));
 		}
 
 		/**
@@ -443,11 +507,11 @@ namespace SeedCore
 				/// [JP] アーキタイプ格納には「Tを持つ全エンティティ」への
 				///      O(1) インデックスが無い — 全 actor を走査し、T を
 				///      持つものだけ残す。
-				for (const ResourcePtr<Actor>& actor : GetActors())
+				for (const Actor& actor : GetActors())
 				{
-					if (actor->HasComponent(id))
+					if (actor.HasComponent(id))
 					{
-						result.push_back(actor->GetEntity().GetID());
+						result.push_back(actor.GetEntity().GetID());
 					}
 				}
 			}
@@ -527,7 +591,7 @@ namespace SeedCore
 		* 0、または他の生存中の actor が既に使用中であれば）代わりに
 		* 新規IDを自動割り当てする。
 		*/
-		Actor* CreateActor(String name, Uint32 persistentId = 0);
+		Actor CreateActor(String name, Uint32 persistentId = 0);
 
 		/**
 		* [EN]
@@ -538,7 +602,7 @@ namespace SeedCore
 		* [JP]
 		* actor の内部エンティティを破棄し、このワールドから削除する。
 		*/
-		void DestroyActor(Actor* actor);
+		void DestroyActor(Actor actor);
 
 		/**
 		* [EN]
@@ -553,82 +617,126 @@ namespace SeedCore
 
 		/**
 		* [EN]
-		* Returns a mutable reference to the list of Actors owned by this world.
+		* Returns the list of Actor handles owned by this world, in
+		* creation order.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* このワールドが所有する Actor 一覧への変更可能な参照を返す。
+		* このワールドが所有する Actor ハンドル一覧を、生成順で返す。
 		*/
-		DynamicArray<ResourcePtr<Actor>>& GetActors();
+		const DynamicArray<Actor>& GetActors()const;
 
 		/**
 		* [EN]
-		* Const overload of GetActors().
+		* Reorders a parentless actor so it sits immediately after `after` in
+		* GetActors() order (or last, when `after` is invalid). Actors with a
+		* parent order themselves through Actor::MoveChild instead.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* GetActors() の const オーバーロード。
+		* 親を持たない actor を GetActors() の並び順で `after` の直後（`after`
+		* が無効なときは末尾）へ移動する。親を持つ actor の並び替えは
+		* Actor::MoveChild を使う。
 		*/
-		const DynamicArray<ResourcePtr<Actor>>& GetActors()const;
+		void MoveActor(Actor actor, Actor after);
 
 		/**
 		* [EN]
-		* Returns the Actor wrapping entityID, or nullptr if entityID has no Actor.
+		* Returns a handle to the actor wrapping entityID, or an invalid
+		* Actor if entityID has no actor (or is stale).
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* entityID を包む Actor を返す。entityID に Actor が無ければ
-		* nullptr を返す。
+		* entityID を包む actor へのハンドルを返す。entityID に actor が
+		* 無い（または古い）場合は無効な Actor を返す。
 		*/
-		Actor* GetActor(EntityID entityID)const;
+		Actor GetActor(EntityID entityID)const;
 
 		/**
 		* [EN]
-		* Returns the Actor wrapping entity, or nullptr if entity has no Actor.
+		* Returns a handle to the actor wrapping entity, or an invalid
+		* Actor if entity has no actor (or is stale).
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* entity を包む Actor を返す。entity に Actor が無ければ nullptr
-		* を返す。
+		* entity を包む actor へのハンドルを返す。entity に actor が無い
+		* （または古い）場合は無効な Actor を返す。
 		*/
-		Actor* GetActor(Entity entity)const;
+		Actor GetActor(Entity entity)const;
 
 		/**
 		* [EN]
-		* Returns the first Actor whose Name component's name_ equals
-		* name, or nullptr if none match (or the actor has no Name
-		* component). Unlike the EntityID/Entity overloads above, this is
-		* O(actor count) - there is no name index - so prefer caching the
-		* result (or an EntityID/persistent ID) over calling this every
-		* frame.
+		* Returns a handle to the first actor whose Name component's name_
+		* equals name, or an invalid Actor if none match. O(actor count) -
+		* there is no name index - so prefer caching the result (or an
+		* EntityID/persistent ID) over calling this every frame.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* Name コンポーネントの name_ が name と一致する最初の Actor を
-		* 返す。一致するものが無い（または Name コンポーネントを持たない）
-		* 場合は nullptr。上の EntityID/Entity 版と違い、名前用の索引は
-		* 無いため O(actor数) になる - 毎フレーム呼ぶより、結果(または
+		* Name コンポーネントの name_ が name と一致する最初の actor への
+		* ハンドルを返す。一致するものが無ければ無効な Actor。名前用の
+		* 索引は無いため O(actor数) - 毎フレーム呼ぶより、結果(または
 		* EntityID/永続ID)をキャッシュしておくことを推奨する。
 		*/
-		Actor* GetActor(const String& name)const;
+		Actor GetActor(const String& name)const;
 
 		/**
 		* [EN]
-		* Returns the Actor whose persistent ID is persistentId, or
-		* nullptr if no live actor currently holds it.
+		* Returns a handle to the actor whose persistent ID is
+		* persistentId, or an invalid Actor if no live actor currently
+		* holds it.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* 永続IDが persistentId である Actor を返す。現在それを保持している
-		* 生存中の actor が無ければ nullptr を返す。
+		* 永続IDが persistentId である actor へのハンドルを返す。現在それを
+		* 保持している生存中の actor が無ければ無効な Actor。
 		*/
-		Actor* FindActor(Uint32 persistentId)const;
+		Actor FindActor(Uint32 persistentId)const;
+
+		/**
+		* [EN]
+		* Returns whether entity currently identifies a live actor in this
+		* world. A stale entity (its slot recycled) returns false.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* entity がこのワールドの生存中の actor を指しているかどうかを返す。
+		* 古い entity（スロットが再利用された）は false を返す。
+		*/
+		Bool HasActor(Entity entity)const;
+
+		/**
+		* [EN]
+		* Returns a mutable reference to entity's ActorRecord, or to a
+		* shared default record if entity has no actor (so reads on an
+		* invalid actor yield defaults and writes are harmlessly discarded).
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* entity の ActorRecord への変更可能な参照を返す。entity に actor
+		* が無ければ共有のデフォルトレコードを返す（無効な actor への
+		* 読み取りはデフォルト値を返し、書き込みは無害に破棄される）。
+		*/
+		ActorRecord& GetActorRecord(Entity entity);
+
+		/**
+		* [EN]
+		* Const overload of GetActorRecord.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* GetActorRecord の const オーバーロード。
+		*/
+		const ActorRecord& GetActorRecord(Entity entity)const;
 
 		// ============================================================
 		// Physics
@@ -928,17 +1036,21 @@ namespace SeedCore
 		// Actor
 		// ============================================================
 
-		/// [EN] Every Actor currently owned by this world.
-		/// [JP] このワールドが現在所有している全ての Actor。
-		DynamicArray<ResourcePtr<Actor>> actors_;
+		/// [EN] Handle for every actor currently owned by this world, in creation order; parallel to actorRecords_.
+		/// [JP] このワールドが現在所有している全 actor のハンドル。生成順で保持され、actorRecords_ と並行。
+		DynamicArray<Actor> actors_;
 
-		/// [EN] Maps an EntityID to the Actor wrapping it, for fast GetActor lookups.
-		/// [JP] EntityID を、それを包む Actor へ対応付ける。GetActor の高速な検索に使う。
-		FlatMap<EntityID, Actor*> actorLookup_;
+		/// [EN] Per-actor data, parallel to actors_ (same index).
+		/// [JP] actor ごとのデータ。actors_ と並行（同じインデックス）。
+		DynamicArray<ActorRecord> actorRecords_;
 
-		/// [EN] Maps a persistent ID to the Actor currently holding it, for FindActor lookups.
-		/// [JP] 永続IDを、それを現在保持している Actor へ対応付ける。FindActor の検索に使う。
-		FlatMap<Uint32, Actor*> persistentIdLookup_;
+		/// [EN] Maps an EntityID to its index in actors_/actorRecords_, for fast GetActor lookups.
+		/// [JP] EntityID を actors_/actorRecords_ 内のインデックスへ対応付ける。GetActor の高速な検索に使う。
+		FlatMap<EntityID, Size> actorIndex_;
+
+		/// [EN] Maps a persistent ID to the index in actors_/actorRecords_ of the actor currently holding it, for FindActor lookups.
+		/// [JP] 永続IDを、それを現在保持している actor の actors_/actorRecords_ 内インデックスへ対応付ける。FindActor の検索に使う。
+		FlatMap<Uint32, Size> persistentIdIndex_;
 
 		/// [EN] Next persistent ID to hand out from AllocatePersistentID. 0 is reserved as "unassigned", so this starts at 1.
 		/// [JP] AllocatePersistentID が次に払い出す永続ID。0 は「未割り当て」として予約されているため、1 から始まる。
@@ -968,128 +1080,73 @@ namespace SeedCore
 		requires(!std::derived_from<T, ComponentBase>)
 	void Actor::AddComponent(const T& value)
 	{
-		world_.AddComponent(entity_, value);
+		if (world_)
+		{
+			world_->AddComponent(entity_, value);
+		}
 	}
 
 	/**
 	* [EN]
 	* Default-constructs and adds a T component (T deriving from
-	* ComponentBase) to this actor, wiring its ComponentBase fields
-	* (actor_/componentName_) and binding each lifecycle function
-	* pointer T actually implements. Returns a pointer to the new
-	* component, or nullptr on failure.
+	* ComponentBase) to this actor via the type-erased AddComponent
+	* (which tracks it and wires its lifecycle). Returns a pointer to the
+	* new component, or nullptr on failure.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
 	* T コンポーネント（T は ComponentBase から派生する）をデフォルト
-	* 構築してこの actor へ追加し、その ComponentBase フィールド
-	* （actor_/componentName_）を設定し、T が実際に実装している各
-	* ライフサイクル関数ポインタを束縛する。新しいコンポーネントへの
+	* 構築して、型消去版 AddComponent 経由でこの actor へ追加する
+	* （記録とライフサイクル配線もそこで行う）。新しいコンポーネントへの
 	* ポインタを返す。失敗時は nullptr を返す。
 	*/
 	template<typename T>
 		requires std::derived_from<T, ComponentBase>
 	T* Actor::AddComponent()
 	{
-		ComponentID id = ComponentRegistry::GetComponentID<T>();
-		world_.AddComponent(entity_, T{});
-		componentBaseIDs_.push_back(id);
-
-		T* ptr = world_.GetComponent<T>(entity_);
-		if (ptr)
+		if (!world_)
 		{
-			ptr->actor_ = this;
-			ptr->componentName_ = ComponentRegistry::GetName(id);
-			if constexpr (HasAwake<T>)
-			{
-				ptr->awake_ = [](ComponentBase* self) { static_cast<T*>(self)->OnAwake(); };
-			}
-			if constexpr (HasStart<T>)
-			{
-				ptr->start_ = [](ComponentBase* self) { static_cast<T*>(self)->OnStart(); };
-			}
-			if constexpr (HasTick<T>)
-			{
-				ptr->tick_ = [](ComponentBase* self, Float dt) { static_cast<T*>(self)->OnTick(dt); };
-			}
-			if constexpr (HasFixedTick<T>)
-			{
-				ptr->fixedTick_ = [](ComponentBase* self, Float dt) { static_cast<T*>(self)->OnFixedTick(dt); };
-			}
-			if constexpr (HasLateTick<T>)
-			{
-				ptr->lateTick_ = [](ComponentBase* self, Float dt) { static_cast<T*>(self)->OnLateTick(dt); };
-			}
-			if constexpr (HasDestroy<T>)
-			{
-				ptr->destroy_ = [](ComponentBase* self) { static_cast<T*>(self)->OnDestroy(); };
-			}
-			if constexpr (HasInspectorGUI<T>)
-			{
-				ptr->inspectorGUI_ = [](ComponentBase* self) { static_cast<T*>(self)->OnInspectorGUI(); };
-			}
-			if constexpr (HasCollisionEnter<T>)
-			{
-				ptr->collisionEnter_ = [](ComponentBase* self, Entity other) { static_cast<T*>(self)->OnCollisionEnter(other); };
-			}
-			if constexpr (HasCollisionStay<T>)
-			{
-				ptr->collisionStay_ = [](ComponentBase* self, Entity other) { static_cast<T*>(self)->OnCollisionStay(other); };
-			}
-			if constexpr (HasCollisionExit<T>)
-			{
-				ptr->collisionExit_ = [](ComponentBase* self, Entity other) { static_cast<T*>(self)->OnCollisionExit(other); };
-			}
-			if constexpr (HasTriggerEnter<T>)
-			{
-				ptr->triggerEnter_ = [](ComponentBase* self, Entity other) { static_cast<T*>(self)->OnTriggerEnter(other); };
-			}
-			if constexpr (HasTriggerStay<T>)
-			{
-				ptr->triggerStay_ = [](ComponentBase* self, Entity other) { static_cast<T*>(self)->OnTriggerStay(other); };
-			}
-			if constexpr (HasTriggerExit<T>)
-			{
-				ptr->triggerExit_ = [](ComponentBase* self, Entity other) { static_cast<T*>(self)->OnTriggerExit(other); };
-			}
+			return nullptr;
 		}
-		return ptr;
+
+		AddComponent(ComponentRegistry::GetComponentID<T>());
+		return world_->GetComponent<T>(entity_);
 	}
 
 	/**
 	* [EN]
 	* Returns a const pointer to this actor's T component (T not
-	* deriving from ComponentBase), by delegating to World::GetComponent.
+	* deriving from ComponentBase), or nullptr if absent / invalid.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
 	* この actor の T コンポーネント（T は ComponentBase から派生しない）
-	* への const ポインタを返す。World::GetComponent へ委譲する。
+	* への const ポインタを返す。無い / 無効なら nullptr。
 	*/
 	template<typename T>
 		requires(!std::derived_from<T, ComponentBase>)
 	const T* Actor::GetComponent()const
 	{
-		return world_.GetComponent<T>(entity_);
+		return world_ ? world_->GetComponent<T>(entity_) : nullptr;
 	}
 
 	/**
 	* [EN]
 	* Returns a mutable pointer to this actor's T component (T deriving
-	* from ComponentBase), by delegating to World::GetComponent.
+	* from ComponentBase), or nullptr if absent / invalid.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
 	* この actor の T コンポーネント（T は ComponentBase から派生する）
-	* への変更可能なポインタを返す。World::GetComponent へ委譲する。
+	* への変更可能なポインタを返す。無い / 無効なら nullptr。
 	*/
 	template<typename T>
 		requires std::derived_from<T, ComponentBase>
 	T* Actor::GetComponent()const
 	{
-		return const_cast<World&>(world_).GetComponent<T>(entity_);
+		return world_ ? world_->GetComponent<T>(entity_) : nullptr;
 	}
 }

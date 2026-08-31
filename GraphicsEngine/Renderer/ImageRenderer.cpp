@@ -63,13 +63,13 @@ namespace SeedCore
 				/// [JP] アクター自身のローカル Position/Rotation/Scale ではなく
 				///      TransformSystem(Actor::GetWorldMatrix())が計算した
 				///      親合成済みのワールド変換を読む。
-				Actor* actor = world.GetActor(entityID);
+				Actor actor = world.GetActor(entityID);
 				if (!actor)
 				{
 					return;
 				}
 
-				Matrix worldMatrix = actor->GetWorldMatrix();
+				Matrix worldMatrix = actor.GetWorldMatrix();
 				Vector3 worldScale;
 				Quaternion worldRotation;
 				Vector3 worldTranslation;
@@ -110,7 +110,7 @@ namespace SeedCore
 					}
 				}
 
-				Uint selected = (selectedEntity.Exists() && actor->GetEntity() == selectedEntity) ? 1 : 0;
+				Uint selected = (selectedEntity.Exists() && actor.GetEntity() == selectedEntity) ? 1 : 0;
 				Uint motionType = static_cast<Uint>(image.motionType_);
 
 				if (image.viewType_ == Image::ViewType::Sprite)

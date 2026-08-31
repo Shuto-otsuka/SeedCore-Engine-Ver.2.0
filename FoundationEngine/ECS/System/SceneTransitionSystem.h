@@ -324,11 +324,11 @@ namespace SeedCore
 
 		/// [EN] Actors from the previous scene, kept alive until CoveringLoad finishes.
 		/// [JP] 以前のシーンの actor 群。CoveringLoad が完了するまで保持される。
-		DynamicArray<Actor*> previousActors_;
+		DynamicArray<Actor> previousActors_;
 
 		/// [EN] Actors instantiated from the loading scene, kept alive until Revealing finishes.
 		/// [JP] ローディングシーンからインスタンス化された actor 群。Revealing が完了するまで保持される。
-		DynamicArray<Actor*> loadingSceneActors_;
+		DynamicArray<Actor> loadingSceneActors_;
 
 		/// [EN] Elapsed time within the current cover/reveal phase.
 		/// [JP] 現在の覆い隠し/表出フェーズ内での経過時間。

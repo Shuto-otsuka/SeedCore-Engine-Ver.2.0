@@ -3,42 +3,36 @@
 #include <FoundationEngine/ECS/TagRegistry.h>
 #include <FoundationEngine/ECS/LayerRegistry.h>
 
-#include <FoundationEngine/ECS/Component/Name.h>
-#include <FoundationEngine/ECS/Component/Position.h>
-#include <FoundationEngine/ECS/Component/Rotation.h>
-#include <FoundationEngine/ECS/Component/Scale.h>
-#include <FoundationEngine/ECS/Component/Velocity.h>
 #include <FoundationEngine/ECS/Component/Active.h>
-#include <FoundationEngine/ECS/Component/Bounds.h>
 
 namespace SeedCore
 {
 	/**
 	* [EN]
-	* Constructs an actor in world with the given display name,
-	* creating its underlying entity, physics resource, and the default
-	* transform/lifecycle components (Name/Position/Rotation/Scale/
-	* Velocity/Active/Bounds).
+	* Constructs a handle to the actor identified by entity within world.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* 指定された表示名で world 内に actor を構築し、内部エンティティ、
-	* 物理リソース、およびデフォルトのトランスフォーム/ライフサイクル
-	* コンポーネント（Name/Position/Rotation/Scale/Velocity/Active/Bounds）を
-	* 生成する。
+	* world 内で entity が識別する actor へのハンドルを構築する。
 	*/
-	Actor::Actor(World& world, String name) : world_(world), physics_(*world.CreatePhysics()), entity_(world.CreateEntity())
+	Actor::Actor(World& world, Entity entity) : world_(&world), entity_(entity)
 	{
-		/// [EN] Every actor gets the same baseline set of components: a display name, an identity transform, zero velocity, active-by-default, and a small default-sized bounding box (see Bounds's class comment) so it is viewport-pickable even without a renderable component.
-		/// [JP] 全ての actor に共通するベースラインのコンポーネント一式を付与する: 表示名、単位トランスフォーム、ゼロ速度、デフォルトでアクティブ、そして小さいデフォルトサイズの境界ボックス（Bounds のクラスコメント参照）— 描画可能なコンポーネントが無くてもビューポートからピック選択できるようにする。
-		world_.AddComponent(entity_, Name{ name });
-		world_.AddComponent(entity_, Position{ 0.0f,0.0f,0.0f });
-		world_.AddComponent(entity_, Rotation{ 0.0f,0.0f,0.0f });
-		world_.AddComponent(entity_, Scale{ 1.0f, 1.0f, 1.0f });
-		world_.AddComponent(entity_, Velocity{ 0.0f,0.0f,0.0f });
-		world_.AddComponent(entity_, Active{ true });
-		world_.AddComponent(entity_, Bounds{ Vector3(0.0f, 0.0f, 0.0f), Vector3(0.5f, 0.5f, 0.5f) });
+		/// No Code
+	}
+
+	/**
+	* [EN]
+	* Returns whether this handle refers to a live actor.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* このハンドルが生存中の actor を指しているかどうかを返す。
+	*/
+	Actor::operator Bool()const
+	{
+		return world_ != nullptr && world_->HasActor(entity_);
 	}
 
 	/**
@@ -56,24 +50,28 @@ namespace SeedCore
 	*/
 	void Actor::AddComponent(ComponentID id)
 	{
-		world_.AddComponent(entity_, id);
+		if (!world_)
+		{
+			return;
+		}
+
+		world_->AddComponent(entity_, id);
 
 		const ComponentMetadata& meta = ComponentRegistry::Get(id);
 		if (meta.isComponentBase_)
 		{
 			/// [EN] Track this as a ComponentBase-derived component so lifecycle dispatch (Awake/Start/Tick/Destroy/...) knows to visit it.
 			/// [JP] これを ComponentBase 派生コンポーネントとして記録し、ライフサイクルディスパッチ（Awake/Start/Tick/Destroy/...）が巡回対象として認識できるようにする。
-			componentBaseIDs_.push_back(id);
+			world_->GetActorRecord(entity_).componentBaseIDs_.push_back(id);
 
 			if (meta.setupLifecycle_)
 			{
 				/// [EN] Bind the concrete type's lifecycle function pointers and set its display name, now that the component actually exists in storage.
 				/// [JP] コンポーネントが実際にストレージ上に存在するようになった時点で、具体的な型のライフサイクル関数ポインタを束縛し、表示名を設定する。
-				EntityID entityID = entity_.GetID();
-				void* data = world_.GetComponent(entityID, id);
+				void* data = world_->GetComponent(entity_.GetID(), id);
 				if (data)
 				{
-					meta.setupLifecycle_(data, this);
+					meta.setupLifecycle_(data, world_, entity_);
 					static_cast<ComponentBase*>(data)->componentName_ = ComponentRegistry::GetName(id);
 				}
 			}
@@ -93,13 +91,18 @@ namespace SeedCore
 	*/
 	void Actor::RemoveComponent(ComponentID id)
 	{
-		auto it = std::ranges::find(componentBaseIDs_, id);
-		if (it != componentBaseIDs_.end())
+		if (!world_)
+		{
+			return;
+		}
+
+		DynamicArray<ComponentID>& componentBaseIDs = world_->GetActorRecord(entity_).componentBaseIDs_;
+		auto it = std::ranges::find(componentBaseIDs, id);
+		if (it != componentBaseIDs.end())
 		{
 			/// [EN] It's a ComponentBase-derived component: fire OnDestroy while its storage is still valid, before the component is actually removed.
 			/// [JP] ComponentBase 派生コンポーネントである: 実際にコンポーネントが削除される前、そのストレージがまだ有効なうちに OnDestroy を発火する。
-			EntityID entityID = entity_.GetID();
-			void* data = world_.GetComponent(entityID, id);
+			void* data = world_->GetComponent(entity_.GetID(), id);
 			if (data)
 			{
 				ComponentBase* cb = static_cast<ComponentBase*>(data);
@@ -108,10 +111,10 @@ namespace SeedCore
 					cb->destroy_(cb);
 				}
 			}
-			componentBaseIDs_.erase(it);
+			componentBaseIDs.erase(it);
 		}
 
-		world_.RemoveComponent(entity_, id);
+		world_->RemoveComponent(entity_, id);
 	}
 
 	/**
@@ -127,7 +130,7 @@ namespace SeedCore
 	*/
 	Bool Actor::HasComponent(ComponentID id)const
 	{
-		return world_.HasComponent(entity_, id);
+		return world_ != nullptr && world_->HasComponent(entity_, id);
 	}
 
 	/**
@@ -143,7 +146,7 @@ namespace SeedCore
 	*/
 	const DynamicArray<ComponentID>& Actor::ComponentBaseIDList()const
 	{
-		return componentBaseIDs_;
+		return world_->GetActorRecord(entity_).componentBaseIDs_;
 	}
 
 	/**
@@ -171,7 +174,7 @@ namespace SeedCore
 	*/
 	World& Actor::GetWorld()const
 	{
-		return world_;
+		return *world_;
 	}
 
 	/**
@@ -185,44 +188,52 @@ namespace SeedCore
 	*/
 	Physics& Actor::GetPhysics()const
 	{
-		return physics_;
+		return *world_->CreatePhysics();
 	}
 
 	/**
 	* [EN]
-	* Reparents this actor under parent (or to the scene root if
-	* nullptr), updating both the old and new parent's children lists,
+	* Reparents this actor under parent (or to the scene root if parent
+	* is invalid), updating both the old and new parent's children lists,
 	* and inheriting the new parent's active state.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* この actor を parent の下へ付け替える（nullptr であればシーンの
+	* この actor を parent の下へ付け替える（parent が無効であればシーンの
 	* ルートへ）。旧・新それぞれの親の子リストを更新し、新しい親の
 	* アクティブ状態を継承する。
 	*/
-	void Actor::SetParent(Actor* parent)
+	void Actor::SetParent(Actor parent)
 	{
-		if (parent_ == parent)
+		if (!world_)
+		{
+			return;
+		}
+
+		Entity parentEntity = parent ? parent.GetEntity() : Entity::Null();
+
+		ActorRecord& record = world_->GetActorRecord(entity_);
+		if (record.parent_ == parentEntity)
 		{
 			return;
 		}
 
 		/// [EN] Detach from the old parent's children list first, if any.
 		/// [JP] まず、以前の親（あれば）の子リストから切り離す。
-		if (parent_)
+		if (record.parent_.Exists())
 		{
-			std::erase(parent_->children_, this);
+			std::erase(world_->GetActorRecord(record.parent_).children_, entity_);
 		}
 
-		parent_ = parent;
+		record.parent_ = parentEntity;
 
-		if (parent_)
+		if (parentEntity.Exists())
 		{
 			/// [EN] Attach to the new parent's children list and inherit its active state if the new parent is currently inactive.
 			/// [JP] 新しい親の子リストへ登録し、新しい親が現在非アクティブであれば、そのアクティブ状態を継承する。
-			parent_->children_.push_back(this);
-			if (!parent_->IsActive())
+			world_->GetActorRecord(parentEntity).children_.push_back(entity_);
+			if (!Actor(*world_, parentEntity).IsActive())
 			{
 				SetActive(false);
 			}
@@ -237,16 +248,17 @@ namespace SeedCore
 
 	/**
 	* [EN]
-	* Returns this actor's current parent, or nullptr if it has none.
+	* Returns this actor's current parent, or an invalid Actor if it has
+	* none.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* この actor の現在の親を返す。親が無ければ nullptr を返す。
+	* この actor の現在の親を返す。親が無ければ無効な Actor を返す。
 	*/
-	Actor* Actor::GetParent()const
+	Actor Actor::GetParent()const
 	{
-		return parent_;
+		return Actor(*world_, world_->GetActorRecord(entity_).parent_);
 	}
 
 	/**
@@ -258,53 +270,71 @@ namespace SeedCore
 	* [JP]
 	* この actor の直接の子一覧を、現在の順序で返す。
 	*/
-	const DynamicArray<Actor*>& Actor::GetChildren()const
+	DynamicArray<Actor> Actor::GetChildren()const
 	{
-		return children_;
+		DynamicArray<Actor> result;
+
+		const DynamicArray<Entity>& children = world_->GetActorRecord(entity_).children_;
+		result.reserve(children.size());
+		for (Entity child : children)
+		{
+			result.push_back(Actor(*world_, child));
+		}
+
+		return result;
 	}
 
 	/**
 	* [EN]
-	* Repositions child (must already be a child of this Actor) so it comes
-	* immediately after after in the children order. Appends to the end if
-	* after is not found among the children.
+	* Repositions child (must already be a child of this Actor) so it
+	* comes immediately after after in the children order. An invalid
+	* after moves child to the front; an after that isn't among the
+	* children appends it to the end.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
 	* child（既にこの Actor の子であること）を、子の並び順で after の
-	* 直後に来るよう再配置する。after が子の中に見つからない場合は末尾に追加する。
+	* 直後に来るよう再配置する。after が無効なら先頭へ、after が子の
+	* 中に見つからない場合は末尾に移動する。
 	*/
-	void Actor::MoveChildAfter(Actor* child, Actor* after)
+	void Actor::MoveChild(Actor child, Actor after)
 	{
-		auto childIt = std::ranges::find(children_, child);
-		if (childIt == children_.end())
+		if (!world_)
+		{
+			return;
+		}
+
+		DynamicArray<Entity>& children = world_->GetActorRecord(entity_).children_;
+
+		auto childIt = std::ranges::find(children, child.GetEntity());
+		if (childIt == children.end())
 		{
 			return;
 		}
 
 		/// [EN] Remove child from its current position first, so re-inserting it relative to after doesn't shift after's own index out from under us.
 		/// [JP] child を現在の位置から先に削除する。こうすることで、after を基準に再挿入する際、after 自身のインデックスがずれてしまうのを防ぐ。
-		children_.erase(childIt);
+		children.erase(childIt);
 
-		if (after == nullptr)
+		if (!after)
 		{
-			/// [EN] A null anchor means "move to the front of the sibling list" (there is nothing to come after).
-			/// [JP] アンカーが null の場合は「兄弟リストの先頭へ移動」を意味する（後ろに来る対象が無いため）。
-			children_.insert(children_.begin(), child);
+			/// [EN] An invalid anchor means "move to the front of the sibling list".
+			/// [JP] アンカーが無効の場合は「兄弟リストの先頭へ移動」を意味する。
+			children.insert(children.begin(), child.GetEntity());
 			return;
 		}
 
-		auto afterIt = std::ranges::find(children_, after);
-		if (afterIt == children_.end())
+		auto afterIt = std::ranges::find(children, after.GetEntity());
+		if (afterIt == children.end())
 		{
-			/// [EN] after isn't among the children (or was itself just removed): fall back to appending at the end.
-			/// [JP] after が子の中に見つからない（または after 自身が今削除された）場合: 末尾への追加にフォールバックする。
-			children_.push_back(child);
+			/// [EN] after isn't among the children: fall back to appending at the end.
+			/// [JP] after が子の中に見つからない場合: 末尾への追加にフォールバックする。
+			children.push_back(child.GetEntity());
 		}
 		else
 		{
-			children_.insert(afterIt + 1, child);
+			children.insert(afterIt + 1, child.GetEntity());
 		}
 	}
 
@@ -318,16 +348,22 @@ namespace SeedCore
 	* ancestor がこの actor の親チェーンのどこかに存在するかどうかを
 	* 返す。
 	*/
-	Bool Actor::Descendant(const Actor* ancestor)const
+	Bool Actor::Descendant(Actor ancestor)const
 	{
-		const Actor* current = parent_;
-		while (current)
+		if (!world_ || !ancestor)
 		{
-			if (current == ancestor)
+			return false;
+		}
+
+		Entity ancestorEntity = ancestor.GetEntity();
+		Entity current = world_->GetActorRecord(entity_).parent_;
+		while (current.Exists())
+		{
+			if (current == ancestorEntity)
 			{
 				return true;
 			}
-			current = current->parent_;
+			current = world_->GetActorRecord(current).parent_;
 		}
 		return false;
 	}
@@ -343,7 +379,7 @@ namespace SeedCore
 	*/
 	const Matrix& Actor::GetWorldMatrix()const
 	{
-		return worldMatrix_;
+		return world_->GetActorRecord(entity_).worldMatrix_;
 	}
 
 	/**
@@ -357,7 +393,7 @@ namespace SeedCore
 	*/
 	void Actor::SetWorldMatrix(const Matrix& matrix)
 	{
-		worldMatrix_ = matrix;
+		world_->GetActorRecord(entity_).worldMatrix_ = matrix;
 	}
 
 	/**
@@ -374,14 +410,14 @@ namespace SeedCore
 	Bool Actor::IsActive()const
 	{
 		const Active* comp = GetComponent<Active>();
-		return comp ? comp->active_ : active_;
+		return comp ? comp->active_ : world_->GetActorRecord(entity_).active_;
 	}
 
 	/**
 	* [EN]
 	* Sets this actor's active state (updating both the cached flag and
-	* its Active component if present), and propagates the same state
-	* to every descendant.
+	* its Active component if present), and propagates the same state to
+	* every descendant.
 	*
 	* ---------------------------------------------------------------------
 	*
@@ -392,7 +428,12 @@ namespace SeedCore
 	*/
 	void Actor::SetActive(Bool active)
 	{
-		active_ = active;
+		if (!world_)
+		{
+			return;
+		}
+
+		world_->GetActorRecord(entity_).active_ = active;
 
 		/// [EN] Mirror the change onto the Active component, if this actor has one, so queries reading Active see a consistent value.
 		/// [JP] この actor が Active コンポーネントを持っていれば、その変更を反映する。これにより Active を読み取るクエリが一貫した値を見られるようにする。
@@ -404,9 +445,10 @@ namespace SeedCore
 
 		/// [EN] Propagate to every descendant: a child cannot be active while its parent is inactive.
 		/// [JP] 全ての子孫へ伝播する: 親が非アクティブである間、子はアクティブになれない。
-		for (Actor* child : children_)
+		DynamicArray<Entity> children = world_->GetActorRecord(entity_).children_;
+		for (Entity child : children)
 		{
-			child->SetActive(active);
+			Actor(*world_, child).SetActive(active);
 		}
 	}
 
@@ -424,7 +466,7 @@ namespace SeedCore
 	void Actor::AddTag(String tag)
 	{
 		Size index = TagRegistry::GetOrCreate(tag);
-		tags_.set(index);
+		world_->GetActorRecord(entity_).tags_.set(index);
 	}
 
 	/**
@@ -441,7 +483,7 @@ namespace SeedCore
 		Size index = TagRegistry::Find(tag);
 		if (index != TagRegistry::InvalidIndex)
 		{
-			tags_.reset(index);
+			world_->GetActorRecord(entity_).tags_.reset(index);
 		}
 	}
 
@@ -461,7 +503,7 @@ namespace SeedCore
 		{
 			return false;
 		}
-		return tags_.test(index);
+		return world_->GetActorRecord(entity_).tags_.test(index);
 	}
 
 	/**
@@ -477,12 +519,14 @@ namespace SeedCore
 	{
 		DynamicArray<String> result;
 
-		/// [EN] Walk every registered tag slot, skipping removed tags (their bit index may still be set from before removal) and slots this actor doesn't have set.
-		/// [JP] 登録済みの全タグスロットを走査し、削除済みタグ（削除前に設定されていたビットが残っている場合がある）と、この actor で立てられていないスロットをスキップする。
+		const Bitset& tags = world_->GetActorRecord(entity_).tags_;
+
+		/// [EN] Walk every registered tag slot, skipping removed tags and slots this actor doesn't have set.
+		/// [JP] 登録済みの全タグスロットを走査し、削除済みタグと、この actor で立てられていないスロットをスキップする。
 		const DynamicArray<String>& names = TagRegistry::GetNames();
 		for (Size index = 0; index < names.size(); ++index)
 		{
-			if (!TagRegistry::IsRemoved(index) && tags_.test(index))
+			if (!TagRegistry::IsRemoved(index) && tags.test(index))
 			{
 				result.push_back(names[index]);
 			}
@@ -504,7 +548,7 @@ namespace SeedCore
 	*/
 	void Actor::SetLayer(Size index)
 	{
-		layer_ = Min(index, LayerRegistry::LayerCount - 1);
+		world_->GetActorRecord(entity_).layer_ = Min(index, LayerRegistry::LayerCount - 1);
 	}
 
 	/**
@@ -522,7 +566,7 @@ namespace SeedCore
 	void Actor::SetLayer(const String& name)
 	{
 		Size index = LayerRegistry::Find(name);
-		layer_ = (index != LayerRegistry::InvalidIndex) ? index : LayerRegistry::DefaultLayer;
+		world_->GetActorRecord(entity_).layer_ = (index != LayerRegistry::InvalidIndex) ? index : LayerRegistry::DefaultLayer;
 	}
 
 	/**
@@ -536,7 +580,7 @@ namespace SeedCore
 	*/
 	Size Actor::GetLayer()const
 	{
-		return layer_;
+		return world_->GetActorRecord(entity_).layer_;
 	}
 
 	/**
@@ -550,7 +594,7 @@ namespace SeedCore
 	*/
 	const String& Actor::GetLayerName()const
 	{
-		return LayerRegistry::GetName(layer_);
+		return LayerRegistry::GetName(world_->GetActorRecord(entity_).layer_);
 	}
 
 	/**
@@ -564,7 +608,7 @@ namespace SeedCore
 	*/
 	void Actor::SetPrefabInstance(Bool value)
 	{
-		fromPrefab_ = value;
+		world_->GetActorRecord(entity_).fromPrefab_ = value;
 	}
 
 	/**
@@ -578,7 +622,7 @@ namespace SeedCore
 	*/
 	Bool Actor::IsPrefabInstance()const
 	{
-		return fromPrefab_;
+		return world_->GetActorRecord(entity_).fromPrefab_;
 	}
 
 	/**
@@ -589,46 +633,44 @@ namespace SeedCore
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* この actor のインスタンスが生成された元のプレハブの、アセット ID
-	* を設定する（ルート actor のみ）。
+	* この actor のインスタンスが生成された元のプレハブの、アセット ID を
+	* 設定する（ルート actor のみ）。
 	*/
 	void Actor::SetSourcePrefabAssetID(Uint32 assetID)
 	{
-		sourcePrefabAssetID_ = assetID;
+		world_->GetActorRecord(entity_).sourcePrefabAssetID_ = assetID;
 	}
 
 	/**
 	* [EN]
-	* Returns the asset ID of the source prefab this actor's instance
-	* was created from, or 0 if it's not an instance root.
+	* Returns the asset ID of the source prefab this actor's instance was
+	* created from, or 0 if it's not an instance root.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* この actor のインスタンスが生成された元のプレハブの、アセット ID
-	* を返す。インスタンスルートでなければ 0 を返す。
+	* この actor のインスタンスが生成された元のプレハブの、アセット ID を
+	* 返す。インスタンスルートでなければ 0 を返す。
 	*/
 	Uint32 Actor::GetSourcePrefabAssetID()const
 	{
-		return sourcePrefabAssetID_;
+		return world_->GetActorRecord(entity_).sourcePrefabAssetID_;
 	}
 
 	/**
 	* [EN]
 	* Sets this actor's persistent ID. Only World::CreateActor should
-	* call this (it resolves collisions and keeps its ID counter in
-	* sync); everyone else should treat GetPersistentID() as read-only.
+	* call this.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* この actor の永続IDを設定する。衝突解決とIDカウンタの同期を行う
-	* World::CreateActor のみがこれを呼ぶべきであり、それ以外は
-	* GetPersistentID() を読み取り専用として扱うこと。
+	* この actor の永続IDを設定する。World::CreateActor のみがこれを
+	* 呼ぶべき。
 	*/
 	void Actor::SetPersistentID(Uint32 id)
 	{
-		persistentId_ = id;
+		world_->GetActorRecord(entity_).persistentId_ = id;
 	}
 
 	/**
@@ -644,6 +686,20 @@ namespace SeedCore
 	*/
 	Uint32 Actor::GetPersistentID()const
 	{
-		return persistentId_;
+		return world_->GetActorRecord(entity_).persistentId_;
+	}
+
+	/**
+	* [EN]
+	* Two actor handles are equal iff they refer to the same World and Entity.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 2つの actor ハンドルは、同じ World と Entity を指す場合にのみ等しい。
+	*/
+	Bool Actor::operator==(const Actor& other)const
+	{
+		return world_ == other.world_ && entity_ == other.entity_;
 	}
 }

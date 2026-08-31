@@ -14,15 +14,15 @@ namespace SeedCore
 	class SEEDCORE_API PhysicsSystem
 	{
 	public:
-		static ShapeHandle FindColliderShape(Actor& actor);
+		static ShapeHandle FindColliderShape(Actor actor);
 
 		static JPH::EAllowedDOFs ToAllowedDOFs(const Rigidbody& rigidbody);
 
-		static void ApplyActorTransform(const Actor& actor, RigidbodyDesc& desc);
+		static void ApplyActorTransform(Actor actor, RigidbodyDesc& desc);
 
-		static JPH::BodyID CreateColliderBody(Actor& actor, ShapeHandle shape, Bool isTrigger = false);
+		static JPH::BodyID CreateColliderBody(Actor actor, ShapeHandle shape, Bool isTrigger = false);
 
-		static void DestroyColliderBody(Actor& actor, JPH::BodyID bodyID, ShapeHandle shape);
+		static void DestroyColliderBody(Actor actor, JPH::BodyID bodyID, ShapeHandle shape);
 
 		static void DispatchCollisionEnter(World& world, EntityID entityID, EntityID otherEntityID);
 

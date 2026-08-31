@@ -257,7 +257,7 @@ namespace SeedCore
 			return;
 		}
 
-		Animator* selectedTarget = context_.selectionContext_.selectedActor_ ? const_cast<Animator*>(context_.selectionContext_.selectedActor_->GetComponent<Animator>()) : nullptr;
+		Animator* selectedTarget = context_.selectionContext_.selectedActor_ ? const_cast<Animator*>(context_.selectionContext_.selectedActor_.GetComponent<Animator>()) : nullptr;
 		if (selectedTarget != target_)
 		{
 			target_ = selectedTarget;

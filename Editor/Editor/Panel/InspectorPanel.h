@@ -2,6 +2,7 @@
 #include <FoundationEngine/Prelude.h>
 #include <FoundationEngine/ECS/EcsID.h>
 #include <FoundationEngine/ECS/Entity.h>
+#include <FoundationEngine/ECS/Actor.h>
 #include <FoundationEngine/ECS/ReflectionRegistry.h>
 #include <FoundationEngine/ECS/PayloadRegistry.h>
 #include <Editor/Editor/Panel/AddComponentPanel.h>
@@ -21,15 +22,15 @@ namespace SeedCore
 		void Draw();
 
 	private:
-		void DrawName(Actor* actor);
+		void DrawName(Actor actor);
 
-		void DrawTags(Actor* actor);
+		void DrawTags(Actor actor);
 
-		void DrawLayer(Actor* actor);
+		void DrawLayer(Actor actor);
 
-		void DrawPrefabControls(Actor* actor);
+		void DrawPrefabControls(Actor actor);
 
-		void DrawComponents(Actor* actor);
+		void DrawComponents(Actor actor);
 
 		/// [EN] Shared header/popup/fields block for one component - see the
 		///      .cpp definition for why it exists (archetype-layout and
@@ -40,7 +41,7 @@ namespace SeedCore
 		///      ブロック。存在理由は .cpp の定義コメント参照(アーキタイプ一覧と
 		///      スパースセットは見つけ方が違うが描画は同一)。このフレームで
 		///      削除されたら true。
-		Bool DrawComponentEntry(Actor* actor, ComponentID componentID, const String& componentName, void* componentData);
+		Bool DrawComponentEntry(Actor actor, ComponentID componentID, const String& componentName, void* componentData);
 
 		void DrawReflectedFields(String componentName, void* componentData, ComponentID componentID, Entity entity);
 
@@ -76,7 +77,7 @@ namespace SeedCore
 		Float previousScale_[3] = {};
 
 		Bool locked_ = false;
-		Actor* lockedActor_ = nullptr;
+		Actor lockedActor_;
 
 		std::string newTagBuffer_;
 

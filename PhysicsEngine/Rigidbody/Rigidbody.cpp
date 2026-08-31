@@ -11,7 +11,7 @@ namespace SeedCore
 {
 	void Rigidbody::OnAwake()
 	{
-		Actor& actor = GetActor();
+		Actor actor = GetActor();
 
 		shapeHandle_ = PhysicsSystem::FindColliderShape(actor);
 
@@ -39,7 +39,7 @@ namespace SeedCore
 			return;
 		}
 
-		Actor& actor = GetActor();
+		Actor actor = GetActor();
 		World& world = actor.GetWorld();
 		Entity entity = actor.GetEntity();
 
@@ -77,7 +77,7 @@ namespace SeedCore
 			return;
 		}
 
-		Actor& actor = GetActor();
+		Actor actor = GetActor();
 		actor.GetPhysics().DestroyBody(bodyID_);
 		actor.GetPhysics().ReleaseShape(shapeHandle_);
 
