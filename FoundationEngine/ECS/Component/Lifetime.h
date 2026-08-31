@@ -9,8 +9,9 @@ namespace SeedCore
 	* Component that destroys its owning actor after a fixed time.
 	* Holds only the configured duration; the countdown itself is
 	* tracked per entity by LifetimeSystem, which decrements it every
-	* frame and calls World::DestroyActor once it reaches zero. Pairs
-	* with Spawner for "spawn, live briefly, disappear" gameplay.
+	* frame and records the actor's destruction on the frame's
+	* CommandBuffer once it reaches zero. Pairs with Spawner for "spawn,
+	* live briefly, disappear" gameplay.
 	*
 	* ---------------------------------------------------------------------
 	*
@@ -18,7 +19,8 @@ namespace SeedCore
 	* 一定時間後に所有アクターを破棄するコンポーネント。設定値である
 	* 生存時間のみを保持し、カウントダウン自体は LifetimeSystem が
 	* エンティティごとに追跡する（毎フレーム減算し、0 に達したら
-	* World::DestroyActor を呼ぶ）。「生成 → 短時間だけ存在 → 消滅」の
+	* そのフレームの CommandBuffer へアクターの破棄を記録する）。
+	* 「生成 → 短時間だけ存在 → 消滅」の
 	* ゲームプレイで Spawner と対になる。
 	*/
 	struct Lifetime

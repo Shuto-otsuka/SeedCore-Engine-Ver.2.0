@@ -4,19 +4,24 @@
 #include <FoundationEngine/ECS/System/MoveSystem.h>
 #include <FoundationEngine/ECS/System/SpawnerSystem.h>
 #include <FoundationEngine/ECS/System/LifetimeSystem.h>
+#include <FoundationEngine/ECS/System/SystemGraph.h>
+#include <FoundationEngine/ECS/CommandBuffer.h>
 
 namespace SeedCore
 {
 	class World;
 	class ResourceCache;
+	class JobExecutor;
 
 	/**
 	* [EN]
 	* Drives the built-in per-frame simulation step: dispatches the
 	* ComponentBase lifecycle callbacks (Awake/Start via Run, Tick/
 	* LateTick via Run, FixedTick via Step) and runs the built-in
-	* MoveSystem, SpawnerSystem, LifetimeSystem and TransformSystem in
-	* order. FixedTick is dispatched separately, through Step, since it
+	* MoveSystem plus the structural systems (Spawner, Lifetime) through
+	* a SystemGraph - so non-conflicting ones run in parallel on a
+	* JobExecutor - then the built-in TransformSystem. FixedTick is
+	* dispatched separately, through Step, since it
 	* runs at a fixed timestep and may fire zero or several times per
 	* rendered frame rather than exactly once like Run.
 	*
@@ -26,8 +31,10 @@ namespace SeedCore
 	* 組み込みの毎フレームシミュレーションステップを駆動するクラス:
 	* ComponentBase のライフサイクルコールバック（Awake/Start は Run、
 	* Tick/LateTick も Run、FixedTick は Step）をディスパッチし、組み込みの
-	* MoveSystem・SpawnerSystem・LifetimeSystem・TransformSystem を順に
-	* 実行する。FixedTick は固定タイムステップで動作し、Run のように
+	* MoveSystem と構造系システム（Spawner、Lifetime）を SystemGraph 経由で
+	* 実行し（衝突しないものは JobExecutor 上で並列に走る）、続けて
+	* 組み込みの TransformSystem を実行する。FixedTick は固定タイムステップで
+	* 動作し、Run のように
 	* 毎フレーム必ず1回ではなく0回や複数回発火し得るため、Step として
 	* 別に配線する。
 	*/
@@ -58,26 +65,31 @@ namespace SeedCore
 
 		/**
 		* [EN]
-		* Runs one frame: drives Awake/Start (if isPlaying), drives
-		* MoveSystem then SpawnerSystem then LifetimeSystem (if isPlaying,
-		* all before TransformSystem so this frame's motion and any newly
-		* spawned actor's position are reflected in this same frame's
-		* world matrix), runs the built-in TransformSystem, then drives
-		* Tick/LateTick (if isPlaying). Shared by Runtime and Editor, so
-		* cache is threaded through explicitly rather than assumed global.
+		* Runs one frame: drives Awake/Start (if isPlaying), then (if
+		* isPlaying) runs MoveSystem and the structural systems (Spawner +
+		* Lifetime) through a SystemGraph on executor - MoveSystem in
+		* parallel with the structural pair - flushes the recorded
+		* structural changes, and runs the built-in TransformSystem (all
+		* before Tick/LateTick so this frame's motion and any newly
+		* spawned actor's position are in this frame's world matrix), then
+		* drives Tick/LateTick (if isPlaying). Shared by Runtime and
+		* Editor, so cache and executor are threaded through explicitly
+		* rather than assumed global.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* 1フレーム分を実行する: （isPlaying であれば）Awake/Start を
-		* 駆動し、（isPlaying であれば、TransformSystem より前に — 今フレーム
-		* の移動や新しく生成された actor の位置が同じフレームのワールド
-		* 行列に反映されるように）MoveSystem、続けて SpawnerSystem、
-		* LifetimeSystem を駆動し、組み込みの TransformSystem を実行し、
-		* （isPlaying であれば）Tick/LateTick を駆動する。Runtime と Editor の
-		* 両方から使われるため、cache はグローバル前提にせず明示的に受け渡す。
+		* 1フレーム分を実行する: （isPlaying であれば）Awake/Start を駆動し、
+		* （isPlaying であれば）MoveSystem と構造系システム（Spawner +
+		* Lifetime）を SystemGraph 経由で executor 上で実行し（MoveSystem は
+		* 構造系ペアと並列）、記録された構造変更を flush し、組み込みの
+		* TransformSystem を実行する（すべて Tick/LateTick より前 — 今フレーム
+		* の移動や新しく生成された actor の位置が同じフレームのワールド行列に
+		* 入るように）。その後（isPlaying であれば）Tick/LateTick を駆動する。
+		* Runtime と Editor の両方から使われるため、cache と executor は
+		* グローバル前提にせず明示的に受け渡す。
 		*/
-		void Run(World& world, ResourceCache& cache, Float elapsedTime, Bool isPlaying = true);
+		void Run(World& world, ResourceCache& cache, JobExecutor& executor, Float elapsedTime, Bool isPlaying = true);
 
 		/**
 		* [EN]
@@ -131,6 +143,16 @@ namespace SeedCore
 		/// [JP] 全 Spawner コンポーネントの周期的なプレハブ生成を駆動する組み込みシステム。
 		SpawnerSystem spawnerSystem_;
 
+		/// [EN] Built-in system that counts down every Lifetime component and records its owning actor's destruction once it hits zero.
+		/// [JP] 全 Lifetime コンポーネントをカウントダウンし、0 に達した時点で所有アクターの破棄を記録する組み込みシステム。
 		LifetimeSystem lifetimeSystem_;
+
+		/// [EN] Collects the structural World changes SpawnerSystem/LifetimeSystem record each frame; flushed between the system-update block and TransformSystem.
+		/// [JP] SpawnerSystem/LifetimeSystem が毎フレーム記録する World の構造変更を集める。システム更新ブロックと TransformSystem の間で flush される。
+		CommandBuffer commandBuffer_;
+
+		/// [EN] Schedules the pre-TransformSystem systems by their component access, running non-conflicting ones in parallel on the frame's JobExecutor; rebuilt each Run.
+		/// [JP] TransformSystem 前のシステムをコンポーネントアクセスに基づいてスケジュールし、衝突しないものをそのフレームの JobExecutor 上で並列に走らせる。Run ごとに再構築する。
+		SystemGraph systemGraph_;
 	};
 }

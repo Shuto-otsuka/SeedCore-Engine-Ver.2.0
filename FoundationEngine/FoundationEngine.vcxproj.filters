@@ -283,6 +283,12 @@
     <ClCompile Include="ECS\System\LifetimeSystem.cpp">
       <Filter>ESC\System</Filter>
     </ClCompile>
+    <ClCompile Include="ECS\CommandBuffer.cpp">
+      <Filter>ESC</Filter>
+    </ClCompile>
+    <ClCompile Include="ECS\System\SystemGraph.cpp">
+      <Filter>ESC\System</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Log\DxFail.h">
@@ -697,6 +703,12 @@
     </ClInclude>
     <ClInclude Include="Utility\StaticArray.h">
       <Filter>Utility</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\CommandBuffer.h">
+      <Filter>ESC</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\System\SystemGraph.h">
+      <Filter>ESC\System</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

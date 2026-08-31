@@ -1,29 +1,28 @@
 #include <FoundationEngine/ECS/System/SpawnerSystem.h>
 #include <FoundationEngine/ECS/World.h>
 #include <FoundationEngine/ECS/Actor.h>
+#include <FoundationEngine/ECS/CommandBuffer.h>
 #include <FoundationEngine/ECS/Component/Spawner.h>
-#include <FoundationEngine/ECS/Component/Position.h>
-#include <FoundationEngine/Resource/ResourceCache.h>
-#include <FoundationEngine/Resource/PrefabPool.h>
 
 namespace SeedCore
 {
 	/**
 	* [EN]
-	* Advances every Spawner component's timers by deltaTime: destroys
-	* any spawned instance whose lifeTime_ has elapsed (freeing its
-	* slot), then instantiates its prefab whenever spawnInterval_
-	* elapses and the live instance count hasn't yet reached maxCount_.
+	* Advances every Spawner component's timers by deltaTime: records, on
+	* cmd, the destruction of any spawned instance whose lifeTime_ has
+	* elapsed (freeing its slot), then records a deferred prefab spawn
+	* whenever spawnInterval_ elapses and the live instance count hasn't
+	* yet reached maxCount_.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
 	* 全 Spawner コンポーネントのタイマーを deltaTime だけ進める:
-	* lifeTime_ が経過した生成済みインスタンスを破棄し(その枠を空け)、
-	* その上で spawnInterval_ が経過し生存中インスタンス数が maxCount_ に
-	* 達していない度に、そのプレハブを生成する。
+	* lifeTime_ が経過した生成済みインスタンスの破棄を cmd へ記録し(その
+	* 枠を空け)、その上で spawnInterval_ が経過し生存中インスタンス数が
+	* maxCount_ に達していない度に、プレハブの遅延生成を記録する。
 	*/
-	void SpawnerSystem::Update(World& world, ResourceCache& cache, Float deltaTime)
+	void SpawnerSystem::Execute(CommandBuffer& cmd, World& world, Float deltaTime)
 	{
 		for (EntityID entityID : world.GetComponents<Spawner>())
 		{
@@ -41,20 +40,37 @@ namespace SeedCore
 
 			RuntimeState& state = runtimeState_[entityID];
 
+			/// [EN] Instances spawned last frame were tracked by the provisional EntityID cmd handed back; the flush that ran since then resolved it to a real one.
+			/// [JP] 前フレームに生成したインスタンスは cmd が返した暫定 EntityID で追跡していた。その後の flush で実際の EntityID へ解決済み。
+			for (SpawnedInstance& instance : state.instances_)
+			{
+				if (CommandBuffer::IsProvisional(instance.entityID_))
+				{
+					EntityID resolved = cmd.Resolved(instance.entityID_);
+					if (resolved != EntityID{})
+					{
+						instance.entityID_ = resolved;
+					}
+				}
+			}
+
 			for (Size instanceIndex = 0; instanceIndex < state.instances_.size(); )
 			{
 				SpawnedInstance& instance = state.instances_[instanceIndex];
 				instance.remainingLifeTime_ -= deltaTime;
-				if (instance.remainingLifeTime_ > 0.0f)
+
+				Bool stillProvisional = CommandBuffer::IsProvisional(instance.entityID_);
+				Bool destroyedElsewhere = !stillProvisional && !world.GetActor(instance.entityID_);
+
+				if (instance.remainingLifeTime_ > 0.0f && !destroyedElsewhere)
 				{
 					instanceIndex++;
 					continue;
 				}
 
-				Actor spawnedActor = world.GetActor(instance.entityID_);
-				if (spawnedActor)
+				if (instance.remainingLifeTime_ <= 0.0f && !stillProvisional && !destroyedElsewhere)
 				{
-					world.DestroyActor(spawnedActor);
+					cmd.DestroyEntity(instance.entityID_);
 				}
 
 				state.instances_[instanceIndex] = state.instances_.back();
@@ -79,57 +95,24 @@ namespace SeedCore
 
 			state.elapsedTime_ -= spawner->spawnInterval_;
 
-			Handle<Prefab> handle = cache.GetPrefabPool().Load(spawner->prefabID_, cache);
-			Prefab* prefab = cache.GetPrefabPool().Get(handle);
-			if (prefab == nullptr)
+			if (spawner->prefabID_ == 0)
 			{
 				continue;
 			}
 
-			/// [EN] Spawn as a root-level actor (no parent) rather than as a
-			///      child of the Spawner's actor: Rigidbody/PhysicsSystem
-			///      places a JPH body directly from an actor's local
-			///      Position (PhysicsSystem::ApplyActorTransform), ignoring
-			///      any parent transform - a parented spawn would render at
-			///      the correct world position via TransformSystem but get
-			///      its collider placed as if that local offset were a
-			///      world position instead.
-			/// [JP] Spawner の actor の子としてではなく、ルートレベルの
-			///      actor(親無し)として生成する - Rigidbody/PhysicsSystem
-			///      は actor のローカル Position をそのまま JPH ボディの
-			///      配置に使う(PhysicsSystem::ApplyActorTransform)ため、
-			///      親の変換を考慮しない。親付きで生成すると、見た目は
-			///      TransformSystem 経由で正しいワールド位置に描画される
-			///      一方、コライダーはそのローカルオフセットをワールド
-			///      位置と誤認したまま配置されてしまう。
-			Actor spawnedActor = prefab->Instantiate(world, cache);
-			if (!spawnedActor)
-			{
-				continue;
-			}
-
+			/// [EN] Spawn as a root-level actor (no parent): PhysicsSystem places a Rigidbody's JPH body from the actor's local Position directly (PhysicsSystem::ApplyActorTransform), ignoring any parent transform, so a parented spawn would render correctly via TransformSystem but get its collider placed as if the local offset were a world position.
+			/// [JP] ルートレベルの actor(親無し)として生成する: PhysicsSystem は Rigidbody の JPH ボディを actor のローカル Position からそのまま配置し(PhysicsSystem::ApplyActorTransform)、親の変換を考慮しないため、親付きで生成すると見た目は TransformSystem 経由で正しくてもコライダーがローカルオフセットをワールド位置と誤認して配置される。
 			Vector3 spawnPosition = actor.GetWorldMatrix().Translation();
-
-			Position* position = world.GetComponent<Position>(spawnedActor.GetEntity());
-			if (position != nullptr)
+			if (spawner->randomSpawn_)
 			{
-				if (spawner->randomSpawn_)
-				{
-					std::uniform_real_distribution<Float> jitter(-spawner->randomRadius_, spawner->randomRadius_);
-					position->x_ = spawnPosition.x + jitter(randomEngine_);
-					position->y_ = spawnPosition.y + jitter(randomEngine_);
-					position->z_ = spawnPosition.z + jitter(randomEngine_);
-				}
-				else
-				{
-					position->x_ = spawnPosition.x;
-					position->y_ = spawnPosition.y;
-					position->z_ = spawnPosition.z;
-				}
+				std::uniform_real_distribution<Float> jitter(-spawner->randomRadius_, spawner->randomRadius_);
+				spawnPosition.x += jitter(randomEngine_);
+				spawnPosition.y += jitter(randomEngine_);
+				spawnPosition.z += jitter(randomEngine_);
 			}
 
 			SpawnedInstance instance;
-			instance.entityID_ = spawnedActor.GetEntity().GetID();
+			instance.entityID_ = cmd.SpawnPrefab(spawner->prefabID_, spawnPosition);
 			instance.remainingLifeTime_ = spawner->lifeTime_;
 			state.instances_.push_back(instance);
 		}

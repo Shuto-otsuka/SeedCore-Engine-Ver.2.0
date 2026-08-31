@@ -2,6 +2,8 @@
 #include <FoundationEngine/Prelude.h>
 #include <FoundationEngine/Utility/ReadWrite.h>
 #include <FoundationEngine/ECS/World.h>
+#include <FoundationEngine/JobSystem/JobExecutor.h>
+#include <FoundationEngine/JobSystem/JobTaskflow.h>
 
 namespace SeedCore
 {
@@ -160,50 +162,69 @@ namespace SeedCore
 
 				for (Chunk* chunk : chunkList)
 				{
-					std::tuple<ResolvedPtr<StripAccessType<Ts>>...> resolved;
-					(ResolveOne<StripAccessType<Ts>>(archetype, chunk, std::get<ResolvedPtr<StripAccessType<Ts>>>(resolved)), ...);
-
-					Size count = chunk->EntityCount();
-					for (Size index = 0; index < count; ++index)
-					{
-						EntityID entity = chunk->EntityAt(index);
-
-						Bool hasAllSparse = ([&]()
-							{
-								if constexpr (ComponentTraits<StripAccessType<Ts>>::storage == ComponentStorage::SparseSet)
-								{
-									auto& r = std::get<ResolvedPtr<StripAccessType<Ts>>>(resolved);
-									r.ptr = static_cast<StripAccessType<Ts>*>(world_.GetComponent(entity, r.id));
-									return r.ptr != nullptr;
-								}
-								else
-								{
-									return true;
-								}
-							}() && ...);
-
-						if (!hasAllSparse)
-						{
-							continue;
-						}
-
-						/// [EN] If function accepts EntityID as its first parameter, pass
-						///      it through; otherwise call it the original way. This lets
-						///      one ForEach serve both call styles.
-						/// [JP] function が第一引数として EntityID を受け取れるならそれを渡し、
-						///      そうでなければ元の呼び方をする。これにより ForEach は
-						///      両方の呼び出し形式に対応できる。
-						if constexpr (std::is_invocable_v<F&, EntityID, StripAccessType<Ts>&...>)
-						{
-							function(entity, FetchOne<StripAccessType<Ts>>(std::get<ResolvedPtr<StripAccessType<Ts>>>(resolved), entity, index)...);
-						}
-						else
-						{
-							function(FetchOne<StripAccessType<Ts>>(std::get<ResolvedPtr<StripAccessType<Ts>>>(resolved), entity, index)...);
-						}
-					}
+					ProcessChunk(archetype, chunk, function);
 				}
 			}
+		}
+
+		/**
+		* [EN]
+		* Opt-in parallel variant of ForEach: dispatches one job per
+		* matching chunk to executor and blocks until all finish. The
+		* engine touches nothing else in the World while this runs (the
+		* BeginQueryIteration guard still asserts against structural
+		* changes), and the caller's function must only read/write its
+		* own entity's components, must not write shared mutable state
+		* without synchronization, and must route any structural change
+		* through a per-worker CommandBuffer. Intended for pure per-entity
+		* work (skin matrices, instance-data packing).
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* ForEach の opt-in な並列版: 一致するチャンクごとに1つのジョブを
+		* executor へ投入し、全て終わるまでブロックする。実行中エンジンは
+		* World の他の何にも触れず（BeginQueryIteration ガードは引き続き
+		* 構造変更に対してアサートする）、呼び出し側の function は自分の
+		* エンティティのコンポーネントのみ読み書きし、共有可変状態を同期
+		* なしで書かず、構造変更はワーカーごとの CommandBuffer 経由に
+		* しなければならない。純 per-entity 計算（スキン行列、インスタンス
+		* データ packing）を想定。
+		*/
+		template<typename F>
+		void ForEachParallel(JobExecutor& executor, F&& function)
+		{
+			struct IterationScope
+			{
+				World& world_;
+				explicit IterationScope(World& world) :world_(world) { world_.BeginQueryIteration(); }
+				~IterationScope() { world_.EndQueryIteration(); }
+				IterationScope(const IterationScope&) = delete;
+				IterationScope& operator=(const IterationScope&) = delete;
+			} iterationScope(world_);
+
+			JobTaskflow taskflow;
+
+			const auto& chunks = world_.GetChunk();
+			for (auto& [archetype, chunkList] : chunks)
+			{
+				const Bitset& archetypeSignature = archetype->Signature();
+				if ((signature_ & archetypeSignature) != signature_)
+				{
+					continue;
+				}
+
+				Archetype* archetypePtr = archetype;
+				for (Chunk* chunk : chunkList)
+				{
+					taskflow.emplace([this, archetypePtr, chunk, &function]()
+						{
+							ProcessChunk(archetypePtr, chunk, function);
+						});
+				}
+			}
+
+			executor.Run(taskflow).wait();
 		}
 
 		/**
@@ -304,6 +325,68 @@ namespace SeedCore
 		}
 
 	private:
+		/**
+		* [EN]
+		* Runs function over every matching entity in one chunk: resolves
+		* each archetype-stored component's base pointer once, then
+		* per-entity resolves any sparse-set components (skipping the
+		* entity if any are missing) and invokes function. Shared by the
+		* serial ForEach and the parallel ForEachParallel (one call per
+		* chunk).
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* 1つのチャンク内の一致する各エンティティに対して function を
+		* 実行する: 各アーキタイプ格納コンポーネントの基底ポインタを
+		* 一度解決し、エンティティごとにスパースセットコンポーネントを
+		* 解決して（いずれか欠けていればそのエンティティをスキップ）
+		* function を呼ぶ。直列の ForEach と並列の ForEachParallel
+		* （チャンクごとに1回呼ぶ）で共有する。
+		*/
+		template<typename F>
+		void ProcessChunk(Archetype* archetype, Chunk* chunk, F& function)
+		{
+			std::tuple<ResolvedPtr<StripAccessType<Ts>>...> resolved;
+			(ResolveOne<StripAccessType<Ts>>(archetype, chunk, std::get<ResolvedPtr<StripAccessType<Ts>>>(resolved)), ...);
+
+			Size count = chunk->EntityCount();
+			for (Size index = 0; index < count; ++index)
+			{
+				EntityID entity = chunk->EntityAt(index);
+
+				Bool hasAllSparse = ([&]()
+					{
+						if constexpr (ComponentTraits<StripAccessType<Ts>>::storage == ComponentStorage::SparseSet)
+						{
+							auto& r = std::get<ResolvedPtr<StripAccessType<Ts>>>(resolved);
+							r.ptr = static_cast<StripAccessType<Ts>*>(world_.GetComponent(entity, r.id));
+							return r.ptr != nullptr;
+						}
+						else
+						{
+							return true;
+						}
+					}() && ...);
+
+				if (!hasAllSparse)
+				{
+					continue;
+				}
+
+				/// [EN] If function accepts EntityID as its first parameter, pass it through; otherwise call it the original way. This lets one path serve both call styles.
+				/// [JP] function が第一引数として EntityID を受け取れるならそれを渡し、そうでなければ元の呼び方をする。これにより1つの経路で両方の呼び出し形式に対応できる。
+				if constexpr (std::is_invocable_v<F&, EntityID, StripAccessType<Ts>&...>)
+				{
+					function(entity, FetchOne<StripAccessType<Ts>>(std::get<ResolvedPtr<StripAccessType<Ts>>>(resolved), entity, index)...);
+				}
+				else
+				{
+					function(FetchOne<StripAccessType<Ts>>(std::get<ResolvedPtr<StripAccessType<Ts>>>(resolved), entity, index)...);
+				}
+			}
+		}
+
 		/**
 		* [EN]
 		* Forward declaration selecting a storage-specific ResolvedPtr

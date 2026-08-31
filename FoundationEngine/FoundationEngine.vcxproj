@@ -34,7 +34,9 @@
     <ClInclude Include="ECS\ArrayFieldCommand.h" />
     <ClInclude Include="ECS\Chunk.h" />
     <ClInclude Include="ECS\Command.h" />
+    <ClInclude Include="ECS\CommandBuffer.h" />
     <ClInclude Include="ECS\Component.h" />
+    <ClCompile Include="ECS\CommandBuffer.cpp" />
     <ClCompile Include="ECS\ComponentLifecycleCommand.cpp" />
     <ClCompile Include="ECS\ComponentRegistry.cpp">
     </ClCompile>
@@ -65,6 +67,7 @@
     <ClCompile Include="ECS\System\LifetimeSystem.cpp" />
     <ClCompile Include="ECS\System\MoveSystem.cpp" />
     <ClCompile Include="ECS\System\SpawnerSystem.cpp" />
+    <ClCompile Include="ECS\System\SystemGraph.cpp" />
     <ClCompile Include="ECS\System\SystemScheduler.cpp">
     </ClCompile>
     <ClCompile Include="ECS\System\SceneTransitionSystem.cpp" />
@@ -80,6 +83,7 @@
     <ClInclude Include="ECS\System\LifetimeSystem.h" />
     <ClInclude Include="ECS\System\MoveSystem.h" />
     <ClInclude Include="ECS\System\SpawnerSystem.h" />
+    <ClInclude Include="ECS\System\SystemGraph.h" />
     <ClInclude Include="ECS\System\TransformSystem.h" />
     <ClInclude Include="ECS\TagRegistry.h" />
     <ClInclude Include="ECS\World.h" />

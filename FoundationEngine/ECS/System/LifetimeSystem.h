@@ -6,13 +6,15 @@
 namespace SeedCore
 {
 	class World;
+	class CommandBuffer;
 
 	/**
 	* [EN]
 	* Drives every Lifetime component in a World: counts each holding
-	* actor's remaining time down from Lifetime::duration_ and destroys
-	* the actor once it reaches zero. Update must be called every frame
-	* to advance the countdowns. The remaining time is tracked here per
+	* actor's remaining time down from Lifetime::duration_ and records
+	* the actor's destruction on the CommandBuffer once it reaches zero.
+	* Execute must be called every frame to advance the countdowns. The
+	* remaining time is tracked here per
 	* entity rather than on Lifetime itself, since Lifetime only holds
 	* reflected/serialized configuration. Pairs with SpawnerSystem,
 	* whose spawned instances rely on the same "live briefly, then
@@ -23,8 +25,9 @@ namespace SeedCore
 	* [JP]
 	* World 内の全 Lifetime コンポーネントを駆動する: 各保持アクターの
 	* 残り時間を Lifetime::duration_ からカウントダウンし、0 に達したら
-	* そのアクターを破棄する。カウントダウンを進めるには Update を毎
-	* フレーム呼び出す必要がある。残り時間は Lifetime 自体ではなく
+	* そのアクターの破棄を CommandBuffer へ記録する。カウントダウンを
+	* 進めるには Execute を毎フレーム呼び出す必要がある。残り時間は
+	* Lifetime 自体ではなく
 	* こちらでエンティティごとに追跡する。Lifetime はリフレクション/
 	* シリアライズされる設定値のみを保持するため。「短時間だけ存在して
 	* 消える」挙動を共有する SpawnerSystem と対になる。
@@ -43,10 +46,11 @@ namespace SeedCore
 		*
 		* [JP]
 		* 全 Lifetime コンポーネントのカウントダウンを deltaTime だけ
-		* 進め、残り時間が 0 に達したアクターを破棄する。初めて見つかった
-		* 保持アクターは Lifetime::duration_ からカウントダウンを開始する。
+		* 進め、残り時間が 0 に達したアクターの破棄を cmd へ記録する。
+		* 初めて見つかった保持アクターは Lifetime::duration_ から
+		* カウントダウンを開始する。
 		*/
-		void Update(World& world, Float deltaTime);
+		void Execute(CommandBuffer& cmd, World& world, Float deltaTime);
 
 		/**
 		* [EN]

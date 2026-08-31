@@ -6,7 +6,7 @@
 namespace SeedCore
 {
 	class World;
-	class ResourceCache;
+	class CommandBuffer;
 
 	/**
 	* [EN]
@@ -20,7 +20,7 @@ namespace SeedCore
 	* JPH body from local Position directly, ignoring any parent
 	* transform. Every spawned instance is destroyed after lifeTime_
 	* seconds, freeing its slot so spawning can resume up to maxCount_
-	* again. Update must be called every frame to advance each Spawner's
+	* again. Execute must be called every frame to advance each Spawner's
 	* timers. Runtime progress (elapsed time, live instances) is tracked
 	* here per entity rather than on Spawner itself, since Spawner only
 	* holds reflected/serialized configuration.
@@ -48,21 +48,27 @@ namespace SeedCore
 	public:
 		/**
 		* [EN]
-		* Advances every Spawner component's timers by deltaTime:
-		* destroys any spawned instance whose lifeTime_ has elapsed
-		* (freeing its slot), then instantiates its prefab whenever
-		* spawnInterval_ elapses and the live instance count hasn't yet
-		* reached maxCount_.
+		* Advances every Spawner component's timers by deltaTime: records,
+		* on cmd, the destruction of any spawned instance whose lifeTime_
+		* has elapsed (freeing its slot), then records a deferred prefab
+		* spawn whenever spawnInterval_ elapses and the live instance
+		* count hasn't yet reached maxCount_. cmd is flushed by the
+		* scheduler after all systems have run, so newly spawned
+		* instances are tracked by the provisional EntityID cmd hands
+		* back and re-resolved to their real EntityID on the next Execute.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
 		* 全 Spawner コンポーネントのタイマーを deltaTime だけ進める:
-		* lifeTime_ が経過した生成済みインスタンスを破棄し(その枠を空け)、
-		* その上で spawnInterval_ が経過し生存中インスタンス数が
-		* maxCount_ に達していない度に、そのプレハブを生成する。
+		* lifeTime_ が経過した生成済みインスタンスの破棄を cmd へ記録し
+		* (その枠を空け)、その上で spawnInterval_ が経過し生存中
+		* インスタンス数が maxCount_ に達していない度に、プレハブの遅延
+		* 生成を記録する。cmd は全システム実行後にスケジューラが flush
+		* するため、新しく生成されたインスタンスは cmd が返す暫定
+		* EntityID で追跡し、次の Execute で実際の EntityID へ再解決する。
 		*/
-		void Update(World& world, ResourceCache& cache, Float deltaTime);
+		void Execute(CommandBuffer& cmd, World& world, Float deltaTime);
 
 		/**
 		* [EN]
