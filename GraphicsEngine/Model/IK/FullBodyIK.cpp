@@ -135,8 +135,10 @@ namespace SeedCore
 
 		if (chain.size() == 3)
 		{
+			Vector3 poleVector = target.hasPoleVector_ ? target.poleVector_ : originalPositions[0];
+
 			Quaternion solvedRootWorldRotation, solvedMidWorldRotation;
-			TwoBoneIK::Solve(originalPositions[0], originalPositions[1], originalPositions[2], target.targetPosition_, originalPositions[0], originalRotations[0], originalRotations[1], solvedRootWorldRotation, solvedMidWorldRotation);
+			TwoBoneIK::Solve(originalPositions[0], originalPositions[1], originalPositions[2], target.targetPosition_, poleVector, originalRotations[0], originalRotations[1], solvedRootWorldRotation, solvedMidWorldRotation);
 			solvedWorldRotations[0] = solvedRootWorldRotation;
 			solvedWorldRotations[1] = solvedMidWorldRotation;
 		}

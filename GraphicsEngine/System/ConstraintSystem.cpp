@@ -132,21 +132,19 @@ namespace SeedCore
 			if (targetAnimator && targetAnimator->HasBone(attachmentConstraint->boneName_))
 			{
 				Matrix boneWorldMatrix = targetAnimator->BoneWorldMatrix(attachmentConstraint->boneName_);
-				Vector3 boneScale;
-				Quaternion boneRotation;
-				Vector3 boneTranslation;
-				boneWorldMatrix.Decompose(boneScale, boneRotation, boneTranslation);
 
-				Vector3 desiredTranslation = boneTranslation + attachmentConstraint->positionOffset_;
-				Quaternion offsetRotation = Quaternion::CreateFromYawPitchRoll(
-					ToRadians(attachmentConstraint->rotationOffset_.y),
-					ToRadians(attachmentConstraint->rotationOffset_.x),
-					ToRadians(attachmentConstraint->rotationOffset_.z)
-				);
-				Quaternion desiredRotation = Quaternion::Concatenate(offsetRotation, boneRotation);
+				Matrix offsetRotationMatrix = Matrix::CreateFromYawPitchRoll(ToRadians(attachmentConstraint->rotationOffset_.y), ToRadians(attachmentConstraint->rotationOffset_.x), ToRadians(attachmentConstraint->rotationOffset_.z));
+				Matrix offsetMatrix = offsetRotationMatrix * Matrix::CreateTranslation(attachmentConstraint->positionOffset_);
+				Matrix attachedMatrix = offsetMatrix * boneWorldMatrix;
 
-				finalTranslation = Vector3::Lerp(finalTranslation, desiredTranslation, attachmentConstraint->weight_);
-				finalRotation = Quaternion::Slerp(finalRotation, desiredRotation, attachmentConstraint->weight_);
+				Vector3 attachedScale;
+				Quaternion attachedRotation;
+				Vector3 attachedTranslation;
+				if (attachedMatrix.Decompose(attachedScale, attachedRotation, attachedTranslation))
+				{
+					finalTranslation = Vector3::Lerp(finalTranslation, attachedTranslation, attachmentConstraint->weight_);
+					finalRotation = Quaternion::Slerp(finalRotation, attachedRotation, attachmentConstraint->weight_);
+				}
 			}
 		}
 		else if (parentConstraint && parentConstraint->enabled_)
@@ -154,22 +152,18 @@ namespace SeedCore
 			Actor target = (parentConstraint->target_ != 0) ? world.FindActor(parentConstraint->target_) : Actor();
 			if (target)
 			{
-				Matrix targetWorldMatrix = target.GetWorldMatrix();
-				Vector3 targetScale;
-				Quaternion targetRotation;
-				Vector3 targetTranslation;
-				targetWorldMatrix.Decompose(targetScale, targetRotation, targetTranslation);
+				Matrix offsetRotationMatrix = Matrix::CreateFromYawPitchRoll(ToRadians(parentConstraint->rotationOffset_.y), ToRadians(parentConstraint->rotationOffset_.x), ToRadians(parentConstraint->rotationOffset_.z));
+				Matrix offsetMatrix = offsetRotationMatrix * Matrix::CreateTranslation(parentConstraint->positionOffset_);
+				Matrix constrainedMatrix = offsetMatrix * target.GetWorldMatrix();
 
-				Vector3 desiredTranslation = targetTranslation + parentConstraint->positionOffset_;
-				Quaternion offsetRotation = Quaternion::CreateFromYawPitchRoll(
-					ToRadians(parentConstraint->rotationOffset_.y),
-					ToRadians(parentConstraint->rotationOffset_.x),
-					ToRadians(parentConstraint->rotationOffset_.z)
-				);
-				Quaternion desiredRotation = Quaternion::Concatenate(offsetRotation, targetRotation);
-
-				finalTranslation = Vector3::Lerp(finalTranslation, desiredTranslation, parentConstraint->weight_);
-				finalRotation = Quaternion::Slerp(finalRotation, desiredRotation, parentConstraint->weight_);
+				Vector3 constrainedScale;
+				Quaternion constrainedRotation;
+				Vector3 constrainedTranslation;
+				if (constrainedMatrix.Decompose(constrainedScale, constrainedRotation, constrainedTranslation))
+				{
+					finalTranslation = Vector3::Lerp(finalTranslation, constrainedTranslation, parentConstraint->weight_);
+					finalRotation = Quaternion::Slerp(finalRotation, constrainedRotation, parentConstraint->weight_);
+				}
 			}
 		}
 		else
@@ -201,12 +195,8 @@ namespace SeedCore
 					Vector3 targetTranslation;
 					targetWorldMatrix.Decompose(targetScale, targetRotation, targetTranslation);
 
-					Quaternion offsetRotation = Quaternion::CreateFromYawPitchRoll(
-						ToRadians(rotationConstraint->offset_.y),
-						ToRadians(rotationConstraint->offset_.x),
-						ToRadians(rotationConstraint->offset_.z)
-					);
-					Quaternion desiredRotation = Quaternion::Concatenate(offsetRotation, targetRotation);
+					Quaternion offsetRotation = Quaternion::CreateFromYawPitchRoll(ToRadians(rotationConstraint->offset_.y), ToRadians(rotationConstraint->offset_.x), ToRadians(rotationConstraint->offset_.z));
+					Quaternion desiredRotation = offsetRotation * targetRotation;
 
 					finalRotation = Quaternion::Slerp(finalRotation, desiredRotation, rotationConstraint->weight_);
 				}

@@ -328,7 +328,7 @@ namespace SeedCore
 			ColliderInstance instance{};
 			instance.position_ = actorPosition + Vector3::Transform(localOffset, actorRotation);
 			instance.shapeKind_ = static_cast<Uint32>(ColliderShapeKind::Circle);
-			instance.rotation_ = Quaternion::Concatenate(faceForwardRotation, actorRotation);
+			instance.rotation_ = faceForwardRotation * actorRotation;
 			instance.dimensions_ = Vector3(collider->radius_, 0.0f, 0.0f);
 			instance.color_ = colliderDebugColor;
 			instances.push_back(instance);

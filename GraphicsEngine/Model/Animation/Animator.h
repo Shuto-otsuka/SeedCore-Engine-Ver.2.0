@@ -108,6 +108,8 @@ namespace SeedCore
 		Vector3 targetPosition_ = Vector3::Zero;
 		Quaternion targetRotation_ = Quaternion::Identity;
 		Bool hasRotation_ = false;
+		Vector3 poleVector_ = Vector3::Zero;
+		Bool hasPoleVector_ = false;
 		Float weight_ = 0.0f;
 		Bool refreshedThisFrame_ = false;
 	};
@@ -189,6 +191,8 @@ namespace SeedCore
 		void SetIKTarget(const std::string& effectorBoneName, const Vector3& targetPosition, Float weight = 1.0f);
 
 		void SetIKTarget(const std::string& effectorBoneName, const Vector3& targetPosition, const Quaternion& targetRotation, Float weight = 1.0f);
+
+		void SetIKPole(const std::string& effectorBoneName, const Vector3& poleVector);
 
 		void SetJointConstraint(const std::string& boneName, const Vector3& axis, const Vector3& swingAxis, Float swingAngle1, Float swingAngle2);
 

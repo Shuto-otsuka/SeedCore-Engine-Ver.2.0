@@ -174,6 +174,13 @@ namespace SeedCore
 		target.refreshedThisFrame_ = true;
 	}
 
+	void Animator::SetIKPole(const std::string& effectorBoneName, const Vector3& poleVector)
+	{
+		IKTarget& target = ikTargets_[effectorBoneName];
+		target.poleVector_ = poleVector;
+		target.hasPoleVector_ = true;
+	}
+
 	void Animator::SetJointConstraint(const std::string& boneName, const Vector3& axis, const Vector3& swingAxis, Float swingAngle1, Float swingAngle2)
 	{
 		JointConstraint& constraint = jointConstraints_[boneName];
