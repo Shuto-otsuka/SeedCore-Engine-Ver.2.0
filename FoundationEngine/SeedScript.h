@@ -4,7 +4,7 @@
 
 namespace SeedCore
 {
-	class SEEDCORE_API SeedScript :public ComponentBase
+	class SeedScript :public ComponentBase
 	{
 	public:
 		virtual ~SeedScript() = default;

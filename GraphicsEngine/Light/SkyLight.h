@@ -4,7 +4,7 @@
 
 namespace SeedCore
 {
-	class SEEDCORE_API SkyLight :public SeedScript
+	class SkyLight :public SeedScript
 	{
 	public:
 		SC_REFLECTION_FIELD_EX("スカイマップ使用")

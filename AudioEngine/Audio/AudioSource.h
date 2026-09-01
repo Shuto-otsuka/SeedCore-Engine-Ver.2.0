@@ -4,7 +4,7 @@
 
 namespace SeedCore
 {
-	class SEEDCORE_API AudioSource :public SeedScript
+	class AudioSource :public SeedScript
 	{
 	public:
 
