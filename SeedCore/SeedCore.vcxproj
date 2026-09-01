@@ -39,6 +39,7 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="ScComponent.h" />
     <ClInclude Include="ScInput.h" />
     <ClInclude Include="ScMath.h" />
     <ClInclude Include="ScPrefab.h" />
