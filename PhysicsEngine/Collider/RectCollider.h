@@ -5,7 +5,7 @@
 
 namespace SeedCore
 {
-	class RectCollider :public SeedScript
+	class SEEDCORE_API RectCollider :public SeedScript
 	{
 	public:
 		SC_REFLECTION_FIELD_EX("サイズ")

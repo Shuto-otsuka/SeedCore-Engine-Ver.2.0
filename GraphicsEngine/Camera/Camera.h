@@ -4,7 +4,7 @@
 
 namespace SeedCore
 {
-	class Camera :public SeedScript
+	class SEEDCORE_API Camera :public SeedScript
 	{
 	public:
 		SC_REFLECTION_FIELD_EX("FOV")

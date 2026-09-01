@@ -5,7 +5,7 @@
 
 namespace SeedCore
 {
-	class SliderJoint :public SeedScript
+	class SEEDCORE_API SliderJoint :public SeedScript
 	{
 	public:
 		SC_REFLECTION_FIELD_EX("有効")

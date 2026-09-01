@@ -5,7 +5,7 @@
 
 namespace SeedCore
 {
-	class CylinderCollider :public SeedScript
+	class SEEDCORE_API CylinderCollider :public SeedScript
 	{
 	public:
 		SC_REFLECTION_CLAMPED_EX("高さ", 0.001f, 100.0f)

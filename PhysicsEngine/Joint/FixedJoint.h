@@ -5,7 +5,7 @@
 
 namespace SeedCore
 {
-	class FixedJoint :public SeedScript
+	class SEEDCORE_API FixedJoint :public SeedScript
 	{
 	public:
 		SC_REFLECTION_FIELD_EX("有効")

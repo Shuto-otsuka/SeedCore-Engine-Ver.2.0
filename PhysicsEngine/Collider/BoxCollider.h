@@ -5,7 +5,7 @@
 
 namespace SeedCore
 {
-	class BoxCollider :public SeedScript
+	class SEEDCORE_API BoxCollider :public SeedScript
 	{
 	public:
 		SC_REFLECTION_FIELD_EX("サイズ")

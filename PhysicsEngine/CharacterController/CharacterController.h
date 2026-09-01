@@ -5,7 +5,7 @@
 
 namespace SeedCore
 {
-	class CharacterController :public SeedScript
+	class SEEDCORE_API CharacterController :public SeedScript
 	{
 	public:
 		SC_REFLECTION_CLAMPED_EX("半径", 0.001f, 100.0f)

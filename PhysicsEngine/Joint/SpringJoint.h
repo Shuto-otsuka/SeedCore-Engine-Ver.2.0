@@ -5,7 +5,7 @@
 
 namespace SeedCore
 {
-	class SpringJoint :public SeedScript
+	class SEEDCORE_API SpringJoint :public SeedScript
 	{
 	public:
 		SC_REFLECTION_FIELD_EX("有効")

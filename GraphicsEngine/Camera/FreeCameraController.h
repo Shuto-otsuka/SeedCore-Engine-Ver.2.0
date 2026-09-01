@@ -4,7 +4,7 @@
 
 namespace SeedCore
 {
-	class FreeCameraController :public SeedScript
+	class SEEDCORE_API FreeCameraController :public SeedScript
 	{
 	public:
 		SC_REFLECTION_FIELD_EX("移動速度")

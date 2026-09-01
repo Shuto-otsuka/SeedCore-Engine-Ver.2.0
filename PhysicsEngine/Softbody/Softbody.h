@@ -5,7 +5,7 @@
 
 namespace SeedCore
 {
-	class Softbody :public SeedScript
+	class SEEDCORE_API Softbody :public SeedScript
 	{
 	public:
 		SC_REFLECTION_CLAMPED_EX("質量", 0.001f, 100.0f)

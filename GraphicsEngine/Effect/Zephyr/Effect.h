@@ -4,7 +4,7 @@
 
 namespace SeedCore
 {
-	class Effect :public SeedScript
+	class SEEDCORE_API Effect :public SeedScript
 	{
 	public:
 

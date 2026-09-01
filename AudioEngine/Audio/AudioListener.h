@@ -4,7 +4,7 @@
 
 namespace SeedCore
 {
-	class AudioListener :public SeedScript
+	class SEEDCORE_API AudioListener :public SeedScript
 	{
 	public:
 		

@@ -5,7 +5,7 @@
 
 namespace SeedCore
 {
-	class CircleCollider :public SeedScript
+	class SEEDCORE_API CircleCollider :public SeedScript
 	{
 	public:
 		SC_REFLECTION_CLAMPED_EX("半径", 0.001f, 100.0f)

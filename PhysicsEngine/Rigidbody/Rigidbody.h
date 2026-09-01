@@ -5,7 +5,7 @@
 
 namespace SeedCore
 {
-	class Rigidbody :public SeedScript
+	class SEEDCORE_API Rigidbody :public SeedScript
 	{
 	public:
 		enum class BodyType

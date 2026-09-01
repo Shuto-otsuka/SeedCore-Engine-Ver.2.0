@@ -5,7 +5,7 @@
 
 namespace SeedCore
 {
-	class HingeJoint :public SeedScript
+	class SEEDCORE_API HingeJoint :public SeedScript
 	{
 	public:
 		SC_REFLECTION_FIELD_EX("有効")

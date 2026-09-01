@@ -6,7 +6,7 @@
 
 namespace SeedCore
 {
-	class MeshCollider :public SeedScript
+	class SEEDCORE_API MeshCollider :public SeedScript
 	{
 	public:
 		SC_PAYLOAD_FIELD_EX("コリジョンメッシュ", MeshCollision)

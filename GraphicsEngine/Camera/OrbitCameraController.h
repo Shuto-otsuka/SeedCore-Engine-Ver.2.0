@@ -4,7 +4,7 @@
 
 namespace SeedCore
 {
-	class OrbitCameraController :public SeedScript
+	class SEEDCORE_API OrbitCameraController :public SeedScript
 	{
 	public:
 		SC_REFLECTION_FIELD_EX("注視点X")
