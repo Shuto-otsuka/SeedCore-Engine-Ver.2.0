@@ -150,6 +150,7 @@ namespace SeedCore
 		{
 			settings.mOverrideMassProperties = JPH::EOverrideMassProperties::CalculateInertia;
 			settings.mMassPropertiesOverride.mMass = desc.mass_;
+			settings.mMotionQuality = desc.continuousCollision_ ? JPH::EMotionQuality::LinearCast : JPH::EMotionQuality::Discrete;
 		}
 
 		JPH::BodyInterface& bodyInterface = joltPhysics_.GetBodyInterface();

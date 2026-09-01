@@ -267,6 +267,7 @@
 #include <External/JoltPhysics/Jolt/Physics/Constraints/DistanceConstraint.h>
 #include <External/JoltPhysics/Jolt/Physics/Constraints/SliderConstraint.h>
 #include <External/JoltPhysics/Jolt/Physics/Collision/NarrowPhaseQuery.h>
+#include <External/JoltPhysics/Jolt/Physics/Collision/CollideShape.h>
 #include <External/JoltPhysics/Jolt/Physics/Collision/RayCast.h>
 #include <External/JoltPhysics/Jolt/Physics/Collision/CastResult.h>
 #include <External/JoltPhysics/Jolt/Physics/Collision/ShapeCast.h>

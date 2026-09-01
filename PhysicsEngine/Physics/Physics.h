@@ -27,6 +27,7 @@ namespace SeedCore
 		Vector3 position_ = { 0.0f, 0.0f, 0.0f };
 		Quaternion rotation_ = Quaternion::Identity;
 		JPH::EMotionType motionType_ = JPH::EMotionType::Dynamic;
+		Bool continuousCollision_ = false;
 		JPH::ObjectLayer layer_ = 0;
 		Float mass_ = 1.0f;
 		Float linearDamping_ = 0.05f;

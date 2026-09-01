@@ -22,6 +22,12 @@ namespace SeedCore
 		physicsSystem_.Init(1024, 0, 65536, 1024, bpLayerInterface, objVsBPFilter, objLayerPairFilter);
 		physicsSystem_.SetContactListener(&contactListener_);
 
+		physicsSystem_.SetSimCollideBodyVsBody([](const JPH::Body& body1, const JPH::Body& body2, JPH::Mat44Arg centerOfMassTransform1, JPH::Mat44Arg centerOfMassTransform2, JPH::CollideShapeSettings& collideShapeSettings, JPH::CollideShapeCollector& collector, const JPH::ShapeFilter& shapeFilter)
+		{
+			collideShapeSettings.mBackFaceMode = JPH::EBackFaceMode::CollideWithBackFaces;
+			JPH::PhysicsSystem::sDefaultSimCollideBodyVsBody(body1, body2, centerOfMassTransform1, centerOfMassTransform2, collideShapeSettings, collector, shapeFilter);
+		});
+
 		return true;
 	}
 

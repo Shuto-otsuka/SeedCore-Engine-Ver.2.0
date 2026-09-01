@@ -19,6 +19,10 @@ namespace SeedCore
 		SC_REFLECTION_FIELD_EX("動作モード")
 		BodyType bodyType_ = BodyType::Dynamic;
 
+		SC_REFLECTION_FIELD_CONDITION(bodyType_ == BodyType::Dynamic)
+		SC_REFLECTION_FIELD_EX("連続衝突判定")
+		Bool continuousCollision_ = false;
+
 		SC_REFLECTION_CLAMPED_EX("質量", 0.001f, 100.0f)
 		Float mass_ = 1.0f;
 
