@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version='1.0' encoding='utf-8'?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
   <ItemGroup>
     <Filter Include="EntryPoint">
@@ -13,10 +13,7 @@
     <Filter Include="Tutorial">
       <UniqueIdentifier>{09007d97-ab19-4e6e-a4fc-1369293bc115}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Script">
-      <UniqueIdentifier>{2b514bf9-0931-4b92-8303-85550265f2c9}</UniqueIdentifier>
-    </Filter>
-  </ItemGroup>
+    </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Prelude.cpp" />
     <ClCompile Include="EntryPoint\EntryGame.cpp">
@@ -32,10 +29,7 @@
     <ClCompile Include="Tutorial\ScTutorial.cpp">
       <Filter>Tutorial</Filter>
     </ClCompile>
-    <ClCompile Include="Script\Transition.cpp">
-      <Filter>Script</Filter>
-    </ClCompile>
-  </ItemGroup>
+    </ItemGroup>
   <ItemGroup>
     <ClInclude Include="EntryPoint\EntryGame.h">
       <Filter>EntryPoint</Filter>
@@ -43,8 +37,5 @@
     <ClInclude Include="Tutorial\ScTutorial.h">
       <Filter>Tutorial</Filter>
     </ClInclude>
-    <ClInclude Include="Script\Transition.h">
-      <Filter>Script</Filter>
-    </ClInclude>
-  </ItemGroup>
+    </ItemGroup>
 </Project>

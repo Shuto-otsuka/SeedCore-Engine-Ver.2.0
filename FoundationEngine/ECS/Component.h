@@ -86,6 +86,20 @@ namespace SeedCore
 		///      Metadata() 自体ではなく ComponentRegistry::Register が設定する。
 		///      型ごとのコンパイル時特性ではなく、登録ごとの文字列のため。
 		String category_;
+
+		/// [EN] The module (HMODULE, as an opaque pointer) whose REGISTER_COMPONENT
+		///      static initializer produced this entry - so the same component
+		///      header pulled into a downstream DLL (e.g. UserProject via
+		///      ScComponent.h) does not overwrite the engine's registration
+		///      with function pointers that dangle on the next hot reload.
+		///      nullptr when the caller module could not be resolved.
+		/// [JP] この登録を生成した REGISTER_COMPONENT の static 初期化子が
+		///      属するモジュール（HMODULE を不透明ポインタとして保持）。
+		///      同じコンポーネントヘッダが下流の DLL（例: ScComponent.h 経由の
+		///      UserProject）へ引き込まれても、エンジンの登録を、次のホット
+		///      リロードで宙に浮く関数ポインタで上書きしないようにするため。
+		///      呼び出し元モジュールを解決できなかった場合は nullptr。
+		void* owningModule_ = nullptr;
 	};
 
 	/**

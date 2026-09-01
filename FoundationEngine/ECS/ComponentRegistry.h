@@ -71,6 +71,15 @@ namespace SeedCore
 		* implements. Records the mapping between name, T's type_index,
 		* and the resulting ComponentID.
 		*
+		* callerAnchor is any address inside the module issuing the
+		* registration (REGISTER_COMPONENT passes the stringized type
+		* name). It is used to skip the call entirely when a different,
+		* still-loaded module already owns this component - so the same
+		* component header compiled into a downstream DLL (e.g. UserProject
+		* via ScComponent.h) never replaces the engine's function pointers
+		* with ones that dangle when that DLL hot-reloads. A null anchor
+		* disables the guard.
+		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
@@ -81,13 +90,49 @@ namespace SeedCore
 		* ライフサイクル関数ポインタ（awake_/start_/tick_/...）を束縛する
 		* setupLifecycle_ コールバックを設定する。名前、T の type_index、
 		* 結果として得られる ComponentID の対応関係を記録する。
+		*
+		* callerAnchor は登録を発行したモジュール内の任意のアドレス
+		* （REGISTER_COMPONENT は型名の文字列を渡す）。別の、まだロード
+		* されているモジュールが既にこのコンポーネントを所有している場合に
+		* 呼び出しを丸ごとスキップするために使う - 同じコンポーネント
+		* ヘッダが下流の DLL（例: ScComponent.h 経由の UserProject）で
+		* コンパイルされても、エンジンの関数ポインタを、その DLL の
+		* ホットリロードで宙に浮くものへ置き換えないようにするため。
+		* anchor が null の場合はガードを無効にする。
 		*/
 		template<typename T>
-		static void Register(String name, String category = String::intern("Custom"), ComponentStorage storage = ComponentStorage::SparseSet)
+		static void Register(String name, String category = String::intern("Custom"), ComponentStorage storage = ComponentStorage::SparseSet, const void* callerAnchor = nullptr)
 		{
 			ComponentID id = name.view().data();
+
+			/// [EN] Resolves the module (HMODULE, as an opaque pointer) that contains an address, or nullptr - GetModuleHandleEx with FROM_ADDRESS. Doubles as an "is this module still loaded?" probe: pass a previously-resolved HMODULE (its base address) back in.
+			/// [JP] アドレスを含むモジュール（HMODULE を不透明ポインタとして）を解決する。無ければ nullptr - GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS 付きの GetModuleHandleEx。「このモジュールはまだロードされているか?」の判定も兼ねる: 以前解決した HMODULE（そのベースアドレス）を渡す。
+			auto moduleOf = [](const void* address) -> void*
+			{
+				HMODULE module = nullptr;
+				if (address != nullptr)
+				{
+					GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, reinterpret_cast<LPCWSTR>(address), &module);
+				}
+				return module;
+			};
+
+			/// [EN] Skip if a still-loaded module other than the caller already owns this component: the same header compiled into a downstream DLL (e.g. UserProject via ScComponent.h) must not replace the owner's function pointers, which would dangle when that DLL hot-reloads. Re-registration is allowed when the entry is new, the caller already owns it (its own hot reload), or the old owner is no longer loaded. callerAnchor is any address inside the calling module - REGISTER_COMPONENT passes the stringized type name literal.
+			/// [JP] 呼び出し元以外の、まだロードされているモジュールが既にこのコンポーネントを所有しているならスキップする: 同じヘッダが下流の DLL（例: ScComponent.h 経由の UserProject）でコンパイルされても、所有者の関数ポインタを差し替えてはならない。その DLL がホットリロード時に宙に浮くため。エントリが新規、呼び出し元が既に所有（自身のホットリロード）、または旧所有者が既にアンロード済みの場合は再登録を許可する。callerAnchor は呼び出し元モジュール内の任意のアドレス - REGISTER_COMPONENT は型名の文字列リテラルを渡す。
+			void* callerModule = moduleOf(callerAnchor);
+			auto existing = Registry().find(id);
+			if (existing != Registry().end())
+			{
+				void* owner = existing->second.owningModule_;
+				if (owner != nullptr && owner != callerModule && moduleOf(owner) != nullptr)
+				{
+					return;
+				}
+			}
+
 			ComponentMetadata meta = Component<T>::Metadata(storage);
 			meta.category_ = category;
+			meta.owningModule_ = callerModule;
 
 			/// [EN] Sparse-set-stored components need a factory that can construct their SparseSetStorage<T> lazily, the first time an instance is actually added.
 			/// [JP] スパースセット格納コンポーネントには、実際にインスタンスが追加される最初のタイミングで SparseSetStorage<T> を遅延構築できるファクトリが必要になる。
@@ -459,20 +504,20 @@ namespace SeedCore
 */
 #define REGISTER_COMPONENT_1(Type) \
 	static const SeedCore::Bool Type##_registered = []() { \
-		SeedCore::ComponentRegistry::Register<Type>(SeedCore::String::intern(#Type)); \
+		SeedCore::ComponentRegistry::Register<Type>(SeedCore::String::intern(#Type), SeedCore::String::intern("Custom"), SeedCore::ComponentStorage::SparseSet, #Type); \
 		return true; \
 	}()
 
 #define REGISTER_COMPONENT_2(Type, Category) \
 	static const SeedCore::Bool Type##_registered = []() { \
-		SeedCore::ComponentRegistry::Register<Type>(SeedCore::String::intern(#Type), SeedCore::String(Category)); \
+		SeedCore::ComponentRegistry::Register<Type>(SeedCore::String::intern(#Type), SeedCore::String(Category), SeedCore::ComponentStorage::SparseSet, #Type); \
 		return true; \
 	}()
 
 #define REGISTER_COMPONENT_3(Type, Category, Storage) \
 	SEED_TRAITS_SPEC(Type, Storage) \
 	static const SeedCore::Bool Type##_registered = []() { \
-		SeedCore::ComponentRegistry::Register<Type>(SeedCore::String::intern(#Type), SeedCore::String(Category), Storage); \
+		SeedCore::ComponentRegistry::Register<Type>(SeedCore::String::intern(#Type), SeedCore::String(Category), Storage, #Type); \
 		return true; \
 	}()
 
