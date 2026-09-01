@@ -186,6 +186,11 @@ namespace SeedCore
 		*/
 		void rehash(size_type newCapacity)
 		{
+			if (newCapacity < DefaultCapacity)
+			{
+				newCapacity = DefaultCapacity;
+			}
+
 			DynamicArray<Slot> oldBackets(newCapacity);
 			std::swap(buckets_, oldBackets);
 			size_ = 0;
@@ -247,6 +252,12 @@ namespace SeedCore
 		*/
 		void ensure_capacity()
 		{
+			if (buckets_.size() == 0)
+			{
+				rehash(DefaultCapacity);
+				return;
+			}
+
 			if (static_cast<Float>(occupied_ + 1) > MaxLoadFactor * static_cast<Float>(buckets_.size()))
 			{
 				rehash(buckets_.size() * 2);

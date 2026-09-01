@@ -375,10 +375,9 @@ namespace SeedCore
 		* The static initializer the REGISTER_COMPONENT macro emits can
 		* call Register<T>() before a namespace-scope member is
 		* constructed, since initialization order across translation units
-		* is unspecified (Static Initialization Order Fiasco). Release
-		* routes every registry map through a function-local static
-		* (Meyer's singleton), guaranteed constructed on first access;
-		* Debug keeps them as static inline members.
+		* is unspecified (Static Initialization Order Fiasco). Every
+		* registry map is therefore routed through a function-local static
+		* (Meyer's singleton), guaranteed constructed on first access.
 		*
 		* ---------------------------------------------------------------------
 		*
@@ -386,23 +385,21 @@ namespace SeedCore
 		* REGISTER_COMPONENT マクロが生成する静的初期化子は、TU 間の
 		* 初期化順序が未規定であるため(Static Initialization Order
 		* Fiasco)、名前空間スコープのメンバが構築される前に Register<T>()
-		* を呼び得る。Release は各レジストリマップを関数ローカル static
-		* (Meyer のシングルトン)経由にして初回アクセス時に確実に構築させ、
-		* Debug は static inline メンバのまま保持する。
+		* を呼び得る。そのため各レジストリマップを関数ローカル static
+		* (Meyer のシングルトン)経由にして初回アクセス時に確実に構築させる。
 		*/
 		static FlatMap<ComponentID, ComponentMetadata>& Registry();
 
 		/**
 		* [EN]
 		* Returns the id-to-dense-index map backing GetID(); see the
-		* comment above Registry() for the Debug/Release storage split.
+		* comment above Registry() for the initialization-order rationale.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
 		* GetID() の裏付けとなる、ID から密インデックスへのマップを返す。
-		* Debug/Release でのストレージ分割については Registry() 上の
-		* コメントを参照。
+		* 初期化順序の根拠については Registry() 上のコメントを参照。
 		*/
 		static FlatMap<ComponentID, Size>& InternalID();
 
@@ -410,28 +407,27 @@ namespace SeedCore
 		* [EN]
 		* Returns the type_index-to-ComponentID map used by the
 		* templated GetComponentID<T>() overload; see the comment above
-		* Registry() for the Debug/Release storage split.
+		* Registry() for the initialization-order rationale.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
 		* テンプレート版 GetComponentID<T>() オーバーロードが使用する、
-		* type_index から ComponentID へのマップを返す。Debug/Release
-		* でのストレージ分割については Registry() 上のコメントを参照。
+		* type_index から ComponentID へのマップを返す。
+		* 初期化順序の根拠については Registry() 上のコメントを参照。
 		*/
 		static FlatMap<std::type_index, ComponentID>& TypeIndex();
 
 		/**
 		* [EN]
 		* Returns the ComponentID-to-name map backing GetName(); see the
-		* comment above Registry() for the Debug/Release storage split.
+		* comment above Registry() for the initialization-order rationale.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
 		* GetName() の裏付けとなる、ComponentID から名前へのマップを
-		* 返す。Debug/Release でのストレージ分割については Registry() 上の
-		* コメントを参照。
+		* 返す。初期化順序の根拠については Registry() 上のコメントを参照。
 		*/
 		static FlatMap<ComponentID, String>& NameMap();
 
@@ -439,38 +435,17 @@ namespace SeedCore
 		* [EN]
 		* Returns the name-to-ComponentID map backing GetComponentID(String)
 		* and GetComponentList(); see the comment above Registry() for
-		* the Debug/Release storage split.
+		* the initialization-order rationale.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
 		* GetComponentID(String) と GetComponentList() の裏付けとなる、
-		* 名前から ComponentID へのマップを返す。Debug/Release での
-		* ストレージ分割については Registry() 上のコメントを参照。
+		* 名前から ComponentID へのマップを返す。
+		* 初期化順序の根拠については Registry() 上のコメントを参照。
 		*/
 		static FlatMap<String, ComponentID>& NameToID();
 
-#ifdef _DEBUG
-		/// [EN] Debug-only storage for Registry(); see the comment above Registry() for why Release uses a function-local static instead.
-		/// [JP] Registry() 用の Debug 専用ストレージ。Release が代わりに関数ローカル static を使う理由については Registry() 上のコメントを参照。
-		static inline FlatMap<ComponentID, ComponentMetadata> registry_;
-
-		/// [EN] Debug-only storage for InternalID(); see the comment above Registry() for why Release uses a function-local static instead.
-		/// [JP] InternalID() 用の Debug 専用ストレージ。Release が代わりに関数ローカル static を使う理由については Registry() 上のコメントを参照。
-		static inline FlatMap<ComponentID, Size> internalID_;
-
-		/// [EN] Debug-only storage for TypeIndex(); see the comment above Registry() for why Release uses a function-local static instead.
-		/// [JP] TypeIndex() 用の Debug 専用ストレージ。Release が代わりに関数ローカル static を使う理由については Registry() 上のコメントを参照。
-		static inline FlatMap<std::type_index, ComponentID> typeIndex_;
-
-		/// [EN] Debug-only storage for NameMap(); see the comment above Registry() for why Release uses a function-local static instead.
-		/// [JP] NameMap() 用の Debug 専用ストレージ。Release が代わりに関数ローカル static を使う理由については Registry() 上のコメントを参照。
-		static inline FlatMap<ComponentID, String> nameMap_;
-
-		/// [EN] Debug-only storage for NameToID(); see the comment above Registry() for why Release uses a function-local static instead.
-		/// [JP] NameToID() 用の Debug 専用ストレージ。Release が代わりに関数ローカル static を使う理由については Registry() 上のコメントを参照。
-		static inline FlatMap<String, ComponentID> nameToID_;
-#endif
 		/// [EN] Next dense internal index to hand out from GetID().
 		/// [JP] GetID() から次に払い出される密な内部インデックス。
 		static inline Size nextID_ = 0;

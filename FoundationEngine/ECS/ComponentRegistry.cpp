@@ -185,90 +185,18 @@ namespace SeedCore
 		}
 	}
 
-#ifdef _DEBUG
 	/**
 	* [EN]
-	* Debug build: returns the static inline registry_ member directly.
+	* Returns a function-local static (Meyer's singleton), guaranteed
+	* constructed before first use regardless of translation-unit
+	* initialization order (see the comment on
+	* ComponentRegistry::Registry() in the header).
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* Debug ビルド: static inline メンバである registry_ を直接返す。
-	*/
-	FlatMap<ComponentID, ComponentMetadata>& ComponentRegistry::Registry()
-	{
-		return registry_;
-	}
-
-	/**
-	* [EN]
-	* Debug build: returns the static inline internalID_ member directly.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* Debug ビルド: static inline メンバである internalID_ を直接返す。
-	*/
-	FlatMap<ComponentID, Size>& ComponentRegistry::InternalID()
-	{
-		return internalID_;
-	}
-
-	/**
-	* [EN]
-	* Debug build: returns the static inline typeIndex_ member directly.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* Debug ビルド: static inline メンバである typeIndex_ を直接返す。
-	*/
-	FlatMap<std::type_index, ComponentID>& ComponentRegistry::TypeIndex()
-	{
-		return typeIndex_;
-	}
-
-	/**
-	* [EN]
-	* Debug build: returns the static inline nameMap_ member directly.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* Debug ビルド: static inline メンバである nameMap_ を直接返す。
-	*/
-	FlatMap<ComponentID, String>& ComponentRegistry::NameMap()
-	{
-		return nameMap_;
-	}
-
-	/**
-	* [EN]
-	* Debug build: returns the static inline nameToID_ member directly.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* Debug ビルド: static inline メンバである nameToID_ を直接返す。
-	*/
-	FlatMap<String, ComponentID>& ComponentRegistry::NameToID()
-	{
-		return nameToID_;
-	}
-#else
-	/**
-	* [EN]
-	* Release build: returns a function-local static (Meyer's singleton)
-	* instead of a static inline member, guaranteeing construction
-	* before first use regardless of translation-unit initialization
-	* order (see the comment on ComponentRegistry::Registry() in the header).
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* Release ビルド: static inline メンバの代わりに関数ローカル static
-	* （Meyer のシングルトン）を返し、翻訳単位の初期化順序に関わらず
-	* 初回使用前の構築を保証する（ヘッダー内の
+	* 関数ローカル static（Meyer のシングルトン）を返す。翻訳単位の
+	* 初期化順序に関わらず初回使用前の構築が保証される（ヘッダー内の
 	* ComponentRegistry::Registry() 上のコメントを参照）。
 	*/
 	FlatMap<ComponentID, ComponentMetadata>& ComponentRegistry::Registry()
@@ -279,14 +207,17 @@ namespace SeedCore
 
 	/**
 	* [EN]
-	* Release build: returns a function-local static instead of a
-	* static inline member; see the comment on Registry() above.
+	* Returns a function-local static (Meyer's singleton), guaranteed
+	* constructed before first use regardless of translation-unit
+	* initialization order (see the comment on
+	* ComponentRegistry::Registry() in the header).
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* Release ビルド: static inline メンバの代わりに関数ローカル static
-	* を返す。上の Registry() のコメントを参照。
+	* 関数ローカル static（Meyer のシングルトン）を返す。翻訳単位の
+	* 初期化順序に関わらず初回使用前の構築が保証される（ヘッダー内の
+	* ComponentRegistry::Registry() 上のコメントを参照）。
 	*/
 	FlatMap<ComponentID, Size>& ComponentRegistry::InternalID()
 	{
@@ -296,14 +227,17 @@ namespace SeedCore
 
 	/**
 	* [EN]
-	* Release build: returns a function-local static instead of a
-	* static inline member; see the comment on Registry() above.
+	* Returns a function-local static (Meyer's singleton), guaranteed
+	* constructed before first use regardless of translation-unit
+	* initialization order (see the comment on
+	* ComponentRegistry::Registry() in the header).
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* Release ビルド: static inline メンバの代わりに関数ローカル static
-	* を返す。上の Registry() のコメントを参照。
+	* 関数ローカル static（Meyer のシングルトン）を返す。翻訳単位の
+	* 初期化順序に関わらず初回使用前の構築が保証される（ヘッダー内の
+	* ComponentRegistry::Registry() 上のコメントを参照）。
 	*/
 	FlatMap<std::type_index, ComponentID>& ComponentRegistry::TypeIndex()
 	{
@@ -313,14 +247,17 @@ namespace SeedCore
 
 	/**
 	* [EN]
-	* Release build: returns a function-local static instead of a
-	* static inline member; see the comment on Registry() above.
+	* Returns a function-local static (Meyer's singleton), guaranteed
+	* constructed before first use regardless of translation-unit
+	* initialization order (see the comment on
+	* ComponentRegistry::Registry() in the header).
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* Release ビルド: static inline メンバの代わりに関数ローカル static
-	* を返す。上の Registry() のコメントを参照。
+	* 関数ローカル static（Meyer のシングルトン）を返す。翻訳単位の
+	* 初期化順序に関わらず初回使用前の構築が保証される（ヘッダー内の
+	* ComponentRegistry::Registry() 上のコメントを参照）。
 	*/
 	FlatMap<ComponentID, String>& ComponentRegistry::NameMap()
 	{
@@ -330,19 +267,21 @@ namespace SeedCore
 
 	/**
 	* [EN]
-	* Release build: returns a function-local static instead of a
-	* static inline member; see the comment on Registry() above.
+	* Returns a function-local static (Meyer's singleton), guaranteed
+	* constructed before first use regardless of translation-unit
+	* initialization order (see the comment on
+	* ComponentRegistry::Registry() in the header).
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* Release ビルド: static inline メンバの代わりに関数ローカル static
-	* を返す。上の Registry() のコメントを参照。
+	* 関数ローカル static（Meyer のシングルトン）を返す。翻訳単位の
+	* 初期化順序に関わらず初回使用前の構築が保証される（ヘッダー内の
+	* ComponentRegistry::Registry() 上のコメントを参照）。
 	*/
 	FlatMap<String, ComponentID>& ComponentRegistry::NameToID()
 	{
 		static FlatMap<String, ComponentID> instance;
 		return instance;
 	}
-#endif
 }
