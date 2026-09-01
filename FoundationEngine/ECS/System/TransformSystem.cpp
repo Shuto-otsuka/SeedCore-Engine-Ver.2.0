@@ -59,11 +59,7 @@ namespace SeedCore
 
 		if (rotation)
 		{
-			local *= Matrix::CreateFromYawPitchRoll(
-				DirectX::XMConvertToRadians(rotation->y_),
-				DirectX::XMConvertToRadians(rotation->x_),
-				DirectX::XMConvertToRadians(rotation->z_)
-			);
+			local *= Matrix::CreateFromYawPitchRoll(ToRadians(rotation->y_), ToRadians(rotation->x_), ToRadians(rotation->z_));
 		}
 
 		if (position)

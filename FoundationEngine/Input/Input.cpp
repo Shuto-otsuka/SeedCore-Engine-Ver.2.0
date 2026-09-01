@@ -731,7 +731,7 @@ namespace SeedCore
 		}
 
 		DynamicArray<Key>& keys = iterator->second.keys_;
-		std::erase(keys, key);
+		SeedCore::erase(keys, key);
 	}
 
 	/**
@@ -752,7 +752,7 @@ namespace SeedCore
 		}
 
 		DynamicArray<SDL_GamepadButton>& gamepadButtons = iterator->second.gamepadButtons_;
-		std::erase(gamepadButtons, button);
+		SeedCore::erase(gamepadButtons, button);
 	}
 
 	/**
@@ -768,7 +768,7 @@ namespace SeedCore
 	{
 		if (actionBindings_.erase(action))
 		{
-			std::erase(actionOrder_, action);
+			SeedCore::erase(actionOrder_, action);
 		}
 	}
 
@@ -844,7 +844,7 @@ namespace SeedCore
 		}
 
 		DynamicArray<DirectionalKeys>& axisKeys = iterator->second.axisKeys_;
-		std::erase(axisKeys, keys);
+		SeedCore::erase(axisKeys, keys);
 	}
 
 	/**
@@ -884,7 +884,7 @@ namespace SeedCore
 		}
 
 		DynamicArray<StickSide>& sticks = iterator->second.sticks_;
-		std::erase(sticks, side);
+		SeedCore::erase(sticks, side);
 	}
 
 	/**

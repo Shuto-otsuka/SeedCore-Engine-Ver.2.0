@@ -96,7 +96,7 @@ namespace SeedCore
 				DrawPrefabControls(actor);
 				ImGui::Separator();
 
-				Bool disabled = !actor.IsActive();
+				Bool disabled = !actor.GetActive();
 				if (disabled)
 				{
 					ImGui::BeginDisabled();
@@ -154,7 +154,7 @@ namespace SeedCore
 
 		ImGui::SameLine();
 
-		Bool active = actor.IsActive();
+		Bool active = actor.GetActive();
 		if (ImGui::Checkbox("有効", &active))
 		{
 			context_.sceneContext_.history_.Push(MakePtr<ActorActiveCommand>(*context_.worldContext_.world_, actor, active));

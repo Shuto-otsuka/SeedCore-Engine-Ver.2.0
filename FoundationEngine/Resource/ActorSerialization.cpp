@@ -408,7 +408,7 @@ namespace SeedCore
 
 		node.tags_ = actor.GetTagList();
 		node.layerName_ = actor.GetLayerName();
-		node.active_ = actor.IsActive();
+		node.active_ = actor.GetActive();
 		node.persistentId_ = actor.GetPersistentID();
 
 		const Position* position = actor.GetComponent<Position>();

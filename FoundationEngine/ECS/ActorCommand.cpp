@@ -399,7 +399,7 @@ namespace SeedCore
 
 			Entry entry;
 			entry.persistentId_ = current.GetPersistentID();
-			entry.oldActive_ = current.IsActive();
+			entry.oldActive_ = current.GetActive();
 			entries_.push_back(entry);
 
 			std::ranges::copy(current.GetChildren(), std::back_inserter(pending));

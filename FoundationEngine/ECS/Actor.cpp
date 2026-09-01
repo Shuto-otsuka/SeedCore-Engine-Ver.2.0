@@ -2,7 +2,6 @@
 #include <FoundationEngine/ECS/World.h>
 #include <FoundationEngine/ECS/TagRegistry.h>
 #include <FoundationEngine/ECS/LayerRegistry.h>
-
 #include <FoundationEngine/ECS/Component/Active.h>
 
 namespace SeedCore
@@ -105,10 +104,10 @@ namespace SeedCore
 			void* data = world_->GetComponent(entity_.GetID(), id);
 			if (data)
 			{
-				ComponentBase* cb = static_cast<ComponentBase*>(data);
-				if (cb->destroy_)
+				ComponentBase* componentBase = static_cast<ComponentBase*>(data);
+				if (componentBase->destroy_)
 				{
-					cb->destroy_(cb);
+					componentBase->destroy_(componentBase);
 				}
 			}
 			componentBaseIDs.erase(it);
@@ -223,7 +222,7 @@ namespace SeedCore
 		/// [JP] まず、以前の親（あれば）の子リストから切り離す。
 		if (record.parent_.Exists())
 		{
-			std::erase(world_->GetActorRecord(record.parent_).children_, entity_);
+			SeedCore::erase(world_->GetActorRecord(record.parent_).children_, entity_);
 		}
 
 		record.parent_ = parentEntity;
@@ -233,7 +232,7 @@ namespace SeedCore
 			/// [EN] Attach to the new parent's children list and inherit its active state if the new parent is currently inactive.
 			/// [JP] 新しい親の子リストへ登録し、新しい親が現在非アクティブであれば、そのアクティブ状態を継承する。
 			world_->GetActorRecord(parentEntity).children_.push_back(entity_);
-			if (!Actor(*world_, parentEntity).IsActive())
+			if (!Actor(*world_, parentEntity).GetActive())
 			{
 				SetActive(false);
 			}
@@ -407,10 +406,10 @@ namespace SeedCore
 	* この actor が現在アクティブかどうかを返す（Active コンポーネントが
 	* 存在すればその値を優先し、無ければキャッシュされたフラグを使う）。
 	*/
-	Bool Actor::IsActive()const
+	Bool Actor::GetActive()const
 	{
-		const Active* comp = GetComponent<Active>();
-		return comp ? comp->active_ : world_->GetActorRecord(entity_).active_;
+		const Active* component = GetComponent<Active>();
+		return component ? component->active_ : world_->GetActorRecord(entity_).active_;
 	}
 
 	/**
@@ -437,10 +436,10 @@ namespace SeedCore
 
 		/// [EN] Mirror the change onto the Active component, if this actor has one, so queries reading Active see a consistent value.
 		/// [JP] この actor が Active コンポーネントを持っていれば、その変更を反映する。これにより Active を読み取るクエリが一貫した値を見られるようにする。
-		Active* comp = const_cast<Active*>(GetComponent<Active>());
-		if (comp)
+		Active* component = const_cast<Active*>(GetComponent<Active>());
+		if (component)
 		{
-			comp->active_ = active;
+			component->active_ = active;
 		}
 
 		/// [EN] Propagate to every descendant: a child cannot be active while its parent is inactive.
@@ -620,7 +619,7 @@ namespace SeedCore
 	* [JP]
 	* この actor がプレハブからインスタンス化されたかどうかを返す。
 	*/
-	Bool Actor::IsPrefabInstance()const
+	Bool Actor::GetPrefabInstance()const
 	{
 		return world_->GetActorRecord(entity_).fromPrefab_;
 	}
@@ -691,12 +690,14 @@ namespace SeedCore
 
 	/**
 	* [EN]
-	* Two actor handles are equal iff they refer to the same World and Entity.
+	* Returns whether this and other are handles to the same actor: they
+	* refer to the same World and the same Entity.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* 2つの actor ハンドルは、同じ World と Entity を指す場合にのみ等しい。
+	* this と other が同じ actor へのハンドルかどうかを返す: 同じ World と
+	* 同じ Entity を指しているか。
 	*/
 	Bool Actor::operator==(const Actor& other)const
 	{

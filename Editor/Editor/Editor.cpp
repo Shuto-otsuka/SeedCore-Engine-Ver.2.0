@@ -57,7 +57,7 @@ namespace SeedCore
 
 		SelectionContext& selection = context_.selectionContext_;
 
-		std::erase_if(selection.selectedActors_, [](Actor actor) { return !actor; });
+		SeedCore::erase_if(selection.selectedActors_, [](Actor actor) { return !actor; });
 
 		if (!selection.selectedActor_)
 		{

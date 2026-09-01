@@ -169,7 +169,7 @@ namespace SeedCore
 	{
 		/// [EN] Find the matching node, recycle it back to the pool as a side effect of the predicate, then physically remove it from the container (erase-remove idiom).
 		/// [JP] 該当するノードを見つけ、述語の副作用としてそれをプールへ返却（recycle）した上で、コンテナから物理的に削除する（erase-remove イディオム）。
-		std::erase_if(nodes_, [&](auto& p)
+		SeedCore::erase_if(nodes_, [&](auto& p)
 			{
 				if (p == node)
 				{

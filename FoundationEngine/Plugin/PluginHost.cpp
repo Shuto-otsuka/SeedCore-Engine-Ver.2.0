@@ -112,7 +112,7 @@ namespace SeedCore
 
 		/// [EN] Drop plugins whose source DLL has disappeared.
 		/// [JP] 元 DLL が消えたプラグインを外す。
-		std::erase_if(entries_, [&world](Entry& entry)
+		SeedCore::erase_if(entries_, [&world](Entry& entry)
 		{
 			if (std::filesystem::exists(entry.module_->SourcePath()))
 			{

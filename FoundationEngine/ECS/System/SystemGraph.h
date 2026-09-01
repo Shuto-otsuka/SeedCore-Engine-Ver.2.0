@@ -100,6 +100,22 @@ namespace SeedCore
 		void Clear();
 
 	private:
+		struct Entry;
+
+		/**
+		* [EN]
+		* Returns whether two systems' accesses conflict: a write on
+		* either side that overlaps a read or write on the other.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* 2つのシステムのアクセスが衝突するかを返す: いずれか一方の
+		* write が、他方の read または write と重なる場合。
+		*/
+		static Bool Conflicts(const Entry& first, const Entry& second);
+
+	private:
 		/**
 		* [EN]
 		* One registered system: the components it accesses and the task
@@ -126,20 +142,6 @@ namespace SeedCore
 			std::function<void()> task_;
 		};
 
-		/**
-		* [EN]
-		* Returns whether two systems' accesses conflict: a write on
-		* either side that overlaps a read or write on the other.
-		*
-		* ---------------------------------------------------------------------
-		*
-		* [JP]
-		* 2つのシステムのアクセスが衝突するかを返す: いずれか一方の
-		* write が、他方の read または write と重なる場合。
-		*/
-		static Bool Conflicts(const Entry& first, const Entry& second);
-
-	private:
 		/// [EN] Registered systems, in registration order.
 		/// [JP] 登録されたシステム。登録順で保持する。
 		DynamicArray<Entry> entries_;

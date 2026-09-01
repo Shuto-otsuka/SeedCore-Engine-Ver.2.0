@@ -11,19 +11,23 @@ namespace SeedCore
 	/**
 	* [EN]
 	* Releases every resident streaming page (pinned included — the model
-	* itself is going away) and returns their descriptor indices to
+	* itself is going away), the RT proxy geometry and morph buffers, and
+	* the streaming textures, returning their descriptor indices to
 	* bindlessHeap_. Every GPU resource is handed to the deferred-reclaim
 	* ring rather than dying with this object, since frames still in
-	* flight may be drawing from these exact buffers and textures.
+	* flight - and a reflection/GI TLAS instance built over this Crister -
+	* may still be reading from these exact buffers and textures.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* 常駐中のストリーミングページをすべて解放し（モデル自体が消えるため
-	* ピン留め込み）、ディスクリプタインデックスを bindlessHeap_ へ返す。
-	* GPU リソースはこのオブジェクトと一緒に死なせず、遅延回収リングへ
-	* 渡す — インフライトのフレームがまさにこれらのバッファやテクスチャで
-	* 描画している可能性があるため。
+	* 常駐中のストリーミングページ（ピン留め込み）、RT プロキシ
+	* ジオメトリとモーフバッファ、ストリーミングテクスチャをすべて解放し、
+	* ディスクリプタインデックスを bindlessHeap_ へ返す。GPU リソースは
+	* このオブジェクトと一緒に死なせず、遅延回収リングへ渡す —
+	* インフライトのフレーム、およびこの Crister の上に構築された
+	* 反射/GI の TLAS インスタンスが、まさにこれらのバッファやテクスチャを
+	* まだ読んでいる可能性があるため。
 	*/
 	Crister::~Crister()
 	{
@@ -97,6 +101,84 @@ namespace SeedCore
 				bindlessHeap_->DeferRelease(streamingTexture.currentMip_.resource_);
 				totalResidentTextureBytes_ -= streamingTexture.currentMip_.sizeBytes_;
 			}
+		}
+
+		/// [EN] The RT proxy geometry (vertex/position/index/skin), its morph
+		///      pools, and the raster-side morph buffers outlive this object
+		///      the same way the streaming pages above do: a reflection/GI
+		///      TLAS instance built over this Crister can linger for a few
+		///      frames after the model is unloaded (see RaytracingRenderer's
+		///      pendingBlasEviction_ deferral), and its closest-hit shader
+		///      fetches vertex attributes from exactly these buffers. Hand
+		///      them to the deferred-reclaim ring and return their bindless
+		///      SRV slots instead of letting the ComPtr members free them
+		///      synchronously here.
+		/// [JP] RT プロキシジオメトリ（頂点/位置/インデックス/スキン）、その
+		///      モーフプール、およびラスタ側のモーフバッファは、上の streaming
+		///      ページと同じくこのオブジェクトより長生きする: この Crister の
+		///      上に構築された反射/GI の TLAS インスタンスは、モデルの
+		///      アンロード後も数フレーム残り得る（RaytracingRenderer の
+		///      pendingBlasEviction_ 遅延参照）。そのヒットシェーダはまさに
+		///      これらのバッファから頂点属性を読む。ComPtr メンバにここで
+		///      同期的に解放させず、遅延回収リングへ渡し、bindless SRV
+		///      スロットを返す。
+		if (vertexBufferIndex_ != 0xFFFFFFFFu)
+		{
+			bindlessHeap_->FreeIndex(vertexBufferIndex_);
+			vertexBufferIndex_ = 0xFFFFFFFFu;
+		}
+		if (skinVertexBufferIndex_ != 0xFFFFFFFFu)
+		{
+			bindlessHeap_->FreeIndex(skinVertexBufferIndex_);
+			skinVertexBufferIndex_ = 0xFFFFFFFFu;
+		}
+		if (indexBufferIndex_ != 0xFFFFFFFFu)
+		{
+			bindlessHeap_->FreeIndex(indexBufferIndex_);
+			indexBufferIndex_ = 0xFFFFFFFFu;
+		}
+		if (morphDeltaBufferIndex_ != 0xFFFFFFFFu)
+		{
+			bindlessHeap_->FreeIndex(morphDeltaBufferIndex_);
+			morphDeltaBufferIndex_ = 0xFFFFFFFFu;
+		}
+		if (vertexMorphSourceBufferIndex_ != 0xFFFFFFFFu)
+		{
+			bindlessHeap_->FreeIndex(vertexMorphSourceBufferIndex_);
+			vertexMorphSourceBufferIndex_ = 0xFFFFFFFFu;
+		}
+
+		if (vertexResource_)
+		{
+			bindlessHeap_->DeferRelease(vertexResource_);
+		}
+		if (positionResource_)
+		{
+			bindlessHeap_->DeferRelease(positionResource_);
+		}
+		if (skinVertexResource_)
+		{
+			bindlessHeap_->DeferRelease(skinVertexResource_);
+		}
+		if (indexResource_)
+		{
+			bindlessHeap_->DeferRelease(indexResource_);
+		}
+		if (raytracingSkinVertexResource_)
+		{
+			bindlessHeap_->DeferRelease(raytracingSkinVertexResource_);
+		}
+		if (raytracingMorphDeltaResource_)
+		{
+			bindlessHeap_->DeferRelease(raytracingMorphDeltaResource_);
+		}
+		if (morphDeltaResource_)
+		{
+			bindlessHeap_->DeferRelease(morphDeltaResource_);
+		}
+		if (vertexMorphSourceResource_)
+		{
+			bindlessHeap_->DeferRelease(vertexMorphSourceResource_);
 		}
 	}
 

@@ -326,7 +326,7 @@ namespace SeedCore
 		* が存在すればその値を優先し、無ければキャッシュされたフラグを
 		* 使う）。
 		*/
-		SEEDCORE_API Bool IsActive()const;
+		SEEDCORE_API Bool GetActive()const;
 
 		/**
 		* [EN]
@@ -461,7 +461,7 @@ namespace SeedCore
 		* [JP]
 		* この actor がプレハブからインスタンス化されたかどうかを返す。
 		*/
-		SEEDCORE_API Bool IsPrefabInstance()const;
+		SEEDCORE_API Bool GetPrefabInstance()const;
 
 		/**
 		* [EN]
@@ -516,8 +516,17 @@ namespace SeedCore
 		*/
 		SEEDCORE_API Uint32 GetPersistentID()const;
 
-		/// [EN] Two actor handles are equal iff they refer to the same World and Entity.
-		/// [JP] 2つの actor ハンドルは、同じ World と Entity を指す場合にのみ等しい。
+		/**
+		* [EN]
+		* Returns whether this and other are handles to the same actor:
+		* they refer to the same World and the same Entity.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* this と other が同じ actor へのハンドルかどうかを返す: 同じ
+		* World と同じ Entity を指しているか。
+		*/
 		SEEDCORE_API Bool operator==(const Actor& other)const;
 
 	private:

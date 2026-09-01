@@ -527,8 +527,8 @@ namespace SeedCore
 			/// [JP] 取得された actor の永続 ID。
 			Uint32 persistentId_ = 0;
 
-			/// [EN] Its IsActive() value before the toggle; restored on Undo.
-			/// [JP] 切り替え前の IsActive() の値。Undo で復元される。
+			/// [EN] Its GetActive() value before the toggle; restored on Undo.
+			/// [JP] 切り替え前の GetActive() の値。Undo で復元される。
 			Bool oldActive_ = true;
 		};
 

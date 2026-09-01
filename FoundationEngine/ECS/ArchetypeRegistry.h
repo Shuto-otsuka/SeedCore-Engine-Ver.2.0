@@ -25,8 +25,17 @@ namespace SeedCore
 	class SEEDCORE_API ArchetypeRegistry
 	{
 	private:
-		/// [EN] RAII helper whose sole purpose is freeing every registered Archetype at static-destruction time.
-		/// [JP] 静的破棄時に登録済みの全 Archetype を解放することだけを目的とした RAII ヘルパー。
+		/**
+		* [EN]
+		* RAII helper whose sole purpose is freeing every registered
+		* Archetype at static-destruction time.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* 静的破棄時に登録済みの全 Archetype を解放することだけを目的とした
+		* RAII ヘルパー。
+		*/
 		struct RegistryCleaner
 		{
 			/**

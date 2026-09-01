@@ -263,7 +263,7 @@ namespace SeedCore
 		ImGui::PushID(static_cast<Int>(actor.GetEntity().GetID().index_));
 
 		ImTextureID icon;
-		if (actor.IsPrefabInstance())
+		if (actor.GetPrefabInstance())
 		{
 			icon = isChild ? imguiTexture_.Icon(IconType::PrefabChild) : imguiTexture_.Icon(IconType::Prefab);
 		}
@@ -458,12 +458,12 @@ namespace SeedCore
 		ImGui::SameLine();
 		ImGui::Image(icon, ImVec2(iconSize, iconSize));
 		ImGui::SameLine();
-		if (!actor.IsActive())
+		if (!actor.GetActive())
 		{
 			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
 		}
 		ImGui::Text("%s", label);
-		if (!actor.IsActive())
+		if (!actor.GetActive())
 		{
 			ImGui::PopStyleColor();
 		}
@@ -476,14 +476,14 @@ namespace SeedCore
 		}
 
 		ImGui::SameLine(ImGui::GetContentRegionAvail().x + ImGui::GetCursorPosX() - iconSize);
-		ImTextureID activeIcon = actor.IsActive() ? imguiTexture_.Icon(IconType::ActorActive) : imguiTexture_.Icon(IconType::ActorNonActive);
+		ImTextureID activeIcon = actor.GetActive() ? imguiTexture_.Icon(IconType::ActorActive) : imguiTexture_.Icon(IconType::ActorNonActive);
 		ImVec2 activePosition = ImGui::GetCursorScreenPos();
-		Float activeYOffset = actor.IsActive() ? 2.0f : 0.0f;
+		Float activeYOffset = actor.GetActive() ? 2.0f : 0.0f;
 		Float activeY = activePosition.y + (ImGui::GetTextLineHeight() - iconSize) * 0.5f + activeYOffset;
 		if (ImGui::InvisibleButton("##Active", ImVec2(iconSize, ImGui::GetTextLineHeight())))
 		{
-			context_.sceneContext_.history_.Push(MakePtr<ActorActiveCommand>(*context_.worldContext_.world_, actor, !actor.IsActive()));
-			actor.SetActive(!actor.IsActive());
+			context_.sceneContext_.history_.Push(MakePtr<ActorActiveCommand>(*context_.worldContext_.world_, actor, !actor.GetActive()));
+			actor.SetActive(!actor.GetActive());
 		}
 		ImGui::GetWindowDrawList()->AddImage(activeIcon, ImVec2(activePosition.x, activeY), ImVec2(activePosition.x + iconSize, activeY + iconSize));
 
