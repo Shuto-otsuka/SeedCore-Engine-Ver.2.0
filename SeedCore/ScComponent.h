@@ -53,3 +53,8 @@
 // AudioEngine
 #include <AudioEngine/Audio/AudioListener.h>
 #include <AudioEngine/Audio/AudioSource.h>
+
+// Actor
+#include <FoundationEngine/ECS/Actor.h>
+#include <FoundationEngine/ECS/Query.h>
+#include <FoundationEngine/ECS/World.h>
