@@ -29,7 +29,8 @@ namespace SeedCore
 		///      its own AssetType::MeshCollision asset on the next scan,
 		///      loaded through Load() like any other ".collision" asset. The
 		///      caller (ModelResource::GenerateCollision) targets a
-		///      "<model stem>.Collisions/" sibling folder.
+		///      "<model stem>.proxy.collision" / "<model stem>.exact.collision"
+		///      sibling of the model.
 		///      Driven by ModelResource::GenerateCollision, which is invoked
 		///      from the content drawer's "コリジョン生成" asset action
 		///      (models do not auto-derive collision on load). Returns false

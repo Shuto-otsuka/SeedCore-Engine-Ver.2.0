@@ -46,10 +46,10 @@ namespace SeedCore
 		/**
 		* [EN]
 		* Bakes a ".collision" file for the model asset assetId at the given
-		* detail into a "<model stem>.Collisions/" sibling folder, overwriting
-		* any existing one, and returns whether it succeeded. The model is
-		* loaded first if it is not already resident. Proxy writes
-		* "proxy.collision", Exact "exact.collision" -- each becomes its own
+		* detail as a sibling of the model, overwriting any existing one, and
+		* returns whether it succeeded. The model is loaded first if it is not
+		* already resident. Proxy writes "<model stem>.proxy.collision", Exact
+		* "<model stem>.exact.collision" -- each becomes its own
 		* AssetType::MeshCollision asset on the next ResourceCache scan.
 		* Invoked from the content drawer's "コリジョン生成" asset action;
 		* models no longer auto-derive collision on load.
@@ -58,9 +58,9 @@ namespace SeedCore
 		*
 		* [JP]
 		* モデルアセット assetId に対して、指定した detail の ".collision"
-		* ファイルを "<モデル名>.Collisions/" 兄弟フォルダへベイクし（既存が
+		* ファイルをモデルの兄弟としてベイクし（既存が
 		* あれば上書き）、成否を返す。モデルが未常駐なら先にロードする。
-		* Proxy は "proxy.collision"、Exact は "exact.collision" を書き出し、
+		* Proxy は "<モデル名>.proxy.collision"、Exact は "<モデル名>.exact.collision" を書き出し、
 		* それぞれ次回の ResourceCache スキャンで個別の
 		* AssetType::MeshCollision アセットになる。コンテンツドロワーの
 		* 「コリジョン生成」アセットアクションから呼ばれる。モデルは

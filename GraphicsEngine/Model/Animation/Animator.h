@@ -123,6 +123,7 @@ namespace SeedCore
 	class ModelRenderer;
 	class AnimatorControllerPanel;
 	class TimelinePanel;
+	class ConstraintSystem;
 
 	namespace ScReflection
 	{ 
@@ -139,6 +140,7 @@ namespace SeedCore
 		friend class ModelRenderer;
 		friend class AnimatorControllerPanel;
 		friend class TimelinePanel;
+		friend class ConstraintSystem;
 		friend struct ScReflection::Register_Animator;
 		friend struct ScPayload::Register_Animator;
 
@@ -181,6 +183,8 @@ namespace SeedCore
 
 		Float Alpha()const;
 
+		const DynamicArray<String>& BoneNames()const;
+
 	public:
 		void SetIKTarget(const std::string& effectorBoneName, const Vector3& targetPosition, Float weight = 1.0f);
 
@@ -212,6 +216,18 @@ namespace SeedCore
 		void UpdateRootMotionBaseline(Int stateIndex, Float sampleTime, const Vector3& translation);
 
 		void UpdateCurrentClipDuration(Float duration);
+
+		Int BoneIndex(const String& boneName)const;
+
+		Bool HasBone(const String& boneName)const;
+
+		Matrix BoneLocalMatrix(const String& boneName)const;
+
+		Matrix BoneWorldMatrix(const String& boneName)const;
+
+		void SetBoneNames(DynamicArray<String> boneNames);
+
+		void SetBoneGlobals(DynamicArray<Matrix> boneGlobals);
 
 	private:
 		static constexpr Int ExitState = -2;
@@ -262,6 +278,10 @@ namespace SeedCore
 		Float blendDuration_ = 0.0f;
 
 		Float currentClipDuration_ = 0.0f;
+
+		DynamicArray<String> boneNames_;
+
+		DynamicArray<Matrix> boneGlobals_;
 
 		Bool rootMotionBaselineValid_ = false;
 

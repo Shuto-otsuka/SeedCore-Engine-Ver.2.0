@@ -1271,18 +1271,30 @@ namespace SeedCore
 
 		/**
 		* [EN]
-		* Fills a freshly-empty array from [first, last) by repeated
-		* push_back; shared by the range/list/copy/vector constructors.
+		* Fills a freshly-empty array from [first, last); shared by the
+		* range/list/copy/vector constructors. When the iterators are
+		* forward-or-better the element count is known in O(1), so the exact
+		* capacity is reserved once up front - this avoids the geometric
+		* reallocation churn (and its transient old+new buffer overlap) that
+		* a plain push_back loop incurs for a large range.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* 空になったばかりの配列を、push_back の繰り返しで [first, last)
-		* から満たす。範囲/リスト/コピー/vector コンストラクタで共有する。
+		* 空になったばかりの配列を [first, last) から満たす。範囲/リスト/
+		* コピー/vector コンストラクタで共有する。イテレータが forward 以上
+		* なら要素数が O(1) で分かるため、必要な容量を一度だけ先に確保する
+		* - これにより、大きな範囲で単純な push_back ループが起こす等比的な
+		* 再確保の繰り返し（および新旧バッファが一時的に共存するオーバー
+		* ヘッド）を避ける。
 		*/
 		template<typename InputIt>
 		void AssignRange(InputIt first, InputIt last)
 		{
+			if constexpr (std::is_base_of_v<std::forward_iterator_tag, typename std::iterator_traits<InputIt>::iterator_category>)
+			{
+				reserve(static_cast<Size>(std::distance(first, last)));
+			}
 			for (; first != last; ++first)
 			{
 				push_back(*first);

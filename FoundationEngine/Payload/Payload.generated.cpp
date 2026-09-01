@@ -1,6 +1,7 @@
 #include <FoundationEngine/Prelude.h>
 #include <FoundationEngine/ECS/PayloadRegistry.h>
 #include <FoundationEngine/ECS/Component/Spawner.h>
+#include <GraphicsEngine/Constraint/AttachmentConstraint.h>
 #include <GraphicsEngine/Constraint/LookAtConstraint.h>
 #include <GraphicsEngine/Constraint/ParentConstraint.h>
 #include <GraphicsEngine/Constraint/PositionConstraint.h>
@@ -19,6 +20,7 @@
 #include <PhysicsEngine/Joint/SpringJoint.h>
 
 extern "C" int _force_payload_Spawner = 0;
+extern "C" int _force_payload_AttachmentConstraint = 0;
 extern "C" int _force_payload_LookAtConstraint = 0;
 extern "C" int _force_payload_ParentConstraint = 0;
 extern "C" int _force_payload_PositionConstraint = 0;
@@ -52,6 +54,19 @@ namespace SeedCore
 			}
 		};
 		static Register_Spawner global_Spawner_register;
+
+		// ---- GraphicsEngine/Constraint/AttachmentConstraint.h ----
+		struct Register_AttachmentConstraint
+		{
+			Register_AttachmentConstraint()
+			{
+				PayloadRegistry::Register(String("AttachmentConstraint"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
+					AttachmentConstraint& obj = *static_cast<AttachmentConstraint*>(ptr);
+					outInfo.push_back({ String("ターゲット"), offsetof(AttachmentConstraint, target_), AttributeType::Int, PayloadAssetType::Actor });
+				});
+			}
+		};
+		static Register_AttachmentConstraint global_AttachmentConstraint_register;
 
 		// ---- GraphicsEngine/Constraint/LookAtConstraint.h ----
 		struct Register_LookAtConstraint

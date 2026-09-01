@@ -814,6 +814,9 @@
     <ClInclude Include="Quality\GraphicsQuality.h">
       <Filter>Quality</Filter>
     </ClInclude>
+    <ClInclude Include="Constraint\AttachmentConstraint.h">
+      <Filter>Constraint</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="D3D12\Context\D3D12Adapter.cpp">
@@ -1354,6 +1357,9 @@
     </ClCompile>
     <ClCompile Include="Quality\GraphicsQuality.cpp">
       <Filter>Quality</Filter>
+    </ClCompile>
+    <ClCompile Include="Constraint\AttachmentConstraint.cpp">
+      <Filter>Constraint</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

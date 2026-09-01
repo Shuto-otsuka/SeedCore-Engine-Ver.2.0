@@ -1,5 +1,6 @@
 #include <GraphicsEngine/Model/Animation/Animator.h>
 #include <GraphicsEngine/Model/Animation/AnimatorControllerState.h>
+#include <FoundationEngine/ECS/Actor.h>
 
 namespace SeedCore
 {
@@ -147,6 +148,11 @@ namespace SeedCore
 	Float Animator::Alpha()const
 	{
 		return blendDuration_ > 0.0f ? Clamp(blendElapsed_ / blendDuration_, 0.0f, 1.0f) : 1.0f;
+	}
+
+	const DynamicArray<String>& Animator::BoneNames()const
+	{
+		return boneNames_;
 	}
 
 	void Animator::SetIKTarget(const std::string& effectorBoneName, const Vector3& targetPosition, Float weight)
@@ -342,5 +348,47 @@ namespace SeedCore
 	void Animator::UpdateCurrentClipDuration(Float duration)
 	{
 		currentClipDuration_ = duration;
+	}
+
+	Int Animator::BoneIndex(const String& boneName)const
+	{
+		for (Int index = 0; index < static_cast<Int>(boneNames_.size()); ++index)
+		{
+			if (boneNames_[static_cast<Size>(index)] == boneName)
+			{
+				return index;
+			}
+		}
+		return -1;
+	}
+
+	Bool Animator::HasBone(const String& boneName)const
+	{
+		return BoneIndex(boneName) >= 0;
+	}
+
+	Matrix Animator::BoneLocalMatrix(const String& boneName)const
+	{
+		Int index = BoneIndex(boneName);
+		if (index < 0 || static_cast<Size>(index) >= boneGlobals_.size())
+		{
+			return Matrix::Identity;
+		}
+		return boneGlobals_[static_cast<Size>(index)];
+	}
+
+	Matrix Animator::BoneWorldMatrix(const String& boneName)const
+	{
+		return BoneLocalMatrix(boneName) * GetActor().GetWorldMatrix();
+	}
+
+	void Animator::SetBoneNames(DynamicArray<String> boneNames)
+	{
+		boneNames_ = std::move(boneNames);
+	}
+
+	void Animator::SetBoneGlobals(DynamicArray<Matrix> boneGlobals)
+	{
+		boneGlobals_ = std::move(boneGlobals);
 	}
 }

@@ -454,6 +454,35 @@ namespace SeedCore
 					}
 				}
 
+				if (animator)
+				{
+					if (animator->BoneNames().size() != nodes.size())
+					{
+						DynamicArray<String> boneNames;
+						boneNames.reserve(nodes.size());
+						for (const Node& node : nodes)
+						{
+							boneNames.push_back(String(std::string_view(node.name_)));
+						}
+						animator->SetBoneNames(std::move(boneNames));
+					}
+
+					if (hasPose)
+					{
+						animator->SetBoneGlobals(poseGlobalTransforms);
+					}
+					else
+					{
+						DynamicArray<Matrix> bindGlobals;
+						bindGlobals.reserve(nodes.size());
+						for (const Node& node : nodes)
+						{
+							bindGlobals.push_back(node.globalTransform_);
+						}
+						animator->SetBoneGlobals(std::move(bindGlobals));
+					}
+				}
+
 				/// [EN] Build (or reuse) this Crister's bone palette. Palette layout:
 				///      all skins appended contiguously in skin order. Each entry is
 				///      inverseBindMatrix × jointGlobalTransform (row-vector order),

@@ -88,11 +88,7 @@ namespace SeedCore
 		}
 
 		std::filesystem::path modelPath(asset->fullpath_.c_str());
-		std::filesystem::path directory = modelPath.parent_path() / (modelPath.stem().string() + ".Collisions");
-		std::error_code directoryError;
-		std::filesystem::create_directories(directory, directoryError);
-
-		std::filesystem::path collisionPath = directory / ((detail == MeshCollisionDetail::Exact) ? "exact.collision" : "proxy.collision");
+		std::filesystem::path collisionPath = modelPath.parent_path() / (modelPath.stem().string() + ((detail == MeshCollisionDetail::Exact) ? ".exact.collision" : ".proxy.collision"));
 
 		return loader.meshCollisionLoader_->Bake(*crister, detail, String(collisionPath.string()));
 	}

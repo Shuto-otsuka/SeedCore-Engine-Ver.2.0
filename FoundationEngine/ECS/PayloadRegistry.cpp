@@ -2,6 +2,7 @@
 
 // [PAYLOAD_AUTO_BEGIN]
 #pragma comment(linker, "/include:_force_payload_Spawner")
+#pragma comment(linker, "/include:_force_payload_AttachmentConstraint")
 #pragma comment(linker, "/include:_force_payload_LookAtConstraint")
 #pragma comment(linker, "/include:_force_payload_ParentConstraint")
 #pragma comment(linker, "/include:_force_payload_PositionConstraint")

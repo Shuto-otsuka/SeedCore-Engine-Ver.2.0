@@ -3,6 +3,8 @@
 #include <GraphicsEngine/Constraint/RotationConstraint.h>
 #include <GraphicsEngine/Constraint/ParentConstraint.h>
 #include <GraphicsEngine/Constraint/LookAtConstraint.h>
+#include <GraphicsEngine/Constraint/AttachmentConstraint.h>
+#include <GraphicsEngine/Model/Animation/Animator.h>
 #include <FoundationEngine/ECS/World.h>
 #include <FoundationEngine/ECS/Actor.h>
 #include <FoundationEngine/ECS/Component/Position.h>
@@ -24,6 +26,10 @@ namespace SeedCore
 			constrainedEntities.push_back(id);
 		}
 		for (EntityID id : world.GetComponents<ParentConstraint>())
+		{
+			constrainedEntities.push_back(id);
+		}
+		for (EntityID id : world.GetComponents<AttachmentConstraint>())
 		{
 			constrainedEntities.push_back(id);
 		}
@@ -112,12 +118,38 @@ namespace SeedCore
 		Vector3 finalTranslation;
 		worldMatrix.Decompose(finalScale, finalRotation, finalTranslation);
 
+		AttachmentConstraint* attachmentConstraint = world.GetComponent<AttachmentConstraint>(entity);
 		ParentConstraint* parentConstraint = world.GetComponent<ParentConstraint>(entity);
 		PositionConstraint* positionConstraint = world.GetComponent<PositionConstraint>(entity);
 		RotationConstraint* rotationConstraint = world.GetComponent<RotationConstraint>(entity);
 		LookAtConstraint* lookAtConstraint = world.GetComponent<LookAtConstraint>(entity);
 
-		if (parentConstraint && parentConstraint->enabled_)
+		const Char* attachmentBoneName = attachmentConstraint ? attachmentConstraint->boneName_.c_str() : nullptr;
+		if (attachmentConstraint && attachmentConstraint->enabled_ && attachmentConstraint->target_ != 0 && attachmentBoneName && *attachmentBoneName != '\0')
+		{
+			Actor target = world.FindActor(attachmentConstraint->target_);
+			Animator* targetAnimator = target ? target.GetComponent<Animator>() : nullptr;
+			if (targetAnimator && targetAnimator->HasBone(attachmentConstraint->boneName_))
+			{
+				Matrix boneWorldMatrix = targetAnimator->BoneWorldMatrix(attachmentConstraint->boneName_);
+				Vector3 boneScale;
+				Quaternion boneRotation;
+				Vector3 boneTranslation;
+				boneWorldMatrix.Decompose(boneScale, boneRotation, boneTranslation);
+
+				Vector3 desiredTranslation = boneTranslation + attachmentConstraint->positionOffset_;
+				Quaternion offsetRotation = Quaternion::CreateFromYawPitchRoll(
+					ToRadians(attachmentConstraint->rotationOffset_.y),
+					ToRadians(attachmentConstraint->rotationOffset_.x),
+					ToRadians(attachmentConstraint->rotationOffset_.z)
+				);
+				Quaternion desiredRotation = Quaternion::Concatenate(offsetRotation, boneRotation);
+
+				finalTranslation = Vector3::Lerp(finalTranslation, desiredTranslation, attachmentConstraint->weight_);
+				finalRotation = Quaternion::Slerp(finalRotation, desiredRotation, attachmentConstraint->weight_);
+			}
+		}
+		else if (parentConstraint && parentConstraint->enabled_)
 		{
 			Actor target = (parentConstraint->target_ != 0) ? world.FindActor(parentConstraint->target_) : Actor();
 			if (target)

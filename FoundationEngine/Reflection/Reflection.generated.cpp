@@ -10,6 +10,7 @@
 #include <GraphicsEngine/Camera/Camera.h>
 #include <GraphicsEngine/Camera/FreeCameraController.h>
 #include <GraphicsEngine/Camera/OrbitCameraController.h>
+#include <GraphicsEngine/Constraint/AttachmentConstraint.h>
 #include <GraphicsEngine/Constraint/LookAtConstraint.h>
 #include <GraphicsEngine/Constraint/ParentConstraint.h>
 #include <GraphicsEngine/Constraint/PositionConstraint.h>
@@ -50,6 +51,7 @@ extern "C" int _force_reflection_Velocity = 0;
 extern "C" int _force_reflection_Camera = 0;
 extern "C" int _force_reflection_FreeCameraController = 0;
 extern "C" int _force_reflection_OrbitCameraController = 0;
+extern "C" int _force_reflection_AttachmentConstraint = 0;
 extern "C" int _force_reflection_LookAtConstraint = 0;
 extern "C" int _force_reflection_ParentConstraint = 0;
 extern "C" int _force_reflection_PositionConstraint = 0;
@@ -414,6 +416,38 @@ namespace SeedCore
 			}
 		};
 		static Register_OrbitCameraController global_OrbitCameraController_register;
+
+		// ---- GraphicsEngine/Constraint/AttachmentConstraint.h ----
+		struct Register_AttachmentConstraint
+		{
+			Register_AttachmentConstraint()
+			{
+				ReflectionRegistry::Register(String("AttachmentConstraint"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
+					AttachmentConstraint& obj = *static_cast<AttachmentConstraint*>(ptr);
+					outInfo.push_back({ String("有効"), offsetof(AttachmentConstraint, enabled_), AttributeType::Bool });
+					{
+						FieldInfo fi;
+						fi.name_ = String("重み");
+						fi.offset_ = offsetof(AttachmentConstraint, weight_);
+						fi.type_ = AttributeType::Float;
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 1.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					outInfo.push_back({ String("位置オフセット"), offsetof(AttachmentConstraint, positionOffset_), AttributeType::Vector3 });
+					outInfo.push_back({ String("回転オフセット(オイラー角)"), offsetof(AttachmentConstraint, rotationOffset_), AttributeType::Vector3 });
+					{
+						FieldInfo fi;
+						fi.name_ = String("boneName_");
+						fi.offset_ = offsetof(AttachmentConstraint, boneName_);
+						fi.type_ = AttributeType::String;
+						fi.editorVisible_ = false;
+						outInfo.push_back(std::move(fi));
+					}
+				});
+			}
+		};
+		static Register_AttachmentConstraint global_AttachmentConstraint_register;
 
 		// ---- GraphicsEngine/Constraint/LookAtConstraint.h ----
 		struct Register_LookAtConstraint
