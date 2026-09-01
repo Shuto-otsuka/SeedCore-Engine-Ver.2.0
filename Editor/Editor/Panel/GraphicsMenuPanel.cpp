@@ -3,7 +3,7 @@
 
 namespace SeedCore
 {
-	GraphicsMenuPanel::GraphicsMenuPanel(EditorContext& context) : context_(context), raytracingPanel_(context), environmentMenuPanel_(context)
+	GraphicsMenuPanel::GraphicsMenuPanel(EditorContext& context) : context_(context), raytracingPanel_(context), screenSpacePanel_(context), rasterizationPanel_(context), environmentMenuPanel_(context)
 	{
 		/// No Code
 	}
@@ -12,6 +12,25 @@ namespace SeedCore
 	{
 		if (ImGui::BeginMenu("グラフィックス"))
 		{
+			if (ImGui::BeginMenu("品質プリセット"))
+			{
+				auto presetItem = [&](const Char* label, GraphicsQualityPreset preset)
+				{
+					if (ImGui::MenuItem(label, nullptr, context_.viewportContext_.qualityPreset_ == preset))
+					{
+						context_.viewportContext_.qualityPreset_ = preset;
+						GraphicsQuality::ApplyPreset(preset, context_.viewportContext_.raytracing_, context_.viewportContext_.screenSpace_, context_.viewportContext_.rasterization_);
+					}
+				};
+
+				presetItem("カスタム", GraphicsQualityPreset::Custom);
+				presetItem("高（レイトレーシング）", GraphicsQualityPreset::High);
+				presetItem("中（VSM / SDFR / DDGI / GTAO）", GraphicsQualityPreset::Medium);
+				presetItem("低（CSM / SSR / SSGI / SSAO）", GraphicsQualityPreset::Low);
+
+				ImGui::EndMenu();
+			}
+
 			if (ImGui::BeginMenu("ビューモード"))
 			{
 				auto item = [&](const Char* label, ViewMode mode)
@@ -64,6 +83,20 @@ namespace SeedCore
 				ImGui::EndMenu();
 			}
 
+			if (ImGui::BeginMenu("スクリーンスペース"))
+			{
+				screenSpacePanel_.DrawMenuItems();
+
+				ImGui::EndMenu();
+			}
+
+			if (ImGui::BeginMenu("ラスタライゼーション"))
+			{
+				rasterizationPanel_.DrawMenuItems();
+
+				ImGui::EndMenu();
+			}
+
 			if (ImGui::BeginMenu("環境"))
 			{
 				environmentMenuPanel_.DrawMenuItems();
@@ -75,6 +108,8 @@ namespace SeedCore
 		}
 
 		raytracingPanel_.DrawWindows();
+		screenSpacePanel_.DrawWindows();
+		rasterizationPanel_.DrawWindows();
 		environmentMenuPanel_.DrawWindows();
 	}
 }

@@ -2601,6 +2601,14 @@ namespace SeedCore
 					}
 					{
 						FieldInfo fi;
+						fi.name_ = String("連続衝突判定");
+						fi.offset_ = offsetof(Rigidbody, continuousCollision_);
+						fi.type_ = AttributeType::Bool;
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<Rigidbody*>(p); return o.bodyType_ == Rigidbody::BodyType::Dynamic; };
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
 						fi.name_ = String("質量");
 						fi.offset_ = offsetof(Rigidbody, mass_);
 						fi.type_ = AttributeType::Float;

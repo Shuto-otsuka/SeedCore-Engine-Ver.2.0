@@ -118,9 +118,14 @@ namespace SeedCore
 		{
 			std::filesystem::path lastScenePath = editorConfig_.lastScenePath_.str();
 			String raytracingSettingsJson;
-			if (Scene::Load(*world_, *resource_, lastScenePath, &raytracingSettingsJson))
+			String screenSpaceSettingsJson;
+			String rasterizationSettingsJson;
+			if (Scene::Load(*world_, *resource_, lastScenePath, &raytracingSettingsJson, &screenSpaceSettingsJson, &rasterizationSettingsJson))
 			{
 				editorContext_.viewportContext_.raytracing_ = DeserializeRaytracingContext(raytracingSettingsJson);
+				editorContext_.viewportContext_.screenSpace_ = DeserializeScreenSpaceContext(screenSpaceSettingsJson);
+				editorContext_.viewportContext_.rasterization_ = DeserializeRasterizationContext(rasterizationSettingsJson);
+				editorContext_.viewportContext_.qualityPreset_ = GraphicsQualityPreset::Custom;
 				editorContext_.sceneContext_.currentScenePath_ = lastScenePath;
 				editorContext_.viewportContext_.resizeRequested_ = true;
 			}

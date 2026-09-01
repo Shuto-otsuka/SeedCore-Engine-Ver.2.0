@@ -441,12 +441,17 @@ namespace SeedCore
 		case PendingSceneOp::OpenPath:
 		{
 			String raytracingSettingsJson;
-			if (!Scene::Load(*context_.worldContext_.world_, *context_.worldContext_.resource_, path, &raytracingSettingsJson))
+			String screenSpaceSettingsJson;
+			String rasterizationSettingsJson;
+			if (!Scene::Load(*context_.worldContext_.world_, *context_.worldContext_.resource_, path, &raytracingSettingsJson, &screenSpaceSettingsJson, &rasterizationSettingsJson))
 			{
 				SC_LOG_WARNING("シーンの読み込みに失敗しました: {}", path.string());
 				break;
 			}
 			context_.viewportContext_.raytracing_ = DeserializeRaytracingContext(raytracingSettingsJson);
+			context_.viewportContext_.screenSpace_ = DeserializeScreenSpaceContext(screenSpaceSettingsJson);
+			context_.viewportContext_.rasterization_ = DeserializeRasterizationContext(rasterizationSettingsJson);
+			context_.viewportContext_.qualityPreset_ = GraphicsQualityPreset::Custom;
 			/// [JP] DLSS有効/モードはネイティブ解像度の再計算(Engine::MainLoop の
 			///      resizeRequested_ 分岐)を経て初めて反映されるため、ここで立てる。
 			context_.viewportContext_.resizeRequested_ = true;
@@ -459,12 +464,17 @@ namespace SeedCore
 		case PendingSceneOp::OpenAsset:
 		{
 			String raytracingSettingsJson;
-			if (!Scene::Load(*context_.worldContext_.world_, *context_.worldContext_.resource_, assetID, &raytracingSettingsJson))
+			String screenSpaceSettingsJson;
+			String rasterizationSettingsJson;
+			if (!Scene::Load(*context_.worldContext_.world_, *context_.worldContext_.resource_, assetID, &raytracingSettingsJson, &screenSpaceSettingsJson, &rasterizationSettingsJson))
 			{
 				SC_LOG_WARNING("シーンの読み込みに失敗しました(assetID: {})", assetID);
 				break;
 			}
 			context_.viewportContext_.raytracing_ = DeserializeRaytracingContext(raytracingSettingsJson);
+			context_.viewportContext_.screenSpace_ = DeserializeScreenSpaceContext(screenSpaceSettingsJson);
+			context_.viewportContext_.rasterization_ = DeserializeRasterizationContext(rasterizationSettingsJson);
+			context_.viewportContext_.qualityPreset_ = GraphicsQualityPreset::Custom;
 			/// [JP] DLSS有効/モードはネイティブ解像度の再計算(Engine::MainLoop の
 			///      resizeRequested_ 分岐)を経て初めて反映されるため、ここで立てる。
 			context_.viewportContext_.resizeRequested_ = true;
@@ -518,7 +528,7 @@ namespace SeedCore
 			return;
 		}
 
-		if (!Scene::Save(*context_.worldContext_.world_, *context_.worldContext_.resource_, savePath, SerializeRaytracingContext(context_.viewportContext_.raytracing_)))
+		if (!Scene::Save(*context_.worldContext_.world_, *context_.worldContext_.resource_, savePath, SerializeRaytracingContext(context_.viewportContext_.raytracing_), SerializeScreenSpaceContext(context_.viewportContext_.screenSpace_), SerializeRasterizationContext(context_.viewportContext_.rasterization_)))
 		{
 			SC_LOG_WARNING("シーンの保存に失敗しました: {}", savePath.string());
 			return;
@@ -537,7 +547,7 @@ namespace SeedCore
 			return;
 		}
 
-		if (!Scene::Save(*context_.worldContext_.world_, *context_.worldContext_.resource_, context_.sceneContext_.currentScenePath_, SerializeRaytracingContext(context_.viewportContext_.raytracing_)))
+		if (!Scene::Save(*context_.worldContext_.world_, *context_.worldContext_.resource_, context_.sceneContext_.currentScenePath_, SerializeRaytracingContext(context_.viewportContext_.raytracing_), SerializeScreenSpaceContext(context_.viewportContext_.screenSpace_), SerializeRasterizationContext(context_.viewportContext_.rasterization_)))
 		{
 			SC_LOG_WARNING("シーンの上書き保存に失敗しました: {}", context_.sceneContext_.currentScenePath_.string());
 			return;

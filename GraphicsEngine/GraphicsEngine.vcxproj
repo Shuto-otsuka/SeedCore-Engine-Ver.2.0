@@ -78,7 +78,6 @@
     <ClInclude Include="D3D12\SwapChain\SwapChain.h" />
     <ClInclude Include="DLSS\DlssBackgroundVelocityShader.h" />
     <ClInclude Include="DLSS\DlssManager.h" />
-    <ClInclude Include="DLSS\DlssMode.h" />
     <ClInclude Include="DLSS\DlssNormalRoughnessShader.h" />
     <ClInclude Include="Effect\Effekseer\EffekseerCache.h" />
     <ClInclude Include="Effect\Effekseer\EffekseerFileInterface.h" />
@@ -159,6 +158,9 @@
     <ClInclude Include="PostProcess\PostProcess.h" />
     <ClInclude Include="Profiler\GpuProfiler.h" />
     <ClInclude Include="Profiler\ProfilerStats.h" />
+    <ClInclude Include="Quality\GraphicsQuality.h" />
+    <ClInclude Include="Quality\Upscale.h" />
+    <ClInclude Include="Rasterization\RasterizationContext.h" />
     <ClInclude Include="Raytracing\AmbientOcclusion\AmbientOcclusionDenoiseShader.h" />
     <ClInclude Include="Raytracing\AmbientOcclusion\AmbientOcclusionShader.h" />
     <ClInclude Include="Raytracing\BottomLevelAccelerationStructure.h" />
@@ -207,6 +209,7 @@
     <ClInclude Include="Renderer\VolumetricStarRenderer.h" />
     <ClInclude Include="Renderer\WeatherParticleRenderer.h" />
     <ClInclude Include="Resource\TextureLoader.h" />
+    <ClInclude Include="ScreenSpace\ScreenSpaceContext.h" />
     <ClInclude Include="Shader\ShaderCache.h" />
     <ClInclude Include="Shader\ShaderCompiler.h" />
     <ClInclude Include="Shape\Collider\ColliderLineShader.h" />
@@ -388,6 +391,7 @@
     <ClCompile Include="Graphics.cpp">
     </ClCompile>
     <ClCompile Include="Profiler\GpuProfiler.cpp" />
+    <ClCompile Include="Quality\GraphicsQuality.cpp" />
     <ClCompile Include="Raytracing\AmbientOcclusion\AmbientOcclusionDenoiseShader.cpp" />
     <ClCompile Include="Raytracing\AmbientOcclusion\AmbientOcclusionShader.cpp" />
     <ClCompile Include="Raytracing\BottomLevelAccelerationStructure.cpp" />

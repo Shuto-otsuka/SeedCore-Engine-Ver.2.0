@@ -136,21 +136,24 @@ namespace SeedCore
 	/**
 	* [EN]
 	* Captures world's current state into a scratch Scene and writes it
-	* to path. Returns whether saving succeeded.
+	* to path, along with the three opaque graphics-settings blobs.
+	* Returns whether saving succeeded.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* world の現在の状態を作業用 Scene へ取得し、path へ書き込む。
-	* 保存に成功したかどうかを返す。
+	* world の現在の状態を作業用 Scene へ取得し、3 つの不透明なグラフィックス
+	* 設定 blob と共に path へ書き込む。保存に成功したかどうかを返す。
 	*/
-	Bool Scene::Save(World& world, ResourceCache& cache, const std::filesystem::path& path, const String& raytracingSettingsJson)
+	Bool Scene::Save(World& world, ResourceCache& cache, const std::filesystem::path& path, const String& raytracingSettingsJson, const String& screenSpaceSettingsJson, const String& rasterizationSettingsJson)
 	{
 		/// [EN] Use the pool's shared scratch instance instead of allocating a new Scene, since this is a one-shot operation with no need for pooled/deduplicated storage.
 		/// [JP] 新しい Scene を確保する代わりに、プールの共有作業用インスタンスを使用する。これは使い捨ての操作であり、プール化/重複排除されたストレージは不要なため。
 		Scene& scene = cache.GetScenePool().GetScratch();
 		scene.Capture(world);
 		scene.SetRaytracingSettingsJson(raytracingSettingsJson);
+		scene.SetScreenSpaceSettingsJson(screenSpaceSettingsJson);
+		scene.SetRasterizationSettingsJson(rasterizationSettingsJson);
 
 		if (path.has_parent_path())
 		{
@@ -170,21 +173,24 @@ namespace SeedCore
 	* filesystem path is used instead; only if no matching asset exists
 	* is path opened literally (relative to the current working
 	* directory), so a caller doesn't have to know the scene's folder
-	* structure to load it by name.
+	* structure to load it by name. Each non-null out-blob pointer
+	* receives the matching graphics-settings blob (empty if absent).
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
 	* path からシーンを作業用 Scene へ読み込み、world 内の現在の全 actor
 	* を破棄した上で、読み込んだシーンをインスタンス化する。読み込みに
-	* 成功したかどうかを返す。path はまず cache でアセット名として検索し
+	* 成功したかどうかを返す。非null の各 out-blob ポインタには対応する
+	* グラフィックス設定 blob を書き込む(無ければ空)。path はまず cache で
+	* アセット名として検索し
 	* ("Foo.scene" のような単なるファイル名でもよい - ResourceCache::
 	* GetAssetID 参照)、見つかればそのアセットの実際のファイルシステム
 	* パスを代わりに使う。一致するアセットが無い場合のみ、path を文字通り
 	* (カレントディレクトリからの相対で)開く - 呼び出し側はシーンの
 	* フォルダ構成を知らなくても名前だけで読み込める。
 	*/
-	Bool Scene::Load(World& world, ResourceCache& cache, const std::filesystem::path& path, String* outRaytracingSettingsJson)
+	Bool Scene::Load(World& world, ResourceCache& cache, const std::filesystem::path& path, String* outRaytracingSettingsJson, String* outScreenSpaceSettingsJson, String* outRasterizationSettingsJson)
 	{
 		std::filesystem::path resolvedPath = path;
 		Uint32 assetID = cache.GetAssetID(String(path.string()));
@@ -212,6 +218,16 @@ namespace SeedCore
 			*outRaytracingSettingsJson = scene.GetRaytracingSettingsJson();
 		}
 
+		if (outScreenSpaceSettingsJson)
+		{
+			*outScreenSpaceSettingsJson = scene.GetScreenSpaceSettingsJson();
+		}
+
+		if (outRasterizationSettingsJson)
+		{
+			*outRasterizationSettingsJson = scene.GetRasterizationSettingsJson();
+		}
+
 		return true;
 	}
 
@@ -225,7 +241,7 @@ namespace SeedCore
 	* cache 経由でアセット ID からシーンのパスを解決する Load の
 	* オーバーロード。
 	*/
-	Bool Scene::Load(World& world, ResourceCache& cache, Uint32 assetID, String* outRaytracingSettingsJson)
+	Bool Scene::Load(World& world, ResourceCache& cache, Uint32 assetID, String* outRaytracingSettingsJson, String* outScreenSpaceSettingsJson, String* outRasterizationSettingsJson)
 	{
 		Asset* asset = cache.GetAsset(assetID);
 		if (!asset)
@@ -233,7 +249,7 @@ namespace SeedCore
 			return false;
 		}
 
-		return Load(world, cache, std::filesystem::path(asset->fullpath_.c_str()), outRaytracingSettingsJson);
+		return Load(world, cache, std::filesystem::path(asset->fullpath_.c_str()), outRaytracingSettingsJson, outScreenSpaceSettingsJson, outRasterizationSettingsJson);
 	}
 
 	/**
@@ -534,5 +550,81 @@ namespace SeedCore
 	const String& Scene::GetRaytracingSettingsJson()const
 	{
 		return raytracingSettingsJson_;
+	}
+
+	/**
+	* [EN]
+	* Sets the screen-space effect settings blob (SSAO/SSGI/SSR/GTAO)
+	* written out alongside this scene's actor data on the next Write().
+	* Opaque to Scene for the same reason as the raytracing blob --
+	* FoundationEngine cannot depend on GraphicsEngine.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 次回の Write() でこのシーンの actor データと一緒に書き出される
+	* スクリーンスペース系エフェクト設定(SSAO/SSGI/SSR/GTAO)の blob を
+	* 設定する。レイトレーシング blob と同じ理由で Scene からは不透明 --
+	* FoundationEngine は GraphicsEngine に依存できない。
+	*/
+	void Scene::SetScreenSpaceSettingsJson(const String& json)
+	{
+		screenSpaceSettingsJson_ = json;
+	}
+
+	/**
+	* [EN]
+	* Returns the screen-space effect settings blob captured by the last
+	* Read()/Load(). Empty for scenes saved before this field existed.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 直近の Read()/Load() で取得したスクリーンスペース系エフェクト設定の
+	* blob を返す。このフィールドが存在する前に保存されたシーンでは空。
+	*/
+	const String& Scene::GetScreenSpaceSettingsJson()const
+	{
+		return screenSpaceSettingsJson_;
+	}
+
+	/**
+	* [EN]
+	* Sets the rasterization / SDF fallback effect settings blob
+	* (VSM/CSM shadows, SDF reflection, DDGI) written out alongside this
+	* scene's actor data on the next Write(). Opaque to Scene for the same
+	* reason as the raytracing blob -- FoundationEngine cannot depend on
+	* GraphicsEngine.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 次回の Write() でこのシーンの actor データと一緒に書き出される
+	* ラスタライゼーション / SDF フォールバック系エフェクト設定
+	* (VSM/CSM 影、SDF 反射、DDGI)の blob を設定する。レイトレーシング
+	* blob と同じ理由で Scene からは不透明 -- FoundationEngine は
+	* GraphicsEngine に依存できない。
+	*/
+	void Scene::SetRasterizationSettingsJson(const String& json)
+	{
+		rasterizationSettingsJson_ = json;
+	}
+
+	/**
+	* [EN]
+	* Returns the rasterization / SDF fallback effect settings blob
+	* captured by the last Read()/Load(). Empty for scenes saved before
+	* this field existed.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 直近の Read()/Load() で取得したラスタライゼーション / SDF フォール
+	* バック系エフェクト設定の blob を返す。このフィールドが存在する前に
+	* 保存されたシーンでは空。
+	*/
+	const String& Scene::GetRasterizationSettingsJson()const
+	{
+		return rasterizationSettingsJson_;
 	}
 }

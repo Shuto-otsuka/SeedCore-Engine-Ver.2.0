@@ -1,7 +1,7 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
 #include <FoundationEngine/Serialization/Json/JsonArchive.h>
-#include <GraphicsEngine/DLSS/DlssMode.h>
+#include <GraphicsEngine/Quality/Upscale.h>
 #include <GraphicsEngine/Renderer/ShadowRenderer.h>
 #include <GraphicsEngine/Renderer/AmbientOcclusionRenderer.h>
 #include <GraphicsEngine/Renderer/SubsurfaceScatteringRenderer.h>

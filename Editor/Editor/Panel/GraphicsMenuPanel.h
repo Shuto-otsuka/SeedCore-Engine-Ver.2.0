@@ -2,6 +2,8 @@
 #include <FoundationEngine/Prelude.h>
 #include <GraphicsEngine/Renderer/ViewMode.h>
 #include <Editor/Editor/Panel/RaytracingPanel.h>
+#include <Editor/Editor/Panel/ScreenSpacePanel.h>
+#include <Editor/Editor/Panel/RasterizationPanel.h>
 #include <Editor/Editor/Panel/EnvironmentMenuPanel.h>
 
 namespace SeedCore
@@ -25,6 +27,8 @@ namespace SeedCore
 		EditorContext& context_;
 
 		RaytracingPanel raytracingPanel_;
+		ScreenSpacePanel screenSpacePanel_;
+		RasterizationPanel rasterizationPanel_;
 		EnvironmentMenuPanel environmentMenuPanel_;
 	};
 }

@@ -103,27 +103,29 @@ namespace SeedCore
 		/**
 		* [EN]
 		* Captures world's current state into a scratch Scene and writes
-		* it to path, along with raytracingSettingsJson (an opaque blob;
-		* pass an empty String if the caller has no raytracing settings to
-		* persist). Returns whether saving succeeded.
+		* it to path, along with the three opaque graphics-settings blobs
+		* (raytracing / screen-space / rasterization; pass an empty String
+		* for any the caller has nothing to persist for). Returns whether
+		* saving succeeded.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* world の現在の状態を作業用 Scene へ取得し、raytracingSettingsJson
-		* (不透明な blob。永続化するレイトレーシング設定が無い呼び出し側は
-		* 空の String を渡す)と共に path へ書き込む。保存に成功したかどうかを
-		* 返す。
+		* world の現在の状態を作業用 Scene へ取得し、3 つの不透明なグラフィックス
+		* 設定 blob(レイトレーシング / スクリーンスペース / ラスタライゼーション。
+		* 永続化するものが無い blob には空の String を渡す)と共に path へ書き込む。
+		* 保存に成功したかどうかを返す。
 		*/
-		static Bool Save(World& world, ResourceCache& cache, const std::filesystem::path& path, const String& raytracingSettingsJson = String());
+		static Bool Save(World& world, ResourceCache& cache, const std::filesystem::path& path, const String& raytracingSettingsJson = String(), const String& screenSpaceSettingsJson = String(), const String& rasterizationSettingsJson = String());
 
 		/**
 		* [EN]
 		* Reads a scene from path into a scratch Scene, destroys every
-		* actor currently in world, and instantiates the loaded scene. If
-		* outRaytracingSettingsJson is non-null, the scene's raytracing
-		* settings blob (possibly empty, for scenes saved before this
-		* field existed) is written to it. Returns whether loading
+		* actor currently in world, and instantiates the loaded scene. For
+		* each of outRaytracingSettingsJson / outScreenSpaceSettingsJson /
+		* outRasterizationSettingsJson that is non-null, the matching
+		* graphics-settings blob (possibly empty, for scenes saved before
+		* that field existed) is written to it. Returns whether loading
 		* succeeded.
 		*
 		* ---------------------------------------------------------------------
@@ -131,11 +133,13 @@ namespace SeedCore
 		* [JP]
 		* path からシーンを作業用 Scene へ読み込み、world 内の現在の全
 		* actor を破棄した上で、読み込んだシーンをインスタンス化する。
-		* outRaytracingSettingsJson が非null の場合、シーンのレイトレーシング
-		* 設定 blob(このフィールドが存在する前に保存されたシーンでは
-		* 空になりうる)をそこへ書き込む。読み込みに成功したかどうかを返す。
+		* outRaytracingSettingsJson / outScreenSpaceSettingsJson /
+		* outRasterizationSettingsJson のうち非null のものへ、対応する
+		* グラフィックス設定 blob(そのフィールドが存在する前に保存された
+		* シーンでは空になりうる)をそれぞれ書き込む。読み込みに成功したか
+		* どうかを返す。
 		*/
-		static Bool Load(World& world, ResourceCache& cache, const std::filesystem::path& path, String* outRaytracingSettingsJson = nullptr);
+		static Bool Load(World& world, ResourceCache& cache, const std::filesystem::path& path, String* outRaytracingSettingsJson = nullptr, String* outScreenSpaceSettingsJson = nullptr, String* outRasterizationSettingsJson = nullptr);
 
 		/**
 		* [EN]
@@ -147,7 +151,7 @@ namespace SeedCore
 		* cache 経由でアセット ID からシーンのパスを解決する Load の
 		* オーバーロード。
 		*/
-		static Bool Load(World& world, ResourceCache& cache, Uint32 assetID, String* outRaytracingSettingsJson = nullptr);
+		static Bool Load(World& world, ResourceCache& cache, Uint32 assetID, String* outRaytracingSettingsJson = nullptr, String* outScreenSpaceSettingsJson = nullptr, String* outRasterizationSettingsJson = nullptr);
 
 		/**
 		* [EN]
@@ -355,6 +359,37 @@ namespace SeedCore
 
 		/**
 		* [EN]
+		* Sets the screen-space effect settings blob (SSAO/SSGI/SSR/GTAO),
+		* round-tripped exactly like raytracingSettingsJson_ and just as
+		* opaque to Scene.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* スクリーンスペース系エフェクト設定(SSAO/SSGI/SSR/GTAO)の blob を
+		* 設定する。raytracingSettingsJson_ と全く同じように往復し、Scene
+		* からは同様に不透明。
+		*/
+		void SetScreenSpaceSettingsJson(const String& json);
+
+		/**
+		* [EN]
+		* Sets the rasterization / SDF fallback effect settings blob
+		* (VSM/CSM shadows, SDF reflection, DDGI), round-tripped exactly
+		* like raytracingSettingsJson_ and just as opaque to Scene.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* ラスタライゼーション / SDF フォールバック系エフェクト設定
+		* (VSM/CSM 影、SDF 反射、DDGI)の blob を設定する。
+		* raytracingSettingsJson_ と全く同じように往復し、Scene からは
+		* 同様に不透明。
+		*/
+		void SetRasterizationSettingsJson(const String& json);
+
+		/**
+		* [EN]
 		* Returns the raytracing settings blob captured by the last Read()/Load().
 		*
 		* ---------------------------------------------------------------------
@@ -366,40 +401,74 @@ namespace SeedCore
 
 		/**
 		* [EN]
-		* Serialization hook (save side): writes nodes_ and raytracingSettingsJson_.
+		* Returns the screen-space effect settings blob captured by the last
+		* Read()/Load(). Empty for scenes saved before this field existed.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* シリアライズ用フック(保存側): nodes_ と raytracingSettingsJson_ を書き込む。
+		* 直近の Read()/Load() で取得したスクリーンスペース系エフェクト設定の
+		* blob を返す。このフィールドが存在する前に保存されたシーンでは空。
+		*/
+		[[nodiscard]] const String& GetScreenSpaceSettingsJson()const;
+
+		/**
+		* [EN]
+		* Returns the rasterization / SDF fallback effect settings blob
+		* captured by the last Read()/Load(). Empty for scenes saved before
+		* this field existed.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* 直近の Read()/Load() で取得したラスタライゼーション / SDF フォール
+		* バック系エフェクト設定の blob を返す。このフィールドが存在する前に
+		* 保存されたシーンでは空。
+		*/
+		[[nodiscard]] const String& GetRasterizationSettingsJson()const;
+
+		/**
+		* [EN]
+		* Serialization hook (save side): writes nodes_ and the three
+		* graphics-settings blobs (raytracing / screen-space / rasterization).
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* シリアライズ用フック(保存側): nodes_ と 3 つのグラフィックス設定 blob
+		* (レイトレーシング / スクリーンスペース / ラスタライゼーション)を書き込む。
 		*/
 		template<class Archive>
 		void Save(Archive& archive)const
 		{
 			archive.Field("nodes", nodes_);
 			archive.Field("raytracingSettings", raytracingSettingsJson_);
+			archive.Field("screenSpaceSettings", screenSpaceSettingsJson_);
+			archive.Field("rasterizationSettings", rasterizationSettingsJson_);
 		}
 
 		/**
 		* [EN]
-		* Serialization hook (load side): reads nodes_ and
-		* raytracingSettingsJson_. raytracingSettingsJson_ is optional --
-		* scenes saved before this field existed simply leave it empty --
-		* so a missing key is swallowed rather than failing the whole load.
+		* Serialization hook (load side): reads nodes_ and the three
+		* graphics-settings blobs. Each blob is optional -- scenes saved
+		* before a given field existed simply leave it empty -- so a
+		* missing key is swallowed rather than failing the whole load.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* シリアライズ用フック(読み込み側): nodes_ と raytracingSettingsJson_
-		* を読み込む。raytracingSettingsJson_ は任意項目 -- このフィールドが
-		* 存在する前に保存されたシーンでは単に空になる -- なので、キーが
-		* 無くても読み込み全体を失敗させず読み飛ばす。
+		* シリアライズ用フック(読み込み側): nodes_ と 3 つのグラフィックス設定
+		* blob を読み込む。各 blob は任意項目 -- そのフィールドが存在する前に
+		* 保存されたシーンでは単に空になる -- なので、キーが無くても読み込み
+		* 全体を失敗させず読み飛ばす。
 		*/
 		template<class Archive>
 		void Load(Archive& archive)
 		{
 			archive.TryField("nodes", nodes_);
 			archive.TryField("raytracingSettings", raytracingSettingsJson_);
+			archive.TryField("screenSpaceSettings", screenSpaceSettingsJson_);
+			archive.TryField("rasterizationSettings", rasterizationSettingsJson_);
 		}
 
 	private:
@@ -426,5 +495,13 @@ namespace SeedCore
 		/// [EN] Opaque JSON blob holding raytracing settings, set by SetRaytracingSettingsJson and round-tripped by save()/load(). Empty if never set.
 		/// [JP] レイトレーシング設定を保持する不透明な JSON blob。SetRaytracingSettingsJson で設定され、save()/load() で往復する。未設定なら空。
 		String raytracingSettingsJson_;
+
+		/// [EN] Opaque JSON blob holding screen-space effect settings, set by SetScreenSpaceSettingsJson and round-tripped by save()/load(). Empty if never set.
+		/// [JP] スクリーンスペース系エフェクト設定を保持する不透明な JSON blob。SetScreenSpaceSettingsJson で設定され、save()/load() で往復する。未設定なら空。
+		String screenSpaceSettingsJson_;
+
+		/// [EN] Opaque JSON blob holding rasterization / SDF fallback effect settings, set by SetRasterizationSettingsJson and round-tripped by save()/load(). Empty if never set.
+		/// [JP] ラスタライゼーション / SDF フォールバック系エフェクト設定を保持する不透明な JSON blob。SetRasterizationSettingsJson で設定され、save()/load() で往復する。未設定なら空。
+		String rasterizationSettingsJson_;
 	};
 }

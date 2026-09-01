@@ -7,6 +7,9 @@
 #include <Editor/Editor/GizmoContext.h>
 #include <GraphicsEngine/Renderer/ViewMode.h>
 #include <GraphicsEngine/Raytracing/RaytracingContext.h>
+#include <GraphicsEngine/ScreenSpace/ScreenSpaceContext.h>
+#include <GraphicsEngine/Rasterization/RasterizationContext.h>
+#include <GraphicsEngine/Quality/GraphicsQuality.h>
 #include <GraphicsEngine/D3D12/SwapChain/GraphicsResolution.h>
 
 namespace SeedCore
@@ -85,6 +88,9 @@ namespace SeedCore
 		GuizmoContext guizmo_;
 		ViewMode viewMode_ = ViewMode::Lit;
 		RaytracingContext raytracing_;
+		ScreenSpaceContext screenSpace_;
+		RasterizationContext rasterization_;
+		GraphicsQualityPreset qualityPreset_ = GraphicsQualityPreset::Custom;
 		FrameGenerationContext frameGeneration_;
 		ResolutionPreset outputResolution_ = ResolutionPreset::HD;
 		Bool vsync_ = false;

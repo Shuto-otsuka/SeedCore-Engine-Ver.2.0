@@ -157,6 +157,15 @@
     <Filter Include="Shape\HUD">
       <UniqueIdentifier>{d40a24a7-28f0-4777-85f4-33efe3b4c038}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Rasterization">
+      <UniqueIdentifier>{f3f08c5b-f7a2-425b-b88a-9e68b02d79d3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ScreenSpace">
+      <UniqueIdentifier>{a7815dd2-4cff-4bac-b1a5-2b15b8645af9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Quality">
+      <UniqueIdentifier>{8cd259f6-400e-482b-a014-13c3c222b703}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="D3D12\Context\D3D12Adapter.h">
@@ -646,9 +655,6 @@
     <ClInclude Include="DLSS\DlssBackgroundVelocityShader.h">
       <Filter>DLSS</Filter>
     </ClInclude>
-    <ClInclude Include="DLSS\DlssMode.h">
-      <Filter>DLSS</Filter>
-    </ClInclude>
     <ClInclude Include="Environment\Weather.h">
       <Filter>Environment</Filter>
     </ClInclude>
@@ -795,6 +801,18 @@
     </ClInclude>
     <ClInclude Include="Renderer\MaterialRenderer.h">
       <Filter>Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="ScreenSpace\ScreenSpaceContext.h">
+      <Filter>ScreenSpace</Filter>
+    </ClInclude>
+    <ClInclude Include="Rasterization\RasterizationContext.h">
+      <Filter>Rasterization</Filter>
+    </ClInclude>
+    <ClInclude Include="Quality\Upscale.h">
+      <Filter>Quality</Filter>
+    </ClInclude>
+    <ClInclude Include="Quality\GraphicsQuality.h">
+      <Filter>Quality</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -1333,6 +1351,9 @@
     </ClCompile>
     <ClCompile Include="Model\Material\Material.cpp">
       <Filter>Model\Material</Filter>
+    </ClCompile>
+    <ClCompile Include="Quality\GraphicsQuality.cpp">
+      <Filter>Quality</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

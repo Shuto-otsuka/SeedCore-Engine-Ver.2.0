@@ -93,7 +93,7 @@ namespace SeedCore
 
 		if (ImGui::Begin("レイトレーシング：影", &showShadowSettings_, flags))
 		{
-			ImGui::Checkbox("有効", &context_.viewportContext_.raytracing_.shadowEnabled_);
+			DrawEnableCheckbox(GraphicsEffect::Shadow, context_.viewportContext_.raytracing_.shadowEnabled_);
 
 			ImGui::Spacing();
 			ImGui::Separator();
@@ -141,7 +141,7 @@ namespace SeedCore
 
 		if (ImGui::Begin("レイトレーシング：AO", &showAmbientOcclusionSettings_, flags))
 		{
-			ImGui::Checkbox("有効", &context_.viewportContext_.raytracing_.ambientOcclusionEnabled_);
+			DrawEnableCheckbox(GraphicsEffect::AmbientOcclusion, context_.viewportContext_.raytracing_.ambientOcclusionEnabled_);
 
 			ImGui::Spacing();
 			ImGui::Separator();
@@ -187,7 +187,7 @@ namespace SeedCore
 
 		if (ImGui::Begin("レイトレーシング：反射", &showReflectionSettings_, flags))
 		{
-			ImGui::Checkbox("有効", &context_.viewportContext_.raytracing_.reflectionEnabled_);
+			DrawEnableCheckbox(GraphicsEffect::Reflection, context_.viewportContext_.raytracing_.reflectionEnabled_);
 
 			ImGui::Spacing();
 			ImGui::Separator();
@@ -299,7 +299,7 @@ namespace SeedCore
 
 		if (ImGui::Begin("レイトレーシング：GI", &showGlobalIlluminationSettings_, flags))
 		{
-			ImGui::Checkbox("有効", &context_.viewportContext_.raytracing_.globalIlluminationEnabled_);
+			DrawEnableCheckbox(GraphicsEffect::GlobalIllumination, context_.viewportContext_.raytracing_.globalIlluminationEnabled_);
 
 			ImGui::BeginDisabled(!context_.viewportContext_.raytracing_.globalIlluminationEnabled_);
 
@@ -616,6 +616,29 @@ namespace SeedCore
 			}
 		}
 		ImGui::End();
+	}
+
+	void RaytracingPanel::DrawEnableCheckbox(GraphicsEffect effect, Bool& enabled)
+	{
+		ViewportContext& viewport = context_.viewportContext_;
+
+		Bool interactive = GraphicsQuality::IsEnableCheckboxInteractive(effect, GraphicsEffectFamily::Raytracing, viewport.qualityPreset_, viewport.raytracing_, viewport.screenSpace_, viewport.rasterization_);
+
+		ImGui::BeginDisabled(!interactive);
+		ImGui::Checkbox("有効", &enabled);
+		ImGui::EndDisabled();
+
+		if (!interactive && !enabled)
+		{
+			if (viewport.qualityPreset_ != GraphicsQualityPreset::Custom)
+			{
+				ImGui::TextDisabled("※品質プリセットが「カスタム」のときのみ変更できます");
+			}
+			else
+			{
+				ImGui::TextDisabled("※この効果は他のパイプラインで有効です");
+			}
+		}
 	}
 
 	void RaytracingPanel::DrawPlaceholderSettingsWindow(const Char* title, Bool& show, Bool& enabled)

@@ -180,7 +180,9 @@
     <ClCompile Include="Editor\Panel\MaterialViewerPanel.cpp" />
     <ClCompile Include="Editor\Panel\ModelTransformPanel.cpp" />
     <ClCompile Include="Editor\Panel\ProfilerPanel.cpp" />
+    <ClCompile Include="Editor\Panel\RasterizationPanel.cpp" />
     <ClCompile Include="Editor\Panel\RaytracingPanel.cpp" />
+    <ClCompile Include="Editor\Panel\ScreenSpacePanel.cpp" />
     <ClCompile Include="Editor\Panel\ShortCutKeyPanel.cpp" />
     <ClCompile Include="Editor\Panel\SpecMemoPanel.cpp" />
     <ClCompile Include="Editor\Panel\TimelinePanel.cpp" />
@@ -277,7 +279,9 @@
     <ClInclude Include="Editor\Panel\MenuBarPanel.h" />
     <ClInclude Include="Editor\Panel\ModelTransformPanel.h" />
     <ClInclude Include="Editor\Panel\ProfilerPanel.h" />
+    <ClInclude Include="Editor\Panel\RasterizationPanel.h" />
     <ClInclude Include="Editor\Panel\RaytracingPanel.h" />
+    <ClInclude Include="Editor\Panel\ScreenSpacePanel.h" />
     <ClInclude Include="Editor\Panel\ShortCutKeyPanel.h" />
     <ClInclude Include="Editor\Panel\SpecMemoPanel.h" />
     <ClInclude Include="Editor\Panel\TimelinePanel.h" />

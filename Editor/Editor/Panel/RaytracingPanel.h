@@ -1,5 +1,6 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
+#include <GraphicsEngine/Quality/GraphicsQuality.h>
 
 namespace SeedCore
 {
@@ -45,6 +46,8 @@ namespace SeedCore
 		///      enabled フラグだけ受け取り、「有効」チェックボックス1つだけの
 		///      小さいウィンドウを描く。show は呼び出し側(このクラス)が持つ bool。
 		void DrawPlaceholderSettingsWindow(const Char* title, Bool& show, Bool& enabled);
+
+		void DrawEnableCheckbox(GraphicsEffect effect, Bool& enabled);
 
 		EditorContext& context_;
 
