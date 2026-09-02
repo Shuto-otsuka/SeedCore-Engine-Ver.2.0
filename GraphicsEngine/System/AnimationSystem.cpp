@@ -5,6 +5,7 @@
 #include <GraphicsEngine/Model/Animation/AnimationResource.h>
 #include <GraphicsEngine/Model/Skeleton/Skeleton.h>
 #include <GraphicsEngine/Model/IK/FullBodyIK.h>
+#include <GraphicsEngine/Constraint/IKConstraint.h>
 #include <FoundationEngine/Resource/LoaderSystem.h>
 #include <FoundationEngine/ECS/Query.h>
 #include <FoundationEngine/ECS/World.h>
@@ -81,6 +82,30 @@ namespace SeedCore
 				Animator* animator = actor.GetComponent<Animator>();
 				if (animator)
 				{
+					IKConstraint* ik = actor.GetComponent<IKConstraint>();
+					if (ik)
+					{
+						const Char* effectorName = ik->effectorBoneName_.c_str();
+						if (effectorName && *effectorName != '\0')
+						{
+							Actor targetActor = (ik->enabled_ && ik->target_ != 0 && ik->weight_ > 0.0f) ? world.FindActor(ik->target_) : Actor();
+							if (targetActor)
+							{
+								animator->SetIKTarget(ik->effectorBoneName_.str(), targetActor.GetWorldMatrix().Translation(), ik->weight_);
+
+								Actor poleActor = (ik->pole_ != 0) ? world.FindActor(ik->pole_) : Actor();
+								if (poleActor)
+								{
+									animator->SetIKPole(ik->effectorBoneName_.str(), poleActor.GetWorldMatrix().Translation());
+								}
+							}
+							else
+							{
+								animator->ClearIKTarget(ik->effectorBoneName_.str());
+							}
+						}
+					}
+
 					Int stateIndex = animator->CurrentStateIndex();
 					if (stateIndex >= 0 && static_cast<Size>(stateIndex) < animator->states_.size())
 					{
@@ -287,8 +312,6 @@ namespace SeedCore
 									traverse(rootNodeIndex, Matrix::Identity);
 								}
 
-								FullBodyIK::Apply(*crister, *animator, poseGlobalTransforms);
-
 								hasPose = true;
 							}
 						}
@@ -309,6 +332,12 @@ namespace SeedCore
 						skeleton->globalTransforms_.push_back(node.globalTransform_);
 					}
 					skeleton->animated_ = false;
+				}
+
+				if (animator && !animator->GetIKTarget().empty())
+				{
+					FullBodyIK::Apply(*crister, *animator, skeleton->globalTransforms_);
+					skeleton->animated_ = true;
 				}
 
 				skeleton->valid_ = true;

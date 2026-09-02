@@ -13,7 +13,10 @@
     <Filter Include="Tutorial">
       <UniqueIdentifier>{09007d97-ab19-4e6e-a4fc-1369293bc115}</UniqueIdentifier>
     </Filter>
-    </ItemGroup>
+    <Filter Include="Script">
+      <UniqueIdentifier>{daad1057-6e0f-49cc-9d79-ca12683bf158}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Prelude.cpp" />
     <ClCompile Include="EntryPoint\EntryGame.cpp">
@@ -29,7 +32,7 @@
     <ClCompile Include="Tutorial\ScTutorial.cpp">
       <Filter>Tutorial</Filter>
     </ClCompile>
-    </ItemGroup>
+  <ClCompile Include="Script\GameCameraController.cpp"><Filter>Script</Filter></ClCompile><ClCompile Include="Script\PlayerController.cpp"><Filter>Script</Filter></ClCompile></ItemGroup>
   <ItemGroup>
     <ClInclude Include="EntryPoint\EntryGame.h">
       <Filter>EntryPoint</Filter>
@@ -37,5 +40,5 @@
     <ClInclude Include="Tutorial\ScTutorial.h">
       <Filter>Tutorial</Filter>
     </ClInclude>
-    </ItemGroup>
+  </ItemGroup>
 </Project>

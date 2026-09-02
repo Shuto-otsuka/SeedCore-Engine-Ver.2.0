@@ -29,6 +29,7 @@
     <ClInclude Include="Camera\PreviewCameraController.h" />
     <ClInclude Include="Camera\ScreenSpace.h" />
     <ClInclude Include="Constraint\AttachmentConstraint.h" />
+    <ClInclude Include="Constraint\IKConstraint.h" />
     <ClInclude Include="Constraint\LookAtConstraint.h" />
     <ClInclude Include="Constraint\ParentConstraint.h" />
     <ClInclude Include="Constraint\PositionConstraint.h" />
@@ -250,6 +251,7 @@
     <ClCompile Include="Camera\PreviewCameraController.cpp" />
     <ClCompile Include="Camera\ScreenSpace.cpp" />
     <ClCompile Include="Constraint\AttachmentConstraint.cpp" />
+    <ClCompile Include="Constraint\IKConstraint.cpp" />
     <ClCompile Include="D3D12\Buffer\DepthResizeBuffer.cpp" />
     <ClCompile Include="D3D12\Buffer\HudlessBuffer.cpp" />
     <ClCompile Include="D3D12\Buffer\ReservoirBuffer.cpp" />

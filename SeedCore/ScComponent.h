@@ -15,6 +15,8 @@
 #include <GraphicsEngine/Camera/Camera.h>
 #include <GraphicsEngine/Camera/FreeCameraController.h>
 #include <GraphicsEngine/Camera/OrbitCameraController.h>
+#include <GraphicsEngine/Constraint/AttachmentConstraint.h>
+#include <GraphicsEngine/Constraint/IKConstraint.h>
 #include <GraphicsEngine/Constraint/LookAtConstraint.h>
 #include <GraphicsEngine/Constraint/ParentConstraint.h>
 #include <GraphicsEngine/Constraint/PositionConstraint.h>

@@ -171,6 +171,11 @@ namespace SeedCore
 		target.refreshedThisFrame_ = true;
 	}
 
+	void Animator::ClearIKTarget(const std::string& effectorBoneName)
+	{
+		ikTargets_.erase(effectorBoneName);
+	}
+
 	void Animator::SetIKPole(const std::string& effectorBoneName, const Vector3& poleVector)
 	{
 		IKTarget& target = ikTargets_[effectorBoneName];

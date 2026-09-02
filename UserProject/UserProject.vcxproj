@@ -36,7 +36,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="Tutorial\ScTutorial.cpp" />
-  </ItemGroup>
+  <ClCompile Include="Script\GameCameraController.cpp" /><ClCompile Include="Script\PlayerController.cpp" /></ItemGroup>
   <ItemGroup>
     <ClInclude Include="EntryPoint\EntryGame.h" />
     <ClInclude Include="Tutorial\ScTutorial.h" />

@@ -1169,7 +1169,9 @@ namespace SeedCore
 
 			if (field.assetType_ != PayloadAssetType::None)
 			{
+				ImGui::PushID(static_cast<Int>(fieldOffset));
 				DrawPayloadField(field, ptr, entity, componentID, fieldOffset);
+				ImGui::PopID();
 			}
 			else
 			{

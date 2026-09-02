@@ -219,6 +219,8 @@ namespace SeedCore
 
 		void UpdateCurrentClipDuration(Float duration);
 
+		void ClearIKTarget(const std::string& effectorBoneName);
+
 	private:
 		static constexpr Int ExitState = -2;
 

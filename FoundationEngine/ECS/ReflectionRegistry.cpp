@@ -12,6 +12,7 @@
 #pragma comment(linker, "/include:_force_reflection_FreeCameraController")
 #pragma comment(linker, "/include:_force_reflection_OrbitCameraController")
 #pragma comment(linker, "/include:_force_reflection_AttachmentConstraint")
+#pragma comment(linker, "/include:_force_reflection_IKConstraint")
 #pragma comment(linker, "/include:_force_reflection_LookAtConstraint")
 #pragma comment(linker, "/include:_force_reflection_ParentConstraint")
 #pragma comment(linker, "/include:_force_reflection_PositionConstraint")

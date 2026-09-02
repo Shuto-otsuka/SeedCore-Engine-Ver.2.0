@@ -11,6 +11,7 @@
 #include <GraphicsEngine/Camera/FreeCameraController.h>
 #include <GraphicsEngine/Camera/OrbitCameraController.h>
 #include <GraphicsEngine/Constraint/AttachmentConstraint.h>
+#include <GraphicsEngine/Constraint/IKConstraint.h>
 #include <GraphicsEngine/Constraint/LookAtConstraint.h>
 #include <GraphicsEngine/Constraint/ParentConstraint.h>
 #include <GraphicsEngine/Constraint/PositionConstraint.h>
@@ -52,6 +53,7 @@ extern "C" int _force_reflection_Camera = 0;
 extern "C" int _force_reflection_FreeCameraController = 0;
 extern "C" int _force_reflection_OrbitCameraController = 0;
 extern "C" int _force_reflection_AttachmentConstraint = 0;
+extern "C" int _force_reflection_IKConstraint = 0;
 extern "C" int _force_reflection_LookAtConstraint = 0;
 extern "C" int _force_reflection_ParentConstraint = 0;
 extern "C" int _force_reflection_PositionConstraint = 0;
@@ -448,6 +450,36 @@ namespace SeedCore
 			}
 		};
 		static Register_AttachmentConstraint global_AttachmentConstraint_register;
+
+		// ---- GraphicsEngine/Constraint/IKConstraint.h ----
+		struct Register_IKConstraint
+		{
+			Register_IKConstraint()
+			{
+				ReflectionRegistry::Register(String("IKConstraint"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
+					IKConstraint& obj = *static_cast<IKConstraint*>(ptr);
+					outInfo.push_back({ String("有効"), offsetof(IKConstraint, enabled_), AttributeType::Bool });
+					{
+						FieldInfo fi;
+						fi.name_ = String("重み");
+						fi.offset_ = offsetof(IKConstraint, weight_);
+						fi.type_ = AttributeType::Float;
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 1.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("effectorBoneName_");
+						fi.offset_ = offsetof(IKConstraint, effectorBoneName_);
+						fi.type_ = AttributeType::String;
+						fi.editorVisible_ = false;
+						outInfo.push_back(std::move(fi));
+					}
+				});
+			}
+		};
+		static Register_IKConstraint global_IKConstraint_register;
 
 		// ---- GraphicsEngine/Constraint/LookAtConstraint.h ----
 		struct Register_LookAtConstraint

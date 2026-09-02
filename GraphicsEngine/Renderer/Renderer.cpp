@@ -404,6 +404,7 @@ namespace SeedCore
 		MaterialResource* materialResource = resourceCache.GetMaterialResource();
 		AnimationResource* animationResource = resourceCache.GetAnimationResource();
 
+		constraintSystem_.Execute(world);
 		animationSystem_.Execute(world, loaderSystem, *animationResource, *modelResource);
 		constraintSystem_.Execute(world);
 
