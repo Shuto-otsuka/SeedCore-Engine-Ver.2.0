@@ -5,10 +5,10 @@ namespace SeedCore
 {
 	struct EditorContext;
 
-	class BoneControllerPanel
+	class SkeletonControllerPanel
 	{
 	public:
-		BoneControllerPanel(EditorContext& context);
+		SkeletonControllerPanel(EditorContext& context);
 
 		void Draw();
 

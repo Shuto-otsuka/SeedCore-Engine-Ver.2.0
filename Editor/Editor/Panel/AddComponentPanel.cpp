@@ -244,7 +244,8 @@ namespace SeedCore
 			String("Velocity"),
 			String("Active"),
 			String("Bounds"),
-			String("Material")
+			String("Material"),
+			String("Skeleton")
 		};
 
 		return std::ranges::contains(builtinComponents, componentName);

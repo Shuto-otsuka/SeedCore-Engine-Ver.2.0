@@ -20,6 +20,9 @@
 # マテリアル
 *.material
 
+# スケルトン
+*.skeleton
+
 # ナビメッシュ
 *.navmesh
 

@@ -3,13 +3,13 @@
 
 namespace SeedCore
 {
-	struct AnimatorControllerRequest
+	struct SEEDCORE_API AnimatorControllerRequest
 	{
-		static inline Bool requested_ = false;
+		static Bool requested_;
 	};
 
-	struct TimelineRequest
+	struct SEEDCORE_API TimelineRequest
 	{
-		static inline Bool requested_ = false;
+		static Bool requested_;
 	};
 }

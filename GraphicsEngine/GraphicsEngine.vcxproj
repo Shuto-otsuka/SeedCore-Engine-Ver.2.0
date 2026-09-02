@@ -131,6 +131,10 @@
     <ClInclude Include="Model\ModelShader.h" />
     <ClInclude Include="Model\Morph\MorphBlendShader.h" />
     <ClInclude Include="Model\QuadricErrorMetrics.h" />
+    <ClInclude Include="Model\Skeleton\Skeleton.h" />
+    <ClInclude Include="Model\Skeleton\SkeletonLoader.h" />
+    <ClInclude Include="Model\Skeleton\SkeletonResource.h" />
+    <ClInclude Include="Model\Skeleton\SkeletonState.h" />
     <ClInclude Include="Model\SkinnedPositionShader.h" />
     <ClInclude Include="Model\SoftbodyMesh.h" />
     <ClInclude Include="Model\Transparent\OITBuffer.h" />
@@ -220,6 +224,7 @@
     <ClInclude Include="Sky\SkymapCache.h" />
     <ClInclude Include="Sky\SkymapLoader.h" />
     <ClInclude Include="Sky\SkymapResource.h" />
+    <ClInclude Include="System\AnimationSystem.h" />
     <ClInclude Include="System\CameraSystem.h" />
     <ClInclude Include="System\CelestialSystem.h" />
     <ClInclude Include="System\ConstraintSystem.h" />
@@ -287,6 +292,9 @@
     <ClCompile Include="Model\ModelShader.cpp" />
     <ClCompile Include="Model\Morph\MorphBlendShader.cpp" />
     <ClCompile Include="Model\QuadricErrorMetrics.cpp" />
+    <ClCompile Include="Model\Skeleton\Skeleton.cpp" />
+    <ClCompile Include="Model\Skeleton\SkeletonLoader.cpp" />
+    <ClCompile Include="Model\Skeleton\SkeletonResource.cpp" />
     <ClCompile Include="Model\SkinnedPositionShader.cpp" />
     <ClCompile Include="Model\SoftbodyMesh.cpp" />
     <ClCompile Include="Model\Transparent\OITBuffer.cpp" />
@@ -451,6 +459,7 @@
     <ClCompile Include="Sky\SkymapCache.cpp" />
     <ClCompile Include="Sky\SkymapLoader.cpp" />
     <ClCompile Include="Sky\SkymapResource.cpp" />
+    <ClCompile Include="System\AnimationSystem.cpp" />
     <ClCompile Include="System\CameraSystem.cpp" />
     <ClCompile Include="System\CelestialSystem.cpp" />
     <ClCompile Include="System\ConstraintSystem.cpp" />

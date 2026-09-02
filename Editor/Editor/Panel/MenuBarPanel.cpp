@@ -144,9 +144,9 @@ namespace SeedCore
 				{
 					timelineRequested_ = true;
 				}
-				if (ImGui::MenuItem("ボーンコントローラー"))
+				if (ImGui::MenuItem("スケルトンコントローラー"))
 				{
-					boneControllerRequested_ = true;
+					skeletonControllerRequested_ = true;
 				}
 				if (ImGui::MenuItem("マテリアルビューア"))
 				{
@@ -365,11 +365,11 @@ namespace SeedCore
 		return false;
 	}
 
-	Bool MenuBarPanel::ConsumeBoneControllerRequest()
+	Bool MenuBarPanel::ConsumeSkeletonControllerRequest()
 	{
-		if (boneControllerRequested_)
+		if (skeletonControllerRequested_)
 		{
-			boneControllerRequested_ = false;
+			skeletonControllerRequested_ = false;
 			return true;
 		}
 		return false;

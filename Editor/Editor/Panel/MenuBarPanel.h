@@ -36,7 +36,7 @@ namespace SeedCore
 
 		Bool ConsumeTimelineRequest();
 
-		Bool ConsumeBoneControllerRequest();
+		Bool ConsumeSkeletonControllerRequest();
 
 		Bool ConsumeMaterialViewerRequest();
 
@@ -81,7 +81,7 @@ namespace SeedCore
 		Bool layerSettingsRequested_ = false;
 		Bool animatorControllerRequested_ = false;
 		Bool timelineRequested_ = false;
-		Bool boneControllerRequested_ = false;
+		Bool skeletonControllerRequested_ = false;
 		Bool materialViewerRequested_ = false;
 		Bool modelTransformRequested_ = false;
 

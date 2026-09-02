@@ -3,8 +3,8 @@
 
 namespace SeedCore
 {
-	struct SEEDCORE_API MaterialPanelRequest
+	struct SEEDCORE_API SkeletonControllerRequest
 	{
-		static Bool openRequested_;
+		static Bool requested_;
 	};
 }

@@ -29,6 +29,7 @@
 #include <GraphicsEngine/Light/SpotLight.h>
 #include <GraphicsEngine/Model/Animation/Animator.h>
 #include <GraphicsEngine/Model/Material/Material.h>
+#include <GraphicsEngine/Model/Skeleton/Skeleton.h>
 #include <GraphicsEngine/Model/Mesh.h>
 #include <GraphicsEngine/Movie/Movie.h>
 #include <GraphicsEngine/PostProcess/PostProcess.h>

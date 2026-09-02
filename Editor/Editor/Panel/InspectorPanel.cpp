@@ -25,6 +25,7 @@
 #include <GraphicsEngine/Model/Mesh.h>
 #include <GraphicsEngine/Model/ModelResource.h>
 #include <GraphicsEngine/Model/Material/Material.h>
+#include <GraphicsEngine/Model/Skeleton/Skeleton.h>
 #include <GraphicsEngine/Model/Crister.h>
 
 namespace SeedCore
@@ -553,6 +554,37 @@ namespace SeedCore
 	{
 		Entity entity = actor.GetEntity();
 
+		if (const Mesh* mesh = actor.GetComponent<Mesh>(); mesh && mesh->meshID_ != 0)
+		{
+			Skeleton* skeletonComponent = actor.GetComponent<Skeleton>();
+			if (!skeletonComponent || skeletonComponent->skeletonID_ == 0)
+			{
+				ModelResource* modelResource = context_.worldContext_.resource_->GetModelResource();
+				Crister* crister = modelResource->Resolve(*context_.worldContext_.loader_, modelResource->GetHandle(mesh->meshID_));
+				Asset* modelAsset = context_.worldContext_.resource_->GetAsset(mesh->meshID_);
+				if (crister && modelAsset && !crister->Skins().empty())
+				{
+					std::string target = (std::filesystem::path(modelAsset->fullpath_.c_str()).parent_path() / (std::filesystem::path(modelAsset->fullpath_.c_str()).stem().string() + ".skeleton")).string();
+					std::ranges::replace(target, '\\', '/');
+					for (const auto& [assetId, asset] : context_.worldContext_.resource_->AssetList())
+					{
+						if (asset.type_ == AssetType::Skeleton && asset.fullpath_.str() == target)
+						{
+							if (!skeletonComponent)
+							{
+								skeletonComponent = actor.AddComponent<Skeleton>();
+							}
+							if (skeletonComponent)
+							{
+								skeletonComponent->skeletonID_ = assetId;
+							}
+							break;
+						}
+					}
+				}
+			}
+		}
+
 		if (const Mesh* mesh = actor.GetComponent<Mesh>(); mesh && mesh->meshID_ != 0 && !actor.GetComponent<Material>())
 		{
 			Material* materialComponent = actor.AddComponent<Material>();
@@ -590,6 +622,9 @@ namespace SeedCore
 		static const String velocityString("Velocity");
 		static const String activeString("Active");
 		static const String boundsString("Bounds");
+		static const String meshString("Mesh");
+		static const String materialString("Material");
+		static const String skeletonString("Skeleton");
 
 		ComponentID positionID = ComponentRegistry::GetComponentID(positionString);
 		ComponentID rotationID = ComponentRegistry::GetComponentID(rotationString);
@@ -647,11 +682,32 @@ namespace SeedCore
 			}
 		}
 
+		static const String geometryStack[] = { meshString, materialString, skeletonString };
+		for (const String& fixedName : geometryStack)
+		{
+			ComponentID fixedID = ComponentRegistry::GetComponentID(fixedName);
+			if (!fixedID)
+			{
+				continue;
+			}
+
+			void* fixedData = context_.worldContext_.world_->GetComponent(entity, fixedID);
+			if (!fixedData)
+			{
+				continue;
+			}
+
+			if (DrawComponentEntry(actor, fixedID, fixedName, fixedData))
+			{
+				return;
+			}
+		}
+
 		for (const ComponentID& componentID : layout)
 		{
 			String componentName = ComponentRegistry::GetName(componentID);
 
-			if (componentName == nameString || componentName == positionString || componentName == rotationString || componentName == scaleString || componentName == velocityString || componentName == activeString || componentName == boundsString)
+			if (componentName == nameString || componentName == positionString || componentName == rotationString || componentName == scaleString || componentName == velocityString || componentName == activeString || componentName == boundsString || componentName == meshString)
 			{
 				continue;
 			}
@@ -708,6 +764,12 @@ namespace SeedCore
 		for (ComponentID componentBaseID : actor.ComponentBaseIDList())
 		{
 			String componentName = ComponentRegistry::GetName(componentBaseID);
+
+			if (componentName == materialString || componentName == skeletonString)
+			{
+				continue;
+			}
+
 			EntityID entityID = entity.GetID();
 			void* componentData = context_.worldContext_.world_->GetComponent(entityID, componentBaseID);
 			if (!componentData)
@@ -818,6 +880,11 @@ namespace SeedCore
 
 		std::ranges::stable_sort(fields, [](const FieldInfo& a, const FieldInfo& b) { return a.offset_ < b.offset_; });
 		DrawFieldList(fields, componentData, entity, componentID, 0);
+
+		if (ComponentRegistry::Get(componentID).isComponentBase_)
+		{
+			static_cast<ComponentBase*>(componentData)->DispatchInspectorGUI();
+		}
 
 		ImGui::PopID();
 	}
@@ -1349,6 +1416,8 @@ namespace SeedCore
 			return "ASSET_MESHCOLLISION";
 		case PayloadAssetType::Material:
 			return "ASSET_MATERIAL";
+		case PayloadAssetType::Skeleton:
+			return "ASSET_SKELETON";
 		case PayloadAssetType::Sky:
 			return "ASSET_SKY";
 		case PayloadAssetType::Prefab:

@@ -1,6 +1,7 @@
 #include <GraphicsEngine/Model/ModelResource.h>
 #include <GraphicsEngine/Model/ModelLoader.h>
 #include <GraphicsEngine/Model/Material/MaterialLoader.h>
+#include <GraphicsEngine/Model/Skeleton/SkeletonLoader.h>
 #include <GraphicsEngine/D3D12/Descriptor/BindlessHeap.h>
 #include <FoundationEngine/Resource/ResourceCache.h>
 #include <FoundationEngine/Resource/LoaderSystem.h>
@@ -64,6 +65,27 @@ namespace SeedCore
 					continue;
 				}
 				loader.materialLoader_->Save(material, String(filePath.string()));
+			}
+
+			/// [EN] Import-time skeleton extraction: skinned models get a
+			///      ".skeleton" sibling (rig: sockets + root bone) the first
+			///      time they load. The rig holds only human-authored data -
+			///      the bone hierarchy and reference pose stay on the Crister,
+			///      linked back through SkeletonRig::sourceModelID_.
+			/// [JP] インポート時のスケルトン抽出: スキン付きモデルは初回
+			///      ロード時に ".skeleton" 兄弟（リグ: ソケット + ルート
+			///      ボーン）を得る。リグが持つのは人が編集したデータだけ -
+			///      ボーン階層と参照ポーズは Crister に残り、
+			///      SkeletonRig::sourceModelID_ で紐づく。
+			if (!crister->Skins().empty())
+			{
+				std::filesystem::path skeletonPath = modelPath.parent_path() / (modelPath.stem().string() + ".skeleton");
+				if (!std::filesystem::exists(skeletonPath))
+				{
+					SkeletonRig rig;
+					loader.skeletonLoader_->Populate(rig, assetId);
+					loader.skeletonLoader_->Save(rig, String(skeletonPath.string()));
+				}
 			}
 		}
 
@@ -144,6 +166,33 @@ namespace SeedCore
 		}
 
 		return allWritten;
+	}
+
+	Bool ModelResource::GenerateSkeleton(LoaderSystem& loader, ID3D12Device* device, D3D12CommandQueue* cmdQueue, BindlessHeap* heap, BC7CompressShader& bc7Shader, ResourceCache& cache, Uint32 assetId, Bool overwrite)
+	{
+		Asset* asset = cache.GetAsset(assetId);
+		if (!asset)
+		{
+			return false;
+		}
+
+		Handle<Crister> handle = Load(loader, device, cmdQueue, heap, bc7Shader, cache, assetId);
+		Crister* crister = loader.modelLoader_->Get(handle);
+		if (!crister || crister->Skins().empty())
+		{
+			return false;
+		}
+
+		std::filesystem::path modelPath(asset->fullpath_.c_str());
+		std::filesystem::path skeletonPath = modelPath.parent_path() / (modelPath.stem().string() + ".skeleton");
+		if (!overwrite && std::filesystem::exists(skeletonPath))
+		{
+			return true;
+		}
+
+		SkeletonRig rig;
+		loader.skeletonLoader_->Populate(rig, assetId);
+		return loader.skeletonLoader_->Save(rig, String(skeletonPath.string()));
 	}
 
 	Handle<Crister> ModelResource::GetHandle(Uint32 assetId)const

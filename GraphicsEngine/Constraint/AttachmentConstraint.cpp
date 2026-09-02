@@ -1,5 +1,5 @@
 #include <GraphicsEngine/Constraint/AttachmentConstraint.h>
-#include <GraphicsEngine/Model/Animation/Animator.h>
+#include <GraphicsEngine/Model/Skeleton/Skeleton.h>
 #include <FoundationEngine/ECS/World.h>
 #include <FoundationEngine/ECS/Actor.h>
 
@@ -14,17 +14,17 @@ namespace SeedCore
 		}
 
 		Actor targetActor = GetWorld().FindActor(target_);
-		Animator* animator = targetActor ? targetActor.GetComponent<Animator>() : nullptr;
-		if (!animator || animator->BoneNames().empty())
+		Skeleton* skeleton = targetActor ? targetActor.GetComponent<Skeleton>() : nullptr;
+		if (!skeleton || skeleton->BoneNames().empty())
 		{
-			ImGui::TextDisabled("スケルタル未取得（ターゲットに Animator が必要）");
+			ImGui::TextDisabled("スケルタル未取得（ターゲットに Skeleton が必要）");
 			return;
 		}
 
 		const Char* preview = boneName_.c_str();
 		if (ImGui::BeginCombo("ボーン", preview ? preview : ""))
 		{
-			for (const String& name : animator->BoneNames())
+			for (const String& name : skeleton->BoneNames())
 			{
 				const Char* label = name.c_str();
 				if (!label || *label == '\0')

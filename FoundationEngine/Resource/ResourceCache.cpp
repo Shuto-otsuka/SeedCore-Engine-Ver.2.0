@@ -12,6 +12,7 @@
 #include <GraphicsEngine/Model/Animation/AnimationResource.h>
 #include <GraphicsEngine/Model/Collision/MeshCollisionResource.h>
 #include <GraphicsEngine/Model/Material/MaterialResource.h>
+#include <GraphicsEngine/Model/Skeleton/SkeletonResource.h>
 #include <GraphicsEngine/Font/FontResource.h>
 #include <GraphicsEngine/Sky/SkymapResource.h>
 #include <GraphicsEngine/Effect/Effekseer/EffekseerResource.h>
@@ -69,6 +70,7 @@ namespace SeedCore
 		animationResource_ = MakePtr<AnimationResource>();
 		meshCollisionResource_ = MakePtr<MeshCollisionResource>();
 		materialResource_ = MakePtr<MaterialResource>();
+		skeletonResource_ = MakePtr<SkeletonResource>();
 		fontResource_ = MakePtr<FontResource>();
 		skymapResource_ = MakePtr<SkymapResource>();
 		effekseerResource_ = MakePtr<EffekseerResource>();
@@ -130,6 +132,7 @@ namespace SeedCore
 			AssetType::Animation,
 			AssetType::MeshCollision,
 			AssetType::Material,
+			AssetType::Skeleton,
 			AssetType::Font,
 			AssetType::Effect,
 			AssetType::Audio,
@@ -209,6 +212,9 @@ namespace SeedCore
 				break;
 			case AssetType::Material:
 				materialResource_->Load(loader, *this, asset->assetID_);
+				break;
+			case AssetType::Skeleton:
+				skeletonResource_->Load(loader, *this, asset->assetID_);
 				break;
 			case AssetType::Effect:
 				effekseerResource_->Load(loader, *this, asset->assetID_);
@@ -545,6 +551,9 @@ namespace SeedCore
 			case AssetType::Material:
 				materialResource_->Load(loader, *this, asset.assetID_);
 				break;
+			case AssetType::Skeleton:
+				skeletonResource_->Load(loader, *this, asset.assetID_);
+				break;
 			case AssetType::Effect:
 				effekseerResource_->Load(loader, *this, asset.assetID_);
 				break;
@@ -609,6 +618,9 @@ namespace SeedCore
 				break;
 			case AssetType::Material:
 				materialResource_->Unload(loader, asset.assetID_);
+				break;
+			case AssetType::Skeleton:
+				skeletonResource_->Unload(loader, asset.assetID_);
 				break;
 			case AssetType::Effect:
 				effekseerResource_->Unload(loader, asset.assetID_);
@@ -708,6 +720,20 @@ namespace SeedCore
 	MaterialResource* ResourceCache::GetMaterialResource()const
 	{
 		return materialResource_.get();
+	}
+
+	/**
+	* [EN]
+	* Returns the skeleton rig resource manager.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* スケルトンリグリソースマネージャを返す。
+	*/
+	SkeletonResource* ResourceCache::GetSkeletonResource()const
+	{
+		return skeletonResource_.get();
 	}
 
 	/**
@@ -982,6 +1008,10 @@ namespace SeedCore
 				{
 					asset.type_ = AssetType::Material;
 				}
+				else if (extention == ".skeleton")
+				{
+					asset.type_ = AssetType::Skeleton;
+				}
 				else if (extention == ".efkefc" || extention == ".effekseer" || extention == ".zephyr")
 				{
 					asset.type_ = AssetType::Effect;
@@ -1145,6 +1175,9 @@ namespace SeedCore
 						break;
 					case AssetType::Material:
 						materialResource_->Unload(loader_, it->second.assetID_);
+						break;
+					case AssetType::Skeleton:
+						skeletonResource_->Unload(loader_, it->second.assetID_);
 						break;
 					case AssetType::Effect:
 						effekseerResource_->Unload(loader_, it->second.assetID_);

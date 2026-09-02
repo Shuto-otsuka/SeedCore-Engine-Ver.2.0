@@ -171,7 +171,6 @@
     <ClCompile Include="Editor\Build\RuntimeBuilder.cpp" />
     <ClCompile Include="Editor\Build\VisualStudioAutomation.cpp" />
     <ClCompile Include="Editor\Panel\AnimatorControllerPanel.cpp" />
-    <ClCompile Include="Editor\Panel\BoneControllerPanel.cpp" />
     <ClCompile Include="Editor\Panel\CanvasViewPanel.cpp" />
     <ClCompile Include="Editor\Panel\ConfigPanel.cpp" />
     <ClCompile Include="Editor\Panel\EnvironmentMenuPanel.cpp" />
@@ -184,6 +183,7 @@
     <ClCompile Include="Editor\Panel\RaytracingPanel.cpp" />
     <ClCompile Include="Editor\Panel\ScreenSpacePanel.cpp" />
     <ClCompile Include="Editor\Panel\ShortCutKeyPanel.cpp" />
+    <ClCompile Include="Editor\Panel\SkeletonControllerPanel.cpp" />
     <ClCompile Include="Editor\Panel\SpecMemoPanel.cpp" />
     <ClCompile Include="Editor\Panel\TimelinePanel.cpp" />
     <ClCompile Include="Editor\Panel\TodoListPanel.cpp" />
@@ -260,7 +260,6 @@
     <ClInclude Include="Editor\ImGui\ImGuiTexture.h" />
     <ClInclude Include="Editor\Panel\AddComponentPanel.h" />
     <ClInclude Include="Editor\Panel\AnimatorControllerPanel.h" />
-    <ClInclude Include="Editor\Panel\BoneControllerPanel.h" />
     <ClInclude Include="Editor\Panel\CanvasViewPanel.h" />
     <ClInclude Include="Editor\Panel\ConfigPanel.h" />
     <ClInclude Include="Editor\Panel\ConsolePanel.h" />
@@ -283,6 +282,7 @@
     <ClInclude Include="Editor\Panel\RaytracingPanel.h" />
     <ClInclude Include="Editor\Panel\ScreenSpacePanel.h" />
     <ClInclude Include="Editor\Panel\ShortCutKeyPanel.h" />
+    <ClInclude Include="Editor\Panel\SkeletonControllerPanel.h" />
     <ClInclude Include="Editor\Panel\SpecMemoPanel.h" />
     <ClInclude Include="Editor\Panel\TimelinePanel.h" />
     <ClInclude Include="Editor\Panel\TodoListPanel.h" />

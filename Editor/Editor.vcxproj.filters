@@ -124,9 +124,6 @@
     <ClCompile Include="Editor\Panel\EnvironmentMenuPanel.cpp">
       <Filter>Editor\Panel</Filter>
     </ClCompile>
-    <ClCompile Include="Editor\Panel\BoneControllerPanel.cpp">
-      <Filter>Editor\Panel</Filter>
-    </ClCompile>
     <ClCompile Include="Editor\Panel\LayerSettingsPanel.cpp">
       <Filter>Editor\Panel</Filter>
     </ClCompile>
@@ -140,6 +137,9 @@
       <Filter>Editor\Panel</Filter>
     </ClCompile>
     <ClCompile Include="Editor\Panel\RasterizationPanel.cpp">
+      <Filter>Editor\Panel</Filter>
+    </ClCompile>
+    <ClCompile Include="Editor\Panel\SkeletonControllerPanel.cpp">
       <Filter>Editor\Panel</Filter>
     </ClCompile>
   </ItemGroup>
@@ -258,9 +258,6 @@
     <ClInclude Include="Editor\Panel\EnvironmentMenuPanel.h">
       <Filter>Editor\Panel</Filter>
     </ClInclude>
-    <ClInclude Include="Editor\Panel\BoneControllerPanel.h">
-      <Filter>Editor\Panel</Filter>
-    </ClInclude>
     <ClInclude Include="Editor\Panel\LayerSettingsPanel.h">
       <Filter>Editor\Panel</Filter>
     </ClInclude>
@@ -274,6 +271,9 @@
       <Filter>Editor\Panel</Filter>
     </ClInclude>
     <ClInclude Include="Editor\Panel\RasterizationPanel.h">
+      <Filter>Editor\Panel</Filter>
+    </ClInclude>
+    <ClInclude Include="Editor\Panel\SkeletonControllerPanel.h">
       <Filter>Editor\Panel</Filter>
     </ClInclude>
   </ItemGroup>

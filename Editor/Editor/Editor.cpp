@@ -6,6 +6,7 @@
 #include <GraphicsEngine/Model/Animation/Animator.h>
 #include <GraphicsEngine/Model/Animation/AnimatorControllerState.h>
 #include <GraphicsEngine/Model/Material/MaterialState.h>
+#include <GraphicsEngine/Model/Skeleton/SkeletonState.h>
 #include <GraphicsEngine/Camera/EditorCamera.h>
 #include <GraphicsEngine/Camera/CanvasCamera.h>
 #include <GraphicsEngine/Texture/Image.h>
@@ -35,7 +36,7 @@ namespace SeedCore
 		layerSettingsPanel_ = MakePtr<LayerSettingsPanel>(context_);
 		animatorControllerPanel_ = MakePtr<AnimatorControllerPanel>(context_);
 		timelinePanel_ = MakePtr<TimelinePanel>(context_);
-		boneControllerPanel_ = MakePtr<BoneControllerPanel>(context_);
+		skeletonControllerPanel_ = MakePtr<SkeletonControllerPanel>(context_);
 		materialViewerPanel_ = MakePtr<MaterialViewerPanel>(context_);
 		modelTransformPanel_ = MakePtr<ModelTransformPanel>(context_);
 
@@ -143,9 +144,14 @@ namespace SeedCore
 			TimelineRequest::requested_ = false;
 			timelinePanel_->Open();
 		}
-		if (menuBarPanel_->ConsumeBoneControllerRequest())
+		if (menuBarPanel_->ConsumeSkeletonControllerRequest())
 		{
-			boneControllerPanel_->Open();
+			skeletonControllerPanel_->Open();
+		}
+		if (SkeletonControllerRequest::requested_)
+		{
+			SkeletonControllerRequest::requested_ = false;
+			skeletonControllerPanel_->Open();
 		}
 		if (menuBarPanel_->ConsumeMaterialViewerRequest())
 		{
@@ -199,7 +205,7 @@ namespace SeedCore
 		///      本当の原因)。
 		animatorControllerPanel_->Draw();
 		timelinePanel_->Draw();
-		boneControllerPanel_->Draw();
+		skeletonControllerPanel_->Draw();
 		materialViewerPanel_->Draw();
 		modelTransformPanel_->Draw();
 

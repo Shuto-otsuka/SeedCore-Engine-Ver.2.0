@@ -166,6 +166,9 @@
     <Filter Include="Quality">
       <UniqueIdentifier>{8cd259f6-400e-482b-a014-13c3c222b703}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Model\Skeleton">
+      <UniqueIdentifier>{9dff901e-71c5-4b7f-bf3b-8528a90b6fe8}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="D3D12\Context\D3D12Adapter.h">
@@ -817,6 +820,21 @@
     <ClInclude Include="Constraint\AttachmentConstraint.h">
       <Filter>Constraint</Filter>
     </ClInclude>
+    <ClInclude Include="Model\Skeleton\Skeleton.h">
+      <Filter>Model\Skeleton</Filter>
+    </ClInclude>
+    <ClInclude Include="Model\Skeleton\SkeletonLoader.h">
+      <Filter>Model\Skeleton</Filter>
+    </ClInclude>
+    <ClInclude Include="Model\Skeleton\SkeletonResource.h">
+      <Filter>Model\Skeleton</Filter>
+    </ClInclude>
+    <ClInclude Include="System\AnimationSystem.h">
+      <Filter>System</Filter>
+    </ClInclude>
+    <ClInclude Include="Model\Skeleton\SkeletonState.h">
+      <Filter>Model\Skeleton</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="D3D12\Context\D3D12Adapter.cpp">
@@ -1360,6 +1378,18 @@
     </ClCompile>
     <ClCompile Include="Constraint\AttachmentConstraint.cpp">
       <Filter>Constraint</Filter>
+    </ClCompile>
+    <ClCompile Include="Model\Skeleton\Skeleton.cpp">
+      <Filter>Model\Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="Model\Skeleton\SkeletonLoader.cpp">
+      <Filter>Model\Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="Model\Skeleton\SkeletonResource.cpp">
+      <Filter>Model\Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="System\AnimationSystem.cpp">
+      <Filter>System</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

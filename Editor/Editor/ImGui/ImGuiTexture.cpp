@@ -38,6 +38,7 @@ namespace SeedCore
 		load(IconType::Animation,     "Asset", "Animation");
 		load(IconType::MeshCollision, "Asset", "MeshCollision");
 		load(IconType::Material,      "Asset", "Material");
+		load(IconType::Skeleton,      "Asset", "Skeleton");
 		load(IconType::Movie,         "Asset", "Movie");
 
 		load(IconType::Text,   "Asset", "Text");
@@ -107,11 +108,14 @@ namespace SeedCore
 		load(IconType::ComponentMovie, "Component", "Movie");
 		load(IconType::ComponentMesh,  "Component", "Mesh");
 		load(IconType::ComponentMaterial, "Component", "Material");
+		load(IconType::ComponentSkeleton, "Component", "Skeleton");
 		load(IconType::ComponentAnimator,           "Component", "Animator");
 		load(IconType::ComponentPositionConstraint, "Component", "PositionConstraint");
 		load(IconType::ComponentRotationConstraint, "Component", "RotationConstraint");
 		load(IconType::ComponentLookAtConstraint,   "Component", "LookAtConstraint");
 		load(IconType::ComponentParentConstraint,   "Component", "ParentConstraint");
+		load(IconType::ComponentAttachmentConstraint, "Component", "AttachmentConstraint");
+		load(IconType::ComponentIKConstraint,         "Component", "IKConstraint");
 		load(IconType::ComponentWeather,     "Component", "Weather");
 		load(IconType::ComponentEffect,      "Component", "Effect");
 		load(IconType::ComponentPostProcess, "Component", "PostProcess");
@@ -188,11 +192,14 @@ namespace SeedCore
 			{ "Movie", IconType::ComponentMovie },
 			{ "Mesh", IconType::ComponentMesh },
 			{ "Material", IconType::ComponentMaterial },
+			{ "Skeleton", IconType::ComponentSkeleton },
 			{ "Animator", IconType::ComponentAnimator },
 			{ "PositionConstraint", IconType::ComponentPositionConstraint },
 			{ "RotationConstraint", IconType::ComponentRotationConstraint },
 			{ "LookAtConstraint", IconType::ComponentLookAtConstraint },
 			{ "ParentConstraint", IconType::ComponentParentConstraint },
+			{ "AttachmentConstraint", IconType::ComponentAttachmentConstraint },
+			{ "IKConstraint", IconType::ComponentIKConstraint },
 			{ "Weather", IconType::ComponentWeather },
 			{ "Effect", IconType::ComponentEffect },
 			{ "PostProcess", IconType::ComponentPostProcess },

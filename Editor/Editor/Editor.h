@@ -20,7 +20,7 @@
 #include <Editor/Editor/Panel/LayerSettingsPanel.h>
 #include <Editor/Editor/Panel/AnimatorControllerPanel.h>
 #include <Editor/Editor/Panel/TimelinePanel.h>
-#include <Editor/Editor/Panel/BoneControllerPanel.h>
+#include <Editor/Editor/Panel/SkeletonControllerPanel.h>
 #include <Editor/Editor/Panel/MaterialViewerPanel.h>
 #include <Editor/Editor/Panel/ModelTransformPanel.h>
 
@@ -77,7 +77,7 @@ namespace SeedCore
 		ResourcePtr<LayerSettingsPanel> layerSettingsPanel_;
 		ResourcePtr<AnimatorControllerPanel> animatorControllerPanel_;
 		ResourcePtr<TimelinePanel> timelinePanel_;
-		ResourcePtr<BoneControllerPanel> boneControllerPanel_;
+		ResourcePtr<SkeletonControllerPanel> skeletonControllerPanel_;
 		ResourcePtr<MaterialViewerPanel> materialViewerPanel_;
 		ResourcePtr<ModelTransformPanel> modelTransformPanel_;
 	};

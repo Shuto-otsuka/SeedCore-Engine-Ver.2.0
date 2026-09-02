@@ -3,6 +3,8 @@
 
 namespace SeedCore
 {
+	Bool MaterialPanelRequest::openRequested_ = false;
+
 	void Material::OnInspectorGUI()
 	{
 		ImGui::Dummy(ImVec2(0.0f, ImGui::GetTextLineHeightWithSpacing()));

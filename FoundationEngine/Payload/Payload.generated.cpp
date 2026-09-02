@@ -11,6 +11,7 @@
 #include <GraphicsEngine/Model/Animation/Animator.h>
 #include <GraphicsEngine/Model/Material/Material.h>
 #include <GraphicsEngine/Model/Mesh.h>
+#include <GraphicsEngine/Model/Skeleton/Skeleton.h>
 #include <GraphicsEngine/Movie/Movie.h>
 #include <GraphicsEngine/Texture/Image.h>
 #include <PhysicsEngine/Collider/MeshCollider.h>
@@ -30,6 +31,7 @@ extern "C" int _force_payload_SkyLight = 0;
 extern "C" int _force_payload_Mesh = 0;
 extern "C" int _force_payload_Animator = 0;
 extern "C" int _force_payload_Material = 0;
+extern "C" int _force_payload_Skeleton = 0;
 extern "C" int _force_payload_Movie = 0;
 extern "C" int _force_payload_Image = 0;
 extern "C" int _force_payload_MeshCollider = 0;
@@ -224,6 +226,19 @@ namespace SeedCore
 			}
 		};
 		static Register_Material global_Material_register;
+
+		// ---- GraphicsEngine/Model/Skeleton/Skeleton.h ----
+		struct Register_Skeleton
+		{
+			Register_Skeleton()
+			{
+				PayloadRegistry::Register(String("Skeleton"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
+					Skeleton& obj = *static_cast<Skeleton*>(ptr);
+					outInfo.push_back({ String("スケルトン"), offsetof(Skeleton, skeletonID_), AttributeType::Int, PayloadAssetType::Skeleton });
+				});
+			}
+		};
+		static Register_Skeleton global_Skeleton_register;
 
 		// ---- GraphicsEngine/Movie/Movie.h ----
 		struct Register_Movie

@@ -4,7 +4,7 @@
 #include <GraphicsEngine/Constraint/ParentConstraint.h>
 #include <GraphicsEngine/Constraint/LookAtConstraint.h>
 #include <GraphicsEngine/Constraint/AttachmentConstraint.h>
-#include <GraphicsEngine/Model/Animation/Animator.h>
+#include <GraphicsEngine/Model/Skeleton/Skeleton.h>
 #include <FoundationEngine/ECS/World.h>
 #include <FoundationEngine/ECS/Actor.h>
 #include <FoundationEngine/ECS/Component/Position.h>
@@ -128,10 +128,10 @@ namespace SeedCore
 		if (attachmentConstraint && attachmentConstraint->enabled_ && attachmentConstraint->target_ != 0 && attachmentBoneName && *attachmentBoneName != '\0')
 		{
 			Actor target = world.FindActor(attachmentConstraint->target_);
-			Animator* targetAnimator = target ? target.GetComponent<Animator>() : nullptr;
-			if (targetAnimator && targetAnimator->HasBone(attachmentConstraint->boneName_))
+			Skeleton* targetSkeleton = target ? target.GetComponent<Skeleton>() : nullptr;
+			if (targetSkeleton && targetSkeleton->HasBone(attachmentConstraint->boneName_))
 			{
-				Matrix boneWorldMatrix = targetAnimator->BoneWorldMatrix(attachmentConstraint->boneName_);
+				Matrix boneWorldMatrix = targetSkeleton->BoneWorldMatrix(attachmentConstraint->boneName_);
 
 				Matrix offsetRotationMatrix = Matrix::CreateFromYawPitchRoll(ToRadians(attachmentConstraint->rotationOffset_.y), ToRadians(attachmentConstraint->rotationOffset_.x), ToRadians(attachmentConstraint->rotationOffset_.z));
 				Matrix offsetMatrix = offsetRotationMatrix * Matrix::CreateTranslation(attachmentConstraint->positionOffset_);

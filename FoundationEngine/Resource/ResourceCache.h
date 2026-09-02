@@ -15,6 +15,7 @@ namespace SeedCore
 	class AnimationResource;
 	class MeshCollisionResource;
 	class MaterialResource;
+	class SkeletonResource;
 	class BindlessHeap;
 	class D3D12CommandQueue;
 	class BC7CompressShader;
@@ -77,6 +78,10 @@ namespace SeedCore
 		/// [EN] Standalone material (.material).
 		/// [JP] 単体マテリアル（.material）。
 		Material,
+
+		/// [EN] Standalone skeleton rig (.skeleton): sockets + root bone.
+		/// [JP] 単体スケルトンリグ（.skeleton）: ソケット + ルートボーン。
+		Skeleton,
 
 		/// [EN] Extension not recognized by Scan.
 		/// [JP] Scan が認識しない拡張子。
@@ -445,6 +450,17 @@ namespace SeedCore
 
 		/**
 		* [EN]
+		* Returns the skeleton rig resource manager.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* スケルトンリグリソースマネージャを返す。
+		*/
+		SkeletonResource* GetSkeletonResource()const;
+
+		/**
+		* [EN]
 		* Returns the Effekseer effect resource manager.
 		*
 		* ---------------------------------------------------------------------
@@ -629,6 +645,10 @@ namespace SeedCore
 		/// [JP] 読み込み済みの単体マテリアル(.material)リソースを所有するマネージャ。
 		ResourcePtr<MaterialResource> materialResource_;
 
+		/// [EN] Manager owning loaded standalone skeleton rig (.skeleton) resources.
+		/// [JP] 読み込み済みの単体スケルトンリグ(.skeleton)リソースを所有するマネージャ。
+		ResourcePtr<SkeletonResource> skeletonResource_;
+
 		/// [EN] Manager owning loaded Effekseer effect resources.
 		/// [JP] 読み込み済みのEffekseerエフェクトリソースを所有するマネージャ。
 		ResourcePtr<EffekseerResource> effekseerResource_;
@@ -713,6 +733,7 @@ namespace SeedCore
 			".animation",
 			".collision",
 			".material",
+			".skeleton",
 			".navmesh",
 			".efkefc", ".effekseer", ".zephyr",
 			".mp3", ".wav", ".acb", ".awb", ".audio",

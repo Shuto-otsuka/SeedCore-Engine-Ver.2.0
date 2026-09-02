@@ -705,6 +705,8 @@ namespace SeedCore
 			return imguiTexture_.Icon(IconType::MeshCollision);
 		case AssetType::Material:
 			return imguiTexture_.Icon(IconType::Material);
+		case AssetType::Skeleton:
+			return imguiTexture_.Icon(IconType::Skeleton);
 		case AssetType::Movie:
 			return imguiTexture_.Icon(IconType::Movie);
 		case AssetType::Prefab:
@@ -862,6 +864,8 @@ namespace SeedCore
 			return "ASSET_MESHCOLLISION";
 		case AssetType::Material:
 			return "ASSET_MATERIAL";
+		case AssetType::Skeleton:
+			return "ASSET_SKELETON";
 		case AssetType::Skymap:
 			return "ASSET_SKY";
 		case AssetType::Prefab:
@@ -1001,6 +1005,12 @@ namespace SeedCore
 					ImGui::CloseCurrentPopup();
 				}
 
+				if (ImGui::MenuItem("スケルトン生成"))
+				{
+					GenerateSkeleton(asset);
+					ImGui::CloseCurrentPopup();
+				}
+
 				ImGui::EndMenu();
 			}
 
@@ -1089,6 +1099,25 @@ namespace SeedCore
 		needsRebuild_ = true;
 
 		SC_LOG_NOTICE("ContentsDrawerPanel: マテリアルを生成しました: {}", asset.path_.c_str());
+	}
+
+	void ContentsDrawerPanel::GenerateSkeleton(const Asset& asset)
+	{
+		D3D12Context* d3d12Context = context_.graphicsContext_.graphics_->GetContext();
+
+		Bool written = context_.worldContext_.resource_->GetModelResource()->GenerateSkeleton(*context_.worldContext_.loader_, d3d12Context->GetDevice(), d3d12Context->GetDirectQueue(), context_.graphicsContext_.graphics_->GetBindlessHeap(), context_.graphicsContext_.graphics_->GetBC7CompressShader(), *context_.worldContext_.resource_, asset.assetID_, false);
+		if (!written)
+		{
+			SC_LOG_WARNING("ContentsDrawerPanel: スケルトン生成に失敗しました（スキン無し？）: {}", asset.path_.c_str());
+			return;
+		}
+
+		/// [EN] Rescan so the just-written ".skeleton" sibling is picked up as its own asset, and rebuild the tree so it shows in the panel.
+		/// [JP] 書き出した ".skeleton" 兄弟を個別アセットとして拾えるよう再スキャンし、パネルに出るようツリーを再構築する。
+		context_.worldContext_.resource_->Reload(*context_.worldContext_.loader_, d3d12Context->GetDevice(), d3d12Context->GetDirectQueue(), context_.graphicsContext_.graphics_->GetBC7CompressShader());
+		needsRebuild_ = true;
+
+		SC_LOG_NOTICE("ContentsDrawerPanel: スケルトンを生成しました: {}", asset.path_.c_str());
 	}
 
 	void ContentsDrawerPanel::DrawBackgroundContextMenu()

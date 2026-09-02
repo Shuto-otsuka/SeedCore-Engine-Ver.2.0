@@ -121,6 +121,10 @@ namespace SeedCore
 		/// [JP] 単体マテリアルアセット（.material）。
 		Material,
 
+		/// [EN] Standalone skeleton rig asset (.skeleton).
+		/// [JP] 単体スケルトンリグアセット（.skeleton）。
+		Skeleton,
+
 		/// [EN] Sky asset.
 		/// [JP] スカイアセット。
 		Sky,

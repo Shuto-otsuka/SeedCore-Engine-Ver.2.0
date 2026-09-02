@@ -400,11 +400,13 @@ namespace SeedCore
 			colliderRenderer_->AddInstance(static_cast<ColliderShapeKind>(instance.shapeKind_), instance.position_, instance.rotation_, instance.dimensions_, instance.color_);
 		}
 
-		constraintSystem_.Execute(world);
-
 		ModelResource* modelResource = resourceCache.GetModelResource();
 		MaterialResource* materialResource = resourceCache.GetMaterialResource();
 		AnimationResource* animationResource = resourceCache.GetAnimationResource();
+
+		animationSystem_.Execute(world, loaderSystem, *animationResource, *modelResource);
+		constraintSystem_.Execute(world);
+
 		modelRenderer_->Gather(loaderSystem, *modelResource, *materialResource, *animationResource, world, scene, selectedEntity);
 		raytracingRenderer_->Gather(loaderSystem, *modelResource, world, *modelRenderer_);
 

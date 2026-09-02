@@ -97,6 +97,33 @@ namespace SeedCore
 
 		/**
 		* [EN]
+		* Writes a "<model dir>/<model stem>.skeleton" sibling holding a
+		* SkeletonRig (sockets + root bone, all user-authored - the bone
+		* hierarchy and reference pose stay on the Crister). The model is
+		* loaded first if not already resident. A skinless model writes
+		* nothing. When overwrite is false an existing file is left alone
+		* (so a user's authored sockets survive re-running the action);
+		* when true a fresh empty rig replaces it. The written file becomes
+		* an AssetType::Skeleton asset on the next ResourceCache scan.
+		* Returns false when the model has no skin or the write failed.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* "<モデルのディレクトリ>/<モデル名>.skeleton" 兄弟ファイルを書き出す。
+		* 中身は SkeletonRig（ソケット + ルートボーン。すべてユーザー編集物 -
+		* ボーン階層と参照ポーズは Crister に残る）。モデルが未常駐なら先に
+		* ロードする。スキン無しモデルは何も書かない。overwrite が false の
+		* ときは既存ファイルをそのままにする（アクション再実行でユーザーの
+		* 作ったソケットが飛ばない）。true のときは空のリグで置き換える。
+		* 書き出したファイルは次回の ResourceCache スキャンで
+		* AssetType::Skeleton アセットになる。モデルにスキンが無い、または
+		* 書き込みに失敗した場合は false を返す。
+		*/
+		Bool GenerateSkeleton(LoaderSystem& loader, ID3D12Device* device, D3D12CommandQueue* cmdQueue, BindlessHeap* heap, BC7CompressShader& bc7Shader, ResourceCache& cache, Uint32 assetId, Bool overwrite);
+
+		/**
+		* [EN]
 		* Returns the handle associated with an asset ID, or null if not loaded.
 		*
 		* ---------------------------------------------------------------------

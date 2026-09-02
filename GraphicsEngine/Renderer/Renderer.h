@@ -11,6 +11,7 @@
 #include <GraphicsEngine/System/LightSystem.h>
 #include <GraphicsEngine/System/CelestialSystem.h>
 #include <GraphicsEngine/System/WeatherSystem.h>
+#include <GraphicsEngine/System/AnimationSystem.h>
 #include <GraphicsEngine/System/ConstraintSystem.h>
 
 #include <GraphicsEngine/D3D12/Buffer/GeometryBuffer.h>
@@ -155,6 +156,8 @@ namespace SeedCore
 		ResourcePtr<IndicesSystem> indicesSystem_;
 
 		ResourcePtr<LightSystem> lightSystem_;
+
+		AnimationSystem animationSystem_;
 
 		ConstraintSystem constraintSystem_;
 
