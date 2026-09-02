@@ -4,8 +4,9 @@
 
 namespace SeedCore
 {
-	struct IKConstraint :public SeedScript
+	class SEEDCORE_API IKConstraint :public SeedScript
 	{
+	public:
 		SC_REFLECTION_FIELD_EX("有効")
 		Bool enabled_ = true;
 
@@ -21,6 +22,7 @@ namespace SeedCore
 		SC_SERIALIZE_FIELD()
 		String effectorBoneName_;
 
+	public:
 		void OnInspectorGUI();
 	};
 	REGISTER_COMPONENT(IKConstraint, "Animation");

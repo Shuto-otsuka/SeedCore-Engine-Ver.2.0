@@ -4,8 +4,9 @@
 
 namespace SeedCore
 {
-	struct AttachmentConstraint :public SeedScript
+	class SEEDCORE_API AttachmentConstraint :public SeedScript
 	{
+	public:
 		SC_REFLECTION_FIELD_EX("有効")
 		Bool enabled_ = true;
 
@@ -24,6 +25,7 @@ namespace SeedCore
 		SC_SERIALIZE_FIELD()
 		String boneName_;
 
+	public:
 		void OnInspectorGUI();
 	};
 	REGISTER_COMPONENT(AttachmentConstraint, "Animation");
