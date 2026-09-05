@@ -1,6 +1,7 @@
 #include <Editor/Editor/Panel/ConfigPanel.h>
 #include <Editor/Editor/EditorContext.h>
 #include <Editor/Editor/ImGui/ImGuiRenderer.h>
+#include <Editor/Editor/ImGui/ImGuiTexture.h>
 #include <FoundationEngine/Input/InputSystem.h>
 #include <FoundationEngine/Resource/Gateway.h>
 #include <GraphicsEngine/DLSS/DlssManager.h>
@@ -170,7 +171,7 @@ namespace SeedCore
 		}
 	}
 
-	ConfigPanel::ConfigPanel(EditorContext& context) : context_(context)
+	ConfigPanel::ConfigPanel(EditorContext& context, ImGuiTexture& imguiTexture) : context_(context), imguiTexture_(imguiTexture)
 	{
 		initialScenePathBuffer_.resize(512);
 		newActionBuffer_.resize(128);
@@ -392,7 +393,11 @@ namespace SeedCore
 			ImGui::SameLine();
 			Bool canAdd = newActionBuffer_.c_str()[0] != '\0';
 			ImGui::BeginDisabled(!canAdd);
-			if (ImGui::Button("追加"))
+			Float addIconHeight = ImGui::GetTextLineHeight();
+			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+			Bool addClicked = ImGui::ImageButton("##add", imguiTexture_.Icon(IconType::Add), ImVec2(addIconHeight, addIconHeight));
+			ImGui::PopStyleColor();
+			if (addClicked)
 			{
 				InputSystem::RegisterAction(String(std::string(newActionBuffer_.c_str())));
 				InputSystem::SaveBindings();
@@ -411,12 +416,17 @@ namespace SeedCore
 
 			ImGui::BeginChild("##ActionCard", ImVec2(0.0f, 0.0f), ImGuiChildFlags_Borders | ImGuiChildFlags_AutoResizeY);
 			{
+				ImGui::AlignTextToFramePadding();
 				ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.30f, 1.0f), "%s", action.c_str());
 
-				Float deleteWidth = ImGui::CalcTextSize("削除").x + ImGui::GetStyle().FramePadding.x * 2.0f;
+				Float removeIconHeight = ImGui::GetTextLineHeight();
+				Float deleteWidth = removeIconHeight + ImGui::GetStyle().FramePadding.x * 2.0f;
 				ImGui::SameLine();
 				ImGui::SetCursorPosX(ImGui::GetWindowContentRegionMax().x - deleteWidth);
-				if (ImGui::SmallButton("削除"))
+				ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+				Bool removeClicked = ImGui::ImageButton("##remove", imguiTexture_.Icon(IconType::Remove), ImVec2(removeIconHeight, removeIconHeight));
+				ImGui::PopStyleColor();
+				if (removeClicked)
 				{
 					actionToRemove = action;
 				}

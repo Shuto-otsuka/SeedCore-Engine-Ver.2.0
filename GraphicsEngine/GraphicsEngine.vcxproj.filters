@@ -838,6 +838,9 @@
     <ClInclude Include="Constraint\IKConstraint.h">
       <Filter>Constraint</Filter>
     </ClInclude>
+    <ClInclude Include="Renderer\SkeletonControllerRenderer.h">
+      <Filter>Renderer</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="D3D12\Context\D3D12Adapter.cpp">
@@ -1396,6 +1399,9 @@
     </ClCompile>
     <ClCompile Include="Constraint\IKConstraint.cpp">
       <Filter>Constraint</Filter>
+    </ClCompile>
+    <ClCompile Include="Renderer\SkeletonControllerRenderer.cpp">
+      <Filter>Renderer</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

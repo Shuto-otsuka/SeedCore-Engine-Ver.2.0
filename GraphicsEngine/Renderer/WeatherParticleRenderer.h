@@ -2,6 +2,7 @@
 #include <FoundationEngine/Prelude.h>
 #include <GraphicsEngine/D3D12/Buffer/ConstantBuffer.h>
 #include <GraphicsEngine/Environment/WeatherParticleShader.h>
+#include <GraphicsEngine/Environment/Weather.h>
 
 namespace SeedCore
 {
@@ -11,72 +12,6 @@ namespace SeedCore
 	class IndicesSystem;
 	class FrameBuffer;
 	class GeometryBuffer;
-
-	/// [EN] Tuning for the rain particle system, editable from グラフィックス→
-	///      環境→雨. density_ scales how much of the fixed particle pool is
-	///      active, multiplied every frame by the current weather rain_
-	///      amount - so it fades out naturally as rain stops instead of
-	///      needing a separate enable toggle for "is it raining".
-	/// [JP] 雨パーティクル系の調整値、グラフィックス→環境→雨から編集する。
-	///      density_ は固定パーティクルプールのうちどれだけを有効にするかの
-	///      係数で、毎フレーム現在の天候の rain_ 量と掛け合わされる - 「今
-	///      降っているか」用の別トグルを持たなくても、雨が止めば自然に
-	///      フェードアウトする。
-	struct RainSettings
-	{
-		Float density_ = 1.0f;
-		Float fallSpeed_ = 9.0f;
-		Float size_ = 0.035f;
-		Float streakLength_ = 0.035f;
-		Float brightness_ = 0.8f;
-		Float volumeRadius_ = 14.0f;
-		Float volumeHeight_ = 10.0f;
-		Float color_[3] = { 0.75f, 0.8f, 0.9f };
-
-		template<class Archive>
-		void Serialize(Archive& archive)
-		{
-			archive.TryField("density", density_);
-			archive.TryField("fallSpeed", fallSpeed_);
-			archive.TryField("size", size_);
-			archive.TryField("streakLength", streakLength_);
-			archive.TryField("brightness", brightness_);
-			archive.TryField("volumeRadius", volumeRadius_);
-			archive.TryField("volumeHeight", volumeHeight_);
-			archive.TryField("color", color_);
-		}
-	};
-
-	/// [EN] Same shape as RainSettings, for snow (see WeatherSystem's
-	///      snowIntensity_ - the fast "is it snowing now" signal this scales
-	///      against, distinct from snowCoverage_'s slow ground accumulation).
-	/// [JP] RainSettings と同じ形、雪用(掛け合わせる相手は WeatherSystem の
-	///      snowIntensity_ - 「今降っているか」の速い信号。地面の積雪
-	///      snowCoverage_ とは別)。
-	struct SnowSettings
-	{
-		Float density_ = 1.0f;
-		Float fallSpeed_ = 1.3f;
-		Float size_ = 0.05f;
-		Float swayAmount_ = 0.4f;
-		Float brightness_ = 0.9f;
-		Float volumeRadius_ = 12.0f;
-		Float volumeHeight_ = 9.0f;
-		Float color_[3] = { 1.0f, 1.0f, 1.0f };
-
-		template<class Archive>
-		void Serialize(Archive& archive)
-		{
-			archive.TryField("density", density_);
-			archive.TryField("fallSpeed", fallSpeed_);
-			archive.TryField("size", size_);
-			archive.TryField("swayAmount", swayAmount_);
-			archive.TryField("brightness", brightness_);
-			archive.TryField("volumeRadius", volumeRadius_);
-			archive.TryField("volumeHeight", volumeHeight_);
-			archive.TryField("color", color_);
-		}
-	};
 
 	/// [EN] Mirrors Raytracing.../Environment/WeatherParticle.hlsli's
 	///      WeatherParticle byte-for-byte.
@@ -174,7 +109,7 @@ namespace SeedCore
 		///      IndicesSystem へ登録する。IndicesSystem::UploadEditor/
 		///      UploadGame が今フレームのインデックスを確定する前に呼ぶこと。
 		///      GPU 処理は無い。
-		void PrepareFrame(const Vector3& cameraPosition, Float deltaTime, Float totalTime, const Vector3& wind, Bool rainEnabled, const RainSettings& rainSettings, Float rainAmount, Bool snowEnabled, const SnowSettings& snowSettings, Float snowAmount);
+		void PrepareFrame(const Vector3& cameraPosition, Float deltaTime, Float totalTime, const Vector3& wind, Bool rainEnabled, const Rain& rainSettings, Float rainAmount, Bool snowEnabled, const Snow& snowSettings, Float snowAmount);
 
 		/// [EN] The compute simulate pass. Needs no G-Buffer, so it can run any
 		///      time before Draw().

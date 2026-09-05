@@ -4,6 +4,7 @@
 namespace SeedCore
 {
 	struct EditorContext;
+	class ImGuiTexture;
 
 	enum class TodoPriority : Int32
 	{
@@ -32,7 +33,7 @@ namespace SeedCore
 	class TodoListPanel
 	{
 	public:
-		TodoListPanel(EditorContext& context);
+		TodoListPanel(EditorContext& context, ImGuiTexture& imguiTexture);
 		~TodoListPanel() = default;
 
 		void Draw();
@@ -43,6 +44,8 @@ namespace SeedCore
 		void Load();
 
 		void Save();
+
+		ImGuiTexture& imguiTexture_;
 
 		Bool show_ = false;
 

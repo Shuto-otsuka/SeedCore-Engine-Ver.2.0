@@ -73,12 +73,6 @@ namespace SeedCore
 		Bool volumetricStarEnabled_ = false;
 		VolumetricStarRayConstantBuffer volumetricStar_;
 
-		Bool rainEnabled_ = false;
-		RainSettings rain_;
-
-		Bool snowEnabled_ = false;
-		SnowSettings snow_;
-
 		Bool refractionEnabled_ = false;
 		RefractionRayConstantBuffer refraction_;
 
@@ -153,10 +147,6 @@ namespace SeedCore
 			archive.TryField("moonLight", moonLight_);
 			archive.TryField("volumetricStarEnabled", volumetricStarEnabled_);
 			archive.TryField("volumetricStar", volumetricStar_);
-			archive.TryField("rainEnabled", rainEnabled_);
-			archive.TryField("rain", rain_);
-			archive.TryField("snowEnabled", snowEnabled_);
-			archive.TryField("snow", snow_);
 			archive.TryField("refractionEnabled", refractionEnabled_);
 			archive.TryField("refraction", refraction_);
 			archive.TryField("dlssRayReconstructionEnabled", dlssRayReconstructionEnabled_);

@@ -33,6 +33,7 @@ namespace SeedCore
 		timelineRenderer_ = MakePtr<TimelineRenderer>(rootSignature_, pipelineStateObject_);
 		modelTransformRenderer_ = MakePtr<ModelTransformRenderer>(rootSignature_, pipelineStateObject_);
 		materialRenderer_ = MakePtr<MaterialRenderer>(rootSignature_, pipelineStateObject_);
+		skeletonControllerRenderer_ = MakePtr<SkeletonControllerRenderer>(rootSignature_, pipelineStateObject_);
 		effekseerRenderer_ = MakePtr<EffekseerRenderer>();
 		postProcessRenderer_ = MakePtr<PostProcessRenderer>(rootSignature_, pipelineStateObject_);
 		dlssRayReconstructionRenderer_ = MakePtr<DlssRayReconstructionRenderer>(rootSignature_, pipelineStateObject_);
@@ -115,6 +116,7 @@ namespace SeedCore
 		timelineRenderer_->Create(device, bindlessHeap, shaderCache, width, height);
 		modelTransformRenderer_->Create(device, bindlessHeap, shaderCache, width, height);
 		materialRenderer_->Create(device, bindlessHeap, shaderCache, width, height);
+		skeletonControllerRenderer_->Create(device, bindlessHeap, shaderCache, width, height);
 		postProcessRenderer_->Create(device, bindlessHeap, shaderCache, width, height, width, height);
 		dlssRayReconstructionRenderer_->Create(device, bindlessHeap, shaderCache, *indicesSystem_, width, height, width, height);
 		taauUpsamplingRenderer_->Create(device, bindlessHeap, shaderCache, width, height);
@@ -178,6 +180,7 @@ namespace SeedCore
 		timelineRenderer_->Resize(device, bindlessHeap, nativeWidth, nativeHeight);
 		modelTransformRenderer_->Resize(device, bindlessHeap, nativeWidth, nativeHeight);
 		materialRenderer_->Resize(device, bindlessHeap, nativeWidth, nativeHeight);
+		skeletonControllerRenderer_->Resize(device, bindlessHeap, nativeWidth, nativeHeight);
 		postProcessRenderer_->Resize(device, bindlessHeap, nativeWidth, nativeHeight, outputWidth, outputHeight);
 		dlssRayReconstructionRenderer_->Resize(device, bindlessHeap, *indicesSystem_, nativeWidth, nativeHeight, outputWidth, outputHeight);
 		taauUpsamplingRenderer_->Resize(device, bindlessHeap, outputWidth, outputHeight);
@@ -392,6 +395,16 @@ namespace SeedCore
 		materialRenderer_->End(cmdList);
 	}
 
+	void Renderer::BeginSkeletonControllerFrame(D3D12CommandList* cmdList)
+	{
+		skeletonControllerRenderer_->Begin(cmdList);
+	}
+
+	void Renderer::EndSkeletonControllerFrame(D3D12CommandList* cmdList)
+	{
+		skeletonControllerRenderer_->End(cmdList);
+	}
+
 	void Renderer::GatherScenePreview(LoaderSystem& loaderSystem, ResourceCache& resourceCache, World& world, const SceneConstantBuffer& scene, const DynamicArray<ColliderInstance>& colliderInstances, Entity selectedEntity)
 	{
 		colliderRenderer_->Clear();
@@ -456,6 +469,13 @@ namespace SeedCore
 		materialRenderer_->Gather(loaderSystem, *modelResource, *materialResource, meshAssetId, surfaceAssetId, worldMatrix);
 	}
 
+	void Renderer::GatherSkeletonControllerPreview(LoaderSystem& loaderSystem, ResourceCache& resourceCache, Uint32 meshAssetId, Uint32 animationAssetId, Float time, const Matrix& worldMatrix, Int selectedNodeIndex)
+	{
+		ModelResource* modelResource = resourceCache.GetModelResource();
+		AnimationResource* animationResource = resourceCache.GetAnimationResource();
+		skeletonControllerRenderer_->Gather(loaderSystem, *modelResource, *animationResource, meshAssetId, animationAssetId, time, worldMatrix, selectedNodeIndex);
+	}
+
 	void Renderer::Raytracing(const RaytracingContext& settings)
 	{
 		Gateway::GetDlssManager().RayReconstructionEnable(settings.dlssRayReconstructionEnabled_);
@@ -499,7 +519,7 @@ namespace SeedCore
 		indicesSystem_->SetEditorSceneIndex(sceneSystem->GetIndex());
 		indicesSystem_->SetLightIndex(lightSystem_->GetIndex());
 		indicesSystem_->SetClusterConstantIndex(lightSystem_->GetClusterConstantIndex());
-		skyRenderer_->SetIndices(*indicesSystem_);
+		skyRenderer_->SetIndices(*indicesSystem_, lightSystem_->GetDirectionalIntensity());
 		lightSystem_->Upload();
 		modelRenderer_->Upload();
 
@@ -515,7 +535,7 @@ namespace SeedCore
 		///      前 — TLAS SRV インデックスが既に設定済みである必要がある地点 —
 		///      でここで実行できる。実際のシャドウレイディスパッチは、G-Buffer
 		///      の深度/法線が存在するようになった後で行う（下記参照）。
-		raytracingRenderer_->Build(cmdList, device_, *modelRenderer_, deltaTime, celestialResult_.nightFactor_, lastCameraPosition_, skyTotalTime_, weatherState_.snowIntensity_);
+		raytracingRenderer_->Build(cmdList, device_, *modelRenderer_, deltaTime, celestialResult_.nightFactor_, lastCameraPosition_, skyTotalTime_, weatherState_);
 
 		Uint32 editorPostProcessSourceColorIndex;
 		if (Gateway::GetDlssManager().RayReconstructionEnable())
@@ -768,7 +788,7 @@ namespace SeedCore
 		indicesSystem_->SetGameSceneIndex(sceneSystem->GetIndex());
 		indicesSystem_->SetLightIndex(lightSystem_->GetIndex());
 		indicesSystem_->SetClusterConstantIndex(lightSystem_->GetClusterConstantIndex());
-		skyRenderer_->SetIndices(*indicesSystem_);
+		skyRenderer_->SetIndices(*indicesSystem_, lightSystem_->GetDirectionalIntensity());
 		lightSystem_->Upload();
 		modelRenderer_->Upload();
 		Uint32 gamePostProcessSourceColorIndex;
@@ -991,6 +1011,15 @@ namespace SeedCore
 		materialRenderer_->Draw(cmdList, heap, scene);
 	}
 
+	void Renderer::SkeletonControllerFlush(D3D12CommandList* cmdList, const SceneConstantBuffer& scene)
+	{
+		ID3D12DescriptorHeap* heap = bindlessHeap_->Heap();
+
+		skeletonControllerRenderer_->Upload();
+		skeletonControllerRenderer_->Draw(cmdList, heap, scene);
+		skeletonControllerRenderer_->DrawBones(cmdList, heap);
+	}
+
 	FrameBuffer* Renderer::GetEditorFrameBuffer()const
 	{
 		return editorFrameBuffer_.get();
@@ -1078,6 +1107,7 @@ namespace SeedCore
 		timelineRenderer_->RegisterImGuiShaderResourceView(device, imguiHeap);
 		modelTransformRenderer_->RegisterImGuiShaderResourceView(device, imguiHeap);
 		materialRenderer_->RegisterImGuiShaderResourceView(device, imguiHeap);
+		skeletonControllerRenderer_->RegisterImGuiShaderResourceView(device, imguiHeap);
 	}
 
 	void Renderer::RefreshImGui(RaytracingView view)
@@ -1125,5 +1155,10 @@ namespace SeedCore
 	D3D12_GPU_DESCRIPTOR_HANDLE Renderer::MaterialImGuiGPUHandle()const
 	{
 		return materialRenderer_->ImGuiGPUHandle();
+	}
+
+	D3D12_GPU_DESCRIPTOR_HANDLE Renderer::SkeletonControllerImGuiGPUHandle()const
+	{
+		return skeletonControllerRenderer_->ImGuiGPUHandle();
 	}
 }

@@ -214,6 +214,11 @@ namespace SeedCore
 		return renderTargetViewHeap_->CPUHandle(renderTargetViewIndex_);
 	}
 
+	D3D12_CPU_DESCRIPTOR_HANDLE FrameBuffer::DepthStencilViewHandle()const
+	{
+		return depthStencilViewHeap_->CPUHandle(depthStencilViewIndex_);
+	}
+
 	Uint32 FrameBuffer::ColorShaderResourceViewIndex()const
 	{
 		return shaderResourceViewIndex_;

@@ -15,6 +15,7 @@
 #include <GraphicsEngine/Renderer/VolumetricStarRenderer.h>
 #include <GraphicsEngine/Renderer/VolumetricLightRenderer.h>
 #include <GraphicsEngine/Renderer/WeatherParticleRenderer.h>
+#include <GraphicsEngine/System/WeatherSystem.h>
 #include <GraphicsEngine/D3D12/Buffer/StructuredBuffer.h>
 #include <GraphicsEngine/D3D12/Buffer/ConstantBuffer.h>
 #include <GraphicsEngine/Raytracing/RaytracingContext.h>
@@ -118,17 +119,18 @@ namespace SeedCore
 		///      実行する必要がある（Renderer::EditorFlush 参照）。
 		/// [EN] deltaTime/nightFactor feed VolumetricStarRenderer::PrepareFrame
 		///      (shooting star spawn/lifetime advance). cameraPosition/
-		///      totalTime/snowIntensity additionally feed
+		///      totalTime/weather additionally feed
 		///      WeatherParticleRenderer::PrepareFrame (particle recycling
-		///      volume follows the camera, snowIntensity_ is WeatherSystem's
-		///      fast "is it snowing now" signal - see Environment/Weather.h).
+		///      volume follows the camera; weather carries the scene Weather
+		///      component's rain/snow tuning plus its fast "is it snowing now"
+		///      signal - see Environment/Weather.h).
 		/// [JP] deltaTime/nightFactor は VolumetricStarRenderer::PrepareFrame
 		///      (流れ星のスポーン/寿命進行)へ渡す。cameraPosition/totalTime/
-		///      snowIntensity はさらに WeatherParticleRenderer::PrepareFrame
-		///      へ渡す(パーティクルの再スポーンボリュームはカメラに追従、
-		///      snowIntensity は WeatherSystem の「今降っているか」の速い信号
-		///      - Environment/Weather.h 参照)。
-		void Build(D3D12CommandList* cmdList, ID3D12Device* device, const ModelRenderer& modelRenderer, Float deltaTime, Float nightFactor, const Vector3& cameraPosition, Float totalTime, Float snowIntensity);
+		///      weather はさらに WeatherParticleRenderer::PrepareFrame
+		///      へ渡す(パーティクルの再スポーンボリュームはカメラに追従。
+		///      weather はシーンの Weather コンポーネントの雨/雪の調整値と
+		///      「今降っているか」の速い信号を運ぶ - Environment/Weather.h 参照)。
+		void Build(D3D12CommandList* cmdList, ID3D12Device* device, const ModelRenderer& modelRenderer, Float deltaTime, Float nightFactor, const Vector3& cameraPosition, Float totalTime, const WeatherGpuState& weather);
 
 		/// [EN] The actual shadow ray GPU work (or fallback clear if the TLAS
 		///      isn't valid this frame) — requires the G-Buffer depth/normal to
@@ -452,10 +454,6 @@ namespace SeedCore
 		Bool volumetricStarEnabled_ = false;
 
 		ResourcePtr<WeatherParticleRenderer> weatherParticleRenderer_;
-		Bool rainEnabled_ = false;
-		RainSettings rainSettings_;
-		Bool snowEnabled_ = false;
-		SnowSettings snowSettings_;
 
 		ResourcePtr<VolumetricLightRenderer> volumetricLightRenderer_;
 		VolumetricLightRayConstantBuffer volumetricLightSettings_;

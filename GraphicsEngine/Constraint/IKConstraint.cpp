@@ -13,28 +13,38 @@ namespace SeedCore
 			return;
 		}
 
-		const Char* preview = effectorBoneName_.c_str();
-		if (ImGui::BeginCombo("エフェクタ", preview ? preview : ""))
+		for (Size entryIndex = 0; entryIndex < entries_.size(); entryIndex++)
 		{
-			for (const String& name : skeleton->BoneNames())
-			{
-				const Char* label = name.c_str();
-				if (!label || *label == '\0')
-				{
-					continue;
-				}
+			Effector& entry = entries_[entryIndex];
 
-				Bool selected = name == effectorBoneName_;
-				if (ImGui::Selectable(label, selected))
+			ImGui::PushID(static_cast<Int>(entryIndex));
+
+			std::string label = "エフェクタボーン [" + std::to_string(entryIndex) + "]";
+			const Char* preview = entry.effectorBoneName_.c_str();
+			if (ImGui::BeginCombo(label.c_str(), preview ? preview : ""))
+			{
+				for (const String& name : skeleton->BoneNames())
 				{
-					effectorBoneName_ = name;
+					const Char* nameLabel = name.c_str();
+					if (!nameLabel || *nameLabel == '\0')
+					{
+						continue;
+					}
+
+					Bool selected = name == entry.effectorBoneName_;
+					if (ImGui::Selectable(nameLabel, selected))
+					{
+						entry.effectorBoneName_ = name;
+					}
+					if (selected)
+					{
+						ImGui::SetItemDefaultFocus();
+					}
 				}
-				if (selected)
-				{
-					ImGui::SetItemDefaultFocus();
-				}
+				ImGui::EndCombo();
 			}
-			ImGui::EndCombo();
+
+			ImGui::PopID();
 		}
 	}
 }

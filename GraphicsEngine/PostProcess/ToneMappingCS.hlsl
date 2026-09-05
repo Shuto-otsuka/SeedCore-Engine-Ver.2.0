@@ -42,6 +42,13 @@ void main(uint3 dtid : SV_DispatchThreadID)
 
 	uint width, height;
 	output.GetDimensions(width, height);
+
+	/// [EN] Bounds guard: the dispatch is rounded up to a multiple of the
+	///      8x8 thread group size, so threads past the actual screen edge
+	///      must bail out before touching any resource.
+	/// [JP] 範囲外ガード: ディスパッチは 8x8 スレッドグループの倍数に
+	///      切り上げられているので、実際の画面端を超えたスレッドはどの
+	///      リソースにも触れる前に抜ける必要がある。
 	if (dtid.x >= width || dtid.y >= height)
 	{
 		return;
@@ -49,17 +56,31 @@ void main(uint3 dtid : SV_DispatchThreadID)
 
 	float2 uv = (float2(dtid.xy) + 0.5) / float2(width, height);
 
-	// [JP] カラーグレーディングが有効なときは、シーンの合成・光の加算寄与・
-	//      露出まで ColorGradingCS.hlsl が済ませてグレーディング済みの
-	//      バッファへ書いている。グレーディングは 0.18 のコントラスト軸の
-	//      都合で「露出の後・トーンカーブの前」に居なければならず、その位置に
-	//      居る以上そこまでの工程も持つことになるため。ここはそれを読んで
-	//      カーブだけを掛ける。無効なときは従来どおりここで全部やる。
-	//
-	//      同じ工程が ColorGradingCS.hlsl 側にも書かれているが、共有の
-	//      インクルードには切り出していない — 表示パスは最後の砦なので、
-	//      他のファイルの都合でここが道連れにコンパイル不能になる依存を
-	//      増やしたくない。
+	/// [EN] When color grading is enabled, ColorGradingCS.hlsl has already
+	///      finished scene compositing, additive light contributions and
+	///      exposure, writing the graded result into its own buffer -
+	///      grading has to sit "after exposure, before the tone curve" for
+	///      its 0.18 contrast pivot to be meaningful, and sitting there means
+	///      it also has to own every step up to that point. This pass just
+	///      reads that and applies the curve. When disabled, everything is
+	///      done here as before.
+	///
+	///      The same sequence of steps is duplicated in ColorGradingCS.hlsl
+	///      rather than factored into a shared include - this display pass
+	///      is the last line of defense, so it deliberately avoids a
+	///      dependency that could drag it down if some other file fails to
+	///      compile.
+	/// [JP] カラーグレーディングが有効なときは、シーンの合成・光の加算寄与・
+	///      露出まで ColorGradingCS.hlsl が済ませてグレーディング済みの
+	///      バッファへ書いている。グレーディングは 0.18 のコントラスト軸の
+	///      都合で「露出の後・トーンカーブの前」に居なければならず、その
+	///      位置に居る以上そこまでの工程も持つことになるため。ここはそれを
+	///      読んでカーブだけを掛ける。無効なときは従来どおりここで全部やる。
+	///
+	///      同じ工程が ColorGradingCS.hlsl 側にも書かれているが、共有の
+	///      インクルードには切り出していない - 表示パスは最後の砦なので、
+	///      他のファイルの都合でここが道連れにコンパイル不能になる依存を
+	///      増やしたくない。
 	float3 color;
 	if (constant_indices.post_process_.color_grading_.enabled_ != 0)
 	{
@@ -68,12 +89,20 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	}
 	else
 	{
-		// [JP] レンズ段(歪曲/色収差/ビネット)が走った場合、シーンはその共有
-		//      バッファに置かれているので最優先で読む。分岐の連鎖は
-		//      PrepareView がCPU側で解決済みなので、ここは1回の判定で済む。
-		//      レンズ段と被写界深度のバッファは常にネイティブ解像度なので、
-		//      DLSS-RR有効時に output と食い違う。Load ではなく UV 経由の
-		//      SampleLevel で読むのはそのため。
+		/// [EN] If the lens stage (distortion/chromatic aberration/vignette)
+		///      ran, the scene sits in its shared buffer, so that is read
+		///      first. The chain of branches is already resolved CPU-side by
+		///      PrepareView, so this only needs one check. The lens stage's
+		///      and depth of field's buffers are always at native
+		///      resolution, so they can disagree with output when DLSS-RR is
+		///      enabled - which is why this reads via UV-based SampleLevel
+		///      instead of Load.
+		/// [JP] レンズ段(歪曲/色収差/ビネット)が走った場合、シーンはその
+		///      共有バッファに置かれているので最優先で読む。分岐の連鎖は
+		///      PrepareView がCPU側で解決済みなので、ここは1回の判定で済む。
+		///      レンズ段と被写界深度のバッファは常にネイティブ解像度なので、
+		///      DLSS-RR有効時に output と食い違う。Load ではなく UV 経由の
+		///      SampleLevel で読むのはそのため。
 		float3 hdr_color;
 		if (constant_indices.post_process_.lens_stage_enabled_ != 0)
 		{
@@ -91,10 +120,15 @@ void main(uint3 dtid : SV_DispatchThreadID)
 			hdr_color = source.Load(int3(dtid.xy, 0)).rgb;
 		}
 
-		// [JP] 光を「足す」エフェクト群。いずれも露出より前に加算する —
-		//      これらは光であり、光は露出されるものだから。無効な間は
-		//      バッファに前回有効だった時のデータが残っているので、
-		//      サンプルごと丸ごとスキップする。
+		/// [EN] The "additive light" effect group. All are added before
+		///      exposure - they ARE light, and light is what gets exposed.
+		///      Each is skipped entirely by sample while disabled, since its
+		///      buffer would otherwise still hold stale data from the last
+		///      time it was enabled.
+		/// [JP] 光を「足す」エフェクト群。いずれも露出より前に加算する -
+		///      これらは光であり、光は露出されるものだから。無効な間は
+		///      バッファに前回有効だった時のデータが残っているので、
+		///      サンプルごと丸ごとスキップする。
 		if (constant_indices.post_process_.lens_flare_.enabled_ != 0)
 		{
 			Texture2D<float4> lens_flare = ResourceDescriptorHeap[constant_indices.post_process_.lens_flare_.shader_resource_view_index_];
@@ -113,8 +147,11 @@ void main(uint3 dtid : SV_DispatchThreadID)
 			hdr_color += anamorphic_flare.SampleLevel(sampler_linear_clamp, uv, 0).rgb;
 		}
 
-		// [JP] 手動EVは常に効く。自動露出のEVは有効時だけ上乗せする
-		//      (PostProcess.h の ExposureSettings 参照)。
+		/// [EN] The manual EV always applies. The auto-exposure EV is only
+		///      added on top when enabled (see PostProcess.h's
+		///      ExposureSettings).
+		/// [JP] 手動EVは常に効く。自動露出のEVは有効時だけ上乗せする
+		///      (PostProcess.h の ExposureSettings 参照)。
 		float exposure_ev = constant_indices.post_process_.exposure_.exposure_compensation_;
 		if (constant_indices.post_process_.exposure_.auto_exposure_enabled_ != 0)
 		{
@@ -140,7 +177,8 @@ void main(uint3 dtid : SV_DispatchThreadID)
 		{
 			color = PbrNeutralToneMap(color);
 		}
-		// mode == 0 (None): カーブ無し、下の saturate だけがかかる。
+		/// [EN] mode == 0 (None): no curve, only the saturate below applies.
+		/// [JP] mode == 0 (None): カーブ無し、下の saturate だけがかかる。
 	}
 
 	color = saturate(color);

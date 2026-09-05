@@ -238,7 +238,7 @@ namespace SeedCore
 		proceduralSkyTime_ = totalTime;
 	}
 
-	void SkyRenderer::SetIndices(IndicesSystem& indicesSystem)
+	void SkyRenderer::SetIndices(IndicesSystem& indicesSystem, Float directionalIntensity)
 	{
 		indicesSystem.SetSkyBrdfLutIndex(brdfLookupTableShaderResourceViewIndex_);
 
@@ -248,7 +248,7 @@ namespace SeedCore
 			indicesSystem.SetSkyEnvironmentCubeIndex(environmentShaderResourceViewIndex_);
 			indicesSystem.SetSkyDiffuseIrradianceIndex(irradianceShaderResourceViewIndex_);
 			indicesSystem.SetSkySpecularPrefilteredIndex(prefilterShaderResourceViewIndex_);
-			indicesSystem.SetSkyIntensity(intensity_);
+			indicesSystem.SetSkyIntensity(intensity_ * Max(directionalIntensity, 0.0f));
 		}
 		else if (!hasSkymap_ && proceduralSkyEnabled_ && proceduralSkyGenerated_)
 		{

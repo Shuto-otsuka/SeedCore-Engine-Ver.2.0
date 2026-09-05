@@ -66,7 +66,7 @@ namespace SeedCore
 		Vector3 bendAxis = rootToMid.Cross(poleVector - rootPosition);
 		if (bendAxis.LengthSquared() < epsilon)
 		{
-			bendAxis = rootToMid.Cross(rootToEnd);
+			bendAxis = rootToEnd.Cross(rootToMid);
 		}
 		if (bendAxis.LengthSquared() < epsilon)
 		{

@@ -1,35 +1,37 @@
 #ifndef __VOLUMETRIC_LIGHT_HLSL__
 #define __VOLUMETRIC_LIGHT_HLSL__
 
-// Fog / volumetric light tuning constant buffer, read by the three froxel
-// passes (FogInjectionCS / VolumetricLightScatteringRT / FroxelIntegrationCS)
-// and DeferredCompositePS via structured_indices.volumetric_light_.ray_constant_index_.
-// Must match the C++ mirror in Renderer/VolumetricLightRenderer.h
-// byte-for-byte.
+/**
+* Fog / volumetric light tuning constant buffer, read by the three froxel
+* passes (FogInjectionCS / VolumetricLightScatteringRT / FroxelIntegrationCS)
+* and DeferredCompositePS via
+* structured_indices.volumetric_light_.ray_constant_index_. Must match the
+* C++ mirror in Renderer/VolumetricLightRenderer.h byte-for-byte.
+*/
 struct VolumetricLightRayConstantBuffer
 {
-	// Base fog density (scattering strength).
+	/// Base fog density (scattering strength).
 	float density_;
 
-	// Absorption coefficient (extinction = density + absorption).
+	/// Absorption coefficient (extinction = density + absorption).
 	float absorption_;
 
-	// Height-fog falloff (0 = uniform fog).
+	/// Height-fog falloff (0 = uniform fog).
 	float height_falloff_;
 
-	// Height-fog reference Y (density = base at this height).
+	/// Height-fog reference Y (density = base at this height).
 	float height_reference_;
 
-	// Scattering tint of the medium.
+	/// Scattering tint of the medium.
 	float3 fog_albedo_;
 
-	// Henyey-Greenstein anisotropy (higher = stronger god rays toward sun).
+	/// Henyey-Greenstein anisotropy (higher = stronger god rays toward sun).
 	float scattering_g_;
 
-	// Max shadow-ray length for the froxel sun-occlusion test.
+	/// Max shadow-ray length for the froxel sun-occlusion test.
 	float ray_t_max_;
 
-	// Multiplier on the sun in-scattering term (god-ray strength).
+	/// Multiplier on the sun in-scattering term (god-ray strength).
 	float godray_strength_;
 
 	uint froxel_dimension_x_;
@@ -37,18 +39,21 @@ struct VolumetricLightRayConstantBuffer
 
 	uint froxel_dimension_z_;
 
-	// 1 = attenuate the sun by a short cloud lightmarch (crepuscular rays
-	// through cloud gaps); needs the procedural cloud system enabled.
+	/// 1 = attenuate the sun by a short cloud lightmarch (crepuscular rays
+	/// through cloud gaps); needs the procedural cloud system enabled.
 	uint cloud_shadow_enabled_;
 
+	/// Padding to keep the buffer's byte size aligned with the C++ mirror.
 	float2 volumetric_light_padding_;
 };
 
-// Exact froxel -> world reconstruction: build the view-space position from
-// the NDC xy and the linear view Z using the projection's diagonal, then
-// transform by the inverse view. (Froxel.hlsli's FroxelToWorld assumes an
-// infinite-far reverse-Z projection; this version matches the engine's
-// actual projection.)
+/**
+* Exact froxel -> world reconstruction: builds the view-space position from
+* the NDC xy and the linear view Z using the projection's diagonal, then
+* transforms by the inverse view. (Froxel.hlsli's FroxelToWorld assumes an
+* infinite-far reverse-Z projection; this version matches the engine's actual
+* projection.)
+*/
 float3 FroxelToWorldExact(uint3 froxel, uint3 froxel_dimensions, float near_plane, float far_plane,
 	float4x4 projection, float4x4 inverse_view)
 {

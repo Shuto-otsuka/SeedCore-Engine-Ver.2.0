@@ -19,6 +19,73 @@ namespace SeedCore
 		Storm,
 	};
 
+	/// [EN] Tuning for the rain particle system. density_ scales how much of the
+	///      fixed particle pool is active, multiplied every frame by the current
+	///      weather's rain_ amount - so it fades out naturally as rain stops
+	///      instead of needing a separate "is it raining" toggle.
+	/// [JP] 雨パーティクル系の調整値。density_ は固定パーティクルプールのうち
+	///      どれだけを有効にするかの係数で、毎フレーム現在の天候の rain_ 量と
+	///      掛け合わされる - 「今降っているか」用の別トグルを持たなくても、
+	///      雨が止めば自然にフェードアウトする。
+	struct Rain
+	{
+		SC_REFLECTION_CLAMPED_EX("密度", 0.0f, 1.0f)
+		Float density_ = 1.0f;
+
+		SC_REFLECTION_CLAMPED_EX("落下速度", 1.0f, 30.0f)
+		Float fallSpeed_ = 9.0f;
+
+		SC_REFLECTION_CLAMPED_EX("サイズ", 0.005f, 0.2f)
+		Float size_ = 0.035f;
+
+		SC_REFLECTION_CLAMPED_EX("筋の長さ", 0.0f, 2.0f)
+		Float streakLength_ = 0.035f;
+
+		SC_REFLECTION_CLAMPED_EX("明るさ", 0.0f, 3.0f)
+		Float brightness_ = 0.8f;
+
+		SC_REFLECTION_CLAMPED_EX("スポーン範囲(半径)", 2.0f, 60.0f)
+		Float volumeRadius_ = 14.0f;
+
+		SC_REFLECTION_CLAMPED_EX("スポーン範囲(高さ)", 2.0f, 40.0f)
+		Float volumeHeight_ = 10.0f;
+
+		SC_REFLECTION_FIELD_EX("色")
+		Color color_ = { 0.75f, 0.8f, 0.9f, 1.0f };
+	};
+
+	/// [EN] Same shape as Rain, for snow (see Weather::snowIntensity_ - the fast
+	///      "is it snowing now" signal this scales against, distinct from
+	///      snowCoverage_'s slow ground accumulation).
+	/// [JP] Rain と同じ形、雪用(掛け合わせる相手は Weather::snowIntensity_ -
+	///      「今降っているか」の速い信号。地面の積雪 snowCoverage_ とは別)。
+	struct Snow
+	{
+		SC_REFLECTION_CLAMPED_EX("密度", 0.0f, 1.0f)
+		Float density_ = 1.0f;
+
+		SC_REFLECTION_CLAMPED_EX("落下速度", 0.1f, 10.0f)
+		Float fallSpeed_ = 1.3f;
+
+		SC_REFLECTION_CLAMPED_EX("サイズ", 0.005f, 0.3f)
+		Float size_ = 0.05f;
+
+		SC_REFLECTION_CLAMPED_EX("揺れ幅", 0.0f, 2.0f)
+		Float swayAmount_ = 0.4f;
+
+		SC_REFLECTION_CLAMPED_EX("明るさ", 0.0f, 3.0f)
+		Float brightness_ = 0.9f;
+
+		SC_REFLECTION_CLAMPED_EX("スポーン範囲(半径)", 2.0f, 60.0f)
+		Float volumeRadius_ = 12.0f;
+
+		SC_REFLECTION_CLAMPED_EX("スポーン範囲(高さ)", 2.0f, 40.0f)
+		Float volumeHeight_ = 9.0f;
+
+		SC_REFLECTION_FIELD_EX("色")
+		Color color_ = { 1.0f, 1.0f, 1.0f, 1.0f };
+	};
+
 	/// [EN]
 	/// Singleton-by-convention component: add to exactly one Actor in the scene.
 	/// WeatherSystem finds it via a Query<Write<Weather>> and interpolates
@@ -72,6 +139,20 @@ namespace SeedCore
 
 		SC_REFLECTION_FIELD_EX("暴風を強制的に許可")
 		Bool forceStorm_ = false;
+
+		SC_REFLECTION_FIELD_EX("雨パーティクル")
+		Bool rainEnabled_ = false;
+
+		SC_REFLECTION_FIELD_CONDITION(rainEnabled_)
+		SC_REFLECTION_FIELD_EX("雨")
+		Rain rain_;
+
+		SC_REFLECTION_FIELD_EX("雪パーティクル")
+		Bool snowEnabled_ = false;
+
+		SC_REFLECTION_FIELD_CONDITION(snowEnabled_)
+		SC_REFLECTION_FIELD_EX("雪")
+		Snow snow_;
 
 		/// [EN] Countdown to the next auto-cycle change. Runtime-only, not user-facing.
 		/// [JP] 次の自動切替までのカウントダウン。実行時専用、ユーザー設定ではない。

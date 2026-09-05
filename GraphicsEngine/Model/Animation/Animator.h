@@ -65,9 +65,6 @@ namespace SeedCore
 
 		SC_SERIALIZE_FIELD()
 		Bool useRootMotion_ = false;
-
-		SC_SERIALIZE_FIELD()
-		Bool useIK_ = false;
 	};
 
 	struct AnimationTransition
@@ -126,6 +123,7 @@ namespace SeedCore
 	class AnimationSystem;
 	class AnimatorControllerPanel;
 	class TimelinePanel;
+	class IKPose;
 
 	namespace ScReflection
 	{ 
@@ -143,6 +141,7 @@ namespace SeedCore
 		friend class AnimationSystem;
 		friend class AnimatorControllerPanel;
 		friend class TimelinePanel;
+		friend class IKPose;
 		friend struct ScReflection::Register_Animator;
 		friend struct ScPayload::Register_Animator;
 
@@ -192,10 +191,6 @@ namespace SeedCore
 
 		void SetIKPole(const std::string& effectorBoneName, const Vector3& poleVector);
 
-		void SetJointConstraint(const std::string& boneName, const Vector3& axis, const Vector3& swingAxis, Float swingAngle1, Float swingAngle2);
-
-		[[nodiscard]] Bool HasIK()const;
-
 		[[nodiscard]] const std::unordered_map<std::string, IKTarget>& GetIKTarget()const;
 
 		[[nodiscard]] const std::unordered_map<std::string, JointConstraint>& GetJointConstraint()const;
@@ -220,6 +215,8 @@ namespace SeedCore
 		void UpdateCurrentClipDuration(Float duration);
 
 		void ClearIKTarget(const std::string& effectorBoneName);
+
+		void SetJointConstraint(const std::string& boneName, const Vector3& axis, const Vector3& swingAxis, Float swingAngle1, Float swingAngle2);
 
 	private:
 		static constexpr Int ExitState = -2;

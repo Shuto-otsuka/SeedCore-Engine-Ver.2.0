@@ -5,11 +5,12 @@
 namespace SeedCore
 {
 	struct EditorContext;
+	class ImGuiTexture;
 
 	class ConfigPanel
 	{
 	public:
-		ConfigPanel(EditorContext& context);
+		ConfigPanel(EditorContext& context, ImGuiTexture& imguiTexture);
 		~ConfigPanel() = default;
 
 		void Draw();
@@ -25,6 +26,8 @@ namespace SeedCore
 
 	private:
 		EditorContext& context_;
+
+		ImGuiTexture& imguiTexture_;
 
 		Bool show_ = false;
 

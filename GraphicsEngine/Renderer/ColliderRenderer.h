@@ -69,35 +69,6 @@ namespace SeedCore
 	class ColliderRenderer
 	{
 	public:
-		/// [EN] Capacity of the collider-instance structured buffer. Instances
-		///      beyond this cap within a single frame are silently dropped
-		///      rather than reallocating mid-frame.
-		/// [JP] コライダーインスタンス構造化バッファの容量。1フレーム内で
-		///      これを超えたインスタンスは、フレーム途中の再確保を避けるため
-		///      黙って破棄される。
-		static constexpr Uint maxInstanceCount_ = 8192;
-
-		/// [EN] Icosahedron subdivision level for the sphere/capsule-cap edge
-		///      tables — level 3 matches JPH::DebugRenderer's own default
-		///      DrawWireSphere density (20 * 4^3 = 1280 faces, 1920 edges).
-		/// [JP] 球/カプセルキャップ用エッジテーブルの正20面体細分割レベル —
-		///      レベル3は JPH::DebugRenderer 自身の DrawWireSphere 既定密度
-		///      (20 * 4^3 = 1280面、1920辺)と一致する。
-		static constexpr Uint icosphereSubdivisionLevel_ = 3;
-
-		/// [EN] Must match ColliderLineMS.hlsl's GetCylinderBodyLine /
-		///      GetLineCount hardcoded ring/vertical segment counts exactly —
-		///      only used here to size groupsPerInstance_, not to generate
-		///      any geometry (cylinder/circle/box/rect stay fully procedural
-		///      in the shader).
-		/// [JP] ColliderLineMS.hlsl の GetCylinderBodyLine / GetLineCount が
-		///      ハードコードしているリング/縦線の分割数と厳密に一致させる
-		///      こと — ここでは groupsPerInstance_ のサイズ計算にのみ使う
-		///      (cylinder/circle/box/rect の形状生成自体は今も完全に
-		///      シェーダ側の手続き生成のまま)。
-		static constexpr Uint cylinderRingSegments_ = 32;
-		static constexpr Uint cylinderVerticalLineCount_ = 8;
-
 		ColliderRenderer() = default;
 		~ColliderRenderer() = default;
 
@@ -134,6 +105,35 @@ namespace SeedCore
 		void Draw(D3D12CommandList* cmdList, D3D12_CPU_DESCRIPTOR_HANDLE renderTargetView, D3D12_CPU_DESCRIPTOR_HANDLE depthStencilView, D3D12_VIEWPORT viewport, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex);
 
 	private:
+		/// [EN] Capacity of the collider-instance structured buffer. Instances
+		///      beyond this cap within a single frame are silently dropped
+		///      rather than reallocating mid-frame.
+		/// [JP] コライダーインスタンス構造化バッファの容量。1フレーム内で
+		///      これを超えたインスタンスは、フレーム途中の再確保を避けるため
+		///      黙って破棄される。
+		static constexpr Uint maxInstanceCount_ = 8192;
+
+		/// [EN] Icosahedron subdivision level for the sphere/capsule-cap edge
+		///      tables — level 3 matches JPH::DebugRenderer's own default
+		///      DrawWireSphere density (20 * 4^3 = 1280 faces, 1920 edges).
+		/// [JP] 球/カプセルキャップ用エッジテーブルの正20面体細分割レベル —
+		///      レベル3は JPH::DebugRenderer 自身の DrawWireSphere 既定密度
+		///      (20 * 4^3 = 1280面、1920辺)と一致する。
+		static constexpr Uint icosphereSubdivisionLevel_ = 3;
+
+		/// [EN] Must match ColliderLineMS.hlsl's GetCylinderBodyLine /
+		///      GetLineCount hardcoded ring/vertical segment counts exactly —
+		///      only used here to size groupsPerInstance_, not to generate
+		///      any geometry (cylinder/circle/box/rect stay fully procedural
+		///      in the shader).
+		/// [JP] ColliderLineMS.hlsl の GetCylinderBodyLine / GetLineCount が
+		///      ハードコードしているリング/縦線の分割数と厳密に一致させる
+		///      こと — ここでは groupsPerInstance_ のサイズ計算にのみ使う
+		///      (cylinder/circle/box/rect の形状生成自体は今も完全に
+		///      シェーダ側の手続き生成のまま)。
+		static constexpr Uint cylinderRingSegments_ = 32;
+		static constexpr Uint cylinderVerticalLineCount_ = 8;
+
 		/// [EN] Owned directly rather than reusing Renderer's shared
 		///      PipelineStateObject cache — ColliderLineShader builds its
 		///      own dedicated RootSignature (see its class comment), and

@@ -66,17 +66,39 @@
 * 這い回るスペックルへ増幅されてしまう。
 */
 
-// [JP] 座標とシードから [0,1) の擬似乱数を1つ作るハッシュ。
+/**
+* [EN]
+* Hash that builds one [0,1) pseudo-random value from a coordinate and a
+* seed.
+*
+* ---------------------------------------------------------------------
+*
+* [JP]
+* 座標とシードから [0,1) の擬似乱数を1つ作るハッシュ。
+*/
 float GrainHash(float2 position, float seed)
 {
 	return frac(sin(dot(position, float2(12.9898, 78.233)) + seed) * 43758.5453);
 }
 
-// [JP] フィルムの階調応答。中間グレーで1になり、黒と白の両端で0へ落ちる。
-//      4*l*(1-l) はちょうどその形の放物線で、l=0.5 で最大値1を取る。
-//      シャドウで粒が見えないのは露光した結晶が少ないから、ハイライトで
-//      見えないのは結晶が詰まりすぎて連続階調に溶けるから — 両端が0へ
-//      落ちるのはその2つの別々の理由を1本の曲線で表している。
+/**
+* [EN]
+* Film's luminance response. 1 at mid grey, falling to 0 at both black and
+* white. 4*l*(1-l) is exactly that shaped parabola, peaking at 1 when
+* l=0.5. Grain is invisible in shadows because few crystals were exposed,
+* and invisible in highlights because too many crystals pack together into
+* continuous tone - both ends falling to 0 expresses those two separate
+* reasons with a single curve.
+*
+* ---------------------------------------------------------------------
+*
+* [JP]
+* フィルムの階調応答。中間グレーで1になり、黒と白の両端で0へ落ちる。
+* 4*l*(1-l) はちょうどその形の放物線で、l=0.5 で最大値1を取る。シャドウで
+* 粒が見えないのは露光した結晶が少ないから、ハイライトで見えないのは結晶が
+* 詰まりすぎて連続階調に溶けるから - 両端が0へ落ちるのはその2つの別々の
+* 理由を1本の曲線で表している。
+*/
 float GrainLuminanceResponse(float luminance, float response)
 {
 	float midtone_weight = 4.0 * luminance * (1.0 - luminance);
@@ -90,6 +112,13 @@ void main(uint3 dtid : SV_DispatchThreadID)
 
 	uint width, height;
 	destination.GetDimensions(width, height);
+
+	/// [EN] Bounds guard: the dispatch is rounded up to a multiple of the
+	///      8x8 thread group size, so threads past the actual screen edge
+	///      must bail out before touching any resource.
+	/// [JP] 範囲外ガード: ディスパッチは 8x8 スレッドグループの倍数に
+	///      切り上げられているので、実際の画面端を超えたスレッドはどの
+	///      リソースにも触れる前に抜ける必要がある。
 	if (dtid.x >= width || dtid.y >= height)
 	{
 		return;
@@ -105,6 +134,10 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	SceneConstantBuffer scene = GetSceneConstantBuffer();
 	float seed = scene.total_time_;
 
+	/// [EN] Grain size comes from sampling noise on a grid of pixel
+	///      coordinates divided by size. Flooring means every group of size
+	///      pixels shares the same random value, forming a clump rather than
+	///      per-pixel noise.
 	/// [JP] 粒の大きさは、画素座標を size で割った格子でノイズを引くことで
 	///      出す。floor しているので size 画素ぶんが同じ乱数値を共有し、
 	///      画素単位ではない塊になる。
@@ -122,6 +155,11 @@ void main(uint3 dtid : SV_DispatchThreadID)
 		grain = GrainHash(grain_position, seed).xxx;
 	}
 
+	/// [EN] Maps the random value to [-1,1], scales it by the luminance
+	///      response and intensity, then adds it. Adding (rather than
+	///      multiplying) matches the physics: the emulsion's density
+	///      variation is a variance in the density itself, not a multiplier
+	///      proportional to the original brightness.
 	/// [JP] 乱数を [-1,1] へ写して、階調応答と強度で調整してから加算する。
 	///      加算(乗算ではなく)なのは、乳剤の濃度ムラが元の明るさに比例した
 	///      倍率ではなく、濃度そのもののばらつきだから。

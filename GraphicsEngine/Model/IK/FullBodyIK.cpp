@@ -10,11 +10,6 @@ namespace SeedCore
 {
 	void FullBodyIK::Apply(const Crister& crister, const Animator& animator, DynamicArray<Matrix>& poseGlobalTransforms)
 	{
-		if (!animator.HasIK())
-		{
-			return;
-		}
-
 		const std::unordered_map<std::string, JointConstraint>& jointConstraints = animator.GetJointConstraint();
 
 		DynamicArray<std::pair<Int, const IKTarget*>> activeTargets;
@@ -125,7 +120,10 @@ namespace SeedCore
 						{
 							position = leanPosition + Vector3::Transform(position - leanPosition, leanDelta);
 						}
-						originalRotations[0] = originalRotations[0] * leanDelta;
+						for (Quaternion& rotation : originalRotations)
+						{
+							rotation = rotation * leanDelta;
+						}
 					}
 				}
 			}
@@ -135,7 +133,21 @@ namespace SeedCore
 
 		if (chain.size() == 3)
 		{
-			Vector3 poleVector = target.hasPoleVector_ ? target.poleVector_ : originalPositions[0];
+			Vector3 poleVector;
+			if (target.hasPoleVector_)
+			{
+				poleVector = target.poleVector_;
+			}
+			else
+			{
+				/// [EN] No pole was supplied, so keep the limb's current bend direction: project the mid joint's offset from the root-end line, then place the pole one bend-offset ahead of the mid joint along that same direction.
+				/// [JP] ポール未指定の場合はチェーンの現在の曲がり方向を維持する: mid ジョイントの root-end 直線に対するはみ出し方向を求め、その方向へ mid ジョイントからさらに1つ分オフセットした位置をポールとする。
+				Vector3 rootToEndAxis = originalPositions[2] - originalPositions[0];
+				Vector3 rootToMidOffset = originalPositions[1] - originalPositions[0];
+				Float rootToEndLengthSquared = rootToEndAxis.LengthSquared();
+				Vector3 bendOffset = rootToEndLengthSquared > 1e-8f ? rootToMidOffset - rootToEndAxis * (rootToMidOffset.Dot(rootToEndAxis) / rootToEndLengthSquared) : rootToMidOffset;
+				poleVector = originalPositions[1] + bendOffset;
+			}
 
 			Quaternion solvedRootWorldRotation, solvedMidWorldRotation;
 			TwoBoneIK::Solve(originalPositions[0], originalPositions[1], originalPositions[2], target.targetPosition_, poleVector, originalRotations[0], originalRotations[1], solvedRootWorldRotation, solvedMidWorldRotation);

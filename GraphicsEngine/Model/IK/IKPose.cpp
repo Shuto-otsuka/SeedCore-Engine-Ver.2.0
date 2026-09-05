@@ -1,5 +1,6 @@
 #include <GraphicsEngine/Model/IK/IKPose.h>
 #include <GraphicsEngine/Model/Crister.h>
+#include <GraphicsEngine/Model/Animation/Animator.h>
 
 namespace SeedCore
 {
@@ -35,6 +36,60 @@ namespace SeedCore
 		}
 
 		return -1;
+	}
+
+	void IKPose::AutoDetectJointConstraints(const Crister& crister, Animator& animator)
+	{
+		constexpr Float defaultSwingAngle1 = 45.0f;
+		constexpr Float defaultSwingAngle2 = 45.0f;
+
+		const DynamicArray<Node>& nodes = crister.Nodes();
+
+		for (Size nodeIndex = 0; nodeIndex < nodes.size(); nodeIndex++)
+		{
+			const Node& node = nodes[nodeIndex];
+			if (node.parentIndex_ < 0 || node.children_.empty())
+			{
+				continue;
+			}
+
+			Int childIndex = node.children_[0];
+			if (childIndex < 0 || static_cast<Size>(childIndex) >= nodes.size())
+			{
+				continue;
+			}
+
+			Vector3 thisPosition;
+			Quaternion thisRotation;
+			ExtractWorldTransform(node.globalTransform_, thisPosition, thisRotation);
+
+			Vector3 childPosition;
+			Quaternion childRotation;
+			ExtractWorldTransform(nodes[static_cast<Size>(childIndex)].globalTransform_, childPosition, childRotation);
+
+			Vector3 worldAxis = childPosition - thisPosition;
+			if (worldAxis.LengthSquared() < 1e-8f)
+			{
+				continue;
+			}
+			worldAxis.Normalize();
+
+			Vector3 parentPosition;
+			Quaternion parentWorldRotation;
+			ExtractWorldTransform(nodes[static_cast<Size>(node.parentIndex_)].globalTransform_, parentPosition, parentWorldRotation);
+
+			Quaternion parentInverseRotation;
+			parentWorldRotation.Inverse(parentInverseRotation);
+
+			Vector3 worldSwingReference = Abs(worldAxis.Dot(Vector3::Right)) < 0.9f ? Vector3::Right : Vector3::Up;
+			Vector3 worldSwingAxis = worldSwingReference - worldAxis * worldSwingReference.Dot(worldAxis);
+			worldSwingAxis.Normalize();
+
+			Vector3 localAxis = Vector3::Transform(worldAxis, parentInverseRotation);
+			Vector3 localSwingAxis = Vector3::Transform(worldSwingAxis, parentInverseRotation);
+
+			animator.SetJointConstraint(node.name_, localAxis, localSwingAxis, defaultSwingAngle1, defaultSwingAngle2);
+		}
 	}
 
 	DynamicArray<Int> IKPose::ResolveChain(const Crister& crister, Int rootNodeIndex, Int endNodeIndex)

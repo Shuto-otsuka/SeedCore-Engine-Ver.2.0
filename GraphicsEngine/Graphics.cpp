@@ -391,6 +391,36 @@ namespace SeedCore
 		renderer_->EndMaterialFrame(context_->GetDirectList());
 	}
 
+	void Graphics::SkeletonControllerRender(WorldTimer& timer, const PreviewCamera& skeletonControllerCamera, LoaderSystem& loaderSystem, ResourceCache& resourceCache, Uint32 meshAssetId, Uint32 animationAssetId, Float time, const Matrix& worldMatrix, Int selectedNodeIndex)
+	{
+		renderer_->GatherSkeletonControllerPreview(loaderSystem, resourceCache, meshAssetId, animationAssetId, time, worldMatrix, selectedNodeIndex);
+
+		SceneConstantBuffer previewSceneConstantBuffer{};
+		previewSceneConstantBuffer.view_ = skeletonControllerCamera.View();
+		previewSceneConstantBuffer.inverseView_ = skeletonControllerCamera.InverseView();
+		previewSceneConstantBuffer.projection_ = skeletonControllerCamera.Projection();
+		previewSceneConstantBuffer.inverseProjection_ = skeletonControllerCamera.InverseProjection();
+		previewSceneConstantBuffer.nonJitterProjection_ = skeletonControllerCamera.NonJitterProjection();
+		previewSceneConstantBuffer.currentViewProjection_ = skeletonControllerCamera.CurrentViewProjection();
+		previewSceneConstantBuffer.previousViewProjection_ = skeletonControllerCamera.PreviousViewProjection();
+		previewSceneConstantBuffer.inverseViewProjection_ = skeletonControllerCamera.InverseViewProjection();
+		previewSceneConstantBuffer.nonJitterViewProjection_ = skeletonControllerCamera.NonJitterViewProjection();
+		previewSceneConstantBuffer.cameraPosition_ = Vector4(skeletonControllerCamera.Eye().x, skeletonControllerCamera.Eye().y, skeletonControllerCamera.Eye().z, 1.0f);
+		previewSceneConstantBuffer.cameraFocus_ = Vector4(skeletonControllerCamera.Focus().x, skeletonControllerCamera.Focus().y, skeletonControllerCamera.Focus().z, 1.0f);
+		previewSceneConstantBuffer.fieldOfView_ = skeletonControllerCamera.Fov();
+		previewSceneConstantBuffer.nearPlane_ = skeletonControllerCamera.Near();
+		previewSceneConstantBuffer.farPlane_ = skeletonControllerCamera.Far();
+		previewSceneConstantBuffer.totalTime_ = timer.TotalTime();
+		previewSceneConstantBuffer.deltaTime_ = timer.DeltaTime();
+		previewSceneConstantBuffer.screenSize_ = Vector2(static_cast<Float>(nativeWidth_), static_cast<Float>(nativeHeight_));
+		previewSceneConstantBuffer.inverseScreenSize_ = Vector2(1.0f / nativeWidth_, 1.0f / nativeHeight_);
+		previewSceneConstantBuffer.displaySize_ = previewSceneConstantBuffer.screenSize_;
+
+		renderer_->BeginSkeletonControllerFrame(context_->GetDirectList());
+		renderer_->SkeletonControllerFlush(context_->GetDirectList(), previewSceneConstantBuffer);
+		renderer_->EndSkeletonControllerFrame(context_->GetDirectList());
+	}
+
 	void Graphics::Begin()
 	{
 		context_->BeginFrame();
@@ -557,6 +587,11 @@ namespace SeedCore
 	D3D12_GPU_DESCRIPTOR_HANDLE Graphics::MaterialImGuiGPUHandle()const
 	{
 		return renderer_->MaterialImGuiGPUHandle();
+	}
+
+	D3D12_GPU_DESCRIPTOR_HANDLE Graphics::SkeletonControllerImGuiGPUHandle()const
+	{
+		return renderer_->SkeletonControllerImGuiGPUHandle();
 	}
 
 	CameraSystem& Graphics::GetCameraSystem()

@@ -66,15 +66,34 @@
 * グラデーションに等高線が見えてしまう。
 */
 
-// [JP] 色温度から LMS 錐体空間での順応係数を作る。目標とする白色点の
-//      CIE xy 色度を求め、それを LMS へ変換し、D65 との比を取る。
-//
-//      これが「RGBに色を掛ける」のと決定的に違う点: 掛け算は色を塗るだけ
-//      だが、こちらは【白色点そのもの】を動かす von Kries の色順応なので、
-//      白かったものが白のまま別の照明下の白になる。実際のカメラの
-//      ホワイトバランスがやっているのはこちら。
-//
-//      標準光源の y は x の関数(下の2次式)で、黒体軌跡の近似。
+/**
+* [EN]
+* Builds the LMS cone-space adaptation coefficients from a color temperature.
+* Derives the target white point's CIE xy chromaticity, converts it to LMS,
+* and takes the ratio against D65.
+*
+* This is what makes it fundamentally different from "multiplying RGB by a
+* color": a plain multiply just tints, whereas this is von Kries chromatic
+* adaptation, which moves the WHITE POINT ITSELF - something that was white
+* stays white, just under a different illuminant. This is exactly what a
+* real camera's white balance does.
+*
+* The standard illuminant's y is a function of x (the quadratic below), an
+* approximation of the blackbody locus.
+*
+* ---------------------------------------------------------------------
+*
+* [JP]
+* 色温度から LMS 錐体空間での順応係数を作る。目標とする白色点の CIE xy 色度を
+* 求め、それを LMS へ変換し、D65 との比を取る。
+*
+* これが「RGBに色を掛ける」のと決定的に違う点: 掛け算は色を塗るだけだが、
+* こちらは【白色点そのもの】を動かす von Kries の色順応なので、白かったもの
+* が白のまま別の照明下の白になる。実際のカメラのホワイトバランスがやって
+* いるのはこちら。
+*
+* 標準光源の y は x の関数(下の2次式)で、黒体軌跡の近似。
+*/
 float3 WhiteBalanceCoefficients(float temperature)
 {
 	float shift = temperature * 1.5;
@@ -98,9 +117,19 @@ float3 WhiteBalanceCoefficients(float temperature)
 	return d65_lms / max(target_lms, 0.0001);
 }
 
-// [JP] リニアRGB → LMS → 順応係数を掛ける → リニアRGB。順応は錐体応答の
-//      空間(LMS)で行うのが von Kries の要点で、RGB空間で同じことをすると
-//      色相がずれる。
+/**
+* [EN]
+* Linear RGB -> LMS -> multiply by the adaptation coefficients -> linear RGB.
+* Applying the adaptation in cone-response space (LMS) is the whole point of
+* von Kries - doing the same thing in RGB space shifts hue.
+*
+* ---------------------------------------------------------------------
+*
+* [JP]
+* リニアRGB → LMS → 順応係数を掛ける → リニアRGB。順応は錐体応答の空間
+* (LMS)で行うのが von Kries の要点で、RGB空間で同じことをすると色相が
+* ずれる。
+*/
 float3 ApplyWhiteBalance(float3 color, float temperature)
 {
 	const float3x3 linear_to_lms = float3x3(
@@ -119,17 +148,34 @@ float3 ApplyWhiteBalance(float3 color, float temperature)
 	return mul(lms_to_linear, lms);
 }
 
-// [JP] 1つの階調域ぶんの補正。順序はホワイトバランス → 彩度 →
-//      コントラスト → ガンマ → ゲイン → オフセット。ホイール5つは
-//      Unreal のパネルと同じ順で、ホワイトバランスが先頭なのは
-//      創作的な操作ではなく撮影側の補正だから。
-//
-//      コントラストが 0.18 で割ってから戻しているのは、中間グレーを
-//      動かさない軸にするため — こうしないとコントラストを上げるだけで
-//      画面全体が明るく(または暗く)なってしまう。
-//
-//      ガンマが逆数なのは写真側の慣習に合わせたもので、値を上げると
-//      明るくなる向きになる。
+/**
+* [EN]
+* One tonal range's worth of correction. Order is white balance -> saturation
+* -> contrast -> gamma -> gain -> offset. The five wheels follow the same
+* order as Unreal's panel; white balance comes first because it is a
+* photographic correction, not a creative one.
+*
+* Contrast divides by 0.18 before applying the power and multiplies it back
+* afterward, to make middle grey the axis that stays fixed - without this,
+* raising contrast alone would brighten (or darken) the whole image.
+*
+* Gamma is inverted to match photographic convention, so raising the value
+* makes the image brighter.
+*
+* ---------------------------------------------------------------------
+*
+* [JP]
+* 1つの階調域ぶんの補正。順序はホワイトバランス → 彩度 → コントラスト →
+* ガンマ → ゲイン → オフセット。ホイール5つは Unreal のパネルと同じ順で、
+* ホワイトバランスが先頭なのは創作的な操作ではなく撮影側の補正だから。
+*
+* コントラストが 0.18 で割ってから戻しているのは、中間グレーを動かさない
+* 軸にするため - こうしないとコントラストを上げるだけで画面全体が明るく
+* (または暗く)なってしまう。
+*
+* ガンマが逆数なのは写真側の慣習に合わせたもので、値を上げると明るくなる
+* 向きになる。
+*/
 float3 ColorCorrect(float3 color, float temperature, float saturation, float contrast, float gamma, float gain, float offset)
 {
 	color = max(0.0, ApplyWhiteBalance(color, temperature));
@@ -137,6 +183,15 @@ float3 ColorCorrect(float3 color, float temperature, float saturation, float con
 	float luminance = dot(color, float3(0.2126, 0.7152, 0.0722));
 	color = max(0.0, lerp(luminance.xxx, color, saturation));
 
+	/// [EN] The exponent must always be confined to a finite range.
+	///      Especially for gamma, which is inverted - a lower bound as loose
+	///      as "anything but 0" (e.g. 0.0001) would let the exponent reach
+	///      10000, crushing every color below 1 to 0 and turning the
+	///      【entire screen black】. This is why lowering gamma close to 0
+	///      alone blacks out the image. The range matches PostProcess.h's
+	///      slider, 0.1-4.0. This clamps again rather than trusting the
+	///      CPU-side value because a scene saved before that range changed
+	///      can still carry an old out-of-range value.
 	/// [JP] 指数は必ず有限の範囲に閉じ込める。特にガンマは逆数を取るので、
 	///      下限を 0.0001 のような「0でなければ何でもいい」値にすると
 	///      指数が 10000 になり、1未満の色が全て0へ潰れて【全画面が黒】に
@@ -160,13 +215,25 @@ void main(uint3 dtid : SV_DispatchThreadID)
 
 	uint width, height;
 	destination.GetDimensions(width, height);
+
+	/// [EN] Bounds guard: the dispatch is rounded up to a multiple of the
+	///      8x8 thread group size, so threads past the actual screen edge
+	///      must bail out before touching any resource.
+	/// [JP] 範囲外ガード: ディスパッチは 8x8 スレッドグループの倍数に
+	///      切り上げられているので、実際の画面端を超えたスレッドはどの
+	///      リソースにも触れる前に抜ける必要がある。
 	if (dtid.x >= width || dtid.y >= height)
 	{
 		return;
 	}
 
+	/// [EN] Everything from here through exposure is the same processing as
+	///      ToneMappingCS.hlsl's grading-disabled path. Not factored into a
+	///      shared include - the display pass is the last line of defense,
+	///      so it deliberately avoids adding a dependency that could drag
+	///      it down if that other file fails to compile.
 	/// [JP] ここから露出までは ToneMappingCS.hlsl のグレーディング無効時の
-	///      経路と同じ処理。共有のインクルードには切り出していない —
+	///      経路と同じ処理。共有のインクルードには切り出していない -
 	///      表示パスは最後の砦なので、他のファイルの都合であちらが道連れに
 	///      コンパイル不能になる依存を増やしたくない。
 	float2 uv = (float2(dtid.xy) + 0.5) / float2(width, height);
@@ -220,6 +287,9 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	ColorGradingRangeIndices midtones_range = constant_indices.post_process_.color_grading_.midtones_;
 	ColorGradingRangeIndices highlights_range = constant_indices.post_process_.color_grading_.highlights_;
 
+	/// [EN] Each range's value is 【multiplied】 with the global value
+	///      (offset and temperature are added). This makes the global wheel
+	///      the master move, with each range a relative adjustment on top.
 	/// [JP] 階調域ごとの値は全体の値に【掛け合わせる】(オフセットと色温度は
 	///      加算)。こうすることで全体がマスター、各域がその上の相対調整、
 	///      という関係になる。
@@ -247,6 +317,12 @@ void main(uint3 dtid : SV_DispatchThreadID)
 		global_range.gain_ * highlights_range.gain_,
 		global_range.offset_ + highlights_range.offset_);
 
+	/// [EN] Which range a pixel belongs to is decided by luminance.
+	///      Switching smoothly via smoothstep is the key point - a hard
+	///      threshold would draw a visible contour through a sky or
+	///      gradient the moment two ranges are graded differently. The
+	///      midtones weight is "whatever remains", so the three weights
+	///      always sum to 1.
 	/// [JP] どの域に属するかは輝度で決める。smoothstep でなだらかに
 	///      切り替えるのが要点で、硬いしきい値にすると2つの域を別々に
 	///      グレーディングした瞬間、空やグラデーションに等高線が出る。

@@ -71,9 +71,7 @@ void main()
 	float min_log = constant_indices.post_process_.exposure_.min_log_luminance_;
 	float max_log = constant_indices.post_process_.exposure_.max_log_luminance_;
 
-	float avg_log_luminance = total_count > 0.0
-		? (weighted_log_sum / total_count) * (max_log - min_log) + min_log
-		: min_log;
+	float avg_log_luminance = total_count > 0.0 ? (weighted_log_sum / total_count) * (max_log - min_log) + min_log : min_log;
 
 	float key_value = constant_indices.post_process_.exposure_.key_value_;
 	float target_ev = clamp(log2(max(key_value, 0.0001)) - avg_log_luminance, -8.0, 8.0);
@@ -81,7 +79,9 @@ void main()
 	RWStructuredBuffer<float> exposure = ResourceDescriptorHeap[constant_indices.post_process_.exposure_.exposure_uav_index_];
 	float smoothed_ev = exposure[0];
 
-	// 目標EVが下がった = シーンが明るくなった = 明順応(速い方の速度)。
+	/// [EN] target_ev dropped = the scene got brighter = light adaptation
+	///      (the faster of the two speeds).
+	/// [JP] 目標EVが下がった = シーンが明るくなった = 明順応(速い方の速度)。
 	bool brightening = target_ev < smoothed_ev;
 	float speed = brightening ? constant_indices.post_process_.exposure_.adapt_speed_to_bright_ : constant_indices.post_process_.exposure_.adapt_speed_to_dark_;
 	float blend = 1.0 - exp(-scene.delta_time_ * max(speed, 0.0001));

@@ -45,6 +45,13 @@ void main(uint3 dtid : SV_DispatchThreadID)
 
 	uint width, height;
 	destination.GetDimensions(width, height);
+
+	/// [EN] Bounds guard: the dispatch is rounded up to a multiple of the
+	///      8x8 thread group size, so threads past the actual screen edge
+	///      must bail out before touching any resource.
+	/// [JP] 範囲外ガード: ディスパッチは 8x8 スレッドグループの倍数に
+	///      切り上げられているので、実際の画面端を超えたスレッドはどの
+	///      リソースにも触れる前に抜ける必要がある。
 	if (dtid.x >= width || dtid.y >= height)
 	{
 		return;

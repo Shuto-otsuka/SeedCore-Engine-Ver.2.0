@@ -32,6 +32,7 @@ namespace SeedCore
 	class TimelinePanel;
 	class LayerSettingsPanel;
 	class MaterialViewerPanel;
+	class SkeletonControllerPanel;
 
 	struct WorldContext
 	{
@@ -57,9 +58,11 @@ namespace SeedCore
 		PreviewCamera* timelineCamera_ = nullptr;
 		PreviewCamera* modelTransformCamera_ = nullptr;
 		PreviewCamera* materialCamera_ = nullptr;
+		PreviewCamera* skeletonControllerCamera_ = nullptr;
 		PreviewCameraController* timelineCameraController_ = nullptr;
 		PreviewCameraController* modelTransformCameraController_ = nullptr;
 		PreviewCameraController* materialCameraController_ = nullptr;
+		PreviewCameraController* skeletonControllerCameraController_ = nullptr;
 		CameraSystem* cameraSystem_ = nullptr;
 	};
 
@@ -122,12 +125,21 @@ namespace SeedCore
 		Matrix previewWorldMatrix_ = Matrix::Identity;
 	};
 
+	struct SkeletonControllerPreviewContext
+	{
+		Bool previewActive_ = false;
+		Uint32 previewMeshAssetId_ = 0;
+		Matrix previewWorldMatrix_ = Matrix::Identity;
+		Int selectedNodeIndex_ = -1;
+	};
+
 	struct PanelContext
 	{
 		AnimatorControllerPanel* animatorControllerPanel_ = nullptr;
 		TimelinePanel* timelinePanel_ = nullptr;
 		LayerSettingsPanel* layerSettingsPanel_ = nullptr;
 		MaterialViewerPanel* materialViewerPanel_ = nullptr;
+		SkeletonControllerPanel* skeletonControllerPanel_ = nullptr;
 	};
 
 	struct EditorContext
@@ -141,6 +153,7 @@ namespace SeedCore
 		TimelinePreviewContext timelinePreviewContext_;
 		ModelTransformPreviewContext modelTransformPreviewContext_;
 		MaterialPreviewContext materialPreviewContext_;
+		SkeletonControllerPreviewContext skeletonControllerPreviewContext_;
 		PanelContext panelContext_;
 
 		Uint64 uiFrame_ = 0;

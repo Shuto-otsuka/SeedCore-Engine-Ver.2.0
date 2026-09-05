@@ -2,6 +2,7 @@
 #include <FoundationEngine/Prelude.h>
 #include <FoundationEngine/Utility/Handle.h>
 #include <GraphicsEngine/D3D12/PipelineState/PipelineStateObject.h>
+#include <GraphicsEngine/D3D12/PipelineState/DepthStencilState.h>
 
 namespace SeedCore
 {
@@ -39,7 +40,7 @@ namespace SeedCore
 		ColliderLineShader() = default;
 		~ColliderLineShader() = default;
 
-		void Create(ShaderCache& shaderCache, ID3D12Device* device, PipelineStateObject& pipelineStateObject);
+		void Create(ShaderCache& shaderCache, ID3D12Device* device, PipelineStateObject& pipelineStateObject, DepthStencilStateType depthStencilStateType = DepthStencilStateType::DepthOnWriteOffReverseZ);
 
 		[[nodiscard]] ID3D12PipelineState* GetPipelineState()const;
 

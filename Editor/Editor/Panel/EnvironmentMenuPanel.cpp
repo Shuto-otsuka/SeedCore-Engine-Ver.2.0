@@ -24,16 +24,6 @@ namespace SeedCore
 		{
 			showMoonLightSettings_ = true;
 		}
-
-		if (ImGui::MenuItem("雨(Rain)..."))
-		{
-			showRainSettings_ = true;
-		}
-
-		if (ImGui::MenuItem("雪(Snow)..."))
-		{
-			showSnowSettings_ = true;
-		}
 	}
 
 	void EnvironmentMenuPanel::DrawWindows()
@@ -41,8 +31,6 @@ namespace SeedCore
 		DrawDaySystemSettingsWindow();
 		DrawSunLightSettingsWindow();
 		DrawMoonLightSettingsWindow();
-		DrawRainSettingsWindow();
-		DrawSnowSettingsWindow();
 	}
 
 	void EnvironmentMenuPanel::DrawDaySystemSettingsWindow()
@@ -190,106 +178,6 @@ namespace SeedCore
 			if (ImGui::Button("閉じる", ImVec2(buttonWidth, 0)))
 			{
 				showMoonLightSettings_ = false;
-			}
-		}
-		ImGui::End();
-	}
-
-	void EnvironmentMenuPanel::DrawRainSettingsWindow()
-	{
-		if (!showRainSettings_)
-		{
-			return;
-		}
-
-		ImVec2 center = ImGui::GetMainViewport()->GetCenter();
-		ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-		ImGui::SetNextWindowSize(ImVec2(420, 0), ImGuiCond_Appearing);
-
-		ImGuiWindowFlags flags =
-			ImGuiWindowFlags_NoCollapse |
-			ImGuiWindowFlags_NoDocking |
-			ImGuiWindowFlags_AlwaysAutoResize;
-
-		if (ImGui::Begin("環境：雨(Rain)", &showRainSettings_, flags))
-		{
-			ImGui::Checkbox("有効", &context_.viewportContext_.raytracing_.rainEnabled_);
-			ImGui::TextDisabled("※実際に見える量は Weather コンポーネントの現在の雨量で自動的にスケールされます");
-
-			ImGui::Spacing();
-			ImGui::Separator();
-			ImGui::Spacing();
-
-			ImGui::BeginDisabled(!context_.viewportContext_.raytracing_.rainEnabled_);
-
-			ImGui::SliderFloat("密度", &context_.viewportContext_.raytracing_.rain_.density_, 0.0f, 1.0f, "%.2f");
-			ImGui::SliderFloat("落下速度", &context_.viewportContext_.raytracing_.rain_.fallSpeed_, 1.0f, 30.0f, "%.1f");
-			ImGui::SliderFloat("サイズ", &context_.viewportContext_.raytracing_.rain_.size_, 0.005f, 0.2f, "%.3f", ImGuiSliderFlags_Logarithmic);
-			ImGui::SliderFloat("筋の長さ", &context_.viewportContext_.raytracing_.rain_.streakLength_, 0.0f, 2.0f, "%.2f");
-			ImGui::SliderFloat("明るさ", &context_.viewportContext_.raytracing_.rain_.brightness_, 0.0f, 3.0f, "%.2f");
-			ImGui::ColorEdit3("色", context_.viewportContext_.raytracing_.rain_.color_);
-			ImGui::SliderFloat("スポーン範囲(半径)", &context_.viewportContext_.raytracing_.rain_.volumeRadius_, 2.0f, 60.0f, "%.1f");
-			ImGui::SliderFloat("スポーン範囲(高さ)", &context_.viewportContext_.raytracing_.rain_.volumeHeight_, 2.0f, 40.0f, "%.1f");
-
-			ImGui::EndDisabled();
-
-			ImGui::Spacing();
-
-			Float buttonWidth = 120.0f;
-			ImGui::SetCursorPosX(ImGui::GetContentRegionAvail().x - buttonWidth + ImGui::GetCursorPosX());
-			if (ImGui::Button("閉じる", ImVec2(buttonWidth, 0)))
-			{
-				showRainSettings_ = false;
-			}
-		}
-		ImGui::End();
-	}
-
-	void EnvironmentMenuPanel::DrawSnowSettingsWindow()
-	{
-		if (!showSnowSettings_)
-		{
-			return;
-		}
-
-		ImVec2 center = ImGui::GetMainViewport()->GetCenter();
-		ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-		ImGui::SetNextWindowSize(ImVec2(420, 0), ImGuiCond_Appearing);
-
-		ImGuiWindowFlags flags =
-			ImGuiWindowFlags_NoCollapse |
-			ImGuiWindowFlags_NoDocking |
-			ImGuiWindowFlags_AlwaysAutoResize;
-
-		if (ImGui::Begin("環境：雪(Snow)", &showSnowSettings_, flags))
-		{
-			ImGui::Checkbox("有効", &context_.viewportContext_.raytracing_.snowEnabled_);
-			ImGui::TextDisabled("※実際に見える量は Weather コンポーネントの現在の降雪量で自動的にスケールされます");
-
-			ImGui::Spacing();
-			ImGui::Separator();
-			ImGui::Spacing();
-
-			ImGui::BeginDisabled(!context_.viewportContext_.raytracing_.snowEnabled_);
-
-			ImGui::SliderFloat("密度", &context_.viewportContext_.raytracing_.snow_.density_, 0.0f, 1.0f, "%.2f");
-			ImGui::SliderFloat("落下速度", &context_.viewportContext_.raytracing_.snow_.fallSpeed_, 0.1f, 10.0f, "%.2f");
-			ImGui::SliderFloat("サイズ", &context_.viewportContext_.raytracing_.snow_.size_, 0.005f, 0.3f, "%.3f", ImGuiSliderFlags_Logarithmic);
-			ImGui::SliderFloat("揺れ幅", &context_.viewportContext_.raytracing_.snow_.swayAmount_, 0.0f, 2.0f, "%.2f");
-			ImGui::SliderFloat("明るさ", &context_.viewportContext_.raytracing_.snow_.brightness_, 0.0f, 3.0f, "%.2f");
-			ImGui::ColorEdit3("色", context_.viewportContext_.raytracing_.snow_.color_);
-			ImGui::SliderFloat("スポーン範囲(半径)", &context_.viewportContext_.raytracing_.snow_.volumeRadius_, 2.0f, 60.0f, "%.1f");
-			ImGui::SliderFloat("スポーン範囲(高さ)", &context_.viewportContext_.raytracing_.snow_.volumeHeight_, 2.0f, 40.0f, "%.1f");
-
-			ImGui::EndDisabled();
-
-			ImGui::Spacing();
-
-			Float buttonWidth = 120.0f;
-			ImGui::SetCursorPosX(ImGui::GetContentRegionAvail().x - buttonWidth + ImGui::GetCursorPosX());
-			if (ImGui::Button("閉じる", ImVec2(buttonWidth, 0)))
-			{
-				showSnowSettings_ = false;
 			}
 		}
 		ImGui::End();

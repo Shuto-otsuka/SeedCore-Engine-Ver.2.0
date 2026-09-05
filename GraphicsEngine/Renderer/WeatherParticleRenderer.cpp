@@ -86,7 +86,7 @@ namespace SeedCore
 		snowParticleResource_.Reset();
 	}
 
-	void WeatherParticleRenderer::PrepareFrame(const Vector3& cameraPosition, Float deltaTime, Float totalTime, const Vector3& wind, Bool rainEnabled, const RainSettings& rainSettings, Float rainAmount, Bool snowEnabled, const SnowSettings& snowSettings, Float snowAmount)
+	void WeatherParticleRenderer::PrepareFrame(const Vector3& cameraPosition, Float deltaTime, Float totalTime, const Vector3& wind, Bool rainEnabled, const Rain& rainSettings, Float rainAmount, Bool snowEnabled, const Snow& snowSettings, Float snowAmount)
 	{
 		WeatherParticleConstantBuffer settings;
 		settings.cameraPosition_ = cameraPosition;
@@ -103,7 +103,7 @@ namespace SeedCore
 		settings.rainBrightness_ = rainSettings.brightness_;
 		settings.rainVolumeRadius_ = rainSettings.volumeRadius_;
 		settings.rainVolumeHeight_ = rainSettings.volumeHeight_;
-		settings.rainColor_ = Vector3(rainSettings.color_[0], rainSettings.color_[1], rainSettings.color_[2]);
+		settings.rainColor_ = Vector3(rainSettings.color_.R(), rainSettings.color_.G(), rainSettings.color_.B());
 
 		settings.snowCapacity_ = snowCapacity_;
 		settings.snowActiveCount_ = snowEnabled ? static_cast<Uint32>(snowCapacity_ * std::clamp(snowSettings.density_, 0.0f, 1.0f) * std::clamp(snowAmount, 0.0f, 1.0f)) : 0;
@@ -113,7 +113,7 @@ namespace SeedCore
 		settings.snowBrightness_ = snowSettings.brightness_;
 		settings.snowVolumeRadius_ = snowSettings.volumeRadius_;
 		settings.snowVolumeHeight_ = snowSettings.volumeHeight_;
-		settings.snowColor_ = Vector3(snowSettings.color_[0], snowSettings.color_[1], snowSettings.color_[2]);
+		settings.snowColor_ = Vector3(snowSettings.color_.R(), snowSettings.color_.G(), snowSettings.color_.B());
 
 		activeTotal_ = settings.rainActiveCount_ + settings.snowActiveCount_;
 

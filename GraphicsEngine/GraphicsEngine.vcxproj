@@ -205,6 +205,7 @@
     <ClInclude Include="Renderer\Renderer.h" />
     <ClInclude Include="Renderer\ShadowRenderer.h" />
     <ClInclude Include="Renderer\ShapeRenderer.h" />
+    <ClInclude Include="Renderer\SkeletonControllerRenderer.h" />
     <ClInclude Include="Renderer\SkyRenderer.h" />
     <ClInclude Include="Renderer\SubsurfaceScatteringRenderer.h" />
     <ClInclude Include="Renderer\TaauUpsamplingRenderer.h" />
@@ -440,6 +441,7 @@
     <ClCompile Include="Renderer\Renderer.cpp" />
     <ClCompile Include="Renderer\ShadowRenderer.cpp" />
     <ClCompile Include="Renderer\ShapeRenderer.cpp" />
+    <ClCompile Include="Renderer\SkeletonControllerRenderer.cpp" />
     <ClCompile Include="Renderer\SkyRenderer.cpp" />
     <ClCompile Include="Renderer\SubsurfaceScatteringRenderer.cpp" />
     <ClCompile Include="Renderer\TaauUpsamplingRenderer.cpp" />

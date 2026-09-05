@@ -1,11 +1,19 @@
 #ifndef __CLOUD_NOISE_BAKE_HLSL__
 #define __CLOUD_NOISE_BAKE_HLSL__
 
-// Tileable Worley (cellular) + Perlin (gradient) noise for baking cloud
-// density fields into wrap-sampled Texture3Ds. The regular Noise.hlsli
-// generators are NOT periodic, so they would seam when the texture wraps -
-// here the lattice is wrapped modulo the cell count, making every octave
-// exactly tileable.
+/**
+* Reference:
+* - https://advances.realtimerendering.com/s2015/The%20Real-time%20Volumetric%20Cloudscapes%20of%20Horizon%20-%20Zero%20Dawn%20-%20ARTR.pdf
+*   (Schneider & Vos, "The Real-time Volumetric Cloudscapes of Horizon: Zero
+*   Dawn", SIGGRAPH 2015 - the Perlin-Worley combination TileablePerlinWorley
+*   implements below.)
+*
+* Tileable Worley (cellular) + Perlin (gradient) noise for baking cloud
+* density fields into wrap-sampled Texture3Ds. The regular Noise.hlsli
+* generators are NOT periodic, so they would seam when the texture wraps -
+* here the lattice is wrapped modulo the cell count, making every octave
+* exactly tileable.
+*/
 
 /// Deterministic float3 in [0,1)^3 from a lattice cell.
 float3 CloudCellHash(float3 cell)

@@ -61,6 +61,9 @@ namespace SeedCore
 		load(IconType::Lock,     "Misc", "Lock");
 		load(IconType::LockFree, "Misc", "LockFree");
 
+		load(IconType::Add,    "Misc", "Plus");
+		load(IconType::Remove, "Misc", "Cross");
+
 		load(IconType::Guizmo,      "Viewport", "Guizmo");
 		load(IconType::NonSelected, "Viewport", "NonSelected");
 		load(IconType::Translate,   "Viewport", "Translate");

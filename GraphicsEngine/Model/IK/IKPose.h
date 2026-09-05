@@ -4,11 +4,14 @@
 namespace SeedCore
 {
 	class Crister;
+	class Animator;
 
 	class IKPose
 	{
 	public:
 		static Int ResolveChainRoot(const Crister& crister, Int endNodeIndex);
+
+		static void AutoDetectJointConstraints(const Crister& crister, Animator& animator);
 
 		static DynamicArray<Int> ResolveChain(const Crister& crister, Int rootNodeIndex, Int endNodeIndex);
 

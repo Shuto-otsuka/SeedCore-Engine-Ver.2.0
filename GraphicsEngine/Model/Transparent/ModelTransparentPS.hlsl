@@ -268,16 +268,12 @@ void main(ModelMSOutput input, ModelMSPrimitiveOutput primitive)
 			}
 		}
 
-		/// [JP] IBL。スカイマップが無い場合はフラットな環境光へフォールバック
-		///      (DeferredLightingPS.hlsl の AMBIENT と同じ 0.03)。
+		/// [JP] IBL。スカイマップが無い場合の環境光は0(DeferredLightingPS.hlsl
+		///      と同じ扱い) - 直接光だけがこのピクセルを照らす。
 		if (structured_indices.sky_.diffuse_irradiance_index_ != 0)
 		{
 			lighting += ImageBasedLightingRadianceLambertian(N, view, roughness, diffuse_color, f0) * structured_indices.sky_.intensity_;
 			lighting += ImageBasedLightingRadianceGgx(N, view, roughness, f0) * structured_indices.sky_.intensity_;
-		}
-		else
-		{
-			lighting += diffuse_color * 0.03;
 		}
 
 		lighting += emissive;

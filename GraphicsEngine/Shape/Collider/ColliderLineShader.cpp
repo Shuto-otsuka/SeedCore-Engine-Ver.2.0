@@ -9,7 +9,7 @@
 
 namespace SeedCore
 {
-	void ColliderLineShader::Create(ShaderCache& shaderCache, ID3D12Device* device, PipelineStateObject& pipelineStateObject)
+	void ColliderLineShader::Create(ShaderCache& shaderCache, ID3D12Device* device, PipelineStateObject& pipelineStateObject, DepthStencilStateType depthStencilStateType)
 	{
 		pipelineStateObject_ = &pipelineStateObject;
 
@@ -62,7 +62,7 @@ namespace SeedCore
 		psoKey.pixelShader_ = shaderCache.GetPixelShader(linePixelShader_)->Bytecode();
 		psoKey.rasterizerDesc_ = RasterizerState::Get(RasterizerStateType::SolidNoneLHS);
 		psoKey.blendDesc_ = BlendState::Get(BlendStateType::Opaque);
-		psoKey.depthStencilDesc_ = DepthStencilState::Get(DepthStencilStateType::DepthOnWriteOffReverseZ);
+		psoKey.depthStencilDesc_ = DepthStencilState::Get(depthStencilStateType);
 		psoKey.renderTargetViewFormat_[0] = DXGI_FORMAT_R16G16B16A16_FLOAT;
 		psoKey.renderTargetViewCount_ = 1;
 		psoKey.depthStencilViewFormat_ = DXGI_FORMAT_D32_FLOAT;

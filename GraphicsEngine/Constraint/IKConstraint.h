@@ -4,12 +4,8 @@
 
 namespace SeedCore
 {
-	class SEEDCORE_API IKConstraint :public SeedScript
+	struct Effector
 	{
-	public:
-		SC_REFLECTION_FIELD_EX("有効")
-		Bool enabled_ = true;
-
 		SC_PAYLOAD_FIELD_EX("ターゲット", Actor)
 		Uint32 target_ = 0;
 
@@ -21,6 +17,16 @@ namespace SeedCore
 
 		SC_SERIALIZE_FIELD()
 		String effectorBoneName_;
+	};
+
+	class SEEDCORE_API IKConstraint :public SeedScript
+	{
+	public:
+		SC_REFLECTION_FIELD_EX("有効")
+		Bool enabled_ = true;
+
+		SC_REFLECTION_FIELD_EX("エフェクタ")
+		DynamicArray<Effector> entries_;
 
 	public:
 		void OnInspectorGUI();

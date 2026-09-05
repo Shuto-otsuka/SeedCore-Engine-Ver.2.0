@@ -13,11 +13,12 @@ namespace SeedCore
 {
 	struct EditorContext;
 	class Animator;
+	class ImGuiTexture;
 
 	class AnimatorControllerPanel
 	{
 	public:
-		AnimatorControllerPanel(EditorContext& context);
+		AnimatorControllerPanel(EditorContext& context, ImGuiTexture& imguiTexture);
 		~AnimatorControllerPanel();
 
 		void Draw();
@@ -33,6 +34,8 @@ namespace SeedCore
 
 	private:
 		EditorContext& context_;
+
+		ImGuiTexture& imguiTexture_;
 
 		Bool show_ = false;
 		Bool isFocused_ = false;

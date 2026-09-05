@@ -53,11 +53,14 @@ extern "C" int _force_reflection_Camera = 0;
 extern "C" int _force_reflection_FreeCameraController = 0;
 extern "C" int _force_reflection_OrbitCameraController = 0;
 extern "C" int _force_reflection_AttachmentConstraint = 0;
+extern "C" int _force_reflection_Effector = 0;
 extern "C" int _force_reflection_IKConstraint = 0;
 extern "C" int _force_reflection_LookAtConstraint = 0;
 extern "C" int _force_reflection_ParentConstraint = 0;
 extern "C" int _force_reflection_PositionConstraint = 0;
 extern "C" int _force_reflection_RotationConstraint = 0;
+extern "C" int _force_reflection_Rain = 0;
+extern "C" int _force_reflection_Snow = 0;
 extern "C" int _force_reflection_Weather = 0;
 extern "C" int _force_reflection_Text = 0;
 extern "C" int _force_reflection_DirectionalLight = 0;
@@ -452,17 +455,16 @@ namespace SeedCore
 		static Register_AttachmentConstraint global_AttachmentConstraint_register;
 
 		// ---- GraphicsEngine/Constraint/IKConstraint.h ----
-		struct Register_IKConstraint
+		struct Register_Effector
 		{
-			Register_IKConstraint()
+			Register_Effector()
 			{
-				ReflectionRegistry::Register(String("IKConstraint"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
-					IKConstraint& obj = *static_cast<IKConstraint*>(ptr);
-					outInfo.push_back({ String("有効"), offsetof(IKConstraint, enabled_), AttributeType::Bool });
+				ReflectionRegistry::Register(String("Effector"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
+					Effector& obj = *static_cast<Effector*>(ptr);
 					{
 						FieldInfo fi;
 						fi.name_ = String("重み");
-						fi.offset_ = offsetof(IKConstraint, weight_);
+						fi.offset_ = offsetof(Effector, weight_);
 						fi.type_ = AttributeType::Float;
 						fi.clampMin_ = 0.0f;
 						fi.clampMax_ = 1.0f;
@@ -471,10 +473,43 @@ namespace SeedCore
 					{
 						FieldInfo fi;
 						fi.name_ = String("effectorBoneName_");
-						fi.offset_ = offsetof(IKConstraint, effectorBoneName_);
+						fi.offset_ = offsetof(Effector, effectorBoneName_);
 						fi.type_ = AttributeType::String;
 						fi.editorVisible_ = false;
 						outInfo.push_back(std::move(fi));
+					}
+				});
+			}
+		};
+		static Register_Effector global_Effector_register;
+
+		struct Register_IKConstraint
+		{
+			Register_IKConstraint()
+			{
+				ReflectionRegistry::Register(String("IKConstraint"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
+					IKConstraint& obj = *static_cast<IKConstraint*>(ptr);
+					outInfo.push_back({ String("有効"), offsetof(IKConstraint, enabled_), AttributeType::Bool });
+					{
+						auto& arr = obj.entries_;
+						FieldInfo header;
+						header.name_ = String("エフェクタ");
+						header.offset_ = 0;
+						header.type_ = AttributeType::Struct;
+						header.nestedTypeName_ = String("Effector");
+						header.array_.size_ = arr.size();
+						header.array_.add_ = [&obj]() { obj.entries_.push_back({}); };
+						header.array_.remove_ = [&obj](Size idx) { if (idx < obj.entries_.size()) obj.entries_.erase(obj.entries_.begin() + idx); };
+						outInfo.push_back(std::move(header));
+						for (Size i = 0; i < arr.size(); ++i)
+						{
+							FieldInfo elementInfo;
+							elementInfo.offset_ = 0;
+							elementInfo.type_ = AttributeType::Struct;
+							elementInfo.directPtr_ = &arr[i];
+							elementInfo.nestedTypeName_ = String("Effector");
+							outInfo.push_back(std::move(elementInfo));
+						}
 					}
 				});
 			}
@@ -575,6 +610,156 @@ namespace SeedCore
 		static Register_RotationConstraint global_RotationConstraint_register;
 
 		// ---- GraphicsEngine/Environment/Weather.h ----
+		struct Register_Rain
+		{
+			Register_Rain()
+			{
+				ReflectionRegistry::Register(String("Rain"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
+					Rain& obj = *static_cast<Rain*>(ptr);
+					{
+						FieldInfo fi;
+						fi.name_ = String("密度");
+						fi.offset_ = offsetof(Rain, density_);
+						fi.type_ = AttributeType::Float;
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 1.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("落下速度");
+						fi.offset_ = offsetof(Rain, fallSpeed_);
+						fi.type_ = AttributeType::Float;
+						fi.clampMin_ = 1.0f;
+						fi.clampMax_ = 30.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("サイズ");
+						fi.offset_ = offsetof(Rain, size_);
+						fi.type_ = AttributeType::Float;
+						fi.clampMin_ = 0.005f;
+						fi.clampMax_ = 0.2f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("筋の長さ");
+						fi.offset_ = offsetof(Rain, streakLength_);
+						fi.type_ = AttributeType::Float;
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 2.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("明るさ");
+						fi.offset_ = offsetof(Rain, brightness_);
+						fi.type_ = AttributeType::Float;
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 3.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("スポーン範囲(半径)");
+						fi.offset_ = offsetof(Rain, volumeRadius_);
+						fi.type_ = AttributeType::Float;
+						fi.clampMin_ = 2.0f;
+						fi.clampMax_ = 60.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("スポーン範囲(高さ)");
+						fi.offset_ = offsetof(Rain, volumeHeight_);
+						fi.type_ = AttributeType::Float;
+						fi.clampMin_ = 2.0f;
+						fi.clampMax_ = 40.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					outInfo.push_back({ String("色"), offsetof(Rain, color_), AttributeType::Color });
+				});
+			}
+		};
+		static Register_Rain global_Rain_register;
+
+		struct Register_Snow
+		{
+			Register_Snow()
+			{
+				ReflectionRegistry::Register(String("Snow"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
+					Snow& obj = *static_cast<Snow*>(ptr);
+					{
+						FieldInfo fi;
+						fi.name_ = String("密度");
+						fi.offset_ = offsetof(Snow, density_);
+						fi.type_ = AttributeType::Float;
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 1.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("落下速度");
+						fi.offset_ = offsetof(Snow, fallSpeed_);
+						fi.type_ = AttributeType::Float;
+						fi.clampMin_ = 0.1f;
+						fi.clampMax_ = 10.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("サイズ");
+						fi.offset_ = offsetof(Snow, size_);
+						fi.type_ = AttributeType::Float;
+						fi.clampMin_ = 0.005f;
+						fi.clampMax_ = 0.3f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("揺れ幅");
+						fi.offset_ = offsetof(Snow, swayAmount_);
+						fi.type_ = AttributeType::Float;
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 2.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("明るさ");
+						fi.offset_ = offsetof(Snow, brightness_);
+						fi.type_ = AttributeType::Float;
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 3.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("スポーン範囲(半径)");
+						fi.offset_ = offsetof(Snow, volumeRadius_);
+						fi.type_ = AttributeType::Float;
+						fi.clampMin_ = 2.0f;
+						fi.clampMax_ = 60.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("スポーン範囲(高さ)");
+						fi.offset_ = offsetof(Snow, volumeHeight_);
+						fi.type_ = AttributeType::Float;
+						fi.clampMin_ = 2.0f;
+						fi.clampMax_ = 40.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					outInfo.push_back({ String("色"), offsetof(Snow, color_), AttributeType::Color });
+				});
+			}
+		};
+		static Register_Snow global_Snow_register;
+
 		struct Register_Weather
 		{
 			Register_Weather()
@@ -621,6 +806,26 @@ namespace SeedCore
 					outInfo.push_back({ String("雪を季節無視で許可"), offsetof(Weather, forceSnow_), AttributeType::Bool });
 					outInfo.push_back({ String("雷を強制的に許可"), offsetof(Weather, forceThunder_), AttributeType::Bool });
 					outInfo.push_back({ String("暴風を強制的に許可"), offsetof(Weather, forceStorm_), AttributeType::Bool });
+					outInfo.push_back({ String("雨パーティクル"), offsetof(Weather, rainEnabled_), AttributeType::Bool });
+					{
+						FieldInfo fi;
+						fi.name_ = String("雨");
+						fi.offset_ = offsetof(Weather, rain_);
+						fi.type_ = AttributeType::Struct;
+						fi.nestedTypeName_ = String("Rain");
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<Weather*>(p); return o.rainEnabled_; };
+						outInfo.push_back(std::move(fi));
+					}
+					outInfo.push_back({ String("雪パーティクル"), offsetof(Weather, snowEnabled_), AttributeType::Bool });
+					{
+						FieldInfo fi;
+						fi.name_ = String("雪");
+						fi.offset_ = offsetof(Weather, snow_);
+						fi.type_ = AttributeType::Struct;
+						fi.nestedTypeName_ = String("Snow");
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<Weather*>(p); return o.snowEnabled_; };
+						outInfo.push_back(std::move(fi));
+					}
 				});
 			}
 		};
@@ -1005,14 +1210,6 @@ namespace SeedCore
 						FieldInfo fi;
 						fi.name_ = String("useRootMotion_");
 						fi.offset_ = offsetof(AnimationState, useRootMotion_);
-						fi.type_ = AttributeType::Bool;
-						fi.editorVisible_ = false;
-						outInfo.push_back(std::move(fi));
-					}
-					{
-						FieldInfo fi;
-						fi.name_ = String("useIK_");
-						fi.offset_ = offsetof(AnimationState, useIK_);
 						fi.type_ = AttributeType::Bool;
 						fi.editorVisible_ = false;
 						outInfo.push_back(std::move(fi));

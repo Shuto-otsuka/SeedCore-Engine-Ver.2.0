@@ -40,6 +40,9 @@ namespace SeedCore
 		Lock,
 		LockFree,
 
+		Add,
+		Remove,
+
 		Guizmo,
 		NonSelected,
 		Translate,

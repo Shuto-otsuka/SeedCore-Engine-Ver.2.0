@@ -427,7 +427,7 @@ namespace SeedCore
 		reflectionMaterialTableCache_.emplace(crister, std::move(table));
 	}
 
-	void RaytracingRenderer::Build(D3D12CommandList* cmdList, ID3D12Device* device, const ModelRenderer& modelRenderer, Float deltaTime, Float nightFactor, const Vector3& cameraPosition, Float totalTime, Float snowIntensity)
+	void RaytracingRenderer::Build(D3D12CommandList* cmdList, ID3D12Device* device, const ModelRenderer& modelRenderer, Float deltaTime, Float nightFactor, const Vector3& cameraPosition, Float totalTime, const WeatherGpuState& weather)
 	{
 		Bool dlssRayReconstructionEnabled = Gateway::GetDlssManager().RayReconstructionEnable();
 		Vector3 wind = Vector3(volumetricCloudScapesSettings_.windSpeed_ * 10.0f, 0.0f, 0.0f);
@@ -481,7 +481,7 @@ namespace SeedCore
 			globalIlluminationRenderer_->PrepareFrame(globalIlluminationSettings_, dlssRayReconstructionEnabled);
 			volumetricCloudScapesRenderer_->PrepareFrame(volumetricCloudScapesSettings_, volumetricCloudScapesEnabled_);
 			volumetricStarRenderer_->PrepareFrame(volumetricStarSettings_, volumetricStarEnabled_, deltaTime, nightFactor);
-			weatherParticleRenderer_->PrepareFrame(cameraPosition, deltaTime, totalTime, wind, rainEnabled_, rainSettings_, volumetricCloudScapesSettings_.rain_, snowEnabled_, snowSettings_, snowIntensity);
+			weatherParticleRenderer_->PrepareFrame(cameraPosition, deltaTime, totalTime, wind, weather.rainEnabled_, weather.rain_, volumetricCloudScapesSettings_.rain_, weather.snowEnabled_, weather.snow_, weather.snowIntensity_);
 			volumetricLightRenderer_->PrepareFrame(volumetricLightSettings_);
 			return;
 		}
@@ -1156,7 +1156,7 @@ namespace SeedCore
 		globalIlluminationRenderer_->PrepareFrame(globalIlluminationSettings_, dlssRayReconstructionEnabled);
 		volumetricCloudScapesRenderer_->PrepareFrame(volumetricCloudScapesSettings_, volumetricCloudScapesEnabled_);
 		volumetricStarRenderer_->PrepareFrame(volumetricStarSettings_, volumetricStarEnabled_, deltaTime, nightFactor);
-		weatherParticleRenderer_->PrepareFrame(cameraPosition, deltaTime, totalTime, wind, rainEnabled_, rainSettings_, volumetricCloudScapesSettings_.rain_, snowEnabled_, snowSettings_, snowIntensity);
+		weatherParticleRenderer_->PrepareFrame(cameraPosition, deltaTime, totalTime, wind, weather.rainEnabled_, weather.rain_, volumetricCloudScapesSettings_.rain_, weather.snowEnabled_, weather.snow_, weather.snowIntensity_);
 		volumetricLightRenderer_->PrepareFrame(volumetricLightSettings_);
 	}
 
@@ -1253,11 +1253,6 @@ namespace SeedCore
 
 		volumetricStarSettings_ = settings.volumetricStar_;
 		volumetricStarEnabled_ = settings.volumetricStarEnabled_;
-
-		rainEnabled_ = settings.rainEnabled_;
-		rainSettings_ = settings.rain_;
-		snowEnabled_ = settings.snowEnabled_;
-		snowSettings_ = settings.snow_;
 
 		volumetricLightSettings_ = settings.volumetricLight_;
 		volumetricLightEnabled_ = settings.volumetricLightEnabled_;

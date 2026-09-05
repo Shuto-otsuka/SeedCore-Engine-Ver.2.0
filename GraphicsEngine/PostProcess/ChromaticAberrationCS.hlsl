@@ -50,9 +50,19 @@
 * そのものの色が画面全体に乗ってしまう。
 */
 
-// [JP] サンプル位置 t(0..1)に対するスペクトル応答。位相をずらした
-//      コサインで赤→緑→青へ滑らかに遷移させ、3タップのような離散的な
-//      分身ではなく連続した虹色の縁にする。
+/**
+* [EN]
+* Spectral response for a sample position t (0..1). A phase-shifted cosine
+* transitions smoothly red -> green -> blue, producing a continuous rainbow
+* fringe instead of the discrete triple-ghost look of a 3-tap sample.
+*
+* ---------------------------------------------------------------------
+*
+* [JP]
+* サンプル位置 t(0..1)に対するスペクトル応答。位相をずらしたコサインで
+* 赤→緑→青へ滑らかに遷移させ、3タップのような離散的な分身ではなく連続した
+* 虹色の縁にする。
+*/
 float3 SpectralResponse(float t)
 {
 	return saturate(0.5 + 0.5 * cos(6.28318530718 * (t + float3(0.0, -0.33, -0.67))));
@@ -65,6 +75,13 @@ void main(uint3 dtid : SV_DispatchThreadID)
 
 	uint width, height;
 	destination.GetDimensions(width, height);
+
+	/// [EN] Bounds guard: the dispatch is rounded up to a multiple of the
+	///      8x8 thread group size, so threads past the actual screen edge
+	///      must bail out before touching any resource.
+	/// [JP] 範囲外ガード: ディスパッチは 8x8 スレッドグループの倍数に
+	///      切り上げられているので、実際の画面端を超えたスレッドはどの
+	///      リソースにも触れる前に抜ける必要がある。
 	if (dtid.x >= width || dtid.y >= height)
 	{
 		return;
@@ -77,7 +94,10 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	float intensity = constant_indices.post_process_.chromatic_aberration_.intensity_;
 	uint sample_count = clamp(constant_indices.post_process_.chromatic_aberration_.sample_count_, 3u, 16u);
 
-	/// [JP] 中心からのベクトルがそのまま色ずれの向きと量になる — 中心で0、
+	/// [EN] The vector from center directly becomes the fringe's direction
+	///      and amount - 0 at center, maximal at the corners. This IS the
+	///      definition of lateral chromatic aberration.
+	/// [JP] 中心からのベクトルがそのまま色ずれの向きと量になる - 中心で0、
 	///      四隅で最大。これが倍率色収差の定義そのもの。
 	float2 offset_from_center = uv - 0.5;
 	float2 maximum_offset = offset_from_center * intensity * 2.0;
@@ -91,9 +111,14 @@ void main(uint3 dtid : SV_DispatchThreadID)
 		float t = float(index) / float(sample_count - 1);
 		float3 weight = SpectralResponse(t);
 
-		/// [JP] t=0 が内側、t=1 が外側。長波長ほど外へずらすのが
-		///      倍率色収差の向きで、SpectralResponse も t=0 側を赤に
-		///      していないのはそのため(赤い重みは t が大きい側で立つ)。
+		/// [EN] t=0 is inward, t=1 is outward. Shifting longer wavelengths
+		///      further out is the direction lateral chromatic aberration
+		///      goes, which is why SpectralResponse does not make the t=0
+		///      side red (the red weight rises on the larger-t side
+		///      instead).
+		/// [JP] t=0 が内側、t=1 が外側。長波長ほど外へずらすのが倍率色収差の
+		///      向きで、SpectralResponse も t=0 側を赤にしていないのは
+		///      そのため(赤い重みは t が大きい側で立つ)。
 		float2 sample_uv = uv + maximum_offset * t;
 
 		accumulated_color += source.SampleLevel(sampler_linear_clamp, sample_uv, 0).rgb * weight;

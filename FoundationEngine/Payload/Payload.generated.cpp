@@ -23,7 +23,7 @@
 
 extern "C" int _force_payload_Spawner = 0;
 extern "C" int _force_payload_AttachmentConstraint = 0;
-extern "C" int _force_payload_IKConstraint = 0;
+extern "C" int _force_payload_Effector = 0;
 extern "C" int _force_payload_LookAtConstraint = 0;
 extern "C" int _force_payload_ParentConstraint = 0;
 extern "C" int _force_payload_PositionConstraint = 0;
@@ -73,18 +73,18 @@ namespace SeedCore
 		static Register_AttachmentConstraint global_AttachmentConstraint_register;
 
 		// ---- GraphicsEngine/Constraint/IKConstraint.h ----
-		struct Register_IKConstraint
+		struct Register_Effector
 		{
-			Register_IKConstraint()
+			Register_Effector()
 			{
-				PayloadRegistry::Register(String("IKConstraint"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
-					IKConstraint& obj = *static_cast<IKConstraint*>(ptr);
-					outInfo.push_back({ String("ターゲット"), offsetof(IKConstraint, target_), AttributeType::Int, PayloadAssetType::Actor });
-					outInfo.push_back({ String("ポール"), offsetof(IKConstraint, pole_), AttributeType::Int, PayloadAssetType::Actor });
+				PayloadRegistry::Register(String("Effector"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
+					Effector& obj = *static_cast<Effector*>(ptr);
+					outInfo.push_back({ String("ターゲット"), offsetof(Effector, target_), AttributeType::Int, PayloadAssetType::Actor });
+					outInfo.push_back({ String("ポール"), offsetof(Effector, pole_), AttributeType::Int, PayloadAssetType::Actor });
 				});
 			}
 		};
-		static Register_IKConstraint global_IKConstraint_register;
+		static Register_Effector global_Effector_register;
 
 		// ---- GraphicsEngine/Constraint/LookAtConstraint.h ----
 		struct Register_LookAtConstraint

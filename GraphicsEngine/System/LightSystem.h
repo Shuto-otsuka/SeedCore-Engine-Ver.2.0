@@ -166,6 +166,8 @@ namespace SeedCore
 
 		[[nodiscard]] Uint GetClusterConstantIndex()const;
 
+		[[nodiscard]] Float GetDirectionalIntensity()const;
+
 	private:
 		void CreateClusterResources(ID3D12Device* device, BindlessHeap* bindlessHeap, Uint32 width, Uint32 height);
 

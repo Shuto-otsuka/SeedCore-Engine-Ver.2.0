@@ -5,6 +5,7 @@
 #include <Editor/Editor/Panel/TimelinePanel.h>
 #include <Editor/Editor/Panel/LayerSettingsPanel.h>
 #include <Editor/Editor/Panel/MaterialViewerPanel.h>
+#include <Editor/Editor/Panel/SkeletonControllerPanel.h>
 #include <FoundationEngine/ECS/World.h>
 #include <FoundationEngine/ECS/Actor.h>
 #include <FoundationEngine/ECS/Component.h>
@@ -65,6 +66,13 @@ namespace SeedCore
 			if (context_.panelContext_.materialViewerPanel_ && context_.panelContext_.materialViewerPanel_->IsFocused())
 			{
 				context_.panelContext_.materialViewerPanel_->DrawDetails();
+				ImGui::End();
+				return;
+			}
+
+			if (context_.panelContext_.skeletonControllerPanel_ && context_.panelContext_.skeletonControllerPanel_->IsFocused())
+			{
+				context_.panelContext_.skeletonControllerPanel_->DrawDetails();
 				ImGui::End();
 				return;
 			}
@@ -258,7 +266,10 @@ namespace SeedCore
 		ImGui::SetNextItemWidth(140.0f);
 		Bool entered = ImGui::InputText("##NewTag", newTagBuffer_.data(), newTagBuffer_.capacity(), ImGuiInputTextFlags_EnterReturnsTrue);
 		ImGui::SameLine();
-		Bool addClicked = ImGui::SmallButton("追加");
+		Float tagAddIconHeight = ImGui::GetTextLineHeight();
+		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+		Bool addClicked = ImGui::ImageButton("##add", imguiTexture_.Icon(IconType::Add), ImVec2(tagAddIconHeight, tagAddIconHeight));
+		ImGui::PopStyleColor();
 
 		if (entered || addClicked)
 		{
@@ -956,20 +967,31 @@ namespace SeedCore
 
 				/// [EN] A single embedded struct (not an array of structs):
 				///      recurse and draw its own fields as a collapsible child
-				///      group. Arrays of nested structs (skipCount > 0, e.g. an
-				///      AnimationCondition list) keep the original skip-only
-				///      behavior - each element is a separate flat FieldInfo
-				///      entry with its own directPtr_, and rendering those as
-				///      an editable list needs its own add/remove-element UI
-				///      that does not exist yet.
+				///      group.
 				if (skipCount == 0 && !field.array_.add_)
 				{
 					void* nestedData = field.directPtr_ ? field.directPtr_ : (static_cast<Uint8*>(baseData) + field.offset_);
+
+					DynamicArray<FieldInfo> nestedFields;
 
 					auto& reflectionRegistry = ReflectionRegistry::GetRegistry();
 					auto reflectionIt = reflectionRegistry.find(field.nestedTypeName_);
 					if (reflectionIt != reflectionRegistry.end())
 					{
+						reflectionIt->second(nestedData, nestedFields);
+					}
+
+					auto& payloadRegistry = PayloadRegistry::GetRegistry();
+					auto payloadIt = payloadRegistry.find(field.nestedTypeName_);
+					if (payloadIt != payloadRegistry.end())
+					{
+						payloadIt->second(nestedData, nestedFields);
+					}
+
+					if (!nestedFields.empty())
+					{
+						std::ranges::stable_sort(nestedFields, [](const FieldInfo& a, const FieldInfo& b) { return a.offset_ < b.offset_; });
+
 						/// [EN] Honour SC_REFLECTION_FIELD_CONDITION here too.
 						///      This branch returns via continue before ever
 						///      reaching the scalar path's enableIf_ check
@@ -994,10 +1016,6 @@ namespace SeedCore
 
 						if (ImGui::TreeNodeEx(field.name_.c_str(), ImGuiTreeNodeFlags_DefaultOpen))
 						{
-							DynamicArray<FieldInfo> nestedFields;
-							reflectionIt->second(nestedData, nestedFields);
-							std::ranges::stable_sort(nestedFields, [](const FieldInfo& a, const FieldInfo& b) { return a.offset_ < b.offset_; });
-
 							Size nestedBaseOffset = baseOffset + field.offset_;
 
 							ImGui::Indent();
@@ -1014,6 +1032,114 @@ namespace SeedCore
 
 					continue;
 				}
+
+				/// [EN] An array of structs: header row (name, count, "+")
+				///      followed by one collapsible sub-tree per element,
+				///      each merging that struct type's own reflection and
+				///      payload fields the same way a top-level component
+				///      does, then recursing through DrawFieldList again.
+				/// [JP] 構造体の配列: ヘッダ行(名前・個数・「+」)の後に、
+				///      要素ごとに折りたたみ可能なサブツリーを1つずつ描く。
+				///      各要素はトップレベルのコンポーネントと同じ要領で
+				///      その構造体型自身の reflection/payload フィールドを
+				///      まとめ、再度 DrawFieldList を通して描画する。
+				ImGui::PushID(field.name_.c_str());
+
+				ImGui::AlignTextToFramePadding();
+				Bool arrayOpened = ImGui::TreeNodeEx("##structArr", ImGuiTreeNodeFlags_DefaultOpen);
+				ImGui::SameLine();
+				ImGui::Text("%s [%zu]", field.name_.c_str(), skipCount);
+
+				if (field.array_.add_)
+				{
+					Float iconHeight = ImGui::GetTextLineHeight();
+					ImVec2 iconSize(iconHeight, iconHeight);
+					Float addButtonWidth = iconSize.x + ImGui::GetStyle().FramePadding.x * 2.0f;
+					ImGui::SameLine(ImGui::GetContentRegionMax().x - addButtonWidth);
+					ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+					Bool addClicked = ImGui::ImageButton("##add", imguiTexture_.Icon(IconType::Add), iconSize);
+					ImGui::PopStyleColor();
+					if (addClicked)
+					{
+						field.array_.add_();
+					}
+				}
+
+				if (arrayOpened)
+				{
+					Size removeIndex = SIZE_MAX;
+
+					for (Size elementIndex = 0; elementIndex < skipCount && (index + 1 + elementIndex) < fields.size(); ++elementIndex)
+					{
+						if (elementIndex > 0)
+						{
+							ImGui::Separator();
+						}
+
+						auto& element = fields[index + 1 + elementIndex];
+						void* elementData = element.directPtr_ ? element.directPtr_ : (static_cast<Uint8*>(baseData) + element.offset_);
+
+						ImGui::PushID(static_cast<Int>(elementIndex));
+
+						ImGui::AlignTextToFramePadding();
+						Bool elementOpened = ImGui::TreeNodeEx("##structArrElement", ImGuiTreeNodeFlags_DefaultOpen);
+						ImGui::SameLine();
+						ImGui::Text("%zu", elementIndex + 1);
+
+						if (field.array_.remove_)
+						{
+							Float iconHeight = ImGui::GetTextLineHeight();
+							ImVec2 iconSize(iconHeight, iconHeight);
+							Float removeButtonWidth = iconSize.x + ImGui::GetStyle().FramePadding.x * 2.0f;
+							ImGui::SameLine(ImGui::GetContentRegionMax().x - removeButtonWidth);
+							ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+							Bool removeClicked = ImGui::ImageButton("##remove", imguiTexture_.Icon(IconType::Remove), iconSize);
+							ImGui::PopStyleColor();
+							if (removeClicked)
+							{
+								removeIndex = elementIndex;
+							}
+						}
+
+						if (elementOpened)
+						{
+							DynamicArray<FieldInfo> elementFields;
+
+							auto& reflectionRegistry = ReflectionRegistry::GetRegistry();
+							auto reflectionIt = reflectionRegistry.find(field.nestedTypeName_);
+							if (reflectionIt != reflectionRegistry.end())
+							{
+								reflectionIt->second(elementData, elementFields);
+							}
+
+							auto& payloadRegistry = PayloadRegistry::GetRegistry();
+							auto payloadIt = payloadRegistry.find(field.nestedTypeName_);
+							if (payloadIt != payloadRegistry.end())
+							{
+								payloadIt->second(elementData, elementFields);
+							}
+
+							std::ranges::stable_sort(elementFields, [](const FieldInfo& a, const FieldInfo& b) { return a.offset_ < b.offset_; });
+
+							ImGui::Indent();
+							DrawFieldList(elementFields, elementData, entity, componentID, baseOffset);
+							ImGui::Unindent();
+
+							ImGui::TreePop();
+						}
+
+						ImGui::PopID();
+					}
+
+					if (removeIndex != SIZE_MAX && field.array_.remove_)
+					{
+						field.array_.remove_(removeIndex);
+					}
+
+					ImGui::TreePop();
+				}
+
+				ImGui::PopID();
 
 				index += skipCount;
 				continue;
@@ -1088,14 +1214,21 @@ namespace SeedCore
 				}
 				else
 				{
+					ImGui::AlignTextToFramePadding();
 					Bool opened = ImGui::TreeNodeEx("##arr", ImGuiTreeNodeFlags_DefaultOpen);
 					ImGui::SameLine();
 					ImGui::Text("%s [%zu]", field.name_.c_str(), count);
 
 					if (field.array_.add_)
 					{
-						ImGui::SameLine();
-						if (ImGui::SmallButton("+"))
+						Float iconHeight = ImGui::GetTextLineHeight();
+						ImVec2 iconSize(iconHeight, iconHeight);
+						Float addButtonWidth = iconSize.x + ImGui::GetStyle().FramePadding.x * 2.0f;
+						ImGui::SameLine(ImGui::GetContentRegionMax().x - addButtonWidth);
+						ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+						Bool addClicked = ImGui::ImageButton("##add", imguiTexture_.Icon(IconType::Add), iconSize);
+						ImGui::PopStyleColor();
+						if (addClicked)
 						{
 							context_.sceneContext_.history_.Push(MakePtr<ArrayAppendCommand>(*context_.worldContext_.world_, entity, componentID, field.name_, count));
 							field.array_.add_();
@@ -1107,13 +1240,23 @@ namespace SeedCore
 						Size removeIndex = SIZE_MAX;
 						for (Size elementIndex = 0; elementIndex < count && (index + 1 + elementIndex) < fields.size(); ++elementIndex)
 						{
+							if (elementIndex > 0)
+							{
+								ImGui::Separator();
+							}
+
 							auto& element = fields[index + 1 + elementIndex];
 							void* ptr = element.directPtr_ ? element.directPtr_ : (static_cast<Uint8*>(baseData) + element.offset_);
 
 							if (field.array_.remove_)
 							{
+								Float iconHeight = ImGui::GetTextLineHeight();
+								ImVec2 iconSize(iconHeight, iconHeight);
 								ImGui::PushID(static_cast<Int>(elementIndex));
-								if (ImGui::SmallButton("-"))
+								ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+								Bool removeClicked = ImGui::ImageButton("##remove", imguiTexture_.Icon(IconType::Remove), iconSize);
+								ImGui::PopStyleColor();
+								if (removeClicked)
 								{
 									removeIndex = elementIndex;
 								}

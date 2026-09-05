@@ -30,11 +30,11 @@ namespace SeedCore
 		menuBarPanel_ = MakePtr<MenuBarPanel>(context_);
 		shortCutKeyPanel_ = MakePtr<ShortCutKeyPanel>(context_);
 		specMemoPanel_ = MakePtr<SpecMemoPanel>(context_);
-		todoListPanel_ = MakePtr<TodoListPanel>(context_);
+		todoListPanel_ = MakePtr<TodoListPanel>(context_, imguiTexture_);
 		versionPanel_ = MakePtr<VersionPanel>(context_);
-		configPanel_ = MakePtr<ConfigPanel>(context_);
+		configPanel_ = MakePtr<ConfigPanel>(context_, imguiTexture_);
 		layerSettingsPanel_ = MakePtr<LayerSettingsPanel>(context_);
-		animatorControllerPanel_ = MakePtr<AnimatorControllerPanel>(context_);
+		animatorControllerPanel_ = MakePtr<AnimatorControllerPanel>(context_, imguiTexture_);
 		timelinePanel_ = MakePtr<TimelinePanel>(context_);
 		skeletonControllerPanel_ = MakePtr<SkeletonControllerPanel>(context_);
 		materialViewerPanel_ = MakePtr<MaterialViewerPanel>(context_);
@@ -44,6 +44,7 @@ namespace SeedCore
 		context_.panelContext_.timelinePanel_ = &*timelinePanel_;
 		context_.panelContext_.layerSettingsPanel_ = &*layerSettingsPanel_;
 		context_.panelContext_.materialViewerPanel_ = &*materialViewerPanel_;
+		context_.panelContext_.skeletonControllerPanel_ = &*skeletonControllerPanel_;
 
 		SC_LOG_NOTICE("エディターの初期化が完了しました");
 	}
@@ -181,11 +182,12 @@ namespace SeedCore
 		return toolbarHeight_;
 	}
 
-	void Editor::Draw(D3D12_GPU_DESCRIPTOR_HANDLE editorFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE gameFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE canvasFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE timelinePreviewFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE modelTransformPreviewFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE materialPreviewFrameBufferHandle, const GpuProfiler& gpuProfiler)
+	void Editor::Draw(D3D12_GPU_DESCRIPTOR_HANDLE editorFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE gameFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE canvasFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE timelinePreviewFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE modelTransformPreviewFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE materialPreviewFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE skeletonControllerPreviewFrameBufferHandle, const GpuProfiler& gpuProfiler)
 	{
 		timelinePanel_->SetPreviewHandle(timelinePreviewFrameBufferHandle);
 		modelTransformPanel_->SetPreviewHandle(modelTransformPreviewFrameBufferHandle);
 		materialViewerPanel_->SetPreviewHandle(materialPreviewFrameBufferHandle);
+		skeletonControllerPanel_->SetPreviewHandle(skeletonControllerPreviewFrameBufferHandle);
 
 		/// [EN] Must run after DockSpaceBegin() (called by Engine before this
 		///      function) so ImGui::DockSpace() has already created/refreshed

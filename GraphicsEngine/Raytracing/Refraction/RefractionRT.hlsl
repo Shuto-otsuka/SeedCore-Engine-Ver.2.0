@@ -12,6 +12,14 @@
 
 /**
 * [EN]
+* Reference:
+* - https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#khr_materials_transmission
+*   (KHR_materials_transmission - the transmission_factor_ gate this raygen
+*   checks before tracing at all.)
+* - https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#khr_materials_volume
+*   (KHR_materials_volume - the Beer-Lambert absorption this file applies per
+*   interface, driven by attenuation_color_/attenuation_distance_/thickness_.)
+*
 * Ray-traced refraction (RTPSO / DispatchRays, raygeneration only - no miss /
 * closesthit exports). Only pixels whose KHR_materials_transmission factor is
 * > 0 (read via VisID -> ModelInstance, same as Model/Opaque/DeferredLightingPS.hlsl)
@@ -81,6 +89,19 @@
 // stays 1 - see the header comment above).
 #define REFRACTION_MAX_BOUNCES 4
 
+/**
+* [EN]
+* Sky sample for a ray that exited every medium. Skymap environment cube if
+* bound, otherwise the procedural sky (if enabled), otherwise black - same
+* fallback chain as ReflectionMiss/GlobalIlluminationMiss.
+*
+* ---------------------------------------------------------------------
+*
+* [JP]
+* 全ての媒質を抜けたレイの空サンプル。スカイマップの環境キューブがあれば
+* それを、無ければプロシージャル空(有効時)を、それも無ければ黒を返す -
+* ReflectionMiss/GlobalIlluminationMiss と同じフォールバック連鎖。
+*/
 float3 SampleRefractionSky(float3 direction)
 {
 	if (structured_indices.sky_.environment_cube_index_ != 0)
@@ -111,7 +132,9 @@ void RefractionRayGeneration()
 	uint2 pixel = DispatchRaysIndex().xy;
 	RWTexture2D<float4> output = ResourceDescriptorHeap[structured_indices.refraction_.output_uav_index_];
 
-	// 背景(reverse-Z 遠平面=0)は屈折なし。a=0 で「無効」を示す。
+	/// [EN] Background (reverse-Z far plane = 0) has no refraction. a=0
+	///      becomes the "invalid" marker.
+	/// [JP] 背景(reverse-Z 遠平面=0)は屈折なし。a=0 で「無効」を示す。
 	Texture2D<float> depth_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.depth_index_];
 	float depth = depth_texture.Load(int3(pixel, 0));
 	if (depth == 0.0)
@@ -120,10 +143,15 @@ void RefractionRayGeneration()
 		return;
 	}
 
-	// VisID から instance_index を引いて ModelInstance を直接読み、
-	// KHR_materials_transmission が無いピクセルはここで抜ける
-	// (Model/Opaque/DeferredLightingPS.hlsl と同じ配線 - Model/Material/MaterialResolveCS.hlsl
-	// 参照)。
+	/// [EN] Look up instance_index from VisID and read ModelInstance
+	///      directly, bailing out here for any pixel without
+	///      KHR_materials_transmission (same wiring as
+	///      Model/Opaque/DeferredLightingPS.hlsl - see
+	///      Model/Material/MaterialResolveCS.hlsl).
+	/// [JP] VisID から instance_index を引いて ModelInstance を直接読み、
+	///      KHR_materials_transmission が無いピクセルはここで抜ける
+	///      (Model/Opaque/DeferredLightingPS.hlsl と同じ配線 -
+	///      Model/Material/MaterialResolveCS.hlsl 参照)。
 	Texture2D<uint4> visibility_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.index_4_];
 	uint4 visibility_id = visibility_texture.Load(int3(pixel, 0));
 	uint material_instance_index, material_meshlet_index, material_triangle_index;
@@ -140,7 +168,9 @@ void RefractionRayGeneration()
 	SceneConstantBuffer scene = GetSceneConstantBuffer();
 	ConstantBuffer<RefractionRayConstantBuffer> tuning = ResourceDescriptorHeap[structured_indices.refraction_.ray_constant_index_];
 
-	// ワールド座標と法線を復元(ReflectionRT.hlsl と同じ手順)。
+	/// [EN] Reconstruct world position and normal (same procedure as
+	///      ReflectionRT.hlsl).
+	/// [JP] ワールド座標と法線を復元する(ReflectionRT.hlsl と同じ手順)。
 	float2 uv = (float2(pixel) + 0.5) * scene.inverse_screen_size_;
 	float2 ndc = float2(uv.x * 2 - 1, 1 - uv.y * 2);
 	float4 clip = float4(ndc, depth, 1.0);
@@ -152,10 +182,15 @@ void RefractionRayGeneration()
 
 	float3 view_direction = normalize(world_position - scene.camera_position_.xyz);
 
-	// Snell の法則で空気(ior=1)から媒質(instance.ior_)へ屈折させる。
-	// HLSL の refract(i, n, eta) は全反射時にゼロベクトルを返す - 入射角が
-	// 臨界角を超えるほぼ真横からの視線でしか普通は起きないが、保険として
-	// ミラー反射へフォールバックする。
+	/// [EN] Refract from air (ior=1) into the medium (instance.ior_) via
+	///      Snell's law. HLSL's refract(i, n, eta) returns the zero vector
+	///      on total internal reflection - normally only happens at a
+	///      near-grazing view angle beyond the critical angle, but a mirror
+	///      reflection fallback is kept as insurance.
+	/// [JP] Snell の法則で空気(ior=1)から媒質(instance.ior_)へ屈折させる。
+	///      HLSL の refract(i, n, eta) は全反射時にゼロベクトルを返す -
+	///      入射角が臨界角を超えるほぼ真横からの視線でしか普通は起きないが、
+	///      保険としてミラー反射へフォールバックする。
 	float eta = 1.0 / max(material_instance.ior_, 1.0001);
 	float3 ray_direction = refract(view_direction, normal, eta);
 	if (dot(ray_direction, ray_direction) < 0.0001)
@@ -170,8 +205,12 @@ void RefractionRayGeneration()
 	float3 throughput = float3(1, 1, 1);
 	float3 radiance = float3(0, 0, 0);
 
-	// バウンス連鎖はここでインライン RayQuery ループとして辿る
-	// (closesthit からの再帰 TraceRay は使わない - ファイル冒頭コメント参照)。
+	/// [EN] The bounce chain is walked here as an inline RayQuery loop (not
+	///      recursive TraceRay from a closesthit shader - see the file's
+	///      opening comment).
+	/// [JP] バウンス連鎖はここでインライン RayQuery ループとして辿る
+	///      (closesthit からの再帰 TraceRay は使わない - ファイル冒頭
+	///      コメント参照)。
 	for (uint bounce = 0; bounce < REFRACTION_MAX_BOUNCES; bounce++)
 	{
 		RayDesc ray_desc;
@@ -180,6 +219,9 @@ void RefractionRayGeneration()
 		ray_desc.TMin = 0.001;
 		ray_desc.TMax = tuning.ray_t_max_;
 
+		/// [EN] Refraction needs the closest-hit interface, so the candidate
+		///      loop is run directly here instead of the occlusion-only
+		///      IsReflectionRayOccluded.
 		/// [JP] 屈折は最近接ヒットの界面が必要なため、遮蔽判定用の
 		///      IsReflectionRayOccluded ではなく候補ループを直接回す。
 		RayQuery<RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES> query;
@@ -198,8 +240,13 @@ void RefractionRayGeneration()
 
 		if (query.CommittedStatus() != COMMITTED_TRIANGLE_HIT)
 		{
-			// レイが媒質を抜けて空へ出た。ここまでの throughput_(Beer-Lambert
-			// 吸収と界面ロスの累積)を空のサンプルへ掛けて最終値にする。
+			/// [EN] The ray exited the medium into the sky. Multiply the
+			///      accumulated throughput so far (Beer-Lambert absorption
+			///      and interface losses) into the sky sample for the final
+			///      value.
+			/// [JP] レイが媒質を抜けて空へ出た。ここまでの throughput_
+			///      (Beer-Lambert吸収と界面ロスの累積)を空のサンプルへ
+			///      掛けて最終値にする。
 			radiance = throughput * SampleRefractionSky(ray_direction);
 			break;
 		}
@@ -226,7 +273,10 @@ void RefractionRayGeneration()
 			DecodeReflectionVertexNormal(vertex1) * weight1 +
 			DecodeReflectionVertexNormal(vertex2) * weight2;
 
-		// v1近似: 非一様スケールの厳密な逆転置は省略(ReflectionRT.hlsl と同じ)。
+		/// [EN] v1 approximation: the exact inverse-transpose for non-uniform
+		///      scale is skipped (same as ReflectionRT.hlsl).
+		/// [JP] v1近似: 非一様スケールの厳密な逆転置は省略(ReflectionRT.hlsl
+		///      と同じ)。
 		float3 hit_world_normal = normalize(mul((float3x3)query.CommittedObjectToWorld3x4(), object_normal));
 
 		float hit_t = query.CommittedRayT();
@@ -234,10 +284,17 @@ void RefractionRayGeneration()
 
 		ReflectionMaterial material = ResolveReflectionMaterial(hit_instance, primitive_index);
 
-		// KHR_materials_volume: thickness 0 は「thin-walled」= 体積を囲まない
-		// 薄い面という意味で、仕様上そこでは体積吸収を行わない。これを見ないと
-		// 窓ガラス1枚が同じ材質の塊と同じだけ色付いてしまう。
-		// thicknessTexture(.g)は factor をピクセル単位で変調する。
+		/// [EN] KHR_materials_volume: thickness 0 means "thin-walled" - a
+		///      thin surface that does not enclose a volume, and per the
+		///      spec no volumetric absorption applies there. Without this
+		///      check a single pane of window glass would tint as much as a
+		///      solid block of the same material. thicknessTexture (.g)
+		///      modulates the factor per-pixel.
+		/// [JP] KHR_materials_volume: thickness 0 は「thin-walled」= 体積を
+		///      囲まない薄い面という意味で、仕様上そこでは体積吸収を行わ
+		///      ない。これを見ないと窓ガラス1枚が同じ材質の塊と同じだけ
+		///      色付いてしまう。thicknessTexture(.g)は factor をピクセル
+		///      単位で変調する。
 		float thickness = material.thickness_factor_;
 		if (thickness > 0.0 && material.thickness_texture_index_ != 0xFFFFFFFF)
 		{
@@ -250,9 +307,15 @@ void RefractionRayGeneration()
 			thickness *= thickness_texture.SampleLevel(sampler_linear_wrap, hit_texcoord, 0).g;
 		}
 
-		// Beer-Lambert吸収: 直前の区間(hit_t)をこの三角形の媒質の
-		// attenuation_color_/attenuation_distance_ で減衰させる。
-		// attenuation_distance_ が既定の FLT_MAX(=吸収なし)ならほぼ 1 のまま。
+		/// [EN] Beer-Lambert absorption: attenuate the segment just
+		///      traveled (hit_t) by this triangle's medium
+		///      attenuation_color_/attenuation_distance_. Stays close to 1
+		///      when attenuation_distance_ is the default FLT_MAX (= no
+		///      absorption).
+		/// [JP] Beer-Lambert吸収: 直前の区間(hit_t)をこの三角形の媒質の
+		///      attenuation_color_/attenuation_distance_ で減衰させる。
+		///      attenuation_distance_ が既定の FLT_MAX(=吸収なし)ならほぼ
+		///      1 のまま。
 		if (thickness > 0.0)
 		{
 			float3 optical_density = -log(max(material.volume_attenuation_color_, 0.0001)) / max(material.volume_attenuation_distance_, 0.0001);
@@ -262,14 +325,23 @@ void RefractionRayGeneration()
 
 		if (bounce + 1 >= REFRACTION_MAX_BOUNCES)
 		{
-			// バウンス予算切れ - 打ち切り(吸収済みとして黒扱い)。
+			/// [EN] Bounce budget exhausted - cut off (treated as fully
+			///      absorbed, i.e. black).
+			/// [JP] バウンス予算切れ - 打ち切り(吸収済みとして黒扱い)。
 			radiance = float3(0, 0, 0);
 			break;
 		}
 
-		// 入射方向はこの三角形にちょうど飛び込んできたレイの方向。ここが
-		// 媒質からの「出口」だと仮定し(単純な凸形状のガラス1枚を想定するv1近似)、
-		// 空気(ior=1)へ戻る屈折を試みる。全反射なら媒質内で反射を続ける。
+		/// [EN] The incoming direction is the ray that just flew into this
+		///      triangle. This is assumed to be the "exit" from the medium
+		///      (a v1 approximation modeling a single simple convex pane of
+		///      glass), and refraction back into air (ior=1) is attempted.
+		///      On total internal reflection, reflection inside the medium
+		///      continues instead.
+		/// [JP] 入射方向はこの三角形にちょうど飛び込んできたレイの方向。
+		///      ここが媒質からの「出口」だと仮定し(単純な凸形状のガラス1枚
+		///      を想定するv1近似)、空気(ior=1)へ戻る屈折を試みる。全反射
+		///      なら媒質内で反射を続ける。
 		float3 incoming_direction = ray_direction;
 		float3 next_direction = refract(incoming_direction, hit_world_normal, material.ior_);
 		if (dot(next_direction, next_direction) < 0.0001)

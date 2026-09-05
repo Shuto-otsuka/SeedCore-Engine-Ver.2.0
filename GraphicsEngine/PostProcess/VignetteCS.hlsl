@@ -61,6 +61,13 @@ void main(uint3 dtid : SV_DispatchThreadID)
 
 	uint width, height;
 	destination.GetDimensions(width, height);
+
+	/// [EN] Bounds guard: the dispatch is rounded up to a multiple of the
+	///      8x8 thread group size, so threads past the actual screen edge
+	///      must bail out before touching any resource.
+	/// [JP] 範囲外ガード: ディスパッチは 8x8 スレッドグループの倍数に
+	///      切り上げられているので、実際の画面端を超えたスレッドはどの
+	///      リソースにも触れる前に抜ける必要がある。
 	if (dtid.x >= width || dtid.y >= height)
 	{
 		return;
@@ -75,12 +82,26 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	float exponent = constant_indices.post_process_.vignette_.exponent_;
 	float3 vignette_color = constant_indices.post_process_.vignette_.color_.rgb;
 
+	/// [EN] Aspect-corrected distance from center. Without the correction,
+	///      the darkening comes out as a horizontally stretched ellipse,
+	///      breaking the illusion of a phenomenon coming from the lens's
+	///      circular pupil.
 	/// [JP] アスペクト補正した中心からの距離。補正しないと減光が横長の
 	///      楕円になり、レンズの円形の瞳から来る現象として破綻する。
 	float aspect = float(width) / float(height);
 	float2 centered = (uv - 0.5) * float2(aspect, 1.0);
 	float radius = length(centered) / length(float2(0.5 * aspect, 0.5));
 
+	/// [EN] The cos^4 law. Maps radius to an angle off the optical axis, then
+	///      raises that angle's cosine to the exponent_ power. 1 at
+	///      radius=0 (on-axis), minimal at the corners.
+	///
+	///      Mapping via atan bakes in a fixed assumption: radius=1
+	///      corresponds to a 45-degree half-angle (a 90-degree-FOV lens).
+	///      Strictly, the angle should be derived from the camera's actual
+	///      field of view, but that would make the vignette's strength
+	///      change just from changing FOV. This is kept fixed on the
+	///      assumption that intensity_ is the knob for tuning it instead.
 	/// [JP] cos^4 則。半径を光軸からの角度へ写し、その余弦を exponent_ 乗
 	///      する。radius=0(光軸上)で1、四隅で最小。
 	///
@@ -92,6 +113,14 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	float angle = atan(radius);
 	float falloff = pow(saturate(cos(angle)), max(exponent, 0.0));
 
+	/// [EN] Uses intensity_ as the exponent on falloff. intensity=1 is the
+	///      cosine-fourth law as-is (falloff^1 = falloff), intensity=0
+	///      disables it (falloff^0 = 1), and above 1 falloff (a value in
+	///      [0,1)) shrinks further, darkening the corners beyond the
+	///      physical curve. Because falloff is clamped by atan to a
+	///      45-degree half-angle equivalent, it never reaches exactly 0 even
+	///      at the corners (it is cos(45deg)~=0.707 raised to exponent_
+	///      instead), so this never touches the undefined 0^0 region.
 	/// [JP] intensity_ を falloff の指数として使う。intensity=1 でコサイン4乗則
 	///      そのもの(falloff^1 = falloff)、intensity=0 で無効(falloff^0 = 1)、
 	///      1を超えると falloff([0,1)の値)がさらに小さくなるので、物理カーブ

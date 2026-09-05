@@ -31,6 +31,8 @@ namespace SeedCore
 
 		[[nodiscard]] D3D12_CPU_DESCRIPTOR_HANDLE RenderTargetViewHandle()const;
 
+		[[nodiscard]] D3D12_CPU_DESCRIPTOR_HANDLE DepthStencilViewHandle()const;
+
 		[[nodiscard]] Uint32 ColorShaderResourceViewIndex()const;
 
 		[[nodiscard]] Uint32 DepthShaderResourceViewIndex()const;

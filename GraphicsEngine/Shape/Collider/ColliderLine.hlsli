@@ -9,6 +9,7 @@ static const uint collider_shape_capsule = 2;
 static const uint collider_shape_cylinder = 3;
 static const uint collider_shape_rect = 4;
 static const uint collider_shape_circle = 5;
+static const uint collider_shape_cone = 6;
 
 struct ColliderInstance
 {

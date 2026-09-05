@@ -102,7 +102,7 @@ namespace SeedCore
 			ImGui::BeginDisabled(!context_.viewportContext_.raytracing_.shadowEnabled_);
 
 			ImGui::PushID("影");
-			ImGui::SliderFloat("強さ", &context_.viewportContext_.raytracing_.shadow_.shadowStrength_, 0.0f, 1.0f);
+			ImGui::SliderFloat("強さ", &context_.viewportContext_.raytracing_.shadow_.shadowStrength_, 0.0f, 5.0f, "%.2f");
 			ImGui::SliderFloat("最大距離", &context_.viewportContext_.raytracing_.shadow_.rayTMax_, 1.0f, 5000.0f, "%.0f");
 			ImGui::SliderFloat("法線バイアス", &context_.viewportContext_.raytracing_.shadow_.normalBias_, 0.0001f, 1.0f, "%.4f", ImGuiSliderFlags_Logarithmic);
 			ImGui::SliderFloat("太陽の半径角(ソフトシャドウ)", &context_.viewportContext_.raytracing_.shadow_.sunAngularRadius_, 0.0f, 0.2f, "%.4f");
@@ -151,7 +151,7 @@ namespace SeedCore
 
 			ImGui::PushID("AO");
 			ImGui::SliderFloat("半径", &context_.viewportContext_.raytracing_.ambientOcclusion_.rayLength_, 0.05f, 10.0f, "%.2f", ImGuiSliderFlags_Logarithmic);
-			ImGui::SliderFloat("強調(指数)", &context_.viewportContext_.raytracing_.ambientOcclusion_.power_, 0.25f, 4.0f, "%.2f");
+			ImGui::SliderFloat("強調(指数)", &context_.viewportContext_.raytracing_.ambientOcclusion_.power_, 0.25f, 5.0f, "%.2f");
 			ImGui::SliderFloat("法線バイアス", &context_.viewportContext_.raytracing_.ambientOcclusion_.normalBias_, 0.0001f, 1.0f, "%.4f", ImGuiSliderFlags_Logarithmic);
 			ImGui::PopID();
 
@@ -196,7 +196,7 @@ namespace SeedCore
 			ImGui::BeginDisabled(!context_.viewportContext_.raytracing_.reflectionEnabled_);
 
 			ImGui::PushID("反射");
-			ImGui::SliderFloat("強さ", &context_.viewportContext_.raytracing_.reflection_.strength_, 0.0f, 1.0f);
+			ImGui::SliderFloat("強さ", &context_.viewportContext_.raytracing_.reflection_.strength_, 0.0f, 5.0f, "%.2f");
 			ImGui::SliderFloat("最大距離", &context_.viewportContext_.raytracing_.reflection_.rayTMax_, 1.0f, 5000.0f, "%.0f");
 			ImGui::SliderFloat("法線バイアス", &context_.viewportContext_.raytracing_.reflection_.normalBias_, 0.0001f, 1.0f, "%.4f", ImGuiSliderFlags_Logarithmic);
 			ImGui::PopID();
@@ -304,7 +304,7 @@ namespace SeedCore
 			ImGui::BeginDisabled(!context_.viewportContext_.raytracing_.globalIlluminationEnabled_);
 
 			ImGui::PushID("GI");
-			ImGui::SliderFloat("強度", &context_.viewportContext_.raytracing_.globalIllumination_.intensity_, 0.0f, 4.0f, "%.2f");
+			ImGui::SliderFloat("強度", &context_.viewportContext_.raytracing_.globalIllumination_.intensity_, 0.0f, 5.0f, "%.2f");
 			ImGui::SliderFloat("レイ最大距離", &context_.viewportContext_.raytracing_.globalIllumination_.rayTMax_, 50.0f, 20000.0f, "%.0f", ImGuiSliderFlags_Logarithmic);
 			ImGui::SetItemTooltip("短いと室内のバウンスが消え、長いと全レイがシーン全体の走査コストを払う。");
 			ImGui::SliderFloat("法線バイアス", &context_.viewportContext_.raytracing_.globalIllumination_.normalBias_, 0.0f, 1.0f, "%.3f");

@@ -199,9 +199,20 @@ namespace SeedCore
 
 		if (celestial)
 		{
-			lightConstantData_.directionalDirection_ = celestial->sunDirection_;
-			lightConstantData_.directionalIntensity_ = celestial->sunIntensity_;
-			lightConstantData_.directionalColor_ = celestial->sunColor_;
+			Bool sunWritten = false;
+			Query<Read<Active>, Write<DirectionalLight>> sunQuery(world);
+			sunQuery.ForEach([&](const Active& active, DirectionalLight& light)
+				{
+					if (!active.active_ || sunWritten)
+					{
+						return;
+					}
+
+					light.direction_ = celestial->sunDirection_;
+					light.color_ = celestial->sunColor_;
+					light.intensity_ = celestial->sunIntensity_;
+					sunWritten = true;
+				});
 
 			lightConstantData_.moonDirection_ = celestial->moonDirection_;
 			lightConstantData_.moonIntensity_ = celestial->moonIntensity_;
@@ -226,7 +237,7 @@ namespace SeedCore
 			lightConstantData_.thunderSeed_ = weather->thunderSeed_;
 		}
 
-		Bool hasDirectional = celestial != nullptr;
+		Bool hasDirectional = false;
 
 		/// [EN] All four queries below read the parent-composed world
 		///      transform from TransformSystem (Actor::GetWorldMatrix()),
@@ -256,7 +267,7 @@ namespace SeedCore
 
 				Vector3 direction = light.direction_;
 				Actor actor = world.GetActor(entityID);
-				if (actor)
+				if (actor && !celestial)
 				{
 					direction = Vector3::TransformNormal(direction, actor.GetWorldMatrix());
 				}
@@ -541,5 +552,10 @@ namespace SeedCore
 	Uint LightSystem::GetClusterConstantIndex()const
 	{
 		return clusterAssignConstantBuffer_->GetIndex();
+	}
+
+	Float LightSystem::GetDirectionalIntensity()const
+	{
+		return lightConstantData_.directionalIntensity_;
 	}
 }

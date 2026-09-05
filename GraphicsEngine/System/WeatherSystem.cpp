@@ -252,6 +252,10 @@ namespace SeedCore
 				state.thunderFlash_ = weather.thunderFlash_;
 				state.snowIntensity_ = weather.snowIntensity_;
 				state.thunderSeed_ = weather.thunderSeed_;
+				state.rainEnabled_ = weather.rainEnabled_;
+				state.rain_ = weather.rain_;
+				state.snowEnabled_ = weather.snowEnabled_;
+				state.snow_ = weather.snow_;
 			});
 
 		return state;

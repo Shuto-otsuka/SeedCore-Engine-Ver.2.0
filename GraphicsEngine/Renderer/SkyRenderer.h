@@ -67,7 +67,7 @@ namespace SeedCore
 
 		void Gather(LoaderSystem& loaderSystem, ResourceCache& resourceCache, World& world);
 
-		void SetIndices(IndicesSystem& indicesSystem);
+		void SetIndices(IndicesSystem& indicesSystem, Float directionalIntensity);
 
 		/// [EN] Procedural-sky IBL mode (used only when no skymap is bound):
 		///      renders VolumetricCloudScapes' analytic sky+sun into the

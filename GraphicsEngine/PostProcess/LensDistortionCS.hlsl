@@ -62,6 +62,13 @@ void main(uint3 dtid : SV_DispatchThreadID)
 
 	uint width, height;
 	destination.GetDimensions(width, height);
+
+	/// [EN] Bounds guard: the dispatch is rounded up to a multiple of the
+	///      8x8 thread group size, so threads past the actual screen edge
+	///      must bail out before touching any resource.
+	/// [JP] 範囲外ガード: ディスパッチは 8x8 スレッドグループの倍数に
+	///      切り上げられているので、実際の画面端を超えたスレッドはどの
+	///      リソースにも触れる前に抜ける必要がある。
 	if (dtid.x >= width || dtid.y >= height)
 	{
 		return;
@@ -76,6 +83,11 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	float k3 = constant_indices.post_process_.lens_distortion_.k3_;
 	float scale = max(constant_indices.post_process_.lens_distortion_.scale_, 0.0001);
 
+	/// [EN] The radius is measured in aspect-corrected space. Without the
+	///      correction the distortion comes out horizontally stretched,
+	///      breaking the illusion of distortion through a circular
+	///      aperture. The correction is only for the measurement - the
+	///      offset is converted back to UV space before being added.
 	/// [JP] 半径はアスペクト補正した空間で測る。補正しないと歪曲が横長に
 	///      なり、円形の瞳を通した歪みとして破綻する。補正は測る時だけで、
 	///      オフセットはUV空間へ戻してから足す。

@@ -37,8 +37,6 @@ struct CompositeOutput
 	float2 texcoord : TEXCOORD0;
 };
 
-static const float AMBIENT = 0.03;
-
 float3 ReconstructWorldPosition(float2 uv, float depth)
 {
 	SceneConstantBuffer scene = GetSceneConstantBuffer();
@@ -300,7 +298,7 @@ float4 main(CompositeOutput input) : SV_Target0
 	float directional_visibility = directional_visibility_texture.Load(int3(pixel, 0));
 
 	ConstantBuffer<ShadowRayConstantBuffer> shadow_tuning = ResourceDescriptorHeap[structured_indices.shadow_.ray_constant_index_];
-	float directional_shadow_factor = lerp(1.0, directional_visibility, saturate(shadow_tuning.shadow_strength_));
+	float directional_shadow_factor = saturate(lerp(1.0, directional_visibility, max(shadow_tuning.shadow_strength_, 0.0)));
 
 	/// [EN] Ambient term: image-based lighting when a skymap is bound
 	///      (irradiance index != 0), otherwise the flat fallback ambient.
@@ -322,7 +320,7 @@ float4 main(CompositeOutput input) : SV_Target0
 	float4 traced_reflection = reflection_texture.Load(int3(pixel, 0));
 
 	ConstantBuffer<ReflectionRayConstantBuffer> reflection_tuning = ResourceDescriptorHeap[structured_indices.reflection_.ray_constant_index_];
-	float reflection_weight = (traced_reflection.a > 0.0 ? 1.0 : 0.0) * saturate(reflection_tuning.strength_);
+	float reflection_weight = (traced_reflection.a > 0.0 ? 1.0 : 0.0) * max(reflection_tuning.strength_, 0.0);
 
 	/// [JP] レイトレGI(1バウンス拡散)。書かれているのは【入射放射輝度】で、
 	///      受け側のアルベドは掛かっていない — コサイン重み付き半球サンプリングの
@@ -334,61 +332,6 @@ float4 main(CompositeOutput input) : SV_Target0
 	Texture2D<float4> global_illumination_texture = ResourceDescriptorHeap[constant_indices.global_illumination_.radiance_srv_index_];
 	float4 traced_global_illumination = global_illumination_texture.Load(int3(pixel, 0));
 	float global_illumination_weight = saturate(traced_global_illumination.a);
-
-	float3 lighting;
-	if (structured_indices.sky_.diffuse_irradiance_index_ != 0)
-	{
-		float3 ibl_diffuse = ImageBasedLightingRadianceLambertian(normal, view, roughness, diffuse_color, f0);
-		float3 ibl_specular = ImageBasedLightingRadianceGgx(normal, view, roughness, f0);
-
-		/// [JP] トレース反射で「プリフィルタ環境の代わりにシーンの実radiance」
-		///      を使ったスペキュラを作り(single_scattering の式は
-		///      ImageBasedLightingRadianceGgx と同一)、reflection_weight で
-		///      IBLスペキュラと置き換える。
-		if (reflection_weight > 0.0)
-		{
-			float normal_dot_view = clamp(dot(normal, view), 0.0, 1.0);
-			float2 f_ab = SampleGgxLookupTable(clamp(float2(normal_dot_view, roughness), 0.0, 1.0)).rg;
-			float3 fresnel_roughness = max(1.0 - roughness, f0) - f0;
-			float3 specular_color = f0 + fresnel_roughness * pow(1.0 - normal_dot_view, 5.0);
-			float3 single_scattering = specular_color * f_ab.x + f_ab.y;
-
-			float3 traced_specular = traced_reflection.rgb * single_scattering;
-			ibl_specular = lerp(ibl_specular, traced_specular, reflection_weight);
-		}
-
-		/// [JP] GI が有効なピクセルでは、空由来の拡散環境光を GI で【置き換える】。
-		///      ibl_diffuse は「遮蔽を考えずに空の irradiance を与える近似」で、GI は
-		///      同じものを実際にレイを飛ばして遮蔽込みで求めたもの。両方足すと空が
-		///      二重計上になる(GI の miss は空を返すのだから当然)。
-		lighting = (ibl_diffuse * (1.0 - global_illumination_weight) + ibl_specular) * structured_indices.sky_.intensity_;
-	}
-	else
-	{
-		lighting = diffuse_color * AMBIENT;
-
-		/// [JP] スカイ(BRDF LUT)が無い場合の簡易フォールバック: F0 で重み付けた
-		///      トレース反射をそのまま足す。
-		lighting += traced_reflection.rgb * f0 * reflection_weight;
-	}
-
-	/// [JP] レイトレ屈折(RefractionRT.hlsl、a=1 有効)。KHR_materials_transmission
-	///      が無いピクセルは常に a=0 なので、ここは自然にスキップされる。
-	///      diffuse_color は既に (1-transmission_factor_) 分減衰済み(上の
-	///      dielectric_f0/diffuse_color 算出ブロック参照)なので、ここでは
-	///      その分を屈折放射輝度で埋め戻す形で加算する。Fresnel透過率
-	///      (1-反射率)ぶんだけ通す — グレージング角ほど反射が支配的になり
-	///      屈折は減る。
-	Texture2D<float4> refraction_texture = ResourceDescriptorHeap[structured_indices.refraction_.output_srv_index_];
-	float4 traced_refraction = refraction_texture.Load(int3(pixel, 0));
-	ConstantBuffer<RefractionRayConstantBuffer> refraction_tuning = ResourceDescriptorHeap[structured_indices.refraction_.ray_constant_index_];
-	float refraction_weight = traced_refraction.a * saturate(refraction_tuning.strength_) * saturate(material_instance.transmission_factor_);
-	if (refraction_weight > 0.0)
-	{
-		float normal_dot_view_for_refraction = clamp(dot(normal, view), 0.0, 1.0);
-		float3 fresnel_reflectance = f0 + (max(1.0 - roughness, f0) - f0) * pow(1.0 - normal_dot_view_for_refraction, 5.0);
-		lighting += traced_refraction.rgb * (1.0 - fresnel_reflectance) * refraction_weight;
-	}
 
 	/// [JP] レイトレAO(AmbientOcclusionRT.hlsl + 時間積分済み)。AO は
 	///      「環境光がどれだけ届くか」の近似なので環境光項だけに掛ける
@@ -408,7 +351,68 @@ float4 main(CompositeOutput input) : SV_Target0
 		ao *= occlusion_texture.SampleLevel(sampler_aniso_wrap, material_texcoord, 0).r;
 	}
 
-	lighting *= ao;
+	float3 lighting;
+	if (structured_indices.sky_.diffuse_irradiance_index_ != 0)
+	{
+		float3 ibl_diffuse = ImageBasedLightingRadianceLambertian(normal, view, roughness, diffuse_color, f0) * ao;
+
+		/// [JP] 鏡面には拡散の AO をそのまま掛けてはいけない。AO はコサイン重み
+		///      付き半球全体の遮蔽率で、鏡面が実際に見ているのは反射ローブ内の
+		///      狭い立体角だけ。鏡のような面ほど両者は無関係になる(半球が塞がって
+		///      いても、反射方向だけ開いていれば映り込む)。AO・ラフネス・N・V から
+		///      その狭い立体角ぶんの遮蔽を導く定番の近似を使う - ラフネスが上がる
+		///      ほど AO そのものへ近づき、鏡面へ近づくほど 1 に戻る。
+		float ambient_occlusion_normal_dot_view = clamp(dot(normal, view), 0.0, 1.0);
+		float specular_occlusion = saturate(pow(ambient_occlusion_normal_dot_view + ao, exp2(-16.0 * roughness - 1.0)) - 1.0 + ao);
+
+		float3 ibl_specular = ImageBasedLightingRadianceGgx(normal, view, roughness, f0) * specular_occlusion;
+
+		/// [JP] トレース反射で「プリフィルタ環境の代わりにシーンの実radiance」
+		///      を使ったスペキュラを作り、reflection_weight で IBL スペキュラと
+		///      置き換える。ReflectionRT.hlsl は VNDF サンプリングなので、
+		///      トレース済み放射輝度には既に Smith の G2/G1 が掛かっている —
+		///      残る係数は Fresnel だけで、split-sum の BRDF LUT(F*A+B)を
+		///      ここで掛けると G を二重に適用することになる。
+		if (reflection_weight > 0.0)
+		{
+			float normal_dot_view = clamp(dot(normal, view), 0.0, 1.0);
+			float3 fresnel_roughness = max(1.0 - roughness, f0) - f0;
+			float3 specular_color = f0 + fresnel_roughness * pow(1.0 - normal_dot_view, 5.0);
+
+			float3 traced_specular = traced_reflection.rgb * specular_color;
+			ibl_specular = lerp(ibl_specular, traced_specular * max(reflection_weight, 1.0), min(reflection_weight, 1.0));
+		}
+
+		/// [JP] GI が有効なピクセルでは、空由来の拡散環境光を GI で【置き換える】。
+		///      ibl_diffuse は「遮蔽を考えずに空の irradiance を与える近似」で、GI は
+		///      同じものを実際にレイを飛ばして遮蔽込みで求めたもの。両方足すと空が
+		///      二重計上になる(GI の miss は空を返すのだから当然)。
+		lighting = (ibl_diffuse * (1.0 - global_illumination_weight) + ibl_specular) * structured_indices.sky_.intensity_;
+	}
+	else
+	{
+		/// [JP] スカイ(BRDF LUT)が無い場合、環境光は0 - 直接光と、F0 で
+		///      重み付けたトレース反射だけがこのピクセルを照らす。
+		lighting = traced_reflection.rgb * f0 * reflection_weight;
+	}
+
+	/// [JP] レイトレ屈折(RefractionRT.hlsl、a=1 有効)。KHR_materials_transmission
+	///      が無いピクセルは常に a=0 なので、ここは自然にスキップされる。
+	///      diffuse_color は既に (1-transmission_factor_) 分減衰済み(上の
+	///      dielectric_f0/diffuse_color 算出ブロック参照)なので、ここでは
+	///      その分を屈折放射輝度で埋め戻す形で加算する。Fresnel透過率
+	///      (1-反射率)ぶんだけ通す — グレージング角ほど反射が支配的になり
+	///      屈折は減る。
+	Texture2D<float4> refraction_texture = ResourceDescriptorHeap[structured_indices.refraction_.output_srv_index_];
+	float4 traced_refraction = refraction_texture.Load(int3(pixel, 0));
+	ConstantBuffer<RefractionRayConstantBuffer> refraction_tuning = ResourceDescriptorHeap[structured_indices.refraction_.ray_constant_index_];
+	float refraction_weight = traced_refraction.a * saturate(refraction_tuning.strength_) * saturate(material_instance.transmission_factor_);
+	if (refraction_weight > 0.0)
+	{
+		float normal_dot_view_for_refraction = clamp(dot(normal, view), 0.0, 1.0);
+		float3 fresnel_reflectance = f0 + (max(1.0 - roughness, f0) - f0) * pow(1.0 - normal_dot_view_for_refraction, 5.0);
+		lighting += traced_refraction.rgb * (1.0 - fresnel_reflectance) * refraction_weight;
+	}
 
 	/// [JP] GI はここで足す。AO を掛けないのは、GI のレイ自体が遮蔽そのものを
 	///      計算しているから — AO を重ねると遮蔽の二重適用になって暗くなりすぎる

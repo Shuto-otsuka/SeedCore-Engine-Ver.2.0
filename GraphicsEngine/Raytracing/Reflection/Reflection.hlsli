@@ -8,22 +8,31 @@
 #include "../../Shader/Material.hlsli"
 #include "../../Light/Cluster.hlsli"
 
-// Reflection tuning constant buffer, read by both ReflectionRT.hlsl and
-// DeferredLightingPS.hlsl via structured_indices.reflection_.ray_constant_index_.
-// Must match the C++ mirror in Renderer/ReflectionRenderer.h byte-for-byte.
+/**
+* Reflection tuning constant buffer, read by both ReflectionRT.hlsl and
+* DeferredLightingPS.hlsl via
+* structured_indices.reflection_.ray_constant_index_. Must match the C++
+* mirror in Renderer/ReflectionRenderer.h byte-for-byte.
+*/
 struct ReflectionRayConstantBuffer
 {
+	/// Maximum distance a reflection ray travels before being treated as
+	/// reaching the sky/environment.
 	float ray_t_max_;
+
+	/// Offset along the surface normal applied to the ray origin, to keep
+	/// the ray from immediately re-hitting the triangle it was cast from.
 	float normal_bias_;
 
-	// Overall reflection intensity applied in DeferredLightingPS.hlsl.
+	/// Overall reflection intensity applied in DeferredLightingPS.hlsl.
 	float strength_;
 
-	// Incremented once per frame by ReflectionRenderer (not the UI) - rotates
-	// the GGX importance sample so the roughness-driven 1spp noise averages
-	// out over time instead of being a fixed pattern. Unused at roughness 0
-	// (ImportanceSampleGgx degenerates to the exact mirror direction there
-	// regardless of the sample), so this only matters for rough surfaces.
+	/// Incremented once per frame by ReflectionRenderer (not the UI) -
+	/// rotates the GGX visible-normal sample so the roughness-driven 1spp
+	/// noise averages out over time instead of being a fixed pattern.
+	/// Unused at roughness 0 (the sampled half vector degenerates to the
+	/// surface normal there regardless of the sample), so this only matters
+	/// for rough surfaces.
 	uint frame_index_;
 };
 
@@ -31,9 +40,9 @@ struct ReflectionRayConstantBuffer
 // live in Shader/Material.hlsli, shared with the G-Buffer material resolve
 // path (ResolveGBufferMaterial) - included above.
 
-// Mirrors the C++ CompressedVertex struct (Model/Crister.h) - 16 bytes.
-// The closesthit shader only needs the normal, decoded from the octahedral
-// 16+16-bit field (Normal.hlsli: OctNormalDecode).
+/// Mirrors the C++ CompressedVertex struct (Model/Crister.h) - 16 bytes.
+/// The closesthit shader only needs the normal, decoded from the octahedral
+/// 16+16-bit field (Normal.hlsli: OctNormalDecode).
 struct ReflectionVertex
 {
 	uint position_xy_;
@@ -42,30 +51,38 @@ struct ReflectionVertex
 	uint normal_;
 };
 
+/**
+* Decodes ReflectionVertex's octahedral-packed normal_ field back into a
+* world/object-space unit vector.
+*/
 float3 DecodeReflectionVertexNormal(ReflectionVertex vertex)
 {
 	return OctNormalDecode(float2(vertex.normal_ & 0xFFFF, vertex.normal_ >> 16) / 65535.0);
 }
 
-// Same unpacking as Model.hlsli's DecodeVertex - u is the high half of
-// position_z_texu_, v the low half of texv_tangent_ - rescaled out of the
-// mesh's UV AABB. Kept in sync with that: a mismatch here shows up as
-// reflections sampling the wrong part of the texture.
+/**
+* Same unpacking as Model.hlsli's DecodeVertex - u is the high half of
+* position_z_texu_, v the low half of texv_tangent_ - rescaled out of the
+* mesh's UV AABB. Kept in sync with that: a mismatch here shows up as
+* reflections sampling the wrong part of the texture.
+*/
 float2 DecodeReflectionVertexTexcoord(ReflectionVertex vertex, float2 texcoord_min, float2 texcoord_extent)
 {
 	float2 texcoord01 = float2(vertex.position_z_texu_ >> 16, vertex.texv_tangent_ & 0xFFFF) / 65535.0;
 	return texcoord_min + texcoord01 * texcoord_extent;
 }
 
-// True when a ray should pass THROUGH this candidate triangle: OPAQUE always
-// blocks, MASK blocks only where base color alpha reaches alphaCutoff, BLEND
-// never blocks (the PPLL in Model/Transparent draws those surfaces instead).
-// Only reached on meshes whose BLAS geometry was declared non-opaque, which
-// RaytracingRenderer does whenever any of the mesh's materials is MASK or
-// BLEND (see geometryDesc.opaque_); a fully OPAQUE mesh keeps
-// D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE and never reaches here.
-// instance_data_index is structured_indices.raytracing_.instance_data_index_,
-// passed in so this header needs no extra includes.
+/**
+* True when a ray should pass THROUGH this candidate triangle: OPAQUE always
+* blocks, MASK blocks only where base color alpha reaches alphaCutoff, BLEND
+* never blocks (the PPLL in Model/Transparent draws those surfaces instead).
+* Only reached on meshes whose BLAS geometry was declared non-opaque, which
+* RaytracingRenderer does whenever any of the mesh's materials is MASK or
+* BLEND (see geometryDesc.opaque_); a fully OPAQUE mesh keeps
+* D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE and never reaches here.
+* instance_data_index is structured_indices.raytracing_.instance_data_index_,
+* passed in so this header needs no extra includes.
+*/
 bool IsReflectionMaterialPassthrough(uint instance_data_index, uint instance_id, uint primitive_index, float2 barycentrics)
 {
 	StructuredBuffer<ReflectionInstanceData> instances = ResourceDescriptorHeap[instance_data_index];
@@ -73,6 +90,7 @@ bool IsReflectionMaterialPassthrough(uint instance_data_index, uint instance_id,
 
 	ReflectionMaterial material = ResolveReflectionMaterial(instance, primitive_index);
 
+	/// alpha_mode_: 0 = OPAQUE, 1 = MASK, 2 = BLEND (glTF convention).
 	if (material.alpha_mode_ == 0)
 	{
 		return false;
@@ -111,9 +129,11 @@ bool IsReflectionMaterialPassthrough(uint instance_data_index, uint instance_id,
 	return alpha < material.alpha_cutoff_;
 }
 
-// Occlusion query with the alpha test above applied per candidate hit. Inline
-// raytracing has no any-hit stage, so the candidate loop is the only place a
-// RayQuery can run it.
+/**
+* Occlusion query with the alpha test above applied per candidate hit. Inline
+* raytracing has no any-hit stage, so the candidate loop is the only place a
+* RayQuery can run it.
+*/
 bool IsReflectionRayOccluded(RaytracingAccelerationStructure tlas, RayDesc ray_desc, uint instance_data_index)
 {
 	RayQuery<RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES> query;
@@ -133,27 +153,30 @@ bool IsReflectionRayOccluded(RaytracingAccelerationStructure tlas, RayDesc ray_d
 	return query.CommittedStatus() == COMMITTED_TRIANGLE_HIT;
 }
 
-// Sums the Lambertian contribution of every point/spot/rect light in the hit
-// point's screen-space light cluster, gated by N.L (world_normal) so lights
-// behind the surface never contribute. Shared by ReflectionRT.hlsl and
-// GlobalIlluminationRT.hlsl closesthit - both already do this for the
-// directional light only; this adds the punctual lights the same way
-// ShadowRT.hlsl already does for the primary G-Buffer surface.
-//
-// The light cluster grid is built around the camera frustum (screen tiles x
-// depth slices), so world_position is reprojected through the NON-jittered
-// view-projection to find its tile/slice. That reprojection is an
-// approximation for points outside the visible frustum (a reflection can hit
-// geometry the camera can't see) - it degrades gracefully by clamping to the
-// nearest edge cluster rather than lighting incorrectly. Non-jittered is
-// deliberate: both call sites are meant to be temporally stable (reflection
-// has no denoiser; GI's hemisphere sample already carries its own per-frame
-// jitter), so using the jittered matrix here would flicker the cluster tile
-// boundary every frame independently of that.
-//
-// No shadow ray per light here (only the directional light gets one at each
-// call site) - tracing one per punctual light would multiply ray count by
-// however many lights share this cluster.
+/**
+* Sums the Lambertian contribution of every point/spot/rect light in the hit
+* point's screen-space light cluster, gated by N.L (world_normal) so lights
+* behind the surface never contribute. Shared by ReflectionRT.hlsl and
+* GlobalIlluminationRT.hlsl closesthit - both already do this for the
+* directional light only; this adds the punctual lights the same way
+* ShadowRT.hlsl already does for the primary G-Buffer surface.
+*
+* The light cluster grid is built around the camera frustum (screen tiles x
+* depth slices), so world_position is reprojected through the NON-jittered
+* view-projection to find its tile/slice. That reprojection is an
+* approximation for points outside the visible frustum (a reflection can hit
+* geometry the camera can't see) - it degrades gracefully by clamping to the
+* nearest edge cluster rather than lighting incorrectly. Non-jittered is
+* deliberate: both call sites are meant to be temporally stable (reflection
+* has no denoiser-side jitter it needs to match; GI's hemisphere sample
+* already carries its own per-frame jitter), so using the jittered matrix
+* here would flicker the cluster tile boundary every frame independently of
+* that.
+*
+* No shadow ray per light here (only the directional light gets one at each
+* call site) - tracing one per punctual light would multiply ray count by
+* however many lights share this cluster.
+*/
 float3 ComputeClusteredPunctualLighting(float3 world_position, float3 world_normal, SceneConstantBuffer scene, LightConstantData light)
 {
 	float3 lighting = float3(0, 0, 0);
@@ -161,8 +184,8 @@ float3 ComputeClusteredPunctualLighting(float3 world_position, float3 world_norm
 	float4 clip = mul(float4(world_position, 1.0), scene.non_jitter_view_projection_);
 	if (clip.w <= 0.0)
 	{
-		// Behind the camera - the frustum-aligned cluster grid has no
-		// meaningful cell for this point.
+		/// Behind the camera - the frustum-aligned cluster grid has no
+		/// meaningful cell for this point.
 		return lighting;
 	}
 
@@ -259,9 +282,9 @@ float3 ComputeClusteredPunctualLighting(float3 world_position, float3 world_norm
 		}
 	}
 
-	// Same Lambertian BRDF 1/PI convention as the directional term at each
-	// call site (BrdfLambertian returns albedo/PI) - without it punctual
-	// lights would be PI times too bright relative to the sun term.
+	/// Same Lambertian BRDF 1/PI convention as the directional term at each
+	/// call site (BrdfLambertian returns albedo/PI) - without it punctual
+	/// lights would be PI times too bright relative to the sun term.
 	const float lambert_normalization = 1.0 / 3.14159265358979;
 	return lighting * lambert_normalization;
 }

@@ -65,6 +65,19 @@
 * 見えない。
 */
 
+/**
+* [EN]
+* Soft threshold weighting used before the bright-pass extraction below (the
+* Prefilter pass). Fades to 0 as luminance approaches threshold from above,
+* rather than a hard cutoff.
+*
+* ---------------------------------------------------------------------
+*
+* [JP]
+* 下のブライトパス抽出(Prefilterパス)前に使うソフトなしきい値重み。
+* 硬い切り捨てではなく、輝度が threshold へ上から近づくにつれて0へ
+* フェードする。
+*/
 float3 AnamorphicBrightPass(float3 color, float threshold)
 {
 	float luminance = dot(color, float3(0.2126, 0.7152, 0.0722));
@@ -72,21 +85,43 @@ float3 AnamorphicBrightPass(float3 color, float threshold)
 	return color * weight;
 }
 
-// [JP] Kawase のライトストリークのカーネル(横方向固定)。中心1タップ +
-//      左右3タップずつ、重みは attenuation^(テクセル距離)。
-//
-//      減衰は必ず1未満に抑える。1を超えると pow が減衰ではなく指数
-//      【増加】になり、テクセル距離が最大 64*3 = 192 まで伸びるため
-//      すぐ Inf になる。すると最後の sum / weight_sum が Inf/Inf = NaN を
-//      返し、NaN が Compose から出力バッファへ、さらに ToneMappingCS.hlsl の
-//      hdr_color への加算で画面全体へ広がって真っ黒になる。CPU側の
-//      スライダー範囲を信用してはいけない — レンジ変更前に保存された
-//      シーンには旧レンジの値が入っており、レンズフレア側で実際に
-//      これで黒画面になった。
-//
-//      重み合計で正規化するのも必須で、しないと1パスあたり最大7倍の
-//      ゲインが掛かって4パスで飽和する。明るさを決めるのはカーネルの
-//      ゲインではなく intensity_。
+/**
+* [EN]
+* Kawase's light-streak kernel (fixed to horizontal). Center tap + 3 taps on
+* each side, weighted by attenuation^(texel distance).
+*
+* The attenuation must always be kept below 1. If it exceeds 1, pow becomes
+* exponential 【growth】 instead of decay, and since the texel distance
+* reaches up to 64*3 = 192, this quickly hits Inf. The final
+* sum / weight_sum then returns Inf/Inf = NaN, which spreads from Compose
+* into the output buffer and across the whole screen when
+* ToneMappingCS.hlsl adds it into hdr_color - turning the frame solid black.
+* The CPU-side slider range cannot be trusted - a scene saved before that
+* range changed can still carry an old-range value, and this actually
+* produced a black screen on the lens flare side.
+*
+* Normalizing by the weight sum is also required - without it each pass
+* would apply up to 7x gain and saturate over 4 passes. Overall brightness
+* is intensity_'s job, not the kernel gain.
+*
+* ---------------------------------------------------------------------
+*
+* [JP]
+* Kawase のライトストリークのカーネル(横方向固定)。中心1タップ + 左右3
+* タップずつ、重みは attenuation^(テクセル距離)。
+*
+* 減衰は必ず1未満に抑える。1を超えると pow が減衰ではなく指数【増加】に
+* なり、テクセル距離が最大 64*3 = 192 まで伸びるためすぐ Inf になる。
+* すると最後の sum / weight_sum が Inf/Inf = NaN を返し、NaN が Compose
+* から出力バッファへ、さらに ToneMappingCS.hlsl の hdr_color への加算で
+* 画面全体へ広がって真っ黒になる。CPU側のスライダー範囲を信用しては
+* いけない - レンジ変更前に保存されたシーンには旧レンジの値が入っており、
+* レンズフレア側で実際にこれで黒画面になった。
+*
+* 重み合計で正規化するのも必須で、しないと1パスあたり最大7倍のゲインが
+* 掛かって4パスで飽和する。明るさを決めるのはカーネルのゲインではなく
+* intensity_。
+*/
 float3 AnamorphicStreakGather(Texture2D<float4> source, float2 uv, float texel_width, float spacing, float attenuation, float length_scale)
 {
 	float safe_attenuation = clamp(attenuation, 0.5, 0.999);
@@ -109,8 +144,18 @@ float3 AnamorphicStreakGather(Texture2D<float4> source, float2 uv, float texel_w
 	return sum / weight_sum;
 }
 
-// [JP] BlurPass1..4 の共通本体。read_ping が true なら ping を読んで pong へ、
-//      false なら pong を読んで ping へ書く(パスごとにコンパイル時固定)。
+/**
+* [EN]
+* Shared body for BlurPass1..4. When read_ping is true, reads ping and
+* writes to pong; when false, reads pong and writes to ping (fixed at
+* compile time per pass).
+*
+* ---------------------------------------------------------------------
+*
+* [JP]
+* BlurPass1..4 の共通本体。read_ping が true なら ping を読んで pong へ、
+* false なら pong を読んで ping へ書く(パスごとにコンパイル時固定)。
+*/
 void AnamorphicBlurPass(uint3 dtid, float spacing, bool read_ping)
 {
 	uint source_index = read_ping ? constant_indices.post_process_.anamorphic_flare_.ping_srv_index_ : constant_indices.post_process_.anamorphic_flare_.pong_srv_index_;
@@ -120,6 +165,13 @@ void AnamorphicBlurPass(uint3 dtid, float spacing, bool read_ping)
 
 	uint width, height;
 	destination.GetDimensions(width, height);
+
+	/// [EN] Bounds guard: the dispatch is rounded up to a multiple of the
+	///      8x8 thread group size, so threads past the actual buffer edge
+	///      must bail out before touching any resource.
+	/// [JP] 範囲外ガード: ディスパッチは 8x8 スレッドグループの倍数に
+	///      切り上げられているので、実際のバッファ端を超えたスレッドは
+	///      どのリソースにも触れる前に抜ける必要がある。
 	if (dtid.x >= width || dtid.y >= height)
 	{
 		return;
@@ -135,14 +187,31 @@ void AnamorphicBlurPass(uint3 dtid, float spacing, bool read_ping)
 	destination[dtid.xy] = float4(AnamorphicStreakGather(source, uv, texel_width, spacing, attenuation, length_scale), 1.0);
 }
 
-// [JP] Prefilter: フル解像度のHDRソース(DOF有効時はDOF出力)をしきい値抽出
-//      しつつ圧縮バッファへ落とす。圧縮バッファは横が1/8・縦が1/4なので、
-//      1画素が担当するソース範囲は【8x4】。バイリニアタップ1つが2x2を
-//      平均するので、横4タップ x 縦2タップでその範囲を丸ごと覆う。
-//      ここを手抜きして疎にサンプルすると、太陽のような数画素幅の光源を
-//      読み飛ばして筋が一切出なくなる(レンズフレア側で実際に踏んだ罠)。
-//      しきい値は平均の【前】にタップごとに掛ける — 後に掛けると小さな
-//      光源が平均で薄まった後にしきい値で消える。
+/**
+* [EN]
+* Prefilter: bright-pass extracts while dropping the full-resolution HDR
+* source (DoF output when DoF is enabled) into the squeezed buffer. The
+* squeezed buffer is 1/8 width and 1/4 height, so each of its pixels owns a
+* 【8x4】 source footprint. One bilinear tap averages a 2x2 area, so 4 taps
+* horizontally x 2 taps vertically covers that footprint completely.
+* Skimping here with a sparser sample would skip a light source only a few
+* pixels wide (a sun, say), producing no streak at all (a trap actually hit
+* on the lens flare side). The threshold is applied per tap 【before】
+* averaging - applying it after would let a small light source get diluted
+* by the average first and then disappear below the threshold.
+*
+* ---------------------------------------------------------------------
+*
+* [JP]
+* Prefilter: フル解像度のHDRソース(DOF有効時はDOF出力)をしきい値抽出
+* しつつ圧縮バッファへ落とす。圧縮バッファは横が1/8・縦が1/4なので、
+* 1画素が担当するソース範囲は【8x4】。バイリニアタップ1つが2x2を平均する
+* ので、横4タップ x 縦2タップでその範囲を丸ごと覆う。ここを手抜きして
+* 疎にサンプルすると、太陽のような数画素幅の光源を読み飛ばして筋が一切
+* 出なくなる(レンズフレア側で実際に踏んだ罠)。しきい値は平均の【前】に
+* タップごとに掛ける - 後に掛けると小さな光源が平均で薄まった後にしきい値
+* で消える。
+*/
 [numthreads(8, 8, 1)]
 void Prefilter(uint3 dtid : SV_DispatchThreadID)
 {
@@ -150,6 +219,13 @@ void Prefilter(uint3 dtid : SV_DispatchThreadID)
 
 	uint width, height;
 	destination.GetDimensions(width, height);
+
+	/// [EN] Bounds guard: the dispatch is rounded up to a multiple of the
+	///      8x8 thread group size, so threads past the actual (squeezed)
+	///      buffer edge must bail out before touching any resource.
+	/// [JP] 範囲外ガード: ディスパッチは 8x8 スレッドグループの倍数に
+	///      切り上げられているので、実際の(圧縮)バッファ端を超えた
+	///      スレッドはどのリソースにも触れる前に抜ける必要がある。
 	if (dtid.x >= width || dtid.y >= height)
 	{
 		return;
@@ -185,11 +261,23 @@ void Prefilter(uint3 dtid : SV_DispatchThreadID)
 	destination[dtid.xy] = float4(result * 0.125, 1.0);
 }
 
-// [JP] パスごとのテクセル間隔は 4^(パス番号-1) = 1, 4, 16, 64。Kawase の
-//      ライトストリークが定める倍率で、片側3タップなので到達距離は
-//      3 + 12 + 48 + 192 = 255 テクセル。圧縮バッファは横がネイティブの
-//      1/8 しかないため、これは画面の横幅を優に超える長さになる —
-//      アナモルフィックの筋が画面を横切るのはこのため。
+/**
+* [EN]
+* Per-pass texel spacing is 4^(pass number - 1) = 1, 4, 16, 64 - the
+* multiplier Kawase's light streak defines. With 3 taps per side, the reach
+* totals 3 + 12 + 48 + 192 = 255 texels. Since the squeezed buffer is only
+* 1/8 native width, that comfortably exceeds the screen's own width - which
+* is why the anamorphic streak spans the whole screen.
+*
+* ---------------------------------------------------------------------
+*
+* [JP]
+* パスごとのテクセル間隔は 4^(パス番号-1) = 1, 4, 16, 64。Kawase の
+* ライトストリークが定める倍率で、片側3タップなので到達距離は
+* 3 + 12 + 48 + 192 = 255 テクセル。圧縮バッファは横がネイティブの1/8
+* しかないため、これは画面の横幅を優に超える長さになる - アナモルフィック
+* の筋が画面を横切るのはこのため。
+*/
 [numthreads(8, 8, 1)]
 void BlurPass1(uint3 dtid : SV_DispatchThreadID)
 {
@@ -214,13 +302,28 @@ void BlurPass4(uint3 dtid : SV_DispatchThreadID)
 	AnamorphicBlurPass(dtid, 64.0, false);
 }
 
-// [JP] Compose: 圧縮バッファを【通常のUV】でサンプルする。出力は圧縮
-//      されていないので、ここで横方向に2倍引き伸ばされる — これが
-//      「丸いフレアが横長の筋になる」上映時の引き伸ばしそのもの。
-//      その上で tint_(レンズ個体の特性であって物理定数ではない、
-//      PostProcess.h のコメント参照)と intensity_ を掛けて書き出す。
-//
-//      パス4は pong を読んで ping へ書くので、最終結果は ping にある。
+/**
+* [EN]
+* Compose: samples the squeezed buffer with 【normal UVs】. The output is not
+* squeezed, so this is where the 2x horizontal stretch happens - the same
+* stretch that "turns a round flare into a horizontal streak" during
+* projection. tint_ (a property of the individual lens, not a physical
+* constant - see PostProcess.h's comment) and intensity_ are then multiplied
+* in before writing out.
+*
+* Pass 4 reads pong and writes to ping, so the final result sits in ping.
+*
+* ---------------------------------------------------------------------
+*
+* [JP]
+* Compose: 圧縮バッファを【通常のUV】でサンプルする。出力は圧縮されていない
+* ので、ここで横方向に2倍引き伸ばされる - これが「丸いフレアが横長の筋に
+* なる」上映時の引き伸ばしそのもの。その上で tint_(レンズ個体の特性で
+* あって物理定数ではない、PostProcess.h のコメント参照)と intensity_ を
+* 掛けて書き出す。
+*
+* パス4は pong を読んで ping へ書くので、最終結果は ping にある。
+*/
 [numthreads(8, 8, 1)]
 void Compose(uint3 dtid : SV_DispatchThreadID)
 {
@@ -228,6 +331,13 @@ void Compose(uint3 dtid : SV_DispatchThreadID)
 
 	uint width, height;
 	output.GetDimensions(width, height);
+
+	/// [EN] Bounds guard: the dispatch is rounded up to a multiple of the
+	///      8x8 thread group size, so threads past the actual output edge
+	///      must bail out before touching any resource.
+	/// [JP] 範囲外ガード: ディスパッチは 8x8 スレッドグループの倍数に
+	///      切り上げられているので、実際の出力端を超えたスレッドはどの
+	///      リソースにも触れる前に抜ける必要がある。
 	if (dtid.x >= width || dtid.y >= height)
 	{
 		return;

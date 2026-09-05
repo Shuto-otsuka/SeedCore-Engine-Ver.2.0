@@ -8,6 +8,13 @@
 
 /**
 * [EN]
+* Reference:
+* - https://cs.dartmouth.edu/~wjarosz/publications/bitterli20spatiotemporal.html
+*   (Bitterli et al., "Spatiotemporal reservoir resampling for real-time ray
+*   tracing with dynamic direct lighting", SIGGRAPH 2020 - the spatial reuse
+*   pass this file implements, in the streaming-RIS form
+*   ReflectionReSTIR.hlsli's Combine already uses.)
+*
 * ReSTIR spatial reuse for reflection: runs after ReflectionRayGeneration has
 * written this frame's temporally-combined reservoir for every pixel (and the
 * barrier that makes it SRV-readable) - reads the current pixel's own
@@ -65,6 +72,12 @@ void main(uint3 dtid : SV_DispatchThreadID)
 {
 	SceneConstantBuffer scene = GetSceneConstantBuffer();
 
+	/// [EN] Bounds guard: the dispatch is rounded up to a multiple of the
+	///      8x8 thread group size, so threads past the actual screen edge
+	///      must bail out before touching any resource.
+	/// [JP] 範囲外ガード: ディスパッチは 8x8 スレッドグループの倍数に
+	///      切り上げられているので、実際の画面端を超えたスレッドはどの
+	///      リソースにも触れる前に抜ける必要がある。
 	if (dtid.x >= (uint)scene.screen_size_.x || dtid.y >= (uint)scene.screen_size_.y)
 	{
 		return;
@@ -93,25 +106,37 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	StructuredBuffer<ReflectionReservoir> reservoir_buffer = ResourceDescriptorHeap[constant_indices.reflection_.reservoir_write_srv_index_];
 	ReflectionReservoir reservoir = reservoir_buffer[pixel.y * (uint)scene.screen_size_.x + pixel.x];
 
-	// [JP] raygen とは違う定数オフセットを混ぜ、時間的リユースの乱数列と
-	//      相関しないようにする(相関するとノイズが縞に見える)。
+	/// [EN] Mix in a different constant offset from raygen's, so this pass's
+	///      random sequence does not correlate with the temporal reuse
+	///      pass's (correlated noise shows up as visible banding).
+	/// [JP] raygen とは違う定数オフセットを混ぜ、時間的リユースの乱数列と
+	///      相関しないようにする(相関するとノイズが縞に見える)。
 	uint rng_state = SeedFromPixel(pixel, tuning.frame_index_ + 3266489917u);
 
 	int2 screen_max = int2(scene.screen_size_) - 1;
 	float2 depth_gradient = DenoiserDepthGradient(depth_texture, int2(pixel), screen_max);
 
-	// [JP] REFLECTION_RESERVOIR_M_CAP を下げた(時間方向の実効履歴を短くした)
-	//      ぶんのノイズ増を、時間方向ではなく空間方向のサンプル数で埋め合わせる
-	//      - 応答速度には影響しない(同一フレーム内の処理のため)。
+	/// [EN] Makes up for the extra noise from a lowered
+	///      REFLECTION_RESERVOIR_M_CAP (shorter effective temporal history)
+	///      with spatial sample count instead of temporal - does not affect
+	///      responsiveness, since this all runs within the same frame.
+	/// [JP] REFLECTION_RESERVOIR_M_CAP を下げた(時間方向の実効履歴を短く
+	///      した)ぶんのノイズ増を、時間方向ではなく空間方向のサンプル数で
+	///      埋め合わせる - 応答速度には影響しない(同一フレーム内の処理の
+	///      ため)。
 	const uint SPATIAL_SAMPLE_COUNT = 8;
 	const float SPATIAL_RADIUS = 16.0;
 	const float SPATIAL_WEIGHT_THRESHOLD = 0.1;
 	const float SPATIAL_DEPTH_SHARPNESS = 48.0;
 	const float SPATIAL_NORMAL_POWER = 8.0;
 
-	// [JP] ラフネス差の許容量。鏡面(roughness->0)ほど厳しく、粗い面
-	//      (roughness->1)ほど緩くする — 粗い面はもともとローブが広く、
-	//      近傍の方向のずれを吸収できる。
+	/// [EN] Tolerance for the roughness difference from the neighbor.
+	///      Stricter near mirror-like (roughness->0), looser toward rough
+	///      (roughness->1) - a rough surface already has a wide lobe, so it
+	///      can absorb more directional mismatch from a neighbor.
+	/// [JP] ラフネス差の許容量。鏡面(roughness->0)ほど厳しく、粗い面
+	///      (roughness->1)ほど緩くする - 粗い面はもともとローブが広く、
+	///      近傍の方向のずれを吸収できる。
 	float roughness_tolerance = lerp(0.02, 0.3, roughness);
 
 	[unroll]
@@ -139,13 +164,22 @@ void main(uint3 dtid : SV_DispatchThreadID)
 
 	output[pixel] = float4(reservoir.sample_radiance_ * reservoir.sample_w_, reservoir.sample_hit_distance_);
 
-	// [JP] このピクセルの reservoir が最終的にどれだけ収束しているか(時間的+
-	//      空間的結合を経た後の M / 上限)を ReflectionDenoiseCS.hlsl へ渡す。
-	//      ディスオクルージョン直後で M が低い間はデノイザ自身の時間的
-	//      ブレンドに任せ、M が上限付近まで積み上がった定常状態ではデノイザ
-	//      側のブレンドをほぼバイパスする — reservoir と SVGF が【それぞれ
-	//      独立に】長い時間平均を重ねる二重積分(体感的な「引きずられる」
-	//      動きの原因)を避けるため。
+	/// [EN] Passes how converged this pixel's reservoir ultimately is
+	///      (M / cap, after both temporal and spatial combine) to
+	///      ReflectionDenoiseCS.hlsl. While M stays low right after a
+	///      disocclusion, the denoiser's own temporal blend is left to do
+	///      the work; once M has built up near the cap at steady state, the
+	///      denoiser's blend is nearly bypassed - avoiding a double
+	///      integration where the reservoir and SVGF EACH independently
+	///      average over a long history (the felt cause of a "dragging"
+	///      motion trail).
+	/// [JP] このピクセルの reservoir が最終的にどれだけ収束しているか(時間的
+	///      +空間的結合を経た後の M / 上限)を ReflectionDenoiseCS.hlsl へ
+	///      渡す。ディスオクルージョン直後で M が低い間はデノイザ自身の
+	///      時間的ブレンドに任せ、M が上限付近まで積み上がった定常状態では
+	///      デノイザ側のブレンドをほぼバイパスする - reservoir と SVGF が
+	///      【それぞれ独立に】長い時間平均を重ねる二重積分(体感的な
+	///      「引きずられる」動きの原因)を避けるため。
 	RWTexture2D<float> confidence_output = ResourceDescriptorHeap[structured_indices.reflection_.confidence_uav_index_];
 	confidence_output[pixel] = saturate(reservoir.sample_m_ / REFLECTION_RESERVOIR_M_CAP);
 }

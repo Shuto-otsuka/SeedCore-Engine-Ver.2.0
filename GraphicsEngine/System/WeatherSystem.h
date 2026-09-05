@@ -1,12 +1,11 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
 #include <GraphicsEngine/Renderer/VolumetricCloudScapesRenderer.h>
+#include <GraphicsEngine/Environment/Weather.h>
 
 namespace SeedCore
 {
 	class World;
-	struct Weather;
-	enum class WeatherType;
 
 	/// [EN] Snapshot of the scene's Weather runtime state for the GPU (see
 	///      LightSystem::Gather's weather parameter). Zeroed when the scene
@@ -21,6 +20,17 @@ namespace SeedCore
 		Float thunderFlash_ = 0.0f;
 		Float snowIntensity_ = 0.0f;
 		Float thunderSeed_ = 0.0f;
+
+		/// [EN] The Weather component's particle tuning, carried through to
+		///      WeatherParticleRenderer::PrepareFrame. Left at defaults with
+		///      both enables off when the scene has no Weather component.
+		/// [JP] Weather コンポーネントのパーティクル調整値。
+		///      WeatherParticleRenderer::PrepareFrame まで運ぶ。シーンに
+		///      Weather コンポーネントが無ければ既定値かつ両方無効のまま。
+		Bool rainEnabled_ = false;
+		Rain rain_;
+		Bool snowEnabled_ = false;
+		Snow snow_;
 	};
 
 	/**

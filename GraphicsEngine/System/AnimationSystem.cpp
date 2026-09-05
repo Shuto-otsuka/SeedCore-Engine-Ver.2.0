@@ -5,6 +5,7 @@
 #include <GraphicsEngine/Model/Animation/AnimationResource.h>
 #include <GraphicsEngine/Model/Skeleton/Skeleton.h>
 #include <GraphicsEngine/Model/IK/FullBodyIK.h>
+#include <GraphicsEngine/Model/IK/IKPose.h>
 #include <GraphicsEngine/Constraint/IKConstraint.h>
 #include <FoundationEngine/Resource/LoaderSystem.h>
 #include <FoundationEngine/ECS/Query.h>
@@ -85,23 +86,32 @@ namespace SeedCore
 					IKConstraint* ik = actor.GetComponent<IKConstraint>();
 					if (ik)
 					{
-						const Char* effectorName = ik->effectorBoneName_.c_str();
-						if (effectorName && *effectorName != '\0')
+						Matrix worldToModel = actor.GetWorldMatrix().Invert();
+
+						for (const Effector& entry : ik->entries_)
 						{
-							Actor targetActor = (ik->enabled_ && ik->target_ != 0 && ik->weight_ > 0.0f) ? world.FindActor(ik->target_) : Actor();
+							const Char* effectorName = entry.effectorBoneName_.c_str();
+							if (!effectorName || *effectorName == '\0')
+							{
+								continue;
+							}
+
+							Actor targetActor = (ik->enabled_ && entry.target_ != 0 && entry.weight_ > 0.0f) ? world.FindActor(entry.target_) : Actor();
 							if (targetActor)
 							{
-								animator->SetIKTarget(ik->effectorBoneName_.str(), targetActor.GetWorldMatrix().Translation(), ik->weight_);
+								Vector3 targetModelPosition = Vector3::Transform(targetActor.GetWorldMatrix().Translation(), worldToModel);
+								animator->SetIKTarget(entry.effectorBoneName_.str(), targetModelPosition, entry.weight_);
 
-								Actor poleActor = (ik->pole_ != 0) ? world.FindActor(ik->pole_) : Actor();
+								Actor poleActor = (entry.pole_ != 0) ? world.FindActor(entry.pole_) : Actor();
 								if (poleActor)
 								{
-									animator->SetIKPole(ik->effectorBoneName_.str(), poleActor.GetWorldMatrix().Translation());
+									Vector3 poleModelPosition = Vector3::Transform(poleActor.GetWorldMatrix().Translation(), worldToModel);
+									animator->SetIKPole(entry.effectorBoneName_.str(), poleModelPosition);
 								}
 							}
 							else
 							{
-								animator->ClearIKTarget(ik->effectorBoneName_.str());
+								animator->ClearIKTarget(entry.effectorBoneName_.str());
 							}
 						}
 					}
@@ -336,6 +346,11 @@ namespace SeedCore
 
 				if (animator && !animator->GetIKTarget().empty())
 				{
+					if (animator->GetJointConstraint().empty())
+					{
+						IKPose::AutoDetectJointConstraints(*crister, *animator);
+					}
+
 					FullBodyIK::Apply(*crister, *animator, skeleton->globalTransforms_);
 					skeleton->animated_ = true;
 				}

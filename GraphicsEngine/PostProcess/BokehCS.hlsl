@@ -51,6 +51,10 @@
 #define BOKEH_SAMPLE_COUNT 12
 static const float BOKEH_TAU = 6.283185307;
 
+/**
+* Reconstructs world position from UV + device depth (mul takes the row
+* vector on the left, this project's row_major convention).
+*/
 float3 BokehReconstructWorldPosition(float2 uv, float depth, float4x4 inverse_view_projection)
 {
 	float4 ndc = float4(uv * 2.0 - 1.0, depth, 1.0);
@@ -59,6 +63,10 @@ float3 BokehReconstructWorldPosition(float2 uv, float depth, float4x4 inverse_vi
 	return world_position.xyz / world_position.w;
 }
 
+/**
+* Linear view-space depth at a UV, used to derive this pixel's circle of
+* confusion the same way DepthOfFieldCS.hlsl does.
+*/
 float BokehLinearViewDepth(float2 uv, Texture2D<float> depth_texture, SceneConstantBuffer scene)
 {
 	float depth = depth_texture.SampleLevel(sampler_point_clamp, uv, 0);
@@ -66,6 +74,11 @@ float BokehLinearViewDepth(float2 uv, Texture2D<float> depth_texture, SceneConst
 	return mul(float4(world_position, 1.0), scene.view_).z;
 }
 
+/**
+* Soft threshold weighting used before accumulating each polygon-outline
+* sample below. Fades to 0 as luminance approaches threshold from above,
+* rather than a hard cutoff.
+*/
 float3 BokehBrightPass(float3 color, float threshold)
 {
 	float luminance = dot(color, float3(0.2126, 0.7152, 0.0722));
@@ -92,6 +105,13 @@ void main(uint3 dtid : SV_DispatchThreadID)
 
 	uint width, height;
 	output.GetDimensions(width, height);
+
+	/// [EN] Bounds guard: the dispatch is rounded up to a multiple of the
+	///      8x8 thread group size, so threads past the actual screen edge
+	///      must bail out before touching any resource.
+	/// [JP] 範囲外ガード: ディスパッチは 8x8 スレッドグループの倍数に
+	///      切り上げられているので、実際の画面端を超えたスレッドはどの
+	///      リソースにも触れる前に抜ける必要がある。
 	if (dtid.x >= width || dtid.y >= height)
 	{
 		return;

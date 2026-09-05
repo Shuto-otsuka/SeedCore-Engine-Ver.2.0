@@ -192,11 +192,6 @@ namespace SeedCore
 		constraint.swingAngle2_ = swingAngle2;
 	}
 
-	Bool Animator::HasIK()const
-	{
-		return currentStateIndex_ >= 0 && static_cast<Size>(currentStateIndex_) < states_.size() && states_[currentStateIndex_].useIK_;
-	}
-
 	const std::unordered_map<std::string, IKTarget>& Animator::GetIKTarget()const
 	{
 		return ikTargets_;

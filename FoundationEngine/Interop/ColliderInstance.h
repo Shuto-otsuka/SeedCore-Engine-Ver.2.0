@@ -23,6 +23,7 @@ namespace SeedCore
 		Cylinder = 3,
 		Rect = 4,
 		Circle = 5,
+		Cone = 6,
 	};
 
 	/// [EN] One collider's worth of GPU-facing debug-draw data: shape kind,

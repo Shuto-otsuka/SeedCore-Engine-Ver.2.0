@@ -1,5 +1,6 @@
 #include <Editor/Editor/Panel/TodoListPanel.h>
 #include <Editor/Editor/EditorContext.h>
+#include <Editor/Editor/ImGui/ImGuiTexture.h>
 #include <FoundationEngine/Serialization/Json/JsonArchive.h>
 
 namespace SeedCore
@@ -65,7 +66,7 @@ namespace SeedCore
 		}
 	}
 
-	TodoListPanel::TodoListPanel(EditorContext& context)
+	TodoListPanel::TodoListPanel(EditorContext& context, ImGuiTexture& imguiTexture) : imguiTexture_(imguiTexture)
 	{
 		newItemBuffer_.resize(256);
 		Load();
@@ -125,7 +126,10 @@ namespace SeedCore
 			ImGui::SetNextItemWidth(70.0f);
 			PriorityCombo("##NewTodoPriority", newItemPriority_);
 			ImGui::SameLine();
-			Bool addClicked = ImGui::Button("追加", ImVec2(80.0f, 0));
+			Float addIconHeight = ImGui::GetTextLineHeight();
+			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+			Bool addClicked = ImGui::ImageButton("##add", imguiTexture_.Icon(IconType::Add), ImVec2(addIconHeight, addIconHeight));
+			ImGui::PopStyleColor();
 
 			if (entered || addClicked)
 			{
@@ -178,6 +182,7 @@ namespace SeedCore
 					}
 
 					ImGui::TableNextColumn();
+					ImGui::AlignTextToFramePadding();
 					if (item.done_)
 					{
 						ImGui::TextDisabled("%s", item.text_.c_str());
@@ -188,7 +193,11 @@ namespace SeedCore
 					}
 
 					ImGui::TableNextColumn();
-					if (ImGui::SmallButton("×"))
+					Float removeIconHeight = ImGui::GetTextLineHeight();
+					ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+					Bool removeClicked = ImGui::ImageButton("##remove", imguiTexture_.Icon(IconType::Remove), ImVec2(removeIconHeight, removeIconHeight));
+					ImGui::PopStyleColor();
+					if (removeClicked)
 					{
 						removeIndex = itemIndex;
 					}

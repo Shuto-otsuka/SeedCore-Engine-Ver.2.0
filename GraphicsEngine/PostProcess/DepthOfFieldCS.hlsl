@@ -40,6 +40,10 @@
 #define DOF_SAMPLE_COUNT 16
 static const float GOLDEN_ANGLE = 2.39996323;
 
+/**
+* Reconstructs world position from UV + device depth (mul takes the row
+* vector on the left, this project's row_major convention).
+*/
 float3 DepthOfFieldReconstructWorldPosition(float2 uv, float depth, float4x4 inverse_view_projection)
 {
 	float4 ndc = float4(uv * 2.0 - 1.0, depth, 1.0);
@@ -48,6 +52,10 @@ float3 DepthOfFieldReconstructWorldPosition(float2 uv, float depth, float4x4 inv
 	return world_position.xyz / world_position.w;
 }
 
+/**
+* Linear view-space depth at a UV, used to derive this pixel's circle of
+* confusion.
+*/
 float DepthOfFieldLinearViewDepth(float2 uv, Texture2D<float> depth_texture, SceneConstantBuffer scene)
 {
 	float depth = depth_texture.SampleLevel(sampler_point_clamp, uv, 0);
@@ -62,6 +70,13 @@ void main(uint3 dtid : SV_DispatchThreadID)
 
 	uint width, height;
 	output.GetDimensions(width, height);
+
+	/// [EN] Bounds guard: the dispatch is rounded up to a multiple of the
+	///      8x8 thread group size, so threads past the actual screen edge
+	///      must bail out before touching any resource.
+	/// [JP] 範囲外ガード: ディスパッチは 8x8 スレッドグループの倍数に
+	///      切り上げられているので、実際の画面端を超えたスレッドはどの
+	///      リソースにも触れる前に抜ける必要がある。
 	if (dtid.x >= width || dtid.y >= height)
 	{
 		return;
@@ -84,6 +99,16 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	float3 accum = source.SampleLevel(sampler_linear_clamp, uv, 0).rgb;
 	float weight_sum = 1.0;
 
+	/// [EN] Vogel disk: radius grows with sqrt(index) so equal-area annuli
+	///      get equal sample density, and angle advances by the golden angle
+	///      each step so consecutive samples never land close together -
+	///      together they cover the disk evenly with no visible spokes or
+	///      rings for a fixed, small sample count.
+	/// [JP] Vogel ディスク: 半径は sqrt(index) で伸ばすことで等面積の輪帯に
+	///      等サンプル密度を割り当て、角度は毎ステップ黄金角ぶん進めることで
+	///      連続するサンプルが近くに固まらないようにする - 少ない固定
+	///      サンプル数でも、目に見える放射状の筋や輪が出ずディスク全体を
+	///      均等に覆う。
 	if (blur_radius > 0.0001)
 	{
 		for (uint i = 0; i < DOF_SAMPLE_COUNT; i++)

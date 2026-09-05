@@ -2,6 +2,7 @@
 #include <Editor/Editor/EditorContext.h>
 #include <Editor/Editor/ImGui/ImGuiCommon.h>
 #include <Editor/Editor/ImGui/ImGuiRenderer.h>
+#include <Editor/Editor/ImGui/ImGuiTexture.h>
 #include <External/ImGui/Include/imgui_internal.h>
 #include <GraphicsEngine/Model/Animation/Animator.h>
 #include <FoundationEngine/Resource/ResourceCache.h>
@@ -216,7 +217,7 @@ namespace SeedCore
 		}
 	}
 
-	AnimatorControllerPanel::AnimatorControllerPanel(EditorContext& context) : context_(context)
+	AnimatorControllerPanel::AnimatorControllerPanel(EditorContext& context, ImGuiTexture& imguiTexture) : context_(context), imguiTexture_(imguiTexture)
 	{
 		/// [EN] The library binds the right button to both canvas navigation and
 		///      the context menu by default, and navigation consumes the click
@@ -1173,7 +1174,11 @@ namespace SeedCore
 
 				ImGui::SameLine();
 
-				if (ImGui::SmallButton("-"))
+				Float iconHeight = ImGui::GetTextLineHeight();
+				ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+				Bool removeClicked = ImGui::ImageButton("##remove", imguiTexture_.Icon(IconType::Remove), ImVec2(iconHeight, iconHeight));
+				ImGui::PopStyleColor();
+				if (removeClicked)
 				{
 					removeParameterIndex = parameterIndex;
 				}
@@ -1428,7 +1433,6 @@ namespace SeedCore
 			ImGui::Spacing();
 
 			ImGui::Checkbox("ルートモーションを使用", &state.useRootMotion_);
-			ImGui::Checkbox("IKを使用", &state.useIK_);
 		}
 		else
 		{

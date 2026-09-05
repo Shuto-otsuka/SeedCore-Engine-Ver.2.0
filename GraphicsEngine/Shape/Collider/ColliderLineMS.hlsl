@@ -9,6 +9,7 @@ static const uint box_line_count = 12;
 static const uint cylinder_body_line_count = 2 * ring_seg + vertical_count;
 static const uint rect_line_count = 4;
 static const uint circle_line_count = ring_seg;
+static const uint cone_line_count = ring_seg + vertical_count;
 
 static const uint threads_per_group = 128;
 
@@ -37,6 +38,10 @@ uint GetLineCount(uint shape_kind)
 	if (shape_kind == collider_shape_circle)
 	{
 		return circle_line_count;
+	}
+	if (shape_kind == collider_shape_cone)
+	{
+		return cone_line_count;
 	}
 	return 0;
 }
@@ -157,6 +162,28 @@ void GetCapsuleLine(float3 dimensions, uint line_index, out float3 a, out float3
 	}
 }
 
+void GetConeLine(float3 dimensions, uint line_index, out float3 a, out float3 b)
+{
+	float r = dimensions.x;
+	float h = dimensions.y;
+
+	if (line_index < ring_seg)
+	{
+		uint seg = line_index;
+		float angle0 = (float(seg) / float(ring_seg)) * two_pi;
+		float angle1 = (float(seg + 1) / float(ring_seg)) * two_pi;
+		a = float3(r * cos(angle0), -h, r * sin(angle0));
+		b = float3(r * cos(angle1), -h, r * sin(angle1));
+	}
+	else
+	{
+		uint k = line_index - ring_seg;
+		float angle = (float(k) / float(vertical_count)) * two_pi;
+		a = float3(r * cos(angle), -h, r * sin(angle));
+		b = float3(0.0, h, 0.0);
+	}
+}
+
 void GetRectLine(float3 dimensions, uint line_index, out float3 a, out float3 b)
 {
 	float hx = dimensions.x;
@@ -209,6 +236,10 @@ void GetLocalLine(uint shape_kind, float3 dimensions, uint line_index, out float
 	else if (shape_kind == collider_shape_circle)
 	{
 		GetCircleLine(dimensions, line_index, a, b);
+	}
+	else if (shape_kind == collider_shape_cone)
+	{
+		GetConeLine(dimensions, line_index, a, b);
 	}
 }
 
