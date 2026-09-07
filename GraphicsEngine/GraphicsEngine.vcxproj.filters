@@ -169,6 +169,12 @@
     <Filter Include="Model\Skeleton">
       <UniqueIdentifier>{9dff901e-71c5-4b7f-bf3b-8528a90b6fe8}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Avater">
+      <UniqueIdentifier>{2c696a44-0c81-485f-b77e-ea1f89f30465}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Avater\Human">
+      <UniqueIdentifier>{5cf60aa6-6af2-42a9-906f-9853ea26d8ab}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="D3D12\Context\D3D12Adapter.h">
@@ -841,6 +847,27 @@
     <ClInclude Include="Renderer\SkeletonControllerRenderer.h">
       <Filter>Renderer</Filter>
     </ClInclude>
+    <ClInclude Include="Shader\ShaderHotReload.h">
+      <Filter>Shader</Filter>
+    </ClInclude>
+    <ClInclude Include="Model\ModelExporter.h">
+      <Filter>Model</Filter>
+    </ClInclude>
+    <ClInclude Include="Avatar\Human\HumanCharacterModel.h">
+      <Filter>Avater\Human</Filter>
+    </ClInclude>
+    <ClInclude Include="Avatar\Human\HumanCharacterEvaluator.h">
+      <Filter>Avater\Human</Filter>
+    </ClInclude>
+    <ClInclude Include="Avatar\Human\HumanCharacterConverter.h">
+      <Filter>Avater\Human</Filter>
+    </ClInclude>
+    <ClInclude Include="Avatar\AvatarMesh.h">
+      <Filter>Avater</Filter>
+    </ClInclude>
+    <ClInclude Include="Renderer\AvatarRenderer.h">
+      <Filter>Renderer</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="D3D12\Context\D3D12Adapter.cpp">
@@ -1403,6 +1430,27 @@
     <ClCompile Include="Renderer\SkeletonControllerRenderer.cpp">
       <Filter>Renderer</Filter>
     </ClCompile>
+    <ClCompile Include="Shader\ShaderHotReload.cpp">
+      <Filter>Shader</Filter>
+    </ClCompile>
+    <ClCompile Include="Model\ModelExporter.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="Avatar\Human\HumanCharacterModel.cpp">
+      <Filter>Avater\Human</Filter>
+    </ClCompile>
+    <ClCompile Include="Avatar\Human\HumanCharacterEvaluator.cpp">
+      <Filter>Avater\Human</Filter>
+    </ClCompile>
+    <ClCompile Include="Avatar\Human\HumanCharacterConverter.cpp">
+      <Filter>Avater\Human</Filter>
+    </ClCompile>
+    <ClCompile Include="Avatar\AvatarMesh.cpp">
+      <Filter>Avater</Filter>
+    </ClCompile>
+    <ClCompile Include="Renderer\AvatarRenderer.cpp">
+      <Filter>Renderer</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="Shader\Sampler.hlsli">
@@ -1518,6 +1566,9 @@
     </None>
     <None Include="Raytracing\Reflection\ReflectionReSTIR.hlsli">
       <Filter>Raytracing\Reflection</Filter>
+    </None>
+    <None Include="Shader\Dispatch.hlsli">
+      <Filter>Shader</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>
@@ -1859,6 +1910,9 @@
     </Text>
     <Text Include="Shape\HUD\HUDComposePS.hlsl">
       <Filter>Shape\HUD</Filter>
+    </Text>
+    <Text Include="Avatar\AvatarPreviewPS.hlsl">
+      <Filter>Avater</Filter>
     </Text>
   </ItemGroup>
 </Project>

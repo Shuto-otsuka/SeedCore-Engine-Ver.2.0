@@ -40,7 +40,7 @@ namespace SeedCore
 		unorderedAccessViewRange.RegisterSpace = 0;
 		unorderedAccessViewRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-		D3D12_ROOT_PARAMETER params[4]{};
+		D3D12_ROOT_PARAMETER params[5]{};
 
 		params[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
 		params[0].DescriptorTable.NumDescriptorRanges = 1;
@@ -61,9 +61,15 @@ namespace SeedCore
 		params[3].Descriptor.ShaderRegister = 1;
 		params[3].Descriptor.RegisterSpace = 1;
 		params[3].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-		
+
+		params[4].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+		params[4].Constants.ShaderRegister = 2;
+		params[4].Constants.RegisterSpace = 1;
+		params[4].Constants.Num32BitValues = 1;
+		params[4].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
 		D3D12_ROOT_SIGNATURE_DESC rootSignatureDesc{};
-		rootSignatureDesc.NumParameters = 4;
+		rootSignatureDesc.NumParameters = 5;
 		rootSignatureDesc.pParameters = params;
 		rootSignatureDesc.NumStaticSamplers = static_cast<Uint>(samplerDesc.size());
 		rootSignatureDesc.pStaticSamplers = samplerDesc.data();

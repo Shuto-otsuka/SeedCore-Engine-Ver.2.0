@@ -2,7 +2,6 @@
 #include <FoundationEngine/Prelude.h>
 #include <FoundationEngine/Utility/ArtMap.h>
 #include <FoundationEngine/Utility/Handle.h>
-#include <FoundationEngine/Utility/NonTransferable.h>
 
 namespace SeedCore
 {

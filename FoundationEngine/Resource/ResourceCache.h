@@ -35,8 +35,8 @@ namespace SeedCore
 		/// [JP] 画像テクスチャ（.png/.jpg/.dds/...）。
 		Texture,
 
-		/// [EN] 3D model (.gltf/.glb/.crister).
-		/// [JP] 3Dモデル（.gltf/.glb/.crister）。
+		/// [EN] 3D model (.gltf/.glb/.fbx/.crister).
+		/// [JP] 3Dモデル（.gltf/.glb/.fbx/.crister）。
 		Model,
 
 		/// [EN] Particle/visual effect (.efkefc/.effekseer/.zephyr).
@@ -729,7 +729,7 @@ namespace SeedCore
 		std::set<std::string_view> includeExtensions_ =
 		{
 			".png", ".jpg", ".jpeg", ".texture", ".dds",
-			".gltf", ".glb", ".crister",
+			".gltf", ".glb", ".fbx", ".crister",
 			".animation",
 			".collision",
 			".material",

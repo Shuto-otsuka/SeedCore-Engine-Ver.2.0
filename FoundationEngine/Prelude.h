@@ -161,6 +161,7 @@
 #pragma comment(lib, "../External/MTSDF/Lib/Debug/libpng18_staticd.lib")
 #pragma comment(lib, "../External/MTSDF/Lib/Debug/libzsd.lib")
 #pragma comment(lib, "../External/NsightAftermath/Lib/GFSDK_Aftermath_Lib.x64.lib")
+#pragma comment(lib, "../External/FBXSDK/Lib/Debug/libfbxsdk.lib")
 #else
 #if !SC_RENDER_DOC_USAGE
 #pragma comment(lib, "../External/DLSS/Lib/sl.interposer.lib" )
@@ -184,6 +185,7 @@
 #pragma comment(lib, "../External/MTSDF/Lib/Release/libpng18_static.lib")
 #pragma comment(lib, "../External/MTSDF/Lib/Release/libzs.lib")
 #pragma comment(lib, "../External/NsightAftermath/Lib/GFSDK_Aftermath_Lib.x64.lib")
+#pragma comment(lib, "../External/FBXSDK/Lib/Release/libfbxsdk.lib")
 #endif
 
 #pragma comment(lib, "ole32.lib")
@@ -231,6 +233,14 @@
 #define STBI_NO_SIMD
 #endif
 #include <External/TinyglTF/Include/tiny_gltf.h>
+
+#ifndef FBXSDK_SHARED
+#define FBXSDK_SHARED
+#endif
+#pragma warning(push)
+#pragma warning(disable : 4996)
+#include <External/FBXSDK/Include/fbxsdk.h>
+#pragma warning(pop)
 
 #include <External/NsightAftermath/Include/GFSDK_Aftermath.h>
 #include <External/NsightAftermath/Include/GFSDK_Aftermath_GpuCrashDump.h>

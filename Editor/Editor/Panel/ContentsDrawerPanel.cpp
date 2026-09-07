@@ -9,7 +9,9 @@
 #include <GraphicsEngine/Texture/ImageResource.h>
 #include <GraphicsEngine/Texture/Texture.h>
 #include <GraphicsEngine/Model/ModelResource.h>
+#include <GraphicsEngine/Model/ModelLoader.h>
 #include <GraphicsEngine/Model/Crister.h>
+#include <FoundationEngine/File/FileDialog.h>
 #include <GraphicsEngine/D3D12/Descriptor/BindlessHeap.h>
 #include <GraphicsEngine/D3D12/Descriptor/DescriptorHeap.h>
 #include <GraphicsEngine/Graphics.h>
@@ -1011,6 +1013,29 @@ namespace SeedCore
 					ImGui::CloseCurrentPopup();
 				}
 
+				if (ImGui::BeginMenu("エクスポート"))
+				{
+					if (ImGui::MenuItem("glTF"))
+					{
+						ExportModel(asset, ModelFormat::Gltf, L"gltf");
+						ImGui::CloseCurrentPopup();
+					}
+
+					if (ImGui::MenuItem("glTF binary"))
+					{
+						ExportModel(asset, ModelFormat::Gltf, L"glb");
+						ImGui::CloseCurrentPopup();
+					}
+
+					if (ImGui::MenuItem("FBX"))
+					{
+						ExportModel(asset, ModelFormat::Fbx, L"fbx");
+						ImGui::CloseCurrentPopup();
+					}
+
+					ImGui::EndMenu();
+				}
+
 				ImGui::EndMenu();
 			}
 
@@ -1118,6 +1143,38 @@ namespace SeedCore
 		needsRebuild_ = true;
 
 		SC_LOG_NOTICE("ContentsDrawerPanel: スケルトンを生成しました: {}", asset.path_.c_str());
+	}
+
+	void ContentsDrawerPanel::ExportModel(const Asset& asset, ModelFormat format, const Wchar* extension)
+	{
+		std::filesystem::path sourcePath(asset.fullpath_.str());
+
+		std::wstring filterName = L"*.";
+		filterName += extension;
+		std::wstring filterExt = L"*.";
+		filterExt += extension;
+
+		std::wstring initialFileName = sourcePath.stem().wstring();
+
+		std::filesystem::path outputPath;
+		if (!FileDialog::SaveFile(outputPath, sourcePath.parent_path(), filterName.c_str(), filterExt.c_str(), extension, initialFileName.c_str()))
+		{
+			return;
+		}
+
+		D3D12Context* d3d12Context = context_.graphicsContext_.graphics_->GetContext();
+
+		Bool exported = context_.worldContext_.resource_->GetModelResource()->Export(*context_.worldContext_.loader_, d3d12Context->GetDevice(), d3d12Context->GetDirectQueue(), context_.graphicsContext_.graphics_->GetBindlessHeap(), context_.graphicsContext_.graphics_->GetBC7CompressShader(), *context_.worldContext_.resource_, asset.assetID_, format, String(outputPath.string()));
+		if (!exported)
+		{
+			SC_LOG_WARNING("ContentsDrawerPanel: モデルのエクスポートに失敗しました: {}", asset.path_.c_str());
+			return;
+		}
+
+		context_.worldContext_.resource_->Reload(*context_.worldContext_.loader_, d3d12Context->GetDevice(), d3d12Context->GetDirectQueue(), context_.graphicsContext_.graphics_->GetBC7CompressShader());
+		needsRebuild_ = true;
+
+		SC_LOG_NOTICE("ContentsDrawerPanel: モデルをエクスポートしました: {}", asset.path_.c_str());
 	}
 
 	void ContentsDrawerPanel::DrawBackgroundContextMenu()

@@ -85,9 +85,13 @@ namespace SeedCore
 	* 書き込み true を返す。ユーザーがキャンセルしたか、ダイアログが
 	* 失敗した場合は false。
 	*/
-	Bool FileDialog::SaveFile(std::filesystem::path& outPath, const std::filesystem::path& initialDir, const Wchar* filterName, const Wchar* filterExt, const Wchar* defaultExt)
+	Bool FileDialog::SaveFile(std::filesystem::path& outPath, const std::filesystem::path& initialDir, const Wchar* filterName, const Wchar* filterExt, const Wchar* defaultExt, const Wchar* initialFileName)
 	{
 		Wchar fileBuffer[MAX_PATH] = {};
+		if (initialFileName != nullptr && initialFileName[0] != L'\0')
+		{
+			wcsncpy_s(fileBuffer, initialFileName, _TRUNCATE);
+		}
 		std::wstring filter = MakeFilter(filterName, filterExt);
 		std::wstring initialDirStr = initialDir.wstring();
 

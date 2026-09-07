@@ -156,6 +156,10 @@ namespace SeedCore
 				{
 					modelTransformRequested_ = true;
 				}
+				if (ImGui::MenuItem("アバター"))
+				{
+					avatarRequested_ = true;
+				}
 				ImGui::EndMenu();
 			}
 
@@ -390,6 +394,16 @@ namespace SeedCore
 		if (modelTransformRequested_)
 		{
 			modelTransformRequested_ = false;
+			return true;
+		}
+		return false;
+	}
+
+	Bool MenuBarPanel::ConsumeAvatarRequest()
+	{
+		if (avatarRequested_)
+		{
+			avatarRequested_ = false;
 			return true;
 		}
 		return false;

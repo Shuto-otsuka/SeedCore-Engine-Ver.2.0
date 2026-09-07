@@ -34,6 +34,7 @@ namespace SeedCore
 		modelTransformRenderer_ = MakePtr<ModelTransformRenderer>(rootSignature_, pipelineStateObject_);
 		materialRenderer_ = MakePtr<MaterialRenderer>(rootSignature_, pipelineStateObject_);
 		skeletonControllerRenderer_ = MakePtr<SkeletonControllerRenderer>(rootSignature_, pipelineStateObject_);
+		avatarRenderer_ = MakePtr<AvatarRenderer>(rootSignature_, pipelineStateObject_);
 		effekseerRenderer_ = MakePtr<EffekseerRenderer>();
 		postProcessRenderer_ = MakePtr<PostProcessRenderer>(rootSignature_, pipelineStateObject_);
 		dlssRayReconstructionRenderer_ = MakePtr<DlssRayReconstructionRenderer>(rootSignature_, pipelineStateObject_);
@@ -117,6 +118,7 @@ namespace SeedCore
 		modelTransformRenderer_->Create(device, bindlessHeap, shaderCache, width, height);
 		materialRenderer_->Create(device, bindlessHeap, shaderCache, width, height);
 		skeletonControllerRenderer_->Create(device, bindlessHeap, shaderCache, width, height);
+		avatarRenderer_->Create(device, bindlessHeap, shaderCache, width, height);
 		postProcessRenderer_->Create(device, bindlessHeap, shaderCache, width, height, width, height);
 		dlssRayReconstructionRenderer_->Create(device, bindlessHeap, shaderCache, *indicesSystem_, width, height, width, height);
 		taauUpsamplingRenderer_->Create(device, bindlessHeap, shaderCache, width, height);
@@ -181,6 +183,7 @@ namespace SeedCore
 		modelTransformRenderer_->Resize(device, bindlessHeap, nativeWidth, nativeHeight);
 		materialRenderer_->Resize(device, bindlessHeap, nativeWidth, nativeHeight);
 		skeletonControllerRenderer_->Resize(device, bindlessHeap, nativeWidth, nativeHeight);
+		avatarRenderer_->Resize(device, bindlessHeap, nativeWidth, nativeHeight);
 		postProcessRenderer_->Resize(device, bindlessHeap, nativeWidth, nativeHeight, outputWidth, outputHeight);
 		dlssRayReconstructionRenderer_->Resize(device, bindlessHeap, *indicesSystem_, nativeWidth, nativeHeight, outputWidth, outputHeight);
 		taauUpsamplingRenderer_->Resize(device, bindlessHeap, outputWidth, outputHeight);
@@ -405,6 +408,16 @@ namespace SeedCore
 		skeletonControllerRenderer_->End(cmdList);
 	}
 
+	void Renderer::BeginAvatarFrame(D3D12CommandList* cmdList)
+	{
+		avatarRenderer_->Begin(cmdList);
+	}
+
+	void Renderer::EndAvatarFrame(D3D12CommandList* cmdList)
+	{
+		avatarRenderer_->End(cmdList);
+	}
+
 	void Renderer::GatherScenePreview(LoaderSystem& loaderSystem, ResourceCache& resourceCache, World& world, const SceneConstantBuffer& scene, const DynamicArray<ColliderInstance>& colliderInstances, Entity selectedEntity)
 	{
 		colliderRenderer_->Clear();
@@ -474,6 +487,11 @@ namespace SeedCore
 		ModelResource* modelResource = resourceCache.GetModelResource();
 		AnimationResource* animationResource = resourceCache.GetAnimationResource();
 		skeletonControllerRenderer_->Gather(loaderSystem, *modelResource, *animationResource, meshAssetId, animationAssetId, time, worldMatrix, selectedNodeIndex);
+	}
+
+	void Renderer::GatherAvatarPreview(const AvatarMesh& mesh, const HumanCharacterEvaluator& evaluator, const Matrix& worldMatrix)
+	{
+		avatarRenderer_->Gather(mesh, evaluator, worldMatrix);
 	}
 
 	void Renderer::Raytracing(const RaytracingContext& settings)
@@ -1020,6 +1038,14 @@ namespace SeedCore
 		skeletonControllerRenderer_->DrawBones(cmdList, heap);
 	}
 
+	void Renderer::AvatarFlush(D3D12CommandList* cmdList, const SceneConstantBuffer& scene)
+	{
+		ID3D12DescriptorHeap* heap = bindlessHeap_->Heap();
+
+		avatarRenderer_->Upload();
+		avatarRenderer_->Draw(cmdList, heap, scene);
+	}
+
 	FrameBuffer* Renderer::GetEditorFrameBuffer()const
 	{
 		return editorFrameBuffer_.get();
@@ -1108,6 +1134,7 @@ namespace SeedCore
 		modelTransformRenderer_->RegisterImGuiShaderResourceView(device, imguiHeap);
 		materialRenderer_->RegisterImGuiShaderResourceView(device, imguiHeap);
 		skeletonControllerRenderer_->RegisterImGuiShaderResourceView(device, imguiHeap);
+		avatarRenderer_->RegisterImGuiShaderResourceView(device, imguiHeap);
 	}
 
 	void Renderer::RefreshImGui(RaytracingView view)
@@ -1160,5 +1187,10 @@ namespace SeedCore
 	D3D12_GPU_DESCRIPTOR_HANDLE Renderer::SkeletonControllerImGuiGPUHandle()const
 	{
 		return skeletonControllerRenderer_->ImGuiGPUHandle();
+	}
+
+	D3D12_GPU_DESCRIPTOR_HANDLE Renderer::AvatarImGuiGPUHandle()const
+	{
+		return avatarRenderer_->ImGuiGPUHandle();
 	}
 }

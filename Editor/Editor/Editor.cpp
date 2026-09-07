@@ -39,12 +39,14 @@ namespace SeedCore
 		skeletonControllerPanel_ = MakePtr<SkeletonControllerPanel>(context_);
 		materialViewerPanel_ = MakePtr<MaterialViewerPanel>(context_);
 		modelTransformPanel_ = MakePtr<ModelTransformPanel>(context_);
+		avatarPanel_ = MakePtr<AvatarPanel>(context_);
 
 		context_.panelContext_.animatorControllerPanel_ = &*animatorControllerPanel_;
 		context_.panelContext_.timelinePanel_ = &*timelinePanel_;
 		context_.panelContext_.layerSettingsPanel_ = &*layerSettingsPanel_;
 		context_.panelContext_.materialViewerPanel_ = &*materialViewerPanel_;
 		context_.panelContext_.skeletonControllerPanel_ = &*skeletonControllerPanel_;
+		context_.panelContext_.avatarPanel_ = &*avatarPanel_;
 
 		SC_LOG_NOTICE("エディターの初期化が完了しました");
 	}
@@ -167,6 +169,10 @@ namespace SeedCore
 		{
 			modelTransformPanel_->Open();
 		}
+		if (menuBarPanel_->ConsumeAvatarRequest())
+		{
+			avatarPanel_->Open();
+		}
 		if (context_.modelTransformPreviewContext_.requestedAssetId_ != 0)
 		{
 			modelTransformPanel_->Open(context_.modelTransformPreviewContext_.requestedAssetId_);
@@ -182,12 +188,13 @@ namespace SeedCore
 		return toolbarHeight_;
 	}
 
-	void Editor::Draw(D3D12_GPU_DESCRIPTOR_HANDLE editorFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE gameFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE canvasFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE timelinePreviewFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE modelTransformPreviewFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE materialPreviewFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE skeletonControllerPreviewFrameBufferHandle, const GpuProfiler& gpuProfiler)
+	void Editor::Draw(D3D12_GPU_DESCRIPTOR_HANDLE editorFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE gameFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE canvasFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE timelinePreviewFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE modelTransformPreviewFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE materialPreviewFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE skeletonControllerPreviewFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE avatarPreviewFrameBufferHandle, const GpuProfiler& gpuProfiler)
 	{
 		timelinePanel_->SetPreviewHandle(timelinePreviewFrameBufferHandle);
 		modelTransformPanel_->SetPreviewHandle(modelTransformPreviewFrameBufferHandle);
 		materialViewerPanel_->SetPreviewHandle(materialPreviewFrameBufferHandle);
 		skeletonControllerPanel_->SetPreviewHandle(skeletonControllerPreviewFrameBufferHandle);
+		avatarPanel_->SetPreviewHandle(avatarPreviewFrameBufferHandle);
 
 		/// [EN] Must run after DockSpaceBegin() (called by Engine before this
 		///      function) so ImGui::DockSpace() has already created/refreshed
@@ -210,6 +217,7 @@ namespace SeedCore
 		skeletonControllerPanel_->Draw();
 		materialViewerPanel_->Draw();
 		modelTransformPanel_->Draw();
+		avatarPanel_->Draw();
 
 		gameWindowPanel_->Draw(gameFrameBufferHandle, toolbarHeight_);
 

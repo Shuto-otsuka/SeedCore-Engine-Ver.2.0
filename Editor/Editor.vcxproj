@@ -171,6 +171,7 @@
     <ClCompile Include="Editor\Build\RuntimeBuilder.cpp" />
     <ClCompile Include="Editor\Build\VisualStudioAutomation.cpp" />
     <ClCompile Include="Editor\Panel\AnimatorControllerPanel.cpp" />
+    <ClCompile Include="Editor\Panel\AvatarPanel.cpp" />
     <ClCompile Include="Editor\Panel\CanvasViewPanel.cpp" />
     <ClCompile Include="Editor\Panel\ConfigPanel.cpp" />
     <ClCompile Include="Editor\Panel\EnvironmentMenuPanel.cpp" />
@@ -260,6 +261,7 @@
     <ClInclude Include="Editor\ImGui\ImGuiTexture.h" />
     <ClInclude Include="Editor\Panel\AddComponentPanel.h" />
     <ClInclude Include="Editor\Panel\AnimatorControllerPanel.h" />
+    <ClInclude Include="Editor\Panel\AvatarPanel.h" />
     <ClInclude Include="Editor\Panel\CanvasViewPanel.h" />
     <ClInclude Include="Editor\Panel\ConfigPanel.h" />
     <ClInclude Include="Editor\Panel\ConsolePanel.h" />

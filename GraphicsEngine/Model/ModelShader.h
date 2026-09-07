@@ -81,6 +81,8 @@ namespace SeedCore
 
 		[[nodiscard]] ID3D12PipelineState* GetPipelineStatePreviewSkeletal()const;
 
+		[[nodiscard]] ID3D12PipelineState* GetPipelineStateAvatarPreview()const;
+
 		/// [EN] Wireframe debug PSOs: Static/Skeletal MS + WireframePS, wireframe
 		///      rasterizer, single R16G16B16A16_FLOAT RT, depth read (no write) so
 		///      the wires are occluded by the scene depth. Editor view-mode only.
@@ -145,6 +147,9 @@ namespace SeedCore
 		Handle<PixelShader> previewPixelShader_;
 		Handle<Microsoft::WRL::ComPtr<ID3D12PipelineState>> pipelineStateObjectPreviewStatic_;
 		Handle<Microsoft::WRL::ComPtr<ID3D12PipelineState>> pipelineStateObjectPreviewSkeletal_;
+
+		Handle<PixelShader> avatarPreviewPixelShader_;
+		Handle<Microsoft::WRL::ComPtr<ID3D12PipelineState>> pipelineStateObjectAvatarPreview_;
 
 		Handle<PixelShader> wireframePixelShader_;
 		Handle<Microsoft::WRL::ComPtr<ID3D12PipelineState>> pipelineStateObjectWireframeStatic_;

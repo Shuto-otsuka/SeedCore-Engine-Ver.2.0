@@ -17,6 +17,8 @@
 #include <GraphicsEngine/D3D12/PipelineState/RootSignature.h>
 #include <GraphicsEngine/Font/FontResource.h>
 #include <GraphicsEngine/Movie/MovieResource.h>
+#include <GraphicsEngine/Avatar/AvatarMesh.h>
+#include <GraphicsEngine/Avatar/Human/HumanCharacterEvaluator.h>
 
 namespace SeedCore
 {
@@ -421,6 +423,36 @@ namespace SeedCore
 		renderer_->EndSkeletonControllerFrame(context_->GetDirectList());
 	}
 
+	void Graphics::AvatarRender(WorldTimer& timer, const PreviewCamera& avatarCamera, const AvatarMesh& mesh, const HumanCharacterEvaluator& evaluator, const Matrix& worldMatrix)
+	{
+		renderer_->GatherAvatarPreview(mesh, evaluator, worldMatrix);
+
+		SceneConstantBuffer previewSceneConstantBuffer{};
+		previewSceneConstantBuffer.view_ = avatarCamera.View();
+		previewSceneConstantBuffer.inverseView_ = avatarCamera.InverseView();
+		previewSceneConstantBuffer.projection_ = avatarCamera.Projection();
+		previewSceneConstantBuffer.inverseProjection_ = avatarCamera.InverseProjection();
+		previewSceneConstantBuffer.nonJitterProjection_ = avatarCamera.NonJitterProjection();
+		previewSceneConstantBuffer.currentViewProjection_ = avatarCamera.CurrentViewProjection();
+		previewSceneConstantBuffer.previousViewProjection_ = avatarCamera.PreviousViewProjection();
+		previewSceneConstantBuffer.inverseViewProjection_ = avatarCamera.InverseViewProjection();
+		previewSceneConstantBuffer.nonJitterViewProjection_ = avatarCamera.NonJitterViewProjection();
+		previewSceneConstantBuffer.cameraPosition_ = Vector4(avatarCamera.Eye().x, avatarCamera.Eye().y, avatarCamera.Eye().z, 1.0f);
+		previewSceneConstantBuffer.cameraFocus_ = Vector4(avatarCamera.Focus().x, avatarCamera.Focus().y, avatarCamera.Focus().z, 1.0f);
+		previewSceneConstantBuffer.fieldOfView_ = avatarCamera.Fov();
+		previewSceneConstantBuffer.nearPlane_ = avatarCamera.Near();
+		previewSceneConstantBuffer.farPlane_ = avatarCamera.Far();
+		previewSceneConstantBuffer.totalTime_ = timer.TotalTime();
+		previewSceneConstantBuffer.deltaTime_ = timer.DeltaTime();
+		previewSceneConstantBuffer.screenSize_ = Vector2(static_cast<Float>(nativeWidth_), static_cast<Float>(nativeHeight_));
+		previewSceneConstantBuffer.inverseScreenSize_ = Vector2(1.0f / nativeWidth_, 1.0f / nativeHeight_);
+		previewSceneConstantBuffer.displaySize_ = previewSceneConstantBuffer.screenSize_;
+
+		renderer_->BeginAvatarFrame(context_->GetDirectList());
+		renderer_->AvatarFlush(context_->GetDirectList(), previewSceneConstantBuffer);
+		renderer_->EndAvatarFrame(context_->GetDirectList());
+	}
+
 	void Graphics::Begin()
 	{
 		context_->BeginFrame();
@@ -592,6 +624,11 @@ namespace SeedCore
 	D3D12_GPU_DESCRIPTOR_HANDLE Graphics::SkeletonControllerImGuiGPUHandle()const
 	{
 		return renderer_->SkeletonControllerImGuiGPUHandle();
+	}
+
+	D3D12_GPU_DESCRIPTOR_HANDLE Graphics::AvatarImGuiGPUHandle()const
+	{
+		return renderer_->AvatarImGuiGPUHandle();
 	}
 
 	CameraSystem& Graphics::GetCameraSystem()

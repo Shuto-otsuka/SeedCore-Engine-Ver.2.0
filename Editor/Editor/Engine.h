@@ -96,10 +96,12 @@ namespace SeedCore
 		PreviewCamera modelTransformCamera_;
 		PreviewCamera materialCamera_;
 		PreviewCamera skeletonControllerCamera_;
+		PreviewCamera avatarCamera_;
 		PreviewCameraController timelineCameraController_;
 		PreviewCameraController modelTransformCameraController_;
 		PreviewCameraController materialCameraController_;
 		PreviewCameraController skeletonControllerCameraController_;
+		PreviewCameraController avatarCameraController_;
 
 		WeatherSystem weatherSystem_;
 	};

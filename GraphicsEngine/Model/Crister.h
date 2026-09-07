@@ -1069,6 +1069,7 @@ namespace SeedCore
 	{
 	private:
 		friend class ModelLoader;
+		friend class ModelExporter;
 
 		/// [EN] Source vertices. Only alive during the load/bake pipeline
 		///      (FetchMeshes -> BuildMeshlets -> BakeMesh); not serialized.

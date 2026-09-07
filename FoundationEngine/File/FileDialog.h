@@ -51,6 +51,6 @@ namespace SeedCore
 		* 書き込み true を返す。ユーザーがキャンセルしたか、ダイアログが
 		* 失敗した場合は false。
 		*/
-		static Bool SaveFile(std::filesystem::path& outPath, const std::filesystem::path& initialDir, const Wchar* filterName, const Wchar* filterExt, const Wchar* defaultExt);
+		static Bool SaveFile(std::filesystem::path& outPath, const std::filesystem::path& initialDir, const Wchar* filterName, const Wchar* filterExt, const Wchar* defaultExt, const Wchar* initialFileName = nullptr);
 	};
 }

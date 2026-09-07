@@ -142,6 +142,9 @@
     <ClCompile Include="Editor\Panel\SkeletonControllerPanel.cpp">
       <Filter>Editor\Panel</Filter>
     </ClCompile>
+    <ClCompile Include="Editor\Panel\AvatarPanel.cpp">
+      <Filter>Editor\Panel</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Editor\ImGui\ImGuiCommon.h">
@@ -274,6 +277,9 @@
       <Filter>Editor\Panel</Filter>
     </ClInclude>
     <ClInclude Include="Editor\Panel\SkeletonControllerPanel.h">
+      <Filter>Editor\Panel</Filter>
+    </ClInclude>
+    <ClInclude Include="Editor\Panel\AvatarPanel.h">
       <Filter>Editor\Panel</Filter>
     </ClInclude>
   </ItemGroup>

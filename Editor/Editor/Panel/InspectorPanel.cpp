@@ -6,6 +6,7 @@
 #include <Editor/Editor/Panel/LayerSettingsPanel.h>
 #include <Editor/Editor/Panel/MaterialViewerPanel.h>
 #include <Editor/Editor/Panel/SkeletonControllerPanel.h>
+#include <Editor/Editor/Panel/AvatarPanel.h>
 #include <FoundationEngine/ECS/World.h>
 #include <FoundationEngine/ECS/Actor.h>
 #include <FoundationEngine/ECS/Component.h>
@@ -73,6 +74,13 @@ namespace SeedCore
 			if (context_.panelContext_.skeletonControllerPanel_ && context_.panelContext_.skeletonControllerPanel_->IsFocused())
 			{
 				context_.panelContext_.skeletonControllerPanel_->DrawDetails();
+				ImGui::End();
+				return;
+			}
+
+			if (context_.panelContext_.avatarPanel_ && context_.panelContext_.avatarPanel_->IsFocused())
+			{
+				context_.panelContext_.avatarPanel_->DrawDetails();
 				ImGui::End();
 				return;
 			}

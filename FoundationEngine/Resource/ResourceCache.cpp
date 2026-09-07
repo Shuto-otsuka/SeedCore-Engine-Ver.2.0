@@ -992,7 +992,7 @@ namespace SeedCore
 				{
 					asset.type_ = AssetType::Texture;
 				}
-				else if (extention == ".gltf" || extention == ".glb" || extention == ".crister")
+				else if (extention == ".gltf" || extention == ".glb" || extention == ".fbx" || extention == ".crister")
 				{
 					asset.type_ = AssetType::Model;
 				}

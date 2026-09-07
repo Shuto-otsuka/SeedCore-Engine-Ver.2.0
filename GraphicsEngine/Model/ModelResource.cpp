@@ -1,5 +1,6 @@
 #include <GraphicsEngine/Model/ModelResource.h>
 #include <GraphicsEngine/Model/ModelLoader.h>
+#include <GraphicsEngine/Model/ModelExporter.h>
 #include <GraphicsEngine/Model/Material/MaterialLoader.h>
 #include <GraphicsEngine/Model/Skeleton/SkeletonLoader.h>
 #include <GraphicsEngine/D3D12/Descriptor/BindlessHeap.h>
@@ -53,6 +54,13 @@ namespace SeedCore
 				const Surface& material = materials[materialIndex];
 
 				std::string stem = material.name_.empty() ? ("Material_" + std::to_string(materialIndex)) : material.name_;
+				for (char& character : stem)
+				{
+					if (std::string_view("\\/:*?\"<>|").find(character) != std::string_view::npos || static_cast<Uchar>(character) < 0x20)
+					{
+						character = '_';
+					}
+				}
 				if (usedNames.contains(stem))
 				{
 					stem += "_" + std::to_string(materialIndex);
@@ -90,6 +98,36 @@ namespace SeedCore
 		}
 
 		return handle;
+	}
+
+	Bool ModelResource::Export(LoaderSystem& loader, ID3D12Device* device, D3D12CommandQueue* cmdQueue, BindlessHeap* heap, BC7CompressShader& bc7Shader, ResourceCache& cache, Uint32 assetId, ModelFormat format, String outputPath)
+	{
+		Asset* asset = cache.GetAsset(assetId);
+		if (!asset)
+		{
+			return false;
+		}
+
+		std::filesystem::path modelPath(asset->fullpath_.c_str());
+		std::filesystem::path exportPath(outputPath.c_str());
+		if (exportPath.empty() || modelPath.lexically_normal() == exportPath.lexically_normal())
+		{
+			return false;
+		}
+
+		AxisConvention axisConvention = cache.ReadAxisConvention(assetId);
+		Handle<Crister> handle = loader.modelLoader_->Load(loader, device, cmdQueue, heap, bc7Shader, asset->fullpath_, axisConvention, true);
+		Crister* crister = loader.modelLoader_->Get(handle);
+		if (!crister)
+		{
+			return false;
+		}
+
+		ModelExporter exporter;
+		Bool result = exporter.Export(*crister, format, outputPath);
+
+		loader.modelLoader_->Clear(handle, heap);
+		return result;
 	}
 
 	Bool ModelResource::GenerateCollision(LoaderSystem& loader, ID3D12Device* device, D3D12CommandQueue* cmdQueue, BindlessHeap* heap, BC7CompressShader& bc7Shader, ResourceCache& cache, Uint32 assetId, MeshCollisionDetail detail)
@@ -148,6 +186,13 @@ namespace SeedCore
 			const Surface& material = materials[materialIndex];
 
 			std::string stem = material.name_.empty() ? ("Material_" + std::to_string(materialIndex)) : material.name_;
+			for (char& character : stem)
+			{
+				if (std::string_view("\\/:*?\"<>|").find(character) != std::string_view::npos || static_cast<Uchar>(character) < 0x20)
+				{
+					character = '_';
+				}
+			}
 			if (usedNames.contains(stem))
 			{
 				stem += "_" + std::to_string(materialIndex);

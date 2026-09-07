@@ -32,6 +32,7 @@
 #include <GraphicsEngine/Renderer/ModelTransformRenderer.h>
 #include <GraphicsEngine/Renderer/MaterialRenderer.h>
 #include <GraphicsEngine/Renderer/SkeletonControllerRenderer.h>
+#include <GraphicsEngine/Renderer/AvatarRenderer.h>
 #include <GraphicsEngine/Renderer/EffekseerRenderer.h>
 #include <GraphicsEngine/Renderer/PostProcessRenderer.h>
 #include <GraphicsEngine/D3D12/Buffer/HudlessBuffer.h>
@@ -91,6 +92,10 @@ namespace SeedCore
 
 		void EndSkeletonControllerFrame(D3D12CommandList* cmdList);
 
+		void BeginAvatarFrame(D3D12CommandList* cmdList);
+
+		void EndAvatarFrame(D3D12CommandList* cmdList);
+
 	public:
 		void GatherScenePreview(LoaderSystem& loaderSystem, ResourceCache& resourceCache, World& world, const SceneConstantBuffer& scene, const DynamicArray<ColliderInstance>& colliderInstances, Entity selectedEntity = Entity::Null());
 
@@ -101,6 +106,8 @@ namespace SeedCore
 		void GatherMaterialPreview(LoaderSystem& loaderSystem, ResourceCache& resourceCache, Uint32 meshAssetId, Uint32 surfaceAssetId, const Matrix& worldMatrix);
 
 		void GatherSkeletonControllerPreview(LoaderSystem& loaderSystem, ResourceCache& resourceCache, Uint32 meshAssetId, Uint32 animationAssetId, Float time, const Matrix& worldMatrix, Int selectedNodeIndex);
+
+		void GatherAvatarPreview(const AvatarMesh& mesh, const HumanCharacterEvaluator& evaluator, const Matrix& worldMatrix);
 
 	public:
 		void Raytracing(const RaytracingContext& settings);
@@ -121,6 +128,8 @@ namespace SeedCore
 		void MaterialFlush(D3D12CommandList* cmdList, const SceneConstantBuffer& scene);
 
 		void SkeletonControllerFlush(D3D12CommandList* cmdList, const SceneConstantBuffer& scene);
+
+		void AvatarFlush(D3D12CommandList* cmdList, const SceneConstantBuffer& scene);
 
 	public:
 		[[nodiscard]] const GpuProfiler& GetGpuProfiler()const;
@@ -153,6 +162,8 @@ namespace SeedCore
 		[[nodiscard]] D3D12_GPU_DESCRIPTOR_HANDLE MaterialImGuiGPUHandle()const;
 
 		[[nodiscard]] D3D12_GPU_DESCRIPTOR_HANDLE SkeletonControllerImGuiGPUHandle()const;
+
+		[[nodiscard]] D3D12_GPU_DESCRIPTOR_HANDLE AvatarImGuiGPUHandle()const;
 
 	private:
 		void RefreshImGui(RaytracingView view);
@@ -196,6 +207,7 @@ namespace SeedCore
 		ResourcePtr<ModelTransformRenderer> modelTransformRenderer_;
 		ResourcePtr<MaterialRenderer> materialRenderer_;
 		ResourcePtr<SkeletonControllerRenderer> skeletonControllerRenderer_;
+		ResourcePtr<AvatarRenderer> avatarRenderer_;
 
 		ResourcePtr<EffekseerRenderer> effekseerRenderer_;
 

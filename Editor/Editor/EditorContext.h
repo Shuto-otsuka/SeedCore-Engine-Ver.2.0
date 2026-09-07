@@ -33,6 +33,9 @@ namespace SeedCore
 	class LayerSettingsPanel;
 	class MaterialViewerPanel;
 	class SkeletonControllerPanel;
+	class AvatarPanel;
+	class AvatarMesh;
+	class HumanCharacterEvaluator;
 
 	struct WorldContext
 	{
@@ -59,10 +62,12 @@ namespace SeedCore
 		PreviewCamera* modelTransformCamera_ = nullptr;
 		PreviewCamera* materialCamera_ = nullptr;
 		PreviewCamera* skeletonControllerCamera_ = nullptr;
+		PreviewCamera* avatarCamera_ = nullptr;
 		PreviewCameraController* timelineCameraController_ = nullptr;
 		PreviewCameraController* modelTransformCameraController_ = nullptr;
 		PreviewCameraController* materialCameraController_ = nullptr;
 		PreviewCameraController* skeletonControllerCameraController_ = nullptr;
+		PreviewCameraController* avatarCameraController_ = nullptr;
 		CameraSystem* cameraSystem_ = nullptr;
 	};
 
@@ -133,6 +138,14 @@ namespace SeedCore
 		Int selectedNodeIndex_ = -1;
 	};
 
+	struct AvatarPreviewContext
+	{
+		Bool previewActive_ = false;
+		AvatarMesh* mesh_ = nullptr;
+		HumanCharacterEvaluator* evaluator_ = nullptr;
+		Matrix previewWorldMatrix_ = Matrix::Identity;
+	};
+
 	struct PanelContext
 	{
 		AnimatorControllerPanel* animatorControllerPanel_ = nullptr;
@@ -140,6 +153,7 @@ namespace SeedCore
 		LayerSettingsPanel* layerSettingsPanel_ = nullptr;
 		MaterialViewerPanel* materialViewerPanel_ = nullptr;
 		SkeletonControllerPanel* skeletonControllerPanel_ = nullptr;
+		AvatarPanel* avatarPanel_ = nullptr;
 	};
 
 	struct EditorContext
@@ -154,6 +168,7 @@ namespace SeedCore
 		ModelTransformPreviewContext modelTransformPreviewContext_;
 		MaterialPreviewContext materialPreviewContext_;
 		SkeletonControllerPreviewContext skeletonControllerPreviewContext_;
+		AvatarPreviewContext avatarPreviewContext_;
 		PanelContext panelContext_;
 
 		Uint64 uiFrame_ = 0;

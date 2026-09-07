@@ -218,10 +218,13 @@ namespace SeedCore
 		hr = dxcCompiler->Compile(&dxcBuffer, arguments.data(), static_cast<Uint32>(arguments.size()), dxcIncludeHandler.Get(), IID_PPV_ARGS(&result));
 		SC_HR_CHECK(hr, "コンパイル実行中に致命的なエラーが発生しました");
 
+		ShaderCompileResult compileResult{};
+
 		Microsoft::WRL::ComPtr<IDxcBlobUtf8> errorBlob;
 		result->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&errorBlob), nullptr);
 		if (errorBlob && errorBlob->GetStringLength() > 0)
 		{
+			compileResult.errorMessage.assign(errorBlob->GetStringPointer(), errorBlob->GetStringLength());
 			SC_LOG_WARNING("シェーダーコンパイル警告: {}", errorBlob->GetStringPointer());
 			OutputDebugStringA(errorBlob->GetStringPointer());
 		}
@@ -230,29 +233,15 @@ namespace SeedCore
 		if (FAILED(hr))
 		{
 			SC_LOG_ERROR("シェーダーコンパイル失敗: {} ({})", filePath.str(), targetProfile.str());
-			return {};
+			return compileResult;
 		}
 
-		ShaderCompileResult compileResult{};
 		result->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&compileResult.objectBlob), nullptr);
 		result->GetOutput(DXC_OUT_REFLECTION, IID_PPV_ARGS(&compileResult.reflectionBlob), nullptr);
 
 		if (compileResult.objectBlob)
 		{
 #ifdef _DEBUG
-			/// [EN] Written under a Develop/ subfolder, separate from the
-			///      Release cache above - Debug never reads this back
-			///      (CompileInternal always recompiles in Debug), it exists
-			///      only so Nsight Graphics's "Shader Binaries" search path
-			///      can find the -Qembed_debug blob on disk and resolve a
-			///      crash dump's DXIL offsets to HLSL source/line.
-			/// [JP] 上のReleaseキャッシュとは別に Develop/ サブフォルダへ
-			///      書き出す - Debugではこれを読み返すことはない
-			///      (CompileInternalはDebugでは常に再コンパイルする)。存在意義
-			///      は、Nsight Graphics の「Shader Binaries」検索パスがディスク
-			///      上の -Qembed_debug 付きバイナリを見つけ、クラッシュダンプの
-			///      DXIL オフセットを HLSL のソース/行へ解決できるようにする
-			///      ためだけ。
 			std::string filename = std::filesystem::path(path).filename().string();
 			filename = filename.substr(0, filename.size() - 5) + ".dbg.cso";
 			SaveCso(String("../CompiledShaderObject/Develop/" + filename), compileResult.objectBlob.Get());

@@ -12,6 +12,36 @@ namespace SeedCore
 	class BC7CompressShader;
 	class D3D12CommandQueue;
 
+	enum class ModelFormat
+	{
+		Gltf,
+		Fbx,
+	};
+
+	struct GltfSource
+	{
+		const tinygltf::Model* model_ = nullptr;
+	};
+
+	struct FbxSource
+	{
+		FbxScene* scene_ = nullptr;
+		std::string directory_;
+		std::string stem_;
+		Float unitScale_ = 1.0f;
+		DynamicArray<FbxNode*> nodeTable_;
+		DynamicArray<FbxMesh*> meshTable_;
+		mutable DynamicArray<FbxSurfaceMaterial*> materialTable_;
+		mutable DynamicArray<FbxFileTexture*> textureTable_;
+	};
+
+	struct ModelSource
+	{
+		ModelFormat format_ = ModelFormat::Gltf;
+		GltfSource gltf_;
+		FbxSource fbx_;
+	};
+
 	/**
 	* [EN]
 	* Loads glTF/GLB 3D models and converts them into the engine's internal
@@ -67,7 +97,7 @@ namespace SeedCore
 		* せずキャッシュから読み込む。axisConvention は glTF を再解析する
 		* 場合のみ適用される（キャッシュ読み込み時は無視される）。
 		*/
-		Handle<Crister> Load(LoaderSystem& loader, ID3D12Device* device, D3D12CommandQueue* cmdQueue, BindlessHeap* heap, BC7CompressShader& bc7Shader, String filePath, const AxisConvention& axisConvention = AxisConvention{});
+		Handle<Crister> Load(LoaderSystem& loader, ID3D12Device* device, D3D12CommandQueue* cmdQueue, BindlessHeap* heap, BC7CompressShader& bc7Shader, String filePath, const AxisConvention& axisConvention = AxisConvention{}, Bool forExport = false);
 
 		/**
 		* [EN]
@@ -101,7 +131,7 @@ namespace SeedCore
 		* [JP]
 		* glTF からシーン定義（ルートノードリスト + デフォルトシーン）を抽出する。
 		*/
-		void FetchStages(const tinygltf::Model& model, Crister& crister);
+		void FetchStages(const ModelSource& source, Crister& crister);
 
 		/**
 		* [EN]
@@ -112,7 +142,7 @@ namespace SeedCore
 		* [JP]
 		* glTF からノード階層とトランスフォーム（S/R/T または行列）を抽出する。
 		*/
-		void FetchNodes(const tinygltf::Model& model, Crister& crister);
+		void FetchNodes(const ModelSource& source, Crister& crister);
 
 		/**
 		* [EN]
@@ -123,7 +153,7 @@ namespace SeedCore
 		* [JP]
 		* 全メッシュプリミティブの頂点属性とインデックスバッファを抽出する。
 		*/
-		void FetchMeshes(const tinygltf::Model& model, Crister& crister);
+		void FetchMeshes(const ModelSource& source, Crister& crister);
 
 		/**
 		* [EN]
@@ -134,7 +164,7 @@ namespace SeedCore
 		* [JP]
 		* PBR マテリアルを抽出し、テクスチャ → イメージインデックスを解決する。
 		*/
-		void FetchMaterials(const tinygltf::Model& model, Crister& crister);
+		void FetchMaterials(const ModelSource& source, Crister& crister);
 
 		/**
 		* [EN]
@@ -145,7 +175,7 @@ namespace SeedCore
 		* [JP]
 		* スケルトンデータ（ジョイントリスト + 逆バインド行列）を抽出する。
 		*/
-		void FetchSkins(const tinygltf::Model& model, Crister& crister);
+		void FetchSkins(const ModelSource& source, Crister& crister);
 
 		/**
 		* [EN]
@@ -158,7 +188,7 @@ namespace SeedCore
 		* mesh + skin のペアを参照する glTF ノードを走査し、各 SubMesh が
 		* どのスキンに属するか（属さないか）を解決する。
 		*/
-		void ResolveSubMeshSkins(const tinygltf::Model& model, Crister& crister);
+		void ResolveSubMeshSkins(const ModelSource& source, Crister& crister);
 
 		/**
 		* [EN]
@@ -169,7 +199,7 @@ namespace SeedCore
 		* [JP]
 		* glTF からデコード済み画像データを Crister のテクスチャ配列にコピーする。
 		*/
-		void FetchTexture(const tinygltf::Model& model, Crister& crister);
+		void FetchTexture(const ModelSource& source, Crister& crister);
 
 		/**
 		* [EN]
@@ -212,6 +242,10 @@ namespace SeedCore
 		*/
 		void ConvertAxisConvention(Crister& crister, const AxisConvention& axisConvention);
 
+		void ConvertSceneConvention(FbxScene* scene, FbxManager* manager);
+
+		void ConvertFlatConvention(ModelSource& source);
+
 		/**
 		* [EN]
 		* Extracts KHR_lights_punctual point/spot lights, resolving each
@@ -231,7 +265,7 @@ namespace SeedCore
 		* ディレクショナルライトはスキップする: このエンジンの単一
 		* ディレクショナルライトはモデル単位ではなくシーン単位で設定する。
 		*/
-		void FetchLights(const tinygltf::Model& model, Crister& crister);
+		void FetchLights(const ModelSource& source, Crister& crister);
 
 		/// [EN] Transforms a position/direction Vector3 by a change-of-basis matrix (v' = Vector3::Transform(v, basis)).
 		/// [JP] 位置/方向を表す Vector3 を基底変換行列で変換する (v' = Vector3::Transform(v, basis))。

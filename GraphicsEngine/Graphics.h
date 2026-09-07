@@ -27,6 +27,9 @@ namespace SeedCore
 
 	class GameTimer;
 
+	class AvatarMesh;
+	class HumanCharacterEvaluator;
+
 	class SEEDCORE_API Graphics
 	{
 	public:
@@ -54,6 +57,8 @@ namespace SeedCore
 		void MaterialRender(WorldTimer& timer, const PreviewCamera& materialCamera, LoaderSystem& loaderSystem, ResourceCache& resourceCache, Uint32 meshAssetId, Uint32 surfaceAssetId, const Matrix& worldMatrix);
 
 		void SkeletonControllerRender(WorldTimer& timer, const PreviewCamera& skeletonControllerCamera, LoaderSystem& loaderSystem, ResourceCache& resourceCache, Uint32 meshAssetId, Uint32 animationAssetId, Float time, const Matrix& worldMatrix, Int selectedNodeIndex);
+
+		void AvatarRender(WorldTimer& timer, const PreviewCamera& avatarCamera, const AvatarMesh& mesh, const HumanCharacterEvaluator& evaluator, const Matrix& worldMatrix);
 
 		void Begin();
 
@@ -117,6 +122,8 @@ namespace SeedCore
 		[[nodiscard]] D3D12_GPU_DESCRIPTOR_HANDLE MaterialImGuiGPUHandle()const;
 
 		[[nodiscard]] D3D12_GPU_DESCRIPTOR_HANDLE SkeletonControllerImGuiGPUHandle()const;
+
+		[[nodiscard]] D3D12_GPU_DESCRIPTOR_HANDLE AvatarImGuiGPUHandle()const;
 
 	private:
 		Float width_ = ScResolution::SC_HD.Width;

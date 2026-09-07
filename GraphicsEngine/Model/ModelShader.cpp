@@ -135,6 +135,25 @@ namespace SeedCore
 			pipelineStateObjectPreviewSkeletal_ = pipelineStateObject_.GetOrCreate(device, psokey);
 		}
 
+		{
+			avatarPreviewPixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Avatar/AvatarPreviewPS.hlsl"));
+
+			PipelineStateKey psokey{};
+			memset(&psokey, 0, sizeof(psokey));
+			psokey.rootSignature_ = rootSignature_.Get(modelRootSignature_)->Get();
+			psokey.amplificationShader_ = shaderCache.GetAmplificationShader(amplificationShader_)->Bytecode();
+			psokey.meshShader_ = shaderCache.GetMeshShader(staticMeshShader_)->Bytecode();
+			psokey.pixelShader_ = shaderCache.GetPixelShader(avatarPreviewPixelShader_)->Bytecode();
+			psokey.rasterizerDesc_ = RasterizerState::Get(RasterizerStateType::SolidNoneLHS);
+			psokey.blendDesc_ = BlendState::Get(BlendStateType::Opaque);
+			psokey.depthStencilDesc_ = DepthStencilState::Get(DepthStencilStateType::DepthOnWriteOnReverseZ);
+			psokey.renderTargetViewFormat_[0] = DXGI_FORMAT_R16G16B16A16_FLOAT;
+			psokey.renderTargetViewCount_ = 1;
+			psokey.depthStencilViewFormat_ = DXGI_FORMAT_D32_FLOAT;
+			psokey.primitiveTopologyType_ = D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED;
+			pipelineStateObjectAvatarPreview_ = pipelineStateObject_.GetOrCreate(device, psokey);
+		}
+
 		/// [EN] Wireframe debug PSOs: Static/Skeletal MS + WireframePS, wireframe
 		///      rasterizer, single R16G16B16A16_FLOAT RT (the editor frame buffer),
 		///      depth read-only reverse-Z so wires are occluded by the scene depth.
@@ -341,6 +360,11 @@ namespace SeedCore
 	ID3D12PipelineState* ModelShader::GetPipelineStatePreviewSkeletal()const
 	{
 		return pipelineStateObject_.Get(pipelineStateObjectPreviewSkeletal_);
+	}
+
+	ID3D12PipelineState* ModelShader::GetPipelineStateAvatarPreview()const
+	{
+		return pipelineStateObject_.Get(pipelineStateObjectAvatarPreview_);
 	}
 
 	ID3D12PipelineState* ModelShader::GetPipelineStateWireframeStatic()const

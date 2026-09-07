@@ -19,6 +19,10 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Avatar\AvatarMesh.h" />
+    <ClInclude Include="Avatar\Human\HumanCharacterConverter.h" />
+    <ClInclude Include="Avatar\Human\HumanCharacterEvaluator.h" />
+    <ClInclude Include="Avatar\Human\HumanCharacterModel.h" />
     <ClInclude Include="Camera\Camera.h" />
     <ClInclude Include="Camera\CanvasCamera.h" />
     <ClInclude Include="Camera\EditorCamera.h" />
@@ -126,6 +130,7 @@
     <ClInclude Include="Model\Material\MaterialSortBuffer.h" />
     <ClInclude Include="Model\Material\MaterialState.h" />
     <ClInclude Include="Model\Mesh.h" />
+    <ClInclude Include="Model\ModelExporter.h" />
     <ClInclude Include="Model\ModelInstanceData.h" />
     <ClInclude Include="Model\ModelLoader.h" />
     <ClInclude Include="Model\ModelResource.h" />
@@ -185,6 +190,7 @@
     <ClInclude Include="Raytracing\VolumetricLight\VolumetricLightShader.h" />
     <ClInclude Include="Raytracing\VolumetricStar\VolumetricStarShader.h" />
     <ClInclude Include="Renderer\AmbientOcclusionRenderer.h" />
+    <ClInclude Include="Renderer\AvatarRenderer.h" />
     <ClInclude Include="Renderer\ColliderRenderer.h" />
     <ClInclude Include="Renderer\DecalRenderer.h" />
     <ClInclude Include="Renderer\DlssRayReconstructionRenderer.h" />
@@ -219,6 +225,7 @@
     <ClInclude Include="ScreenSpace\ScreenSpaceContext.h" />
     <ClInclude Include="Shader\ShaderCache.h" />
     <ClInclude Include="Shader\ShaderCompiler.h" />
+    <ClInclude Include="Shader\ShaderHotReload.h" />
     <ClInclude Include="Shape\Collider\ColliderLineShader.h" />
     <ClInclude Include="Shape\HUD\HUDComposeShader.h" />
     <ClInclude Include="Shape\Outline\OutlineShader.h" />
@@ -245,6 +252,10 @@
     <ClInclude Include="Texture\Texture.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Avatar\AvatarMesh.cpp" />
+    <ClCompile Include="Avatar\Human\HumanCharacterConverter.cpp" />
+    <ClCompile Include="Avatar\Human\HumanCharacterEvaluator.cpp" />
+    <ClCompile Include="Avatar\Human\HumanCharacterModel.cpp" />
     <ClCompile Include="Camera\CanvasCamera.cpp" />
     <ClCompile Include="Camera\FreeCameraController.cpp" />
     <ClCompile Include="Camera\OrbitCameraController.cpp" />
@@ -290,6 +301,7 @@
     <ClCompile Include="Model\Material\MaterialResource.cpp" />
     <ClCompile Include="Model\Material\MaterialSortBuffer.cpp" />
     <ClCompile Include="Model\ModelCommon.cpp" />
+    <ClCompile Include="Model\ModelExporter.cpp" />
     <ClCompile Include="Model\ModelLoader.cpp" />
     <ClCompile Include="Model\ModelResource.cpp" />
     <ClCompile Include="Model\ModelShader.cpp" />
@@ -421,6 +433,7 @@
     <ClCompile Include="Raytracing\VolumetricLight\VolumetricLightShader.cpp" />
     <ClCompile Include="Raytracing\VolumetricStar\VolumetricStarShader.cpp" />
     <ClCompile Include="Renderer\AmbientOcclusionRenderer.cpp" />
+    <ClCompile Include="Renderer\AvatarRenderer.cpp" />
     <ClCompile Include="Renderer\ColliderRenderer.cpp" />
     <ClCompile Include="Renderer\DecalRenderer.cpp" />
     <ClCompile Include="Renderer\DlssRayReconstructionRenderer.cpp" />
@@ -456,6 +469,7 @@
     </ClCompile>
     <ClCompile Include="Shader\ShaderCompiler.cpp">
     </ClCompile>
+    <ClCompile Include="Shader\ShaderHotReload.cpp" />
     <ClCompile Include="Shape\Collider\ColliderLineShader.cpp" />
     <ClCompile Include="Shape\HUD\HUDComposeShader.cpp" />
     <ClCompile Include="Shape\Outline\OutlineShader.cpp" />
@@ -586,6 +600,10 @@
     <None Include="Shader\Denoiser.hlsli">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </None>
+    <None Include="Shader\Dispatch.hlsli">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
     </None>
     <None Include="Shader\Light.hlsli">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
@@ -1062,6 +1080,11 @@
       <FileType>Document</FileType>
     </Text>
     <Text Include="Shape\HUD\HUDComposePS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Avatar\AvatarPreviewPS.hlsl">
       <FileType>Document</FileType>
     </Text>
   </ItemGroup>

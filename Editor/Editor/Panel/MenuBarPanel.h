@@ -42,6 +42,8 @@ namespace SeedCore
 
 		Bool ConsumeModelTransformRequest();
 
+		Bool ConsumeAvatarRequest();
+
 		[[nodiscard]] ViewMode GetViewMode()const;
 
 	private:
@@ -84,6 +86,7 @@ namespace SeedCore
 		Bool skeletonControllerRequested_ = false;
 		Bool materialViewerRequested_ = false;
 		Bool modelTransformRequested_ = false;
+		Bool avatarRequested_ = false;
 
 		GraphicsMenuPanel graphicsMenuPanel_;
 		RuntimeBuilder runtimeBuilder_;

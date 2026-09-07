@@ -12,6 +12,7 @@ namespace SeedCore
 	class BC7CompressShader;
 	class D3D12CommandQueue;
 	enum class MeshCollisionDetail;
+	enum class ModelFormat;
 
 	/**
 	* [EN]
@@ -42,6 +43,8 @@ namespace SeedCore
 		* アセット ID でモデルをロードする。既にロード済みなら既存のハンドルを返す。
 		*/
 		Handle<Crister> Load(LoaderSystem& loader, ID3D12Device* device, D3D12CommandQueue* cmdQueue, BindlessHeap* heap, BC7CompressShader& bc7Shader, ResourceCache& cache, Uint32 assetId);
+
+		Bool Export(LoaderSystem& loader, ID3D12Device* device, D3D12CommandQueue* cmdQueue, BindlessHeap* heap, BC7CompressShader& bc7Shader, ResourceCache& cache, Uint32 assetId, ModelFormat format, String outputPath);
 
 		/**
 		* [EN]
