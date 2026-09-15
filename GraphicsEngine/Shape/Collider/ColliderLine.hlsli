@@ -98,7 +98,7 @@ void GetCylinderLine(float3 dimensions, uint line_index, out float3 a, out float
 	}
 }
 
-/// [EN] Sphere geometry isn't generated procedurally — it's looked up from
+/// [EN] Sphere geometry isn't generated procedurally - it's looked up from
 ///      ColliderRenderer's persistent icosphere edge table (built once on
 ///      the CPU to match JPH::DebugRenderer's own DrawWireSphere density),
 ///      scaled by dimensions.x (radius).
@@ -112,7 +112,7 @@ void GetSphereLine(float3 dimensions, uint line_index, out float3 a, out float3 
 /// [EN] Cylindrical body (procedural, see GetCylinderLine) plus two
 ///      hemispherical caps looked up from ColliderRenderer's persistent
 ///      hemisphere edge table (the y>=0 half of the same icosphere used for
-///      Sphere) — the bottom cap reuses the same table mirrored in y.
+///      Sphere) - the bottom cap reuses the same table mirrored in y.
 ///      dimensions = (radius, halfHeightOfCylinder, unused).
 void GetCapsuleLine(float3 dimensions, uint line_index, out float3 a, out float3 b)
 {
