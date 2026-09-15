@@ -28,7 +28,6 @@ namespace SeedCore
 	class GameTimer;
 
 	class AvatarMesh;
-	class HumanCharacterEvaluator;
 
 	class SEEDCORE_API Graphics
 	{
@@ -44,7 +43,7 @@ namespace SeedCore
 
 		void Resize(Uint32 nativeWidth, Uint32 nativeHeight, Uint32 outputWidth, Uint32 outputHeight, DescriptorHeap* imguiHeap);
 
-		void EditorRender(WorldTimer& timer, const EditorCamera& editorCamera, LoaderSystem& loaderSystem, ResourceCache& resourceCache, World& world, ViewMode viewMode, const DynamicArray<ColliderInstance>& colliderInstances, Entity selectedEntity = Entity::Null());
+		void EditorRender(WorldTimer& timer, const EditorCamera& editorCamera, LoaderSystem& loaderSystem, ResourceCache& resourceCache, World& world, ViewMode viewMode, const DynamicArray<ColliderStructuredBuffer>& colliderInstances, Entity selectedEntity = Entity::Null());
 
 		void GameRender(GameTimer& timer, LoaderSystem& loaderSystem, ResourceCache& resourceCache, World& world);
 
@@ -58,7 +57,7 @@ namespace SeedCore
 
 		void SkeletonControllerRender(WorldTimer& timer, const PreviewCamera& skeletonControllerCamera, LoaderSystem& loaderSystem, ResourceCache& resourceCache, Uint32 meshAssetId, Uint32 animationAssetId, Float time, const Matrix& worldMatrix, Int selectedNodeIndex);
 
-		void AvatarRender(WorldTimer& timer, const PreviewCamera& avatarCamera, const AvatarMesh& mesh, const HumanCharacterEvaluator& evaluator, const Matrix& worldMatrix);
+		void AvatarRender(WorldTimer& timer, const PreviewCamera& avatarCamera, const AvatarMesh& mesh, Uint32 boneCount, const Matrix& worldMatrix, std::span<const Uint32> regionTextureIndices);
 
 		void Begin();
 
@@ -126,6 +125,9 @@ namespace SeedCore
 		[[nodiscard]] D3D12_GPU_DESCRIPTOR_HANDLE AvatarImGuiGPUHandle()const;
 
 	private:
+		void PrepareFrame(Float deltaTime, LoaderSystem& loaderSystem, ResourceCache& resourceCache, World& world, Entity selectedEntity);
+
+	private:
 		Float width_ = ScResolution::SC_HD.Width;
 
 		Float height_ = ScResolution::SC_HD.Height;
@@ -156,6 +158,9 @@ namespace SeedCore
 		MovieSystem movieSystem_;
 
 		ResourcePtr<Renderer> renderer_;
+
+		Uint64 frameCount_ = 0;
+		Uint64 preparedFrame_ = 0;
 
 		SplashScreen splashScreen_;
 

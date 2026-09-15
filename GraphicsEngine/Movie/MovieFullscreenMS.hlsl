@@ -1,16 +1,16 @@
 #include "Movie.hlsli"
-#include "../Shader/Structured.hlsli"
+#include "../Shader/ShaderResources.hlsli"
 
 [NumThreads(32, 1, 1)]
 [OutputTopology("triangle")]
 void main(in payload MovieASPayload payload, uint gtid : SV_GroupThreadID, uint gid : SV_GroupID, out vertices MovieFullscreenMSOutput output[4], out indices uint3 triangles[2])
 {
-	StructuredBuffer<MovieFullscreenInstance> movie_fullscreen = ResourceDescriptorHeap[structured_indices.movie_.fullscreen_index_];
+	StructuredBuffer<MovieFullscreenStructuredBuffer> movie_fullscreen = GetMovieFullscreenStructuredBuffer(shader_resource_indices.movie_.fullscreen_index_);
 
 	SetMeshOutputCounts(4u, 2u);
 
 	uint instance_id = payload.instance_indices[gid];
-	MovieFullscreenInstance instance = movie_fullscreen[instance_id];
+	MovieFullscreenStructuredBuffer instance = movie_fullscreen[instance_id];
 
 	float2 corners[4] =
 	{
@@ -32,9 +32,9 @@ void main(in payload MovieASPayload payload, uint gtid : SV_GroupThreadID, uint 
 	{
 		output[gtid].position = float4(corners[gtid], 0.0f, 1.0f);
 		output[gtid].uv = uvs[gtid];
-		output[gtid].color = instance.color;
-		output[gtid].texture_index = instance.texture_index;
-		output[gtid].texture_aspect = instance.texture_aspect;
+		output[gtid].color = instance.color_;
+		output[gtid].texture_index = instance.texture_index_;
+		output[gtid].texture_aspect = instance.texture_aspect_;
 	}
 
 	if (gtid == 0)

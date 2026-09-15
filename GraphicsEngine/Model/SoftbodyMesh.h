@@ -19,7 +19,7 @@ namespace SeedCore
 	* (Crister::SoftbodyFinestVertices) — that StaticModelMS.hlsl/
 	* MaterialResolveCS.hlsl read exactly like any other Crister-owned
 	* instance, because both only ever look at the bindless buffer indices
-	* a ModelInstanceData carries, never at Crister itself.
+	* a ModelStructuredBuffer carries, never at Crister itself.
 	*
 	* Physics does NOT simulate this full-resolution mesh (a mesh
 	* shader-scale vertex/edge count is far past what Jolt's soft body
@@ -48,7 +48,7 @@ namespace SeedCore
 	* （Crister::SoftbodyFinestVertices）から一度だけ構築する。これは
 	* StaticModelMS.hlsl/MaterialResolveCS.hlsl から見れば他の
 	* Crister 所有インスタンスと全く同じに読める — どちらも
-	* ModelInstanceData が持つ bindless バッファインデックスしか見ておらず、
+	* ModelStructuredBuffer が持つ bindless バッファインデックスしか見ておらず、
 	* Crister 自体は一切参照しないため。
 	*
 	* Physics はこのフル解像度メッシュを直接シミュレートしない

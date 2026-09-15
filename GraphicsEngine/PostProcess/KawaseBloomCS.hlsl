@@ -1,4 +1,6 @@
-#include "../Shader/Constants.hlsli"
+#include "PostProcess.hlsli"
+#include "../Shader/ShaderResources.hlsli"
+#include "../Shader/UnorderedAccesses.hlsli"
 #include "../Shader/Sampler.hlsli"
 
 /**
@@ -66,50 +68,50 @@ uint BloomUnorderedAccessViewIndex(uint level)
 {
 	if (level == 0)
 	{
-		return constant_indices.post_process_.bloom_.level0_uav_index_;
+		return unordered_access_indices.post_process_.bloom_.level0_index_;
 	}
 	if (level == 1)
 	{
-		return constant_indices.post_process_.bloom_.level1_uav_index_;
+		return unordered_access_indices.post_process_.bloom_.level1_index_;
 	}
 	if (level == 2)
 	{
-		return constant_indices.post_process_.bloom_.level2_uav_index_;
+		return unordered_access_indices.post_process_.bloom_.level2_index_;
 	}
 	if (level == 3)
 	{
-		return constant_indices.post_process_.bloom_.level3_uav_index_;
+		return unordered_access_indices.post_process_.bloom_.level3_index_;
 	}
 	if (level == 4)
 	{
-		return constant_indices.post_process_.bloom_.level4_uav_index_;
+		return unordered_access_indices.post_process_.bloom_.level4_index_;
 	}
-	return constant_indices.post_process_.bloom_.level5_uav_index_;
+	return unordered_access_indices.post_process_.bloom_.level5_index_;
 }
 
 uint BloomShaderResourceViewIndex(uint level)
 {
 	if (level == 0)
 	{
-		return constant_indices.post_process_.bloom_.level0_srv_index_;
+		return shader_resource_indices.post_process_.bloom_.level0_index_;
 	}
 	if (level == 1)
 	{
-		return constant_indices.post_process_.bloom_.level1_srv_index_;
+		return shader_resource_indices.post_process_.bloom_.level1_index_;
 	}
 	if (level == 2)
 	{
-		return constant_indices.post_process_.bloom_.level2_srv_index_;
+		return shader_resource_indices.post_process_.bloom_.level2_index_;
 	}
 	if (level == 3)
 	{
-		return constant_indices.post_process_.bloom_.level3_srv_index_;
+		return shader_resource_indices.post_process_.bloom_.level3_index_;
 	}
 	if (level == 4)
 	{
-		return constant_indices.post_process_.bloom_.level4_srv_index_;
+		return shader_resource_indices.post_process_.bloom_.level4_index_;
 	}
-	return constant_indices.post_process_.bloom_.level5_srv_index_;
+	return shader_resource_indices.post_process_.bloom_.level5_index_;
 }
 
 float Luminance(float3 color)
@@ -402,7 +404,7 @@ void UpsampleLevel(uint3 dtid, uint source_level, uint destination_level)
 	Texture2D<float4> source = ResourceDescriptorHeap[BloomShaderResourceViewIndex(source_level)];
 
 	float2 uv = (float2(dtid.xy) + 0.5) / float2(width, height);
-	float radius = constant_indices.post_process_.bloom_.filter_radius_;
+	float radius = GetPostProcessConstantBuffer().bloom_.filter_radius_;
 
 	float3 result = destination[dtid.xy].rgb + UpsampleTent(source, uv, radius);
 	destination[dtid.xy] = float4(result, 1.0);
@@ -411,7 +413,7 @@ void UpsampleLevel(uint3 dtid, uint source_level, uint destination_level)
 [numthreads(8, 8, 1)]
 void DownsamplePrefilter(uint3 dtid : SV_DispatchThreadID)
 {
-	RWTexture2D<float4> destination = ResourceDescriptorHeap[constant_indices.post_process_.bloom_.level0_uav_index_];
+	RWTexture2D<float4> destination = ResourceDescriptorHeap[unordered_access_indices.post_process_.bloom_.level0_index_];
 
 	uint width, height;
 	destination.GetDimensions(width, height);
@@ -433,7 +435,7 @@ void DownsamplePrefilter(uint3 dtid : SV_DispatchThreadID)
 	/// [JP] プレフィルタの読み取り元は、被写界深度が走っていればそのバッファ
 	///      (その時点で最新のシーンカラー)、走っていなければ生のシーン
 	///      カラー。
-	uint source_index = constant_indices.post_process_.depth_of_field_.enabled_ != 0 ? constant_indices.post_process_.depth_of_field_.shader_resource_view_index_ : constant_indices.post_process_.source_color_index_;
+	uint source_index = GetPostProcessConstantBuffer().depth_of_field_.enabled_ != 0 ? shader_resource_indices.post_process_.depth_of_field_.index_ : shader_resource_indices.post_process_.source_color_index_;
 	Texture2D<float4> source = ResourceDescriptorHeap[source_index];
 
 	uint source_width, source_height;
@@ -441,8 +443,8 @@ void DownsamplePrefilter(uint3 dtid : SV_DispatchThreadID)
 	float2 source_texel = 1.0 / float2(source_width, source_height);
 
 	float2 uv = (float2(dtid.xy) + 0.5) / float2(width, height);
-	float threshold = constant_indices.post_process_.bloom_.threshold_;
-	float soft_knee = constant_indices.post_process_.bloom_.soft_knee_;
+	float threshold = GetPostProcessConstantBuffer().bloom_.threshold_;
+	float soft_knee = GetPostProcessConstantBuffer().bloom_.soft_knee_;
 
 	float3 result = Downsample13TapKaris(source, uv, source_texel);
 	result = SoftThreshold(result, threshold, soft_knee);

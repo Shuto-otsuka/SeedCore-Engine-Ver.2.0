@@ -1,10 +1,11 @@
-#include "../../Shader/Constants.hlsli"
-#include "../../Shader/Structured.hlsli"
+#include "../../Shader/Scene.hlsli"
 #include "../../Shader/Sampler.hlsli"
 #include "../../Shader/Normal.hlsli"
+#include "../../Shader/ShaderResources.hlsli"
+#include "../../Shader/UnorderedAccesses.hlsli"
 #include "AmbientOcclusion.hlsli"
 
-static const float AO_TEMPORAL_BLEND_ALPHA = 0.08;
+static const float AO_TEMPORAL_BLEND_ALPHA = 0.02;
 
 /// [EN] Width of the band history is allowed to stay within (how many
 ///      standard errors of the mean estimator it may deviate by). Larger =
@@ -33,16 +34,16 @@ static const float AO_HISTORY_CLIP_SIGMA = 2.0;
 * (neighbors on a different surface get near-zero weight, so AO doesn't
 * bleed across edges); then the previous frame's accumulated openness is
 * reprojected via the G-Buffer velocity buffer, clamped to a history band
-* derived from the 3x3 raw neighborhood (rejects stale history from
-* disocclusion / camera cuts / the uninitialized first frame) and
+* derived from the standard error of the 5x5 filtered mean (rejects stale
+* history from disocclusion / camera cuts / the uninitialized first frame) and
 * exponentially blended toward the filtered sample.
 *
 * [JP]
 * 生の確率的AO信号の空間+時間デノイザ。まず 5x5 の深度重み付きバイラテラル
 * 平均で 1spp のざらつきを空間的に均し(別の面にある近傍は重みほぼ0に
 * なるのでエッジをAOが跨いで滲まない)、次に前フレームの蓄積開放度を
-* G-Buffer の速度バッファでリプロジェクションし、生サンプル3x3近傍から
-* 導いた履歴帯にクランプ(ディスオクルージョン・カメラカット・未初期化初回
+* G-Buffer の速度バッファでリプロジェクションし、5x5 フィルタ済み平均の
+* 標準誤差から導いた履歴帯にクランプ(ディスオクルージョン・カメラカット・未初期化初回
 * フレームの古い履歴を棄却)した上で、フィルタ済みサンプルへ指数ブレンド
 * する。
 */
@@ -64,15 +65,15 @@ void main(uint3 dtid : SV_DispatchThreadID)
 
 	uint2 pixel = dtid.xy;
 
-	/// [EN] raw is view-shared (structured_indices); the accumulation chain
-	///      is per-view (constant_indices - Editor/Game use separate
+	/// [EN] raw is view-shared (the same index in every view's shader_resource_indices); the accumulation chain
+	///      is per-view (ambient_occlusion_accumulation_ - Editor/Game use separate
 	///      buffers).
-	/// [JP] raw はビュー共有(structured_indices)、蓄積チェーンはビューごと
-	///      (constant_indices - Editor/Game で別バッファ)から取る。
-	Texture2D<float> raw_openness = ResourceDescriptorHeap[structured_indices.ambient_occlusion_.raw_srv_index_];
-	RWTexture2D<float> accumulated_openness = ResourceDescriptorHeap[constant_indices.ambient_occlusion_.accumulated_uav_index_];
+	/// [JP] raw はビュー共有(全ビューの shader_resource_indices に同じ値)、蓄積チェーンはビューごと
+	///      (ambient_occlusion_accumulation_ - Editor/Game で別バッファ)から取る。
+	Texture2D<float> raw_openness = ResourceDescriptorHeap[shader_resource_indices.ambient_occlusion_.raw_index_];
+	RWTexture2D<float> accumulated_openness = ResourceDescriptorHeap[unordered_access_indices.ambient_occlusion_accumulation_.accumulated_index_];
 
-	Texture2D<float> depth_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.depth_index_];
+	Texture2D<float> depth_texture = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.depth_index_];
 	float depth = depth_texture.Load(int3(pixel, 0));
 
 	if (depth == 0.0)
@@ -89,7 +90,7 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	/// [JP] velocity は (current_ndc - previous_ndc) * 0.5 で書き込まれて
 	///      いる(StaticModelPS.hlsl 等)。NDC->UV 変換で y は反転するため、
 	///      UV 空間の移動量は (velocity.x, -velocity.y)。
-	Texture2D<float2> velocity_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.index_2_];
+	Texture2D<float2> velocity_texture = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.index_2_];
 	float2 velocity = velocity_texture.Load(int3(pixel, 0));
 	float2 delta_uv = float2(velocity.x, -velocity.y);
 	float2 previous_uv = uv - delta_uv;
@@ -112,7 +113,7 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	///      ノイズが残る(グレージング角の面ほどざらざらだった原因)。
 	///      局所の深度勾配から「同一平面なら期待される深度」を外挿し、
 	///      そこからの逸脱で判定する。
-	Texture2D<float4> normal_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.index_1_];
+	Texture2D<float4> normal_texture = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.index_1_];
 	float3 center_normal = OctNormalDecode(normal_texture.Load(int3(pixel, 0)).rg);
 
 	int2 screen_max = int2(scene.screen_size_) - 1;
@@ -129,8 +130,6 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	float weight_sum = 0.0;
 	float weight_squared_sum = 0.0;
 	float filtered_raw = 0.0;
-	float neighborhood_min = 1.0;
-	float neighborhood_max = 0.0;
 
 	[unroll]
 	for (int dy = -2; dy <= 2; ++dy)
@@ -171,16 +170,6 @@ void main(uint3 dtid : SV_DispatchThreadID)
 			///      sample count (Kish's effective sample size).
 			/// [JP] 重みの二乗和。下の実効サンプル数(Kish)に使う。
 			weight_squared_sum += weight * weight;
-
-			/// [EN] The neighborhood clamp's range is the center 3x3 only
-			///      (widening it makes history rejection too lax).
-			/// [JP] 近傍クランプの範囲は中心3x3のみ(広げすぎると履歴棄却が
-			///      甘くなる)。
-			if (abs(dx) <= 1 && abs(dy) <= 1)
-			{
-				neighborhood_min = min(neighborhood_min, neighbor_value);
-				neighborhood_max = max(neighborhood_max, neighbor_value);
-			}
 		}
 	}
 	filtered_raw /= max(weight_sum, 0.0001);
@@ -234,40 +223,13 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	float standard_error = sqrt(adjusted_mean * (1.0 - adjusted_mean) / (effective_count + 4.0));
 	float clip_radius = AO_HISTORY_CLIP_SIGMA * standard_error;
 
-	/// [EN] Take the NARROWER of the two bands. When the neighborhood fully
-	///      agrees, min/max collapse to a single point and convergence is
-	///      immediate (preserving the old responsiveness at a hard occlusion
-	///      boundary); in the partial range, min/max spread toward [0,1], so
-	///      the confidence-interval side takes over instead.
-	///
-	///      min/max use the center 3x3 while filtered_raw is a 5x5 weighted
-	///      average - a DIFFERENT window width - so a differing outer ring
-	///      can push filtered_raw outside the 3x3 range. Intersecting the
-	///      two bands as-is would then let the lower bound overtake the
-	///      upper one, and clamp() would silently return the upper bound
-	///      (pinning history to an unrelated value) - so the min/max band is
-	///      widened to include filtered_raw before intersecting. This is a
-	///      no-op in the ordinary case.
-	/// [JP] 2つの範囲の【狭い方】を採る。近傍が全一致なら min/max が1点に
-	///      潰れて即座に収束し(遮蔽の硬い境界での応答性は従来どおり)、
-	///      中間調では min/max が [0,1] に広がるので信頼区間側が効く。
-	///
-	///      min/max は中心 3x3、filtered_raw は 5x5 の加重平均と【窓の幅が
-	///      違う】ため、外周に別の値があると filtered_raw が 3x3 の範囲外へ
-	///      出る。そのまま交差を取ると下限が上限を追い越し、clamp が黙って
-	///      上限を返す(= 履歴を無関係な値へ固定する)ので、min/max 側を
-	///      filtered_raw を含むまで広げてから交差させる。通常ケースでは
-	///      何も変わらない。
-	float band_min = min(neighborhood_min, filtered_raw);
-	float band_max = max(neighborhood_max, filtered_raw);
-
-	float clip_min = max(filtered_raw - clip_radius, band_min);
-	float clip_max = min(filtered_raw + clip_radius, band_max);
+	float clip_min = filtered_raw - clip_radius;
+	float clip_max = filtered_raw + clip_radius;
 
 	float result;
 	if (previous_uv.x >= 0.0 && previous_uv.x <= 1.0 && previous_uv.y >= 0.0 && previous_uv.y <= 1.0)
 	{
-		Texture2D<float> history_openness = ResourceDescriptorHeap[constant_indices.ambient_occlusion_.history_srv_index_];
+		Texture2D<float> history_openness = ResourceDescriptorHeap[shader_resource_indices.ambient_occlusion_accumulation_.history_index_];
 		float history_value = history_openness.SampleLevel(sampler_linear_clamp, previous_uv, 0);
 
 		history_value = clamp(history_value, clip_min, clip_max);

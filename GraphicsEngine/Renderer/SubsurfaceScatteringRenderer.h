@@ -9,17 +9,20 @@ namespace SeedCore
 	class BindlessHeap;
 	class ShaderCache;
 	class D3D12CommandList;
-	class IndicesSystem;
+	class ConstantIndicesSystem;
+	class ShaderResourceIndicesSystem;
+	class UnorderedAccessIndicesSystem;
+	struct RootAddresses;
 
 	/// [EN] Mirrors Raytracing/SubsurfaceScattering/SubsurfaceScattering.hlsli's
 	///      SubsurfaceScatteringRayConstantBuffer — read by both
 	///      SubsurfaceScatteringRT.hlsl and DeferredLightingPS.hlsl via
-	///      structured_indices.sss_ray_constant_index_. Must stay byte-for-byte
+	///      constant_indices.subsurface_scattering_index_. Must stay byte-for-byte
 	///      in sync with the HLSL side.
 	/// [JP] Raytracing/SubsurfaceScattering/SubsurfaceScattering.hlsli の
 	///      SubsurfaceScatteringRayConstantBuffer と対応。
 	///      SubsurfaceScatteringRT.hlsl と DeferredLightingPS.hlsl の両方が
-	///      structured_indices.sss_ray_constant_index_ 経由で読む。HLSL 側と
+	///      constant_indices.subsurface_scattering_index_ 経由で読む。HLSL 側と
 	///      バイト単位で一致させること。
 	struct SubsurfaceScatteringRayConstantBuffer
 	{
@@ -91,18 +94,18 @@ namespace SeedCore
 		SubsurfaceScatteringRenderer(RootSignature& rootSignature, PipelineStateObject& pipelineStateObject);
 		~SubsurfaceScatteringRenderer() = default;
 
-		void Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, IndicesSystem& indicesSystem, Uint32 width, Uint32 height);
+		void Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, ConstantIndicesSystem& constantIndicesSystem, ShaderResourceIndicesSystem& shaderResourceIndicesSystem, UnorderedAccessIndicesSystem& unorderedAccessIndicesSystem, Uint32 width, Uint32 height);
 
 		void Destroy(BindlessHeap* bindlessHeap);
 
 		void Resize(ID3D12Device* device, BindlessHeap* bindlessHeap, Uint32 width, Uint32 height);
 
 		/// [EN] Updates the tuning constant buffer and registers its bindless
-		///      index into IndicesSystem. Must run before IndicesSystem::
+		///      index into the index systems. Must run before the index systems' 
 		///      UploadEditor/UploadGame bakes this frame's indices. No GPU
 		///      work. (Same contract as ShadowRenderer::PrepareFrame.)
 		/// [JP] チューニング用定数バッファを更新し、その bindless インデックスを
-		///      IndicesSystem へ登録する。IndicesSystem::UploadEditor/UploadGame
+		///      各インデックスシステムへ登録する。各インデックスシステムの UploadEditor/UploadGame
 		///      が今フレームのインデックスを確定する前に呼ぶこと。GPU 処理は
 		///      無い。(ShadowRenderer::PrepareFrame と同じ契約。)
 		void PrepareFrame(const SubsurfaceScatteringRayConstantBuffer& settings);
@@ -116,7 +119,7 @@ namespace SeedCore
 		///      ディスパッチする（tlasValid が false か DXR PSO が無ければ 0.0 で
 		///      クリア）。テクスチャは PIXEL_SHADER_RESOURCE 状態で終える。
 		///      G-Buffer の深度/法線が書き込み済みであることが前提。
-		void Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex, Bool tlasValid);
+		void Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses, Bool tlasValid);
 
 	private:
 		SubsurfaceScatteringShader subsurfaceScatteringShader_;
@@ -136,7 +139,9 @@ namespace SeedCore
 		Uint32 clearIndex_ = 0;
 
 		BindlessHeap* bindlessHeap_ = nullptr;
-		IndicesSystem* indicesSystem_ = nullptr;
+		ConstantIndicesSystem* constantIndicesSystem_ = nullptr;
+		ShaderResourceIndicesSystem* shaderResourceIndicesSystem_ = nullptr;
+		UnorderedAccessIndicesSystem* unorderedAccessIndicesSystem_ = nullptr;
 
 		Uint32 width_ = 0;
 		Uint32 height_ = 0;

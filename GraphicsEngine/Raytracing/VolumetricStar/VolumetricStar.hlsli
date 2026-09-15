@@ -297,4 +297,16 @@ float3 ShootingStarColor(float3 view_direction, VolumetricStarRayConstantBuffer 
 	return total;
 }
 
+struct StarShaderResourceIndices
+{
+	uint output_index_;
+	uint3 star_shader_resource_padding_0_;
+};
+
+struct StarUnorderedAccessIndices
+{
+	uint output_index_;
+	uint3 star_unordered_access_padding_0_;
+};
+
 #endif // __VOLUMETRIC_STAR_HLSL__

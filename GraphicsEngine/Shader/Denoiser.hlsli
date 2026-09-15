@@ -29,6 +29,237 @@
 
 /**
 * [EN]
+* Read views of the ray-traced shadow SVGF chain (ShadowDenoiseCS.hlsl). These
+* live inside ShaderResourceIndices (per-view constant buffer) because the
+* editor and game views each need their own temporal-accumulation chain: the
+* shadow signal is screen-space and per-camera.
+*
+* Two independent signal chains, directional_/punctual_, because they are no
+* longer the same shape: directional_ is still a single scalar visibility
+* (moments/variance are one channel), while punctual_ is now ShadowRT.hlsl's
+* ReSTIR-picked light's full BRDF RGB radiance (already visibility-weighted),
+* whose variance is tracked from its luminance only (moments/variance stay one
+* channel, but the signal itself is RGB) - see ShadowDenoiseCS.hlsl. Both
+* share ONE geometry chain (history_length_/depth_normal_ below) because the
+* temporal reprojection validity test is purely geometric (view depth/normal),
+* identical for both signals at a given pixel.
+*
+* Within each signal chain, history_/accumulated_ are the SVGF feedback tap
+* (ATrousPass2's output), i.e. what next frame reprojects, NOT the final image
+* - directional_visibility_/punctual_radiance_ is the fully filtered result
+* ATrousPass3 writes (see the UAV denoised_ fields below) and
+* DeferredLightingPS.hlsl samples. moments_ carries (1st, 2nd) of that chain's
+* luminance, history_length_ the shared accumulated frame count, and
+* depth_normal_ the shared packed copy of this frame's view depth / depth
+* derivative / normal, which the temporal consistency test needs from the
+* PREVIOUS frame (the engine's G-Buffer is single-buffered, so it cannot be
+* read back).
+*
+* moments_/history_length_/depth_normal_ all ping-pong exactly like history_/
+* accumulated_ do; the atrous_scratch0_/atrous_scratch1_ pairs are pure
+* scratch registered once in Create()/Resize().
+*/
+struct ShadowAccumulationShaderResourceIndices
+{
+	uint directional_history_index_;
+	uint directional_accumulated_index_;
+	uint directional_visibility_index_;
+	uint directional_moments_history_index_;
+
+	uint directional_moments_index_;
+	uint directional_atrous_scratch0_index_;
+	uint directional_atrous_scratch1_index_;
+	uint punctual_history_index_;
+
+	uint punctual_accumulated_index_;
+	uint punctual_radiance_index_;
+	uint punctual_moments_history_index_;
+	uint punctual_moments_index_;
+
+	uint punctual_atrous_scratch0_index_;
+	uint punctual_atrous_scratch1_index_;
+	uint history_length_history_index_;
+	uint history_length_index_;
+
+	uint depth_normal_history_index_;
+	uint depth_normal_index_;
+	float2 shadow_accumulation_shader_resource_padding_0_;
+};
+
+/**
+* [EN]
+* Write targets of the same shadow SVGF chain as
+* ShadowAccumulationShaderResourceIndices above - one UAV per SRV in that
+* struct, except directional_visibility_/punctual_radiance_ (the final
+* filtered result) whose write side is denoised_ here: ATrousPass3 writes
+* denoised_, and the SRV struct's visibility_/radiance_ is the read view of
+* that same texture DeferredLightingPS.hlsl samples.
+*/
+struct ShadowAccumulationUnorderedAccessIndices
+{
+	uint directional_accumulated_index_;
+	uint directional_moments_index_;
+	uint directional_atrous_scratch0_index_;
+	uint directional_atrous_scratch1_index_;
+
+	uint directional_denoised_index_;
+	uint punctual_accumulated_index_;
+	uint punctual_moments_index_;
+	uint punctual_atrous_scratch0_index_;
+
+	uint punctual_atrous_scratch1_index_;
+	uint punctual_denoised_index_;
+	uint history_length_index_;
+	uint depth_normal_index_;
+};
+
+/**
+* [EN]
+* Read views of the per-view ray-traced AO accumulation chain - same scheme
+* as ShadowAccumulationShaderResourceIndices above, collapsed to a single
+* scalar signal (openness_) instead of shadow's directional_/punctual_ pair.
+*/
+struct AmbientOcclusionAccumulationShaderResourceIndices
+{
+	uint history_index_;
+	uint openness_index_;
+	float2 ambient_occlusion_accumulation_shader_resource_padding_0_;
+};
+
+/**
+* [EN]
+* Write target of the same AO accumulation chain as
+* AmbientOcclusionAccumulationShaderResourceIndices above - accumulated_ is
+* the SVGF feedback tap ATrousPass writes, reprojected next frame through
+* that struct's history_.
+*/
+struct AmbientOcclusionAccumulationUnorderedAccessIndices
+{
+	uint accumulated_index_;
+	float3 ambient_occlusion_accumulation_unordered_access_padding_0_;
+};
+
+/**
+* [EN]
+* Read views of the per-view ray-traced GI accumulation chain - same scheme
+* as shadow/AO above. The raw 1spp radiance (shader_resource_indices.
+* global_illumination_) is shared/single-buffered across views; this chain is
+* the per-view denoised (spatio-temporal) result DeferredLightingPS.hlsl
+* samples.
+*
+* atrous_scratch0_/atrous_scratch1_ are the two per-view ping-pong textures
+* GlobalIlluminationDenoiseCS.hlsl's ATrousPass1/2/3 entry points read/write
+* between (see that file). Unlike history_/radiance_ above, these (and their
+* UAV counterparts) are set ONCE by GlobalIlluminationRenderer::Create/Resize
+* rather than every frame in PrepareFrame - they are pure scratch, always
+* fully overwritten by the A-Trous passes themselves, so nothing needs to
+* update their bindless index frame to frame.
+*
+* reservoir_history_/reservoir_write_ is the previous frame's ReSTIR
+* reservoir (read side of the ping-pong pair below) and this frame's just-
+* written reservoir (read back later in the same frame) -
+* GlobalIlluminationRayGeneration reads/writes both in the same dispatch,
+* combining the new hemisphere-sample candidate with the reprojected history
+* reservoir.
+*/
+struct GlobalIlluminationAccumulationShaderResourceIndices
+{
+	uint history_index_;
+	uint radiance_index_;
+	uint atrous_scratch0_index_;
+	uint atrous_scratch1_index_;
+
+	uint reservoir_history_index_;
+	uint reservoir_write_index_;
+	float2 global_illumination_accumulation_shader_resource_padding_0_;
+};
+
+/**
+* [EN]
+* Write targets of the same GI accumulation chain as
+* GlobalIlluminationAccumulationShaderResourceIndices above - accumulated_ is
+* the SVGF feedback tap ATrousPass writes (reprojected next frame through
+* that struct's history_), atrous_scratch0_/atrous_scratch1_ the same pure
+* ping-pong scratch pair, and reservoir_ this frame's ReSTIR write target
+* (read back the same dispatch via that struct's reservoir_write_).
+*/
+struct GlobalIlluminationAccumulationUnorderedAccessIndices
+{
+	uint accumulated_index_;
+	uint atrous_scratch0_index_;
+	uint atrous_scratch1_index_;
+	uint reservoir_index_;
+};
+
+/**
+* [EN]
+* Read views of the per-view ray-traced reflection SVGF chain
+* (ReflectionDenoiseCS.hlsl) - same scheme as
+* ShadowAccumulationShaderResourceIndices above, extended with a hit-point
+* virtual motion reprojection candidate (see ReflectionDenoiseCS.hlsl). The
+* raw 1spp GGX-sampled radiance (shader_resource_indices.reflection_) is
+* shared/single-buffered across views; this chain is the per-view denoised
+* result DeferredLightingPS.hlsl samples.
+*
+* history_/accumulated_ (rgb = radiance, a = variance) is the FEEDBACK TAP,
+* not the final image - ATrousPass2 writes it (see the UAV struct below) and
+* next frame's reprojection reads it here, while the image
+* DeferredLightingPS.hlsl samples comes from radiance_index_ (the UAV
+* struct's denoised_ output, written by ATrousPass3).
+*
+* moments_/history_length_/depth_normal_ all ping-pong exactly like
+* history_/accumulated_ do; atrous_scratch0_/atrous_scratch1_ are pure scratch
+* registered once in Create()/Resize(). reservoir_history_/reservoir_write_ is
+* the previous frame's ReSTIR reservoir and this frame's just-written
+* reservoir, same scheme as
+* GlobalIlluminationAccumulationShaderResourceIndices' reservoir_ fields.
+*/
+struct ReflectionAccumulationShaderResourceIndices
+{
+	uint history_index_;
+	uint accumulated_index_;
+	uint radiance_index_;
+	uint atrous_scratch0_index_;
+
+	uint atrous_scratch1_index_;
+	uint moments_history_index_;
+	uint moments_index_;
+	uint history_length_history_index_;
+
+	uint history_length_index_;
+	uint depth_normal_history_index_;
+	uint depth_normal_index_;
+	uint reservoir_history_index_;
+
+	uint reservoir_write_index_;
+	float3 reflection_accumulation_shader_resource_padding_0_;
+};
+
+/**
+* [EN]
+* Write targets of the same reflection SVGF chain as
+* ReflectionAccumulationShaderResourceIndices above - one UAV per SRV in that
+* struct, except history_/radiance_ (the read-side feedback tap and final
+* result) whose write side is accumulated_/denoised_ here: ATrousPass2 writes
+* accumulated_ (reprojected next frame through the SRV struct's history_),
+* and ATrousPass3 writes denoised_, which the SRV struct's radiance_ reads
+* back for DeferredLightingPS.hlsl.
+*/
+struct ReflectionAccumulationUnorderedAccessIndices
+{
+	uint accumulated_index_;
+	uint atrous_scratch0_index_;
+	uint atrous_scratch1_index_;
+	uint moments_index_;
+
+	uint history_length_index_;
+	uint depth_normal_index_;
+	uint denoised_index_;
+	uint reservoir_index_;
+};
+
+/**
+* [EN]
 * Depth+normal bilateral weight for one neighbor sample. expected_depth comes
 * from extrapolating the center pixel's local depth gradient to the neighbor
 * offset (a "plane fit"), so tilted-but-coplanar neighbors are not penalized

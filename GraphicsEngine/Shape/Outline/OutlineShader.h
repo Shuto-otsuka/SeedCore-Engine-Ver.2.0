@@ -7,6 +7,7 @@
 namespace SeedCore
 {
 	class ShaderCache;
+	class VertexShader;
 	class MeshShader;
 	class PixelShader;
 
@@ -48,6 +49,7 @@ namespace SeedCore
 		[[nodiscard]] ID3D12RootSignature* GetRootSignature()const;
 
 	private:
+		Handle<VertexShader> compositeVertexShader_;
 		Handle<MeshShader> compositeMeshShader_;
 		Handle<PixelShader> compositePixelShader_;
 		Handle<Microsoft::WRL::ComPtr<ID3D12PipelineState>> pipelineStateObjectComposite_;

@@ -3,14 +3,17 @@
 #include <FoundationEngine/ECS/Entity.h>
 #include <FoundationEngine/ECS/EcsID.h>
 #include <GraphicsEngine/D3D12/Buffer/StructuredBuffer.h>
+#include <GraphicsEngine/D3D12/Buffer/ConstantBuffer.h>
+#include <FoundationEngine/Log/Assert.h>
 #include <GraphicsEngine/Model/ModelShader.h>
 #include <GraphicsEngine/Model/Transparent/OITBuffer.h>
-#include <GraphicsEngine/Model/ModelInstanceData.h>
+#include <GraphicsEngine/Model/ModelRecord.h>
 #include <GraphicsEngine/Model/SoftbodyMesh.h>
 #include <GraphicsEngine/System/SceneSystem.h>
 
 namespace SeedCore
 {
+	struct RootAddresses;
 	struct LoaderSystem;
 	class ModelResource;
 	class MaterialResource;
@@ -20,10 +23,35 @@ namespace SeedCore
 	class BindlessHeap;
 	class ShaderCache;
 	class PipelineStateObject;
-	class IndicesSystem;
+	class ConstantIndicesSystem;
+	class ShaderResourceIndicesSystem;
+	class UnorderedAccessIndicesSystem;
 	class D3D12CommandList;
 	class FrameBuffer;
 	class GeometryBuffer;
+
+	/**
+	* [EN]
+	* Where the shell-fur forward pass' fur instances live in the shared
+	* instance buffer. Mirrors the HLSL FurConstantBuffer
+	* (Model/Model.hlsli); 16 bytes. Reached through
+	* ConstantIndices::furIndex_.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* シェルファー前方パスのファーインスタンスが共有インスタンスバッファの
+	* どこにあるか。HLSL の FurConstantBuffer（Model/Model.hlsli）と
+	* 一致。16 バイト。ConstantIndices::furIndex_
+	* 経由で参照する。
+	*/
+	struct FurConstantBuffer
+	{
+		Uint furInstanceOffset_ = 0;
+		Uint furInstanceCount_ = 0;
+		Vector2 furConstantBufferPadding0_;
+	};
+	SC_STATIC_ASSERT_SIZE(FurConstantBuffer, 16, "Model/Model.hlsli");
 
 	class SEEDCORE_API ModelRenderer
 	{
@@ -31,9 +59,9 @@ namespace SeedCore
 		ModelRenderer(RootSignature& rootSignature, PipelineStateObject& pipelineStateObject);
 		~ModelRenderer() = default;
 
-		void Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, IndicesSystem& indicesSystem, Uint32 width, Uint32 height);
+		void Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, ConstantIndicesSystem& constantIndicesSystem, ShaderResourceIndicesSystem& shaderResourceIndicesSystem, UnorderedAccessIndicesSystem& unorderedAccessIndicesSystem, Uint32 width, Uint32 height);
 
-		void Resize(ID3D12Device* device, BindlessHeap* bindlessHeap, IndicesSystem& indicesSystem, Uint32 width, Uint32 height);
+		void Resize(ID3D12Device* device, BindlessHeap* bindlessHeap, ConstantIndicesSystem& constantIndicesSystem, UnorderedAccessIndicesSystem& unorderedAccessIndicesSystem, Uint32 width, Uint32 height);
 
 		/// [EN] scene supplies the camera for CPU-side LOD desirability (same
 		///      screen-space error metric as the AS) driving geometry streaming.
@@ -43,25 +71,27 @@ namespace SeedCore
 
 		void Upload();
 
-		void DrawDepthPrepass(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex);
+		void DrawDepthPrepass(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses);
 
-		void DrawOpaque(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex);
+		void DrawOpaque(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses);
 
-		void Compose(D3D12CommandList* cmdList, FrameBuffer* frameBuffer, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex);
+		void Compose(D3D12CommandList* cmdList, FrameBuffer* frameBuffer, ID3D12DescriptorHeap* heap, const RootAddresses& addresses);
 
 		/// [EN] Wireframe overlay: draws opaque instances as wire over the composed
 		///      frame buffer, depth-tested (read-only) against the scene depth.
 		/// [JP] ワイヤーフレーム オーバーレイ: 合成済みフレームバッファ上に不透明
 		///      インスタンスをワイヤーで描く。シーン深度で読み取りのみ深度テスト。
-		void DrawWireframe(D3D12CommandList* cmdList, FrameBuffer* frameBuffer, GeometryBuffer* geometryBuffer, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex);
+		void DrawWireframe(D3D12CommandList* cmdList, FrameBuffer* frameBuffer, GeometryBuffer* geometryBuffer, ID3D12DescriptorHeap* heap, const RootAddresses& addresses);
 
 		/// [EN] Meshlet visualization: flat-colors each meshlet, depth-tested against
 		///      the scene depth. Editor view-mode only.
 		/// [JP] メッシュレット可視化: メッシュレットごとに単色塗り、シーン深度で
 		///      深度テスト。エディタ表示モード専用。
-		void DrawMeshlet(D3D12CommandList* cmdList, FrameBuffer* frameBuffer, GeometryBuffer* geometryBuffer, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex);
+		void DrawMeshlet(D3D12CommandList* cmdList, FrameBuffer* frameBuffer, GeometryBuffer* geometryBuffer, ID3D12DescriptorHeap* heap, const RootAddresses& addresses);
 
-		void DrawTransparent(D3D12CommandList* cmdList, FrameBuffer* frameBuffer, GeometryBuffer* geometryBuffer, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex);
+		void DrawTransparent(D3D12CommandList* cmdList, FrameBuffer* frameBuffer, GeometryBuffer* geometryBuffer, ID3D12DescriptorHeap* heap, const RootAddresses& addresses);
+
+		void DrawFurShell(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses);
 
 		/// [EN] Selection outline mask: draws the selected actor's instances as a
 		///      solid mask (single R8_UNORM target, shared with Sprite/Billboard/
@@ -75,7 +105,7 @@ namespace SeedCore
 		///      参照）へ描く。深度オフで、手前の未選択オブジェクトに関わらず
 		///      シルエット全体を描く（理由は ModelShader.cpp の SelectionMask PSO
 		///      コメント参照）。
-		void DrawSelectionMask(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex);
+		void DrawSelectionMask(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses);
 
 		[[nodiscard]] D3D12_GPU_VIRTUAL_ADDRESS BoneMatrixBufferGPUAddress()const;
 
@@ -95,10 +125,19 @@ namespace SeedCore
 		[[nodiscard]] Bool TryGetAnimatedMorphWeights(EntityID entityID, Int nodeIndex, DynamicArray<Float>& outWeights)const;
 
 	private:
-		DynamicArray<ModelInstanceData> opaqueInstances_;
-		DynamicArray<ModelInstanceData> transparentInstances_;
+		DynamicArray<ModelStructuredBuffer> opaqueInstances_;
+		DynamicArray<ModelStructuredBuffer> transparentInstances_;
 
-		ResourcePtr<ReadOnlyStructuredBuffer<ModelInstanceData>> instanceBuffer_;
+		/// [EN] Copies of the opaque instances whose material is ShadingModel::Fur -
+		///      the shell-fur forward pass draws each of these fur_shell_count_ times.
+		/// [JP] マテリアルが ShadingModel::Fur の不透明インスタンスのコピー -
+		///      シェルファー前方パスがこれらを fur_shell_count_ 回ずつ描画する。
+		DynamicArray<ModelStructuredBuffer> furInstances_;
+		static constexpr Uint32 furShellMax_ = 32;
+
+		ResourcePtr<ConstantBuffer<FurConstantBuffer>> modelFurConstantBuffer_;
+
+		ResourcePtr<ReadOnlyStructuredBuffer<ModelStructuredBuffer>> instanceBuffer_;
 
 		/// [EN] Bone palette (inverse bind matrix × joint global transform), rebuilt
 		///      each Gather and uploaded each Upload. Skinned instances index into
@@ -108,23 +147,38 @@ namespace SeedCore
 		///      boneOffset_ でこれを参照する。
 		DynamicArray<Matrix> boneMatrices_;
 
+		DynamicArray<Matrix> previousBoneMatrices_;
+
 		ResourcePtr<ReadOnlyStructuredBuffer<Matrix>> boneBuffer_;
+
+		ResourcePtr<ReadOnlyStructuredBuffer<Matrix>> previousBoneBuffer_;
 
 		std::unordered_map<EntityID, Uint32> animatedBoneOffsets_;
 
-		/// [EN] Shared per-frame morph target weight buffer (see Model.hlsli's
-		///      ApplyMorphBlend): rebuilt each Gather (every morphed
+		std::unordered_map<EntityID, DynamicArray<Matrix>> animatedBonePalettes_;
+
+		std::unordered_map<EntityID, DynamicArray<Matrix>> previousAnimatedBonePalettes_;
+
+		/// [EN] Shared per-frame morph target weight buffer (read by the
+		///      raster morph blend in the model mesh shaders and
+		///      Model/Material/MaterialResolveCS.hlsl/
+		///      Model/Transparent/ModelTransparentPS.hlsl): rebuilt each Gather (every morphed
 		///      instance's sampled weights appended back to back) and
-		///      uploaded each Upload. A morphed ModelInstanceData indexes
+		///      uploaded each Upload. A morphed ModelStructuredBuffer indexes
 		///      into this via morphWeightOffset_.
 		/// [JP] 共有の毎フレームモーフターゲットウェイトバッファ
-		///      (Model.hlsli の ApplyMorphBlend 参照): 毎 Gather で再構築し
+		///      (モデル用メッシュシェーダーと Model/Material/MaterialResolveCS.hlsl/
+		///      Model/Transparent/ModelTransparentPS.hlsl が読む): 毎 Gather で再構築し
 		///      (モーフ付きインスタンスのサンプリング済みウェイトを連続して
 		///      詰める)、毎 Upload でアップロードする。モーフ付き
-		///      ModelInstanceData は morphWeightOffset_ でこれを参照する。
+		///      ModelStructuredBuffer は morphWeightOffset_ でこれを参照する。
 		DynamicArray<Float> morphWeights_;
 
+		DynamicArray<Float> previousMorphWeights_;
+
 		ResourcePtr<ReadOnlyStructuredBuffer<Float>> morphWeightBuffer_;
+
+		ResourcePtr<ReadOnlyStructuredBuffer<Float>> previousMorphWeightBuffer_;
 
 		/// [EN] This frame's sampled morph target weights, keyed by entity
 		///      then by target NODE index (Animation::weights_'s own key) —
@@ -141,8 +195,20 @@ namespace SeedCore
 		///      空。
 		std::unordered_map<EntityID, std::unordered_map<Int, DynamicArray<Float>>> animatedMorphWeights_;
 
+		std::unordered_map<EntityID, std::unordered_map<Int, DynamicArray<Float>>> previousAnimatedMorphWeights_;
+
+		struct AnimatorHistory
+		{
+			Int stateIndex_ = -1;
+			Float time_ = 0.0f;
+		};
+
+		std::unordered_map<EntityID, AnimatorHistory> animatorHistories_;
+
+		std::unordered_map<EntityID, AnimatorHistory> previousAnimatorHistories_;
+
 		/// [EN] Each entity's world matrix as of the previous Gather() call -
-		///      used to give ModelInstanceData::previousWorld_ (StaticModelMS.hlsl/
+		///      used to give ModelStructuredBuffer::previousWorld_ (StaticModelMS.hlsl/
 		///      SkeletalModelMS.hlsl's velocity output) the instance's OWN motion,
 		///      not just the camera's. Read before this frame's worldMatrix
 		///      overwrites the entry, written back after (see Gather()). An
@@ -150,7 +216,7 @@ namespace SeedCore
 		///      worldMatrix (zero velocity on spawn, not a garbage jump from a
 		///      default-constructed identity).
 		/// [JP] 各エンティティの、直近の Gather() 時点でのワールド行列 —
-		///      ModelInstanceData::previousWorld_(StaticModelMS.hlsl/
+		///      ModelStructuredBuffer::previousWorld_(StaticModelMS.hlsl/
 		///      SkeletalModelMS.hlsl の速度出力)に、カメラだけでなく
 		///      インスタンス自身の動きを反映させるために使う。今フレームの
 		///      worldMatrix で上書きする前に読み、後で書き戻す(Gather() 参照)。
@@ -164,11 +230,11 @@ namespace SeedCore
 		///      re-quantised every Gather (SoftbodyMesh::Update) — see
 		///      SoftbodyMesh's class comment for why Softbody bypasses the
 		///      Crister cluster/LOD streaming pipeline entirely instead of
-		///      reusing ModelInstanceData's usual vertexBufferIndex_ path.
+		///      reusing ModelStructuredBuffer's usual vertexBufferIndex_ path.
 		/// [JP] Softbody を持つ Actor ごとに 1 つの SoftbodyMesh。その Actor を
 		///      初めて見た時に一度だけ構築し（SoftbodyMesh::Create）、毎
 		///      Gather で再量子化する（SoftbodyMesh::Update）— Softbody が
-		///      ModelInstanceData の通常の vertexBufferIndex_ 経路
+		///      ModelStructuredBuffer の通常の vertexBufferIndex_ 経路
 		///      （Crister のクラスタ/LOD ストリーミングパイプライン）を
 		///      使わずに完全にバイパスする理由は SoftbodyMesh のクラス
 		///      コメント参照。
@@ -185,7 +251,8 @@ namespace SeedCore
 
 		ID3D12Device* device_ = nullptr;
 		BindlessHeap* bindlessHeap_ = nullptr;
-		IndicesSystem* indicesSystem_ = nullptr;
+		ConstantIndicesSystem* constantIndicesSystem_ = nullptr;
+		ShaderResourceIndicesSystem* shaderResourceIndicesSystem_ = nullptr;
 
 		Uint maxInstanceCount_ = 0;
 		Uint maxBoneCount_ = 0;

@@ -8,6 +8,7 @@
 
 namespace SeedCore
 {
+	struct RootAddresses;
 	class BindlessHeap;
 	class ShaderCache;
 	class D3D12CommandList;
@@ -26,7 +27,7 @@ namespace SeedCore
 
 		void PrepareView(RaytracingView view);
 
-		void Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex, RaytracingView view, ID3D12Resource* velocityResource, Uint32 colorShaderResourceViewIndex, Uint32 depthShaderResourceViewIndex, Uint32 velocityShaderResourceViewIndex, Uint32 sourceWidth, Uint32 sourceHeight);
+		void Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses, RaytracingView view, ID3D12Resource* velocityResource, Uint32 colorShaderResourceViewIndex, Uint32 depthShaderResourceViewIndex, Uint32 velocityShaderResourceViewIndex, Uint32 sourceWidth, Uint32 sourceHeight);
 
 		[[nodiscard]] ID3D12Resource* OutputResource(RaytracingView view)const;
 
@@ -35,7 +36,7 @@ namespace SeedCore
 	private:
 		static constexpr Uint32 accumulationSlotCount_ = 2;
 
-		struct TaauResolveConstants
+		struct TaauResolveConstantBuffer
 		{
 			Uint colorShaderResourceViewIndex_ = 0;
 			Uint depthShaderResourceViewIndex_ = 0;
@@ -61,7 +62,7 @@ namespace SeedCore
 			Uint32 accumulatedShaderResourceViewIndex_[accumulationSlotCount_] = { 0, 0 };
 			Uint32 writeSlot_ = 0;
 
-			ResourcePtr<ConstantBuffer<TaauResolveConstants>> constantBuffer_;
+			ResourcePtr<ConstantBuffer<TaauResolveConstantBuffer>> constantBuffer_;
 		};
 
 		TaauResolveShader resolveShader_;

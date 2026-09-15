@@ -105,7 +105,7 @@ namespace SeedCore
 		///      ディスクリプタは CreateRadianceTexture が仕様上必ず1つ消費
 		///      するが(実際にはクリアしない)、clearHeap のサイズ計算に
 		///      含めておくこと。
-		void CreateAtrousScratchTextures(ID3D12Device* device, BindlessHeap* bindlessHeap, DescriptorHeap& clearHeap, Uint32 width, Uint32 height, IndicesSystem& indicesSystem, Microsoft::WRL::ComPtr<ID3D12Resource>(&outResource)[2][2], Uint32(&outUnorderedAccessViewIndex)[2][2], Uint32(&outShaderResourceViewIndex)[2][2])
+		void CreateAtrousScratchTextures(ID3D12Device* device, BindlessHeap* bindlessHeap, DescriptorHeap& clearHeap, Uint32 width, Uint32 height, Microsoft::WRL::ComPtr<ID3D12Resource>(&outResource)[2][2], Uint32(&outUnorderedAccessViewIndex)[2][2], Uint32(&outShaderResourceViewIndex)[2][2])
 		{
 			for (Uint32 view = 0; view < 2; ++view)
 			{
@@ -115,9 +115,6 @@ namespace SeedCore
 					CreateRadianceTexture(device, bindlessHeap, clearHeap, width, height, outResource[view][slot], outUnorderedAccessViewIndex[view][slot], outShaderResourceViewIndex[view][slot], unusedClearIndex);
 				}
 			}
-
-			indicesSystem.SetEditorGlobalIlluminationAtrousScratchIndices(outShaderResourceViewIndex[static_cast<Uint32>(RaytracingView::Editor)][0], outUnorderedAccessViewIndex[static_cast<Uint32>(RaytracingView::Editor)][0], outShaderResourceViewIndex[static_cast<Uint32>(RaytracingView::Editor)][1], outUnorderedAccessViewIndex[static_cast<Uint32>(RaytracingView::Editor)][1]);
-			indicesSystem.SetGameGlobalIlluminationAtrousScratchIndices(outShaderResourceViewIndex[static_cast<Uint32>(RaytracingView::Game)][0], outUnorderedAccessViewIndex[static_cast<Uint32>(RaytracingView::Game)][0], outShaderResourceViewIndex[static_cast<Uint32>(RaytracingView::Game)][1], outUnorderedAccessViewIndex[static_cast<Uint32>(RaytracingView::Game)][1]);
 		}
 	}
 
@@ -139,10 +136,12 @@ namespace SeedCore
 	* ターゲット、チューニング用定数バッファ、3 レコードのシェーダテーブルを
 	* 生成する。
 	*/
-	void GlobalIlluminationRenderer::Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, IndicesSystem& indicesSystem, Uint32 width, Uint32 height)
+	void GlobalIlluminationRenderer::Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, ConstantIndicesSystem& constantIndicesSystem, ShaderResourceIndicesSystem& shaderResourceIndicesSystem, UnorderedAccessIndicesSystem& unorderedAccessIndicesSystem, Uint32 width, Uint32 height)
 	{
 		bindlessHeap_ = bindlessHeap;
-		indicesSystem_ = &indicesSystem;
+		constantIndicesSystem_ = &constantIndicesSystem;
+		shaderResourceIndicesSystem_ = &shaderResourceIndicesSystem;
+		unorderedAccessIndicesSystem_ = &unorderedAccessIndicesSystem;
 		width_ = width;
 		height_ = height;
 
@@ -176,7 +175,7 @@ namespace SeedCore
 			}
 		}
 
-		CreateAtrousScratchTextures(device, bindlessHeap, clearHeap_, width, height, indicesSystem, atrousScratchResource_, atrousScratchUnorderedAccessViewIndex_, atrousScratchShaderResourceViewIndex_);
+		CreateAtrousScratchTextures(device, bindlessHeap, clearHeap_, width, height, atrousScratchResource_, atrousScratchUnorderedAccessViewIndex_, atrousScratchShaderResourceViewIndex_);
 		for (Uint32 view = 0; view < viewCount; ++view)
 		{
 			for (Uint32 slot = 0; slot < 2; ++slot)
@@ -309,7 +308,7 @@ namespace SeedCore
 			}
 		}
 
-		CreateAtrousScratchTextures(device, bindlessHeap, clearHeap_, width, height, *indicesSystem_, atrousScratchResource_, atrousScratchUnorderedAccessViewIndex_, atrousScratchShaderResourceViewIndex_);
+		CreateAtrousScratchTextures(device, bindlessHeap, clearHeap_, width, height, atrousScratchResource_, atrousScratchUnorderedAccessViewIndex_, atrousScratchShaderResourceViewIndex_);
 		for (Uint32 view = 0; view < viewCount; ++view)
 		{
 			for (Uint32 slot = 0; slot < 2; ++slot)
@@ -328,41 +327,69 @@ namespace SeedCore
 
 		GlobalIlluminationRayConstantBuffer uploadSettings = settings;
 		uploadSettings.frameIndex_ = frameIndex_;
+		uploadSettings.temporalReuseEnabled_ = useDlssRayReconstruction ? 0 : 1;
 		++frameIndex_;
 
 		tuningBuffer_->Update(uploadSettings);
-		indicesSystem_->SetGlobalIlluminationRayConstantIndex(tuningBuffer_->GetIndex());
-		indicesSystem_->SetGlobalIlluminationOutputUnorderedAccessViewIndex(radianceUnorderedAccessViewIndex_);
-		indicesSystem_->SetGlobalIlluminationOutputShaderResourceViewIndex(radianceShaderResourceViewIndex_);
-		indicesSystem_->SetGlobalIlluminationConfidenceUnorderedAccessViewIndex(confidenceUnorderedAccessViewIndex_);
-		indicesSystem_->SetGlobalIlluminationConfidenceShaderResourceViewIndex(confidenceShaderResourceViewIndex_);
+		constantIndicesSystem_->SetGlobalIlluminationRayConstantIndex(tuningBuffer_->GetIndex());
+		unorderedAccessIndicesSystem_->SetGlobalIlluminationOutputUnorderedAccessViewIndex(radianceUnorderedAccessViewIndex_);
+		shaderResourceIndicesSystem_->SetGlobalIlluminationOutputShaderResourceViewIndex(radianceShaderResourceViewIndex_);
+		unorderedAccessIndicesSystem_->SetGlobalIlluminationConfidenceUnorderedAccessViewIndex(confidenceUnorderedAccessViewIndex_);
+		shaderResourceIndicesSystem_->SetGlobalIlluminationConfidenceShaderResourceViewIndex(confidenceShaderResourceViewIndex_);
 
 		Uint32 writeSlot = 1 - historySlot_;
 
 		constexpr Uint32 editorView = static_cast<Uint32>(RaytracingView::Editor);
 		constexpr Uint32 gameView = static_cast<Uint32>(RaytracingView::Game);
 
-		if (useDlssRayReconstruction)
+		auto buildShaderResourceIndices = [&](Uint32 viewIndex)
 		{
-			/// [JP] DLSS-RRが合成フレーム全体をデノイズするので、このビューの
-			///      「最終」GI読み取りは生の単一バッファテクスチャを直接指す
-			///      (ピンポン蓄積チェーンには一切触れない)。
-			indicesSystem_->SetEditorGlobalIlluminationAccumulationIndices(radianceShaderResourceViewIndex_, accumulatedUnorderedAccessViewIndex_[editorView][writeSlot], radianceShaderResourceViewIndex_);
-			indicesSystem_->SetGameGlobalIlluminationAccumulationIndices(radianceShaderResourceViewIndex_, accumulatedUnorderedAccessViewIndex_[gameView][writeSlot], radianceShaderResourceViewIndex_);
-		}
-		else
-		{
-			indicesSystem_->SetEditorGlobalIlluminationAccumulationIndices(accumulatedShaderResourceViewIndex_[editorView][historySlot_], accumulatedUnorderedAccessViewIndex_[editorView][writeSlot], accumulatedShaderResourceViewIndex_[editorView][writeSlot]);
-			indicesSystem_->SetGameGlobalIlluminationAccumulationIndices(accumulatedShaderResourceViewIndex_[gameView][historySlot_], accumulatedUnorderedAccessViewIndex_[gameView][writeSlot], accumulatedShaderResourceViewIndex_[gameView][writeSlot]);
-		}
+			GlobalIlluminationAccumulationShaderResourceIndices values{};
 
-		/// [JP] ReSTIR Reservoir はデノイズ経路(SVGF/DLSS-RR)に関わらず常に
-		///      使う — history_/accumulated_ と同じ historySlot_/writeSlot。
-		indicesSystem_->SetEditorGlobalIlluminationReservoirIndices(reservoirShaderResourceViewIndex_[editorView][historySlot_], reservoirUnorderedAccessViewIndex_[editorView][writeSlot], reservoirShaderResourceViewIndex_[editorView][writeSlot]);
-		indicesSystem_->SetGameGlobalIlluminationReservoirIndices(reservoirShaderResourceViewIndex_[gameView][historySlot_], reservoirUnorderedAccessViewIndex_[gameView][writeSlot], reservoirShaderResourceViewIndex_[gameView][writeSlot]);
+			if (useDlssRayReconstruction)
+			{
+				/// [JP] DLSS-RRが合成フレーム全体をデノイズするので、このビューの
+				///      「最終」GI読み取りは生の単一バッファテクスチャを直接指す
+				///      (ピンポン蓄積チェーンには一切触れない)。
+				values.historyIndex_ = radianceShaderResourceViewIndex_;
+				values.radianceIndex_ = radianceShaderResourceViewIndex_;
+			}
+			else
+			{
+				values.historyIndex_ = accumulatedShaderResourceViewIndex_[viewIndex][historySlot_];
+				values.radianceIndex_ = accumulatedShaderResourceViewIndex_[viewIndex][writeSlot];
+			}
+
+			values.atrousScratch0Index_ = atrousScratchShaderResourceViewIndex_[viewIndex][0];
+			values.atrousScratch1Index_ = atrousScratchShaderResourceViewIndex_[viewIndex][1];
+
+			/// [JP] ReSTIR Reservoir はデノイズ経路(SVGF/DLSS-RR)に関わらず常に
+			///      使う — history_/accumulated_ と同じ historySlot_/writeSlot。
+			values.reservoirHistoryIndex_ = reservoirShaderResourceViewIndex_[viewIndex][historySlot_];
+			values.reservoirWriteIndex_ = reservoirShaderResourceViewIndex_[viewIndex][writeSlot];
+
+			return values;
+		};
+
+		auto buildUnorderedAccessIndices = [&](Uint32 viewIndex)
+		{
+			GlobalIlluminationAccumulationUnorderedAccessIndices values{};
+
+			values.accumulatedIndex_ = accumulatedUnorderedAccessViewIndex_[viewIndex][writeSlot];
+			values.atrousScratch0Index_ = atrousScratchUnorderedAccessViewIndex_[viewIndex][0];
+			values.atrousScratch1Index_ = atrousScratchUnorderedAccessViewIndex_[viewIndex][1];
+			values.reservoirIndex_ = reservoirUnorderedAccessViewIndex_[viewIndex][writeSlot];
+
+			return values;
+		};
+
+		shaderResourceIndicesSystem_->SetEditorGlobalIlluminationAccumulationIndices(buildShaderResourceIndices(editorView));
+		shaderResourceIndicesSystem_->SetGameGlobalIlluminationAccumulationIndices(buildShaderResourceIndices(gameView));
+		unorderedAccessIndicesSystem_->SetEditorGlobalIlluminationAccumulationIndices(buildUnorderedAccessIndices(editorView));
+		unorderedAccessIndicesSystem_->SetGameGlobalIlluminationAccumulationIndices(buildUnorderedAccessIndices(gameView));
 	}
 
-	void GlobalIlluminationRenderer::Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex, Bool tlasValid, RaytracingView view, Bool useDlssRayReconstruction)
+	void GlobalIlluminationRenderer::Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses, Bool tlasValid, RaytracingView view, Bool useDlssRayReconstruction)
 	{
 		auto* cmd = cmdList->Get();
 
@@ -496,9 +523,7 @@ namespace SeedCore
 			ID3D12DescriptorHeap* heaps[] = { heap };
 			cmd->SetDescriptorHeaps(_countof(heaps), heaps);
 			cmd->SetComputeRootSignature(globalIlluminationShader_.GetRootSignature());
-			cmd->SetComputeRootDescriptorTable(0, bindlessHeap_->GPUHandle(0));
-			cmd->SetComputeRootConstantBufferView(2, constantIndex);
-			cmd->SetComputeRootConstantBufferView(3, structuredIndex);
+			RootSignature::BindCompute(cmd, addresses);
 			cmd->SetPipelineState1(stateObject);
 
 			D3D12_GPU_VIRTUAL_ADDRESS tableAddress = shaderTableResource_->GetGPUVirtualAddress();

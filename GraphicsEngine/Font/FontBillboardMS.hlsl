@@ -1,18 +1,18 @@
 #include "Font.hlsli"
-#include "../Shader/Structured.hlsli"
-#include "../Shader/Constants.hlsli"
+#include "../Shader/ShaderResources.hlsli"
+#include "../Shader/Scene.hlsli"
 
 [NumThreads(32, 1, 1)]
 [OutputTopology("triangle")]
 void main(in payload FontASPayload payload, uint gtid : SV_GroupThreadID, uint gid : SV_GroupID, out vertices FontMSOutput output[4], out indices uint3 triangles[2])
 {
-	StructuredBuffer<FontBillboardInstance> font_billboard = ResourceDescriptorHeap[structured_indices.sprite_.font_billboard_index_];
+	StructuredBuffer<FontBillboardStructuredBuffer> font_billboard = GetFontBillboardStructuredBuffer(shader_resource_indices.font_.billboard_index_);
 
 	SetMeshOutputCounts(4u, 2u);
 
 	uint glyph_id = payload.glyph_indices[gid];
 	SceneConstantBuffer scene_constant = GetSceneConstantBuffer();
-	FontBillboardInstance glyph = font_billboard[glyph_id];
+	FontBillboardStructuredBuffer glyph = font_billboard[glyph_id];
 
 	float2 corners[4] =
 	{
@@ -25,40 +25,40 @@ void main(in payload FontASPayload payload, uint gtid : SV_GroupThreadID, uint g
 	if (gtid < 4u)
 	{
 		// ローカル平面(x:右, y:上)にグリフ矩形を配置
-		float2 local = glyph.local_position + corners[gtid] * glyph.local_size;
+		float2 local = glyph.local_position_ + corners[gtid] * glyph.local_size_;
 		float3 scaled = float3(local.x, local.y, 0.0f);
 
 		float3 world_position;
-		if (glyph.face_camera != 0)
+		if (glyph.face_camera_ != 0)
 		{
 			float3 camera_right = scene_constant.inverse_view_[0].xyz;
 			float3 camera_up = scene_constant.inverse_view_[1].xyz;
-			world_position = glyph.position + camera_right * scaled.x + camera_up * scaled.y;
+			world_position = glyph.position_ + camera_right * scaled.x + camera_up * scaled.y;
 		}
 		else
 		{
-			float cx = cos(glyph.rotation.x); float sx = sin(glyph.rotation.x);
-			float cy = cos(glyph.rotation.y); float sy = sin(glyph.rotation.y);
-			float cz = cos(glyph.rotation.z); float sz = sin(glyph.rotation.z);
+			float cx = cos(glyph.rotation_.x); float sx = sin(glyph.rotation_.x);
+			float cy = cos(glyph.rotation_.y); float sy = sin(glyph.rotation_.y);
+			float cz = cos(glyph.rotation_.z); float sz = sin(glyph.rotation_.z);
 
 			float3 rotated;
 			rotated.x = (cy * cz) * scaled.x + (sx * sy * cz - cx * sz) * scaled.y + (cx * sy * cz + sx * sz) * scaled.z;
 			rotated.y = (cy * sz) * scaled.x + (sx * sy * sz + cx * cz) * scaled.y + (cx * sy * sz - sx * cz) * scaled.z;
 			rotated.z = (-sy)     * scaled.x + (sx * cy)                * scaled.y + (cx * cy)                * scaled.z;
 
-			world_position = glyph.position + rotated;
+			world_position = glyph.position_ + rotated;
 		}
 
 		output[gtid].position = mul(float4(world_position, 1.0f), scene_constant.current_view_projection_);
 		// ローカルはy-up、テクスチャはy-downなのでvを反転して対応させる
-		output[gtid].uv = float2(lerp(glyph.uv_min.x, glyph.uv_max.x, corners[gtid].x), lerp(glyph.uv_max.y, glyph.uv_min.y, corners[gtid].y));
-		output[gtid].color = glyph.color;
-		output[gtid].outline_color = glyph.outline_color;
-		output[gtid].glow_color = glyph.glow_color;
-		output[gtid].texture_index = glyph.texture_index;
-		output[gtid].unit_range = glyph.unit_range;
-		output[gtid].outline_width = glyph.outline_width;
-		output[gtid].glow_power = glyph.glow_power;
+		output[gtid].uv = float2(lerp(glyph.uv_min_.x, glyph.uv_max_.x, corners[gtid].x), lerp(glyph.uv_max_.y, glyph.uv_min_.y, corners[gtid].y));
+		output[gtid].color = glyph.color_;
+		output[gtid].outline_color = glyph.outline_color_;
+		output[gtid].glow_color = glyph.glow_color_;
+		output[gtid].texture_index = glyph.texture_index_;
+		output[gtid].unit_range = glyph.unit_range_;
+		output[gtid].outline_width = glyph.outline_width_;
+		output[gtid].glow_power = glyph.glow_power_;
 	}
 
 	if (gtid == 0)

@@ -1,7 +1,9 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
 #include <FoundationEngine/Utility/Handle.h>
+#include <FoundationEngine/Log/Assert.h>
 #include <GraphicsEngine/D3D12/Buffer/ConstantBuffer.h>
+#include <GraphicsEngine/D3D12/PipelineState/RootSignature.h>
 #include <GraphicsEngine/D3D12/Buffer/StructuredBuffer.h>
 #include <GraphicsEngine/D3D12/Descriptor/DescriptorHeap.h>
 
@@ -17,91 +19,37 @@ namespace SeedCore
 	struct LoaderSystem;
 	class ModelResource;
 	struct CelestialResult;
-	struct WeatherGpuState;
 
-	struct LightConstantBuffer
+	struct DirectionalLightConstantBuffer
 	{
-		Vector3 directionalDirection_ = { 0.0f, -1.0f, 0.0f };
-		Float directionalIntensity_ = 0.0f;
-		Color directionalColor_ = { 0,0,0,0 };
+		Vector3 direction_;
+		Float directionalLightPadding0_ = 0.0f;
 
-		/// [EN] Moon light, populated only when CelestialSystem drives this frame
-		///      (see LightSystem::Gather's celestial parameter). Zero otherwise.
-		/// [JP] 月ライト。CelestialSystem がこのフレームを駆動する時のみ書かれる
-		///      (LightSystem::Gather の celestial 引数参照)。それ以外は0。
-		Vector3 moonDirection_ = { 0.0f, 1.0f, 0.0f };
+		Float sunIntensity_ = 0.0f;
+		Float sunAngularRadius_ = 0.02f;
+		Uint directionalLightPadding1_[2] = { 0, 0 };
+		Color sunColor_ = { 0, 0, 0, 0 };
+
 		Float moonIntensity_ = 0.0f;
-		Color moonColor_ = { 0,0,0,0 };
-
-		/// [EN] 0 = full day, 1 = full night. Drives VolumetricStar visibility.
-		/// [JP] 0=完全な昼、1=完全な夜。VolumetricStar の見え方を駆動する。
-		Float moonPhase_ = 0.0f;
-		Float nightFactor_ = 0.0f;
 		Float moonAngularRadius_ = 0.02f;
-		Float lightConstantBufferPadding1_ = 0.0f;
+		Uint directionalLightPadding2_[2] = { 0, 0 };
+		Color moonColor_ = { 0, 0, 0, 0 };
 
-		Uint pointLightCount_ = 0;
-		Uint spotLightCount_ = 0;
-		Uint rectLightCount_ = 0;
-		Uint pointLightShaderResourceViewIndex_ = 0;
-		Uint spotLightShaderResourceViewIndex_ = 0;
-		Uint rectLightShaderResourceViewIndex_ = 0;
-		Uint clusterDataShaderResourceViewIndex_ = 0;
-		Uint clusterLightListShaderResourceViewIndex_ = 0;
-		Uint clusterCountX_ = 0;
-		Uint clusterCountY_ = 0;
-		Vector2 lightConstantBufferPadding0_;
-
-		/// [EN] Weather state (see WeatherSystem::ReadGpuState). Zero when the
-		///      scene has no Weather component.
-		/// [JP] 天候の状態(WeatherSystem::ReadGpuState 参照)。シーンに Weather
-		///      コンポーネントが無ければ0。
-		Float wetness_ = 0.0f;
-		Float snowCoverage_ = 0.0f;
-		Float thunderFlash_ = 0.0f;
-		Float lightConstantBufferPadding2_ = 0.0f;
-
-		/// [EN] snowIntensity_ drives the falling-snow screen overlay ("is it
-		///      snowing right now", fast ramp - unlike snowCoverage_'s slow
-		///      ground accumulation). thunderSeed_ randomizes the lightning
-		///      bolt shape, re-rolled each strike.
-		/// [JP] snowIntensity_ は降雪の画面オーバーレイを駆動する
-		///      (「今降っているか」、素早く増減 - snowCoverage_ の遅い積雪とは別)。
-		///      thunderSeed_ は稲妻の形を発生ごとに変える乱数シード。
-		Float snowIntensity_ = 0.0f;
-		Float thunderSeed_ = 0.0f;
-		Vector2 lightConstantBufferPadding3_;
+		Float moonPhase_ = 0.0f;
+		Uint directionalLightPadding3_[3] = { 0, 0, 0 };
 	};
+	SC_STATIC_ASSERT_SIZE(DirectionalLightConstantBuffer, 96, "Light/Light.hlsli");
 
-	struct ClusterAssignConstantBuffer
-	{
-		Uint clusterDataUnorderedAccessViewIndex_ = 0;
-		Uint clusterLightListUnorderedAccessViewIndex_ = 0;
-		Uint pointLightShaderResourceViewIndex_ = 0;
-		Uint spotLightShaderResourceViewIndex_ = 0;
-		Uint rectLightShaderResourceViewIndex_ = 0;
-		Uint pointLightCount_ = 0;
-		Uint spotLightCount_ = 0;
-		Uint rectLightCount_ = 0;
-		Uint totalClusters_ = 0;
-		Uint clusterCountX_ = 0;
-		Uint clusterCountY_ = 0;
-		Float clusterAssignConstantBufferPadding0_;
-		Float nearPlane_ = 0.1f;
-		Float farPlane_ = 1000.0f;
-		Vector2 clusterAssignConstantBufferPadding1_;
-	};
-
-	struct PointLightData
+	struct PointLightStructuredBuffer
 	{
 		Vector3 position_;
 		Float range_;
 		Color color_;
 		Float intensity_;
-		Vector3 pointLightDataPadding0_;
+		Vector3 pointLightStructuredBufferPadding0_;
 	};
 
-	struct SpotLightData
+	struct SpotLightStructuredBuffer
 	{
 		Vector3 position_;
 		Float range_;
@@ -110,10 +58,10 @@ namespace SeedCore
 		Color color_;
 		Float intensity_;
 		Float softness_;
-		Vector2 spotLightDataPadding0_;
+		Vector2 spotLightStructuredBufferPadding0_;
 	};
 
-	struct RectLightData
+	struct RectLightStructuredBuffer
 	{
 		Vector3 position_;
 		Float intensity_;
@@ -126,12 +74,68 @@ namespace SeedCore
 		Color color_;
 	};
 
-	struct ClusterData
+	struct LightConstantBuffer
+	{
+		Float nightFactor_ = 0.0f;
+		Uint pointLightCount_ = 0;
+		Uint spotLightCount_ = 0;
+		Uint rectLightCount_ = 0;
+
+		Uint clusterCountX_ = 0;
+		Uint clusterCountY_ = 0;
+		Uint lightConstantPadding0_[2] = { 0, 0 };
+	};
+	SC_STATIC_ASSERT_SIZE(LightConstantBuffer, 32, "Light/Light.hlsli");
+
+	struct LightShaderResourceIndices
+	{
+		Uint pointLightIndex_ = 0;
+		Uint spotLightIndex_ = 0;
+		Uint rectLightIndex_ = 0;
+		Uint clusterDataIndex_ = 0;
+
+		Uint clusterLightListIndex_ = 0;
+		Uint lightShaderResourcePadding0_[3] = { 0, 0, 0 };
+	};
+	SC_STATIC_ASSERT_SIZE(LightShaderResourceIndices, 32, "Light/Cluster.hlsli");
+
+	struct ClusterAssignConstantBuffer
+	{
+		Uint pointLightCount_ = 0;
+		Uint spotLightCount_ = 0;
+		Uint rectLightCount_ = 0;
+		Uint totalClusters_ = 0;
+
+		Uint clusterCountX_ = 0;
+		Uint clusterCountY_ = 0;
+		Float nearPlane_ = 0.1f;
+		Float farPlane_ = 1000.0f;
+	};
+	SC_STATIC_ASSERT_SIZE(ClusterAssignConstantBuffer, 32, "Light/Cluster.hlsli");
+
+	struct ClusterAssignShaderResourceIndices
+	{
+		Uint pointLightIndex_ = 0;
+		Uint spotLightIndex_ = 0;
+		Uint rectLightIndex_ = 0;
+		Uint clusterAssignShaderResourcePadding0_ = 0;
+	};
+	SC_STATIC_ASSERT_SIZE(ClusterAssignShaderResourceIndices, 16, "Light/Cluster.hlsli");
+
+	struct ClusterAssignUnorderedAccessIndices
+	{
+		Uint clusterDataIndex_ = 0;
+		Uint clusterLightListIndex_ = 0;
+		Uint clusterAssignUnorderedAccessPadding0_[2] = { 0, 0 };
+	};
+	SC_STATIC_ASSERT_SIZE(ClusterAssignUnorderedAccessIndices, 16, "Light/Cluster.hlsli");
+
+	struct ClusterInstance
 	{
 		Uint pointCount_ = 0;
 		Uint spotCount_ = 0;
 		Uint rectCount_ = 0;
-		Float clusterDataPadding0_ = 0.0f;
+		Float clusterInstancePadding0_ = 0.0f;
 	};
 
 	class LightSystem
@@ -144,27 +148,23 @@ namespace SeedCore
 
 		void Resize(ID3D12Device* device, BindlessHeap* bindlessHeap, Uint32 width, Uint32 height);
 
-		/// [EN] celestial, when non-null, overrides the sun (skips the scene's
-		///      DirectionalLight query) and writes the moon fields; when null the
-		///      scene's DirectionalLight drives the sun as before and the moon
-		///      fields stay zero.
-		/// [JP] celestial が非nullの場合、太陽をそれで上書きし(シーンの
-		///      DirectionalLight クエリをスキップ)、月フィールドも書く。null なら
-		///      従来通りシーンの DirectionalLight が太陽を駆動し、月フィールドは
-		///      0のまま。
-		/// [EN] weather, when non-null, writes wetness_/snowCoverage_/thunderFlash_;
-		///      when null they stay zero (no Weather component in the scene).
-		/// [JP] weather が非nullの場合、wetness_/snowCoverage_/thunderFlash_ を
-		///      書く。null ならそのまま0(シーンに Weather コンポーネント無し)。
-		void Gather(LoaderSystem& loaderSystem, ModelResource& modelResource, World& world, const CelestialResult* celestial = nullptr, const WeatherGpuState* weather = nullptr);
+		void Gather(LoaderSystem& loaderSystem, ModelResource& modelResource, World& world, const CelestialResult* celestial = nullptr);
 
 		void Upload();
 
-		void DispatchCluster(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredAddress);
+		void DispatchCluster(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses);
 
 		[[nodiscard]] Uint GetIndex()const;
 
-		[[nodiscard]] Uint GetClusterConstantIndex()const;
+		[[nodiscard]] Uint GetDirectionalLightIndex()const;
+
+		[[nodiscard]] Uint GetClusterAssignIndex()const;
+
+		[[nodiscard]] LightShaderResourceIndices GetLightShaderResourceIndices()const;
+
+		[[nodiscard]] ClusterAssignShaderResourceIndices GetClusterAssignShaderResourceIndices()const;
+
+		[[nodiscard]] ClusterAssignUnorderedAccessIndices GetClusterAssignUnorderedAccessIndices()const;
 
 		[[nodiscard]] Float GetDirectionalIntensity()const;
 
@@ -183,24 +183,25 @@ namespace SeedCore
 		static constexpr Uint clusterStride_ = clusterMaxPointLights_ + clusterMaxSpotLights_ + clusterMaxRectLights_;
 
 		LightConstantBuffer lightConstantData_;
+		DirectionalLightConstantBuffer directionalLightConstantData_;
 		ClusterAssignConstantBuffer clusterAssignConstantData_;
 
-		DynamicArray<PointLightData> pointLights_;
-		DynamicArray<SpotLightData> spotLights_;
-		DynamicArray<RectLightData> rectLights_;
+		DynamicArray<PointLightStructuredBuffer> pointLights_;
+		DynamicArray<SpotLightStructuredBuffer> spotLights_;
+		DynamicArray<RectLightStructuredBuffer> rectLights_;
 
 		ResourcePtr<ConstantBuffer<LightConstantBuffer>> lightConstantBuffer_;
+		ResourcePtr<ConstantBuffer<DirectionalLightConstantBuffer>> directionalLightConstantBuffer_;
 		ResourcePtr<ConstantBuffer<ClusterAssignConstantBuffer>> clusterAssignConstantBuffer_;
 
-		ResourcePtr<ReadOnlyStructuredBuffer<PointLightData>> pointLightBuffer_;
-		ResourcePtr<ReadOnlyStructuredBuffer<SpotLightData>> spotLightBuffer_;
-		ResourcePtr<ReadOnlyStructuredBuffer<RectLightData>> rectLightBuffer_;
+		ResourcePtr<ReadOnlyStructuredBuffer<PointLightStructuredBuffer>> pointLightBuffer_;
+		ResourcePtr<ReadOnlyStructuredBuffer<SpotLightStructuredBuffer>> spotLightBuffer_;
+		ResourcePtr<ReadOnlyStructuredBuffer<RectLightStructuredBuffer>> rectLightBuffer_;
 
 		Microsoft::WRL::ComPtr<ID3D12Resource> clusterDataResource_;
 		Microsoft::WRL::ComPtr<ID3D12Resource> clusterLightListResource_;
 
 		DescriptorHeap clearHeap_;
-
 
 		Uint clusterDataUnorderedAccessViewIndex_ = 0;
 		Uint clusterDataShaderResourceViewIndex_ = 0;

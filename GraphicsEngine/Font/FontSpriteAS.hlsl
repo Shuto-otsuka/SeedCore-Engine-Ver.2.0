@@ -1,5 +1,5 @@
 #include "Font.hlsli"
-#include "../Shader/Structured.hlsli"
+#include "../Shader/ShaderResources.hlsli"
 #include "../Shader/Culling.hlsli"
 
 groupshared uint survived_count;
@@ -9,7 +9,7 @@ groupshared FontASPayload payload;
 [numthreads(32, 1, 1)]
 void main(uint3 gtid : SV_GroupThreadID, uint3 dtid : SV_DispatchThreadID)
 {
-	StructuredBuffer<FontSpriteInstance> font_sprite = ResourceDescriptorHeap[structured_indices.sprite_.font_index_];
+	StructuredBuffer<FontSpriteStructuredBuffer> font_sprite = GetFontSpriteStructuredBuffer(shader_resource_indices.font_.sprite_index_);
 	SceneConstantBuffer scene_constant = GetSceneConstantBuffer();
 
 	if (gtid.x == 0)
@@ -23,11 +23,11 @@ void main(uint3 gtid : SV_GroupThreadID, uint3 dtid : SV_DispatchThreadID)
 
 	if (glyph_id < 65536)
 	{
-		FontSpriteInstance glyph = font_sprite[glyph_id];
+		FontSpriteStructuredBuffer glyph = font_sprite[glyph_id];
 
-		if (glyph.size.x > 0.0 && glyph.size.y > 0.0)
+		if (glyph.size_.x > 0.0 && glyph.size_.y > 0.0)
 		{
-			is_visible = IsVisibleInScreen(glyph.position, glyph.size, scene_constant.screen_size_);
+			is_visible = IsVisibleInScreen(glyph.position_, glyph.size_, scene_constant.screen_size_);
 		}
 	}
 

@@ -1,4 +1,4 @@
-#include "SkyMath.hlsli"
+#include "Sky.hlsli"
 #include "SkyGenerate.hlsli"
 #include "../Shader/Sampler.hlsli"
 
@@ -16,7 +16,7 @@
 [numthreads(8, 8, 1)]
 void main(uint3 id : SV_DispatchThreadID)
 {
-	uint size = sky_generate.face_size_;
+	uint size = GetSkyDispatchBuffer().face_size_;
 	if (id.x >= size || id.y >= size)
 	{
 		return;
@@ -27,10 +27,10 @@ void main(uint3 id : SV_DispatchThreadID)
 	float3 normal = CubeFaceDirection(face, uv);
 	float3 view = normal;
 
-	TextureCube<float4> environment = ResourceDescriptorHeap[sky_generate.source_index_];
-	RWTexture2DArray<float4> destination = ResourceDescriptorHeap[sky_generate.dest_index_];
+	TextureCube<float4> environment = ResourceDescriptorHeap[GetSkyDispatchBuffer().source_index_];
+	RWTexture2DArray<float4> destination = ResourceDescriptorHeap[GetSkyDispatchBuffer().dest_index_];
 
-	float roughness = sky_generate.roughness_;
+	float roughness = GetSkyDispatchBuffer().roughness_;
 
 	if (roughness < 0.001)
 	{
@@ -39,7 +39,7 @@ void main(uint3 id : SV_DispatchThreadID)
 		return;
 	}
 
-	uint count = max(sky_generate.sample_count_, 1u);
+	uint count = max(GetSkyDispatchBuffer().sample_count_, 1u);
 	float3 prefiltered = float3(0.0, 0.0, 0.0);
 	float total_weight = 0.0;
 

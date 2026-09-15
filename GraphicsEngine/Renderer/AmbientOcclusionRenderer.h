@@ -11,17 +11,20 @@ namespace SeedCore
 	class BindlessHeap;
 	class ShaderCache;
 	class D3D12CommandList;
-	class IndicesSystem;
+	class ConstantIndicesSystem;
+	class ShaderResourceIndicesSystem;
+	class UnorderedAccessIndicesSystem;
+	struct RootAddresses;
 
 	/// [EN] Mirrors Raytracing/AmbientOcclusion/AmbientOcclusion.hlsli's
 	///      AmbientOcclusionRayConstantBuffer — read by both
 	///      AmbientOcclusionRT.hlsl and DeferredLightingPS.hlsl via
-	///      structured_indices.ao_ray_constant_index_. Must stay byte-for-byte
+	///      constant_indices.ambient_occlusion_index_. Must stay byte-for-byte
 	///      in sync with the HLSL side.
 	/// [JP] Raytracing/AmbientOcclusion/AmbientOcclusion.hlsli の
 	///      AmbientOcclusionRayConstantBuffer と対応。AmbientOcclusionRT.hlsl と
 	///      DeferredLightingPS.hlsl の両方が
-	///      structured_indices.ao_ray_constant_index_ 経由で読む。HLSL 側と
+	///      constant_indices.ambient_occlusion_index_ 経由で読む。HLSL 側と
 	///      バイト単位で一致させること。
 	struct AmbientOcclusionRayConstantBuffer
 	{
@@ -83,7 +86,7 @@ namespace SeedCore
 		AmbientOcclusionRenderer(RootSignature& rootSignature, PipelineStateObject& pipelineStateObject);
 		~AmbientOcclusionRenderer() = default;
 
-		void Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, IndicesSystem& indicesSystem, Uint32 width, Uint32 height);
+		void Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, ConstantIndicesSystem& constantIndicesSystem, ShaderResourceIndicesSystem& shaderResourceIndicesSystem, UnorderedAccessIndicesSystem& unorderedAccessIndicesSystem, Uint32 width, Uint32 height);
 
 		void Destroy(BindlessHeap* bindlessHeap);
 
@@ -128,7 +131,7 @@ namespace SeedCore
 		///      無ければ 1.0 でクリア）。write スロットは
 		///      PIXEL_SHADER_RESOURCE 状態で終える。G-Buffer の
 		///      深度/法線/速度が書き込み済みであることが前提。
-		void Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex, Bool tlasValid, RaytracingView view, Bool useDlssRayReconstruction);
+		void Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses, Bool tlasValid, RaytracingView view, Bool useDlssRayReconstruction);
 
 	private:
 		static constexpr Uint32 accumulationSlotCount = 2;
@@ -182,7 +185,9 @@ namespace SeedCore
 		Uint32 clearAccumulatedIndex_[viewCount][accumulationSlotCount] = {};
 
 		BindlessHeap* bindlessHeap_ = nullptr;
-		IndicesSystem* indicesSystem_ = nullptr;
+		ConstantIndicesSystem* constantIndicesSystem_ = nullptr;
+		ShaderResourceIndicesSystem* shaderResourceIndicesSystem_ = nullptr;
+		UnorderedAccessIndicesSystem* unorderedAccessIndicesSystem_ = nullptr;
 
 		Uint32 width_ = 0;
 		Uint32 height_ = 0;

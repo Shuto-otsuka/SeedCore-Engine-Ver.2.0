@@ -1,5 +1,6 @@
+#include "../Shader/Scene.hlsli"
+#include "../Shader/UnorderedAccesses.hlsli"
 #include "../Shader/Constants.hlsli"
-#include "../Shader/Structured.hlsli"
 #include "../Shader/Noise.hlsli"
 #include "WeatherParticle.hlsli"
 
@@ -54,7 +55,7 @@ void RespawnParticle(inout WeatherParticle particle, uint globalId, float3 camer
 [numthreads(64, 1, 1)]
 void main(uint3 dtid : SV_DispatchThreadID)
 {
-	ConstantBuffer<WeatherParticleConstantBuffer> tuning = ResourceDescriptorHeap[structured_indices.weather_particle_.ray_constant_index_];
+	ConstantBuffer<WeatherParticleConstantBuffer> tuning = ResourceDescriptorHeap[constant_indices.weather_particle_index_];
 
 	uint id = dtid.x;
 	uint totalCapacity = tuning.rain_capacity_ + tuning.snow_capacity_;
@@ -67,7 +68,7 @@ void main(uint3 dtid : SV_DispatchThreadID)
 
 	if (id < tuning.rain_capacity_)
 	{
-		RWStructuredBuffer<WeatherParticle> particles = ResourceDescriptorHeap[structured_indices.weather_particle_.rain_particle_uav_index_];
+		RWStructuredBuffer<WeatherParticle> particles = ResourceDescriptorHeap[unordered_access_indices.weather_particle_.rain_particle_index_];
 		uint localId = id;
 		WeatherParticle particle = particles[localId];
 
@@ -89,7 +90,7 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	}
 	else
 	{
-		RWStructuredBuffer<WeatherParticle> particles = ResourceDescriptorHeap[structured_indices.weather_particle_.snow_particle_uav_index_];
+		RWStructuredBuffer<WeatherParticle> particles = ResourceDescriptorHeap[unordered_access_indices.weather_particle_.snow_particle_index_];
 		uint localId = id - tuning.rain_capacity_;
 		WeatherParticle particle = particles[localId];
 

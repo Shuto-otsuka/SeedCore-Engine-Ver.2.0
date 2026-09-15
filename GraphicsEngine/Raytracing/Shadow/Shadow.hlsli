@@ -22,9 +22,10 @@ struct ShadowRayConstantBuffer
 	/// (shadow-acne avoidance).
 	float normal_bias_;
 
-	/// How strongly the traced visibility affects lighting: 0 = ignore
-	/// (always lit), 1 = apply visibility as-is (hard binary shadow). Used as
-	/// lerp(1.0, visibility, shadow_strength_) in DeferredLightingPS.hlsl.
+	/// Shadow darkness: 0 = ignore (always lit), 1 = apply visibility as-is
+	/// to the direct term, 2 = also remove the indirect light inside
+	/// sun-facing shadows (fully black umbra). DeferredLightingPS.hlsl clamps
+	/// the direct part to 0..1 and the indirect part to 1..2.
 	float shadow_strength_;
 
 	/// Half-angle (radians) of the directional light's disk, for soft
@@ -50,6 +51,18 @@ struct ShadowRayConstantBuffer
 
 	/// Padding to keep the buffer's byte size aligned with the C++ mirror.
 	float shadow_ray_padding_;
+};
+
+struct ShadowShaderResourceIndices
+{
+	uint raw_visibility_index_;
+	uint3 shadow_shader_resource_padding_0_;
+};
+
+struct ShadowUnorderedAccessIndices
+{
+	uint raw_visibility_index_;
+	uint3 shadow_unordered_access_padding_0_;
 };
 
 #endif // __SHADOW_HLSL__

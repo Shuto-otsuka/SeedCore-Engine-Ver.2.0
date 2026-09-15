@@ -25,10 +25,12 @@ namespace SeedCore
 	* 単一の出力放射輝度ターゲット、チューニング用定数バッファ、3 レコードの
 	* シェーダテーブルを生成する。
 	*/
-	void RefractionRenderer::Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, IndicesSystem& indicesSystem, Uint32 width, Uint32 height)
+	void RefractionRenderer::Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, ConstantIndicesSystem& constantIndicesSystem, ShaderResourceIndicesSystem& shaderResourceIndicesSystem, UnorderedAccessIndicesSystem& unorderedAccessIndicesSystem, Uint32 width, Uint32 height)
 	{
 		bindlessHeap_ = bindlessHeap;
-		indicesSystem_ = &indicesSystem;
+		constantIndicesSystem_ = &constantIndicesSystem;
+		shaderResourceIndicesSystem_ = &shaderResourceIndicesSystem;
+		unorderedAccessIndicesSystem_ = &unorderedAccessIndicesSystem;
 		width_ = width;
 		height_ = height;
 
@@ -199,12 +201,12 @@ namespace SeedCore
 	void RefractionRenderer::PrepareFrame(const RefractionRayConstantBuffer& settings)
 	{
 		tuningBuffer_->Update(settings);
-		indicesSystem_->SetRefractionRayConstantIndex(tuningBuffer_->GetIndex());
-		indicesSystem_->SetRefractionOutputUnorderedAccessViewIndex(outputUnorderedAccessViewIndex_);
-		indicesSystem_->SetRefractionOutputShaderResourceViewIndex(outputShaderResourceViewIndex_);
+		constantIndicesSystem_->SetRefractionRayConstantIndex(tuningBuffer_->GetIndex());
+		unorderedAccessIndicesSystem_->SetRefractionOutputUnorderedAccessViewIndex(outputUnorderedAccessViewIndex_);
+		shaderResourceIndicesSystem_->SetRefractionOutputShaderResourceViewIndex(outputShaderResourceViewIndex_);
 	}
 
-	void RefractionRenderer::Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex, Bool tlasValid)
+	void RefractionRenderer::Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses, Bool tlasValid)
 	{
 		auto* cmd = cmdList->Get();
 
@@ -241,9 +243,7 @@ namespace SeedCore
 		ID3D12DescriptorHeap* heaps[] = { heap };
 		cmd->SetDescriptorHeaps(_countof(heaps), heaps);
 		cmd->SetComputeRootSignature(refractionShader_.GetRootSignature());
-		cmd->SetComputeRootDescriptorTable(0, bindlessHeap_->GPUHandle(0));
-		cmd->SetComputeRootConstantBufferView(2, constantIndex);
-		cmd->SetComputeRootConstantBufferView(3, structuredIndex);
+		RootSignature::BindCompute(cmd, addresses);
 		cmd->SetPipelineState1(stateObject);
 
 		D3D12_GPU_VIRTUAL_ADDRESS tableAddress = shaderTableResource_->GetGPUVirtualAddress();

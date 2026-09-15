@@ -6,18 +6,19 @@
 
 namespace SeedCore
 {
+	struct RootAddresses;
 	struct LoaderSystem;
 	class ImageResource;
 	class World;
 	class BindlessHeap;
 	class ShaderCache;
 	class PipelineStateObject;
-	class IndicesSystem;
+	class ShaderResourceIndicesSystem;
 
 	class ImageRenderer
 	{
 	private:
-		struct ImageSpriteInstance
+		struct ImageSpriteStructuredBuffer
 		{
 			Vector2 position_;
 			Float rotation_;
@@ -36,7 +37,7 @@ namespace SeedCore
 			Vector3 padding2_;
 		};
 
-		struct ImageBillboardInstance
+		struct ImageBillboardStructuredBuffer
 		{
 			Vector3 position_;
 			Vector3 rotation_;
@@ -59,26 +60,26 @@ namespace SeedCore
 		ImageRenderer(RootSignature& rootSignature, PipelineStateObject& pipelineStateObject);
 		~ImageRenderer() = default;
 
-		void Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, IndicesSystem& indicesSystem);
+		void Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, ShaderResourceIndicesSystem& shaderResourceIndicesSystem);
 
 		void Gather(LoaderSystem& loader, ImageResource& resource, World& world, Vector2 nativeScreenSize, Entity selectedEntity = Entity::Null());
 
 		void Upload();
 
-		void DrawSprite(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex);
+		void DrawSprite(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses);
 
-		void DrawBillboard(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex);
+		void DrawBillboard(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses);
 
-		void DrawSelectionMaskSprite(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex);
+		void DrawSelectionMaskSprite(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses);
 
-		void DrawSelectionMaskBillboard(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex);
+		void DrawSelectionMaskBillboard(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses);
 
 	private:
-		DynamicArray<ImageSpriteInstance> spriteInstances_;
-		DynamicArray<ImageBillboardInstance> billboardInstances_;
+		DynamicArray<ImageSpriteStructuredBuffer> spriteInstances_;
+		DynamicArray<ImageBillboardStructuredBuffer> billboardInstances_;
 
-		ResourcePtr<ReadOnlyStructuredBuffer<ImageSpriteInstance>> spriteBuffer_;
-		ResourcePtr<ReadOnlyStructuredBuffer<ImageBillboardInstance>> billboardBuffer_;
+		ResourcePtr<ReadOnlyStructuredBuffer<ImageSpriteStructuredBuffer>> spriteBuffer_;
+		ResourcePtr<ReadOnlyStructuredBuffer<ImageBillboardStructuredBuffer>> billboardBuffer_;
 
 		Bool hasSelectedSpriteInstance_ = false;
 		Bool hasSelectedBillboardInstance_ = false;
@@ -86,7 +87,7 @@ namespace SeedCore
 		ImageShader imageShader_;
 
 		BindlessHeap* bindlessHeap_ = nullptr;
-		IndicesSystem* indicesSystem_ = nullptr;
+		ShaderResourceIndicesSystem* shaderResourceIndicesSystem_ = nullptr;
 
 		Uint maxCount_ = 0;
 

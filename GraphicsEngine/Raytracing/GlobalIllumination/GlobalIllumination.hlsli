@@ -16,7 +16,7 @@
 /**
 * GI tuning constant buffer, read by GlobalIlluminationRT.hlsl and
 * DeferredLightingPS.hlsl via
-* structured_indices.global_illumination_.ray_constant_index_. Must match the
+* constant_indices.global_illumination_index_. Must match the
 * C++ mirror in Renderer/GlobalIlluminationRenderer.h byte-for-byte.
 */
 struct GlobalIlluminationRayConstantBuffer
@@ -35,6 +35,10 @@ struct GlobalIlluminationRayConstantBuffer
 	/// frame and the noise averages out over time instead of being a fixed
 	/// pattern.
 	uint frame_index_;
+
+	uint temporal_reuse_enabled_;
+
+	float3 global_illumination_ray_padding_;
 };
 
 /**

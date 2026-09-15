@@ -1,6 +1,5 @@
 #include <GraphicsEngine/Renderer/AvatarRenderer.h>
 #include <GraphicsEngine/Avatar/AvatarMesh.h>
-#include <GraphicsEngine/Avatar/Human/HumanCharacterEvaluator.h>
 #include <GraphicsEngine/Profiler/ProfilerStats.h>
 #include <GraphicsEngine/D3D12/Descriptor/BindlessHeap.h>
 #include <GraphicsEngine/D3D12/Context/D3D12CommandList.h>
@@ -20,7 +19,7 @@ namespace SeedCore
 
 		modelShader_.Create(shaderCache, device);
 
-		instanceBuffer_ = MakePtr<ReadOnlyStructuredBuffer<ModelInstanceData>>(device, bindlessHeap, maxInstanceCount_);
+		instanceBuffer_ = MakePtr<ReadOnlyStructuredBuffer<ModelStructuredBuffer>>(device, bindlessHeap, maxInstanceCount_);
 		boneBuffer_ = MakePtr<ReadOnlyStructuredBuffer<Matrix>>(device, bindlessHeap, maxBoneCount_);
 
 		renderTargetViewHeap_.Create(device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 1);
@@ -30,7 +29,7 @@ namespace SeedCore
 		sceneSystem_ = MakePtr<SceneSystem>(device, bindlessHeap);
 
 		constantIndicesBuffer_ = MakePtr<ConstantBuffer<ConstantIndices>>(device, bindlessHeap);
-		structuredIndicesBuffer_ = MakePtr<ConstantBuffer<StructuredIndices>>(device, bindlessHeap);
+		shaderResourceIndicesBuffer_ = MakePtr<ConstantBuffer<ShaderResourceIndices>>(device, bindlessHeap);
 	}
 
 	void AvatarRenderer::Resize(ID3D12Device* device, BindlessHeap* bindlessHeap, Uint32 width, Uint32 height)
@@ -40,7 +39,7 @@ namespace SeedCore
 		frameBuffer_->Resize(device, bindlessHeap, width, height);
 	}
 
-	void AvatarRenderer::Gather(const AvatarMesh& mesh, const HumanCharacterEvaluator& evaluator, const Matrix& worldMatrix)
+	void AvatarRenderer::Gather(const AvatarMesh& mesh, Uint32 boneCount, const Matrix& worldMatrix, std::span<const Uint32> regionTextureIndices)
 	{
 		instances_.clear();
 		boneMatrices_.clear();
@@ -51,7 +50,6 @@ namespace SeedCore
 			return;
 		}
 
-		Uint32 boneCount = static_cast<Uint32>(evaluator.JointHeads().size());
 		if (boneCount == 0 || boneCount > maxBoneCount_)
 		{
 			return;
@@ -60,56 +58,61 @@ namespace SeedCore
 
 		Matrix inverseTransposeWorld = worldMatrix.Invert().Transpose();
 
-		Uint32 meshletCount = mesh.MeshletCount();
-		for (Uint32 meshletOffset = 0; meshletOffset < meshletCount; meshletOffset += maxMeshletsPerDispatch_)
+		for (Uint32 regionIndex = 0; regionIndex < mesh.RegionCount(); regionIndex++)
 		{
-			Uint32 count = Min(maxMeshletsPerDispatch_, meshletCount - meshletOffset);
+			const AvatarMesh::RegionMeshletRange& regionRange = mesh.MeshletRangeForRegion(regionIndex);
+			Uint32 regionTextureIndex = regionIndex < regionTextureIndices.size() ? regionTextureIndices[regionIndex] : 0xFFFFFFFF;
 
-			ModelInstanceData instanceData{};
-			instanceData.world_ = worldMatrix;
-			instanceData.inverseTransposeWorld_ = inverseTransposeWorld;
-			instanceData.previousWorld_ = worldMatrix;
+			for (Uint32 localOffset = 0; localOffset < regionRange.meshletCount_; localOffset += maxMeshletsPerDispatch_)
+			{
+				Uint32 count = Min(maxMeshletsPerDispatch_, regionRange.meshletCount_ - localOffset);
 
-			instanceData.baseColor_ = Color(0.78f, 0.76f, 0.74f, 1.0f);
-			instanceData.metallic_ = 0.0f;
-			instanceData.roughness_ = 0.85f;
-			instanceData.alphaCutoff_ = 0.0f;
-			instanceData.shadingModel_ = static_cast<Uint>(ShadingModel::Lambert);
-			instanceData.unlit_ = 0.0f;
+				ModelStructuredBuffer instanceData{};
+				instanceData.transform_.world_ = worldMatrix;
+				instanceData.transform_.inverseTransposeWorld_ = inverseTransposeWorld;
+				instanceData.transform_.previousWorld_ = worldMatrix;
 
-			instanceData.baseColorTextureIndex_ = 0xFFFFFFFF;
-			instanceData.normalTextureIndex_ = 0xFFFFFFFF;
-			instanceData.metallicRoughnessTextureIndex_ = 0xFFFFFFFF;
-			instanceData.emissiveTextureIndex_ = 0xFFFFFFFF;
-			instanceData.occlusionTextureIndex_ = 0xFFFFFFFF;
+				instanceData.texture_.baseColor_ = Color(0.78f, 0.76f, 0.74f, 1.0f);
+				instanceData.texture_.metallic_ = 0.0f;
+				instanceData.texture_.roughness_ = 0.85f;
+				instanceData.texture_.alphaCutoff_ = 0.0f;
+				instanceData.shading_.shadingModel_ = static_cast<Uint>(ShadingModel::Lambert);
+				instanceData.extension_.unlit_ = 0.0f;
 
-			instanceData.vertexBufferIndex_ = mesh.VertexBufferIndex();
-			instanceData.meshletBufferIndex_ = mesh.MeshletBufferIndex();
-			instanceData.meshletBoundBufferIndex_ = mesh.MeshletBoundBufferIndex();
-			instanceData.vertexIndicesBufferIndex_ = mesh.VertexIndicesBufferIndex();
-			instanceData.primitiveIndicesBufferIndex_ = mesh.PrimitiveIndicesBufferIndex();
-			instanceData.skinVertexBufferIndex_ = 0xFFFFFFFF;
+				instanceData.texture_.baseColorTextureIndex_ = regionTextureIndex;
+				instanceData.texture_.normalTextureIndex_ = 0xFFFFFFFF;
+				instanceData.texture_.metallicRoughnessTextureIndex_ = 0xFFFFFFFF;
+				instanceData.texture_.emissiveTextureIndex_ = 0xFFFFFFFF;
+				instanceData.texture_.occlusionTextureIndex_ = 0xFFFFFFFF;
 
-			instanceData.meshletOffset_ = meshletOffset;
-			instanceData.meshletCount_ = count;
+				instanceData.geometry_.vertexBufferIndex_ = mesh.VertexBufferIndex();
+				instanceData.geometry_.meshletBufferIndex_ = mesh.MeshletBufferIndex();
+				instanceData.geometry_.meshletBoundBufferIndex_ = mesh.MeshletBoundBufferIndex();
+				instanceData.geometry_.vertexIndicesBufferIndex_ = mesh.VertexIndicesBufferIndex();
+				instanceData.geometry_.primitiveIndicesBufferIndex_ = mesh.PrimitiveIndicesBufferIndex();
+				instanceData.skining_.skinVertexBufferIndex_ = 0xFFFFFFFF;
 
-			instanceData.skinIndex_ = 0xFFFFFFFF;
-			instanceData.boneOffset_ = 0;
+				instanceData.geometry_.meshletOffset_ = regionRange.meshletOffset_ + localOffset;
+				instanceData.geometry_.meshletCount_ = count;
 
-			instanceData.positionMin_ = mesh.PositionMin();
-			instanceData.positionExtent_ = mesh.PositionExtent();
-			instanceData.texcoordMinU_ = mesh.TexcoordMin().x;
-			instanceData.texcoordMinV_ = mesh.TexcoordMin().y;
-			instanceData.texcoordExtent_ = mesh.TexcoordExtent();
+				instanceData.skining_.skinIndex_ = 0xFFFFFFFF;
+				instanceData.skining_.boneOffset_ = 0;
 
-			instanceData.lodError_ = 0.0f;
-			instanceData.lodErrorNext_ = FLT_MAX;
+				instanceData.streaming_.positionMin_ = mesh.PositionMin();
+				instanceData.streaming_.positionExtent_ = mesh.PositionExtent();
+				instanceData.streaming_.texcoordMinU_ = mesh.TexcoordMin().x;
+				instanceData.streaming_.texcoordMinV_ = mesh.TexcoordMin().y;
+				instanceData.streaming_.texcoordExtent_ = mesh.TexcoordExtent();
 
-			instanceData.doubleSided_ = 1;
-			instanceData.blend_ = 0;
-			instanceData.selected_ = 0;
+				instanceData.streaming_.lodError_ = 0.0f;
+				instanceData.streaming_.lodErrorNext_ = FLT_MAX;
 
-			instances_.push_back(instanceData);
+				instanceData.shading_.doubleSided_ = 1;
+				instanceData.shading_.blend_ = 0;
+				instanceData.shading_.selected_ = 0;
+
+				instances_.push_back(instanceData);
+			}
 		}
 	}
 
@@ -121,8 +124,9 @@ namespace SeedCore
 		}
 		uploaded_ = true;
 
-		structuredIndices_.model_.instanceIndex_ = instanceBuffer_->Index();
-		structuredIndices_.model_.boneMatrixIndex_ = boneBuffer_->Index();
+		shaderResourceIndices_.model_.instanceIndex_ = instanceBuffer_->Index();
+		shaderResourceIndices_.model_.boneMatrixIndex_ = boneBuffer_->Index();
+		shaderResourceIndices_.model_.previousBoneMatrixIndex_ = boneBuffer_->Index();
 
 		if (!instances_.empty())
 		{
@@ -146,7 +150,7 @@ namespace SeedCore
 
 		constantIndices_.sceneIndex_ = sceneSystem_->GetIndex();
 		constantIndicesBuffer_->Update(constantIndices_);
-		structuredIndicesBuffer_->Update(structuredIndices_);
+		shaderResourceIndicesBuffer_->Update(shaderResourceIndices_);
 
 		if (instances_.empty())
 		{
@@ -154,7 +158,7 @@ namespace SeedCore
 		}
 
 		D3D12_GPU_VIRTUAL_ADDRESS constantAddr = constantIndicesBuffer_->Address();
-		D3D12_GPU_VIRTUAL_ADDRESS structuredAddr = structuredIndicesBuffer_->Address();
+		D3D12_GPU_VIRTUAL_ADDRESS shaderResourceAddr = shaderResourceIndicesBuffer_->Address();
 
 		auto* cmd = cmdList->Get();
 
@@ -162,8 +166,7 @@ namespace SeedCore
 		cmd->SetDescriptorHeaps(_countof(heaps), heaps);
 		cmd->SetGraphicsRootSignature(modelShader_.GetRootSignature());
 		cmd->SetGraphicsRootConstantBufferView(2, constantAddr);
-		cmd->SetGraphicsRootConstantBufferView(3, structuredAddr);
-		cmd->SetGraphicsRootDescriptorTable(0, bindlessHeap_->GPUHandle(0));
+		cmd->SetGraphicsRootConstantBufferView(0, shaderResourceAddr);
 
 		cmd->SetPipelineState(modelShader_.GetPipelineStateAvatarPreview());
 		cmd->DispatchMesh(static_cast<Uint>(instances_.size()), 1, 1);

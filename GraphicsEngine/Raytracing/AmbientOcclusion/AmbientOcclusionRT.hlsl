@@ -1,5 +1,7 @@
+#include "../../Shader/Scene.hlsli"
+#include "../../Shader/ShaderResources.hlsli"
+#include "../../Shader/UnorderedAccesses.hlsli"
 #include "../../Shader/Constants.hlsli"
-#include "../../Shader/Structured.hlsli"
 #include "../../Shader/Normal.hlsli"
 #include "../../Shader/Noise.hlsli"
 #include "../Reflection/Reflection.hlsli"
@@ -28,7 +30,7 @@ float AmbientOcclusionOccluderDistance(RaytracingAccelerationStructure tlas, Ray
 	{
 		if (query.CandidateType() == CANDIDATE_NON_OPAQUE_TRIANGLE)
 		{
-			if (!IsReflectionMaterialPassthrough(instance_data_index, query.CandidateInstanceID(), query.CandidatePrimitiveIndex(), query.CandidateTriangleBarycentrics()))
+			if (!IsMaterialPassthrough(instance_data_index, query.CandidateInstanceID(), query.CandidatePrimitiveIndex(), query.CandidateTriangleBarycentrics()))
 			{
 				query.CommitNonOpaqueTriangleHit();
 			}
@@ -87,13 +89,13 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	}
 
 	uint2 pixel = dtid.xy;
-	RWTexture2D<float> raw_openness = ResourceDescriptorHeap[structured_indices.ambient_occlusion_.raw_uav_index_];
+	RWTexture2D<float> raw_openness = ResourceDescriptorHeap[unordered_access_indices.ambient_occlusion_.raw_index_];
 
 	/// [EN] Background (reverse-Z far plane = 0) is unoccluded = 1.0 - there
 	///      is no surface here for anything to occlude.
 	/// [JP] 背景(reverse-Z 遠平面=0)は遮蔽なし=1.0。ここには遮蔽され得る
 	///      面が無い。
-	Texture2D<float> depth_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.depth_index_];
+	Texture2D<float> depth_texture = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.depth_index_];
 	float depth = depth_texture.Load(int3(pixel, 0));
 
 	if (depth == 0.0)
@@ -112,13 +114,13 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	float4 world = mul(clip, scene.inverse_view_projection_);
 	float3 world_position = world.xyz / world.w;
 
-	ConstantBuffer<AmbientOcclusionRayConstantBuffer> tuning = ResourceDescriptorHeap[structured_indices.ambient_occlusion_.ray_constant_index_];
+	ConstantBuffer<AmbientOcclusionRayConstantBuffer> tuning = ResourceDescriptorHeap[constant_indices.ambient_occlusion_index_];
 
-	Texture2D<float4> normal_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.index_1_];
+	Texture2D<float4> normal_texture = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.index_1_];
 	float3 normal = OctNormalDecode(normal_texture.Load(int3(pixel, 0)).rg);
 	float3 origin = world_position + normal * tuning.normal_bias_;
 
-	RaytracingAccelerationStructure tlas = ResourceDescriptorHeap[structured_indices.raytracing_.tlas_index_];
+	RaytracingAccelerationStructure tlas = ResourceDescriptorHeap[shader_resource_indices.raytracing_.tlas_index_];
 
 	/// [EN] RNG seed that changes every frame. A constant offset is mixed
 	///      into frame_index_ so this pass's random sequence does not line
@@ -161,7 +163,7 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	///      動く。遠い遮蔽物ほど届く環境光を遮らないので、寄与を距離で
 	///      線形に落とす(RTAO の定番 - Unity HDRP の falloff や NRD の AO
 	///      入力と同じ扱い)。
-	float occluder_distance = AmbientOcclusionOccluderDistance(tlas, ray_desc, structured_indices.raytracing_.instance_data_index_);
+	float occluder_distance = AmbientOcclusionOccluderDistance(tlas, ray_desc, shader_resource_indices.raytracing_.instance_data_index_);
 
 	raw_openness[pixel] = occluder_distance < 0.0 ? 1.0 : saturate(occluder_distance / max(tuning.ray_length_, 0.0001));
 }

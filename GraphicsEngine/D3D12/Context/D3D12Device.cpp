@@ -1,4 +1,5 @@
 #include <GraphicsEngine/D3D12/Context/D3D12Device.h>
+#include <GraphicsEngine/D3D12/Context/D3D12Check.h>
 #include <FoundationEngine/Log/DxFail.h>
 #include <FoundationEngine/Log/Notice.h>
 #include <FoundationEngine/Log/Warning.h>
@@ -14,8 +15,6 @@ namespace SeedCore
 			D3D_FEATURE_LEVEL_12_2,
 			D3D_FEATURE_LEVEL_12_1,
 			D3D_FEATURE_LEVEL_12_0,
-			D3D_FEATURE_LEVEL_11_1,
-			D3D_FEATURE_LEVEL_11_0,
 		};
 
 		for (D3D_FEATURE_LEVEL level : levels)
@@ -25,11 +24,23 @@ namespace SeedCore
 			if (hr == S_OK)
 			{
 				featureLevel_ = level;
+				if (level >= D3D_FEATURE_LEVEL_12_2)
+				{
+					D3D12Check::SetLevel(D3D12Level::D12_2);
+				}
+				else if (level >= D3D_FEATURE_LEVEL_12_1)
+				{
+					D3D12Check::SetLevel(D3D12Level::D12_1);
+				}
+				else
+				{
+					D3D12Check::SetLevel(D3D12Level::D12_0);
+				}
 				QueryRaytracingSupport();
 				return true;
 			}
 		}
-		SC_HR_CHECK(hr, "Direct3D 12 デバイスの作成に失敗しました。対応する機能レベルが見つかりません。");
+		SC_HR_CHECK(hr, "Direct3D 12 デバイスの作成に失敗しました。このGPUは機能レベル 12_0 以上に対応していません。");
 
 		return false;
 	}

@@ -2,6 +2,7 @@
 #include <GraphicsEngine/Profiler/ProfilerStats.h>
 #include <GraphicsEngine/D3D12/Descriptor/BindlessHeap.h>
 #include <GraphicsEngine/D3D12/Context/D3D12CommandList.h>
+#include <GraphicsEngine/D3D12/Context/D3D12Check.h>
 
 namespace SeedCore
 {
@@ -16,7 +17,7 @@ namespace SeedCore
 		hudComposeShader_.Create(shaderCache, device);
 	}
 
-	void HUDComposeRenderer::Draw(D3D12CommandList* cmdList, D3D12_CPU_DESCRIPTOR_HANDLE renderTargetView, D3D12_VIEWPORT viewport, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex)
+	void HUDComposeRenderer::Draw(D3D12CommandList* cmdList, D3D12_CPU_DESCRIPTOR_HANDLE renderTargetView, D3D12_VIEWPORT viewport, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
 	{
 		auto* cmd = cmdList->Get();
 
@@ -28,12 +29,18 @@ namespace SeedCore
 		ID3D12DescriptorHeap* heaps[] = { heap };
 		cmd->SetDescriptorHeaps(_countof(heaps), heaps);
 		cmd->SetGraphicsRootSignature(hudComposeShader_.GetRootSignature());
-		cmd->SetGraphicsRootConstantBufferView(2, constantIndex);
-		cmd->SetGraphicsRootConstantBufferView(3, structuredIndex);
-		cmd->SetGraphicsRootDescriptorTable(0, bindlessHeap_->GPUHandle(0));
+		RootSignature::BindGraphics(cmd, addresses);
 
 		cmd->SetPipelineState(hudComposeShader_.GetPipelineStateComposite());
-		cmd->DispatchMesh(1, 1, 1);
+		if (D3D12Check::GetLevel() == D3D12Level::D12_2)
+		{
+			cmd->DispatchMesh(1, 1, 1);
+		}
+		else
+		{
+			cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			cmd->DrawInstanced(3, 1, 0, 0);
+		}
 		ProfilerStats::AddDrawCall();
 	}
 }

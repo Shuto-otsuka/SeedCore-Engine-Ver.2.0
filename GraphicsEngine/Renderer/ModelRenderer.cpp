@@ -6,6 +6,7 @@
 #include <GraphicsEngine/D3D12/Descriptor/BindlessHeap.h>
 #include <GraphicsEngine/D3D12/PipelineState/PipelineStateObject.h>
 #include <GraphicsEngine/D3D12/Context/D3D12CommandList.h>
+#include <GraphicsEngine/D3D12/Context/D3D12Check.h>
 #include <GraphicsEngine/D3D12/Buffer/FrameBuffer.h>
 #include <GraphicsEngine/D3D12/Buffer/GeometryBuffer.h>
 #include <GraphicsEngine/System/IndicesSystem.h>
@@ -33,11 +34,12 @@ namespace SeedCore
 		/// No Code
 	}
 
-	void ModelRenderer::Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, IndicesSystem& indicesSystem, Uint32 width, Uint32 height)
+	void ModelRenderer::Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, ConstantIndicesSystem& constantIndicesSystem, ShaderResourceIndicesSystem& shaderResourceIndicesSystem, UnorderedAccessIndicesSystem& unorderedAccessIndicesSystem, Uint32 width, Uint32 height)
 	{
 		device_ = device;
 		bindlessHeap_ = bindlessHeap;
-		indicesSystem_ = &indicesSystem;
+		constantIndicesSystem_ = &constantIndicesSystem;
+		shaderResourceIndicesSystem_ = &shaderResourceIndicesSystem;
 		maxInstanceCount_ = 65536;
 		maxBoneCount_ = 65536;
 		maxMorphWeightCount_ = 65536;
@@ -45,24 +47,33 @@ namespace SeedCore
 		modelShader_.Create(shaderCache, device);
 
 		/// [EN] Frame-ring buffers: the current SRV index changes every frame,
-		///      so Upload re-registers them into the IndicesSystem each frame.
+		///      so Upload re-registers them into the index systems each frame.
 		/// [JP] フレームリングバッファ: 現在の SRV インデックスは毎フレーム
-		///      変わるため、Upload が毎フレーム IndicesSystem に再登録する。
-		instanceBuffer_ = MakePtr<ReadOnlyStructuredBuffer<ModelInstanceData>>(device, bindlessHeap, maxInstanceCount_);
-		indicesSystem.SetModelInstanceIndex(instanceBuffer_->Index());
+		///      変わるため、Upload が毎フレーム 各インデックスシステムに再登録する。
+		instanceBuffer_ = MakePtr<ReadOnlyStructuredBuffer<ModelStructuredBuffer>>(device, bindlessHeap, maxInstanceCount_);
+		shaderResourceIndicesSystem.SetModelInstanceIndex(instanceBuffer_->Index());
 
 		boneBuffer_ = MakePtr<ReadOnlyStructuredBuffer<Matrix>>(device, bindlessHeap, maxBoneCount_);
-		indicesSystem.SetModelBoneMatrixIndex(boneBuffer_->Index());
+		shaderResourceIndicesSystem.SetModelBoneMatrixIndex(boneBuffer_->Index());
+
+		previousBoneBuffer_ = MakePtr<ReadOnlyStructuredBuffer<Matrix>>(device, bindlessHeap, maxBoneCount_);
+		shaderResourceIndicesSystem.SetModelPreviousBoneMatrixIndex(previousBoneBuffer_->Index());
 
 		morphWeightBuffer_ = MakePtr<ReadOnlyStructuredBuffer<Float>>(device, bindlessHeap, maxMorphWeightCount_);
-		indicesSystem.SetModelMorphWeightIndex(morphWeightBuffer_->Index());
+		shaderResourceIndicesSystem.SetModelMorphWeightIndex(morphWeightBuffer_->Index());
 
-		oitBuffer_.Create(device, bindlessHeap, indicesSystem, width, height);
+		previousMorphWeightBuffer_ = MakePtr<ReadOnlyStructuredBuffer<Float>>(device, bindlessHeap, maxMorphWeightCount_);
+		shaderResourceIndicesSystem.SetModelPreviousMorphWeightIndex(previousMorphWeightBuffer_->Index());
+
+		modelFurConstantBuffer_ = MakePtr<ConstantBuffer<FurConstantBuffer>>(device, bindlessHeap);
+		constantIndicesSystem.SetModelFurIndex(modelFurConstantBuffer_->GetIndex());
+
+		oitBuffer_.Create(device, bindlessHeap, constantIndicesSystem, unorderedAccessIndicesSystem, width, height);
 	}
 
-	void ModelRenderer::Resize(ID3D12Device* device, BindlessHeap* bindlessHeap, IndicesSystem& indicesSystem, Uint32 width, Uint32 height)
+	void ModelRenderer::Resize(ID3D12Device* device, BindlessHeap* bindlessHeap, ConstantIndicesSystem& constantIndicesSystem, UnorderedAccessIndicesSystem& unorderedAccessIndicesSystem, Uint32 width, Uint32 height)
 	{
-		oitBuffer_.Resize(device, bindlessHeap, indicesSystem, width, height);
+		oitBuffer_.Resize(device, bindlessHeap, constantIndicesSystem, unorderedAccessIndicesSystem, width, height);
 	}
 
 	void ModelRenderer::Gather(LoaderSystem& loaderSystem, ModelResource& modelResource, MaterialResource& materialResource, AnimationResource& animationResource, World& world, const SceneConstantBuffer& scene, Entity selectedEntity)
@@ -72,10 +83,18 @@ namespace SeedCore
 
 		opaqueInstances_.clear();
 		transparentInstances_.clear();
+		furInstances_.clear();
 		boneMatrices_.clear();
+		previousBoneMatrices_.clear();
 		animatedBoneOffsets_.clear();
+		previousAnimatedBonePalettes_.swap(animatedBonePalettes_);
+		animatedBonePalettes_.clear();
+		previousAnimatedMorphWeights_.swap(animatedMorphWeights_);
 		animatedMorphWeights_.clear();
+		previousAnimatorHistories_.swap(animatorHistories_);
+		animatorHistories_.clear();
 		morphWeights_.clear();
+		previousMorphWeights_.clear();
 		hasSkinnedOpaque_ = false;
 		hasSkinnedTransparent_ = false;
 		hasSelectedInstance_ = false;
@@ -143,8 +162,8 @@ namespace SeedCore
 					if (boundsRaw)
 					{
 						Bounds* bounds = static_cast<Bounds*>(boundsRaw);
-						Vector3 positionExtent = crister->PositionExtent();
-						bounds->center_ = crister->PositionMin() + positionExtent * 0.5f;
+						Vector3 positionExtent = crister->PlacedPositionExtent();
+						bounds->center_ = crister->PlacedPositionMin() + positionExtent * 0.5f;
 						bounds->extent_ = positionExtent * 0.5f;
 					}
 				}
@@ -179,8 +198,6 @@ namespace SeedCore
 
 				Matrix worldMatrix = actor.GetWorldMatrix();
 
-				Matrix inverseTransposeWorld = worldMatrix.Invert().Transpose();
-
 				/// [JP] 前フレームのワールド行列(速度計算用、StaticModelMS.hlsl/
 				///      SkeletalModelMS.hlsl 参照)。今フレームの値で上書きする前に
 				///      読み、この Gather() の最後で書き戻す。初出のエンティティは
@@ -201,9 +218,29 @@ namespace SeedCore
 				const Skeleton* skeleton = actor.GetComponent<Skeleton>();
 				const Bool hasPose = skeleton && skeleton->Animated() && skeleton->GlobalTransforms().size() == nodes.size();
 
+				Animator* animator = actor.GetComponent<Animator>();
+				Bool skinHistoryValid = true;
+				if (animator)
+				{
+					AnimatorHistory& animatorHistory = animatorHistories_[entityID];
+					animatorHistory.stateIndex_ = animator->CurrentStateIndex();
+					animatorHistory.time_ = animator->CurrentTime();
+
+					auto previousAnimatorHistoryIt = previousAnimatorHistories_.find(entityID);
+					if (previousAnimatorHistoryIt != previousAnimatorHistories_.end())
+					{
+						const AnimatorHistory& previousAnimatorHistory = previousAnimatorHistoryIt->second;
+						Bool poseJumped = previousAnimatorHistory.stateIndex_ != animatorHistory.stateIndex_ || previousAnimatorHistory.time_ > animatorHistory.time_;
+						Bool crossFading = animator->Blending() && animator->blendDuration_ > 0.0f;
+						if (poseJumped && !crossFading)
+						{
+							skinHistoryValid = false;
+						}
+					}
+				}
+
 				if (std::ranges::any_of(crister->SubMeshes(), [](const SubMesh& subMesh) { return !subMesh.morphs_.empty(); }))
 				{
-					Animator* animator = actor.GetComponent<Animator>();
 					if (animator)
 					{
 						Int stateIndex = animator->CurrentStateIndex();
@@ -278,6 +315,19 @@ namespace SeedCore
 									}
 								}
 							}
+
+							DynamicArray<Matrix>& bonePalette = animatedBonePalettes_[entityID];
+							bonePalette.assign(boneMatrices_.begin() + boneBase, boneMatrices_.end());
+
+							auto previousBonePaletteIt = previousAnimatedBonePalettes_.find(entityID);
+							if (skinHistoryValid && previousBonePaletteIt != previousAnimatedBonePalettes_.end() && previousBonePaletteIt->second.size() == bonePalette.size())
+							{
+								previousBoneMatrices_.insert(previousBoneMatrices_.end(), previousBonePaletteIt->second.begin(), previousBonePaletteIt->second.end());
+							}
+							else
+							{
+								previousBoneMatrices_.insert(previousBoneMatrices_.end(), bonePalette.begin(), bonePalette.end());
+							}
 						}
 					}
 					else
@@ -320,6 +370,7 @@ namespace SeedCore
 										}
 									}
 								}
+								previousBoneMatrices_.insert(previousBoneMatrices_.end(), boneMatrices_.begin() + boneBase, boneMatrices_.end());
 								cristerBoneBase[crister] = boneBase;
 							}
 						}
@@ -331,8 +382,10 @@ namespace SeedCore
 					}
 				}
 
-				for (const SubMesh& subMesh : subMeshes)
+				for (Size subMeshIndex = 0; subMeshIndex < subMeshes.size(); subMeshIndex++)
 				{
+					const SubMesh& subMesh = subMeshes[subMeshIndex];
+
 					Surface material = materialResource.Resolve(loaderSystem, *crister, subMesh.surfaceIndex_, materialIDs);
 
 					/// [EN] Whether this SubMesh renders through the skeletal path.
@@ -367,8 +420,9 @@ namespace SeedCore
 					///      埋まっていた — 詳細なモデルでは合計がディスパッチ上限を
 					///      超えうる。最粗クラスタはロード時にピン留めされるため、
 					///      常駐のフォールバックが必ず存在し穴は開かない。
-					Float worldScale = Max(Max(Vector3(worldMatrix._11, worldMatrix._12, worldMatrix._13).Length(), Vector3(worldMatrix._21, worldMatrix._22, worldMatrix._23).Length()), Vector3(worldMatrix._31, worldMatrix._32, worldMatrix._33).Length());
-					Vector3 instancePosition(worldMatrix._41, worldMatrix._42, worldMatrix._43);
+					Matrix lodWorldMatrix = crister->SubMeshPlacement(subMeshIndex).front() * worldMatrix;
+					Float worldScale = Max(Max(Vector3(lodWorldMatrix._11, lodWorldMatrix._12, lodWorldMatrix._13).Length(), Vector3(lodWorldMatrix._21, lodWorldMatrix._22, lodWorldMatrix._23).Length()), Vector3(lodWorldMatrix._31, lodWorldMatrix._32, lodWorldMatrix._33).Length());
+					Vector3 instancePosition(lodWorldMatrix._41, lodWorldMatrix._42, lodWorldMatrix._43);
 					Float viewDistance = Max((instancePosition - Vector3(scene.cameraPosition_.x, scene.cameraPosition_.y, scene.cameraPosition_.z)).Length(), 0.0001f);
 					Float pixelsPerUnit = scene.projection_._22 * scene.screenSize_.y * 0.5f / viewDistance;
 
@@ -454,7 +508,9 @@ namespace SeedCore
 						continue;
 					}
 
-					/// [EN] Raster morph blend (see Model.hlsli's ApplyMorphBlend):
+					/// [EN] Raster morph blend (see the model mesh shaders and
+					///      Model/Material/MaterialResolveCS.hlsl/
+					///      Model/Transparent/ModelTransparentPS.hlsl):
 					///      only valid when the selected cluster references
 					///      the shared LOD 0 pool (Crister::StandaloneVertices'
 					///      comment) — an own-page (streamed-in coarser) LOD
@@ -463,8 +519,10 @@ namespace SeedCore
 					///      SubMesh's weights the same way RaytracingRenderer
 					///      does: SubMesh::meshIndex_ -> the owning Node ->
 					///      animatedMorphWeights_[entityID][nodeIndex].
-					/// [JP] ラスタのモーフブレンド(Model.hlsli の
-					///      ApplyMorphBlend 参照): 選択クラスタが共有 LOD 0
+					/// [JP] ラスタのモーフブレンド(モデル用メッシュシェーダーと
+					///      Model/Material/MaterialResolveCS.hlsl/
+					///      Model/Transparent/ModelTransparentPS.hlsl 参照):
+					///      選択クラスタが共有 LOD 0
 					///      プールを参照する場合のみ有効(Crister::
 					///      StandaloneVertices のコメント参照) — 自前ページ
 					///      (ストリームイン済みのより粗い)LOD は
@@ -504,6 +562,18 @@ namespace SeedCore
 								{
 									morphWeightOffset = static_cast<Uint32>(morphWeights_.size());
 									morphWeights_.insert(morphWeights_.end(), weights.begin(), weights.end());
+
+									const DynamicArray<Float>* previousWeights = &weights;
+									auto previousEntityWeightsIt = skinHistoryValid ? previousAnimatedMorphWeights_.find(entityID) : previousAnimatedMorphWeights_.end();
+									if (previousEntityWeightsIt != previousAnimatedMorphWeights_.end())
+									{
+										auto previousNodeWeightsIt = previousEntityWeightsIt->second.find(ownerNodeIndex);
+										if (previousNodeWeightsIt != previousEntityWeightsIt->second.end() && previousNodeWeightsIt->second.size() == weights.size())
+										{
+											previousWeights = &previousNodeWeightsIt->second;
+										}
+									}
+									previousMorphWeights_.insert(previousMorphWeights_.end(), previousWeights->begin(), previousWeights->end());
 
 									morphDeltaBufferIndex = crister->MorphDeltaBufferIndex();
 									vertexMorphSourceBufferIndex = crister->VertexMorphSourceBufferIndex();
@@ -564,157 +634,172 @@ namespace SeedCore
 						Float lodErrorNext = FLT_MAX;
 
 						constexpr Uint32 maxMeshletsPerDispatch = 32;
-						Uint32 remaining = cluster.meshletCount_;
-						Uint32 offset = cluster.meshletOffset_;
 
-						while (remaining > 0)
+						for (const Matrix& placement : crister->SubMeshPlacement(subMeshIndex))
 						{
-							Uint32 count = (remaining > maxMeshletsPerDispatch) ? maxMeshletsPerDispatch : remaining;
+							Matrix placedWorldMatrix = placement * worldMatrix;
+							Matrix placedInverseTransposeWorld = placedWorldMatrix.Invert().Transpose();
+							Matrix placedPreviousWorldMatrix = placement * previousWorldMatrix;
 
-							ModelInstanceData instanceData{};
-							instanceData.world_ = worldMatrix;
-							instanceData.inverseTransposeWorld_ = inverseTransposeWorld;
-							instanceData.previousWorld_ = previousWorldMatrix;
+							Uint32 remaining = cluster.meshletCount_;
+							Uint32 offset = cluster.meshletOffset_;
 
-							instanceData.baseColor_ = material.baseColor_;
-							instanceData.metallic_ = material.metallic_;
-							instanceData.roughness_ = material.roughness_;
-							/// [EN] MASK clips at the glTF alphaCutoff, BLEND at a tiny epsilon.
-							///      OPAQUE must be 0 - glTF ignores the alpha channel entirely there.
-							/// [JP] MASK は glTF の alphaCutoff、BLEND は微小値でクリップ。
-							///      OPAQUE は 0 — glTF ではアルファを完全に無視する規定のため。
-							instanceData.alphaCutoff_ = material.alphaMode_ == 1 ? material.alphaCutoff_ : (material.alphaMode_ == 2 ? 0.01f : 0.0f);
-							instanceData.emissive_ = Vector3(material.emissiveFactor_[0], material.emissiveFactor_[1], material.emissiveFactor_[2]);
-
-							/// [EN] KHR material extensions consumed by the deferred G-Buffer.
-							/// [JP] deferred G-Buffer が消費する KHR マテリアル拡張。
-							instanceData.ior_ = material.khr_.ior_.ior_;
-							instanceData.emissiveStrength_ = material.khr_.emissiveStrength_.emissiveStrength_;
-							instanceData.specularFactor_ = material.khr_.specular_.specularFactor_;
-							instanceData.specularColor_ = Vector3(material.khr_.specular_.specularColorFactor_[0], material.khr_.specular_.specularColorFactor_[1], material.khr_.specular_.specularColorFactor_[2]);
-							instanceData.clearCoatFactor_ = material.khr_.clearCoat_.clearCoatFactor_;
-							instanceData.clearCoatRoughness_ = material.khr_.clearCoat_.clearCoatRoughnessFactor_;
-							instanceData.anisotropy_ = material.khr_.anisotropy_.anisotropyStrength_;
-							instanceData.transmissionFactor_ = material.khr_.transmission_.transmissionFactor_;
-							instanceData.volumeThicknessFactor_ = material.khr_.volume_.thicknessFactor_;
-							instanceData.volumeAttenuationDistance_ = material.khr_.volume_.attenuationDistance_;
-							instanceData.volumeAttenuationColor_ = Vector3(material.khr_.volume_.attenuationColor_[0], material.khr_.volume_.attenuationColor_[1], material.khr_.volume_.attenuationColor_[2]);
-							instanceData.sheenColor_ = Vector3(material.khr_.sheen_.sheenColorFactor_[0], material.khr_.sheen_.sheenColorFactor_[1], material.khr_.sheen_.sheenColorFactor_[2]);
-							instanceData.sheenRoughness_ = material.khr_.sheen_.sheenRoughnessFactor_;
-							instanceData.iridescenceFactor_ = material.khr_.iridescence_.iridescenceFactor_;
-							instanceData.iridescenceIor_ = material.khr_.iridescence_.iridescenceIor_;
-							instanceData.iridescenceThickness_ = (material.khr_.iridescence_.iridescenceThicknessMinimum_ + material.khr_.iridescence_.iridescenceThicknessMaximum_) * 0.5f;
-							instanceData.unlit_ = material.khr_.unlit_.unlit_ != 0 ? 1.0f : 0.0f;
-							instanceData.shadingModel_ = material.khr_.unlit_.unlit_ != 0 ? static_cast<Uint>(ShadingModel::Unlit) : static_cast<Uint>(material.shadingModel_);
-
-							/// [EN] Material stores glTF image indices — resolve to bindless heap indices.
-							/// [JP] Material には glTF の image インデックスが入っているため、bindless ヒープインデックスに解決する。
-							instanceData.baseColorTextureIndex_ = crister->TextureBindlessIndex(material.baseColorTextureIndex_);
-							instanceData.normalTextureIndex_ = crister->TextureBindlessIndex(material.normalTextureIndex_);
-							instanceData.metallicRoughnessTextureIndex_ = crister->TextureBindlessIndex(material.metallicRoughnessTextureIndex_);
-							instanceData.emissiveTextureIndex_ = crister->TextureBindlessIndex(material.emissiveTextureIndex_);
-							instanceData.occlusionTextureIndex_ = crister->TextureBindlessIndex(material.occlusionTextureIndex_);
-							instanceData.specularTextureIndex_ = crister->TextureBindlessIndex(material.khr_.specular_.specularTextureIndex_);
-							instanceData.specularColorTextureIndex_ = crister->TextureBindlessIndex(material.khr_.specular_.specularColorTextureIndex_);
-							instanceData.clearCoatTextureIndex_ = crister->TextureBindlessIndex(material.khr_.clearCoat_.clearCoatTextureIndex_);
-							instanceData.clearCoatRoughnessTextureIndex_ = crister->TextureBindlessIndex(material.khr_.clearCoat_.clearCoatRoughnessTextureIndex_);
-							instanceData.clearCoatNormalTextureIndex_ = crister->TextureBindlessIndex(material.khr_.clearCoat_.clearCoatNormalTextureIndex_);
-							instanceData.transmissionTextureIndex_ = crister->TextureBindlessIndex(material.khr_.transmission_.transmissionTextureIndex_);
-							instanceData.thicknessTextureIndex_ = crister->TextureBindlessIndex(material.khr_.volume_.thicknessTextureIndex_);
-							instanceData.sheenColorTextureIndex_ = crister->TextureBindlessIndex(material.khr_.sheen_.sheenColorTextureIndex_);
-							instanceData.sheenRoughnessTextureIndex_ = crister->TextureBindlessIndex(material.khr_.sheen_.sheenRoughnessTextureIndex_);
-							instanceData.iridescenceTextureIndex_ = crister->TextureBindlessIndex(material.khr_.iridescence_.iridescenceTextureIndex_);
-							instanceData.iridescenceThicknessTextureIndex_ = crister->TextureBindlessIndex(material.khr_.iridescence_.iridescenceThicknessTextureIndex_);
-							instanceData.anisotropyTextureIndex_ = crister->TextureBindlessIndex(material.khr_.anisotropy_.anisotropyTextureIndex_);
-							instanceData.anisotropyRotation_ = material.khr_.anisotropy_.anisotropyRotation_;
-
-							/// [EN] All geometry SRVs come from the cluster's resident
-							///      page; meshletOffset_ is page-local (the page's
-							///      meshlets were rebased at upload).
-							/// [JP] ジオメトリ SRV はすべてクラスタの常駐ページから取る。
-							///      meshletOffset_ はページローカル（ページの meshlet は
-							///      アップロード時にリベース済み）。
-							instanceData.vertexBufferIndex_ = crister->ClusterVertexBufferIndex(clusterIndex);
-							instanceData.skinVertexBufferIndex_ = crister->SkinVertexBufferIndex();
-							instanceData.positionMin_ = crister->PositionMin();
-							instanceData.positionExtent_ = crister->PositionExtent();
-							instanceData.texcoordMinU_ = crister->TexcoordMin().x;
-							instanceData.texcoordMinV_ = crister->TexcoordMin().y;
-							instanceData.texcoordExtent_ = crister->TexcoordExtent();
-							instanceData.meshletBufferIndex_ = crister->ClusterMeshletBufferIndex(clusterIndex);
-							instanceData.meshletBoundBufferIndex_ = crister->ClusterMeshletBoundBufferIndex(clusterIndex);
-							instanceData.vertexIndicesBufferIndex_ = crister->ClusterVertexIndicesBufferIndex(clusterIndex);
-							instanceData.primitiveIndicesBufferIndex_ = crister->ClusterPrimitiveIndicesBufferIndex(clusterIndex);
-
-							instanceData.morphDeltaBufferIndex_ = morphDeltaBufferIndex;
-							instanceData.vertexMorphSourceBufferIndex_ = vertexMorphSourceBufferIndex;
-							instanceData.morphDeltaOffset_ = morphDeltaOffset;
-							instanceData.morphVertexOffset_ = morphVertexOffset;
-							instanceData.morphVertexCount_ = morphVertexCount;
-							instanceData.morphTargetCount_ = morphTargetCount;
-							instanceData.morphWeightOffset_ = morphWeightOffset;
-
-							instanceData.meshletOffset_ = offset - cluster.meshletOffset_;
-							instanceData.meshletCount_ = count;
-
-							instanceData.lodError_ = 0.0f;
-							instanceData.lodErrorNext_ = lodErrorNext;
-
-							/// [EN] Skinned SubMesh: point at this Crister's palette slice.
-							///      On palette overflow fall back to static rendering.
-							/// [JP] スキンド SubMesh: この Crister のパレット領域を指す。
-							///      パレットあふれ時は静的描画にフォールバックする。
-							if (skinned)
+							while (remaining > 0)
 							{
-								Uint skinBoneOffset = boneBase;
-								for (Int skinIndex = 0; skinIndex < subMesh.skinIndex_; skinIndex++)
+								Uint32 count = (remaining > maxMeshletsPerDispatch) ? maxMeshletsPerDispatch : remaining;
+
+								ModelStructuredBuffer instanceData{};
+								instanceData.transform_.world_ = placedWorldMatrix;
+								instanceData.transform_.inverseTransposeWorld_ = placedInverseTransposeWorld;
+								instanceData.transform_.previousWorld_ = placedPreviousWorldMatrix;
+
+								instanceData.texture_.baseColor_ = material.baseColor_;
+								instanceData.texture_.metallic_ = material.metallic_;
+								instanceData.texture_.roughness_ = material.roughness_;
+								/// [EN] MASK clips at the glTF alphaCutoff, BLEND at a tiny epsilon.
+								///      OPAQUE must be 0 - glTF ignores the alpha channel entirely there.
+								/// [JP] MASK は glTF の alphaCutoff、BLEND は微小値でクリップ。
+								///      OPAQUE は 0 — glTF ではアルファを完全に無視する規定のため。
+								instanceData.texture_.alphaCutoff_ = material.alphaMode_ == 1 ? material.alphaCutoff_ : (material.alphaMode_ == 2 ? 0.01f : 0.0f);
+								instanceData.texture_.emissive_ = Vector3(material.emissiveFactor_[0], material.emissiveFactor_[1], material.emissiveFactor_[2]);
+
+								/// [EN] KHR material extensions consumed by the deferred G-Buffer.
+								/// [JP] deferred G-Buffer が消費する KHR マテリアル拡張。
+								instanceData.texture_.ior_ = material.khr_.ior_.ior_;
+								instanceData.texture_.emissiveStrength_ = material.khr_.emissiveStrength_.emissiveStrength_;
+								instanceData.extension_.specularFactor_ = material.khr_.specular_.specularFactor_;
+								instanceData.extension_.specularColor_ = Vector3(material.khr_.specular_.specularColorFactor_[0], material.khr_.specular_.specularColorFactor_[1], material.khr_.specular_.specularColorFactor_[2]);
+								instanceData.extension_.clearCoatFactor_ = material.khr_.clearCoat_.clearCoatFactor_;
+								instanceData.extension_.clearCoatRoughness_ = material.khr_.clearCoat_.clearCoatRoughnessFactor_;
+								instanceData.extension_.anisotropy_ = material.khr_.anisotropy_.anisotropyStrength_;
+								instanceData.extension_.transmissionFactor_ = material.khr_.transmission_.transmissionFactor_;
+								instanceData.extension_.volumeThicknessFactor_ = material.khr_.volume_.thicknessFactor_;
+								instanceData.extension_.volumeAttenuationDistance_ = material.khr_.volume_.attenuationDistance_;
+								instanceData.extension_.volumeAttenuationColor_ = Vector3(material.khr_.volume_.attenuationColor_[0], material.khr_.volume_.attenuationColor_[1], material.khr_.volume_.attenuationColor_[2]);
+								instanceData.extension_.sheenColor_ = Vector3(material.khr_.sheen_.sheenColorFactor_[0], material.khr_.sheen_.sheenColorFactor_[1], material.khr_.sheen_.sheenColorFactor_[2]);
+								instanceData.extension_.sheenRoughness_ = material.khr_.sheen_.sheenRoughnessFactor_;
+								instanceData.extension_.iridescenceFactor_ = material.khr_.iridescence_.iridescenceFactor_;
+								instanceData.extension_.iridescenceIor_ = material.khr_.iridescence_.iridescenceIor_;
+								instanceData.extension_.iridescenceThickness_ = (material.khr_.iridescence_.iridescenceThicknessMinimum_ + material.khr_.iridescence_.iridescenceThicknessMaximum_) * 0.5f;
+								instanceData.extension_.unlit_ = material.khr_.unlit_.unlit_ != 0 ? 1.0f : 0.0f;
+								instanceData.shading_.shadingModel_ = material.khr_.unlit_.unlit_ != 0 ? static_cast<Uint>(ShadingModel::Unlit) : static_cast<Uint>(material.shadingModel_);
+
+								/// [EN] Material stores glTF image indices — resolve to bindless heap indices.
+								/// [JP] Material には glTF の image インデックスが入っているため、bindless ヒープインデックスに解決する。
+								instanceData.texture_.baseColorTextureIndex_ = crister->TextureBindlessIndex(material.baseColorTextureIndex_);
+								instanceData.texture_.normalTextureIndex_ = crister->TextureBindlessIndex(material.normalTextureIndex_);
+								instanceData.texture_.metallicRoughnessTextureIndex_ = crister->TextureBindlessIndex(material.metallicRoughnessTextureIndex_);
+								instanceData.texture_.emissiveTextureIndex_ = crister->TextureBindlessIndex(material.emissiveTextureIndex_);
+								instanceData.texture_.occlusionTextureIndex_ = crister->TextureBindlessIndex(material.occlusionTextureIndex_);
+								instanceData.extension_.specularTextureIndex_ = crister->TextureBindlessIndex(material.khr_.specular_.specularTextureIndex_);
+								instanceData.extension_.specularColorTextureIndex_ = crister->TextureBindlessIndex(material.khr_.specular_.specularColorTextureIndex_);
+								instanceData.extension_.clearCoatTextureIndex_ = crister->TextureBindlessIndex(material.khr_.clearCoat_.clearCoatTextureIndex_);
+								instanceData.extension_.clearCoatRoughnessTextureIndex_ = crister->TextureBindlessIndex(material.khr_.clearCoat_.clearCoatRoughnessTextureIndex_);
+								instanceData.extension_.clearCoatNormalTextureIndex_ = crister->TextureBindlessIndex(material.khr_.clearCoat_.clearCoatNormalTextureIndex_);
+								instanceData.extension_.transmissionTextureIndex_ = crister->TextureBindlessIndex(material.khr_.transmission_.transmissionTextureIndex_);
+								instanceData.extension_.thicknessTextureIndex_ = crister->TextureBindlessIndex(material.khr_.volume_.thicknessTextureIndex_);
+								instanceData.extension_.sheenColorTextureIndex_ = crister->TextureBindlessIndex(material.khr_.sheen_.sheenColorTextureIndex_);
+								instanceData.extension_.sheenRoughnessTextureIndex_ = crister->TextureBindlessIndex(material.khr_.sheen_.sheenRoughnessTextureIndex_);
+								instanceData.extension_.iridescenceTextureIndex_ = crister->TextureBindlessIndex(material.khr_.iridescence_.iridescenceTextureIndex_);
+								instanceData.extension_.iridescenceThicknessTextureIndex_ = crister->TextureBindlessIndex(material.khr_.iridescence_.iridescenceThicknessTextureIndex_);
+								instanceData.extension_.anisotropyTextureIndex_ = crister->TextureBindlessIndex(material.khr_.anisotropy_.anisotropyTextureIndex_);
+								instanceData.extension_.anisotropyRotation_ = material.khr_.anisotropy_.anisotropyRotation_;
+								instanceData.shading_.furLength_ = material.furLength_;
+								instanceData.shading_.furDensity_ = material.furDensity_;
+								instanceData.shading_.furShellCount_ = static_cast<Uint>(material.furShellCount_);
+
+								/// [EN] All geometry SRVs come from the cluster's resident
+								///      page; meshletOffset_ is page-local (the page's
+								///      meshlets were rebased at upload).
+								/// [JP] ジオメトリ SRV はすべてクラスタの常駐ページから取る。
+								///      meshletOffset_ はページローカル（ページの meshlet は
+								///      アップロード時にリベース済み）。
+								instanceData.geometry_.vertexBufferIndex_ = crister->ClusterVertexBufferIndex(clusterIndex);
+								instanceData.skining_.skinVertexBufferIndex_ = crister->SkinVertexBufferIndex();
+								instanceData.streaming_.positionMin_ = crister->PositionMin();
+								instanceData.streaming_.positionExtent_ = crister->PositionExtent();
+								instanceData.streaming_.texcoordMinU_ = crister->TexcoordMin().x;
+								instanceData.streaming_.texcoordMinV_ = crister->TexcoordMin().y;
+								instanceData.streaming_.texcoordExtent_ = crister->TexcoordExtent();
+								instanceData.geometry_.meshletBufferIndex_ = crister->ClusterMeshletBufferIndex(clusterIndex);
+								instanceData.geometry_.meshletBoundBufferIndex_ = crister->ClusterMeshletBoundBufferIndex(clusterIndex);
+								instanceData.geometry_.vertexIndicesBufferIndex_ = crister->ClusterVertexIndicesBufferIndex(clusterIndex);
+								instanceData.geometry_.primitiveIndicesBufferIndex_ = crister->ClusterPrimitiveIndicesBufferIndex(clusterIndex);
+
+								instanceData.morph_.morphDeltaBufferIndex_ = morphDeltaBufferIndex;
+								instanceData.morph_.vertexMorphSourceBufferIndex_ = vertexMorphSourceBufferIndex;
+								instanceData.morph_.morphDeltaOffset_ = morphDeltaOffset;
+								instanceData.morph_.morphVertexOffset_ = morphVertexOffset;
+								instanceData.morph_.morphVertexCount_ = morphVertexCount;
+								instanceData.morph_.morphTargetCount_ = morphTargetCount;
+								instanceData.morph_.morphWeightOffset_ = morphWeightOffset;
+
+								instanceData.geometry_.meshletOffset_ = offset - cluster.meshletOffset_;
+								instanceData.geometry_.meshletCount_ = count;
+
+								instanceData.streaming_.lodError_ = 0.0f;
+								instanceData.streaming_.lodErrorNext_ = lodErrorNext;
+
+								/// [EN] Skinned SubMesh: point at this Crister's palette slice.
+								///      On palette overflow fall back to static rendering.
+								/// [JP] スキンド SubMesh: この Crister のパレット領域を指す。
+								///      パレットあふれ時は静的描画にフォールバックする。
+								if (skinned)
 								{
-									skinBoneOffset += static_cast<Uint>(skins[skinIndex].joints_.size());
+									Uint skinBoneOffset = boneBase;
+									for (Int skinIndex = 0; skinIndex < subMesh.skinIndex_; skinIndex++)
+									{
+										skinBoneOffset += static_cast<Uint>(skins[skinIndex].joints_.size());
+									}
+									instanceData.skining_.skinIndex_ = static_cast<Uint>(subMesh.skinIndex_);
+									instanceData.skining_.boneOffset_ = skinBoneOffset;
 								}
-								instanceData.skinIndex_ = static_cast<Uint>(subMesh.skinIndex_);
-								instanceData.boneOffset_ = skinBoneOffset;
-							}
-							else
-							{
-								instanceData.skinIndex_ = 0xFFFFFFFF;
-								instanceData.boneOffset_ = 0;
-							}
+								else
+								{
+									instanceData.skining_.skinIndex_ = 0xFFFFFFFF;
+									instanceData.skining_.boneOffset_ = 0;
+								}
 
-							instanceData.doubleSided_ = material.doubleSided_ ? 1 : 0;
-							instanceData.blend_ = material.alphaMode_ == 2 ? 1 : 0;
+								instanceData.shading_.doubleSided_ = material.doubleSided_ ? 1 : 0;
+								instanceData.shading_.blend_ = material.alphaMode_ == 2 ? 1 : 0;
 
-							instanceData.selected_ = (selectedEntity.Exists() && actor.GetEntity() == selectedEntity) ? 1 : 0;
-							if (instanceData.selected_)
-							{
-								hasSelectedInstance_ = true;
-								hasSelectedSkinned_ = hasSelectedSkinned_ || skinned;
-							}
+								instanceData.shading_.selected_ = (selectedEntity.Exists() && actor.GetEntity() == selectedEntity) ? 1 : 0;
+								if (instanceData.shading_.selected_)
+								{
+									hasSelectedInstance_ = true;
+									hasSelectedSkinned_ = hasSelectedSkinned_ || skinned;
+								}
 
-							/// [EN] OPAQUE(0) and MASK(1) both go through the opaque G-Buffer path
-							///      (MASK is a cutout handled by clip() in the PS). Only BLEND(2)
-							///      needs the OIT transparent path.
-							/// [JP] OPAQUE(0) と MASK(1) は両方とも不透明 G-Buffer パスで描く
-							///      (MASK は PS の clip() で処理するカットアウト)。OIT 透過パスが
-							///      必要なのは BLEND(2) のみ。
-							if (material.alphaMode_ != 2)
-							{
-								opaqueInstances_.push_back(instanceData);
-								hasSkinnedOpaque_ = hasSkinnedOpaque_ || instanceData.skinIndex_ != 0xFFFFFFFF;
-							}
-							else
-							{
-								transparentInstances_.push_back(instanceData);
-								hasSkinnedTransparent_ = hasSkinnedTransparent_ || instanceData.skinIndex_ != 0xFFFFFFFF;
-							}
+								/// [EN] OPAQUE(0) and MASK(1) both go through the opaque G-Buffer path
+								///      (MASK is a cutout handled by clip() in the PS). Only BLEND(2)
+								///      needs the OIT transparent path.
+								/// [JP] OPAQUE(0) と MASK(1) は両方とも不透明 G-Buffer パスで描く
+								///      (MASK は PS の clip() で処理するカットアウト)。OIT 透過パスが
+								///      必要なのは BLEND(2) のみ。
+								if (material.alphaMode_ != 2)
+								{
+									opaqueInstances_.push_back(instanceData);
+									hasSkinnedOpaque_ = hasSkinnedOpaque_ || instanceData.skining_.skinIndex_ != 0xFFFFFFFF;
+									if (instanceData.shading_.shadingModel_ == static_cast<Uint>(ShadingModel::Fur))
+									{
+										furInstances_.push_back(instanceData);
+									}
+								}
+								else
+								{
+									transparentInstances_.push_back(instanceData);
+									hasSkinnedTransparent_ = hasSkinnedTransparent_ || instanceData.skining_.skinIndex_ != 0xFFFFFFFF;
+								}
 
-							offset += count;
-							remaining -= count;
+								offset += count;
+								remaining -= count;
+							}
 						}
 					}
 				}
 			});
 
-		/// [EN] Softbody actors: each gets exactly one ModelInstanceData
+		/// [EN] Softbody actors: each gets exactly one ModelStructuredBuffer
 		///      sourced from its own SoftbodyMesh (built/re-quantised below),
 		///      not from Crister's cluster/LOD streaming path — see
 		///      SoftbodyMesh's class comment for why. Walked via
@@ -722,7 +807,7 @@ namespace SeedCore
 		///      PhysicsSystem::ResolveSoftbodies), not Query<>, since Softbody
 		///      is a SeedScript component like Animator/Rigidbody.
 		/// [JP] Softbody アクター: それぞれ自身の SoftbodyMesh（下で構築/
-		///      再量子化）から作った ModelInstanceData を1つだけ持つ —
+		///      再量子化）から作った ModelStructuredBuffer を1つだけ持つ —
 		///      Crister のクラスタ/LOD ストリーミング経路は使わない
 		///      （理由は SoftbodyMesh のクラスコメント参照）。SparseSet
 		///      コンポーネントのため Query<> ではなく World::GetComponents
@@ -798,85 +883,88 @@ namespace SeedCore
 			{
 				Uint32 count = (remaining > maxMeshletsPerDispatch) ? maxMeshletsPerDispatch : remaining;
 
-				ModelInstanceData instanceData{};
-				instanceData.world_ = worldMatrix;
-				instanceData.inverseTransposeWorld_ = inverseTransposeWorld;
-				instanceData.previousWorld_ = previousWorldMatrix;
+				ModelStructuredBuffer instanceData{};
+				instanceData.transform_.world_ = worldMatrix;
+				instanceData.transform_.inverseTransposeWorld_ = inverseTransposeWorld;
+				instanceData.transform_.previousWorld_ = previousWorldMatrix;
 
-				instanceData.baseColor_ = material.baseColor_;
-				instanceData.metallic_ = material.metallic_;
-				instanceData.roughness_ = material.roughness_;
-				instanceData.alphaCutoff_ = material.alphaMode_ == 1 ? material.alphaCutoff_ : (material.alphaMode_ == 2 ? 0.01f : 0.0f);
-				instanceData.emissive_ = Vector3(material.emissiveFactor_[0], material.emissiveFactor_[1], material.emissiveFactor_[2]);
+				instanceData.texture_.baseColor_ = material.baseColor_;
+				instanceData.texture_.metallic_ = material.metallic_;
+				instanceData.texture_.roughness_ = material.roughness_;
+				instanceData.texture_.alphaCutoff_ = material.alphaMode_ == 1 ? material.alphaCutoff_ : (material.alphaMode_ == 2 ? 0.01f : 0.0f);
+				instanceData.texture_.emissive_ = Vector3(material.emissiveFactor_[0], material.emissiveFactor_[1], material.emissiveFactor_[2]);
 
-				instanceData.ior_ = material.khr_.ior_.ior_;
-				instanceData.emissiveStrength_ = material.khr_.emissiveStrength_.emissiveStrength_;
-				instanceData.specularFactor_ = material.khr_.specular_.specularFactor_;
-				instanceData.specularColor_ = Vector3(material.khr_.specular_.specularColorFactor_[0], material.khr_.specular_.specularColorFactor_[1], material.khr_.specular_.specularColorFactor_[2]);
-				instanceData.clearCoatFactor_ = material.khr_.clearCoat_.clearCoatFactor_;
-				instanceData.clearCoatRoughness_ = material.khr_.clearCoat_.clearCoatRoughnessFactor_;
-				instanceData.anisotropy_ = material.khr_.anisotropy_.anisotropyStrength_;
-				instanceData.transmissionFactor_ = material.khr_.transmission_.transmissionFactor_;
-				instanceData.volumeThicknessFactor_ = material.khr_.volume_.thicknessFactor_;
-				instanceData.volumeAttenuationDistance_ = material.khr_.volume_.attenuationDistance_;
-				instanceData.volumeAttenuationColor_ = Vector3(material.khr_.volume_.attenuationColor_[0], material.khr_.volume_.attenuationColor_[1], material.khr_.volume_.attenuationColor_[2]);
-				instanceData.sheenColor_ = Vector3(material.khr_.sheen_.sheenColorFactor_[0], material.khr_.sheen_.sheenColorFactor_[1], material.khr_.sheen_.sheenColorFactor_[2]);
-				instanceData.sheenRoughness_ = material.khr_.sheen_.sheenRoughnessFactor_;
-				instanceData.iridescenceFactor_ = material.khr_.iridescence_.iridescenceFactor_;
-				instanceData.iridescenceIor_ = material.khr_.iridescence_.iridescenceIor_;
-				instanceData.iridescenceThickness_ = (material.khr_.iridescence_.iridescenceThicknessMinimum_ + material.khr_.iridescence_.iridescenceThicknessMaximum_) * 0.5f;
-				instanceData.unlit_ = material.khr_.unlit_.unlit_ != 0 ? 1.0f : 0.0f;
-				instanceData.shadingModel_ = material.khr_.unlit_.unlit_ != 0 ? static_cast<Uint>(ShadingModel::Unlit) : static_cast<Uint>(material.shadingModel_);
+				instanceData.texture_.ior_ = material.khr_.ior_.ior_;
+				instanceData.texture_.emissiveStrength_ = material.khr_.emissiveStrength_.emissiveStrength_;
+				instanceData.extension_.specularFactor_ = material.khr_.specular_.specularFactor_;
+				instanceData.extension_.specularColor_ = Vector3(material.khr_.specular_.specularColorFactor_[0], material.khr_.specular_.specularColorFactor_[1], material.khr_.specular_.specularColorFactor_[2]);
+				instanceData.extension_.clearCoatFactor_ = material.khr_.clearCoat_.clearCoatFactor_;
+				instanceData.extension_.clearCoatRoughness_ = material.khr_.clearCoat_.clearCoatRoughnessFactor_;
+				instanceData.extension_.anisotropy_ = material.khr_.anisotropy_.anisotropyStrength_;
+				instanceData.extension_.transmissionFactor_ = material.khr_.transmission_.transmissionFactor_;
+				instanceData.extension_.volumeThicknessFactor_ = material.khr_.volume_.thicknessFactor_;
+				instanceData.extension_.volumeAttenuationDistance_ = material.khr_.volume_.attenuationDistance_;
+				instanceData.extension_.volumeAttenuationColor_ = Vector3(material.khr_.volume_.attenuationColor_[0], material.khr_.volume_.attenuationColor_[1], material.khr_.volume_.attenuationColor_[2]);
+				instanceData.extension_.sheenColor_ = Vector3(material.khr_.sheen_.sheenColorFactor_[0], material.khr_.sheen_.sheenColorFactor_[1], material.khr_.sheen_.sheenColorFactor_[2]);
+				instanceData.extension_.sheenRoughness_ = material.khr_.sheen_.sheenRoughnessFactor_;
+				instanceData.extension_.iridescenceFactor_ = material.khr_.iridescence_.iridescenceFactor_;
+				instanceData.extension_.iridescenceIor_ = material.khr_.iridescence_.iridescenceIor_;
+				instanceData.extension_.iridescenceThickness_ = (material.khr_.iridescence_.iridescenceThicknessMinimum_ + material.khr_.iridescence_.iridescenceThicknessMaximum_) * 0.5f;
+				instanceData.extension_.unlit_ = material.khr_.unlit_.unlit_ != 0 ? 1.0f : 0.0f;
+				instanceData.shading_.shadingModel_ = material.khr_.unlit_.unlit_ != 0 ? static_cast<Uint>(ShadingModel::Unlit) : static_cast<Uint>(material.shadingModel_);
 
-				instanceData.baseColorTextureIndex_ = crister->TextureBindlessIndex(material.baseColorTextureIndex_);
-				instanceData.normalTextureIndex_ = crister->TextureBindlessIndex(material.normalTextureIndex_);
-				instanceData.metallicRoughnessTextureIndex_ = crister->TextureBindlessIndex(material.metallicRoughnessTextureIndex_);
-				instanceData.emissiveTextureIndex_ = crister->TextureBindlessIndex(material.emissiveTextureIndex_);
-				instanceData.occlusionTextureIndex_ = crister->TextureBindlessIndex(material.occlusionTextureIndex_);
-				instanceData.specularTextureIndex_ = crister->TextureBindlessIndex(material.khr_.specular_.specularTextureIndex_);
-				instanceData.specularColorTextureIndex_ = crister->TextureBindlessIndex(material.khr_.specular_.specularColorTextureIndex_);
-				instanceData.clearCoatTextureIndex_ = crister->TextureBindlessIndex(material.khr_.clearCoat_.clearCoatTextureIndex_);
-				instanceData.clearCoatRoughnessTextureIndex_ = crister->TextureBindlessIndex(material.khr_.clearCoat_.clearCoatRoughnessTextureIndex_);
-				instanceData.clearCoatNormalTextureIndex_ = crister->TextureBindlessIndex(material.khr_.clearCoat_.clearCoatNormalTextureIndex_);
-				instanceData.transmissionTextureIndex_ = crister->TextureBindlessIndex(material.khr_.transmission_.transmissionTextureIndex_);
-				instanceData.thicknessTextureIndex_ = crister->TextureBindlessIndex(material.khr_.volume_.thicknessTextureIndex_);
-				instanceData.sheenColorTextureIndex_ = crister->TextureBindlessIndex(material.khr_.sheen_.sheenColorTextureIndex_);
-				instanceData.sheenRoughnessTextureIndex_ = crister->TextureBindlessIndex(material.khr_.sheen_.sheenRoughnessTextureIndex_);
-				instanceData.iridescenceTextureIndex_ = crister->TextureBindlessIndex(material.khr_.iridescence_.iridescenceTextureIndex_);
-				instanceData.iridescenceThicknessTextureIndex_ = crister->TextureBindlessIndex(material.khr_.iridescence_.iridescenceThicknessTextureIndex_);
-				instanceData.anisotropyTextureIndex_ = crister->TextureBindlessIndex(material.khr_.anisotropy_.anisotropyTextureIndex_);
-				instanceData.anisotropyRotation_ = material.khr_.anisotropy_.anisotropyRotation_;
+				instanceData.texture_.baseColorTextureIndex_ = crister->TextureBindlessIndex(material.baseColorTextureIndex_);
+				instanceData.texture_.normalTextureIndex_ = crister->TextureBindlessIndex(material.normalTextureIndex_);
+				instanceData.texture_.metallicRoughnessTextureIndex_ = crister->TextureBindlessIndex(material.metallicRoughnessTextureIndex_);
+				instanceData.texture_.emissiveTextureIndex_ = crister->TextureBindlessIndex(material.emissiveTextureIndex_);
+				instanceData.texture_.occlusionTextureIndex_ = crister->TextureBindlessIndex(material.occlusionTextureIndex_);
+				instanceData.extension_.specularTextureIndex_ = crister->TextureBindlessIndex(material.khr_.specular_.specularTextureIndex_);
+				instanceData.extension_.specularColorTextureIndex_ = crister->TextureBindlessIndex(material.khr_.specular_.specularColorTextureIndex_);
+				instanceData.extension_.clearCoatTextureIndex_ = crister->TextureBindlessIndex(material.khr_.clearCoat_.clearCoatTextureIndex_);
+				instanceData.extension_.clearCoatRoughnessTextureIndex_ = crister->TextureBindlessIndex(material.khr_.clearCoat_.clearCoatRoughnessTextureIndex_);
+				instanceData.extension_.clearCoatNormalTextureIndex_ = crister->TextureBindlessIndex(material.khr_.clearCoat_.clearCoatNormalTextureIndex_);
+				instanceData.extension_.transmissionTextureIndex_ = crister->TextureBindlessIndex(material.khr_.transmission_.transmissionTextureIndex_);
+				instanceData.extension_.thicknessTextureIndex_ = crister->TextureBindlessIndex(material.khr_.volume_.thicknessTextureIndex_);
+				instanceData.extension_.sheenColorTextureIndex_ = crister->TextureBindlessIndex(material.khr_.sheen_.sheenColorTextureIndex_);
+				instanceData.extension_.sheenRoughnessTextureIndex_ = crister->TextureBindlessIndex(material.khr_.sheen_.sheenRoughnessTextureIndex_);
+				instanceData.extension_.iridescenceTextureIndex_ = crister->TextureBindlessIndex(material.khr_.iridescence_.iridescenceTextureIndex_);
+				instanceData.extension_.iridescenceThicknessTextureIndex_ = crister->TextureBindlessIndex(material.khr_.iridescence_.iridescenceThicknessTextureIndex_);
+				instanceData.extension_.anisotropyTextureIndex_ = crister->TextureBindlessIndex(material.khr_.anisotropy_.anisotropyTextureIndex_);
+				instanceData.extension_.anisotropyRotation_ = material.khr_.anisotropy_.anisotropyRotation_;
+				instanceData.shading_.furLength_ = material.furLength_;
+				instanceData.shading_.furDensity_ = material.furDensity_;
+				instanceData.shading_.furShellCount_ = static_cast<Uint>(material.furShellCount_);
 
 				/// [EN] SoftbodyMesh's own buffers, not Crister's — see
 				///      SoftbodyMesh's class comment.
 				/// [JP] Crister のではなく SoftbodyMesh 自身のバッファ —
 				///      SoftbodyMesh のクラスコメント参照。
-				instanceData.vertexBufferIndex_ = softbodyMesh->VertexBufferIndex();
-				instanceData.skinVertexBufferIndex_ = 0xFFFFFFFF;
-				instanceData.positionMin_ = softbodyMesh->PositionMin();
-				instanceData.positionExtent_ = softbodyMesh->PositionExtent();
-				instanceData.texcoordMinU_ = softbodyMesh->TexcoordMin().x;
-				instanceData.texcoordMinV_ = softbodyMesh->TexcoordMin().y;
-				instanceData.texcoordExtent_ = softbodyMesh->TexcoordExtent();
-				instanceData.meshletBufferIndex_ = softbodyMesh->MeshletBufferIndex();
-				instanceData.meshletBoundBufferIndex_ = softbodyMesh->MeshletBoundBufferIndex();
-				instanceData.vertexIndicesBufferIndex_ = softbodyMesh->VertexIndicesBufferIndex();
-				instanceData.primitiveIndicesBufferIndex_ = softbodyMesh->PrimitiveIndicesBufferIndex();
+				instanceData.geometry_.vertexBufferIndex_ = softbodyMesh->VertexBufferIndex();
+				instanceData.skining_.skinVertexBufferIndex_ = 0xFFFFFFFF;
+				instanceData.streaming_.positionMin_ = softbodyMesh->PositionMin();
+				instanceData.streaming_.positionExtent_ = softbodyMesh->PositionExtent();
+				instanceData.streaming_.texcoordMinU_ = softbodyMesh->TexcoordMin().x;
+				instanceData.streaming_.texcoordMinV_ = softbodyMesh->TexcoordMin().y;
+				instanceData.streaming_.texcoordExtent_ = softbodyMesh->TexcoordExtent();
+				instanceData.geometry_.meshletBufferIndex_ = softbodyMesh->MeshletBufferIndex();
+				instanceData.geometry_.meshletBoundBufferIndex_ = softbodyMesh->MeshletBoundBufferIndex();
+				instanceData.geometry_.vertexIndicesBufferIndex_ = softbodyMesh->VertexIndicesBufferIndex();
+				instanceData.geometry_.primitiveIndicesBufferIndex_ = softbodyMesh->PrimitiveIndicesBufferIndex();
 
-				instanceData.meshletOffset_ = offset;
-				instanceData.meshletCount_ = count;
+				instanceData.geometry_.meshletOffset_ = offset;
+				instanceData.geometry_.meshletCount_ = count;
 
-				instanceData.lodError_ = 0.0f;
-				instanceData.lodErrorNext_ = FLT_MAX;
+				instanceData.streaming_.lodError_ = 0.0f;
+				instanceData.streaming_.lodErrorNext_ = FLT_MAX;
 
-				instanceData.skinIndex_ = 0xFFFFFFFF;
-				instanceData.boneOffset_ = 0;
+				instanceData.skining_.skinIndex_ = 0xFFFFFFFF;
+				instanceData.skining_.boneOffset_ = 0;
 
-				instanceData.doubleSided_ = material.doubleSided_ ? 1 : 0;
-				instanceData.blend_ = material.alphaMode_ == 2 ? 1 : 0;
+				instanceData.shading_.doubleSided_ = material.doubleSided_ ? 1 : 0;
+				instanceData.shading_.blend_ = material.alphaMode_ == 2 ? 1 : 0;
 
-				instanceData.selected_ = (selectedEntity.Exists() && actor.GetEntity() == selectedEntity) ? 1 : 0;
-				if (instanceData.selected_)
+				instanceData.shading_.selected_ = (selectedEntity.Exists() && actor.GetEntity() == selectedEntity) ? 1 : 0;
+				if (instanceData.shading_.selected_)
 				{
 					hasSelectedInstance_ = true;
 				}
@@ -884,6 +972,10 @@ namespace SeedCore
 				if (material.alphaMode_ != 2)
 				{
 					opaqueInstances_.push_back(instanceData);
+					if (instanceData.shading_.shadingModel_ == static_cast<Uint>(ShadingModel::Fur))
+					{
+						furInstances_.push_back(instanceData);
+					}
 				}
 				else
 				{
@@ -958,16 +1050,25 @@ namespace SeedCore
 
 		/// [EN] Frame-ring buffers: re-register the current frame's SRV indices.
 		/// [JP] フレームリングバッファ: 現在フレームの SRV インデックスを再登録する。
-		indicesSystem_->SetModelInstanceIndex(instanceBuffer_->Index());
-		indicesSystem_->SetModelBoneMatrixIndex(boneBuffer_->Index());
-		indicesSystem_->SetModelMorphWeightIndex(morphWeightBuffer_->Index());
+		shaderResourceIndicesSystem_->SetModelInstanceIndex(instanceBuffer_->Index());
+		shaderResourceIndicesSystem_->SetModelBoneMatrixIndex(boneBuffer_->Index());
+		shaderResourceIndicesSystem_->SetModelMorphWeightIndex(morphWeightBuffer_->Index());
+		constantIndicesSystem_->SetModelFurIndex(modelFurConstantBuffer_->GetIndex());
+		shaderResourceIndicesSystem_->SetModelPreviousBoneMatrixIndex(previousBoneBuffer_->Index());
+		shaderResourceIndicesSystem_->SetModelPreviousMorphWeightIndex(previousMorphWeightBuffer_->Index());
 
-		if (!opaqueInstances_.empty() || !transparentInstances_.empty())
+		FurConstantBuffer furData{};
+		furData.furInstanceOffset_ = static_cast<Uint>(opaqueInstances_.size() + transparentInstances_.size());
+		furData.furInstanceCount_ = static_cast<Uint>(furInstances_.size());
+		modelFurConstantBuffer_->Update(furData);
+
+		if (!opaqueInstances_.empty() || !transparentInstances_.empty() || !furInstances_.empty())
 		{
-			DynamicArray<ModelInstanceData> allInstances;
-			allInstances.reserve(opaqueInstances_.size() + transparentInstances_.size());
+			DynamicArray<ModelStructuredBuffer> allInstances;
+			allInstances.reserve(opaqueInstances_.size() + transparentInstances_.size() + furInstances_.size());
 			allInstances.insert(allInstances.end(), opaqueInstances_.begin(), opaqueInstances_.end());
 			allInstances.insert(allInstances.end(), transparentInstances_.begin(), transparentInstances_.end());
+			allInstances.insert(allInstances.end(), furInstances_.begin(), furInstances_.end());
 
 			instanceBuffer_->Update(allInstances.data(), static_cast<Uint>(allInstances.size()));
 		}
@@ -975,11 +1076,13 @@ namespace SeedCore
 		if (!boneMatrices_.empty())
 		{
 			boneBuffer_->Update(boneMatrices_.data(), static_cast<Uint>(boneMatrices_.size()));
+			previousBoneBuffer_->Update(previousBoneMatrices_.data(), static_cast<Uint>(previousBoneMatrices_.size()));
 		}
 
 		if (!morphWeights_.empty())
 		{
 			morphWeightBuffer_->Update(morphWeights_.data(), static_cast<Uint>(morphWeights_.size()));
+			previousMorphWeightBuffer_->Update(previousMorphWeights_.data(), static_cast<Uint>(previousMorphWeights_.size()));
 		}
 	}
 
@@ -1015,7 +1118,7 @@ namespace SeedCore
 		return true;
 	}
 
-	void ModelRenderer::DrawDepthPrepass(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex)
+	void ModelRenderer::DrawDepthPrepass(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
 	{
 		if (opaqueInstances_.empty())
 		{
@@ -1027,9 +1130,7 @@ namespace SeedCore
 		ID3D12DescriptorHeap* heaps[] = { heap };
 		cmd->SetDescriptorHeaps(_countof(heaps), heaps);
 		cmd->SetGraphicsRootSignature(modelShader_.GetRootSignature());
-		cmd->SetGraphicsRootConstantBufferView(2, constantIndex);
-		cmd->SetGraphicsRootConstantBufferView(3, structuredIndex);
-		cmd->SetGraphicsRootDescriptorTable(0, bindlessHeap_->GPUHandle(0));
+		RootSignature::BindGraphics(cmd, addresses);
 
 		/// [EN] All passes dispatch the full instance list; the AS entry skips
 		///      instances that belong to the other pass (blend_ filter).
@@ -1040,7 +1141,7 @@ namespace SeedCore
 		ProfilerStats::AddDrawCall();
 	}
 
-	void ModelRenderer::DrawOpaque(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex)
+	void ModelRenderer::DrawOpaque(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
 	{
 		if (opaqueInstances_.empty())
 		{
@@ -1052,9 +1153,7 @@ namespace SeedCore
 		ID3D12DescriptorHeap* heaps[] = { heap };
 		cmd->SetDescriptorHeaps(_countof(heaps), heaps);
 		cmd->SetGraphicsRootSignature(modelShader_.GetRootSignature());
-		cmd->SetGraphicsRootConstantBufferView(2, constantIndex);
-		cmd->SetGraphicsRootConstantBufferView(3, structuredIndex);
-		cmd->SetGraphicsRootDescriptorTable(0, bindlessHeap_->GPUHandle(0));
+		RootSignature::BindGraphics(cmd, addresses);
 
 		cmd->SetPipelineState(modelShader_.GetPipelineStateStatic());
 		cmd->DispatchMesh(static_cast<Uint>(opaqueInstances_.size() + transparentInstances_.size()), 1, 1);
@@ -1072,7 +1171,7 @@ namespace SeedCore
 		}
 	}
 
-	void ModelRenderer::Compose(D3D12CommandList* cmdList, FrameBuffer* frameBuffer, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex)
+	void ModelRenderer::Compose(D3D12CommandList* cmdList, FrameBuffer* frameBuffer, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
 	{
 		frameBuffer->Rebind(cmdList);
 
@@ -1081,16 +1180,22 @@ namespace SeedCore
 		ID3D12DescriptorHeap* heaps[] = { heap };
 		cmd->SetDescriptorHeaps(_countof(heaps), heaps);
 		cmd->SetGraphicsRootSignature(modelShader_.GetRootSignature());
-		cmd->SetGraphicsRootConstantBufferView(2, constantIndex);
-		cmd->SetGraphicsRootConstantBufferView(3, structuredIndex);
-		cmd->SetGraphicsRootDescriptorTable(0, bindlessHeap_->GPUHandle(0));
+		RootSignature::BindGraphics(cmd, addresses);
 
 		cmd->SetPipelineState(modelShader_.GetPipelineStateComposite());
-		cmd->DispatchMesh(1, 1, 1);
+		if (D3D12Check::GetLevel() == D3D12Level::D12_2)
+		{
+			cmd->DispatchMesh(1, 1, 1);
+		}
+		else
+		{
+			cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			cmd->DrawInstanced(3, 1, 0, 0);
+		}
 		ProfilerStats::AddDrawCall();
 	}
 
-	void ModelRenderer::DrawWireframe(D3D12CommandList* cmdList, FrameBuffer* frameBuffer, GeometryBuffer* geometryBuffer, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex)
+	void ModelRenderer::DrawWireframe(D3D12CommandList* cmdList, FrameBuffer* frameBuffer, GeometryBuffer* geometryBuffer, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
 	{
 		if (opaqueInstances_.empty())
 		{
@@ -1112,9 +1217,7 @@ namespace SeedCore
 		ID3D12DescriptorHeap* heaps[] = { heap };
 		cmd->SetDescriptorHeaps(_countof(heaps), heaps);
 		cmd->SetGraphicsRootSignature(modelShader_.GetRootSignature());
-		cmd->SetGraphicsRootConstantBufferView(2, constantIndex);
-		cmd->SetGraphicsRootConstantBufferView(3, structuredIndex);
-		cmd->SetGraphicsRootDescriptorTable(0, bindlessHeap_->GPUHandle(0));
+		RootSignature::BindGraphics(cmd, addresses);
 
 		cmd->SetPipelineState(modelShader_.GetPipelineStateWireframeStatic());
 		cmd->DispatchMesh(static_cast<Uint>(opaqueInstances_.size() + transparentInstances_.size()), 1, 1);
@@ -1128,7 +1231,7 @@ namespace SeedCore
 		}
 	}
 
-	void ModelRenderer::DrawMeshlet(D3D12CommandList* cmdList, FrameBuffer* frameBuffer, GeometryBuffer* geometryBuffer, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex)
+	void ModelRenderer::DrawMeshlet(D3D12CommandList* cmdList, FrameBuffer* frameBuffer, GeometryBuffer* geometryBuffer, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
 	{
 		if (opaqueInstances_.empty())
 		{
@@ -1149,9 +1252,7 @@ namespace SeedCore
 		ID3D12DescriptorHeap* heaps[] = { heap };
 		cmd->SetDescriptorHeaps(_countof(heaps), heaps);
 		cmd->SetGraphicsRootSignature(modelShader_.GetRootSignature());
-		cmd->SetGraphicsRootConstantBufferView(2, constantIndex);
-		cmd->SetGraphicsRootConstantBufferView(3, structuredIndex);
-		cmd->SetGraphicsRootDescriptorTable(0, bindlessHeap_->GPUHandle(0));
+		RootSignature::BindGraphics(cmd, addresses);
 
 		cmd->SetPipelineState(modelShader_.GetPipelineStateMeshletStatic());
 		cmd->DispatchMesh(static_cast<Uint>(opaqueInstances_.size() + transparentInstances_.size()), 1, 1);
@@ -1165,7 +1266,7 @@ namespace SeedCore
 		}
 	}
 
-	void ModelRenderer::DrawTransparent(D3D12CommandList* cmdList, FrameBuffer* frameBuffer, GeometryBuffer* geometryBuffer, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex)
+	void ModelRenderer::DrawTransparent(D3D12CommandList* cmdList, FrameBuffer* frameBuffer, GeometryBuffer* geometryBuffer, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
 	{
 		if (transparentInstances_.empty())
 		{
@@ -1182,9 +1283,7 @@ namespace SeedCore
 		ID3D12DescriptorHeap* heaps[] = { heap };
 		cmd->SetDescriptorHeaps(_countof(heaps), heaps);
 		cmd->SetGraphicsRootSignature(modelShader_.GetRootSignature());
-		cmd->SetGraphicsRootConstantBufferView(2, constantIndex);
-		cmd->SetGraphicsRootConstantBufferView(3, structuredIndex);
-		cmd->SetGraphicsRootDescriptorTable(0, bindlessHeap_->GPUHandle(0));
+		RootSignature::BindGraphics(cmd, addresses);
 
 		cmd->SetPipelineState(modelShader_.GetPipelineStateStaticTransparent());
 		cmd->DispatchMesh(static_cast<Uint>(opaqueInstances_.size() + transparentInstances_.size()), 1, 1);
@@ -1206,11 +1305,42 @@ namespace SeedCore
 		frameBuffer->Rebind(cmdList);
 
 		cmd->SetPipelineState(modelShader_.GetPipelineStateResolve());
-		cmd->DispatchMesh(1, 1, 1);
+		if (D3D12Check::GetLevel() == D3D12Level::D12_2)
+		{
+			cmd->DispatchMesh(1, 1, 1);
+		}
+		else
+		{
+			cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			cmd->DrawInstanced(3, 1, 0, 0);
+		}
 		ProfilerStats::AddDrawCall();
 	}
 
-	void ModelRenderer::DrawSelectionMask(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex)
+	void ModelRenderer::DrawFurShell(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
+	{
+		if (furInstances_.empty())
+		{
+			return;
+		}
+
+		auto* cmd = cmdList->Get();
+
+		ID3D12DescriptorHeap* heaps[] = { heap };
+		cmd->SetDescriptorHeaps(_countof(heaps), heaps);
+		cmd->SetGraphicsRootSignature(modelShader_.GetRootSignature());
+		RootSignature::BindGraphics(cmd, addresses);
+
+		/// [EN] Draws onto the already-bound lit HDR frame (blend), depth-test
+		///      against the opaque depth without writing. Call after DrawTransparent.
+		/// [JP] バインド済みのライティング済み HDR フレームへブレンド描画、
+		///      不透明の深度に対してテストのみ(書き込みなし)。DrawTransparent の後に呼ぶ。
+		cmd->SetPipelineState(modelShader_.GetPipelineStateFurShell());
+		cmd->DispatchMesh(static_cast<Uint>(furInstances_.size()) * furShellMax_, 1, 1);
+		ProfilerStats::AddDrawCall();
+	}
+
+	void ModelRenderer::DrawSelectionMask(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
 	{
 		if (!hasSelectedInstance_)
 		{
@@ -1226,9 +1356,7 @@ namespace SeedCore
 		ID3D12DescriptorHeap* heaps[] = { heap };
 		cmd->SetDescriptorHeaps(_countof(heaps), heaps);
 		cmd->SetGraphicsRootSignature(modelShader_.GetRootSignature());
-		cmd->SetGraphicsRootConstantBufferView(2, constantIndex);
-		cmd->SetGraphicsRootConstantBufferView(3, structuredIndex);
-		cmd->SetGraphicsRootDescriptorTable(0, bindlessHeap_->GPUHandle(0));
+		RootSignature::BindGraphics(cmd, addresses);
 
 		cmd->SetPipelineState(modelShader_.GetPipelineStateSelectionMaskStatic());
 		cmd->DispatchMesh(static_cast<Uint>(opaqueInstances_.size() + transparentInstances_.size()), 1, 1);

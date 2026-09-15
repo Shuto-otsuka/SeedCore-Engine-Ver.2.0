@@ -1,8 +1,6 @@
 #include "Movie.hlsli"
 #include "../Shader/Sampler.hlsli"
-#include "../Shader/Constants.hlsli"
-
-Texture2D textures[] : register(t0);
+#include "../Shader/Scene.hlsli"
 
 float4 main(MovieFullscreenMSOutput input) : SV_Target
 {
@@ -32,7 +30,8 @@ float4 main(MovieFullscreenMSOutput input) : SV_Target
 	}
 
 	float2 texture_coord = (input.uv - min_uv) / (max_uv - min_uv);
-	float4 texture_color = textures[input.texture_index].Sample(sampler_linear_clamp, texture_coord);
+	Texture2D<float4> texture_ = ResourceDescriptorHeap[input.texture_index];
+	float4 texture_color = texture_.Sample(sampler_linear_clamp, texture_coord);
 
 	return float4(texture_color.rgb * input.color.rgb, input.color.a);
 }

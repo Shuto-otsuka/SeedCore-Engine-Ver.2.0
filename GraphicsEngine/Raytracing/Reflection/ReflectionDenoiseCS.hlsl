@@ -1,8 +1,9 @@
-#include "../../Shader/Constants.hlsli"
-#include "../../Shader/Structured.hlsli"
+#include "../../Shader/Scene.hlsli"
 #include "../../Shader/Sampler.hlsli"
 #include "../../Shader/Normal.hlsli"
 #include "../../Shader/Denoiser.hlsli"
+#include "../../Shader/ShaderResources.hlsli"
+#include "../../Shader/UnorderedAccesses.hlsli"
 #include "Reflection.hlsli"
 
 /**
@@ -352,15 +353,15 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	int2 pixel = int2(dtid.xy);
 	int2 screen_max = int2(scene.screen_size_) - 1;
 
-	/// [JP] raw はビュー共有(structured_indices)、蓄積チェーンはビューごと
-	///      (constant_indices — Editor/Game で別バッファ)から取る。
-	Texture2D<float4> raw_radiance = ResourceDescriptorHeap[structured_indices.reflection_.output_srv_index_];
-	RWTexture2D<float4> filtered_output = ResourceDescriptorHeap[constant_indices.reflection_.atrous_scratch0_uav_index_];
-	RWTexture2D<float2> moments_output = ResourceDescriptorHeap[constant_indices.reflection_.moments_uav_index_];
-	RWTexture2D<float> history_length_output = ResourceDescriptorHeap[constant_indices.reflection_.history_length_uav_index_];
-	RWTexture2D<float4> depth_normal_output = ResourceDescriptorHeap[constant_indices.reflection_.depth_normal_uav_index_];
+	/// [JP] raw はビュー共有(全ビューの shader_resource_indices に同じ値)、蓄積チェーンはビューごと
+	///      (reflection_accumulation_ — Editor/Game で別バッファ)から取る。
+	Texture2D<float4> raw_radiance = ResourceDescriptorHeap[shader_resource_indices.reflection_.output_index_];
+	RWTexture2D<float4> filtered_output = ResourceDescriptorHeap[unordered_access_indices.reflection_accumulation_.atrous_scratch0_index_];
+	RWTexture2D<float2> moments_output = ResourceDescriptorHeap[unordered_access_indices.reflection_accumulation_.moments_index_];
+	RWTexture2D<float> history_length_output = ResourceDescriptorHeap[unordered_access_indices.reflection_accumulation_.history_length_index_];
+	RWTexture2D<float4> depth_normal_output = ResourceDescriptorHeap[unordered_access_indices.reflection_accumulation_.depth_normal_index_];
 
-	Texture2D<float> depth_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.depth_index_];
+	Texture2D<float> depth_texture = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.depth_index_];
 	float depth = depth_texture.Load(int3(pixel, 0));
 
 	if (depth == 0.0)
@@ -383,7 +384,7 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	float view_z_down = abs(DenoiserViewPosition(scene.inverse_projection_, (float2(clamp(pixel + int2(0, 1), int2(0, 0), screen_max)) + 0.5) * scene.inverse_screen_size_, depth_texture.Load(int3(clamp(pixel + int2(0, 1), int2(0, 0), screen_max), 0))).z);
 	float view_z_derivative = SvgfViewDepthDerivative(view_z_left, view_z_right, view_z_up, view_z_down);
 
-	Texture2D<float4> normal_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.index_1_];
+	Texture2D<float4> normal_texture = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.index_1_];
 	float4 gbuffer1 = normal_texture.Load(int3(pixel, 0));
 	float3 normal = OctNormalDecode(gbuffer1.rg);
 	float roughness = gbuffer1.b;
@@ -398,7 +399,7 @@ void main(uint3 dtid : SV_DispatchThreadID)
 
 	float4 raw_value = raw_radiance.Load(int3(pixel, 0));
 
-	Texture2D<float2> velocity_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.index_2_];
+	Texture2D<float2> velocity_texture = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.index_2_];
 	float2 velocity = velocity_texture.Load(int3(pixel, 0));
 	float2 surface_uv = DenoiserPreviousUv(uv, velocity);
 
@@ -418,10 +419,10 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	float virtual_amount = saturate(1.0 - roughness / REFLECTION_VIRTUAL_MOTION_ROUGHNESS_CUTOFF);
 	float2 previous_uv = lerp(surface_uv, virtual_uv, virtual_amount);
 
-	Texture2D<float4> history_radiance = ResourceDescriptorHeap[constant_indices.reflection_.history_srv_index_];
-	Texture2D<float2> history_moments = ResourceDescriptorHeap[constant_indices.reflection_.moments_history_srv_index_];
-	Texture2D<float> history_length_texture = ResourceDescriptorHeap[constant_indices.reflection_.history_length_history_srv_index_];
-	Texture2D<float4> history_depth_normal = ResourceDescriptorHeap[constant_indices.reflection_.depth_normal_history_srv_index_];
+	Texture2D<float4> history_radiance = ResourceDescriptorHeap[shader_resource_indices.reflection_accumulation_.history_index_];
+	Texture2D<float2> history_moments = ResourceDescriptorHeap[shader_resource_indices.reflection_accumulation_.moments_history_index_];
+	Texture2D<float> history_length_texture = ResourceDescriptorHeap[shader_resource_indices.reflection_accumulation_.history_length_history_index_];
+	Texture2D<float4> history_depth_normal = ResourceDescriptorHeap[shader_resource_indices.reflection_accumulation_.depth_normal_history_index_];
 
 	float2 previous_position = previous_uv * scene.screen_size_ - 0.5;
 	int2 previous_base = int2(floor(previous_position));
@@ -541,7 +542,7 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	///      「ぬるっと引きずられる」体感の原因)。history_length 由来の
 	///      1/履歴長 は残す — reservoir の収束度に関わらず、実際の幾何
 	///      ディスオクルージョン直後の数フレームは等重みで積み直す必要がある。
-	Texture2D<float> confidence_texture = ResourceDescriptorHeap[structured_indices.reflection_.confidence_srv_index_];
+	Texture2D<float> confidence_texture = ResourceDescriptorHeap[shader_resource_indices.reflection_.confidence_index_];
 	float confidence = confidence_texture.Load(int3(pixel, 0));
 	float adaptive_temporal_alpha_floor = lerp(REFLECTION_TEMPORAL_ALPHA, 1.0, confidence);
 
@@ -597,11 +598,11 @@ void FilterMoments(uint3 dtid : SV_DispatchThreadID)
 	int2 pixel = int2(dtid.xy);
 	int2 screen_max = int2(scene.screen_size_) - 1;
 
-	Texture2D<float4> source = ResourceDescriptorHeap[constant_indices.reflection_.atrous_scratch0_srv_index_];
-	Texture2D<float2> moments_texture = ResourceDescriptorHeap[constant_indices.reflection_.moments_srv_index_];
-	Texture2D<float> history_length_texture = ResourceDescriptorHeap[constant_indices.reflection_.history_length_srv_index_];
-	Texture2D<float4> depth_normal_texture = ResourceDescriptorHeap[constant_indices.reflection_.depth_normal_srv_index_];
-	RWTexture2D<float4> dest = ResourceDescriptorHeap[constant_indices.reflection_.atrous_scratch1_uav_index_];
+	Texture2D<float4> source = ResourceDescriptorHeap[shader_resource_indices.reflection_accumulation_.atrous_scratch0_index_];
+	Texture2D<float2> moments_texture = ResourceDescriptorHeap[shader_resource_indices.reflection_accumulation_.moments_index_];
+	Texture2D<float> history_length_texture = ResourceDescriptorHeap[shader_resource_indices.reflection_accumulation_.history_length_index_];
+	Texture2D<float4> depth_normal_texture = ResourceDescriptorHeap[shader_resource_indices.reflection_accumulation_.depth_normal_index_];
+	RWTexture2D<float4> dest = ResourceDescriptorHeap[unordered_access_indices.reflection_accumulation_.atrous_scratch1_index_];
 
 	float4 center = source.Load(int3(pixel, 0));
 	float4 center_depth_normal = depth_normal_texture.Load(int3(pixel, 0));
@@ -620,7 +621,7 @@ void FilterMoments(uint3 dtid : SV_DispatchThreadID)
 		return;
 	}
 
-	Texture2D<float4> normal_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.index_1_];
+	Texture2D<float4> normal_texture = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.index_1_];
 	float roughness = normal_texture.Load(int3(pixel, 0)).b;
 	float phi_normal = lerp(REFLECTION_PHI_NORMAL, REFLECTION_PHI_NORMAL * REFLECTION_ROUGHNESS_PHI_NORMAL_SCALE, roughness);
 
@@ -708,7 +709,7 @@ void AtrousPassCommon(int2 pixel, Texture2D<float4> source, RWTexture2D<float4> 
 
 	int2 screen_max = int2(scene.screen_size_) - 1;
 
-	Texture2D<float4> depth_normal_texture = ResourceDescriptorHeap[constant_indices.reflection_.depth_normal_srv_index_];
+	Texture2D<float4> depth_normal_texture = ResourceDescriptorHeap[shader_resource_indices.reflection_accumulation_.depth_normal_index_];
 
 	float4 center = source.Load(int3(pixel, 0));
 	float4 center_depth_normal = depth_normal_texture.Load(int3(pixel, 0));
@@ -719,7 +720,7 @@ void AtrousPassCommon(int2 pixel, Texture2D<float4> source, RWTexture2D<float4> 
 		return;
 	}
 
-	Texture2D<float4> normal_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.index_1_];
+	Texture2D<float4> normal_texture = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.index_1_];
 	float roughness = normal_texture.Load(int3(pixel, 0)).b;
 	float phi_normal = lerp(REFLECTION_PHI_NORMAL, REFLECTION_PHI_NORMAL * REFLECTION_ROUGHNESS_PHI_NORMAL_SCALE, roughness);
 
@@ -786,8 +787,8 @@ void ATrousPass1(uint3 dtid : SV_DispatchThreadID)
 		return;
 	}
 
-	Texture2D<float4> source = ResourceDescriptorHeap[constant_indices.reflection_.atrous_scratch1_srv_index_];
-	RWTexture2D<float4> dest = ResourceDescriptorHeap[constant_indices.reflection_.atrous_scratch0_uav_index_];
+	Texture2D<float4> source = ResourceDescriptorHeap[shader_resource_indices.reflection_accumulation_.atrous_scratch1_index_];
+	RWTexture2D<float4> dest = ResourceDescriptorHeap[unordered_access_indices.reflection_accumulation_.atrous_scratch0_index_];
 	AtrousPassCommon(int2(dtid.xy), source, dest, 1);
 }
 
@@ -817,8 +818,8 @@ void ATrousPass2(uint3 dtid : SV_DispatchThreadID)
 		return;
 	}
 
-	Texture2D<float4> source = ResourceDescriptorHeap[constant_indices.reflection_.atrous_scratch0_srv_index_];
-	RWTexture2D<float4> dest = ResourceDescriptorHeap[constant_indices.reflection_.accumulated_uav_index_];
+	Texture2D<float4> source = ResourceDescriptorHeap[shader_resource_indices.reflection_accumulation_.atrous_scratch0_index_];
+	RWTexture2D<float4> dest = ResourceDescriptorHeap[unordered_access_indices.reflection_accumulation_.accumulated_index_];
 	AtrousPassCommon(int2(dtid.xy), source, dest, 2);
 }
 
@@ -850,9 +851,9 @@ void ATrousPass3(uint3 dtid : SV_DispatchThreadID)
 	int2 pixel = int2(dtid.xy);
 	int2 screen_max = int2(scene.screen_size_) - 1;
 
-	Texture2D<float4> source = ResourceDescriptorHeap[constant_indices.reflection_.accumulated_srv_index_];
-	Texture2D<float4> depth_normal_texture = ResourceDescriptorHeap[constant_indices.reflection_.depth_normal_srv_index_];
-	RWTexture2D<float4> dest = ResourceDescriptorHeap[constant_indices.reflection_.denoised_uav_index_];
+	Texture2D<float4> source = ResourceDescriptorHeap[shader_resource_indices.reflection_accumulation_.accumulated_index_];
+	Texture2D<float4> depth_normal_texture = ResourceDescriptorHeap[shader_resource_indices.reflection_accumulation_.depth_normal_index_];
+	RWTexture2D<float4> dest = ResourceDescriptorHeap[unordered_access_indices.reflection_accumulation_.denoised_index_];
 
 	float4 center = source.Load(int3(pixel, 0));
 	float4 center_depth_normal = depth_normal_texture.Load(int3(pixel, 0));
@@ -863,7 +864,7 @@ void ATrousPass3(uint3 dtid : SV_DispatchThreadID)
 		return;
 	}
 
-	Texture2D<float4> normal_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.index_1_];
+	Texture2D<float4> normal_texture = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.index_1_];
 	float roughness = normal_texture.Load(int3(pixel, 0)).b;
 	float phi_normal = lerp(REFLECTION_PHI_NORMAL, REFLECTION_PHI_NORMAL * REFLECTION_ROUGHNESS_PHI_NORMAL_SCALE, roughness);
 

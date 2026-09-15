@@ -22,10 +22,13 @@
 
 namespace SeedCore
 {
+	struct RootAddresses;
 	class BindlessHeap;
 	class ShaderCache;
 	class D3D12CommandList;
-	class IndicesSystem;
+	class ConstantIndicesSystem;
+	class ShaderResourceIndicesSystem;
+	class UnorderedAccessIndicesSystem;
 	class World;
 
 	/**
@@ -134,7 +137,7 @@ namespace SeedCore
 		///      true = DlssRayReconstructionRenderer の出力を受ける
 		///      3840x2160のUHDチェーン。ヒストグラム/露出状態は両方で共有
 		///      (解像度非依存のため)。
-		void PrepareView(IndicesSystem& indicesSystem, RaytracingView view, Uint32 sourceColorIndex, Bool useUpscaledOutput);
+		void PrepareView(ConstantIndicesSystem& constantIndicesSystem, ShaderResourceIndicesSystem& shaderResourceIndicesSystem, UnorderedAccessIndicesSystem& unorderedAccessIndicesSystem, RaytracingView view, Uint32 sourceColorIndex, Bool useUpscaledOutput);
 
 		/// [EN] The GPU work for one view: clears + builds + reduces the
 		///      histogram (skipped entirely when ExposureSettings.enabled_ is
@@ -151,7 +154,7 @@ namespace SeedCore
 		///      PIXEL_SHADER_RESOURCE 状態であること(この関数がコンピュート
 		///      読み取り用に NON_PIXEL_SHADER_RESOURCE へバリアし、戻る前に
 		///      元へ戻すので、呼び出し側の FrameBuffer 側の状態管理は壊れない)。
-		void Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex, RaytracingView view, ID3D12Resource* sourceColorResource, Bool useUpscaledOutput);
+		void Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses, RaytracingView view, ID3D12Resource* sourceColorResource, Bool useUpscaledOutput);
 
 		/// [EN] The tone-mapped, sRGB-encoded, UNORM display texture for that
 		///      view — what Renderer::RegisterImGuiShaderResourceViews should
@@ -214,6 +217,19 @@ namespace SeedCore
 	private:
 		struct View
 		{
+			/// [EN] This view's PostProcessConstantBuffer (tuning scalars only,
+			///      no resource indices - see PostProcess/PostProcess.hlsli).
+			///      constantIndicesSystem's postProcessIndex_ points at this
+			///      buffer, same pattern as SceneSystem/WeatherSystem's own
+			///      independently-reached constant buffers.
+			/// [JP] このビューの PostProcessConstantBuffer(チューニング用
+			///      スカラーのみ、リソースインデックスは含まない -
+			///      PostProcess/PostProcess.hlsli 参照)。constantIndicesSystem の
+			///      postProcessIndex_ がこのバッファを指す -
+			///      SceneSystem/WeatherSystem 自前の独立到達型定数バッファと
+			///      同じ形。
+			ResourcePtr<ConstantBuffer<PostProcessConstantBuffer>> constantBuffer_;
+
 			Microsoft::WRL::ComPtr<ID3D12Resource> outputResource_;
 			D3D12_RESOURCE_STATES outputState_ = D3D12_RESOURCE_STATE_COMMON;
 			Uint32 outputUnorderedAccessViewIndex_ = 0;
@@ -364,6 +380,25 @@ namespace SeedCore
 			D3D12_RESOURCE_STATES lensFlareStreakState_[lensFlareMaxAxisCount][2] = {};
 			Uint32 lensFlareStreakUnorderedAccessViewIndex_[lensFlareMaxAxisCount][2] = {};
 			Uint32 lensFlareStreakShaderResourceViewIndex_[lensFlareMaxAxisCount][2] = {};
+
+			/// [EN] Per-axis ping/pong bindless-index payload for
+			///      LensFlareStreakUnorderedAccessIndices/
+			///      LensFlareStreakShaderResourceIndices' axisBufferIndex_ -
+			///      one StructuredBuffer<LensFlareStreakAxisIndices> holding the
+			///      UAV index of each axis' ping/pong pair, one holding the SRV
+			///      index. Re-uploaded every PrepareView() from
+			///      lensFlareStreakUnorderedAccessViewIndex_/
+			///      lensFlareStreakShaderResourceViewIndex_ above.
+			/// [JP] LensFlareStreakUnorderedAccessIndices/
+			///      LensFlareStreakShaderResourceIndices の axisBufferIndex_ 用、
+			///      軸ごとの ping/pong bindless インデックスを積んだ
+			///      StructuredBuffer<LensFlareStreakAxisIndices> - 1本は各軸の
+			///      ping/pongペアのUAVインデックス、もう1本はSRVインデックスを
+			///      持つ。PrepareView() 毎に上の
+			///      lensFlareStreakUnorderedAccessViewIndex_/
+			///      lensFlareStreakShaderResourceViewIndex_ から再アップロードする。
+			ResourcePtr<ReadOnlyStructuredBuffer<LensFlareStreakAxisIndices>> lensFlareStreakUnorderedAccessAxisBuffer_;
+			ResourcePtr<ReadOnlyStructuredBuffer<LensFlareStreakAxisIndices>> lensFlareStreakShaderResourceAxisBuffer_;
 
 			/// [EN] LensFlareCS.hlsl's Downsample output: a quarter-res,
 			///      bright-passed copy of the scene that both BlurPass1

@@ -1,6 +1,7 @@
 #include "WeatherParticle.hlsli"
-#include "../Shader/Structured.hlsli"
+#include "../Shader/ShaderResources.hlsli"
 #include "../Shader/Constants.hlsli"
+#include "../Shader/Scene.hlsli"
 
 // Expands one particle (decoded from the AS payload's packed rain/snow +
 // local index, see WeatherParticleAS.hlsl) into a camera-facing quad. Rain
@@ -12,7 +13,7 @@
 [OutputTopology("triangle")]
 void main(in payload WeatherParticleASPayload payload, uint gtid : SV_GroupThreadID, uint gid : SV_GroupID, out vertices WeatherParticleMSOutput output[4], out indices uint3 triangles[2])
 {
-	ConstantBuffer<WeatherParticleConstantBuffer> tuning = ResourceDescriptorHeap[structured_indices.weather_particle_.ray_constant_index_];
+	ConstantBuffer<WeatherParticleConstantBuffer> tuning = ResourceDescriptorHeap[constant_indices.weather_particle_index_];
 	SceneConstantBuffer scene_constant = GetSceneConstantBuffer();
 
 	SetMeshOutputCounts(4u, 2u);
@@ -29,7 +30,7 @@ void main(in payload WeatherParticleASPayload payload, uint gtid : SV_GroupThrea
 
 	if (is_rain)
 	{
-		StructuredBuffer<WeatherParticle> particles = ResourceDescriptorHeap[structured_indices.weather_particle_.rain_particle_srv_index_];
+		StructuredBuffer<WeatherParticle> particles = ResourceDescriptorHeap[shader_resource_indices.weather_particle_.rain_particle_index_];
 		particle = particles[local_id];
 		size = tuning.rain_size_;
 		brightness = tuning.rain_brightness_;
@@ -38,7 +39,7 @@ void main(in payload WeatherParticleASPayload payload, uint gtid : SV_GroupThrea
 	}
 	else
 	{
-		StructuredBuffer<WeatherParticle> particles = ResourceDescriptorHeap[structured_indices.weather_particle_.snow_particle_srv_index_];
+		StructuredBuffer<WeatherParticle> particles = ResourceDescriptorHeap[shader_resource_indices.weather_particle_.snow_particle_index_];
 		particle = particles[local_id];
 		size = tuning.snow_size_;
 		brightness = tuning.snow_brightness_;

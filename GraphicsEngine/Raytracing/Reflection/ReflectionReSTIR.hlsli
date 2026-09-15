@@ -1,6 +1,8 @@
 #ifndef __REFLECTION_RESTIR_HLSL__
 #define __REFLECTION_RESTIR_HLSL__
 
+#include "../../Shader/Noise.hlsli"
+
 /**
 * Reference:
 * - https://cs.dartmouth.edu/~wjarosz/publications/bitterli20spatiotemporal.html
@@ -18,7 +20,7 @@
 * history's M before combining) and ReflectionReservoirSpatialCS.hlsl (which
 * normalizes the final M into a 0..1 confidence signal for
 * ReflectionDenoiseCS.hlsl - see that file's use of
-* structured_indices.reflection_.confidence_).
+* shader_resource_indices.reflection_.confidence_index_).
 *
 * This directly trades noise for responsiveness: the streaming RIS combine's
 * probability of accepting a brand-new frame's candidate over the existing
@@ -32,10 +34,18 @@
 */
 static const float REFLECTION_RESERVOIR_M_CAP = 8.0;
 
+static const float REFLECTION_RESERVOIR_M_CAP_ROUGHNESS = 0.5;
+
+static const float REFLECTION_RESERVOIR_MAX_AGE = 30.0;
+
+static const float REFLECTION_RESERVOIR_DEPTH_THRESHOLD = 0.1;
+
+static const float REFLECTION_RESERVOIR_NORMAL_THRESHOLD = 0.5;
+
 /**
 * Per-pixel ReSTIR reservoir for the single GGX-visible-normal-sampled
 * reflection ray ReflectionRayGeneration traces per frame (replacing the old
-* 4-rays-averaged-per-frame scheme - see ReflectionRT.hlsl). 48 bytes - must
+* 4-rays-averaged-per-frame scheme - see ReflectionRT.hlsl). 64 bytes - must
 * match the C++ side (ReflectionRenderer::reservoirElementSizeInBytes_)
 * byte-for-byte.
 */
@@ -60,12 +70,18 @@ struct ReflectionReservoir
 	/// of the reflected radiance.
 	float sample_w_;
 
+	float3 receiver_normal_;
+
+	float receiver_depth_;
+
 	/// Carried through so ReflectionDenoiseCS.hlsl's existing hit-point
 	/// virtual-motion reprojection keeps working unchanged downstream.
 	float sample_hit_distance_;
 
+	float sample_age_;
+
 	/// Padding to keep the struct's byte size matching the C++ mirror.
-	float3 reflection_reservoir_padding_;
+	float2 reflection_reservoir_padding_;
 };
 
 /**
@@ -82,7 +98,10 @@ ReflectionReservoir ReflectionReservoirFromSample(float3 direction, float3 radia
 	reservoir.sample_hit_distance_ = hit_distance;
 	reservoir.sample_m_ = 1.0;
 	reservoir.sample_w_ = 1.0;
-	reservoir.reflection_reservoir_padding_ = float3(0, 0, 0);
+	reservoir.receiver_normal_ = float3(0, 0, 0);
+	reservoir.receiver_depth_ = 0.0;
+	reservoir.sample_age_ = 0.0;
+	reservoir.reflection_reservoir_padding_ = float2(0, 0);
 	return reservoir;
 }
 
@@ -131,13 +150,28 @@ ReflectionReservoir ReflectionReservoirCombine(ReflectionReservoir a, Reflection
 		result.sample_direction_ = b.sample_direction_;
 		result.sample_radiance_ = b.sample_radiance_;
 		result.sample_hit_distance_ = b.sample_hit_distance_;
+		result.sample_age_ = b.sample_age_;
 	}
 
 	float selected_target = dot(result.sample_radiance_, float3(0.2126, 0.7152, 0.0722));
 	result.sample_w_ = selected_target > 0.0 ? (weight_sum / (result.sample_m_ * selected_target)) : 0.0;
-	result.reflection_reservoir_padding_ = float3(0, 0, 0);
+	result.reflection_reservoir_padding_ = float2(0, 0);
 
 	return result;
 }
+
+struct ReflectionShaderResourceIndices
+{
+	uint output_index_;
+	uint confidence_index_;
+	uint2 reflection_shader_resource_padding_0_;
+};
+
+struct ReflectionUnorderedAccessIndices
+{
+	uint output_index_;
+	uint confidence_index_;
+	uint2 reflection_unordered_access_padding_0_;
+};
 
 #endif // __REFLECTION_RESTIR_HLSL__

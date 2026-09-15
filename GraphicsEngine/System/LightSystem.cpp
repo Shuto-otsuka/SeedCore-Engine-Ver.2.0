@@ -24,13 +24,15 @@ namespace SeedCore
 	{
 		lightConstantBuffer_ = MakePtr<ConstantBuffer<LightConstantBuffer>>(device, bindlessHeap);
 
+		directionalLightConstantBuffer_ = MakePtr<ConstantBuffer<DirectionalLightConstantBuffer>>(device, bindlessHeap);
+
 		clusterAssignConstantBuffer_ = MakePtr<ConstantBuffer<ClusterAssignConstantBuffer>>(device, bindlessHeap);
 
-		pointLightBuffer_ = MakePtr<ReadOnlyStructuredBuffer<PointLightData>>(device, bindlessHeap, maxPointLights_);
+		pointLightBuffer_ = MakePtr<ReadOnlyStructuredBuffer<PointLightStructuredBuffer>>(device, bindlessHeap, maxPointLights_);
 
-		spotLightBuffer_ = MakePtr<ReadOnlyStructuredBuffer<SpotLightData>>(device, bindlessHeap, maxSpotLights_);
+		spotLightBuffer_ = MakePtr<ReadOnlyStructuredBuffer<SpotLightStructuredBuffer>>(device, bindlessHeap, maxSpotLights_);
 
-		rectLightBuffer_ = MakePtr<ReadOnlyStructuredBuffer<RectLightData>>(device, bindlessHeap, maxRectLights_);
+		rectLightBuffer_ = MakePtr<ReadOnlyStructuredBuffer<RectLightStructuredBuffer>>(device, bindlessHeap, maxRectLights_);
 
 		CreateClusterResources(device, bindlessHeap, width, height);
 
@@ -82,7 +84,7 @@ namespace SeedCore
 		heapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
 
 		{
-			Uint64 bufferSize = static_cast<Uint64>(totalClusters_) * sizeof(ClusterData);
+			Uint64 bufferSize = static_cast<Uint64>(totalClusters_) * sizeof(ClusterInstance);
 			D3D12_RESOURCE_DESC resourceDesc{};
 			resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
 			resourceDesc.Width = bufferSize;
@@ -97,7 +99,7 @@ namespace SeedCore
 			hr = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&clusterDataResource_));
 			SC_HR_CHECK(hr, "クラスターデータリソースの生成に失敗しました");
 #ifdef _DEBUG
-			clusterDataResource_->SetName(L"LightSystem_ClusterData");
+			clusterDataResource_->SetName(L"LightSystem_ClusterInstance");
 			GFSDK_Aftermath_DX12_UpdateResourceInfo(clusterDataResource_.Get());
 #endif
 
@@ -106,7 +108,7 @@ namespace SeedCore
 			unorderedAccessViewDesc.Format = DXGI_FORMAT_UNKNOWN;
 			unorderedAccessViewDesc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
 			unorderedAccessViewDesc.Buffer.NumElements = totalClusters_;
-			unorderedAccessViewDesc.Buffer.StructureByteStride = sizeof(ClusterData);
+			unorderedAccessViewDesc.Buffer.StructureByteStride = sizeof(ClusterInstance);
 			device->CreateUnorderedAccessView(clusterDataResource_.Get(), nullptr, &unorderedAccessViewDesc, bindlessHeap->CPUHandle(clusterDataUnorderedAccessViewIndex_));
 
 			/// [EN] ClearUnorderedAccessView* cannot target a structured UAV, so the
@@ -119,7 +121,7 @@ namespace SeedCore
 			D3D12_UNORDERED_ACCESS_VIEW_DESC clearUnorderedAccessViewDesc{};
 			clearUnorderedAccessViewDesc.Format = DXGI_FORMAT_R32_TYPELESS;
 			clearUnorderedAccessViewDesc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
-			clearUnorderedAccessViewDesc.Buffer.NumElements = totalClusters_ * (sizeof(ClusterData) / sizeof(Uint));
+			clearUnorderedAccessViewDesc.Buffer.NumElements = totalClusters_ * (sizeof(ClusterInstance) / sizeof(Uint));
 			clearUnorderedAccessViewDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_RAW;
 
 			clusterDataClearUnorderedAccessViewIndex_ = bindlessHeap->AllocateIndex();
@@ -134,7 +136,7 @@ namespace SeedCore
 			shaderResourceViewDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
 			shaderResourceViewDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 			shaderResourceViewDesc.Buffer.NumElements = totalClusters_;
-			shaderResourceViewDesc.Buffer.StructureByteStride = sizeof(ClusterData);
+			shaderResourceViewDesc.Buffer.StructureByteStride = sizeof(ClusterInstance);
 			device->CreateShaderResourceView(clusterDataResource_.Get(), &shaderResourceViewDesc, bindlessHeap->CPUHandle(clusterDataShaderResourceViewIndex_));
 		}
 
@@ -181,20 +183,19 @@ namespace SeedCore
 		}
 	}
 
-	void LightSystem::Gather(LoaderSystem& loaderSystem, ModelResource& modelResource, World& world, const CelestialResult* celestial, const WeatherGpuState* weather)
+	void LightSystem::Gather(LoaderSystem& loaderSystem, ModelResource& modelResource, World& world, const CelestialResult* celestial)
 	{
 		pointLights_.clear();
 		spotLights_.clear();
 		rectLights_.clear();
 
-		lightConstantData_.directionalIntensity_ = 0.0f;
-		lightConstantData_.directionalColor_ = Color(0, 0, 0, 0);
-		lightConstantData_.directionalDirection_ = Vector3(0.0f, -1.0f, 0.0f);
+		directionalLightConstantData_.sunIntensity_ = 0.0f;
+		directionalLightConstantData_.sunColor_ = Color(0, 0, 0, 0);
+		directionalLightConstantData_.direction_ = Vector3(0.0f, -1.0f, 0.0f);
 
-		lightConstantData_.moonDirection_ = Vector3(0.0f, 1.0f, 0.0f);
-		lightConstantData_.moonIntensity_ = 0.0f;
-		lightConstantData_.moonColor_ = Color(0, 0, 0, 0);
-		lightConstantData_.moonPhase_ = 0.0f;
+		directionalLightConstantData_.moonIntensity_ = 0.0f;
+		directionalLightConstantData_.moonColor_ = Color(0, 0, 0, 0);
+		directionalLightConstantData_.moonPhase_ = 0.0f;
 		lightConstantData_.nightFactor_ = 0.0f;
 
 		if (celestial)
@@ -214,27 +215,12 @@ namespace SeedCore
 					sunWritten = true;
 				});
 
-			lightConstantData_.moonDirection_ = celestial->moonDirection_;
-			lightConstantData_.moonIntensity_ = celestial->moonIntensity_;
-			lightConstantData_.moonColor_ = celestial->moonColor_;
-			lightConstantData_.moonPhase_ = celestial->moonPhase_;
+			directionalLightConstantData_.direction_ = celestial->sunDirection_;
+			directionalLightConstantData_.moonIntensity_ = celestial->moonIntensity_;
+			directionalLightConstantData_.moonColor_ = celestial->moonColor_;
+			directionalLightConstantData_.moonPhase_ = celestial->moonPhase_;
+			directionalLightConstantData_.moonAngularRadius_ = celestial->moonAngularRadius_;
 			lightConstantData_.nightFactor_ = celestial->nightFactor_;
-			lightConstantData_.moonAngularRadius_ = celestial->moonAngularRadius_;
-		}
-
-		lightConstantData_.wetness_ = 0.0f;
-		lightConstantData_.snowCoverage_ = 0.0f;
-		lightConstantData_.thunderFlash_ = 0.0f;
-		lightConstantData_.snowIntensity_ = 0.0f;
-		lightConstantData_.thunderSeed_ = 0.0f;
-
-		if (weather)
-		{
-			lightConstantData_.wetness_ = weather->wetness_;
-			lightConstantData_.snowCoverage_ = weather->snowCoverage_;
-			lightConstantData_.thunderFlash_ = weather->thunderFlash_;
-			lightConstantData_.snowIntensity_ = weather->snowIntensity_;
-			lightConstantData_.thunderSeed_ = weather->thunderSeed_;
 		}
 
 		Bool hasDirectional = false;
@@ -273,9 +259,9 @@ namespace SeedCore
 				}
 				direction.Normalize();
 
-				lightConstantData_.directionalDirection_ = direction;
-				lightConstantData_.directionalIntensity_ = light.intensity_;
-				lightConstantData_.directionalColor_ = light.color_;
+				directionalLightConstantData_.direction_ = direction;
+				directionalLightConstantData_.sunIntensity_ = light.intensity_;
+				directionalLightConstantData_.sunColor_ = light.color_;
 			});
 
 		Query<Read<Active>, Read<PointLight>> pointQuery(world);
@@ -292,7 +278,7 @@ namespace SeedCore
 					return;
 				}
 
-				PointLightData pointLightData{};
+				PointLightStructuredBuffer pointLightData{};
 				pointLightData.position_ = actor.GetWorldMatrix().Translation();
 				pointLightData.range_ = light.range_;
 				pointLightData.color_ = light.color_;
@@ -318,7 +304,7 @@ namespace SeedCore
 				Vector3 direction = Vector3::TransformNormal(light.direction_, worldMatrix);
 				direction.Normalize();
 
-				SpotLightData spotLightData{};
+				SpotLightStructuredBuffer spotLightData{};
 				spotLightData.position_ = worldMatrix.Translation();
 				spotLightData.range_ = light.range_;
 				spotLightData.direction_ = direction;
@@ -363,7 +349,7 @@ namespace SeedCore
 				Vector3 up = normal.Cross(right);
 				up.Normalize();
 
-				RectLightData rectLightData{};
+				RectLightStructuredBuffer rectLightData{};
 				rectLightData.position_ = worldMatrix.Translation();
 				rectLightData.intensity_ = light.intensity_;
 				rectLightData.right_ = right;
@@ -429,7 +415,7 @@ namespace SeedCore
 
 					if (light.type_ == PunctualLight::Type::Point)
 					{
-						PointLightData pointLightData{};
+						PointLightStructuredBuffer pointLightData{};
 						pointLightData.position_ = worldPosition;
 						pointLightData.range_ = light.range_;
 						pointLightData.color_ = color;
@@ -438,7 +424,7 @@ namespace SeedCore
 					}
 					else
 					{
-						SpotLightData spotLightData{};
+						SpotLightStructuredBuffer spotLightData{};
 						spotLightData.position_ = worldPosition;
 						spotLightData.range_ = light.range_;
 						spotLightData.direction_ = worldDirection;
@@ -470,16 +456,12 @@ namespace SeedCore
 	{
 		lightConstantData_.pointLightCount_ = static_cast<Uint>(pointLights_.size());
 		lightConstantData_.spotLightCount_ = static_cast<Uint>(spotLights_.size());
-		lightConstantData_.pointLightShaderResourceViewIndex_ = pointLightBuffer_->Index();
-		lightConstantData_.spotLightShaderResourceViewIndex_ = spotLightBuffer_->Index();
-		lightConstantData_.clusterDataShaderResourceViewIndex_ = clusterDataShaderResourceViewIndex_;
-		lightConstantData_.clusterLightListShaderResourceViewIndex_ = clusterLightListShaderResourceViewIndex_;
+		lightConstantData_.rectLightCount_ = static_cast<Uint>(rectLights_.size());
 		lightConstantData_.clusterCountX_ = clusterCountX_;
 		lightConstantData_.clusterCountY_ = clusterCountY_;
-		lightConstantData_.rectLightCount_ = static_cast<Uint>(rectLights_.size());
-		lightConstantData_.rectLightShaderResourceViewIndex_ = rectLightBuffer_->Index();
 
 		lightConstantBuffer_->Update(lightConstantData_);
+		directionalLightConstantBuffer_->Update(directionalLightConstantData_);
 
 		if (!pointLights_.empty())
 		{
@@ -497,13 +479,9 @@ namespace SeedCore
 		}
 	}
 
-	void LightSystem::DispatchCluster(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredAddress)
+	void LightSystem::DispatchCluster(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
 	{
 		Uint totalLights = static_cast<Uint>(pointLights_.size() + spotLights_.size() + rectLights_.size());
-		if (totalLights == 0)
-		{
-			return;
-		}
 
 		auto* cmd = cmdList->Get();
 
@@ -511,13 +489,19 @@ namespace SeedCore
 		cmd->ClearUnorderedAccessViewUint(bindlessHeap_->GPUHandle(clusterDataClearUnorderedAccessViewIndex_), clearHeap_.CPUHandle(clusterDataClearIndex_), clusterDataResource_.Get(), clearValues, 0, nullptr);
 		cmd->ClearUnorderedAccessViewUint(bindlessHeap_->GPUHandle(clusterLightListUnorderedAccessViewIndex_), clearHeap_.CPUHandle(clusterLightListClearIndex_), clusterLightListResource_.Get(), clearValues, 0, nullptr);
 
-		clusterAssignConstantData_.clusterDataUnorderedAccessViewIndex_ = clusterDataUnorderedAccessViewIndex_;
-		clusterAssignConstantData_.clusterLightListUnorderedAccessViewIndex_ = clusterLightListUnorderedAccessViewIndex_;
-		clusterAssignConstantData_.pointLightShaderResourceViewIndex_ = pointLightBuffer_->Index();
-		clusterAssignConstantData_.spotLightShaderResourceViewIndex_ = spotLightBuffer_->Index();
+		if (totalLights == 0)
+		{
+			D3D12_RESOURCE_BARRIER clearBarriers[2]{};
+			clearBarriers[0].Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+			clearBarriers[0].UAV.pResource = clusterDataResource_.Get();
+			clearBarriers[1].Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+			clearBarriers[1].UAV.pResource = clusterLightListResource_.Get();
+			cmd->ResourceBarrier(2, clearBarriers);
+			return;
+		}
+
 		clusterAssignConstantData_.pointLightCount_ = static_cast<Uint>(pointLights_.size());
 		clusterAssignConstantData_.spotLightCount_ = static_cast<Uint>(spotLights_.size());
-		clusterAssignConstantData_.rectLightShaderResourceViewIndex_ = rectLightBuffer_->Index();
 		clusterAssignConstantData_.rectLightCount_ = static_cast<Uint>(rectLights_.size());
 		clusterAssignConstantData_.totalClusters_ = totalClusters_;
 		clusterAssignConstantData_.clusterCountX_ = clusterCountX_;
@@ -527,9 +511,7 @@ namespace SeedCore
 		ID3D12DescriptorHeap* heaps[] = { heap };
 		cmd->SetDescriptorHeaps(_countof(heaps), heaps);
 		cmd->SetComputeRootSignature(clusterRootSignature_->Get());
-		cmd->SetComputeRootDescriptorTable(0, bindlessHeap_->GPUHandle(0));
-		cmd->SetComputeRootConstantBufferView(2, constantIndex);
-		cmd->SetComputeRootConstantBufferView(3, structuredAddress);
+		RootSignature::BindCompute(cmd, addresses);
 
 		cmd->SetPipelineState(clusterAssignPipelineStateObject_.Get());
 
@@ -549,13 +531,46 @@ namespace SeedCore
 		return lightConstantBuffer_->GetIndex();
 	}
 
-	Uint LightSystem::GetClusterConstantIndex()const
+	Uint LightSystem::GetDirectionalLightIndex()const
+	{
+		return directionalLightConstantBuffer_->GetIndex();
+	}
+
+	Uint LightSystem::GetClusterAssignIndex()const
 	{
 		return clusterAssignConstantBuffer_->GetIndex();
 	}
 
+	LightShaderResourceIndices LightSystem::GetLightShaderResourceIndices()const
+	{
+		LightShaderResourceIndices indices{};
+		indices.pointLightIndex_ = pointLightBuffer_->Index();
+		indices.spotLightIndex_ = spotLightBuffer_->Index();
+		indices.rectLightIndex_ = rectLightBuffer_->Index();
+		indices.clusterDataIndex_ = clusterDataShaderResourceViewIndex_;
+		indices.clusterLightListIndex_ = clusterLightListShaderResourceViewIndex_;
+		return indices;
+	}
+
+	ClusterAssignShaderResourceIndices LightSystem::GetClusterAssignShaderResourceIndices()const
+	{
+		ClusterAssignShaderResourceIndices indices{};
+		indices.pointLightIndex_ = pointLightBuffer_->Index();
+		indices.spotLightIndex_ = spotLightBuffer_->Index();
+		indices.rectLightIndex_ = rectLightBuffer_->Index();
+		return indices;
+	}
+
+	ClusterAssignUnorderedAccessIndices LightSystem::GetClusterAssignUnorderedAccessIndices()const
+	{
+		ClusterAssignUnorderedAccessIndices indices{};
+		indices.clusterDataIndex_ = clusterDataUnorderedAccessViewIndex_;
+		indices.clusterLightListIndex_ = clusterLightListUnorderedAccessViewIndex_;
+		return indices;
+	}
+
 	Float LightSystem::GetDirectionalIntensity()const
 	{
-		return lightConstantData_.directionalIntensity_;
+		return directionalLightConstantData_.sunIntensity_;
 	}
 }

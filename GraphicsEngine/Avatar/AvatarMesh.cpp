@@ -1,46 +1,70 @@
 #include <GraphicsEngine/Avatar/AvatarMesh.h>
-#include <GraphicsEngine/Avatar/Human/HumanCharacterModel.h>
-#include <GraphicsEngine/Avatar/Human/HumanCharacterEvaluator.h>
 #include <GraphicsEngine/D3D12/Descriptor/BindlessHeap.h>
 
 namespace SeedCore
 {
-	namespace
+	Bool AvatarMesh::Create(ID3D12Device* device, BindlessHeap* bindlessHeap, std::span<const Uint32> triangles, std::span<const Uint32> skinIndices, std::span<const Float> skinWeights, std::span<const Vector2> texcoords, std::span<const Vector3> neutralPositions, Uint32 bodyVertexCount, std::span<const Uint32> regionTriangleRanges)
 	{
-		constexpr Uint32 maxVerticesPerMeshlet = 64;
-		constexpr Uint32 maxTrianglesPerMeshlet = 124;
-
-		void BuildSimpleMeshlets(std::span<const Uint32> indices, DynamicArray<Meshlet>& outMeshlets, DynamicArray<Uint32>& outVertexIndices, DynamicArray<Uint8>& outPrimitiveIndices)
+		bodyVertexCount_ = bodyVertexCount;
+		if (bodyVertexCount_ == 0 || neutralPositions.size() < bodyVertexCount_)
 		{
-			std::unordered_map<Uint32, Uint32> localIndexMap;
-			DynamicArray<Uint32> currentVertexIndices;
-			DynamicArray<Uint8> currentPrimitiveIndices;
+			return false;
+		}
 
-			auto flush = [&]()
+		baseTexcoords_.assign(texcoords.begin(), texcoords.begin() + bodyVertexCount_);
+
+		std::unordered_map<Uint32, Uint32> localIndexMap;
+		DynamicArray<Uint32> currentVertexIndices;
+		DynamicArray<Uint8> currentPrimitiveIndices;
+
+		auto flushMeshlet = [&]()
+		{
+			if (currentVertexIndices.empty())
 			{
-				if (currentVertexIndices.empty())
+				return;
+			}
+
+			Meshlet meshlet;
+			meshlet.vertexOffset_ = static_cast<Uint32>(vertexIndices_.size());
+			meshlet.triangleOffset_ = static_cast<Uint32>(primitiveIndices_.size());
+			meshlet.vertexCount_ = static_cast<Uint32>(currentVertexIndices.size());
+			meshlet.triangleCount_ = static_cast<Uint32>(currentPrimitiveIndices.size() / 3);
+			meshlets_.push_back(meshlet);
+
+			vertexIndices_.insert(vertexIndices_.end(), currentVertexIndices.begin(), currentVertexIndices.end());
+			primitiveIndices_.insert(primitiveIndices_.end(), currentPrimitiveIndices.begin(), currentPrimitiveIndices.end());
+
+			localIndexMap.clear();
+			currentVertexIndices.clear();
+			currentPrimitiveIndices.clear();
+		};
+
+		/// [EN] Build meshlets per region so no meshlet straddles a region boundary -
+		///      the renderer can then draw one region (one texture) at a time.
+		/// [JP] メッシュレットをリージョン単位で構築し、リージョン境界をまたがない
+		///      ようにする - レンダラーがリージョン(=テクスチャ)ごとに描ける。
+		Uint32 triangleCount = static_cast<Uint32>(triangles.size() / 3);
+		regionCount_ = Min(static_cast<Uint32>(regionTriangleRanges.size() / 2), maxRegionCount_);
+		if (regionCount_ == 0)
+		{
+			regionCount_ = 1;
+			regionMeshletRanges_[0] = { 0, 0 };
+		}
+
+		for (Uint32 regionIndex = 0; regionIndex < regionCount_; regionIndex++)
+		{
+			Uint32 firstTriangle = regionCount_ > 1 ? regionTriangleRanges[regionIndex * 2 + 0] : 0;
+			Uint32 regionTriangleCount = regionCount_ > 1 ? regionTriangleRanges[regionIndex * 2 + 1] : triangleCount;
+			Uint32 meshletOffset = static_cast<Uint32>(meshlets_.size());
+
+			for (Uint32 localTriangle = 0; localTriangle < regionTriangleCount; localTriangle++)
+			{
+				Size triangleIndex = static_cast<Size>(firstTriangle + localTriangle) * 3;
+				if (triangleIndex + 2 >= triangles.size())
 				{
-					return;
+					break;
 				}
-
-				Meshlet meshlet;
-				meshlet.vertexOffset_ = static_cast<Uint32>(outVertexIndices.size());
-				meshlet.triangleOffset_ = static_cast<Uint32>(outPrimitiveIndices.size());
-				meshlet.vertexCount_ = static_cast<Uint32>(currentVertexIndices.size());
-				meshlet.triangleCount_ = static_cast<Uint32>(currentPrimitiveIndices.size() / 3);
-				outMeshlets.push_back(meshlet);
-
-				outVertexIndices.insert(outVertexIndices.end(), currentVertexIndices.begin(), currentVertexIndices.end());
-				outPrimitiveIndices.insert(outPrimitiveIndices.end(), currentPrimitiveIndices.begin(), currentPrimitiveIndices.end());
-
-				localIndexMap.clear();
-				currentVertexIndices.clear();
-				currentPrimitiveIndices.clear();
-			};
-
-			for (Size triangleIndex = 0; triangleIndex + 2 < indices.size(); triangleIndex += 3)
-			{
-				Uint32 globalVertices[3] = { indices[triangleIndex], indices[triangleIndex + 1], indices[triangleIndex + 2] };
+				Uint32 globalVertices[3] = { triangles[triangleIndex], triangles[triangleIndex + 1], triangles[triangleIndex + 2] };
 
 				Uint32 newVertexCount = 0;
 				for (Uint32 corner = 0; corner < 3; corner++)
@@ -51,9 +75,9 @@ namespace SeedCore
 					}
 				}
 
-				if (currentVertexIndices.size() + newVertexCount > maxVerticesPerMeshlet || currentPrimitiveIndices.size() / 3 + 1 > maxTrianglesPerMeshlet)
+				if (currentVertexIndices.size() + newVertexCount > maxVerticesPerMeshlet_ || currentPrimitiveIndices.size() / 3 + 1 > maxTrianglesPerMeshlet_)
 				{
-					flush();
+					flushMeshlet();
 				}
 
 				for (Uint32 corner = 0; corner < 3; corner++)
@@ -77,33 +101,11 @@ namespace SeedCore
 				}
 			}
 
-			flush();
+			flushMeshlet();
+			regionMeshletRanges_[regionIndex].meshletOffset_ = meshletOffset;
+			regionMeshletRanges_[regionIndex].meshletCount_ = static_cast<Uint32>(meshlets_.size()) - meshletOffset;
 		}
 
-		Uint32 QuantizeUnorm8(Float value)
-		{
-			Float clamped = std::clamp(value, 0.0f, 1.0f);
-			return static_cast<Uint32>(clamped * 255.0f + 0.5f);
-		}
-	}
-
-	Bool AvatarMesh::Create(ID3D12Device* device, BindlessHeap* bindlessHeap, const HumanCharacterModel& model)
-	{
-		if (!model.IsLoaded())
-		{
-			return false;
-		}
-
-		bodyVertexCount_ = model.BodyVertexCount();
-		if (bodyVertexCount_ == 0)
-		{
-			return false;
-		}
-
-		std::span<const Vector2> texcoords = model.Texcoords();
-		baseTexcoords_.assign(texcoords.begin(), texcoords.begin() + bodyVertexCount_);
-
-		BuildSimpleMeshlets(model.Triangles(), meshlets_, vertexIndices_, primitiveIndices_);
 		if (meshlets_.empty())
 		{
 			return false;
@@ -112,8 +114,6 @@ namespace SeedCore
 		Uint32 alignedPrimitiveByteSize = (static_cast<Uint32>(primitiveIndices_.size()) + 3) & ~3u;
 		primitiveIndices_.resize(alignedPrimitiveByteSize, 0);
 
-		std::span<const Uint32> skinIndices = model.SkinIndices();
-		std::span<const Float> skinWeights = model.SkinWeights();
 		skinVertices_.resize(bodyVertexCount_);
 		for (Uint32 vertexIndex = 0; vertexIndex < bodyVertexCount_; vertexIndex++)
 		{
@@ -124,11 +124,15 @@ namespace SeedCore
 			Uint32 joint3 = skinIndices[vertexIndex * 4 + 3];
 			skin.jointsXY_ = (joint0 & 0xFFFF) | ((joint1 & 0xFFFF) << 16);
 			skin.jointsZW_ = (joint2 & 0xFFFF) | ((joint3 & 0xFFFF) << 16);
+			Float weight0 = Clamp(skinWeights[vertexIndex * 4 + 0], 0.0f, 1.0f);
+			Float weight1 = Clamp(skinWeights[vertexIndex * 4 + 1], 0.0f, 1.0f);
+			Float weight2 = Clamp(skinWeights[vertexIndex * 4 + 2], 0.0f, 1.0f);
+			Float weight3 = Clamp(skinWeights[vertexIndex * 4 + 3], 0.0f, 1.0f);
 			skin.weights_ =
-				QuantizeUnorm8(skinWeights[vertexIndex * 4 + 0]) |
-				(QuantizeUnorm8(skinWeights[vertexIndex * 4 + 1]) << 8) |
-				(QuantizeUnorm8(skinWeights[vertexIndex * 4 + 2]) << 16) |
-				(QuantizeUnorm8(skinWeights[vertexIndex * 4 + 3]) << 24);
+				 static_cast<Uint32>(weight0 * 255.0f + 0.5f) |
+				(static_cast<Uint32>(weight1 * 255.0f + 0.5f) << 8) |
+				(static_cast<Uint32>(weight2 * 255.0f + 0.5f) << 16) |
+				(static_cast<Uint32>(weight3 * 255.0f + 0.5f) << 24);
 		}
 
 		texcoordMin_ = Vector2(0.0f, 0.0f);
@@ -145,7 +149,6 @@ namespace SeedCore
 			texcoordExtent_ = Vector2::Max(texcoordMax - texcoordMin_, Vector2(1e-6f, 1e-6f));
 		}
 
-		std::span<const Vector3> neutralPositions = model.Positions();
 		Vector3 neutralMin = neutralPositions[0];
 		Vector3 neutralMax = neutralPositions[0];
 		for (Uint32 vertexIndex = 0; vertexIndex < bodyVertexCount_; vertexIndex++)
@@ -170,15 +173,13 @@ namespace SeedCore
 		return true;
 	}
 
-	void AvatarMesh::Update(const HumanCharacterEvaluator& evaluator)
+	void AvatarMesh::Update(std::span<const Vector3> positions, std::span<const Vector3> normals)
 	{
 		if (!IsCreated())
 		{
 			return;
 		}
 
-		std::span<const Vector3> positions = evaluator.Positions();
-		std::span<const Vector3> normals = evaluator.Normals();
 		if (positions.size() < bodyVertexCount_ || normals.size() < bodyVertexCount_)
 		{
 			return;
@@ -247,6 +248,16 @@ namespace SeedCore
 	Uint32 AvatarMesh::MeshletCount()const
 	{
 		return static_cast<Uint32>(meshlets_.size());
+	}
+
+	const AvatarMesh::RegionMeshletRange& AvatarMesh::MeshletRangeForRegion(Uint32 regionIndex)const
+	{
+		return regionMeshletRanges_[regionIndex < regionCount_ ? regionIndex : 0];
+	}
+
+	Uint32 AvatarMesh::RegionCount()const
+	{
+		return regionCount_;
 	}
 
 	Uint32 AvatarMesh::BodyVertexCount()const

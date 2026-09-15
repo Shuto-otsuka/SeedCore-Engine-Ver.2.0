@@ -5,7 +5,7 @@
 #include <GraphicsEngine/D3D12/Descriptor/DescriptorHeap.h>
 #include <GraphicsEngine/D3D12/Buffer/FrameBuffer.h>
 #include <GraphicsEngine/Model/ModelShader.h>
-#include <GraphicsEngine/Model/ModelInstanceData.h>
+#include <GraphicsEngine/Model/ModelRecord.h>
 #include <GraphicsEngine/System/SceneSystem.h>
 #include <GraphicsEngine/System/IndicesSystem.h>
 
@@ -71,11 +71,11 @@ namespace SeedCore
 	private:
 		ModelShader modelShader_;
 
-		DynamicArray<ModelInstanceData> opaqueInstances_;
-		DynamicArray<ModelInstanceData> transparentInstances_;
+		DynamicArray<ModelStructuredBuffer> opaqueInstances_;
+		DynamicArray<ModelStructuredBuffer> transparentInstances_;
 		DynamicArray<Matrix> boneMatrices_;
 
-		ResourcePtr<ReadOnlyStructuredBuffer<ModelInstanceData>> instanceBuffer_;
+		ResourcePtr<ReadOnlyStructuredBuffer<ModelStructuredBuffer>> instanceBuffer_;
 		ResourcePtr<ReadOnlyStructuredBuffer<Matrix>> boneBuffer_;
 
 		Bool hasSkinnedOpaque_ = false;
@@ -96,9 +96,9 @@ namespace SeedCore
 		ResourcePtr<SceneSystem> sceneSystem_;
 
 		ConstantIndices constantIndices_{};
-		StructuredIndices structuredIndices_{};
+		ShaderResourceIndices shaderResourceIndices_{};
 		ResourcePtr<ConstantBuffer<ConstantIndices>> constantIndicesBuffer_;
-		ResourcePtr<ConstantBuffer<StructuredIndices>> structuredIndicesBuffer_;
+		ResourcePtr<ConstantBuffer<ShaderResourceIndices>> shaderResourceIndicesBuffer_;
 
 		DescriptorHeap* imguiHeap_ = nullptr;
 		Uint32 imguiShaderResourceViewIndex_ = 0;

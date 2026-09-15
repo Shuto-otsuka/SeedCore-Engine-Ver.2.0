@@ -1,5 +1,6 @@
+#include "../../Shader/Scene.hlsli"
+#include "../../Shader/UnorderedAccesses.hlsli"
 #include "../../Shader/Constants.hlsli"
-#include "../../Shader/Structured.hlsli"
 #include "../Froxel/Froxel.hlsli"
 #include "../VolumetricLight/VolumetricLight.hlsli"
 
@@ -11,6 +12,11 @@
 *   Atmospheric Scattering", SIGGRAPH 2014 - the froxel-grid technique this
 *   whole 3-pass pipeline (this file / VolumetricLightScatteringRT.hlsl /
 *   FroxelIntegrationCS.hlsl) implements.)
+* - https://www.slideshare.net/slideshow/physically-based-and-unified-volumetric-rendering-in-frostbite/51840934
+*   (Hillaire, "Physically Based and Unified Volumetric Rendering in
+*   Frostbite", SIGGRAPH 2015 - the medium and the scattered light are
+*   sampled at the same per-frame jittered position, so the temporal
+*   integration in VolumetricLightScatteringRT.hlsl sees a consistent pair.)
 *
 * Froxel volumetrics - pass 1: fog medium injection (compute, no raytracing).
 * Writes "scattering coefficient (rgb)" and "extinction coefficient (a)" into
@@ -31,7 +37,7 @@
 [numthreads(4, 4, 4)]
 void main(uint3 dtid : SV_DispatchThreadID)
 {
-	ConstantBuffer<VolumetricLightRayConstantBuffer> tuning = ResourceDescriptorHeap[structured_indices.volumetric_light_.ray_constant_index_];
+	ConstantBuffer<VolumetricLightRayConstantBuffer> tuning = ResourceDescriptorHeap[constant_indices.volumetric_light_index_];
 	uint3 froxel_dimensions = uint3(tuning.froxel_dimension_x_, tuning.froxel_dimension_y_, tuning.froxel_dimension_z_);
 
 	/// [EN] Bounds guard: unlike a screen-space dispatch, the froxel grid's
@@ -46,9 +52,9 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	}
 
 	SceneConstantBuffer scene = GetSceneConstantBuffer();
-	RWTexture3D<float4> density_volume = ResourceDescriptorHeap[structured_indices.volumetric_light_.density_uav_index_];
+	RWTexture3D<float4> density_volume = ResourceDescriptorHeap[unordered_access_indices.volumetric_light_.density_index_];
 
-	float3 world_position = FroxelToWorldExact(dtid, froxel_dimensions, scene.near_plane_, scene.far_plane_, scene.projection_, scene.inverse_view_);
+	float3 world_position = FroxelToWorldExact(float3(dtid) + 0.5 + GetVolumetricLightDispatchConstantBuffer().jitter_, froxel_dimensions, scene.near_plane_, scene.far_plane_, scene.projection_, scene.inverse_view_);
 
 	/// [EN] Height fog: exponential falloff above the reference height
 	///      (falloff 0 gives uniform fog).

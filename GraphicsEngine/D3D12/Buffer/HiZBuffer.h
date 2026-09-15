@@ -11,6 +11,7 @@ namespace SeedCore
 	class ShaderCache;
 	class D3D12CommandList;
 	class GeometryBuffer;
+	struct RootAddresses;
 
 	/**
 	* [EN]
@@ -37,7 +38,7 @@ namespace SeedCore
 	class HiZBuffer
 	{
 	private:
-		struct HiZBuildConstants
+		struct HiZBuildConstantBuffer
 		{
 			Uint sourceIndex_ = 0;
 			Uint destinationIndex_ = 0;
@@ -73,7 +74,7 @@ namespace SeedCore
 		* バッファをシェーダ読み取り可能ステートへ遷移させ、終了後 DEPTH_WRITE に
 		* 戻す。ピラミッドは後続の Amplification Shader パスから読める状態で残す。
 		*/
-		void Build(D3D12CommandList* cmdList, GeometryBuffer& geometryBuffer, ID3D12DescriptorHeap* heap);
+		void Build(D3D12CommandList* cmdList, GeometryBuffer& geometryBuffer, ID3D12DescriptorHeap* heap, const RootAddresses& addresses);
 
 		[[nodiscard]] Uint ShaderResourceViewIndex()const { return shaderResourceViewIndex_; }
 
@@ -89,8 +90,8 @@ namespace SeedCore
 		Uint mipUnorderedAccessViewIndices_[maxMipCount] = {};
 		Uint shaderResourceViewIndex_ = 0;
 
-		DynamicArray<ResourcePtr<ConstantBuffer<HiZBuildConstants>>> mipConstantBuffers_;
-		DynamicArray<HiZBuildConstants> mipConstants_;
+		DynamicArray<ResourcePtr<ConstantBuffer<HiZBuildConstantBuffer>>> mipConstantBuffers_;
+		DynamicArray<HiZBuildConstantBuffer> mipConstants_;
 
 		BindlessHeap* bindlessHeap_ = nullptr;
 		RootSignature* rootSignature_ = nullptr;

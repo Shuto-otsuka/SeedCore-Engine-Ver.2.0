@@ -33,8 +33,10 @@ namespace SeedCore
 		constantBuffers_.reserve(maxGenerateDispatches_);
 		for (Uint dispatchIndex = 0; dispatchIndex < maxGenerateDispatches_; dispatchIndex++)
 		{
-			constantBuffers_.push_back(MakePtr<ConstantBuffer<SkyGenerateConstant>>(device, bindlessHeap));
+			constantBuffers_.push_back(MakePtr<ConstantBuffer<SkyDispatchBuffer>>(device, bindlessHeap));
 		}
+
+		skyConstantBuffer_ = MakePtr<ConstantBuffer<SkyConstantBuffer>>(device, bindlessHeap);
 
 		CreateBrdfLookupTable(device, bindlessHeap);
 		CreateIblCubes(device, bindlessHeap);
@@ -238,17 +240,18 @@ namespace SeedCore
 		proceduralSkyTime_ = totalTime;
 	}
 
-	void SkyRenderer::SetIndices(IndicesSystem& indicesSystem, Float directionalIntensity)
+	void SkyRenderer::SetIndices(ConstantIndicesSystem& constantIndicesSystem, ShaderResourceIndicesSystem& shaderResourceIndicesSystem, Float directionalIntensity)
 	{
-		indicesSystem.SetSkyBrdfLutIndex(brdfLookupTableShaderResourceViewIndex_);
+		shaderResourceIndicesSystem.SetSkyBrdfLutIndex(brdfLookupTableShaderResourceViewIndex_);
 
+		Float uploadIntensity;
 		Bool ready = hasSkymap_ && generatedSourceShaderResourceViewIndex_ != invalidIndex_;
 		if (ready)
 		{
-			indicesSystem.SetSkyEnvironmentCubeIndex(environmentShaderResourceViewIndex_);
-			indicesSystem.SetSkyDiffuseIrradianceIndex(irradianceShaderResourceViewIndex_);
-			indicesSystem.SetSkySpecularPrefilteredIndex(prefilterShaderResourceViewIndex_);
-			indicesSystem.SetSkyIntensity(intensity_ * Max(directionalIntensity, 0.0f));
+			shaderResourceIndicesSystem.SetSkyEnvironmentCubeIndex(environmentShaderResourceViewIndex_);
+			shaderResourceIndicesSystem.SetSkyDiffuseIrradianceIndex(irradianceShaderResourceViewIndex_);
+			shaderResourceIndicesSystem.SetSkySpecularPrefilteredIndex(prefilterShaderResourceViewIndex_);
+			uploadIntensity = intensity_ * Max(directionalIntensity, 0.0f);
 		}
 		else if (!hasSkymap_ && proceduralSkyEnabled_ && proceduralSkyGenerated_)
 		{
@@ -262,31 +265,36 @@ namespace SeedCore
 			///      して、背景は【解析的な】空(シャープな太陽ディスク、
 			///      DeferredLightingPS.hlsl 参照)のまま、ライティング面だけが
 			///      畳み込み済みの空を IBL として受け取るようにする。
-			indicesSystem.SetSkyEnvironmentCubeIndex(0);
-			indicesSystem.SetSkyDiffuseIrradianceIndex(irradianceShaderResourceViewIndex_);
-			indicesSystem.SetSkySpecularPrefilteredIndex(prefilterShaderResourceViewIndex_);
-			indicesSystem.SetSkyIntensity(1.0f);
+			shaderResourceIndicesSystem.SetSkyEnvironmentCubeIndex(0);
+			shaderResourceIndicesSystem.SetSkyDiffuseIrradianceIndex(irradianceShaderResourceViewIndex_);
+			shaderResourceIndicesSystem.SetSkySpecularPrefilteredIndex(prefilterShaderResourceViewIndex_);
+			uploadIntensity = 1.0f;
 		}
 		else
 		{
-			indicesSystem.SetSkyEnvironmentCubeIndex(0);
-			indicesSystem.SetSkyDiffuseIrradianceIndex(0);
-			indicesSystem.SetSkySpecularPrefilteredIndex(0);
-			indicesSystem.SetSkyIntensity(1.0f);
+			shaderResourceIndicesSystem.SetSkyEnvironmentCubeIndex(0);
+			shaderResourceIndicesSystem.SetSkyDiffuseIrradianceIndex(0);
+			shaderResourceIndicesSystem.SetSkySpecularPrefilteredIndex(0);
+			uploadIntensity = 1.0f;
 		}
+
+		SkyConstantBuffer data{};
+		data.intensity_ = uploadIntensity;
+		skyConstantBuffer_->Update(data);
+		constantIndicesSystem.SetSkyIndex(skyConstantBuffer_->GetIndex());
 	}
 
-	void SkyRenderer::Generate(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS structuredAddress)
+	void SkyRenderer::Generate(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
 	{
 		dispatchCursor_ = 0;
 
 		if (!brdfLookupTableGenerated_)
 		{
-			SkyGenerateConstant data{};
+			SkyDispatchBuffer data{};
 			data.destIndex_ = brdfLookupTableUnorderedAccessViewIndex_;
 			data.faceSize_ = brdfLookupTableSize_;
 			data.sampleCount_ = brdfSampleCount_;
-			Dispatch(cmdList, heap, brdfLookupTablePipeline_.Get(), data, (brdfLookupTableSize_ + 7) / 8, (brdfLookupTableSize_ + 7) / 8, 1);
+			Dispatch(cmdList, heap, brdfLookupTablePipeline_.Get(), data, (brdfLookupTableSize_ + 7) / 8, (brdfLookupTableSize_ + 7) / 8, 1, addresses);
 
 			UnorderedAccessBarrier(cmdList, brdfLookupTableResource_.Get());
 			Transition(cmdList, brdfLookupTableResource_.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
@@ -307,7 +315,7 @@ namespace SeedCore
 
 				if (hashChanged || periodicRefresh)
 				{
-					GenerateProceduralEnvironment(cmdList, heap, structuredAddress);
+					GenerateProceduralEnvironment(cmdList, heap, addresses);
 					generatedProceduralSkyHash_ = proceduralSkyHash_;
 					proceduralSkyGenerated_ = true;
 					proceduralSkyRefreshCounter_ = 0;
@@ -325,7 +333,7 @@ namespace SeedCore
 			return;
 		}
 
-		GenerateStaticEnvironment(cmdList, heap);
+		GenerateStaticEnvironment(cmdList, heap, addresses);
 		generatedSourceShaderResourceViewIndex_ = sourceEquirectShaderResourceViewIndex_;
 
 		/// [JP] スカイマップで environment/畳み込みを上書きしたので、
@@ -333,32 +341,32 @@ namespace SeedCore
 		proceduralSkyGenerated_ = false;
 	}
 
-	void SkyRenderer::GenerateProceduralEnvironment(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS structuredAddress)
+	void SkyRenderer::GenerateProceduralEnvironment(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
 	{
 		const D3D12_RESOURCE_STATES readState = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
 
-		/// [JP] 解析的な空+太陽を environment の6面へ描く。source_index_ は
-		///      このパスでは未使用なので LightConstantData の bindless
-		///      インデックスを載せる(ProceduralSkyToCubeCS.hlsl 参照)。
+		/// [JP] 解析的な空+太陽を environment の6面へ描く。太陽は
+		///      constant_indices 経由の GetDirectionalLightConstantBuffer()
+		///      から引くため(ProceduralSkyToCubeCS.hlsl 参照)、source_index_
+		///      はこのパスでは未使用。
 		Transition(cmdList, environmentResource_.Get(), readState, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 		{
-			SkyGenerateConstant data{};
-			data.sourceIndex_ = proceduralSkyLightIndex_;
+			SkyDispatchBuffer data{};
 			data.destIndex_ = environmentUnorderedAccessViewIndices_[0];
 			data.faceSize_ = environmentSize_;
 
 			/// [JP] roughness_ はこのパスでは prefilter 用として未使用なので、
 			///      雲の風スクロール時刻を転用して渡す(ProceduralSkyToCubeCS 参照)。
 			data.roughness_ = proceduralSkyTime_;
-			Dispatch(cmdList, heap, proceduralSkyToCubePipeline_.Get(), data, (environmentSize_ + 7) / 8, (environmentSize_ + 7) / 8, 6, structuredAddress);
+			Dispatch(cmdList, heap, proceduralSkyToCubePipeline_.Get(), data, (environmentSize_ + 7) / 8, (environmentSize_ + 7) / 8, 6, addresses);
 		}
 		UnorderedAccessBarrier(cmdList, environmentResource_.Get());
 		Transition(cmdList, environmentResource_.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, readState);
 
-		ConvolveFromSource(cmdList, heap, environmentShaderResourceViewIndex_);
+		ConvolveFromSource(cmdList, heap, environmentShaderResourceViewIndex_, addresses);
 	}
 
-	void SkyRenderer::GenerateStaticEnvironment(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap)
+	void SkyRenderer::GenerateStaticEnvironment(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
 	{
 		const D3D12_RESOURCE_STATES readState = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
 
@@ -366,19 +374,19 @@ namespace SeedCore
 		/// [JP] HDR equirect を environment の 6 面（空）へ投影する。
 		Transition(cmdList, environmentResource_.Get(), readState, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 		{
-			SkyGenerateConstant data{};
+			SkyDispatchBuffer data{};
 			data.sourceIndex_ = sourceEquirectShaderResourceViewIndex_;
 			data.destIndex_ = environmentUnorderedAccessViewIndices_[0];
 			data.faceSize_ = environmentSize_;
-			Dispatch(cmdList, heap, equirectToCubePipeline_.Get(), data, (environmentSize_ + 7) / 8, (environmentSize_ + 7) / 8, 6);
+			Dispatch(cmdList, heap, equirectToCubePipeline_.Get(), data, (environmentSize_ + 7) / 8, (environmentSize_ + 7) / 8, 6, addresses);
 		}
 		UnorderedAccessBarrier(cmdList, environmentResource_.Get());
 		Transition(cmdList, environmentResource_.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, readState);
 
-		ConvolveFromSource(cmdList, heap, environmentShaderResourceViewIndex_);
+		ConvolveFromSource(cmdList, heap, environmentShaderResourceViewIndex_, addresses);
 	}
 
-	void SkyRenderer::ConvolveFromSource(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, Uint sourceShaderResourceViewIndex)
+	void SkyRenderer::ConvolveFromSource(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, Uint sourceShaderResourceViewIndex, const RootAddresses& addresses)
 	{
 		const D3D12_RESOURCE_STATES readState = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
 
@@ -386,11 +394,11 @@ namespace SeedCore
 		Transition(cmdList, prefilterResource_.Get(), readState, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 
 		{
-			SkyGenerateConstant data{};
+			SkyDispatchBuffer data{};
 			data.sourceIndex_ = sourceShaderResourceViewIndex;
 			data.destIndex_ = irradianceUnorderedAccessViewIndex_;
 			data.faceSize_ = irradianceSize_;
-			Dispatch(cmdList, heap, diffuseIrradiancePipeline_.Get(), data, (irradianceSize_ + 7) / 8, (irradianceSize_ + 7) / 8, 6);
+			Dispatch(cmdList, heap, diffuseIrradiancePipeline_.Get(), data, (irradianceSize_ + 7) / 8, (irradianceSize_ + 7) / 8, 6, addresses);
 		}
 
 		for (Uint mip = 0; mip < prefilterMipLevels_; mip++)
@@ -401,14 +409,14 @@ namespace SeedCore
 				mipSize = 1;
 			}
 
-			SkyGenerateConstant data{};
+			SkyDispatchBuffer data{};
 			data.sourceIndex_ = sourceShaderResourceViewIndex;
 			data.destIndex_ = prefilterUnorderedAccessViewIndices_[mip];
 			data.faceSize_ = mipSize;
 			data.sampleCount_ = prefilterSampleCount_;
 			data.mipLevel_ = mip;
 			data.roughness_ = (prefilterMipLevels_ <= 1) ? 0.0f : static_cast<Float>(mip) / static_cast<Float>(prefilterMipLevels_ - 1);
-			Dispatch(cmdList, heap, specularPrefilterPipeline_.Get(), data, (mipSize + 7) / 8, (mipSize + 7) / 8, 6);
+			Dispatch(cmdList, heap, specularPrefilterPipeline_.Get(), data, (mipSize + 7) / 8, (mipSize + 7) / 8, 6, addresses);
 		}
 
 		UnorderedAccessBarrier(cmdList, irradianceResource_.Get());
@@ -417,9 +425,9 @@ namespace SeedCore
 		Transition(cmdList, prefilterResource_.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, readState);
 	}
 
-	void SkyRenderer::Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, ID3D12PipelineState* pipeline, const SkyGenerateConstant& data, Uint groupsX, Uint groupsY, Uint groupsZ, D3D12_GPU_VIRTUAL_ADDRESS structuredAddress)
+	void SkyRenderer::Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, ID3D12PipelineState* pipeline, const SkyDispatchBuffer& data, Uint groupsX, Uint groupsY, Uint groupsZ, const RootAddresses& addresses)
 	{
-		ConstantBuffer<SkyGenerateConstant>* constantBuffer = constantBuffers_[dispatchCursor_ % maxGenerateDispatches_].get();
+		ConstantBuffer<SkyDispatchBuffer>* constantBuffer = constantBuffers_[dispatchCursor_ % maxGenerateDispatches_].get();
 		dispatchCursor_++;
 		constantBuffer->Update(data);
 
@@ -428,12 +436,9 @@ namespace SeedCore
 		ID3D12DescriptorHeap* heaps[] = { heap };
 		cmd->SetDescriptorHeaps(_countof(heaps), heaps);
 		cmd->SetComputeRootSignature(rootSignature_->Get());
-		cmd->SetComputeRootDescriptorTable(0, bindlessHeap_->GPUHandle(0));
-		cmd->SetComputeRootConstantBufferView(2, constantBuffer->Address());
-		if (structuredAddress != 0)
-		{
-			cmd->SetComputeRootConstantBufferView(3, structuredAddress);
-		}
+		RootSignature::BindCompute(cmd, addresses);
+		Uint dispatchBufferIndex = constantBuffer->GetIndex();
+		cmd->SetComputeRoot32BitConstants(3, 1, &dispatchBufferIndex, 0);
 		cmd->SetPipelineState(pipeline);
 		cmd->Dispatch(groupsX, groupsY, groupsZ);
 	}

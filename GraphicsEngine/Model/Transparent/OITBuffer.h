@@ -1,11 +1,34 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
+#include <FoundationEngine/Log/Assert.h>
 #include <GraphicsEngine/D3D12/Descriptor/DescriptorHeap.h>
+#include <GraphicsEngine/D3D12/Buffer/ConstantBuffer.h>
 
 namespace SeedCore
 {
 	class BindlessHeap;
-	class IndicesSystem;
+	class ConstantIndicesSystem;
+	class UnorderedAccessIndicesSystem;
+
+	/**
+	* [EN]
+	* OIT's own contribution the fragment resolve pass needs. Mirrors the
+	* HLSL OitConstantBuffer (Model/Transparent/OitShading.hlsli); 16 bytes.
+	* Reached through ConstantIndices::oitIndex_.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* フラグメントリゾルブパスが必要とする OIT 自身のデータ。HLSL の
+	* OitConstantBuffer（Model/Transparent/OitShading.hlsli）と一致。
+	* 16 バイト。ConstantIndices::oitIndex_ 経由で参照する。
+	*/
+	struct OitConstantBuffer
+	{
+		Uint fragmentCapacity_ = 0;
+		Vector3 oitConstantBufferPadding0_;
+	};
+	SC_STATIC_ASSERT_SIZE(OitConstantBuffer, 16, "Model/Transparent/OitShading.hlsli");
 
 	/**
 	* [EN]
@@ -18,7 +41,7 @@ namespace SeedCore
 	*   - Fragment Buffer: RWStructuredBuffer<OITFragment>, UAV.
 	*     Pool of fragments sized to (width * height * poolLayers_), capped at
 	*     poolByteBudget_. The allocated element count is published to the
-	*     shaders via OitIndices::fragmentCapacity_.
+	*     shaders via OitConstantBuffer::fragmentCapacity_.
 	*   - Counter: RWByteAddressBuffer (4 bytes), UAV.
 	*     Atomic counter for fragment allocation.
 	*
@@ -37,7 +60,7 @@ namespace SeedCore
 	*   - フラグメントバッファ: RWStructuredBuffer<OITFragment>、UAV。
 	*     フラグメントプール。サイズは (width * height * poolLayers_)、
 	*     poolByteBudget_ で上限クランプ。確保した要素数は
-	*     OitIndices::fragmentCapacity_ 経由でシェーダへ渡す。
+	*     OitConstantBuffer::fragmentCapacity_ 経由でシェーダへ渡す。
 	*   - カウンター: RWByteAddressBuffer (4 バイト)、UAV。
 	*     フラグメント割り当て用のアトミックカウンター。
 	*
@@ -62,11 +85,11 @@ namespace SeedCore
 		OITBuffer() = default;
 		~OITBuffer() = default;
 
-		void Create(ID3D12Device* device, BindlessHeap* bindlessHeap, IndicesSystem& indicesSystem, Uint32 width, Uint32 height);
+		void Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ConstantIndicesSystem& constantIndicesSystem, UnorderedAccessIndicesSystem& unorderedAccessIndicesSystem, Uint32 width, Uint32 height);
 
 		void Destroy(BindlessHeap* bindlessHeap);
 
-		void Resize(ID3D12Device* device, BindlessHeap* bindlessHeap, IndicesSystem& indicesSystem, Uint32 width, Uint32 height);
+		void Resize(ID3D12Device* device, BindlessHeap* bindlessHeap, ConstantIndicesSystem& constantIndicesSystem, UnorderedAccessIndicesSystem& unorderedAccessIndicesSystem, Uint32 width, Uint32 height);
 
 		void Clear(ID3D12GraphicsCommandList* cmdList);
 
@@ -87,6 +110,8 @@ namespace SeedCore
 		Uint clearCounterIndex_ = 0;
 
 		Uint fragmentCapacity_ = 0;
+
+		ResourcePtr<ConstantBuffer<OitConstantBuffer>> oitConstantBuffer_;
 
 		BindlessHeap* bindlessHeap_ = nullptr;
 

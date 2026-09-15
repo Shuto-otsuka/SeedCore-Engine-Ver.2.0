@@ -22,7 +22,9 @@
 * Hi-Z ミップを UAV 経由で読む。これによりピラミッド全体を構築中
 * UNORDERED_ACCESS ステートのまま維持できる。
 */
-struct HiZBuildConstants
+#include "../Shader/Dispatch.hlsli"
+
+struct HiZBuildConstantBuffer
 {
 	uint source_index_;
 	uint destination_index_;
@@ -33,24 +35,28 @@ struct HiZBuildConstants
 	uint source_is_depth_;
 	uint hi_z_build_padding_0_;
 };
-ConstantBuffer<HiZBuildConstants> hi_z_build : register(b0, space1);
+
+ConstantBuffer<HiZBuildConstantBuffer> GetHiZBuildConstantBuffer()
+{
+	return ResourceDescriptorHeap[dispatch_buffer_index_];
+}
 
 float LoadSourceDepth(uint2 position)
 {
-	uint2 clamped = min(position, uint2(hi_z_build.source_width_ - 1, hi_z_build.source_height_ - 1));
-	if (hi_z_build.source_is_depth_ != 0)
+	uint2 clamped = min(position, uint2(GetHiZBuildConstantBuffer().source_width_ - 1, GetHiZBuildConstantBuffer().source_height_ - 1));
+	if (GetHiZBuildConstantBuffer().source_is_depth_ != 0)
 	{
-		Texture2D<float> source = ResourceDescriptorHeap[hi_z_build.source_index_];
+		Texture2D<float> source = ResourceDescriptorHeap[GetHiZBuildConstantBuffer().source_index_];
 		return source.Load(int3(clamped, 0));
 	}
-	RWTexture2D<float> source = ResourceDescriptorHeap[hi_z_build.source_index_];
+	RWTexture2D<float> source = ResourceDescriptorHeap[GetHiZBuildConstantBuffer().source_index_];
 	return source[clamped];
 }
 
 [numthreads(8, 8, 1)]
 void main(uint3 dtid : SV_DispatchThreadID)
 {
-	if (dtid.x >= hi_z_build.destination_width_ || dtid.y >= hi_z_build.destination_height_)
+	if (dtid.x >= GetHiZBuildConstantBuffer().destination_width_ || dtid.y >= GetHiZBuildConstantBuffer().destination_height_)
 	{
 		return;
 	}
@@ -61,8 +67,8 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	depth = min(depth, LoadSourceDepth(base + uint2(0, 1)));
 	depth = min(depth, LoadSourceDepth(base + uint2(1, 1)));
 
-	bool odd_width = (hi_z_build.source_width_ & 1) != 0;
-	bool odd_height = (hi_z_build.source_height_ & 1) != 0;
+	bool odd_width = (GetHiZBuildConstantBuffer().source_width_ & 1) != 0;
+	bool odd_height = (GetHiZBuildConstantBuffer().source_height_ & 1) != 0;
 	if (odd_width)
 	{
 		depth = min(depth, LoadSourceDepth(base + uint2(2, 0)));
@@ -78,6 +84,6 @@ void main(uint3 dtid : SV_DispatchThreadID)
 		depth = min(depth, LoadSourceDepth(base + uint2(2, 2)));
 	}
 
-	RWTexture2D<float> destination = ResourceDescriptorHeap[hi_z_build.destination_index_];
+	RWTexture2D<float> destination = ResourceDescriptorHeap[GetHiZBuildConstantBuffer().destination_index_];
 	destination[dtid.xy] = depth;
 }

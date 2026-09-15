@@ -228,11 +228,18 @@ namespace SeedCore
 
 		ImGui::Separator();
 
-		const Char* shadingModels = "PBR\0Unlit\0Phong\0Toon\0Lambert\0";
+		const Char* shadingModels = "PBR\0Unlit\0Phong\0Toon\0Lambert\0Flat\0Fur\0";
 		Int shadingModel = static_cast<Int>(surface.shadingModel_);
 		if (ImGui::Combo("シェーディングモデル", &shadingModel, shadingModels))
 		{
 			surface.shadingModel_ = static_cast<ShadingModel>(shadingModel);
+		}
+
+		if (surface.shadingModel_ == ShadingModel::Fur)
+		{
+			ImGui::SliderFloat("毛の長さ", &surface.furLength_, 0.0f, 0.2f, "%.3f m");
+			ImGui::SliderFloat("毛の密度", &surface.furDensity_, 0.0f, 4.0f);
+			ImGui::SliderInt("シェル数", &surface.furShellCount_, 1, 32);
 		}
 
 		Bool doubleSided = surface.doubleSided_ != 0;

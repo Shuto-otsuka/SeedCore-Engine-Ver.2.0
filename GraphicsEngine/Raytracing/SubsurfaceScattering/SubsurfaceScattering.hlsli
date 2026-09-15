@@ -4,7 +4,7 @@
 /**
 * SSS tuning constant buffer, read by both SubsurfaceScatteringRT.hlsl and
 * DeferredLightingPS.hlsl via
-* structured_indices.subsurface_scattering_.ray_constant_index_. Must match
+* constant_indices.subsurface_scattering_index_. Must match
 * the C++ mirror in Renderer/SubsurfaceScatteringRenderer.h byte-for-byte.
 */
 struct SubsurfaceScatteringRayConstantBuffer
@@ -31,6 +31,18 @@ struct SubsurfaceScatteringRayConstantBuffer
 
 	/// Padding to keep the buffer's byte size aligned with the C++ mirror.
 	float subsurface_scattering_padding_;
+};
+
+struct SubsurfaceScatteringShaderResourceIndices
+{
+	uint transmittance_index_;
+	uint3 subsurface_scattering_shader_resource_padding_0_;
+};
+
+struct SubsurfaceScatteringUnorderedAccessIndices
+{
+	uint transmittance_index_;
+	uint3 subsurface_scattering_unordered_access_padding_0_;
 };
 
 #endif // __SUBSURFACE_SCATTERING_HLSL__

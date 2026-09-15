@@ -1,58 +1,57 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
 #include <FoundationEngine/Utility/Handle.h>
+#include <GraphicsEngine/D3D12/PipelineState/RootSignature.h>
 #include <GraphicsEngine/D3D12/PipelineState/PipelineStateObject.h>
 #include <GraphicsEngine/D3D12/PipelineState/DepthStencilState.h>
 
 namespace SeedCore
 {
 	class ShaderCache;
+	class VertexShader;
 	class MeshShader;
 	class PixelShader;
 
 	/**
 	* [EN]
-	* Manages the root signature and PSO for collider debug-line rendering
-	* (unlit, vertex-colored line list, mesh-shader based like the rest of
-	* this engine's renderers). Deliberately does NOT reuse the engine's
-	* shared bindless RootSignature (Renderer::rootSignature_) — this PSO
-	* only needs the current view-projection (via the existing per-view
-	* ConstantIndices CBV, register b0 space1) and one small, privately
-	* owned constant buffer describing this frame's line-vertex buffer
-	* (register b0 space0). Keeping it self-contained avoids touching the
-	* shared StructuredIndices layout that every other renderer depends on.
+	* Manages the PSO for collider debug-line rendering (unlit, vertex-colored
+	* line list). Uses the engine's shared bindless RootSignature like every
+	* other renderer: the current view comes from ConstantIndices (b2 space1),
+	* and this frame's ColliderConstantBuffer is reached through
+	* ConstantIndices::collider_index_. Builds a Mesh Shader PSO on D12_2
+	* devices and a Vertex Shader line-list PSO otherwise.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* コライダーのデバッグライン描画（アンリット・頂点カラーのラインリスト、
-	* 本エンジンの他レンダラーと同じくメッシュシェーダベース）用の
-	* RootSignature と PSO を管理する。意図的にエンジン共有の bindless
-	* RootSignature（Renderer::rootSignature_）は使わない — このPSOが必要と
-	* するのは現在ビューの view-projection（既存の ConstantIndices CBV,
-	* register b0 space1 経由）と、このフレームの line-vertex バッファを表す
-	* 小さな専用定数バッファ（register b0 space0）のみ。自己完結させることで、
-	* 他の全レンダラーが依存する共有 StructuredIndices のレイアウトに触れずに済む。
+	* コライダーのデバッグライン描画（アンリット・頂点カラーのラインリスト）用の
+	* PSO を管理する。他の全レンダラーと同じくエンジン共有の bindless
+	* RootSignature を使う — 現在ビューは ConstantIndices（b2 space1）から、
+	* このフレームの ColliderConstantBuffer は ConstantIndices::collider_index_
+	* 経由で引く。D12_2 のデバイスではメッシュシェーダの PSO、それ以外では
+	* 頂点シェーダのラインリスト PSO を構築する。
 	*/
 	class ColliderLineShader
 	{
 	public:
-		ColliderLineShader() = default;
+		ColliderLineShader(RootSignature& rootSignature, PipelineStateObject& pipelineStateObject);
 		~ColliderLineShader() = default;
 
-		void Create(ShaderCache& shaderCache, ID3D12Device* device, PipelineStateObject& pipelineStateObject, DepthStencilStateType depthStencilStateType = DepthStencilStateType::DepthOnWriteOffReverseZ);
+		void Create(ShaderCache& shaderCache, ID3D12Device* device, DepthStencilStateType depthStencilStateType = DepthStencilStateType::DepthOnWriteOffReverseZ);
 
 		[[nodiscard]] ID3D12PipelineState* GetPipelineState()const;
 
 		[[nodiscard]] ID3D12RootSignature* GetRootSignature()const;
 
 	private:
+		Handle<VertexShader> lineVertexShader_;
 		Handle<MeshShader> lineMeshShader_;
 		Handle<PixelShader> linePixelShader_;
 		Handle<Microsoft::WRL::ComPtr<ID3D12PipelineState>> pipelineState_;
 
-		Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature_;
+		Handle<RootSignature> lineRootSignature_;
 
-		PipelineStateObject* pipelineStateObject_ = nullptr;
+		RootSignature& rootSignature_;
+		PipelineStateObject& pipelineStateObject_;
 	};
 }

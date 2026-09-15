@@ -13,10 +13,12 @@ namespace SeedCore
 		/// No Code
 	}
 
-	void VolumetricCloudScapesRenderer::Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, IndicesSystem& indicesSystem, Uint32 width, Uint32 height)
+	void VolumetricCloudScapesRenderer::Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, ConstantIndicesSystem& constantIndicesSystem, ShaderResourceIndicesSystem& shaderResourceIndicesSystem, UnorderedAccessIndicesSystem& unorderedAccessIndicesSystem, Uint32 width, Uint32 height)
 	{
 		bindlessHeap_ = bindlessHeap;
-		indicesSystem_ = &indicesSystem;
+		constantIndicesSystem_ = &constantIndicesSystem;
+		shaderResourceIndicesSystem_ = &shaderResourceIndicesSystem;
+		unorderedAccessIndicesSystem_ = &unorderedAccessIndicesSystem;
 
 		/// [JP] 縮小解像度で確保する。切り上げなので、画面が奇数サイズでも
 		///      2x2 ブロックが画面外へはみ出す分を含めて必ず覆える。
@@ -176,16 +178,16 @@ namespace SeedCore
 		++frameIndex_;
 
 		tuningBuffer_->Update(uploadSettings);
-		indicesSystem_->SetCloudRayConstantIndex(tuningBuffer_->GetIndex());
-		indicesSystem_->SetCloudOutputUnorderedAccessViewIndex(cloudUnorderedAccessViewIndex_);
-		indicesSystem_->SetCloudOutputShaderResourceViewIndex(cloudShaderResourceViewIndex_);
-		indicesSystem_->SetCloudShapeNoiseUnorderedAccessViewIndex(shapeNoiseUnorderedAccessViewIndex_);
-		indicesSystem_->SetCloudShapeNoiseShaderResourceViewIndex(shapeNoiseShaderResourceViewIndex_);
-		indicesSystem_->SetCloudDetailNoiseUnorderedAccessViewIndex(detailNoiseUnorderedAccessViewIndex_);
-		indicesSystem_->SetCloudDetailNoiseShaderResourceViewIndex(detailNoiseShaderResourceViewIndex_);
+		constantIndicesSystem_->SetCloudRayConstantIndex(tuningBuffer_->GetIndex());
+		unorderedAccessIndicesSystem_->SetCloudOutputUnorderedAccessViewIndex(cloudUnorderedAccessViewIndex_);
+		shaderResourceIndicesSystem_->SetCloudOutputShaderResourceViewIndex(cloudShaderResourceViewIndex_);
+		unorderedAccessIndicesSystem_->SetCloudShapeNoiseUnorderedAccessViewIndex(shapeNoiseUnorderedAccessViewIndex_);
+		shaderResourceIndicesSystem_->SetCloudShapeNoiseShaderResourceViewIndex(shapeNoiseShaderResourceViewIndex_);
+		unorderedAccessIndicesSystem_->SetCloudDetailNoiseUnorderedAccessViewIndex(detailNoiseUnorderedAccessViewIndex_);
+		shaderResourceIndicesSystem_->SetCloudDetailNoiseShaderResourceViewIndex(detailNoiseShaderResourceViewIndex_);
 	}
 
-	void VolumetricCloudScapesRenderer::Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex, Bool enabled)
+	void VolumetricCloudScapesRenderer::Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses, Bool enabled)
 	{
 		auto* cmd = cmdList->Get();
 
@@ -213,9 +215,7 @@ namespace SeedCore
 			ID3D12DescriptorHeap* heaps[] = { heap };
 			cmd->SetDescriptorHeaps(_countof(heaps), heaps);
 			cmd->SetComputeRootSignature(cloudShader_.GetRootSignature());
-			cmd->SetComputeRootDescriptorTable(0, bindlessHeap_->GPUHandle(0));
-			cmd->SetComputeRootConstantBufferView(2, constantIndex);
-			cmd->SetComputeRootConstantBufferView(3, structuredIndex);
+			RootSignature::BindCompute(cmd, addresses);
 
 			/// [JP] 初回のみノイズ Texture3D をベイクする(コマンドリストが要る
 			///      ため Create() ではなくここで行う)。以後は焼き込み済みを

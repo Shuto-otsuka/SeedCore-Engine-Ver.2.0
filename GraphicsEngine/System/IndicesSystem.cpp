@@ -3,653 +3,893 @@
 
 namespace SeedCore
 {
-	IndicesSystem::IndicesSystem(ID3D12Device* device, BindlessHeap* heap)
+	ConstantIndicesSystem::ConstantIndicesSystem(ID3D12Device* device, BindlessHeap* heap)
 	{
 		editorConstantIndicesBuffer_ = MakePtr<ConstantBuffer<ConstantIndices>>(device, heap);
 		gameConstantIndicesBuffer_ = MakePtr<ConstantBuffer<ConstantIndices>>(device, heap);
 		canvasConstantIndicesBuffer_ = MakePtr<ConstantBuffer<ConstantIndices>>(device, heap);
-		structuredIndicesBuffer_ = MakePtr<ConstantBuffer<StructuredIndices>>(device, heap);
 	}
 
-	void IndicesSystem::UploadEditor()
+	void ConstantIndicesSystem::UploadEditor()
 	{
 		editorConstantIndicesBuffer_->Update(editorConstantIndices_);
-		structuredIndicesBuffer_->Update(structuredIndices_);
 	}
 
-	void IndicesSystem::UploadGame()
+	void ConstantIndicesSystem::UploadGame()
 	{
 		gameConstantIndicesBuffer_->Update(gameConstantIndices_);
-		structuredIndicesBuffer_->Update(structuredIndices_);
 	}
 
-	void IndicesSystem::UploadCanvas()
+	void ConstantIndicesSystem::UploadCanvas()
 	{
 		canvasConstantIndicesBuffer_->Update(canvasConstantIndices_);
-		structuredIndicesBuffer_->Update(structuredIndices_);
 	}
 
-	D3D12_GPU_VIRTUAL_ADDRESS IndicesSystem::EditorConstantAddress()const
+	D3D12_GPU_VIRTUAL_ADDRESS ConstantIndicesSystem::EditorConstantAddress()const
 	{
 		return editorConstantIndicesBuffer_->Address();
 	}
 
-	D3D12_GPU_VIRTUAL_ADDRESS IndicesSystem::GameConstantAddress()const
+	D3D12_GPU_VIRTUAL_ADDRESS ConstantIndicesSystem::GameConstantAddress()const
 	{
 		return gameConstantIndicesBuffer_->Address();
 	}
 
-	D3D12_GPU_VIRTUAL_ADDRESS IndicesSystem::CanvasConstantAddress()const
+	D3D12_GPU_VIRTUAL_ADDRESS ConstantIndicesSystem::CanvasConstantAddress()const
 	{
 		return canvasConstantIndicesBuffer_->Address();
 	}
 
-	D3D12_GPU_VIRTUAL_ADDRESS IndicesSystem::StructuredAddress()const
-	{
-		return structuredIndicesBuffer_->Address();
-	}
-
-	void IndicesSystem::SetEditorSceneIndex(Uint index)
+	void ConstantIndicesSystem::SetEditorSceneIndex(Uint index)
 	{
 		editorConstantIndices_.sceneIndex_ = index;
 	}
 
-	void IndicesSystem::SetGameSceneIndex(Uint index)
+	void ConstantIndicesSystem::SetGameSceneIndex(Uint index)
 	{
 		gameConstantIndices_.sceneIndex_ = index;
 	}
 
-	void IndicesSystem::SetCanvasSceneIndex(Uint index)
+	void ConstantIndicesSystem::SetCanvasSceneIndex(Uint index)
 	{
 		canvasConstantIndices_.sceneIndex_ = index;
 	}
 
-	void IndicesSystem::SetLightIndex(Uint index)
+	void ConstantIndicesSystem::SetLightIndex(Uint index)
 	{
 		editorConstantIndices_.lightIndex_ = index;
 		gameConstantIndices_.lightIndex_ = index;
 		canvasConstantIndices_.lightIndex_ = index;
 	}
 
-	void IndicesSystem::SetClusterConstantIndex(Uint index)
+	void ConstantIndicesSystem::SetClusterAssignIndex(Uint index)
 	{
-		editorConstantIndices_.clusterConstantIndex_ = index;
-		gameConstantIndices_.clusterConstantIndex_ = index;
-		canvasConstantIndices_.clusterConstantIndex_ = index;
+		editorConstantIndices_.clusterAssignIndex_ = index;
+		gameConstantIndices_.clusterAssignIndex_ = index;
+		canvasConstantIndices_.clusterAssignIndex_ = index;
 	}
 
-	void IndicesSystem::SetEditorViewMode(Uint mode)
+	void ConstantIndicesSystem::SetWeatherIndex(Uint index)
 	{
-		/// [JP] View Mode はエディタービュー限定。game/canvas は 0(Lit) のまま。
-		editorConstantIndices_.viewMode_ = mode;
+		editorConstantIndices_.weatherIndex_ = index;
+		gameConstantIndices_.weatherIndex_ = index;
+		canvasConstantIndices_.weatherIndex_ = index;
 	}
 
-	void IndicesSystem::SetImageSpriteIndex(Uint index)
+	void ConstantIndicesSystem::SetDirectionalLightIndex(Uint index)
 	{
-		structuredIndices_.sprite_.imageIndex_ = index;
+		editorConstantIndices_.directionalLightIndex_ = index;
+		gameConstantIndices_.directionalLightIndex_ = index;
+		canvasConstantIndices_.directionalLightIndex_ = index;
 	}
 
-	void IndicesSystem::SetImageBillboardIndex(Uint index)
+	void ConstantIndicesSystem::SetSkyIndex(Uint index)
 	{
-		structuredIndices_.sprite_.imageBillboardIndex_ = index;
+		editorConstantIndices_.skyIndex_ = index;
+		gameConstantIndices_.skyIndex_ = index;
+		canvasConstantIndices_.skyIndex_ = index;
 	}
 
-	void IndicesSystem::SetFontSpriteIndex(Uint index)
+	void ConstantIndicesSystem::SetOitIndex(Uint index)
 	{
-		structuredIndices_.sprite_.fontIndex_ = index;
+		editorConstantIndices_.oitIndex_ = index;
+		gameConstantIndices_.oitIndex_ = index;
+		canvasConstantIndices_.oitIndex_ = index;
 	}
 
-	void IndicesSystem::SetFontBillboardIndex(Uint index)
+	void ConstantIndicesSystem::SetEditorPostProcessIndex(Uint index)
 	{
-		structuredIndices_.sprite_.fontBillboardIndex_ = index;
+		editorConstantIndices_.postProcessIndex_ = index;
 	}
 
-	void IndicesSystem::SetUIColorAlphaIndex(Uint index)
+	void ConstantIndicesSystem::SetGamePostProcessIndex(Uint index)
 	{
-		structuredIndices_.sprite_.uiColorAlphaIndex_ = index;
+		gameConstantIndices_.postProcessIndex_ = index;
 	}
 
-	void IndicesSystem::SetModelInstanceIndex(Uint index)
+	void ConstantIndicesSystem::SetModelFurIndex(Uint index)
 	{
-		structuredIndices_.model_.instanceIndex_ = index;
+		editorConstantIndices_.furIndex_ = index;
+		gameConstantIndices_.furIndex_ = index;
+		canvasConstantIndices_.furIndex_ = index;
 	}
 
-	void IndicesSystem::SetModelBoneMatrixIndex(Uint index)
+	void ConstantIndicesSystem::SetShadowRayConstantIndex(Uint index)
 	{
-		structuredIndices_.model_.boneMatrixIndex_ = index;
+		editorConstantIndices_.shadowIndex_ = index;
+		gameConstantIndices_.shadowIndex_ = index;
+		canvasConstantIndices_.shadowIndex_ = index;
 	}
 
-	void IndicesSystem::SetModelMorphWeightIndex(Uint index)
+	void ConstantIndicesSystem::SetAmbientOcclusionRayConstantIndex(Uint index)
 	{
-		structuredIndices_.model_.morphWeightIndex_ = index;
+		editorConstantIndices_.ambientOcclusionIndex_ = index;
+		gameConstantIndices_.ambientOcclusionIndex_ = index;
+		canvasConstantIndices_.ambientOcclusionIndex_ = index;
 	}
 
-	void IndicesSystem::SetOITHeadPointerIndex(Uint index)
+	void ConstantIndicesSystem::SetSubsurfaceScatteringRayConstantIndex(Uint index)
 	{
-		structuredIndices_.oit_.headPointerIndex_ = index;
+		editorConstantIndices_.subsurfaceScatteringIndex_ = index;
+		gameConstantIndices_.subsurfaceScatteringIndex_ = index;
+		canvasConstantIndices_.subsurfaceScatteringIndex_ = index;
 	}
 
-	void IndicesSystem::SetOITFragmentBufferIndex(Uint index)
+	void ConstantIndicesSystem::SetReflectionRayConstantIndex(Uint index)
 	{
-		structuredIndices_.oit_.fragmentBufferIndex_ = index;
+		editorConstantIndices_.reflectionIndex_ = index;
+		gameConstantIndices_.reflectionIndex_ = index;
+		canvasConstantIndices_.reflectionIndex_ = index;
 	}
 
-	void IndicesSystem::SetOITCounterIndex(Uint index)
+	void ConstantIndicesSystem::SetRefractionRayConstantIndex(Uint index)
 	{
-		structuredIndices_.oit_.counterIndex_ = index;
+		editorConstantIndices_.refractionIndex_ = index;
+		gameConstantIndices_.refractionIndex_ = index;
+		canvasConstantIndices_.refractionIndex_ = index;
 	}
 
-	void IndicesSystem::SetOITFragmentCapacity(Uint capacity)
+	void ConstantIndicesSystem::SetGlobalIlluminationRayConstantIndex(Uint index)
 	{
-		structuredIndices_.oit_.fragmentCapacity_ = capacity;
+		editorConstantIndices_.globalIlluminationIndex_ = index;
+		gameConstantIndices_.globalIlluminationIndex_ = index;
+		canvasConstantIndices_.globalIlluminationIndex_ = index;
 	}
 
-	void IndicesSystem::SetHiZIndex(Uint index)
+	void ConstantIndicesSystem::SetCloudRayConstantIndex(Uint index)
 	{
-		structuredIndices_.model_.hiZIndex_ = index;
+		editorConstantIndices_.cloudIndex_ = index;
+		gameConstantIndices_.cloudIndex_ = index;
+		canvasConstantIndices_.cloudIndex_ = index;
 	}
 
-	void IndicesSystem::SetGBuffer0Index(Uint index)
+	void ConstantIndicesSystem::SetStarRayConstantIndex(Uint index)
 	{
-		structuredIndices_.gbuffer_.index0_ = index;
+		editorConstantIndices_.starIndex_ = index;
+		gameConstantIndices_.starIndex_ = index;
+		canvasConstantIndices_.starIndex_ = index;
 	}
 
-	void IndicesSystem::SetGBuffer1Index(Uint index)
+	void ConstantIndicesSystem::SetWeatherParticleRayConstantIndex(Uint index)
 	{
-		structuredIndices_.gbuffer_.index1_ = index;
+		editorConstantIndices_.weatherParticleIndex_ = index;
+		gameConstantIndices_.weatherParticleIndex_ = index;
+		canvasConstantIndices_.weatherParticleIndex_ = index;
 	}
 
-	void IndicesSystem::SetGBuffer2Index(Uint index)
+	void ConstantIndicesSystem::SetVolumetricLightRayConstantIndex(Uint index)
 	{
-		structuredIndices_.gbuffer_.index2_ = index;
+		editorConstantIndices_.volumetricLightIndex_ = index;
+		gameConstantIndices_.volumetricLightIndex_ = index;
+		canvasConstantIndices_.volumetricLightIndex_ = index;
 	}
 
-	void IndicesSystem::SetGBuffer3Index(Uint index)
+	void ConstantIndicesSystem::SetColliderIndex(Uint index)
 	{
-		structuredIndices_.gbuffer_.index3_ = index;
+		editorConstantIndices_.colliderIndex_ = index;
+		gameConstantIndices_.colliderIndex_ = index;
+		canvasConstantIndices_.colliderIndex_ = index;
 	}
 
-	void IndicesSystem::SetGBuffer4Index(Uint index)
+	ShaderResourceIndicesSystem::ShaderResourceIndicesSystem(ID3D12Device* device, BindlessHeap* heap)
 	{
-		structuredIndices_.gbuffer_.index4_ = index;
+		editorBuffer_ = MakePtr<ConstantBuffer<ShaderResourceIndices>>(device, heap);
+		gameBuffer_ = MakePtr<ConstantBuffer<ShaderResourceIndices>>(device, heap);
+		canvasBuffer_ = MakePtr<ConstantBuffer<ShaderResourceIndices>>(device, heap);
 	}
 
-	void IndicesSystem::SetGBufferDepthIndex(Uint index)
+	void ShaderResourceIndicesSystem::UploadEditor()
 	{
-		structuredIndices_.gbuffer_.depthIndex_ = index;
+		editorBuffer_->Update(editorIndices_);
 	}
 
-	void IndicesSystem::SetGBufferVelocityUnorderedAccessViewIndex(Uint index)
+	void ShaderResourceIndicesSystem::UploadGame()
 	{
-		structuredIndices_.gbuffer_.velocityUnorderedAccessViewIndex_ = index;
+		gameBuffer_->Update(gameIndices_);
 	}
 
-	void IndicesSystem::SetGBuffer0UnorderedAccessViewIndex(Uint index)
+	void ShaderResourceIndicesSystem::UploadCanvas()
 	{
-		structuredIndices_.gbuffer_.index0UnorderedAccessViewIndex_ = index;
+		canvasBuffer_->Update(canvasIndices_);
 	}
 
-	void IndicesSystem::SetGBuffer1UnorderedAccessViewIndex(Uint index)
+	D3D12_GPU_VIRTUAL_ADDRESS ShaderResourceIndicesSystem::EditorAddress()const
 	{
-		structuredIndices_.gbuffer_.index1UnorderedAccessViewIndex_ = index;
+		return editorBuffer_->Address();
 	}
 
-	void IndicesSystem::SetMaterialSortBucketIndex(Uint index)
+	D3D12_GPU_VIRTUAL_ADDRESS ShaderResourceIndicesSystem::GameAddress()const
 	{
-		structuredIndices_.materialSort_.bucketIndex_ = index;
+		return gameBuffer_->Address();
 	}
 
-	void IndicesSystem::SetMaterialSortedPixelListIndex(Uint index)
+	D3D12_GPU_VIRTUAL_ADDRESS ShaderResourceIndicesSystem::CanvasAddress()const
 	{
-		structuredIndices_.materialSort_.sortedPixelListIndex_ = index;
+		return canvasBuffer_->Address();
 	}
 
-	void IndicesSystem::SetGBuffer3UnorderedAccessViewIndex(Uint index)
+	void ShaderResourceIndicesSystem::SetLightIndices(const LightShaderResourceIndices& values)
 	{
-		structuredIndices_.gbuffer_.index3UnorderedAccessViewIndex_ = index;
+		editorIndices_.light_ = values;
+		gameIndices_.light_ = values;
+		canvasIndices_.light_ = values;
 	}
 
-	void IndicesSystem::SetSkyEnvironmentCubeIndex(Uint index)
+	void ShaderResourceIndicesSystem::SetClusterAssignIndices(const ClusterAssignShaderResourceIndices& values)
 	{
-		structuredIndices_.sky_.environmentCubeIndex_ = index;
+		editorIndices_.clusterAssign_ = values;
+		gameIndices_.clusterAssign_ = values;
+		canvasIndices_.clusterAssign_ = values;
 	}
 
-	void IndicesSystem::SetSkyDiffuseIrradianceIndex(Uint index)
+	void ShaderResourceIndicesSystem::SetEditorShadowAccumulationIndices(const ShadowAccumulationShaderResourceIndices& values)
 	{
-		structuredIndices_.sky_.diffuseIrradianceIndex_ = index;
+		editorIndices_.shadowAccumulation_ = values;
+		canvasIndices_.shadowAccumulation_ = values;
 	}
 
-	void IndicesSystem::SetSkySpecularPrefilteredIndex(Uint index)
+	void ShaderResourceIndicesSystem::SetGameShadowAccumulationIndices(const ShadowAccumulationShaderResourceIndices& values)
 	{
-		structuredIndices_.sky_.specularPrefilteredIndex_ = index;
+		gameIndices_.shadowAccumulation_ = values;
 	}
 
-	void IndicesSystem::SetSkyBrdfLutIndex(Uint index)
+	void ShaderResourceIndicesSystem::SetEditorAmbientOcclusionAccumulationIndices(const AmbientOcclusionAccumulationShaderResourceIndices& values)
 	{
-		structuredIndices_.sky_.brdfLutIndex_ = index;
+		editorIndices_.ambientOcclusionAccumulation_ = values;
+		canvasIndices_.ambientOcclusionAccumulation_ = values;
 	}
 
-	void IndicesSystem::SetSkyIntensity(Float intensity)
+	void ShaderResourceIndicesSystem::SetGameAmbientOcclusionAccumulationIndices(const AmbientOcclusionAccumulationShaderResourceIndices& values)
 	{
-		structuredIndices_.sky_.intensity_ = intensity;
+		gameIndices_.ambientOcclusionAccumulation_ = values;
 	}
 
-	void IndicesSystem::SetSelectionMaskIndex(Uint index)
+	void ShaderResourceIndicesSystem::SetEditorGlobalIlluminationAccumulationIndices(const GlobalIlluminationAccumulationShaderResourceIndices& values)
 	{
-		structuredIndices_.model_.selectionMaskIndex_ = index;
+		editorIndices_.globalIlluminationAccumulation_ = values;
+		canvasIndices_.globalIlluminationAccumulation_ = values;
 	}
 
-	void IndicesSystem::SetTLASIndex(Uint index)
+	void ShaderResourceIndicesSystem::SetGameGlobalIlluminationAccumulationIndices(const GlobalIlluminationAccumulationShaderResourceIndices& values)
 	{
-		structuredIndices_.raytracing_.tlasIndex_ = index;
+		gameIndices_.globalIlluminationAccumulation_ = values;
 	}
 
-	void IndicesSystem::SetShadowRawVisibilityUnorderedAccessViewIndex(Uint index)
+	void ShaderResourceIndicesSystem::SetEditorReflectionAccumulationIndices(const ReflectionAccumulationShaderResourceIndices& values)
 	{
-		structuredIndices_.shadow_.rawVisibilityUnorderedAccessViewIndex_ = index;
+		editorIndices_.reflectionAccumulation_ = values;
+		canvasIndices_.reflectionAccumulation_ = values;
 	}
 
-	void IndicesSystem::SetShadowRawVisibilityShaderResourceViewIndex(Uint index)
+	void ShaderResourceIndicesSystem::SetGameReflectionAccumulationIndices(const ReflectionAccumulationShaderResourceIndices& values)
 	{
-		structuredIndices_.shadow_.rawVisibilityShaderResourceViewIndex_ = index;
+		gameIndices_.reflectionAccumulation_ = values;
 	}
 
-	void IndicesSystem::SetShadowRayConstantIndex(Uint index)
+	void ShaderResourceIndicesSystem::SetEditorPostProcessIndices(const PostProcessShaderResourceIndices& values)
 	{
-		structuredIndices_.shadow_.rayConstantIndex_ = index;
+		editorIndices_.postProcess_ = values;
 	}
 
-	/**
-	* [EN]
-	* Registers the editor view's shadow SVGF chain. See the declaration in
-	* IndicesSystem.h for why this takes the whole struct.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* エディタビューの影 SVGF チェーンを登録する。構造体をまるごと受け取る理由は
-	* IndicesSystem.h の宣言側を参照。
-	*/
-	void IndicesSystem::SetEditorShadowIndices(const ShadowAccumulationIndices& values)
+	void ShaderResourceIndicesSystem::SetGamePostProcessIndices(const PostProcessShaderResourceIndices& values)
 	{
-		editorConstantIndices_.shadow_ = values;
+		gameIndices_.postProcess_ = values;
+	}
+
+	void ShaderResourceIndicesSystem::SetUIColorAlphaIndex(Uint index)
+	{
+		editorIndices_.hud_.uiColorAlphaIndex_ = index;
+		gameIndices_.hud_.uiColorAlphaIndex_ = index;
+		canvasIndices_.hud_.uiColorAlphaIndex_ = index;
+	}
+
+	void ShaderResourceIndicesSystem::SetImageSpriteIndex(Uint index)
+	{
+		editorIndices_.image_.spriteIndex_ = index;
+		gameIndices_.image_.spriteIndex_ = index;
+		canvasIndices_.image_.spriteIndex_ = index;
+	}
+
+	void ShaderResourceIndicesSystem::SetImageBillboardIndex(Uint index)
+	{
+		editorIndices_.image_.billboardIndex_ = index;
+		gameIndices_.image_.billboardIndex_ = index;
+		canvasIndices_.image_.billboardIndex_ = index;
+	}
+
+	void ShaderResourceIndicesSystem::SetFontSpriteIndex(Uint index)
+	{
+		editorIndices_.font_.spriteIndex_ = index;
+		gameIndices_.font_.spriteIndex_ = index;
+		canvasIndices_.font_.spriteIndex_ = index;
+	}
+
+	void ShaderResourceIndicesSystem::SetFontBillboardIndex(Uint index)
+	{
+		editorIndices_.font_.billboardIndex_ = index;
+		gameIndices_.font_.billboardIndex_ = index;
+		canvasIndices_.font_.billboardIndex_ = index;
+	}
+
+	void ShaderResourceIndicesSystem::SetMovieSpriteIndex(Uint index)
+	{
+		editorIndices_.movie_.spriteIndex_ = index;
+		gameIndices_.movie_.spriteIndex_ = index;
+		canvasIndices_.movie_.spriteIndex_ = index;
+	}
+
+	void ShaderResourceIndicesSystem::SetMovieBillboardIndex(Uint index)
+	{
+		editorIndices_.movie_.billboardIndex_ = index;
+		gameIndices_.movie_.billboardIndex_ = index;
+		canvasIndices_.movie_.billboardIndex_ = index;
+	}
+
+	void ShaderResourceIndicesSystem::SetMovieFullscreenIndex(Uint index)
+	{
+		editorIndices_.movie_.fullscreenIndex_ = index;
+		gameIndices_.movie_.fullscreenIndex_ = index;
+		canvasIndices_.movie_.fullscreenIndex_ = index;
+	}
+
+	void ShaderResourceIndicesSystem::SetModelInstanceIndex(Uint index)
+	{
+		editorIndices_.model_.instanceIndex_ = index;
+		gameIndices_.model_.instanceIndex_ = index;
+		canvasIndices_.model_.instanceIndex_ = index;
+	}
+
+	void ShaderResourceIndicesSystem::SetModelBoneMatrixIndex(Uint index)
+	{
+		editorIndices_.model_.boneMatrixIndex_ = index;
+		gameIndices_.model_.boneMatrixIndex_ = index;
+		canvasIndices_.model_.boneMatrixIndex_ = index;
+	}
+
+	void ShaderResourceIndicesSystem::SetModelPreviousBoneMatrixIndex(Uint index)
+	{
+		editorIndices_.model_.previousBoneMatrixIndex_ = index;
+		gameIndices_.model_.previousBoneMatrixIndex_ = index;
+		canvasIndices_.model_.previousBoneMatrixIndex_ = index;
+	}
+
+	void ShaderResourceIndicesSystem::SetModelMorphWeightIndex(Uint index)
+	{
+		editorIndices_.model_.morphWeightIndex_ = index;
+		gameIndices_.model_.morphWeightIndex_ = index;
+		canvasIndices_.model_.morphWeightIndex_ = index;
+	}
+
+	void ShaderResourceIndicesSystem::SetModelPreviousMorphWeightIndex(Uint index)
+	{
+		editorIndices_.model_.previousMorphWeightIndex_ = index;
+		gameIndices_.model_.previousMorphWeightIndex_ = index;
+		canvasIndices_.model_.previousMorphWeightIndex_ = index;
+	}
+
+	void ShaderResourceIndicesSystem::SetHiZIndex(Uint index)
+	{
+		editorIndices_.model_.hiZIndex_ = index;
+		gameIndices_.model_.hiZIndex_ = index;
+		canvasIndices_.model_.hiZIndex_ = index;
+	}
+
+	void ShaderResourceIndicesSystem::SetSelectionMaskIndex(Uint index)
+	{
+		editorIndices_.model_.selectionMaskIndex_ = index;
+		gameIndices_.model_.selectionMaskIndex_ = index;
+		canvasIndices_.model_.selectionMaskIndex_ = index;
+	}
+
+	void ShaderResourceIndicesSystem::SetGBuffer0Index(Uint index)
+	{
+		editorIndices_.geometryBuffer_.index0_ = index;
+		gameIndices_.geometryBuffer_.index0_ = index;
+		canvasIndices_.geometryBuffer_.index0_ = index;
+	}
+
+	void ShaderResourceIndicesSystem::SetGBuffer1Index(Uint index)
+	{
+		editorIndices_.geometryBuffer_.index1_ = index;
+		gameIndices_.geometryBuffer_.index1_ = index;
+		canvasIndices_.geometryBuffer_.index1_ = index;
+	}
+
+	void ShaderResourceIndicesSystem::SetGBuffer2Index(Uint index)
+	{
+		editorIndices_.geometryBuffer_.index2_ = index;
+		gameIndices_.geometryBuffer_.index2_ = index;
+		canvasIndices_.geometryBuffer_.index2_ = index;
+	}
+
+	void ShaderResourceIndicesSystem::SetGBuffer3Index(Uint index)
+	{
+		editorIndices_.geometryBuffer_.index3_ = index;
+		gameIndices_.geometryBuffer_.index3_ = index;
+		canvasIndices_.geometryBuffer_.index3_ = index;
+	}
+
+	void ShaderResourceIndicesSystem::SetGBuffer4Index(Uint index)
+	{
+		editorIndices_.geometryBuffer_.index4_ = index;
+		gameIndices_.geometryBuffer_.index4_ = index;
+		canvasIndices_.geometryBuffer_.index4_ = index;
+	}
 
-		/// [JP] Canvas は影を読まないが、未定義値を残さないためエディタと同値を入れる。
-		canvasConstantIndices_.shadow_ = values;
+	void ShaderResourceIndicesSystem::SetGBufferDepthIndex(Uint index)
+	{
+		editorIndices_.geometryBuffer_.depthIndex_ = index;
+		gameIndices_.geometryBuffer_.depthIndex_ = index;
+		canvasIndices_.geometryBuffer_.depthIndex_ = index;
+	}
+
+	void ShaderResourceIndicesSystem::SetSkyEnvironmentCubeIndex(Uint index)
+	{
+		editorIndices_.sky_.environmentCubeIndex_ = index;
+		gameIndices_.sky_.environmentCubeIndex_ = index;
+		canvasIndices_.sky_.environmentCubeIndex_ = index;
+	}
+
+	void ShaderResourceIndicesSystem::SetSkyDiffuseIrradianceIndex(Uint index)
+	{
+		editorIndices_.sky_.diffuseIrradianceIndex_ = index;
+		gameIndices_.sky_.diffuseIrradianceIndex_ = index;
+		canvasIndices_.sky_.diffuseIrradianceIndex_ = index;
+	}
+
+	void ShaderResourceIndicesSystem::SetSkySpecularPrefilteredIndex(Uint index)
+	{
+		editorIndices_.sky_.specularPrefilteredIndex_ = index;
+		gameIndices_.sky_.specularPrefilteredIndex_ = index;
+		canvasIndices_.sky_.specularPrefilteredIndex_ = index;
 	}
 
-	/**
-	* [EN]
-	* Registers the game view's shadow SVGF chain.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* ゲームビューの影 SVGF チェーンを登録する。
-	*/
-	void IndicesSystem::SetGameShadowIndices(const ShadowAccumulationIndices& values)
+	void ShaderResourceIndicesSystem::SetSkyBrdfLutIndex(Uint index)
 	{
-		gameConstantIndices_.shadow_ = values;
+		editorIndices_.sky_.brdfLutIndex_ = index;
+		gameIndices_.sky_.brdfLutIndex_ = index;
+		canvasIndices_.sky_.brdfLutIndex_ = index;
 	}
 
-	void IndicesSystem::SetAmbientOcclusionRawUnorderedAccessViewIndex(Uint index)
+	void ShaderResourceIndicesSystem::SetTLASIndex(Uint index)
 	{
-		structuredIndices_.ambientOcclusion_.rawUnorderedAccessViewIndex_ = index;
+		editorIndices_.raytracing_.tlasIndex_ = index;
+		gameIndices_.raytracing_.tlasIndex_ = index;
+		canvasIndices_.raytracing_.tlasIndex_ = index;
 	}
 
-	void IndicesSystem::SetAmbientOcclusionRawShaderResourceViewIndex(Uint index)
+	void ShaderResourceIndicesSystem::SetReflectionInstanceDataIndex(Uint index)
 	{
-		structuredIndices_.ambientOcclusion_.rawShaderResourceViewIndex_ = index;
+		editorIndices_.raytracing_.instanceDataIndex_ = index;
+		gameIndices_.raytracing_.instanceDataIndex_ = index;
+		canvasIndices_.raytracing_.instanceDataIndex_ = index;
 	}
 
-	void IndicesSystem::SetAmbientOcclusionRayConstantIndex(Uint index)
+	void ShaderResourceIndicesSystem::SetShadowRawVisibilityShaderResourceViewIndex(Uint index)
 	{
-		structuredIndices_.ambientOcclusion_.rayConstantIndex_ = index;
+		editorIndices_.shadow_.rawVisibilityIndex_ = index;
+		gameIndices_.shadow_.rawVisibilityIndex_ = index;
+		canvasIndices_.shadow_.rawVisibilityIndex_ = index;
 	}
 
-	void IndicesSystem::SetEditorAmbientOcclusionIndices(Uint historyShaderResourceViewIndex, Uint accumulatedUnorderedAccessViewIndex, Uint opennessShaderResourceViewIndex)
+	void ShaderResourceIndicesSystem::SetAmbientOcclusionRawShaderResourceViewIndex(Uint index)
 	{
-		editorConstantIndices_.ambientOcclusion_.historyShaderResourceViewIndex_ = historyShaderResourceViewIndex;
-		editorConstantIndices_.ambientOcclusion_.accumulatedUnorderedAccessViewIndex_ = accumulatedUnorderedAccessViewIndex;
-		editorConstantIndices_.ambientOcclusion_.opennessShaderResourceViewIndex_ = opennessShaderResourceViewIndex;
+		editorIndices_.ambientOcclusion_.rawIndex_ = index;
+		gameIndices_.ambientOcclusion_.rawIndex_ = index;
+		canvasIndices_.ambientOcclusion_.rawIndex_ = index;
+	}
+
+	void ShaderResourceIndicesSystem::SetSubsurfaceScatteringTransmittanceShaderResourceViewIndex(Uint index)
+	{
+		editorIndices_.subsurfaceScattering_.transmittanceIndex_ = index;
+		gameIndices_.subsurfaceScattering_.transmittanceIndex_ = index;
+		canvasIndices_.subsurfaceScattering_.transmittanceIndex_ = index;
+	}
 
-		/// [JP] Canvas はAOを読まないが、未定義値を残さないためエディタと同値を入れる。
-		canvasConstantIndices_.ambientOcclusion_.historyShaderResourceViewIndex_ = historyShaderResourceViewIndex;
-		canvasConstantIndices_.ambientOcclusion_.accumulatedUnorderedAccessViewIndex_ = accumulatedUnorderedAccessViewIndex;
-		canvasConstantIndices_.ambientOcclusion_.opennessShaderResourceViewIndex_ = opennessShaderResourceViewIndex;
+	void ShaderResourceIndicesSystem::SetReflectionOutputShaderResourceViewIndex(Uint index)
+	{
+		editorIndices_.reflection_.outputIndex_ = index;
+		gameIndices_.reflection_.outputIndex_ = index;
+		canvasIndices_.reflection_.outputIndex_ = index;
 	}
 
-	void IndicesSystem::SetGameAmbientOcclusionIndices(Uint historyShaderResourceViewIndex, Uint accumulatedUnorderedAccessViewIndex, Uint opennessShaderResourceViewIndex)
+	void ShaderResourceIndicesSystem::SetReflectionConfidenceShaderResourceViewIndex(Uint index)
 	{
-		gameConstantIndices_.ambientOcclusion_.historyShaderResourceViewIndex_ = historyShaderResourceViewIndex;
-		gameConstantIndices_.ambientOcclusion_.accumulatedUnorderedAccessViewIndex_ = accumulatedUnorderedAccessViewIndex;
-		gameConstantIndices_.ambientOcclusion_.opennessShaderResourceViewIndex_ = opennessShaderResourceViewIndex;
+		editorIndices_.reflection_.confidenceIndex_ = index;
+		gameIndices_.reflection_.confidenceIndex_ = index;
+		canvasIndices_.reflection_.confidenceIndex_ = index;
 	}
 
-	void IndicesSystem::SetEditorGlobalIlluminationAccumulationIndices(Uint historyShaderResourceViewIndex, Uint accumulatedUnorderedAccessViewIndex, Uint radianceShaderResourceViewIndex)
+	void ShaderResourceIndicesSystem::SetRefractionOutputShaderResourceViewIndex(Uint index)
 	{
-		editorConstantIndices_.globalIllumination_.historyShaderResourceViewIndex_ = historyShaderResourceViewIndex;
-		editorConstantIndices_.globalIllumination_.accumulatedUnorderedAccessViewIndex_ = accumulatedUnorderedAccessViewIndex;
-		editorConstantIndices_.globalIllumination_.radianceShaderResourceViewIndex_ = radianceShaderResourceViewIndex;
+		editorIndices_.refraction_.outputIndex_ = index;
+		gameIndices_.refraction_.outputIndex_ = index;
+		canvasIndices_.refraction_.outputIndex_ = index;
+	}
 
-		/// [JP] Canvas はGIを読まないが、未定義値を残さないためエディタと同値を入れる。
-		canvasConstantIndices_.globalIllumination_.historyShaderResourceViewIndex_ = historyShaderResourceViewIndex;
-		canvasConstantIndices_.globalIllumination_.accumulatedUnorderedAccessViewIndex_ = accumulatedUnorderedAccessViewIndex;
-		canvasConstantIndices_.globalIllumination_.radianceShaderResourceViewIndex_ = radianceShaderResourceViewIndex;
+	void ShaderResourceIndicesSystem::SetGlobalIlluminationOutputShaderResourceViewIndex(Uint index)
+	{
+		editorIndices_.globalIllumination_.outputIndex_ = index;
+		gameIndices_.globalIllumination_.outputIndex_ = index;
+		canvasIndices_.globalIllumination_.outputIndex_ = index;
 	}
 
-	void IndicesSystem::SetGameGlobalIlluminationAccumulationIndices(Uint historyShaderResourceViewIndex, Uint accumulatedUnorderedAccessViewIndex, Uint radianceShaderResourceViewIndex)
+	void ShaderResourceIndicesSystem::SetGlobalIlluminationConfidenceShaderResourceViewIndex(Uint index)
 	{
-		gameConstantIndices_.globalIllumination_.historyShaderResourceViewIndex_ = historyShaderResourceViewIndex;
-		gameConstantIndices_.globalIllumination_.accumulatedUnorderedAccessViewIndex_ = accumulatedUnorderedAccessViewIndex;
-		gameConstantIndices_.globalIllumination_.radianceShaderResourceViewIndex_ = radianceShaderResourceViewIndex;
+		editorIndices_.globalIllumination_.confidenceIndex_ = index;
+		gameIndices_.globalIllumination_.confidenceIndex_ = index;
+		canvasIndices_.globalIllumination_.confidenceIndex_ = index;
 	}
 
-	void IndicesSystem::SetEditorGlobalIlluminationReservoirIndices(Uint historyShaderResourceViewIndex, Uint unorderedAccessViewIndex, Uint writeShaderResourceViewIndex)
+	void ShaderResourceIndicesSystem::SetCloudOutputShaderResourceViewIndex(Uint index)
 	{
-		editorConstantIndices_.globalIllumination_.reservoirHistoryShaderResourceViewIndex_ = historyShaderResourceViewIndex;
-		editorConstantIndices_.globalIllumination_.reservoirUnorderedAccessViewIndex_ = unorderedAccessViewIndex;
-		editorConstantIndices_.globalIllumination_.reservoirWriteShaderResourceViewIndex_ = writeShaderResourceViewIndex;
+		editorIndices_.cloud_.outputIndex_ = index;
+		gameIndices_.cloud_.outputIndex_ = index;
+		canvasIndices_.cloud_.outputIndex_ = index;
+	}
 
-		/// [JP] Canvas はGIを読まないが、未定義値を残さないためエディタと同値を入れる。
-		canvasConstantIndices_.globalIllumination_.reservoirHistoryShaderResourceViewIndex_ = historyShaderResourceViewIndex;
-		canvasConstantIndices_.globalIllumination_.reservoirUnorderedAccessViewIndex_ = unorderedAccessViewIndex;
-		canvasConstantIndices_.globalIllumination_.reservoirWriteShaderResourceViewIndex_ = writeShaderResourceViewIndex;
+	void ShaderResourceIndicesSystem::SetCloudShapeNoiseShaderResourceViewIndex(Uint index)
+	{
+		editorIndices_.cloud_.shapeNoiseIndex_ = index;
+		gameIndices_.cloud_.shapeNoiseIndex_ = index;
+		canvasIndices_.cloud_.shapeNoiseIndex_ = index;
 	}
 
-	void IndicesSystem::SetGameGlobalIlluminationReservoirIndices(Uint historyShaderResourceViewIndex, Uint unorderedAccessViewIndex, Uint writeShaderResourceViewIndex)
+	void ShaderResourceIndicesSystem::SetCloudDetailNoiseShaderResourceViewIndex(Uint index)
 	{
-		gameConstantIndices_.globalIllumination_.reservoirHistoryShaderResourceViewIndex_ = historyShaderResourceViewIndex;
-		gameConstantIndices_.globalIllumination_.reservoirUnorderedAccessViewIndex_ = unorderedAccessViewIndex;
-		gameConstantIndices_.globalIllumination_.reservoirWriteShaderResourceViewIndex_ = writeShaderResourceViewIndex;
+		editorIndices_.cloud_.detailNoiseIndex_ = index;
+		gameIndices_.cloud_.detailNoiseIndex_ = index;
+		canvasIndices_.cloud_.detailNoiseIndex_ = index;
 	}
 
-	void IndicesSystem::SetEditorGlobalIlluminationAtrousScratchIndices(Uint scratch0ShaderResourceViewIndex, Uint scratch0UnorderedAccessViewIndex, Uint scratch1ShaderResourceViewIndex, Uint scratch1UnorderedAccessViewIndex)
+	void ShaderResourceIndicesSystem::SetStarOutputShaderResourceViewIndex(Uint index)
 	{
-		editorConstantIndices_.globalIllumination_.atrousScratch0ShaderResourceViewIndex_ = scratch0ShaderResourceViewIndex;
-		editorConstantIndices_.globalIllumination_.atrousScratch0UnorderedAccessViewIndex_ = scratch0UnorderedAccessViewIndex;
-		editorConstantIndices_.globalIllumination_.atrousScratch1ShaderResourceViewIndex_ = scratch1ShaderResourceViewIndex;
-		editorConstantIndices_.globalIllumination_.atrousScratch1UnorderedAccessViewIndex_ = scratch1UnorderedAccessViewIndex;
+		editorIndices_.star_.outputIndex_ = index;
+		gameIndices_.star_.outputIndex_ = index;
+		canvasIndices_.star_.outputIndex_ = index;
 	}
 
-	void IndicesSystem::SetGameGlobalIlluminationAtrousScratchIndices(Uint scratch0ShaderResourceViewIndex, Uint scratch0UnorderedAccessViewIndex, Uint scratch1ShaderResourceViewIndex, Uint scratch1UnorderedAccessViewIndex)
+	void ShaderResourceIndicesSystem::SetRainParticleShaderResourceViewIndex(Uint index)
 	{
-		gameConstantIndices_.globalIllumination_.atrousScratch0ShaderResourceViewIndex_ = scratch0ShaderResourceViewIndex;
-		gameConstantIndices_.globalIllumination_.atrousScratch0UnorderedAccessViewIndex_ = scratch0UnorderedAccessViewIndex;
-		gameConstantIndices_.globalIllumination_.atrousScratch1ShaderResourceViewIndex_ = scratch1ShaderResourceViewIndex;
-		gameConstantIndices_.globalIllumination_.atrousScratch1UnorderedAccessViewIndex_ = scratch1UnorderedAccessViewIndex;
+		editorIndices_.weatherParticle_.rainParticleIndex_ = index;
+		gameIndices_.weatherParticle_.rainParticleIndex_ = index;
+		canvasIndices_.weatherParticle_.rainParticleIndex_ = index;
 	}
 
-	/**
-	* [EN]
-	* Registers the editor view's reflection SVGF chain. See the declaration in
-	* IndicesSystem.h for why this takes the whole struct.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* エディタビューの反射 SVGF チェーンを登録する。構造体をまるごと受け取る
-	* 理由は IndicesSystem.h の宣言側を参照。
-	*/
-	void IndicesSystem::SetEditorReflectionAccumulationIndices(const ReflectionAccumulationIndices& values)
+	void ShaderResourceIndicesSystem::SetSnowParticleShaderResourceViewIndex(Uint index)
 	{
-		editorConstantIndices_.reflection_ = values;
+		editorIndices_.weatherParticle_.snowParticleIndex_ = index;
+		gameIndices_.weatherParticle_.snowParticleIndex_ = index;
+		canvasIndices_.weatherParticle_.snowParticleIndex_ = index;
+	}
 
-		/// [JP] Canvas は反射を読まないが、未定義値を残さないためエディタと同値を入れる。
-		canvasConstantIndices_.reflection_ = values;
+	void ShaderResourceIndicesSystem::SetVolumetricLightIntegrationShaderResourceViewIndex(Uint index)
+	{
+		editorIndices_.volumetricLight_.integrationIndex_ = index;
+		gameIndices_.volumetricLight_.integrationIndex_ = index;
+		canvasIndices_.volumetricLight_.integrationIndex_ = index;
 	}
 
-	/**
-	* [EN]
-	* Registers the game view's reflection SVGF chain.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* ゲームビューの反射 SVGF チェーンを登録する。
-	*/
-	void IndicesSystem::SetGameReflectionAccumulationIndices(const ReflectionAccumulationIndices& values)
+	UnorderedAccessIndicesSystem::UnorderedAccessIndicesSystem(ID3D12Device* device, BindlessHeap* heap)
 	{
-		gameConstantIndices_.reflection_ = values;
+		editorBuffer_ = MakePtr<ConstantBuffer<UnorderedAccessIndices>>(device, heap);
+		gameBuffer_ = MakePtr<ConstantBuffer<UnorderedAccessIndices>>(device, heap);
+		canvasBuffer_ = MakePtr<ConstantBuffer<UnorderedAccessIndices>>(device, heap);
 	}
 
-	void IndicesSystem::SetEditorPostProcessIndices(const PostProcessIndices& values)
+	void UnorderedAccessIndicesSystem::UploadEditor()
 	{
-		editorConstantIndices_.postProcess_ = values;
+		editorBuffer_->Update(editorIndices_);
 	}
 
-	void IndicesSystem::SetGamePostProcessIndices(const PostProcessIndices& values)
+	void UnorderedAccessIndicesSystem::UploadGame()
 	{
-		gameConstantIndices_.postProcess_ = values;
+		gameBuffer_->Update(gameIndices_);
 	}
 
-	void IndicesSystem::SetSubsurfaceScatteringTransmittanceUnorderedAccessViewIndex(Uint index)
+	void UnorderedAccessIndicesSystem::UploadCanvas()
 	{
-		structuredIndices_.subsurfaceScattering_.transmittanceUnorderedAccessViewIndex_ = index;
+		canvasBuffer_->Update(canvasIndices_);
 	}
 
-	void IndicesSystem::SetSubsurfaceScatteringTransmittanceShaderResourceViewIndex(Uint index)
+	D3D12_GPU_VIRTUAL_ADDRESS UnorderedAccessIndicesSystem::EditorAddress()const
 	{
-		structuredIndices_.subsurfaceScattering_.transmittanceShaderResourceViewIndex_ = index;
+		return editorBuffer_->Address();
 	}
 
-	void IndicesSystem::SetSubsurfaceScatteringRayConstantIndex(Uint index)
+	D3D12_GPU_VIRTUAL_ADDRESS UnorderedAccessIndicesSystem::GameAddress()const
 	{
-		structuredIndices_.subsurfaceScattering_.rayConstantIndex_ = index;
+		return gameBuffer_->Address();
 	}
 
-	void IndicesSystem::SetReflectionOutputUnorderedAccessViewIndex(Uint index)
+	D3D12_GPU_VIRTUAL_ADDRESS UnorderedAccessIndicesSystem::CanvasAddress()const
 	{
-		structuredIndices_.reflection_.outputUnorderedAccessViewIndex_ = index;
+		return canvasBuffer_->Address();
 	}
 
-	void IndicesSystem::SetReflectionOutputShaderResourceViewIndex(Uint index)
+	void UnorderedAccessIndicesSystem::SetClusterAssignIndices(const ClusterAssignUnorderedAccessIndices& values)
 	{
-		structuredIndices_.reflection_.outputShaderResourceViewIndex_ = index;
+		editorIndices_.clusterAssign_ = values;
+		gameIndices_.clusterAssign_ = values;
+		canvasIndices_.clusterAssign_ = values;
 	}
 
-	void IndicesSystem::SetReflectionConfidenceUnorderedAccessViewIndex(Uint index)
+	void UnorderedAccessIndicesSystem::SetEditorShadowAccumulationIndices(const ShadowAccumulationUnorderedAccessIndices& values)
 	{
-		structuredIndices_.reflection_.confidenceUnorderedAccessViewIndex_ = index;
+		editorIndices_.shadowAccumulation_ = values;
+		canvasIndices_.shadowAccumulation_ = values;
 	}
 
-	void IndicesSystem::SetReflectionConfidenceShaderResourceViewIndex(Uint index)
+	void UnorderedAccessIndicesSystem::SetGameShadowAccumulationIndices(const ShadowAccumulationUnorderedAccessIndices& values)
 	{
-		structuredIndices_.reflection_.confidenceShaderResourceViewIndex_ = index;
+		gameIndices_.shadowAccumulation_ = values;
 	}
 
-	void IndicesSystem::SetReflectionRayConstantIndex(Uint index)
+	void UnorderedAccessIndicesSystem::SetEditorAmbientOcclusionAccumulationIndices(const AmbientOcclusionAccumulationUnorderedAccessIndices& values)
 	{
-		structuredIndices_.reflection_.rayConstantIndex_ = index;
+		editorIndices_.ambientOcclusionAccumulation_ = values;
+		canvasIndices_.ambientOcclusionAccumulation_ = values;
 	}
 
-	void IndicesSystem::SetReflectionInstanceDataIndex(Uint index)
+	void UnorderedAccessIndicesSystem::SetGameAmbientOcclusionAccumulationIndices(const AmbientOcclusionAccumulationUnorderedAccessIndices& values)
 	{
-		structuredIndices_.raytracing_.instanceDataIndex_ = index;
+		gameIndices_.ambientOcclusionAccumulation_ = values;
 	}
 
-	void IndicesSystem::SetRefractionOutputUnorderedAccessViewIndex(Uint index)
+	void UnorderedAccessIndicesSystem::SetEditorGlobalIlluminationAccumulationIndices(const GlobalIlluminationAccumulationUnorderedAccessIndices& values)
 	{
-		structuredIndices_.refraction_.outputUnorderedAccessViewIndex_ = index;
+		editorIndices_.globalIlluminationAccumulation_ = values;
+		canvasIndices_.globalIlluminationAccumulation_ = values;
 	}
 
-	void IndicesSystem::SetRefractionOutputShaderResourceViewIndex(Uint index)
+	void UnorderedAccessIndicesSystem::SetGameGlobalIlluminationAccumulationIndices(const GlobalIlluminationAccumulationUnorderedAccessIndices& values)
 	{
-		structuredIndices_.refraction_.outputShaderResourceViewIndex_ = index;
+		gameIndices_.globalIlluminationAccumulation_ = values;
 	}
 
-	void IndicesSystem::SetRefractionRayConstantIndex(Uint index)
+	void UnorderedAccessIndicesSystem::SetEditorReflectionAccumulationIndices(const ReflectionAccumulationUnorderedAccessIndices& values)
 	{
-		structuredIndices_.refraction_.rayConstantIndex_ = index;
+		editorIndices_.reflectionAccumulation_ = values;
+		canvasIndices_.reflectionAccumulation_ = values;
 	}
 
-	void IndicesSystem::SetGlobalIlluminationOutputUnorderedAccessViewIndex(Uint index)
+	void UnorderedAccessIndicesSystem::SetGameReflectionAccumulationIndices(const ReflectionAccumulationUnorderedAccessIndices& values)
 	{
-		structuredIndices_.globalIllumination_.outputUnorderedAccessViewIndex_ = index;
+		gameIndices_.reflectionAccumulation_ = values;
 	}
 
-	void IndicesSystem::SetGlobalIlluminationOutputShaderResourceViewIndex(Uint index)
+	void UnorderedAccessIndicesSystem::SetEditorDlssNormalRoughnessUnorderedAccessViewIndex(Uint index)
 	{
-		structuredIndices_.globalIllumination_.outputShaderResourceViewIndex_ = index;
+		editorIndices_.dlss_.normalRoughnessIndex_ = index;
 	}
 
-	void IndicesSystem::SetGlobalIlluminationConfidenceUnorderedAccessViewIndex(Uint index)
+	void UnorderedAccessIndicesSystem::SetGameDlssNormalRoughnessUnorderedAccessViewIndex(Uint index)
 	{
-		structuredIndices_.globalIllumination_.confidenceUnorderedAccessViewIndex_ = index;
+		gameIndices_.dlss_.normalRoughnessIndex_ = index;
 	}
 
-	void IndicesSystem::SetGlobalIlluminationConfidenceShaderResourceViewIndex(Uint index)
+	void UnorderedAccessIndicesSystem::SetEditorDlssSpecularAlbedoUnorderedAccessViewIndex(Uint index)
 	{
-		structuredIndices_.globalIllumination_.confidenceShaderResourceViewIndex_ = index;
+		editorIndices_.dlss_.specularAlbedoIndex_ = index;
 	}
 
-	void IndicesSystem::SetGlobalIlluminationRayConstantIndex(Uint index)
+	void UnorderedAccessIndicesSystem::SetGameDlssSpecularAlbedoUnorderedAccessViewIndex(Uint index)
 	{
-		structuredIndices_.globalIllumination_.rayConstantIndex_ = index;
+		gameIndices_.dlss_.specularAlbedoIndex_ = index;
 	}
 
-	void IndicesSystem::SetCloudOutputUnorderedAccessViewIndex(Uint index)
+	void UnorderedAccessIndicesSystem::SetEditorDlssDiffuseAlbedoUnorderedAccessViewIndex(Uint index)
 	{
-		structuredIndices_.cloud_.outputUnorderedAccessViewIndex_ = index;
+		editorIndices_.dlss_.diffuseAlbedoIndex_ = index;
 	}
 
-	void IndicesSystem::SetCloudOutputShaderResourceViewIndex(Uint index)
+	void UnorderedAccessIndicesSystem::SetGameDlssDiffuseAlbedoUnorderedAccessViewIndex(Uint index)
 	{
-		structuredIndices_.cloud_.outputShaderResourceViewIndex_ = index;
+		gameIndices_.dlss_.diffuseAlbedoIndex_ = index;
 	}
 
-	void IndicesSystem::SetCloudRayConstantIndex(Uint index)
+	void UnorderedAccessIndicesSystem::SetEditorPostProcessIndices(const PostProcessUnorderedAccessIndices& values)
 	{
-		structuredIndices_.cloud_.rayConstantIndex_ = index;
+		editorIndices_.postProcess_ = values;
 	}
 
-	void IndicesSystem::SetCloudShapeNoiseUnorderedAccessViewIndex(Uint index)
+	void UnorderedAccessIndicesSystem::SetGamePostProcessIndices(const PostProcessUnorderedAccessIndices& values)
 	{
-		structuredIndices_.cloud_.shapeNoiseUnorderedAccessViewIndex_ = index;
+		gameIndices_.postProcess_ = values;
 	}
 
-	void IndicesSystem::SetCloudShapeNoiseShaderResourceViewIndex(Uint index)
+	void UnorderedAccessIndicesSystem::SetOITHeadPointerIndex(Uint index)
 	{
-		structuredIndices_.cloud_.shapeNoiseShaderResourceViewIndex_ = index;
+		editorIndices_.oit_.headPointerIndex_ = index;
+		gameIndices_.oit_.headPointerIndex_ = index;
+		canvasIndices_.oit_.headPointerIndex_ = index;
 	}
 
-	void IndicesSystem::SetCloudDetailNoiseUnorderedAccessViewIndex(Uint index)
+	void UnorderedAccessIndicesSystem::SetOITFragmentBufferIndex(Uint index)
 	{
-		structuredIndices_.cloud_.detailNoiseUnorderedAccessViewIndex_ = index;
+		editorIndices_.oit_.fragmentBufferIndex_ = index;
+		gameIndices_.oit_.fragmentBufferIndex_ = index;
+		canvasIndices_.oit_.fragmentBufferIndex_ = index;
 	}
 
-	void IndicesSystem::SetCloudDetailNoiseShaderResourceViewIndex(Uint index)
+	void UnorderedAccessIndicesSystem::SetOITCounterIndex(Uint index)
 	{
-		structuredIndices_.cloud_.detailNoiseShaderResourceViewIndex_ = index;
+		editorIndices_.oit_.counterIndex_ = index;
+		gameIndices_.oit_.counterIndex_ = index;
+		canvasIndices_.oit_.counterIndex_ = index;
 	}
 
-	void IndicesSystem::SetStarOutputUnorderedAccessViewIndex(Uint index)
+	void UnorderedAccessIndicesSystem::SetGBuffer0UnorderedAccessViewIndex(Uint index)
 	{
-		structuredIndices_.star_.outputUnorderedAccessViewIndex_ = index;
+		editorIndices_.geometryBuffer_.index0_ = index;
+		gameIndices_.geometryBuffer_.index0_ = index;
+		canvasIndices_.geometryBuffer_.index0_ = index;
 	}
 
-	void IndicesSystem::SetStarOutputShaderResourceViewIndex(Uint index)
+	void UnorderedAccessIndicesSystem::SetGBuffer1UnorderedAccessViewIndex(Uint index)
 	{
-		structuredIndices_.star_.outputShaderResourceViewIndex_ = index;
+		editorIndices_.geometryBuffer_.index1_ = index;
+		gameIndices_.geometryBuffer_.index1_ = index;
+		canvasIndices_.geometryBuffer_.index1_ = index;
 	}
 
-	void IndicesSystem::SetStarRayConstantIndex(Uint index)
+	void UnorderedAccessIndicesSystem::SetGBufferVelocityUnorderedAccessViewIndex(Uint index)
 	{
-		structuredIndices_.star_.rayConstantIndex_ = index;
+		editorIndices_.geometryBuffer_.index2_ = index;
+		gameIndices_.geometryBuffer_.index2_ = index;
+		canvasIndices_.geometryBuffer_.index2_ = index;
 	}
 
-	void IndicesSystem::SetRainParticleUnorderedAccessViewIndex(Uint index)
+	void UnorderedAccessIndicesSystem::SetGBuffer3UnorderedAccessViewIndex(Uint index)
 	{
-		structuredIndices_.weatherParticle_.rainParticleUnorderedAccessViewIndex_ = index;
+		editorIndices_.geometryBuffer_.index3_ = index;
+		gameIndices_.geometryBuffer_.index3_ = index;
+		canvasIndices_.geometryBuffer_.index3_ = index;
 	}
 
-	void IndicesSystem::SetRainParticleShaderResourceViewIndex(Uint index)
+	void UnorderedAccessIndicesSystem::SetMaterialSortBucketIndex(Uint index)
 	{
-		structuredIndices_.weatherParticle_.rainParticleShaderResourceViewIndex_ = index;
+		editorIndices_.materialSort_.bucketIndex_ = index;
+		gameIndices_.materialSort_.bucketIndex_ = index;
+		canvasIndices_.materialSort_.bucketIndex_ = index;
 	}
 
-	void IndicesSystem::SetSnowParticleUnorderedAccessViewIndex(Uint index)
+	void UnorderedAccessIndicesSystem::SetMaterialSortedPixelListIndex(Uint index)
 	{
-		structuredIndices_.weatherParticle_.snowParticleUnorderedAccessViewIndex_ = index;
+		editorIndices_.materialSort_.sortedPixelListIndex_ = index;
+		gameIndices_.materialSort_.sortedPixelListIndex_ = index;
+		canvasIndices_.materialSort_.sortedPixelListIndex_ = index;
 	}
 
-	void IndicesSystem::SetSnowParticleShaderResourceViewIndex(Uint index)
+	void UnorderedAccessIndicesSystem::SetShadowRawVisibilityUnorderedAccessViewIndex(Uint index)
 	{
-		structuredIndices_.weatherParticle_.snowParticleShaderResourceViewIndex_ = index;
+		editorIndices_.shadow_.rawVisibilityIndex_ = index;
+		gameIndices_.shadow_.rawVisibilityIndex_ = index;
+		canvasIndices_.shadow_.rawVisibilityIndex_ = index;
 	}
 
-	void IndicesSystem::SetWeatherParticleRayConstantIndex(Uint index)
+	void UnorderedAccessIndicesSystem::SetAmbientOcclusionRawUnorderedAccessViewIndex(Uint index)
 	{
-		structuredIndices_.weatherParticle_.rayConstantIndex_ = index;
+		editorIndices_.ambientOcclusion_.rawIndex_ = index;
+		gameIndices_.ambientOcclusion_.rawIndex_ = index;
+		canvasIndices_.ambientOcclusion_.rawIndex_ = index;
 	}
 
-	void IndicesSystem::SetVolumetricLightDensityUnorderedAccessViewIndex(Uint index)
+	void UnorderedAccessIndicesSystem::SetSubsurfaceScatteringTransmittanceUnorderedAccessViewIndex(Uint index)
 	{
-		structuredIndices_.volumetricLight_.densityUnorderedAccessViewIndex_ = index;
+		editorIndices_.subsurfaceScattering_.transmittanceIndex_ = index;
+		gameIndices_.subsurfaceScattering_.transmittanceIndex_ = index;
+		canvasIndices_.subsurfaceScattering_.transmittanceIndex_ = index;
 	}
 
-	void IndicesSystem::SetVolumetricLightScatteringUnorderedAccessViewIndex(Uint index)
+	void UnorderedAccessIndicesSystem::SetReflectionOutputUnorderedAccessViewIndex(Uint index)
 	{
-		structuredIndices_.volumetricLight_.scatteringUnorderedAccessViewIndex_ = index;
+		editorIndices_.reflection_.outputIndex_ = index;
+		gameIndices_.reflection_.outputIndex_ = index;
+		canvasIndices_.reflection_.outputIndex_ = index;
 	}
 
-	void IndicesSystem::SetVolumetricLightIntegrationUnorderedAccessViewIndex(Uint index)
+	void UnorderedAccessIndicesSystem::SetReflectionConfidenceUnorderedAccessViewIndex(Uint index)
 	{
-		structuredIndices_.volumetricLight_.integrationUnorderedAccessViewIndex_ = index;
+		editorIndices_.reflection_.confidenceIndex_ = index;
+		gameIndices_.reflection_.confidenceIndex_ = index;
+		canvasIndices_.reflection_.confidenceIndex_ = index;
 	}
 
-	void IndicesSystem::SetVolumetricLightIntegrationShaderResourceViewIndex(Uint index)
+	void UnorderedAccessIndicesSystem::SetRefractionOutputUnorderedAccessViewIndex(Uint index)
 	{
-		structuredIndices_.volumetricLight_.integrationShaderResourceViewIndex_ = index;
+		editorIndices_.refraction_.outputIndex_ = index;
+		gameIndices_.refraction_.outputIndex_ = index;
+		canvasIndices_.refraction_.outputIndex_ = index;
 	}
 
-	void IndicesSystem::SetVolumetricLightRayConstantIndex(Uint index)
+	void UnorderedAccessIndicesSystem::SetGlobalIlluminationOutputUnorderedAccessViewIndex(Uint index)
 	{
-		structuredIndices_.volumetricLight_.rayConstantIndex_ = index;
+		editorIndices_.globalIllumination_.outputIndex_ = index;
+		gameIndices_.globalIllumination_.outputIndex_ = index;
+		canvasIndices_.globalIllumination_.outputIndex_ = index;
 	}
 
-	void IndicesSystem::SetMovieSpriteIndex(Uint index)
+	void UnorderedAccessIndicesSystem::SetGlobalIlluminationConfidenceUnorderedAccessViewIndex(Uint index)
 	{
-		structuredIndices_.movie_.spriteIndex_ = index;
+		editorIndices_.globalIllumination_.confidenceIndex_ = index;
+		gameIndices_.globalIllumination_.confidenceIndex_ = index;
+		canvasIndices_.globalIllumination_.confidenceIndex_ = index;
 	}
 
-	void IndicesSystem::SetMovieBillboardIndex(Uint index)
+	void UnorderedAccessIndicesSystem::SetCloudOutputUnorderedAccessViewIndex(Uint index)
 	{
-		structuredIndices_.movie_.billboardIndex_ = index;
+		editorIndices_.cloud_.outputIndex_ = index;
+		gameIndices_.cloud_.outputIndex_ = index;
+		canvasIndices_.cloud_.outputIndex_ = index;
 	}
 
-	void IndicesSystem::SetMovieFullscreenIndex(Uint index)
+	void UnorderedAccessIndicesSystem::SetCloudShapeNoiseUnorderedAccessViewIndex(Uint index)
 	{
-		structuredIndices_.movie_.fullscreenIndex_ = index;
+		editorIndices_.cloud_.shapeNoiseIndex_ = index;
+		gameIndices_.cloud_.shapeNoiseIndex_ = index;
+		canvasIndices_.cloud_.shapeNoiseIndex_ = index;
 	}
 
-	void IndicesSystem::SetEditorDlssNormalRoughnessUnorderedAccessViewIndex(Uint index)
+	void UnorderedAccessIndicesSystem::SetCloudDetailNoiseUnorderedAccessViewIndex(Uint index)
 	{
-		editorConstantIndices_.dlss_.normalRoughnessUnorderedAccessViewIndex_ = index;
+		editorIndices_.cloud_.detailNoiseIndex_ = index;
+		gameIndices_.cloud_.detailNoiseIndex_ = index;
+		canvasIndices_.cloud_.detailNoiseIndex_ = index;
 	}
 
-	void IndicesSystem::SetGameDlssNormalRoughnessUnorderedAccessViewIndex(Uint index)
+	void UnorderedAccessIndicesSystem::SetStarOutputUnorderedAccessViewIndex(Uint index)
 	{
-		gameConstantIndices_.dlss_.normalRoughnessUnorderedAccessViewIndex_ = index;
+		editorIndices_.star_.outputIndex_ = index;
+		gameIndices_.star_.outputIndex_ = index;
+		canvasIndices_.star_.outputIndex_ = index;
 	}
 
-	void IndicesSystem::SetEditorDlssSpecularAlbedoUnorderedAccessViewIndex(Uint index)
+	void UnorderedAccessIndicesSystem::SetRainParticleUnorderedAccessViewIndex(Uint index)
 	{
-		editorConstantIndices_.dlss_.specularAlbedoUnorderedAccessViewIndex_ = index;
+		editorIndices_.weatherParticle_.rainParticleIndex_ = index;
+		gameIndices_.weatherParticle_.rainParticleIndex_ = index;
+		canvasIndices_.weatherParticle_.rainParticleIndex_ = index;
 	}
 
-	void IndicesSystem::SetGameDlssSpecularAlbedoUnorderedAccessViewIndex(Uint index)
+	void UnorderedAccessIndicesSystem::SetSnowParticleUnorderedAccessViewIndex(Uint index)
 	{
-		gameConstantIndices_.dlss_.specularAlbedoUnorderedAccessViewIndex_ = index;
+		editorIndices_.weatherParticle_.snowParticleIndex_ = index;
+		gameIndices_.weatherParticle_.snowParticleIndex_ = index;
+		canvasIndices_.weatherParticle_.snowParticleIndex_ = index;
 	}
 
-	void IndicesSystem::SetEditorDlssDiffuseAlbedoUnorderedAccessViewIndex(Uint index)
+	void UnorderedAccessIndicesSystem::SetVolumetricLightDensityUnorderedAccessViewIndex(Uint index)
 	{
-		editorConstantIndices_.dlss_.diffuseAlbedoUnorderedAccessViewIndex_ = index;
+		editorIndices_.volumetricLight_.densityIndex_ = index;
+		gameIndices_.volumetricLight_.densityIndex_ = index;
+		canvasIndices_.volumetricLight_.densityIndex_ = index;
 	}
 
-	void IndicesSystem::SetGameDlssDiffuseAlbedoUnorderedAccessViewIndex(Uint index)
+	void UnorderedAccessIndicesSystem::SetVolumetricLightIntegrationUnorderedAccessViewIndex(Uint index)
 	{
-		gameConstantIndices_.dlss_.diffuseAlbedoUnorderedAccessViewIndex_ = index;
+		editorIndices_.volumetricLight_.integrationIndex_ = index;
+		gameIndices_.volumetricLight_.integrationIndex_ = index;
+		canvasIndices_.volumetricLight_.integrationIndex_ = index;
 	}
 }

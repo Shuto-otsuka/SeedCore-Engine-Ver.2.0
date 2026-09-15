@@ -1,8 +1,10 @@
+#include "../../Shader/Scene.hlsli"
+#include "../../Shader/UnorderedAccesses.hlsli"
 #include "../../Shader/Constants.hlsli"
-#include "../../Shader/Structured.hlsli"
 #include "../../Shader/Normal.hlsli"
 #include "../../Shader/Noise.hlsli"
 #include "../../Shader/Denoiser.hlsli"
+#include "../../Shader/ShaderResources.hlsli"
 #include "GlobalIllumination.hlsli"
 
 /**
@@ -18,7 +20,7 @@
 * written this frame's temporally-combined reservoir for every pixel (and the
 * barrier that makes it SRV-readable) — reads the current pixel's own
 * reservoir plus a few random neighbors, all from THIS frame's write slot
-* (constant_indices.global_illumination_.reservoir_write_srv_index_), and
+* (shader_resource_indices.global_illumination_accumulation_.reservoir_write_index_), and
 * streams them together the same way
 * GlobalIlluminationRayGeneration folds in temporal history. Reading the
 * neighbors from this frame's own data (instead of last frame's, as an
@@ -31,7 +33,7 @@
 *
 * Writes the resolved radiance into the same raw texture
 * GlobalIlluminationRayGeneration used to write directly
-* (structured_indices.global_illumination_.output_uav_index_) — everything
+* (unordered_access_indices.global_illumination_.output_index_) — everything
 * downstream (GlobalIlluminationDenoiseCS.hlsl's temporal blend + A-Trous, or
 * DLSS Ray Reconstruction) is unaffected by this pass existing.
 *
@@ -41,8 +43,8 @@
 * GI 用の ReSTIR 空間的リユース。GlobalIlluminationRayGeneration が全画素分の
 * 今フレームの時間的結合済み Reservoir を書き終え、SRV として読めるバリアが
 * 済んだ後に走る — 自分のピクセルと近傍数点の Reservoir を、全て今フレームの
-* 書き込みスロット(constant_indices.global_illumination_.
-* reservoir_write_srv_index_)から読み、GlobalIlluminationRayGeneration が
+* 書き込みスロット(shader_resource_indices.global_illumination_accumulation_.
+* reservoir_write_index_)から読み、GlobalIlluminationRayGeneration が
 * 時間的履歴を畳み込むのと同じ要領でストリーミング結合する。近傍を(raygen 内で
 * やる場合のように)前フレームのデータからではなく今フレーム自身のデータから
 * 読むのが正しさの要: 深度/法線の妥当性判定と、実際に借りてくるサンプルが
@@ -51,7 +53,7 @@
 * のではなく、近傍の既に良質なサンプルをすぐ借りられる。
 *
 * 解決した放射輝度は、GlobalIlluminationRayGeneration が直接書いていたのと
-* 同じ生テクスチャ(structured_indices.global_illumination_.output_uav_index_)
+* 同じ生テクスチャ(unordered_access_indices.global_illumination_.output_index_)
 * へ書く — 後段(GlobalIlluminationDenoiseCS.hlsl の時間ブレンド+A-Trous、または
 * DLSS Ray Reconstruction)はこのパスの有無を意識しない。
 */
@@ -73,10 +75,10 @@ void main(uint3 dtid : SV_DispatchThreadID)
 
 	uint2 pixel = dtid.xy;
 
-	Texture2D<float> depth_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.depth_index_];
+	Texture2D<float> depth_texture = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.depth_index_];
 	float depth = depth_texture.Load(int3(pixel, 0));
 
-	RWTexture2D<float4> output = ResourceDescriptorHeap[structured_indices.global_illumination_.output_uav_index_];
+	RWTexture2D<float4> output = ResourceDescriptorHeap[unordered_access_indices.global_illumination_.output_index_];
 
 	if (depth == 0.0)
 	{
@@ -84,12 +86,12 @@ void main(uint3 dtid : SV_DispatchThreadID)
 		return;
 	}
 
-	ConstantBuffer<GlobalIlluminationRayConstantBuffer> tuning = ResourceDescriptorHeap[structured_indices.global_illumination_.ray_constant_index_];
+	ConstantBuffer<GlobalIlluminationRayConstantBuffer> tuning = ResourceDescriptorHeap[constant_indices.global_illumination_index_];
 
-	Texture2D<float4> normal_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.index_1_];
+	Texture2D<float4> normal_texture = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.index_1_];
 	float3 normal = OctNormalDecode(normal_texture.Load(int3(pixel, 0)).rg);
 
-	StructuredBuffer<GlobalIlluminationReservoir> reservoir_buffer = ResourceDescriptorHeap[constant_indices.global_illumination_.reservoir_write_srv_index_];
+	StructuredBuffer<GlobalIlluminationReservoir> reservoir_buffer = ResourceDescriptorHeap[shader_resource_indices.global_illumination_accumulation_.reservoir_write_index_];
 	GlobalIlluminationReservoir reservoir = reservoir_buffer[pixel.y * (uint)scene.screen_size_.x + pixel.x];
 
 	/// [EN] Mix in a different constant offset from raygen's, so this pass's
@@ -153,6 +155,6 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	///      デノイザ側のブレンドをほぼバイパスする - reservoir と SVGF 相当の
 	///      デノイザが【それぞれ独立に】長い時間平均を重ねる二重積分(体感的な
 	///      「引きずられる」動きの原因)を避けるため。
-	RWTexture2D<float> confidence_output = ResourceDescriptorHeap[structured_indices.global_illumination_.confidence_uav_index_];
+	RWTexture2D<float> confidence_output = ResourceDescriptorHeap[unordered_access_indices.global_illumination_.confidence_index_];
 	confidence_output[pixel] = saturate(reservoir.sample_m_ / GI_RESERVOIR_M_CAP);
 }

@@ -1,4 +1,6 @@
-#include "../Shader/Constants.hlsli"
+#include "PostProcess.hlsli"
+#include "../Shader/ShaderResources.hlsli"
+#include "../Shader/UnorderedAccesses.hlsli"
 #include "../Shader/Sampler.hlsli"
 
 /**
@@ -57,7 +59,7 @@
 [numthreads(8, 8, 1)]
 void main(uint3 dtid : SV_DispatchThreadID)
 {
-	RWTexture2D<float4> destination = ResourceDescriptorHeap[constant_indices.post_process_.vignette_.destination_uav_index_];
+	RWTexture2D<float4> destination = ResourceDescriptorHeap[unordered_access_indices.post_process_.vignette_.destination_index_];
 
 	uint width, height;
 	destination.GetDimensions(width, height);
@@ -73,14 +75,14 @@ void main(uint3 dtid : SV_DispatchThreadID)
 		return;
 	}
 
-	Texture2D<float4> source = ResourceDescriptorHeap[constant_indices.post_process_.vignette_.source_srv_index_];
+	Texture2D<float4> source = ResourceDescriptorHeap[shader_resource_indices.post_process_.vignette_.source_index_];
 
 	float2 uv = (float2(dtid.xy) + 0.5) / float2(width, height);
 	float3 color = source.SampleLevel(sampler_linear_clamp, uv, 0).rgb;
 
-	float intensity = constant_indices.post_process_.vignette_.intensity_;
-	float exponent = constant_indices.post_process_.vignette_.exponent_;
-	float3 vignette_color = constant_indices.post_process_.vignette_.color_.rgb;
+	float intensity = GetPostProcessConstantBuffer().vignette_.intensity_;
+	float exponent = GetPostProcessConstantBuffer().vignette_.exponent_;
+	float3 vignette_color = GetPostProcessConstantBuffer().vignette_.color_.rgb;
 
 	/// [EN] Aspect-corrected distance from center. Without the correction,
 	///      the darkening comes out as a horizontally stretched ellipse,

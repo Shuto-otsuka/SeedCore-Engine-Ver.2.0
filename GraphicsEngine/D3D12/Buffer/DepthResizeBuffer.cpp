@@ -78,7 +78,7 @@ namespace SeedCore
 		unorderedAccessViewDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
 		device->CreateUnorderedAccessView(uavResource_.Get(), nullptr, &unorderedAccessViewDesc, bindlessHeap->CPUHandle(unorderedAccessViewIndex_));
 
-		constantBuffer_ = MakePtr<ConstantBuffer<DepthResizeConstants>>(device, bindlessHeap);
+		constantBuffer_ = MakePtr<ConstantBuffer<DepthResizeConstantBuffer>>(device, bindlessHeap);
 
 		Handle<RootSignature> rootSignatureHandle = rootSignature.GetOrCreate(device);
 		rootSignature_ = rootSignature.Get(rootSignatureHandle);
@@ -134,7 +134,7 @@ namespace SeedCore
 	* 自身の深度テスト描画の前にgeometryBuffer.BeginDepth()を自分で呼ぶ
 	* 必要がある - この呼び出しから戻った時点でバインド済みにはならない。
 	*/
-	void DepthResizeBuffer::Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, GeometryBuffer& geometryBuffer, Uint32 sourceWidth, Uint32 sourceHeight)
+	void DepthResizeBuffer::Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, GeometryBuffer& geometryBuffer, Uint32 sourceWidth, Uint32 sourceHeight, const RootAddresses& addresses)
 	{
 		auto* cmd = cmdList->Get();
 
@@ -146,7 +146,7 @@ namespace SeedCore
 			uavState_ = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
 		}
 
-		DepthResizeConstants constants{};
+		DepthResizeConstantBuffer constants{};
 		constants.sourceIndex_ = geometryBuffer.DepthShaderResourceViewIndex();
 		constants.destinationIndex_ = unorderedAccessViewIndex_;
 		constants.destinationWidth_ = width_;
@@ -158,8 +158,9 @@ namespace SeedCore
 		ID3D12DescriptorHeap* heaps[] = { heap };
 		cmd->SetDescriptorHeaps(_countof(heaps), heaps);
 		cmd->SetComputeRootSignature(rootSignature_->Get());
-		cmd->SetComputeRootDescriptorTable(0, bindlessHeap_->GPUHandle(0));
-		cmd->SetComputeRootConstantBufferView(2, constantBuffer_->Address());
+		RootSignature::BindCompute(cmd, addresses);
+		Uint dispatchBufferIndex = constantBuffer_->GetIndex();
+		cmd->SetComputeRoot32BitConstants(3, 1, &dispatchBufferIndex, 0);
 		cmd->SetPipelineState(pipelineState_.Get());
 
 		Uint32 dispatchX = (width_ + 7) / 8;

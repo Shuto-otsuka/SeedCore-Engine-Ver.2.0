@@ -9,7 +9,10 @@ namespace SeedCore
 	class BindlessHeap;
 	class ShaderCache;
 	class D3D12CommandList;
-	class IndicesSystem;
+	class ConstantIndicesSystem;
+	class ShaderResourceIndicesSystem;
+	class UnorderedAccessIndicesSystem;
+	struct RootAddresses;
 	class FrameBuffer;
 	class GeometryBuffer;
 
@@ -98,15 +101,15 @@ namespace SeedCore
 		WeatherParticleRenderer(RootSignature& rootSignature, PipelineStateObject& pipelineStateObject);
 		~WeatherParticleRenderer() = default;
 
-		void Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, IndicesSystem& indicesSystem);
+		void Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, ConstantIndicesSystem& constantIndicesSystem, ShaderResourceIndicesSystem& shaderResourceIndicesSystem, UnorderedAccessIndicesSystem& unorderedAccessIndicesSystem);
 
 		void Destroy(BindlessHeap* bindlessHeap);
 
 		/// [EN] Updates the tuning constant buffer, registers bindless indices
-		///      into IndicesSystem. Must run before IndicesSystem::
+		///      into the index systems. Must run before the index systems' 
 		///      UploadEditor/UploadGame bakes this frame's indices. No GPU work.
 		/// [JP] チューニング用定数バッファを更新し、bindless インデックスを
-		///      IndicesSystem へ登録する。IndicesSystem::UploadEditor/
+		///      各インデックスシステムへ登録する。各インデックスシステムの UploadEditor/
 		///      UploadGame が今フレームのインデックスを確定する前に呼ぶこと。
 		///      GPU 処理は無い。
 		void PrepareFrame(const Vector3& cameraPosition, Float deltaTime, Float totalTime, const Vector3& wind, Bool rainEnabled, const Rain& rainSettings, Float rainAmount, Bool snowEnabled, const Snow& snowSettings, Float snowAmount);
@@ -115,7 +118,7 @@ namespace SeedCore
 		///      time before Draw().
 		/// [JP] コンピュートのシミュレートパス。G-Buffer 不要なので Draw() より
 		///      前ならいつ実行してもよい。
-		void Simulate(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex);
+		void Simulate(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses);
 
 		/// [EN] The mesh-shader draw pass: binds frameBuffer's color RTV +
 		///      geometryBuffer's depth DSV directly (mirrors ModelRenderer::
@@ -131,7 +134,7 @@ namespace SeedCore
 		///      geometryBuffer->BeginDepth()/EndDepth() スコープ内である
 		///      こと(深度読み取り専用状態) - この関数自体はその遷移を管理
 		///      しない(DrawWireframe/DrawMeshlet と同じ規約)。
-		void Draw(D3D12CommandList* cmdList, FrameBuffer* frameBuffer, GeometryBuffer* geometryBuffer, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex);
+		void Draw(D3D12CommandList* cmdList, FrameBuffer* frameBuffer, GeometryBuffer* geometryBuffer, ID3D12DescriptorHeap* heap, const RootAddresses& addresses);
 
 	private:
 		void CreateParticleBuffer(ID3D12Device* device, BindlessHeap* bindlessHeap, Uint32 capacity, Microsoft::WRL::ComPtr<ID3D12Resource>& outResource, Uint32& outUnorderedAccessViewIndex, Uint32& outShaderResourceViewIndex);
@@ -158,7 +161,9 @@ namespace SeedCore
 		Uint32 activeTotal_ = 0;
 
 		BindlessHeap* bindlessHeap_ = nullptr;
-		IndicesSystem* indicesSystem_ = nullptr;
+		ConstantIndicesSystem* constantIndicesSystem_ = nullptr;
+		ShaderResourceIndicesSystem* shaderResourceIndicesSystem_ = nullptr;
+		UnorderedAccessIndicesSystem* unorderedAccessIndicesSystem_ = nullptr;
 
 		Bool pipelineStateMissingLogged_ = false;
 	};

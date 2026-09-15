@@ -1,5 +1,5 @@
-#include "../../Shader/Constants.hlsli"
-#include "../../Shader/Structured.hlsli"
+#include "../../Shader/Scene.hlsli"
+#include "../../Shader/UnorderedAccesses.hlsli"
 #include "CloudNoiseBake.hlsli"
 
 /**
@@ -27,7 +27,7 @@
 [numthreads(4, 4, 4)]
 void main(uint3 dtid : SV_DispatchThreadID)
 {
-	RWTexture3D<float> detail_output = ResourceDescriptorHeap[structured_indices.cloud_.detail_noise_uav_index_];
+	RWTexture3D<float> detail_output = ResourceDescriptorHeap[unordered_access_indices.cloud_.detail_noise_index_];
 
 	uint width, height, depth;
 	detail_output.GetDimensions(width, height, depth);

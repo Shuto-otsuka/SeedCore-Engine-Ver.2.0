@@ -173,9 +173,9 @@ namespace SeedCore
 		context_.modelTransformPreviewContext_.previewMeshAssetId_ = targetMeshAssetId_;
 
 		/// [EN] Mirrors Crister::ApplyTransformConversion's fullTransform exactly,
-		///      so the preview is a WYSIWYG of what 適用 will bake.
+		///      so the preview is a WYSIWYG of what 適用 will apply.
 		/// [JP] Crister::ApplyTransformConversion の fullTransform と厳密に一致
-		///      させる。適用 が焼き込む結果をそのままプレビューできるように。
+		///      させる。適用 した結果をそのままプレビューできるように。
 		Matrix baseTransformLinearBasis = Matrix::CreateScale(baseTransformScale_.x, baseTransformScale_.y, baseTransformScale_.z) * Matrix::CreateFromYawPitchRoll(ToRadians(baseTransformRotation_.y), ToRadians(baseTransformRotation_.x), ToRadians(baseTransformRotation_.z));
 		context_.modelTransformPreviewContext_.previewWorldMatrix_ = Matrix::CreateTranslation(-baseTransformPivot_) * baseTransformLinearBasis * Matrix::CreateTranslation(baseTransformPivot_ + baseTransformPosition_);
 
@@ -459,6 +459,9 @@ namespace SeedCore
 		{
 			return;
 		}
+
+		Matrix baseTransformLinearBasis = Matrix::CreateScale(baseTransformScale_.x, baseTransformScale_.y, baseTransformScale_.z) * Matrix::CreateFromYawPitchRoll(ToRadians(baseTransformRotation_.y), ToRadians(baseTransformRotation_.x), ToRadians(baseTransformRotation_.z));
+		context_.worldContext_.resource_->AppendAssetModelTransform(assetId, Matrix::CreateTranslation(-baseTransformPivot_) * baseTransformLinearBasis * Matrix::CreateTranslation(baseTransformPivot_ + baseTransformPosition_));
 
 		baseTransformPosition_ = Vector3(0.0f, 0.0f, 0.0f);
 		baseTransformRotation_ = Vector3(0.0f, 0.0f, 0.0f);

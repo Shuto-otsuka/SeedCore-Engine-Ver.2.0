@@ -1,14 +1,17 @@
-#include "../../Shader/Constants.hlsli"
-#include "../../Shader/Structured.hlsli"
-#include "../../Shader/Light.hlsli"
-#include "../../Shader/Normal.hlsli"
-#include "../../Shader/Noise.hlsli"
-#include "../../Sky/SkyMath.hlsli"
-#include "../../Light/ImageBasedLighting.hlsli"
-#include "../VolumetricCloudScapes/VolumetricCloudScapes.hlsli"
-#include "../../Shader/Denoiser.hlsli"
 #include "Reflection.hlsli"
 #include "ReflectionReSTIR.hlsli"
+#include "../../Shader/Scene.hlsli"
+#include "../../Shader/ShaderResources.hlsli"
+#include "../../Shader/Constants.hlsli"
+#include "../../Light/Light.hlsli"
+#include "../../Shader/Normal.hlsli"
+#include "../../Shader/Noise.hlsli"
+#include "../../Shader/Denoiser.hlsli"
+#include "../../Shader/UnorderedAccesses.hlsli"
+#include "../../Shader/Vertex.hlsli"
+#include "../../Light/ImageBasedLighting.hlsli"
+#include "../VolumetricCloudScapes/VolumetricCloudScapes.hlsli"
+#include "../../Sky/Sky.hlsli"
 
 /**
 * [EN]
@@ -20,7 +23,7 @@
 * - https://arxiv.org/pdf/2306.05044
 *   (Dupuy & Benyoub, "Sampling Visible GGX Normals with Spherical Caps",
 *   HPG 2023 - the exact spherical-cap construction SampleGgxVisibleNormal
-*   implements, SkyMath.hlsli.)
+*   implements, Sky.hlsli.)
 * - https://cs.dartmouth.edu/~wjarosz/publications/bitterli20spatiotemporal.html
 *   (Bitterli et al., "Spatiotemporal reservoir resampling for real-time ray
 *   tracing with dynamic direct lighting", SIGGRAPH 2020 - the reservoir
@@ -29,11 +32,11 @@
 * Ray-traced glossy reflection (RTPSO / DispatchRays, raygen + miss +
 * closesthit). Reflects the view ray off the G-Buffer surface and traces ONE
 * ray per pixel per frame, its half vector drawn from the GGX distribution of
-* VISIBLE normals (SkyMath.hlsli's SampleGgxVisibleNormal) rather than the
+* VISIBLE normals (Sky.hlsli's SampleGgxVisibleNormal) rather than the
 * full NDF - only microfacets the viewer can actually see are sampled, so the
 * single-sample estimator needs no pdf division or cosine weight: its whole
 * weight is the height-correlated Smith masking-shadowing ratio G2/G1
-* (SkyMath.hlsli's SmithGgxG2OverG1), applied to the traced radiance below.
+* (Sky.hlsli's SmithGgxG2OverG1), applied to the traced radiance below.
 * A sample landing below the horizon (G2/G1 == 0, which VNDF sampling makes
 * rare but not impossible near grazing angles) is simply not traced and
 * contributes nothing - unlike the old full-NDF scheme, there is no need to
@@ -60,11 +63,11 @@
 * [JP]
 * レイトレ光沢反射(RTPSO / DispatchRays、raygen + miss + closesthit)。
 * G-Buffer の面で視線を反射し、1ピクセル1フレームにつきレイを【1本】撃つ。
-* ハーフベクトルは GGX の【可視】法線分布(SkyMath.hlsli の
+* ハーフベクトルは GGX の【可視】法線分布(Sky.hlsli の
 * SampleGgxVisibleNormal)からサンプルする - 分布全体ではなく、視線から
 * 実際に見えているマイクロファセットだけをサンプルするので、単一サンプル
 * 推定量に pdf 除算もコサイン重みも要らない: 重みの全ては高さ相関する
-* Smith のマスキング/シャドウイング比 G2/G1(SkyMath.hlsli の
+* Smith のマスキング/シャドウイング比 G2/G1(Sky.hlsli の
 * SmithGgxG2OverG1)だけで、下でトレース済み放射輝度に掛ける。地平線の下に
 * 落ちたサンプル(G2/G1 == 0、VNDF サンプリングでは稀だがグレージング角
 * 付近ではあり得る)はそもそもトレースせず寄与ゼロとする - 旧来の分布全体
@@ -98,14 +101,14 @@ struct ReflectionPayload
 void ReflectionRayGeneration()
 {
 	uint2 pixel = DispatchRaysIndex().xy;
-	RWTexture2D<float4> output = ResourceDescriptorHeap[structured_indices.reflection_.output_uav_index_];
+	RWTexture2D<float4> output = ResourceDescriptorHeap[unordered_access_indices.reflection_.output_index_];
 
 	/// [EN] Background (reverse-Z far plane = 0) has no reflection. a=0
 	///      (zero hit distance) becomes the "nothing traced" marker
 	///      downstream.
 	/// [JP] 背景(reverse-Z 遠平面=0)は反射なし。a=0(ヒット距離ゼロ)が
 	///      下流での「何もトレースしていない」印になる。
-	Texture2D<float> depth_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.depth_index_];
+	Texture2D<float> depth_texture = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.depth_index_];
 	float depth = depth_texture.Load(int3(pixel, 0));
 
 	if (depth == 0.0)
@@ -115,7 +118,7 @@ void ReflectionRayGeneration()
 	}
 
 	SceneConstantBuffer scene = GetSceneConstantBuffer();
-	ConstantBuffer<ReflectionRayConstantBuffer> tuning = ResourceDescriptorHeap[structured_indices.reflection_.ray_constant_index_];
+	ConstantBuffer<ReflectionRayConstantBuffer> tuning = ResourceDescriptorHeap[constant_indices.reflection_index_];
 
 	/// [EN] Reconstruct world position and normal (same procedure as
 	///      ShadowRT.hlsl, mul takes the row vector on the left).
@@ -131,7 +134,7 @@ void ReflectionRayGeneration()
 	///      as DeferredLightingPS.hlsl).
 	/// [JP] gbuffer1: rg = octエンコード法線、b = ラフネス
 	///      (DeferredLightingPS.hlsl と同じ詰め方)。
-	Texture2D<float4> normal_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.index_1_];
+	Texture2D<float4> normal_texture = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.index_1_];
 	float4 gbuffer1 = normal_texture.Load(int3(pixel, 0));
 	float3 normal = OctNormalDecode(gbuffer1.rg);
 	float roughness = gbuffer1.b;
@@ -153,7 +156,7 @@ void ReflectionRayGeneration()
 	uint rng_state = SeedFromPixel(pixel, tuning.frame_index_ + 2654435761u);
 	float3 view = -view_direction;
 
-	RaytracingAccelerationStructure tlas = ResourceDescriptorHeap[structured_indices.raytracing_.tlas_index_];
+	RaytracingAccelerationStructure tlas = ResourceDescriptorHeap[shader_resource_indices.raytracing_.tlas_index_];
 
 	float3 half_vector = SampleGgxVisibleNormal(Rand2(rng_state), normal, view, roughness);
 	float3 reflect_direction = normalize(2.0 * dot(view, half_vector) * half_vector - view);
@@ -215,30 +218,27 @@ void ReflectionRayGeneration()
 	float candidate_hit_distance = (isnan(payload.hit_distance_) || isinf(payload.hit_distance_)) ? 0.0 : clamp(payload.hit_distance_, 0.0, 65504.0);
 
 	ReflectionReservoir reservoir = ReflectionReservoirFromSample(reflect_direction, candidate_radiance, candidate_hit_distance);
+	reservoir.receiver_normal_ = normal;
+	reservoir.receiver_depth_ = abs(mul(float4(world_position, 1.0), scene.non_jitter_view_projection_).w);
 
-	StructuredBuffer<ReflectionReservoir> reservoir_history = ResourceDescriptorHeap[constant_indices.reflection_.reservoir_history_srv_index_];
+	StructuredBuffer<ReflectionReservoir> reservoir_history = ResourceDescriptorHeap[shader_resource_indices.reflection_accumulation_.reservoir_history_index_];
 
 	/// [EN] ReSTIR temporal reuse. Velocity-buffer reprojection follows the
 	///      same procedure as GI (UV-space displacement is
 	///      (velocity.x, -velocity.y)). Reflection's own parallax problem
 	///      (what's visible moves with the REFLECTED geometry, not the
 	///      surface itself) is handled separately, not here, by
-	///      ReflectionDenoiseCS.hlsl's later dual reprojection - the
-	///      reservoir's own temporal combine only needs a rough hit from
-	///      surface motion; a miss is diluted away by RIS weighting and
-	///      spatial reuse anyway.
+	///      ReflectionDenoiseCS.hlsl's later dual reprojection.
 	/// [JP] ReSTIR 時間的リユース。速度バッファでの再投影は GI と同じ手順
 	///      (UV空間の移動量は (velocity.x, -velocity.y))。反射特有の
 	///      パララックス問題(映っている内容は面ではなく反射先のジオメトリ
 	///      と動く)は、ここではなく後段の ReflectionDenoiseCS.hlsl の
-	///      二重リプロジェクションが個別に扱う - reservoir 自体の時間的
-	///      結合は面モーションでの粗い当たりで十分、外れても RIS の重み
-	///      付けと空間的リユースで薄まる。
-	Texture2D<float2> velocity_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.index_2_];
+	///      二重リプロジェクションが個別に扱う。
+	Texture2D<float2> velocity_texture = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.index_2_];
 	float2 velocity = velocity_texture.Load(int3(pixel, 0)).rg;
 	float2 previous_uv = uv - float2(velocity.x, -velocity.y);
 
-	bool temporal_valid = all(previous_uv >= 0.0) && all(previous_uv <= 1.0);
+	bool temporal_valid = tuning.temporal_reuse_enabled_ != 0 && all(previous_uv >= 0.0) && all(previous_uv <= 1.0);
 
 	if (temporal_valid)
 	{
@@ -246,12 +246,16 @@ void ReflectionRayGeneration()
 		uint previous_index = previous_pixel.y * (uint)scene.screen_size_.x + previous_pixel.x;
 
 		ReflectionReservoir temporal = reservoir_history[previous_index];
-		temporal.sample_m_ = min(temporal.sample_m_, REFLECTION_RESERVOIR_M_CAP);
+		temporal.sample_m_ = min(temporal.sample_m_, REFLECTION_RESERVOIR_M_CAP * saturate(roughness / REFLECTION_RESERVOIR_M_CAP_ROUGHNESS));
+		temporal.sample_age_ += 1.0;
 
-		reservoir = ReflectionReservoirCombine(reservoir, temporal, temporal_valid, rng_state);
+		float expected_previous_depth = abs(mul(float4(world_position, 1.0), scene.previous_non_jitter_view_projection_).w);
+		bool history_valid = temporal.receiver_depth_ > 0.0 && abs(temporal.receiver_depth_ - expected_previous_depth) <= REFLECTION_RESERVOIR_DEPTH_THRESHOLD * expected_previous_depth && dot(normal, temporal.receiver_normal_) >= REFLECTION_RESERVOIR_NORMAL_THRESHOLD && temporal.sample_age_ <= REFLECTION_RESERVOIR_MAX_AGE;
+
+		reservoir = ReflectionReservoirCombine(reservoir, temporal, history_valid, rng_state);
 	}
 
-	RWStructuredBuffer<ReflectionReservoir> reservoir_write = ResourceDescriptorHeap[constant_indices.reflection_.reservoir_uav_index_];
+	RWStructuredBuffer<ReflectionReservoir> reservoir_write = ResourceDescriptorHeap[unordered_access_indices.reflection_accumulation_.reservoir_index_];
 	reservoir_write[pixel.y * (uint)scene.screen_size_.x + pixel.x] = reservoir;
 
 	output[pixel] = float4(reservoir.sample_radiance_ * reservoir.sample_w_, reservoir.sample_hit_distance_);
@@ -265,14 +269,14 @@ void ReflectionMiss(inout ReflectionPayload payload)
 	///      otherwise black.
 	/// [JP] レイが空へ抜けた。スカイマップがあれば環境キューブを、無ければ
 	///      プロシージャル空(有効時)を、それも無ければ黒をサンプルする。
-	if (structured_indices.sky_.environment_cube_index_ != 0)
+	if (shader_resource_indices.sky_.environment_cube_index_ != 0)
 	{
 		payload.radiance_ = SampleSkyboxEnvironment(WorldRayDirection()).rgb;
 	}
 	else
 	{
-		ConstantBuffer<VolumetricCloudScapesRayConstantBuffer> cloud_tuning = ResourceDescriptorHeap[structured_indices.cloud_.ray_constant_index_];
-		if (cloud_tuning.procedural_sky_enabled_ != 0 && structured_indices.sky_.specular_prefiltered_index_ != 0)
+		ConstantBuffer<VolumetricCloudScapesRayConstantBuffer> cloud_tuning = ResourceDescriptorHeap[constant_indices.cloud_index_];
+		if (cloud_tuning.procedural_sky_enabled_ != 0 && shader_resource_indices.sky_.specular_prefiltered_index_ != 0)
 		{
 			/// [EN] Procedural-sky mode: sample mip0 of the prefiltered cube
 			///      that already has the clouds baked in
@@ -283,7 +287,7 @@ void ReflectionMiss(inout ReflectionPayload payload)
 			///      キューブ(ProceduralSkyToCubeCS でベイク→畳み込み)の
 			///      mip0 をサンプルする。128px 相当なので鏡面でもわずかに
 			///      柔らかいが、雲が映る方が重要。
-			TextureCube<float4> prefiltered = ResourceDescriptorHeap[structured_indices.sky_.specular_prefiltered_index_];
+			TextureCube<float4> prefiltered = ResourceDescriptorHeap[shader_resource_indices.sky_.specular_prefiltered_index_];
 			payload.radiance_ = prefiltered.SampleLevel(sampler_linear_clamp, WorldRayDirection(), 0).rgb;
 		}
 		else if (cloud_tuning.procedural_sky_enabled_ != 0)
@@ -292,9 +296,9 @@ void ReflectionMiss(inout ReflectionPayload payload)
 			///      frames, so fall back to the analytic sky + sun.
 			/// [JP] ベイクがまだ済んでいない最初の数フレームは解析的な空+
 			///      太陽で代用する。
-			ConstantBuffer<LightConstantData> light = ResourceDescriptorHeap[constant_indices.light_index_];
-			float3 sun_direction = normalize(-light.directional_direction_);
-			float3 sun_radiance = light.directional_color_.rgb * light.directional_intensity_;
+			ConstantBuffer<LightConstantBuffer> light = ResourceDescriptorHeap[constant_indices.light_index_];
+			float3 sun_direction = normalize(-GetDirectionalLightConstantBuffer().direction_);
+			float3 sun_radiance = GetDirectionalLightConstantBuffer().sun_color_.rgb * GetDirectionalLightConstantBuffer().sun_intensity_;
 			payload.radiance_ = ProceduralSkyColor(WorldRayDirection(), sun_direction, sun_radiance, cloud_tuning);
 		}
 		else
@@ -308,7 +312,7 @@ void ReflectionMiss(inout ReflectionPayload payload)
 [shader("anyhit")]
 void ReflectionAnyHit(inout ReflectionPayload payload, in BuiltInTriangleIntersectionAttributes attributes)
 {
-	if (IsReflectionMaterialPassthrough(structured_indices.raytracing_.instance_data_index_, InstanceID(), PrimitiveIndex(), attributes.barycentrics))
+	if (IsMaterialPassthrough(shader_resource_indices.raytracing_.instance_data_index_, InstanceID(), PrimitiveIndex(), attributes.barycentrics))
 	{
 		IgnoreHit();
 	}
@@ -321,31 +325,24 @@ void ReflectionClosestHit(inout ReflectionPayload payload, in BuiltInTriangleInt
 	///      table, and interpolate the normal from barycentrics.
 	/// [JP] インスタンステーブルからヒットメッシュの頂点/インデックスSRVを
 	///      引き、barycentrics で法線を補間する。
-	StructuredBuffer<ReflectionInstanceData> instances = ResourceDescriptorHeap[structured_indices.raytracing_.instance_data_index_];
+	StructuredBuffer<ReflectionInstanceData> instances = ResourceDescriptorHeap[shader_resource_indices.raytracing_.instance_data_index_];
 	ReflectionInstanceData instance = instances[InstanceID()];
 
 	StructuredBuffer<uint> triangle_indices = ResourceDescriptorHeap[instance.index_buffer_index_];
-	StructuredBuffer<ReflectionVertex> vertices = ResourceDescriptorHeap[instance.vertex_buffer_index_];
+	StructuredBuffer<CompressedVertex> vertices = ResourceDescriptorHeap[instance.vertex_buffer_index_];
 
 	uint base_index = PrimitiveIndex() * 3;
-	ReflectionVertex vertex0 = vertices[triangle_indices[base_index + 0]];
-	ReflectionVertex vertex1 = vertices[triangle_indices[base_index + 1]];
-	ReflectionVertex vertex2 = vertices[triangle_indices[base_index + 2]];
+	CompressedVertex vertex0 = vertices[triangle_indices[base_index + 0]];
+	CompressedVertex vertex1 = vertices[triangle_indices[base_index + 1]];
+    CompressedVertex vertex2 = vertices[triangle_indices[base_index + 2]];
 
 	float2 barycentrics = attributes.barycentrics;
 	float weight0 = 1.0 - barycentrics.x - barycentrics.y;
 	float weight1 = barycentrics.x;
 	float weight2 = barycentrics.y;
 
-	float3 object_normal =
-		DecodeReflectionVertexNormal(vertex0) * weight0 +
-		DecodeReflectionVertexNormal(vertex1) * weight1 +
-		DecodeReflectionVertexNormal(vertex2) * weight2;
-
-	float2 texcoord =
-		DecodeReflectionVertexTexcoord(vertex0, instance.texcoord_min_, instance.texcoord_extent_) * weight0 +
-		DecodeReflectionVertexTexcoord(vertex1, instance.texcoord_min_, instance.texcoord_extent_) * weight1 +
-		DecodeReflectionVertexTexcoord(vertex2, instance.texcoord_min_, instance.texcoord_extent_) * weight2;
+    float3 object_normal = DecodeCompressedVertexNormal(vertex0) * weight0 + DecodeCompressedVertexNormal(vertex1) * weight1 + DecodeCompressedVertexNormal(vertex2) * weight2;
+    float2 texcoord = DecodeCompressedVertexTexcoord(vertex0, instance.texcoord_min_, instance.texcoord_extent_) * weight0 + DecodeCompressedVertexTexcoord(vertex1, instance.texcoord_min_, instance.texcoord_extent_) * weight1 + DecodeCompressedVertexTexcoord(vertex2, instance.texcoord_min_, instance.texcoord_extent_) * weight2;
 
 	/// [EN] Object space -> world space. The exact inverse-transpose for
 	///      non-uniform scale is skipped (v1 approximation - correct for
@@ -366,11 +363,11 @@ void ReflectionClosestHit(inout ReflectionPayload payload, in BuiltInTriangleInt
 	///      0)。鏡面項・影(Point/Spot/Rect側)・ベースカラー以外のテクスチャ
 	///      は省略のv1。
 	SceneConstantBuffer scene = GetSceneConstantBuffer();
-	ConstantBuffer<LightConstantData> light = ResourceDescriptorHeap[constant_indices.light_index_];
+	ConstantBuffer<LightConstantBuffer> light = ResourceDescriptorHeap[constant_indices.light_index_];
 
 	float3 lighting = float3(0, 0, 0);
 
-	if (structured_indices.sky_.diffuse_irradiance_index_ != 0)
+	if (shader_resource_indices.sky_.diffuse_irradiance_index_ != 0)
 	{
 		/// [EN] Raytrace shaders have no implicit LOD (only SampleLevel is
 		///      available), so this reads directly with SampleLevel instead
@@ -400,13 +397,13 @@ void ReflectionClosestHit(inout ReflectionPayload payload, in BuiltInTriangleInt
 		///      効く)。irradiance キューブは畳み込み時に 1/PI 込みの規約
 		///      なので、ImageBasedLightingRadianceLambertian と同じく素の
 		///      乗算で正しい。
-		TextureCube<float4> diffuse_irradiance = ResourceDescriptorHeap[structured_indices.sky_.diffuse_irradiance_index_];
+		TextureCube<float4> diffuse_irradiance = ResourceDescriptorHeap[shader_resource_indices.sky_.diffuse_irradiance_index_];
 		lighting += diffuse_irradiance.SampleLevel(sampler_linear_clamp, world_normal, 0).rgb;
 	}
 
-	if (light.directional_intensity_ > 0.0)
+	if (GetDirectionalLightConstantBuffer().sun_intensity_ > 0.0)
 	{
-		float3 light_direction = normalize(-light.directional_direction_);
+		float3 light_direction = normalize(-GetDirectionalLightConstantBuffer().direction_);
 		float normal_dot_light = saturate(dot(world_normal, light_direction));
 
 		/// [EN] Shadow for the surface visible in the reflection.
@@ -428,8 +425,8 @@ void ReflectionClosestHit(inout ReflectionPayload payload, in BuiltInTriangleInt
 
 		if (normal_dot_light > 0.0)
 		{
-			ConstantBuffer<ReflectionRayConstantBuffer> tuning = ResourceDescriptorHeap[structured_indices.reflection_.ray_constant_index_];
-			RaytracingAccelerationStructure tlas = ResourceDescriptorHeap[structured_indices.raytracing_.tlas_index_];
+			ConstantBuffer<ReflectionRayConstantBuffer> tuning = ResourceDescriptorHeap[constant_indices.reflection_index_];
+			RaytracingAccelerationStructure tlas = ResourceDescriptorHeap[shader_resource_indices.raytracing_.tlas_index_];
 
 			RayDesc shadow_ray;
 			shadow_ray.Origin = hit_position + world_normal * tuning.normal_bias_;
@@ -437,7 +434,7 @@ void ReflectionClosestHit(inout ReflectionPayload payload, in BuiltInTriangleInt
 			shadow_ray.TMin = 0.001;
 			shadow_ray.TMax = tuning.ray_t_max_;
 
-			if (IsReflectionRayOccluded(tlas, shadow_ray, structured_indices.raytracing_.instance_data_index_))
+			if (IsReflectionRayOccluded(tlas, shadow_ray, shader_resource_indices.raytracing_.instance_data_index_))
 			{
 				sun_visibility = 0.0;
 			}
@@ -460,7 +457,7 @@ void ReflectionClosestHit(inout ReflectionPayload payload, in BuiltInTriangleInt
 		///      0.318 で収まるのに反射側は 1.0 に張り付くため、階調が
 		///      飛んで「ライティングが効いていない単色」に見える。
 		const float lambert_normalization = 1.0 / 3.14159265358979;
-		lighting += light.directional_color_.rgb * light.directional_intensity_ * normal_dot_light * sun_visibility * lambert_normalization;
+		lighting += GetDirectionalLightConstantBuffer().sun_color_.rgb * GetDirectionalLightConstantBuffer().sun_intensity_ * normal_dot_light * sun_visibility * lambert_normalization;
 	}
 
 	/// [EN] Point/Spot/Rect lights. Pulled from the same cluster ShadowRT.hlsl

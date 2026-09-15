@@ -1,4 +1,6 @@
-#include "../Shader/Constants.hlsli"
+#include "PostProcess.hlsli"
+#include "../Shader/ShaderResources.hlsli"
+#include "../Shader/UnorderedAccesses.hlsli"
 #include "../Shader/Sampler.hlsli"
 
 /**
@@ -58,7 +60,7 @@
 [numthreads(8, 8, 1)]
 void main(uint3 dtid : SV_DispatchThreadID)
 {
-	RWTexture2D<float4> destination = ResourceDescriptorHeap[constant_indices.post_process_.lens_distortion_.destination_uav_index_];
+	RWTexture2D<float4> destination = ResourceDescriptorHeap[unordered_access_indices.post_process_.lens_distortion_.destination_index_];
 
 	uint width, height;
 	destination.GetDimensions(width, height);
@@ -74,14 +76,14 @@ void main(uint3 dtid : SV_DispatchThreadID)
 		return;
 	}
 
-	Texture2D<float4> source = ResourceDescriptorHeap[constant_indices.post_process_.lens_distortion_.source_srv_index_];
+	Texture2D<float4> source = ResourceDescriptorHeap[shader_resource_indices.post_process_.lens_distortion_.source_index_];
 
 	float2 uv = (float2(dtid.xy) + 0.5) / float2(width, height);
 
-	float k1 = constant_indices.post_process_.lens_distortion_.k1_;
-	float k2 = constant_indices.post_process_.lens_distortion_.k2_;
-	float k3 = constant_indices.post_process_.lens_distortion_.k3_;
-	float scale = max(constant_indices.post_process_.lens_distortion_.scale_, 0.0001);
+	float k1 = GetPostProcessConstantBuffer().lens_distortion_.k1_;
+	float k2 = GetPostProcessConstantBuffer().lens_distortion_.k2_;
+	float k3 = GetPostProcessConstantBuffer().lens_distortion_.k3_;
+	float scale = max(GetPostProcessConstantBuffer().lens_distortion_.scale_, 0.0001);
 
 	/// [EN] The radius is measured in aspect-corrected space. Without the
 	///      correction the distortion comes out horizontally stretched,

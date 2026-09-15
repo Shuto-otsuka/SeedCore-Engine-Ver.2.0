@@ -1,8 +1,9 @@
 #include "../Model.hlsli"
+#include "../../Shader/Scene.hlsli"
+#include "../../Shader/ShaderResources.hlsli"
 #include "../../Shader/Constants.hlsli"
-#include "../../Shader/Structured.hlsli"
 #include "../../Shader/Normal.hlsli"
-#include "../../Shader/Light.hlsli"
+#include "../../Light/Light.hlsli"
 #include "../../Shader/Material.hlsli"
 #include "../../Light/Cluster.hlsli"
 #include "../../Light/ImageBasedLighting.hlsli"
@@ -16,6 +17,7 @@
 #include "../../Raytracing/VolumetricLight/VolumetricLight.hlsli"
 #include "../../Shader/Noise.hlsli"
 #include "../../Shader/Precipitation.hlsli"
+#include "../../Sky/SkyGenerate.hlsli"
 
 /// [JP] Froxel フォグ/体積光の積分ボリューム(rgb=累積散乱、a=透過率)を
 ///      uv+ビュー空間Zでサンプルしてシーン色へ合成する。無効時はレンダラーが
@@ -23,9 +25,10 @@
 float3 ApplyVolumetricFog(float3 color, float2 uv, float view_z)
 {
 	SceneConstantBuffer fog_scene = GetSceneConstantBuffer();
-	Texture3D<float4> integration_volume = ResourceDescriptorHeap[structured_indices.volumetric_light_.integration_srv_index_];
+	Texture3D<float4> integration_volume = ResourceDescriptorHeap[shader_resource_indices.volumetric_light_.integration_index_];
+	ConstantBuffer<VolumetricLightRayConstantBuffer> fog_tuning = ResourceDescriptorHeap[constant_indices.volumetric_light_index_];
 
-	float slice_t = saturate(ViewZToFroxelSlice(max(view_z, fog_scene.near_plane_), fog_scene.near_plane_, fog_scene.far_plane_));
+	float slice_t = saturate(ViewZToFroxelSlice(max(view_z, fog_scene.near_plane_), fog_scene.near_plane_, fog_scene.far_plane_) - 0.5 / float(max(fog_tuning.froxel_dimension_z_, 1u)));
 	float4 fog = integration_volume.SampleLevel(sampler_linear_clamp, float3(uv, slice_t), 0);
 
 	return color * fog.a + fog.rgb;
@@ -48,10 +51,10 @@ float3 ReconstructWorldPosition(float2 uv, float depth)
 
 float4 main(CompositeOutput input) : SV_Target0
 {
-	Texture2D<float4> gbuffer0 = ResourceDescriptorHeap[structured_indices.gbuffer_.index_0_];
-	Texture2D<float4> gbuffer1 = ResourceDescriptorHeap[structured_indices.gbuffer_.index_1_];
-	Texture2D<float4> gbuffer3 = ResourceDescriptorHeap[structured_indices.gbuffer_.index_3_];
-	Texture2D<float> gbuffer_depth = ResourceDescriptorHeap[structured_indices.gbuffer_.depth_index_];
+	Texture2D<float4> gbuffer0 = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.index_0_];
+	Texture2D<float4> gbuffer1 = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.index_1_];
+	Texture2D<float4> gbuffer3 = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.index_3_];
+	Texture2D<float> gbuffer_depth = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.depth_index_];
 
 	uint2 pixel = uint2(input.position.xy);
 
@@ -64,7 +67,7 @@ float4 main(CompositeOutput input) : SV_Target0
 	///      先に処理する。非線形 reverse-Z をビュー空間Zにしてリニア化し、
 	///      近=白 / 遠=黒 に反転（近い物のシルエットが見えるように）。
 	///      DEPTH_VIEW_RANGE で正規化する距離を調整（小さいほど近距離のコントラスト大）。
-	if (constant_indices.view_mode_ == 3)
+	if (GetSceneConstantBuffer().view_mode_ == 3)
 	{
 		const float DEPTH_VIEW_RANGE = 50.0;
 		SceneConstantBuffer depth_scene = GetSceneConstantBuffer();
@@ -83,7 +86,7 @@ float4 main(CompositeOutput input) : SV_Target0
 		/// [JP] 背景ピクセル(ジオメトリなし)。スカイマップがバインドされていれば
 		///      遠クリップ深度からビュー方向を復元し environment キューブを
 		///      スカイボックスとして描く。なければ何も描かない。
-		if (structured_indices.sky_.environment_cube_index_ != 0)
+		if (shader_resource_indices.sky_.environment_cube_index_ != 0)
 		{
 			/// [EN] Skybox background is drawn at the raw environment radiance,
 			///      independent of sky_intensity_ (which only scales the IBL
@@ -99,9 +102,9 @@ float4 main(CompositeOutput input) : SV_Target0
 			float3 skybox_color = SampleSkyboxEnvironment(sky_direction).rgb;
 
 			/// [JP] 雷の閃光はスカイマップ使用時も独立して効く。
-			ConstantBuffer<LightConstantData> skybox_light = ResourceDescriptorHeap[constant_indices.light_index_];
-			skybox_color += skybox_light.thunder_flash_ * float3(0.85, 0.9, 1.0) * 2.5;
-			skybox_color += LightningBoltMask(input.texcoord, skybox_light.thunder_seed_, saturate(skybox_light.thunder_flash_ - 0.5) * 2.0);
+			ConstantBuffer<WeatherConstantBuffer> skybox_weather = GetWeatherConstantBuffer();
+			skybox_color += skybox_weather.thunder_flash_ * float3(0.85, 0.9, 1.0) * 2.5;
+			skybox_color += LightningBoltMask(input.texcoord, skybox_weather.thunder_seed_, saturate(skybox_weather.thunder_flash_ - 0.5) * 2.0);
 
 			/// [JP] 空は最遠なのでフォグは far スライスで適用(地平線が霞む)。
 			skybox_color = ApplyVolumetricFog(skybox_color, input.texcoord, sky_scene.far_plane_);
@@ -112,22 +115,22 @@ float4 main(CompositeOutput input) : SV_Target0
 		///      レイトレーシング→雲)が有効なら、空のグラデーション+太陽
 		///      ディスクを描き、その上にボリューメトリック雲を合成する。
 		///      雲の rgb は事前乗算済みの内散乱、a はカバレッジ。
-		ConstantBuffer<VolumetricCloudScapesRayConstantBuffer> cloud_tuning = ResourceDescriptorHeap[structured_indices.cloud_.ray_constant_index_];
+		ConstantBuffer<VolumetricCloudScapesRayConstantBuffer> cloud_tuning = ResourceDescriptorHeap[constant_indices.cloud_index_];
 		if (cloud_tuning.procedural_sky_enabled_ != 0)
 		{
 			SceneConstantBuffer sky_scene = GetSceneConstantBuffer();
 			float3 sky_world = ReconstructWorldPosition(input.texcoord, depth);
 			float3 view_direction = normalize(sky_world - sky_scene.camera_position_.xyz);
 
-			ConstantBuffer<LightConstantData> sky_light = ResourceDescriptorHeap[constant_indices.light_index_];
-			float3 sun_direction = normalize(-sky_light.directional_direction_);
-			float3 sun_radiance = sky_light.directional_color_.rgb * sky_light.directional_intensity_;
+			ConstantBuffer<LightConstantBuffer> sky_light = ResourceDescriptorHeap[constant_indices.light_index_];
+			float3 sun_direction = normalize(-GetDirectionalLightConstantBuffer().direction_);
+			float3 sun_radiance = GetDirectionalLightConstantBuffer().sun_color_.rgb * GetDirectionalLightConstantBuffer().sun_intensity_;
 
 			float3 sky_color = ProceduralSkyColor(view_direction, sun_direction, sun_radiance, cloud_tuning);
 
 			/// [JP] 星/月/流れ星は雲より奥にあるので、雲を合成する前に加算する
 			///      (雲のカバレッジで自然に隠れるように)。
-			Texture2D<float4> star_texture = ResourceDescriptorHeap[structured_indices.star_.output_srv_index_];
+			Texture2D<float4> star_texture = ResourceDescriptorHeap[shader_resource_indices.star_.output_index_];
 			float4 star = star_texture.SampleLevel(sampler_linear_clamp, input.texcoord, 0);
 			sky_color += star.rgb;
 
@@ -135,14 +138,15 @@ float4 main(CompositeOutput input) : SV_Target0
 			///      resolutionDivisor_)ので、Load ではなくバイリニアで拡大する。
 			///      値は事前乗算済み(rgb は透過率を掛けた放射輝度、a はカバレッジ)
 			///      なので、そのまま線形補間して合成してよい。
-			Texture2D<float4> cloud_texture = ResourceDescriptorHeap[structured_indices.cloud_.output_srv_index_];
+			Texture2D<float4> cloud_texture = ResourceDescriptorHeap[shader_resource_indices.cloud_.output_index_];
 			float4 cloud = cloud_texture.SampleLevel(sampler_linear_clamp, input.texcoord, 0);
 			sky_color = sky_color * (1.0 - cloud.a) + cloud.rgb;
 
 			/// [JP] 雷の閃光は空全体も一瞬明るく染める。ボルト本体も閃光のピーク
 			///      付近だけ重ねて描く。
-			sky_color += sky_light.thunder_flash_ * float3(0.85, 0.9, 1.0) * 2.5;
-			sky_color += LightningBoltMask(input.texcoord, sky_light.thunder_seed_, saturate(sky_light.thunder_flash_ - 0.5) * 2.0);
+			ConstantBuffer<WeatherConstantBuffer> sky_weather = GetWeatherConstantBuffer();
+			sky_color += sky_weather.thunder_flash_ * float3(0.85, 0.9, 1.0) * 2.5;
+			sky_color += LightningBoltMask(input.texcoord, sky_weather.thunder_seed_, saturate(sky_weather.thunder_flash_ - 0.5) * 2.0);
 
 			/// [JP] プロシージャル空にもフォグを far スライスで適用。
 			sky_color = ApplyVolumetricFog(sky_color, input.texcoord, sky_scene.far_plane_);
@@ -163,17 +167,17 @@ float4 main(CompositeOutput input) : SV_Target0
 	///      ここ(ライティングのその場)で評価する。
 	float3 emissive = rt3.rgb;
 
-	Texture2D<uint4> gbuffer4 = ResourceDescriptorHeap[structured_indices.gbuffer_.index_4_];
+	Texture2D<uint4> gbuffer4 = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.index_4_];
 	uint4 visibility_id = gbuffer4.Load(int3(pixel, 0));
 	uint material_instance_index, material_meshlet_index, material_triangle_index;
 	UnpackVisibilityID(visibility_id, material_instance_index, material_meshlet_index, material_triangle_index);
-	StructuredBuffer<ModelInstance> material_instances = ResourceDescriptorHeap[structured_indices.model_.instance_index_];
-	ModelInstance material_instance = material_instances[material_instance_index];
-	emissive *= material_instance.emissive_strength_;
+	StructuredBuffer<ModelStructuredBuffer> material_instances = GetModelStructuredBuffer(shader_resource_indices.model_.instance_index_);
+	ModelStructuredBuffer material_instance = material_instances[material_instance_index];
+	emissive *= material_instance.texture_.emissive_strength_;
 
 	/// [JP] エディタービューの表示モード（ViewMode）。Lit(0) は下の通常ライティングへ流す。
 	///      Wireframe(2) / Meshlet(4) は別パスで扱うためここでは Lit と同じ扱い（素通り）。
-	switch (constant_indices.view_mode_)
+	switch (GetSceneConstantBuffer().view_mode_)
 	{
 		case 1: // ライティングなし（アルベド）
 			return float4(base_color, 1.0);
@@ -187,35 +191,35 @@ float4 main(CompositeOutput input) : SV_Target0
 			return float4(emissive, 1.0);
 		case 9: // モーションベクター
 		{
-			Texture2D<float2> gbuffer_velocity = ResourceDescriptorHeap[structured_indices.gbuffer_.index_2_];
+			Texture2D<float2> gbuffer_velocity = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.index_2_];
 			float2 velocity = gbuffer_velocity.Load(int3(pixel, 0));
 			return float4(velocity * 0.5 + 0.5, 0.0, 1.0);
 		}
 
 		/// [JP] 以下はレイトレ信号のバッファ可視化。生
-		///      (structured_indices 側・全ビュー共有の1sppトレース結果)と
-		///      デノイズ後(constant_indices 側・ビューごとのチェーン出力)を
+		///      (shader_resource_indices の reflection_ 等・全ビュー共通の1sppトレース結果)と
+		///      デノイズ後(同じく *_accumulation_ 側・ビューごとのチェーン出力)を
 		///      それぞれそのまま出す。加工しないのは、どちらの段で信号が
 		///      失われたかを判定するのが目的だから — 見やすさのための補正を
 		///      入れると、その補正自体が判定を曇らせる。
 		case 10: // 反射（生）
 		{
-			Texture2D<float4> reflection_raw = ResourceDescriptorHeap[structured_indices.reflection_.output_srv_index_];
+			Texture2D<float4> reflection_raw = ResourceDescriptorHeap[shader_resource_indices.reflection_.output_index_];
 			return float4(reflection_raw.Load(int3(pixel, 0)).rgb, 1.0);
 		}
 		case 11: // 反射（デノイズ後）
 		{
-			Texture2D<float4> reflection_denoised = ResourceDescriptorHeap[constant_indices.reflection_.radiance_srv_index_];
+			Texture2D<float4> reflection_denoised = ResourceDescriptorHeap[shader_resource_indices.reflection_accumulation_.radiance_index_];
 			return float4(reflection_denoised.Load(int3(pixel, 0)).rgb, 1.0);
 		}
 		case 12: // グローバルイルミネーション（生）
 		{
-			Texture2D<float4> global_illumination_raw = ResourceDescriptorHeap[structured_indices.global_illumination_.output_srv_index_];
+			Texture2D<float4> global_illumination_raw = ResourceDescriptorHeap[shader_resource_indices.global_illumination_.output_index_];
 			return float4(global_illumination_raw.Load(int3(pixel, 0)).rgb, 1.0);
 		}
 		case 13: // グローバルイルミネーション（デノイズ後）
 		{
-			Texture2D<float4> global_illumination_denoised = ResourceDescriptorHeap[constant_indices.global_illumination_.radiance_srv_index_];
+			Texture2D<float4> global_illumination_denoised = ResourceDescriptorHeap[shader_resource_indices.global_illumination_accumulation_.radiance_index_];
 			return float4(global_illumination_denoised.Load(int3(pixel, 0)).rgb, 1.0);
 		}
 
@@ -227,33 +231,33 @@ float4 main(CompositeOutput input) : SV_Target0
 		///      頭2チャンネルを合成して同じ見え方にする。
 		case 14: // シャドウ（生）
 		{
-			Texture2D<float4> shadow_raw = ResourceDescriptorHeap[structured_indices.shadow_.raw_visibility_srv_index_];
+			Texture2D<float4> shadow_raw = ResourceDescriptorHeap[shader_resource_indices.shadow_.raw_visibility_index_];
 			float4 raw_value = shadow_raw.Load(int3(pixel, 0));
 			return float4(raw_value.x, raw_value.y, raw_value.z, 1.0);
 		}
 		case 15: // シャドウ（デノイズ後）
 		{
-			Texture2D<float> directional_denoised = ResourceDescriptorHeap[constant_indices.shadow_.directional_visibility_srv_index_];
-			Texture2D<float4> punctual_denoised = ResourceDescriptorHeap[constant_indices.shadow_.punctual_radiance_srv_index_];
+			Texture2D<float> directional_denoised = ResourceDescriptorHeap[shader_resource_indices.shadow_accumulation_.directional_visibility_index_];
+			Texture2D<float4> punctual_denoised = ResourceDescriptorHeap[shader_resource_indices.shadow_accumulation_.punctual_radiance_index_];
 			float directional_value = directional_denoised.Load(int3(pixel, 0));
 			float3 punctual_value = punctual_denoised.Load(int3(pixel, 0)).rgb;
 			return float4(directional_value, punctual_value.r, punctual_value.g, 1.0);
 		}
 		case 16: // アンビエントオクルージョン（生）
 		{
-			Texture2D<float> ambient_occlusion_raw = ResourceDescriptorHeap[structured_indices.ambient_occlusion_.raw_srv_index_];
+			Texture2D<float> ambient_occlusion_raw = ResourceDescriptorHeap[shader_resource_indices.ambient_occlusion_.raw_index_];
 			return float4(ambient_occlusion_raw.Load(int3(pixel, 0)).xxx, 1.0);
 		}
 		case 17: // アンビエントオクルージョン（デノイズ後）
 		{
-			Texture2D<float> ambient_occlusion_denoised = ResourceDescriptorHeap[constant_indices.ambient_occlusion_.openness_srv_index_];
+			Texture2D<float> ambient_occlusion_denoised = ResourceDescriptorHeap[shader_resource_indices.ambient_occlusion_accumulation_.openness_index_];
 			return float4(ambient_occlusion_denoised.Load(int3(pixel, 0)).xxx, 1.0);
 		}
 	}
 
 	/// [JP] Unlit: ライティングを一切せず base_color + emissive のみ
 	///      (KHR_materials_unlit、またはマテリアルで明示的に選択されたUnlit)。
-	if (material_instance.shading_model_ == SHADING_MODEL_UNLIT)
+	if (material_instance.shading_.shading_model_ == SHADING_MODEL_UNLIT)
 	{
 		return float4(base_color + emissive, 1.0);
 	}
@@ -269,7 +273,7 @@ float4 main(CompositeOutput input) : SV_Target0
 	///      一致するようにするため)。モデル UV は VisibilityBuffer(RT4.zw)
 	///      から復元する — このパスはフルスクリーン矩形なので input.texcoord
 	///      はスクリーン UV であってモデル UV ではない。
-	float2 material_texcoord = UnpackVisibilityTexcoord(visibility_id);
+	float2 material_texcoord = float2(asfloat(visibility_id.z), asfloat(visibility_id.w));
 	GBufferMaterial gbuffer_material = ResolveGBufferMaterial(base_color, metallic, roughness, normal, view, material_instance, material_texcoord, rt1.a);
 	float3 diffuse_color = gbuffer_material.diffuse_color_;
 	float3 f0 = gbuffer_material.f0_;
@@ -285,20 +289,24 @@ float4 main(CompositeOutput input) : SV_Target0
 
 	/// [JP] ShadowRT.hlsl(+ShadowDenoiseCS.hlsl で時間+空間積分済み)が書いた
 	///      ディレクショナル可視性。ビューごとの蓄積チェーンなので
-	///      constant_indices 側から取る。shadow_strength_ で効きの強さを
-	///      0(常に照射扱い)〜1(可視性をそのまま適用)で調整する。
-	///      ディレクショナルの項【だけ】に掛ける。環境光(IBL)には掛けない —
-	///      太陽から見えない面(壁の裏・屋内)は可視性0になるため、環境光まで
-	///      消すと真っ黒に潰れる。影の暗さの下限は環境光が決める(物理的にも
-	///      それが正しい)。もっと暗い影にしたければ環境光/スカイ強度を下げるか
-	///      太陽強度を上げる。パンクチュアル側は既にBRDF評価済みのRGB放射輝度
+	///      constant_indices 側から取る。shadow_strength_ は影の濃さで、
+	///      0〜1 はディレクショナルの項だけを 0(常に照射扱い)〜1(可視性を
+	///      そのまま適用)で調整する。1〜2 はさらに影の中の間接光(環境光・
+	///      GI・反射・屈折)を (1 - 可視性) に比例して削り、2 で本影が真っ黒に
+	///      なる。どちらも可視性に対して線形なので影の輪郭は変わらない。
+	///      太陽から見えない面(壁の裏・屋内)は N・L<=0 でも可視性0になるため、
+	///      間接光の削りには saturate(N・L) を掛け、太陽に背いた面は環境光で
+	///      見えたままにする。パンクチュアル側は既にBRDF評価済みのRGB放射輝度
 	///      なので同じ掛け方はできない — shadow_strength_ の適用は
 	///      ShadowRT.hlsl 側で完結させている(下の punctual_direct_lighting 参照)。
-	Texture2D<float> directional_visibility_texture = ResourceDescriptorHeap[constant_indices.shadow_.directional_visibility_srv_index_];
+	Texture2D<float> directional_visibility_texture = ResourceDescriptorHeap[shader_resource_indices.shadow_accumulation_.directional_visibility_index_];
 	float directional_visibility = directional_visibility_texture.Load(int3(pixel, 0));
 
-	ConstantBuffer<ShadowRayConstantBuffer> shadow_tuning = ResourceDescriptorHeap[structured_indices.shadow_.ray_constant_index_];
-	float directional_shadow_factor = saturate(lerp(1.0, directional_visibility, max(shadow_tuning.shadow_strength_, 0.0)));
+	ConstantBuffer<ShadowRayConstantBuffer> shadow_tuning = ResourceDescriptorHeap[constant_indices.shadow_index_];
+	float directional_shadow_factor = saturate(lerp(1.0, directional_visibility, saturate(shadow_tuning.shadow_strength_)));
+
+	float sun_facing = GetDirectionalLightConstantBuffer().sun_intensity_ > 0.0 ? saturate(dot(normal, normalize(-GetDirectionalLightConstantBuffer().direction_))) : 0.0;
+	float indirect_shadow_factor = 1.0 - saturate(shadow_tuning.shadow_strength_ - 1.0) * (1.0 - saturate(directional_visibility)) * sun_facing;
 
 	/// [EN] Ambient term: image-based lighting when a skymap is bound
 	///      (irradiance index != 0), otherwise the flat fallback ambient.
@@ -310,26 +318,26 @@ float4 main(CompositeOutput input) : SV_Target0
 	///      は厳密ミラーへ縮退)ので、以前のように (1-roughness) で重みを
 	///      落として粗い面だけプリフィルタ済みIBLへ逃がす必要はない —
 	///      トレース結果をそのまま信頼してよい。ここで読むのは
-	///      structured_indices 側の生1sppではなく、GI/AO/Shadowと同じく
-	///      constant_indices 側のデノイズ済み結果(最後のA-Trousパスの出力)。
+	///      reflection_ 側の生1sppではなく、GI/AO/Shadowと同じく
+	///      reflection_accumulation_ 側のデノイズ済み結果(最後のA-Trousパスの出力)。
 	///
 	///      アルファは GI/AO と同じ単純な有効フラグ(1=有効、0=背景・機能無効)。
 	///      背景・機能無効時はシェーダ側とレンダラー側の双方が 0 を書くので、
 	///      a > 0 がそのまま有効判定になる。
-	Texture2D<float4> reflection_texture = ResourceDescriptorHeap[constant_indices.reflection_.radiance_srv_index_];
+	Texture2D<float4> reflection_texture = ResourceDescriptorHeap[shader_resource_indices.reflection_accumulation_.radiance_index_];
 	float4 traced_reflection = reflection_texture.Load(int3(pixel, 0));
 
-	ConstantBuffer<ReflectionRayConstantBuffer> reflection_tuning = ResourceDescriptorHeap[structured_indices.reflection_.ray_constant_index_];
+	ConstantBuffer<ReflectionRayConstantBuffer> reflection_tuning = ResourceDescriptorHeap[constant_indices.reflection_index_];
 	float reflection_weight = (traced_reflection.a > 0.0 ? 1.0 : 0.0) * max(reflection_tuning.strength_, 0.0);
 
 	/// [JP] レイトレGI(1バウンス拡散)。書かれているのは【入射放射輝度】で、
 	///      受け側のアルベドは掛かっていない — コサイン重み付き半球サンプリングの
 	///      pdf(cos/PI)が BRDF の albedo/PI と cos を約分するため。a=1 が有効。
 	///      無効時はレンダラーが a=0 でクリアするので常に読んでよい。ここで
-	///      読むのは structured_indices 側の生1sppではなく、
+	///      読むのは global_illumination_ 側の生1sppではなく、
 	///      GlobalIlluminationDenoiseCS.hlsl がビューごとに空間+時間デノイズ
-	///      した後の constant_indices 側の結果。
-	Texture2D<float4> global_illumination_texture = ResourceDescriptorHeap[constant_indices.global_illumination_.radiance_srv_index_];
+	///      した後の global_illumination_accumulation_ 側の結果。
+	Texture2D<float4> global_illumination_texture = ResourceDescriptorHeap[shader_resource_indices.global_illumination_accumulation_.radiance_index_];
 	float4 traced_global_illumination = global_illumination_texture.Load(int3(pixel, 0));
 	float global_illumination_weight = saturate(traced_global_illumination.a);
 
@@ -338,21 +346,21 @@ float4 main(CompositeOutput input) : SV_Target0
 	///      (直接光には掛けない — そちらの遮蔽はレイトレ影が担当)。
 	///      power_ でコントラストを調整(1=そのまま)。無効時はレンダラー側が
 	///      バッファを 1.0 でクリアするので、ここは常に読んでよい。
-	Texture2D<float> ao_openness = ResourceDescriptorHeap[constant_indices.ambient_occlusion_.openness_srv_index_];
-	ConstantBuffer<AmbientOcclusionRayConstantBuffer> ao_tuning = ResourceDescriptorHeap[structured_indices.ambient_occlusion_.ray_constant_index_];
+	Texture2D<float> ao_openness = ResourceDescriptorHeap[shader_resource_indices.ambient_occlusion_accumulation_.openness_index_];
+	ConstantBuffer<AmbientOcclusionRayConstantBuffer> ao_tuning = ResourceDescriptorHeap[constant_indices.ambient_occlusion_index_];
 	float ao = pow(saturate(ao_openness.Load(int3(pixel, 0))), max(ao_tuning.power_, 0.0001));
 
 	/// [JP] glTF コアの occlusionTexture(.r)。レイトレAOと同じ「環境光がどれだけ
 	///      届くか」を表すので同じ環境光項へ掛ける。両者は別物 — こちらは
 	///      アーティストが焼き込んだ静的な遮蔽、AO は実行時に計算する動的な遮蔽。
-	if (material_instance.occlusion_texture_index_ != 0xFFFFFFFF)
+	if (material_instance.texture_.occlusion_texture_index_ != 0xFFFFFFFF)
 	{
-		Texture2D<float4> occlusion_texture = ResourceDescriptorHeap[material_instance.occlusion_texture_index_];
+		Texture2D<float4> occlusion_texture = ResourceDescriptorHeap[material_instance.texture_.occlusion_texture_index_];
 		ao *= occlusion_texture.SampleLevel(sampler_aniso_wrap, material_texcoord, 0).r;
 	}
 
 	float3 lighting;
-	if (structured_indices.sky_.diffuse_irradiance_index_ != 0)
+	if (shader_resource_indices.sky_.diffuse_irradiance_index_ != 0)
 	{
 		float3 ibl_diffuse = ImageBasedLightingRadianceLambertian(normal, view, roughness, diffuse_color, f0) * ao;
 
@@ -387,7 +395,7 @@ float4 main(CompositeOutput input) : SV_Target0
 		///      ibl_diffuse は「遮蔽を考えずに空の irradiance を与える近似」で、GI は
 		///      同じものを実際にレイを飛ばして遮蔽込みで求めたもの。両方足すと空が
 		///      二重計上になる(GI の miss は空を返すのだから当然)。
-		lighting = (ibl_diffuse * (1.0 - global_illumination_weight) + ibl_specular) * structured_indices.sky_.intensity_;
+		lighting = (ibl_diffuse * (1.0 - global_illumination_weight) + ibl_specular) * GetSkyConstantBuffer().intensity_;
 	}
 	else
 	{
@@ -403,10 +411,10 @@ float4 main(CompositeOutput input) : SV_Target0
 	///      その分を屈折放射輝度で埋め戻す形で加算する。Fresnel透過率
 	///      (1-反射率)ぶんだけ通す — グレージング角ほど反射が支配的になり
 	///      屈折は減る。
-	Texture2D<float4> refraction_texture = ResourceDescriptorHeap[structured_indices.refraction_.output_srv_index_];
+	Texture2D<float4> refraction_texture = ResourceDescriptorHeap[shader_resource_indices.refraction_.output_index_];
 	float4 traced_refraction = refraction_texture.Load(int3(pixel, 0));
-	ConstantBuffer<RefractionRayConstantBuffer> refraction_tuning = ResourceDescriptorHeap[structured_indices.refraction_.ray_constant_index_];
-	float refraction_weight = traced_refraction.a * saturate(refraction_tuning.strength_) * saturate(material_instance.transmission_factor_);
+	ConstantBuffer<RefractionRayConstantBuffer> refraction_tuning = ResourceDescriptorHeap[constant_indices.refraction_index_];
+	float refraction_weight = traced_refraction.a * saturate(refraction_tuning.strength_) * saturate(material_instance.extension_.transmission_factor_);
 	if (refraction_weight > 0.0)
 	{
 		float normal_dot_view_for_refraction = clamp(dot(normal, view), 0.0, 1.0);
@@ -420,28 +428,30 @@ float4 main(CompositeOutput input) : SV_Target0
 	///      sky_intensity_ も掛けない。GI シェーダ側で irradiance に既に掛けてある。
 	lighting += traced_global_illumination.rgb * global_illumination_weight * diffuse_color;
 
+	lighting *= indirect_shadow_factor;
 
-	ConstantBuffer<LightConstantData> light_constant_buffer = ResourceDescriptorHeap[constant_indices.light_index_];
 
-	if (light_constant_buffer.directional_intensity_ > 0.0)
+	ConstantBuffer<LightConstantBuffer> light_constant_buffer = ResourceDescriptorHeap[constant_indices.light_index_];
+
+	if (GetDirectionalLightConstantBuffer().sun_intensity_ > 0.0)
 	{
-		float3 light_direction = normalize(-light_constant_buffer.directional_direction_);
-		float3 directional_color = light_constant_buffer.directional_color_.rgb * light_constant_buffer.directional_intensity_ * directional_shadow_factor;
-		lighting += EvalDirectLightDispatch(material_instance.shading_model_, normal, view, light_direction, diffuse_color, f0, roughness, clearcoat_factor, clearcoat_roughness, clearcoat_normal, sheen_color, sheen_roughness, anisotropy_tangent, anisotropy_bitangent, anisotropy_strength) * directional_color;
+		float3 light_direction = normalize(-GetDirectionalLightConstantBuffer().direction_);
+		float3 directional_color = GetDirectionalLightConstantBuffer().sun_color_.rgb * GetDirectionalLightConstantBuffer().sun_intensity_ * directional_shadow_factor;
+		lighting += EvalDirectLightDispatch(material_instance.shading_.shading_model_, normal, view, light_direction, diffuse_color, f0, roughness, clearcoat_factor, clearcoat_roughness, clearcoat_normal, sheen_color, sheen_roughness, anisotropy_tangent, anisotropy_bitangent, anisotropy_strength) * directional_color;
 
 		/// [JP] レイトレ表面下散乱(SubsurfaceScatteringRT.hlsl が書いた透過率)。
 		///      光に背いた面(N・L<0)で、裏から差し込む光が薄い部分ほど透けて
 		///      見える項を足す。back(裏面性)で正面側では自然に0になる。
 		///      無効時はレンダラー側がバッファを 0.0 でクリアするので常に
 		///      読んでよい。
-		Texture2D<float> sss_transmittance_texture = ResourceDescriptorHeap[structured_indices.subsurface_scattering_.transmittance_srv_index_];
+		Texture2D<float> sss_transmittance_texture = ResourceDescriptorHeap[shader_resource_indices.subsurface_scattering_.transmittance_index_];
 		float sss_transmittance = sss_transmittance_texture.Load(int3(pixel, 0));
 
 		if (sss_transmittance > 0.0)
 		{
-			ConstantBuffer<SubsurfaceScatteringRayConstantBuffer> sss_tuning = ResourceDescriptorHeap[structured_indices.subsurface_scattering_.ray_constant_index_];
+			ConstantBuffer<SubsurfaceScatteringRayConstantBuffer> sss_tuning = ResourceDescriptorHeap[constant_indices.subsurface_scattering_index_];
 			float back = saturate(dot(-normal, light_direction));
-			float3 translucency = diffuse_color * sss_tuning.subsurface_color_ * light_constant_buffer.directional_color_.rgb * light_constant_buffer.directional_intensity_;
+			float3 translucency = diffuse_color * sss_tuning.subsurface_color_ * GetDirectionalLightConstantBuffer().sun_color_.rgb * GetDirectionalLightConstantBuffer().sun_intensity_;
 			lighting += translucency * sss_transmittance * back * sss_tuning.strength_;
 		}
 	}
@@ -456,7 +466,7 @@ float4 main(CompositeOutput input) : SV_Target0
 	///      同一ピクセルへ及ぶ場面で「全灯の可視性を1つの確率的スカラーへ平均化
 	///      して共有する」という以前の破綻(ある灯が遮蔽されていても他の灯と
 	///      混ざって中途半端に暗くなる)が起きない。
-	Texture2D<float4> punctual_direct_lighting_texture = ResourceDescriptorHeap[constant_indices.shadow_.punctual_radiance_srv_index_];
+	Texture2D<float4> punctual_direct_lighting_texture = ResourceDescriptorHeap[shader_resource_indices.shadow_accumulation_.punctual_radiance_index_];
 	lighting += punctual_direct_lighting_texture.Load(int3(pixel, 0)).rgb;
 
 	float4 view_position = mul(float4(world_position, 1.0), scene.view_);
@@ -464,14 +474,15 @@ float4 main(CompositeOutput input) : SV_Target0
 
 	/// [JP] 雷の閃光: シーン全体を一瞬明るく染める簡易表現(実際の稲妻ジオメトリは
 	///      描かない)。
-	lighting += light_constant_buffer.thunder_flash_ * float3(0.85, 0.9, 1.0) * 2.5;
+	ConstantBuffer<WeatherConstantBuffer> weather = GetWeatherConstantBuffer();
+	lighting += weather.thunder_flash_ * float3(0.85, 0.9, 1.0) * 2.5;
 
 	/// [JP] 最後にフォグ/体積光を合成(このピクセルのビュー空間Zのスライスで
 	///      サンプル)。ゴッドレイ(fog.rgb)もここで乗る。
 	float3 final_color = ApplyVolumetricFog(lighting + emissive, input.texcoord, linear_depth);
 
 	/// [JP] 雷の閃光はこの面にも独立して効く。
-	final_color += LightningBoltMask(input.texcoord, light_constant_buffer.thunder_seed_, saturate(light_constant_buffer.thunder_flash_ - 0.5) * 2.0);
+	final_color += LightningBoltMask(input.texcoord, weather.thunder_seed_, saturate(weather.thunder_flash_ - 0.5) * 2.0);
 
 	return float4(final_color, 1.0);
 }

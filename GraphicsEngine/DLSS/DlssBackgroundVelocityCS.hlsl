@@ -1,5 +1,6 @@
-#include "../Shader/Constants.hlsli"
-#include "../Shader/Structured.hlsli"
+#include "../Shader/Scene.hlsli"
+#include "../Shader/ShaderResources.hlsli"
+#include "../Shader/UnorderedAccesses.hlsli"
 
 /**
 * [EN]
@@ -58,14 +59,14 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	uint2 pixel = dtid.xy;
 
 	// DeferredLightingPS.hlsl と同じ「背景」判定(法線バッファが全ゼロ)。
-	Texture2D<float4> normal_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.index_1_];
+	Texture2D<float4> normal_texture = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.index_1_];
 	float4 rt1 = normal_texture.Load(int3(pixel, 0));
 	if (dot(rt1, rt1) != 0.0)
 	{
 		return;
 	}
 
-	Texture2D<float> depth_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.depth_index_];
+	Texture2D<float> depth_texture = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.depth_index_];
 	float depth = depth_texture.Load(int3(pixel, 0));
 
 	float2 uv = (float2(pixel) + 0.5) * scene.inverse_screen_size_;
@@ -89,6 +90,6 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	float2 previous_ndc = previous_clip.xy / previous_clip.w;
 	float2 velocity = (current_ndc - previous_ndc) * 0.5;
 
-	RWTexture2D<float2> velocity_output = ResourceDescriptorHeap[structured_indices.gbuffer_.velocity_uav_index_];
+	RWTexture2D<float2> velocity_output = ResourceDescriptorHeap[unordered_access_indices.geometry_buffer_.index_2_];
 	velocity_output[pixel] = velocity;
 }

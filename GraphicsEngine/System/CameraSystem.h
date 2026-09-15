@@ -1,6 +1,7 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
 #include <FoundationEngine/Math/Halton.h>
+#include <FoundationEngine/ECS/Entity.h>
 #include <GraphicsEngine/System/SceneSystem.h>
 #include <GraphicsEngine/Camera/EditorCamera.h>
 #include <GraphicsEngine/Camera/EditorCameraController.h>
@@ -44,6 +45,14 @@ namespace SeedCore
 		Uint32 frameIndex_ = 0;
 		Bool hasActiveCamera_ = false;
 		Mode mode_ = Mode::User;
+
+		EntityID activeBrain_;
+		Vector3 lastEye_ = Vector3::Zero;
+		Quaternion lastOrientation_ = Quaternion::Identity;
+		Vector3 blendFromEye_ = Vector3::Zero;
+		Quaternion blendFromOrientation_ = Quaternion::Identity;
+		Float blendElapsed_ = 0.0f;
+		Float blendDuration_ = 0.0f;
 
 		EditorCamera freeCamera_;
 		EditorCameraController freeCameraController_;

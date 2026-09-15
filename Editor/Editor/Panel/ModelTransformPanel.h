@@ -45,14 +45,14 @@ namespace SeedCore
 		/// [JP] 対象アセットの軸コンベンションの編集用コピー。「適用」を押すまでインスペクターに表示される。
 		AxisConvention editConvention_;
 
-		/// [EN] Base transform delta, baked directly into the asset by
-		///      ApplyTransformConversion and reset to identity afterward - unlike
-		///      editConvention_ there is no persisted "current" state to diff
-		///      against, each 適用 just bakes whatever is currently entered.
-		/// [JP] 基礎トランスフォームの差分。ApplyTransformConversion がアセットへ
-		///      直接焼き込み、その後は単位量へリセットされる — editConvention_ と
-		///      違い比較対象となる永続的な「現在値」が無いため、適用のたびに
-		///      入力中の値をそのまま焼き込む。
+		/// [EN] Base transform delta, applied to the asset's root nodes by
+		///      ApplyTransformConversion and reset to identity afterward - each
+		///      適用 applies whatever is currently entered, and the running
+		///      total is accumulated into the .meta's modelTransform_.
+		/// [JP] 基礎トランスフォームの差分。ApplyTransformConversion がアセットの
+		///      ルートノードへ適用し、その後は単位量へリセットされる — 適用の
+		///      たびに入力中の値をそのまま適用し、累積値は .meta の
+		///      modelTransform_ へ積み上げる。
 		Vector3 baseTransformPosition_ = { 0.0f, 0.0f, 0.0f };
 		Vector3 baseTransformRotation_ = { 0.0f, 0.0f, 0.0f };
 		Vector3 baseTransformScale_ = { 1.0f, 1.0f, 1.0f };

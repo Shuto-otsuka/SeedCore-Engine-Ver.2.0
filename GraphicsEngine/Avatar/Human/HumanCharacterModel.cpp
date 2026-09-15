@@ -103,7 +103,7 @@ namespace SeedCore
 		DynamicArray<Byte> iv(rawData.begin(), rawData.begin() + 16);
 		DynamicArray<Byte> ciphertext(rawData.begin() + 16, rawData.end());
 		blob_ = Aes256::Decrypt(key, iv, ciphertext);
-		if (blob_.size() < sizeof(Uint32) * 17)
+		if (blob_.size() < sizeof(Uint32) * 18)
 		{
 			blob_.clear();
 			return false;
@@ -186,7 +186,31 @@ namespace SeedCore
 			jointGroups_[boneIndex].assign(indices, indices + count);
 		}
 
+		const Uint32* regionData = reinterpret_cast<const Uint32*>(base + blockOffsets[10]);
+		for (Uint32 regionIndex = 0; regionIndex < humanCharacterRegionCount; regionIndex++)
+		{
+			regionRanges_[regionIndex].firstTriangle_ = regionData[regionIndex * 2 + 0];
+			regionRanges_[regionIndex].triangleCount_ = regionData[regionIndex * 2 + 1];
+		}
+
 		return true;
+	}
+
+	const HumanCharacterRegionRange& HumanCharacterModel::RegionTriangleRange(Uint32 regionIndex)const
+	{
+		return regionRanges_[regionIndex < humanCharacterRegionCount ? regionIndex : 0];
+	}
+
+	std::span<const Char* const> HumanCharacterModel::RegionNames()
+	{
+		static const Char* const names[] = { "skin", "face", "top", "bottom" };
+		return std::span<const Char* const>(names, std::size(names));
+	}
+
+	std::span<const Char* const> HumanCharacterModel::RegionLabels()
+	{
+		static const Char* const labels[] = { "肌", "顔", "服上", "服下" };
+		return std::span<const Char* const>(labels, std::size(labels));
 	}
 
 	Bool HumanCharacterModel::IsLoaded()const

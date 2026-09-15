@@ -1,6 +1,8 @@
+#include "../../Shader/Scene.hlsli"
+#include "../../Shader/ShaderResources.hlsli"
+#include "../../Shader/UnorderedAccesses.hlsli"
 #include "../../Shader/Constants.hlsli"
-#include "../../Shader/Structured.hlsli"
-#include "../../Shader/Light.hlsli"
+#include "../../Light/Light.hlsli"
 #include "../../Shader/Sampler.hlsli"
 #include "../../Shader/Noise.hlsli"
 #include "VolumetricCloudScapes.hlsli"
@@ -62,7 +64,7 @@ void main(uint3 dtid : SV_DispatchThreadID)
 {
 	SceneConstantBuffer scene = GetSceneConstantBuffer();
 
-	RWTexture2D<float4> output = ResourceDescriptorHeap[structured_indices.cloud_.output_uav_index_];
+	RWTexture2D<float4> output = ResourceDescriptorHeap[unordered_access_indices.cloud_.output_index_];
 
 	/// [EN] This pass runs at REDUCED resolution
 	///      (VolumetricCloudScapesRenderer's resolutionDivisor_). Both the
@@ -93,7 +95,7 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	///      (which are effectively at infinity), so it is skipped.
 	/// [JP] シーンジオメトリがあるピクセルは雲(遠景)より必ず手前なので
 	///      スキップ。
-	Texture2D<float> depth_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.depth_index_];
+	Texture2D<float> depth_texture = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.depth_index_];
 
 	/// [EN] Depth is at FULL resolution, so this looks at the whole block of
 	///      full-res pixels this one reduced-res pixel covers. Clouds are
@@ -128,10 +130,10 @@ void main(uint3 dtid : SV_DispatchThreadID)
 		return;
 	}
 
-	ConstantBuffer<VolumetricCloudScapesRayConstantBuffer> tuning = ResourceDescriptorHeap[structured_indices.cloud_.ray_constant_index_];
+	ConstantBuffer<VolumetricCloudScapesRayConstantBuffer> tuning = ResourceDescriptorHeap[constant_indices.cloud_index_];
 
-	Texture3D<float> shape_noise = ResourceDescriptorHeap[structured_indices.cloud_.shape_noise_srv_index_];
-	Texture3D<float> detail_noise = ResourceDescriptorHeap[structured_indices.cloud_.detail_noise_srv_index_];
+	Texture3D<float> shape_noise = ResourceDescriptorHeap[shader_resource_indices.cloud_.shape_noise_index_];
+	Texture3D<float> detail_noise = ResourceDescriptorHeap[shader_resource_indices.cloud_.detail_noise_index_];
 
 	/// [EN] Reconstruct the view direction (the direction vector pointing
 	///      toward the far clip = 0 under reverse-Z). UV is taken at the
@@ -158,9 +160,9 @@ void main(uint3 dtid : SV_DispatchThreadID)
 		return;
 	}
 
-	ConstantBuffer<LightConstantData> light = ResourceDescriptorHeap[constant_indices.light_index_];
-	float3 light_direction = normalize(-light.directional_direction_);
-	float3 sun_radiance = light.directional_color_.rgb * light.directional_intensity_;
+	ConstantBuffer<LightConstantBuffer> light = ResourceDescriptorHeap[constant_indices.light_index_];
+	float3 light_direction = normalize(-GetDirectionalLightConstantBuffer().direction_);
+	float3 sun_radiance = GetDirectionalLightConstantBuffer().sun_color_.rgb * GetDirectionalLightConstantBuffer().sun_intensity_;
 
 	/// [EN] Rainy weather pulls the albedo toward a dark gray.
 	/// [JP] 雨天はアルベドを暗い灰色へ寄せる。

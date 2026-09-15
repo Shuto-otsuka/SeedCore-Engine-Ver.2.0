@@ -3,11 +3,12 @@
 // falloff.
 float3 EvalDirectLightToon(float3 normal, float3 view, float3 light_direction, float3 diffuse_color, float3 specular_color, float shininess)
 {
+	const float PI = 3.14159265358979;
 	const int TOON_BANDS = 3;
 
 	float normal_dot_light = max(dot(normal, light_direction), 0.0);
 	float band = floor(normal_dot_light * TOON_BANDS) / max(TOON_BANDS - 1, 1);
-	float3 diffuse = diffuse_color * band;
+	float3 diffuse = diffuse_color / PI * band;
 
 	float3 half_vector = normalize(view + light_direction);
 	float normal_dot_half = max(dot(normal, half_vector), 0.0);

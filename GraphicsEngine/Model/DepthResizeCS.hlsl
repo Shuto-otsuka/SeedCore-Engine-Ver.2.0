@@ -18,7 +18,9 @@
 * なくニアレストネイバー - シルエットの境界をまたいで無関係な2つの深度値を
 * ブレンドすると、どちらか一方を選ぶより悪い、意味のない中間深度になる。
 */
-struct DepthResizeConstants
+#include "../Shader/Dispatch.hlsli"
+
+struct DepthResizeConstantBuffer
 {
 	uint source_index_;
 	uint destination_index_;
@@ -29,25 +31,29 @@ struct DepthResizeConstants
 	uint depth_resize_padding_0_;
 	uint depth_resize_padding_1_;
 };
-ConstantBuffer<DepthResizeConstants> depth_resize : register(b0, space1);
+
+ConstantBuffer<DepthResizeConstantBuffer> GetDepthResizeConstantBuffer()
+{
+	return ResourceDescriptorHeap[dispatch_buffer_index_];
+}
 
 [numthreads(8, 8, 1)]
 void main(uint3 dtid : SV_DispatchThreadID)
 {
-	if (dtid.x >= depth_resize.destination_width_ || dtid.y >= depth_resize.destination_height_)
+	if (dtid.x >= GetDepthResizeConstantBuffer().destination_width_ || dtid.y >= GetDepthResizeConstantBuffer().destination_height_)
 	{
 		return;
 	}
 
 	uint2 source_pixel = uint2(
-		(dtid.x * depth_resize.source_width_) / depth_resize.destination_width_,
-		(dtid.y * depth_resize.source_height_) / depth_resize.destination_height_
+		(dtid.x * GetDepthResizeConstantBuffer().source_width_) / GetDepthResizeConstantBuffer().destination_width_,
+		(dtid.y * GetDepthResizeConstantBuffer().source_height_) / GetDepthResizeConstantBuffer().destination_height_
 	);
-	source_pixel = min(source_pixel, uint2(depth_resize.source_width_ - 1, depth_resize.source_height_ - 1));
+	source_pixel = min(source_pixel, uint2(GetDepthResizeConstantBuffer().source_width_ - 1, GetDepthResizeConstantBuffer().source_height_ - 1));
 
-	Texture2D<float> source = ResourceDescriptorHeap[depth_resize.source_index_];
+	Texture2D<float> source = ResourceDescriptorHeap[GetDepthResizeConstantBuffer().source_index_];
 	float depth = source.Load(int3(source_pixel, 0));
 
-	RWTexture2D<float> destination = ResourceDescriptorHeap[depth_resize.destination_index_];
+	RWTexture2D<float> destination = ResourceDescriptorHeap[GetDepthResizeConstantBuffer().destination_index_];
 	destination[dtid.xy] = depth;
 }

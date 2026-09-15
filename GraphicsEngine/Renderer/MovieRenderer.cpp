@@ -4,6 +4,7 @@
 #include <GraphicsEngine/Movie/MovieResource.h>
 #include <GraphicsEngine/D3D12/Descriptor/BindlessHeap.h>
 #include <GraphicsEngine/D3D12/PipelineState/PipelineStateObject.h>
+#include <GraphicsEngine/D3D12/Context/D3D12Check.h>
 #include <GraphicsEngine/System/IndicesSystem.h>
 #include <GraphicsEngine/D3D12/SwapChain/GraphicsResolution.h>
 #include <FoundationEngine/ECS/Query.h>
@@ -18,22 +19,22 @@ namespace SeedCore
 		/// No Code
 	}
 
-	void MovieRenderer::Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, IndicesSystem& indicesSystem)
+	void MovieRenderer::Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, ShaderResourceIndicesSystem& shaderResourceIndicesSystem)
 	{
 		bindlessHeap_ = bindlessHeap;
 		maxCount_ = 1024;
 
 		movieShader_.Create(shaderCache, device);
 
-		indicesSystem_ = &indicesSystem;
+		shaderResourceIndicesSystem_ = &shaderResourceIndicesSystem;
 
-		spriteBuffer_ = MakePtr<ReadOnlyStructuredBuffer<MovieSpriteInstance>>(device, bindlessHeap, maxCount_);
-		billboardBuffer_ = MakePtr<ReadOnlyStructuredBuffer<MovieBillboardInstance>>(device, bindlessHeap, maxCount_);
-		fullscreenBuffer_ = MakePtr<ReadOnlyStructuredBuffer<MovieFullscreenInstance>>(device, bindlessHeap, 32);
+		spriteBuffer_ = MakePtr<ReadOnlyStructuredBuffer<MovieSpriteStructuredBuffer>>(device, bindlessHeap, maxCount_);
+		billboardBuffer_ = MakePtr<ReadOnlyStructuredBuffer<MovieBillboardStructuredBuffer>>(device, bindlessHeap, maxCount_);
+		fullscreenBuffer_ = MakePtr<ReadOnlyStructuredBuffer<MovieFullscreenStructuredBuffer>>(device, bindlessHeap, 32);
 
-		indicesSystem.SetMovieSpriteIndex(spriteBuffer_->Index());
-		indicesSystem.SetMovieBillboardIndex(billboardBuffer_->Index());
-		indicesSystem.SetMovieFullscreenIndex(fullscreenBuffer_->Index());
+		shaderResourceIndicesSystem.SetMovieSpriteIndex(spriteBuffer_->Index());
+		shaderResourceIndicesSystem.SetMovieBillboardIndex(billboardBuffer_->Index());
+		shaderResourceIndicesSystem.SetMovieFullscreenIndex(fullscreenBuffer_->Index());
 	}
 
 	void MovieRenderer::Gather(MovieResource& movieResource, World& world, Vector2 nativeScreenSize, Entity selectedEntity)
@@ -74,7 +75,7 @@ namespace SeedCore
 						return;
 					}
 
-					MovieFullscreenInstance instance{};
+					MovieFullscreenStructuredBuffer instance{};
 					instance.color_ = movie.color_;
 					instance.textureIndex_ = textureIndex;
 					instance.textureAspect_ = static_cast<Float>(nativeWidth) / static_cast<Float>(nativeHeight);
@@ -106,7 +107,7 @@ namespace SeedCore
 				{
 					hasSelectedSpriteInstance_ = hasSelectedSpriteInstance_ || selected != 0;
 
-					MovieSpriteInstance instance{};
+					MovieSpriteStructuredBuffer instance{};
 					instance.position_ = Vector2(worldTranslation.x, worldTranslation.y) * spriteReferenceScale;
 					instance.rotation_ = worldRotation.ToEuler().x;
 					instance.scale_ = Vector2(worldScale.x, worldScale.y);
@@ -119,7 +120,7 @@ namespace SeedCore
 
 					hasSelectedBillboardInstance_ = hasSelectedBillboardInstance_ || selected != 0;
 
-					MovieBillboardInstance canvasInstance{};
+					MovieBillboardStructuredBuffer canvasInstance{};
 					canvasInstance.position_ = Vector3(100000.0f + worldTranslation.x, 100000.0f + (ScResolution::SC_HD.Height - worldTranslation.y), 100000.0f);
 					canvasInstance.rotation_ = Vector3::Zero;
 					canvasInstance.scale_ = Vector2(worldScale.x * size.x, worldScale.y * size.y);
@@ -149,7 +150,7 @@ namespace SeedCore
 				{
 					hasSelectedBillboardInstance_ = hasSelectedBillboardInstance_ || selected != 0;
 
-					MovieBillboardInstance instance{};
+					MovieBillboardStructuredBuffer instance{};
 					instance.position_ = worldTranslation;
 					instance.rotation_ = worldRotation.ToEuler();
 					instance.scale_ = Vector2(worldScale.x, worldScale.y);
@@ -166,9 +167,9 @@ namespace SeedCore
 
 	void MovieRenderer::Upload()
 	{
-		indicesSystem_->SetMovieSpriteIndex(spriteBuffer_->Index());
-		indicesSystem_->SetMovieBillboardIndex(billboardBuffer_->Index());
-		indicesSystem_->SetMovieFullscreenIndex(fullscreenBuffer_->Index());
+		shaderResourceIndicesSystem_->SetMovieSpriteIndex(spriteBuffer_->Index());
+		shaderResourceIndicesSystem_->SetMovieBillboardIndex(billboardBuffer_->Index());
+		shaderResourceIndicesSystem_->SetMovieFullscreenIndex(fullscreenBuffer_->Index());
 
 		if (!spriteInstances_.empty())
 		{
@@ -186,7 +187,7 @@ namespace SeedCore
 		}
 	}
 
-	void MovieRenderer::DrawFullscreen(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex)
+	void MovieRenderer::DrawFullscreen(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
 	{
 		if (fullscreenInstances_.empty())
 		{
@@ -197,18 +198,24 @@ namespace SeedCore
 		cmdList->SetDescriptorHeaps(_countof(heaps), heaps);
 		cmdList->SetGraphicsRootSignature(movieShader_.GetRootSignature());
 
-		cmdList->SetGraphicsRootConstantBufferView(2, constantIndex);
-		cmdList->SetGraphicsRootConstantBufferView(3, structuredIndex);
+		RootSignature::BindGraphics(cmdList, addresses);
 
 		cmdList->SetPipelineState(movieShader_.GetPipelineStateFullscreen());
-		cmdList->SetGraphicsRootDescriptorTable(0, bindlessHeap_->GPUHandle(0));
 
-		Uint groupCount = (static_cast<Uint>(fullscreenInstances_.size()) + 31) / 32;
-		cmdList->DispatchMesh(groupCount, 1, 1);
+		if (D3D12Check::GetLevel() == D3D12Level::D12_2)
+		{
+			Uint groupCount = (static_cast<Uint>(fullscreenInstances_.size()) + 31) / 32;
+			cmdList->DispatchMesh(groupCount, 1, 1);
+		}
+		else
+		{
+			cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			cmdList->DrawInstanced(6, static_cast<Uint>(fullscreenInstances_.size()), 0, 0);
+		}
 		ProfilerStats::AddDrawCall();
 	}
 
-	void MovieRenderer::DrawSprite(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex)
+	void MovieRenderer::DrawSprite(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
 	{
 		if (spriteInstances_.empty())
 		{
@@ -219,18 +226,24 @@ namespace SeedCore
 		cmdList->SetDescriptorHeaps(_countof(heaps), heaps);
 		cmdList->SetGraphicsRootSignature(movieShader_.GetRootSignature());
 
-		cmdList->SetGraphicsRootConstantBufferView(2, constantIndex);
-		cmdList->SetGraphicsRootConstantBufferView(3, structuredIndex);
+		RootSignature::BindGraphics(cmdList, addresses);
 
 		cmdList->SetPipelineState(movieShader_.GetPipelineStateSprite());
-		cmdList->SetGraphicsRootDescriptorTable(0, bindlessHeap_->GPUHandle(0));
 
-		Uint groupCount = (static_cast<Uint>(spriteInstances_.size()) + 31) / 32;
-		cmdList->DispatchMesh(groupCount, 1, 1);
+		if (D3D12Check::GetLevel() == D3D12Level::D12_2)
+		{
+			Uint groupCount = (static_cast<Uint>(spriteInstances_.size()) + 31) / 32;
+			cmdList->DispatchMesh(groupCount, 1, 1);
+		}
+		else
+		{
+			cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			cmdList->DrawInstanced(6, static_cast<Uint>(spriteInstances_.size()), 0, 0);
+		}
 		ProfilerStats::AddDrawCall();
 	}
 
-	void MovieRenderer::DrawBillboard(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex)
+	void MovieRenderer::DrawBillboard(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
 	{
 		if (billboardInstances_.empty())
 		{
@@ -241,18 +254,24 @@ namespace SeedCore
 		cmdList->SetDescriptorHeaps(_countof(heaps), heaps);
 		cmdList->SetGraphicsRootSignature(movieShader_.GetRootSignature());
 
-		cmdList->SetGraphicsRootConstantBufferView(2, constantIndex);
-		cmdList->SetGraphicsRootConstantBufferView(3, structuredIndex);
+		RootSignature::BindGraphics(cmdList, addresses);
 
 		cmdList->SetPipelineState(movieShader_.GetPipelineStateBillboard());
-		cmdList->SetGraphicsRootDescriptorTable(0, bindlessHeap_->GPUHandle(0));
 
-		Uint groupCount = (static_cast<Uint>(billboardInstances_.size()) + 31) / 32;
-		cmdList->DispatchMesh(groupCount, 1, 1);
+		if (D3D12Check::GetLevel() == D3D12Level::D12_2)
+		{
+			Uint groupCount = (static_cast<Uint>(billboardInstances_.size()) + 31) / 32;
+			cmdList->DispatchMesh(groupCount, 1, 1);
+		}
+		else
+		{
+			cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			cmdList->DrawInstanced(6, static_cast<Uint>(billboardInstances_.size()), 0, 0);
+		}
 		ProfilerStats::AddDrawCall();
 	}
 
-	void MovieRenderer::DrawSelectionMaskSprite(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex)
+	void MovieRenderer::DrawSelectionMaskSprite(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
 	{
 		if (!hasSelectedSpriteInstance_)
 		{
@@ -262,18 +281,24 @@ namespace SeedCore
 		ID3D12DescriptorHeap* heaps[] = { heap };
 		cmdList->SetDescriptorHeaps(_countof(heaps), heaps);
 		cmdList->SetGraphicsRootSignature(movieShader_.GetRootSignature());
-		cmdList->SetGraphicsRootConstantBufferView(2, constantIndex);
-		cmdList->SetGraphicsRootConstantBufferView(3, structuredIndex);
+		RootSignature::BindGraphics(cmdList, addresses);
 
 		cmdList->SetPipelineState(movieShader_.GetPipelineStateSelectionMaskSprite());
-		cmdList->SetGraphicsRootDescriptorTable(0, bindlessHeap_->GPUHandle(0));
 
-		Uint groupCount = (static_cast<Uint>(spriteInstances_.size()) + 31) / 32;
-		cmdList->DispatchMesh(groupCount, 1, 1);
+		if (D3D12Check::GetLevel() == D3D12Level::D12_2)
+		{
+			Uint groupCount = (static_cast<Uint>(spriteInstances_.size()) + 31) / 32;
+			cmdList->DispatchMesh(groupCount, 1, 1);
+		}
+		else
+		{
+			cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			cmdList->DrawInstanced(6, static_cast<Uint>(spriteInstances_.size()), 0, 0);
+		}
 		ProfilerStats::AddDrawCall();
 	}
 
-	void MovieRenderer::DrawSelectionMaskBillboard(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex)
+	void MovieRenderer::DrawSelectionMaskBillboard(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
 	{
 		if (!hasSelectedBillboardInstance_)
 		{
@@ -283,14 +308,20 @@ namespace SeedCore
 		ID3D12DescriptorHeap* heaps[] = { heap };
 		cmdList->SetDescriptorHeaps(_countof(heaps), heaps);
 		cmdList->SetGraphicsRootSignature(movieShader_.GetRootSignature());
-		cmdList->SetGraphicsRootConstantBufferView(2, constantIndex);
-		cmdList->SetGraphicsRootConstantBufferView(3, structuredIndex);
+		RootSignature::BindGraphics(cmdList, addresses);
 
 		cmdList->SetPipelineState(movieShader_.GetPipelineStateSelectionMaskBillboard());
-		cmdList->SetGraphicsRootDescriptorTable(0, bindlessHeap_->GPUHandle(0));
 
-		Uint groupCount = (static_cast<Uint>(billboardInstances_.size()) + 31) / 32;
-		cmdList->DispatchMesh(groupCount, 1, 1);
+		if (D3D12Check::GetLevel() == D3D12Level::D12_2)
+		{
+			Uint groupCount = (static_cast<Uint>(billboardInstances_.size()) + 31) / 32;
+			cmdList->DispatchMesh(groupCount, 1, 1);
+		}
+		else
+		{
+			cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			cmdList->DrawInstanced(6, static_cast<Uint>(billboardInstances_.size()), 0, 0);
+		}
 		ProfilerStats::AddDrawCall();
 	}
 }

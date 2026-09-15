@@ -182,9 +182,9 @@ namespace SeedCore
 		DispatchToActor(world, entityID, otherEntityID, [](ComponentBase* component, Entity otherEntity) { component->DispatchTriggerExit(otherEntity); });
 	}
 
-	DynamicArray<ColliderInstance> PhysicsSystem::GatherColliderInstances(World& world)
+	DynamicArray<ColliderStructuredBuffer> PhysicsSystem::GatherColliderInstances(World& world)
 	{
-		DynamicArray<ColliderInstance> instances;
+		DynamicArray<ColliderStructuredBuffer> instances;
 
 		const Color colliderDebugColor(0.0f, 1.0f, 0.0f, 1.0f);
 
@@ -202,7 +202,7 @@ namespace SeedCore
 			Quaternion actorRotation;
 			GetActorTransform(actor, actorPosition, actorRotation);
 
-			ColliderInstance instance{};
+			ColliderStructuredBuffer instance{};
 			instance.position_ = actorPosition + Vector3::Transform(collider->center_, actorRotation);
 			instance.shapeKind_ = static_cast<Uint32>(ColliderShapeKind::Box);
 			instance.rotation_ = actorRotation;
@@ -225,7 +225,7 @@ namespace SeedCore
 			Quaternion actorRotation;
 			GetActorTransform(actor, actorPosition, actorRotation);
 
-			ColliderInstance instance{};
+			ColliderStructuredBuffer instance{};
 			instance.position_ = actorPosition;
 			instance.shapeKind_ = static_cast<Uint32>(ColliderShapeKind::Sphere);
 			instance.rotation_ = actorRotation;
@@ -248,7 +248,7 @@ namespace SeedCore
 			Quaternion actorRotation;
 			GetActorTransform(actor, actorPosition, actorRotation);
 
-			ColliderInstance instance{};
+			ColliderStructuredBuffer instance{};
 			instance.position_ = actorPosition;
 			instance.shapeKind_ = static_cast<Uint32>(ColliderShapeKind::Capsule);
 			instance.rotation_ = actorRotation;
@@ -271,7 +271,7 @@ namespace SeedCore
 			Quaternion actorRotation;
 			GetActorTransform(actor, actorPosition, actorRotation);
 
-			ColliderInstance instance{};
+			ColliderStructuredBuffer instance{};
 			instance.position_ = actorPosition;
 			instance.shapeKind_ = static_cast<Uint32>(ColliderShapeKind::Cylinder);
 			instance.rotation_ = actorRotation;
@@ -296,7 +296,7 @@ namespace SeedCore
 
 			Vector3 localOffset(collider->center_.x, collider->center_.y, 0.0f);
 
-			ColliderInstance instance{};
+			ColliderStructuredBuffer instance{};
 			instance.position_ = actorPosition + Vector3::Transform(localOffset, actorRotation);
 			instance.shapeKind_ = static_cast<Uint32>(ColliderShapeKind::Rect);
 			instance.rotation_ = actorRotation;
@@ -325,7 +325,7 @@ namespace SeedCore
 			Quaternion faceForwardRotation = Quaternion::CreateFromAxisAngle(Vector3::UnitX, ToRadians(90.0f));
 			Vector3 localOffset(collider->center_.x, collider->center_.y, 0.0f);
 
-			ColliderInstance instance{};
+			ColliderStructuredBuffer instance{};
 			instance.position_ = actorPosition + Vector3::Transform(localOffset, actorRotation);
 			instance.shapeKind_ = static_cast<Uint32>(ColliderShapeKind::Circle);
 			instance.rotation_ = faceForwardRotation * actorRotation;

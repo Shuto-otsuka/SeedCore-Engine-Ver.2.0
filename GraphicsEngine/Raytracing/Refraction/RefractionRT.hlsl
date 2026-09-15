@@ -1,14 +1,17 @@
+#include "Refraction.hlsli"
+#include "../../Shader/Scene.hlsli"
+#include "../../Shader/ShaderResources.hlsli"
+#include "../../Shader/UnorderedAccesses.hlsli"
 #include "../../Shader/Constants.hlsli"
-#include "../../Shader/Structured.hlsli"
-#include "../../Shader/Light.hlsli"
+#include "../../Light/Light.hlsli"
 #include "../../Shader/Normal.hlsli"
 #include "../../Shader/Sampler.hlsli"
-#include "../../Sky/SkyMath.hlsli"
+#include "../../Shader/Vertex.hlsli"
 #include "../../Light/ImageBasedLighting.hlsli"
 #include "../VolumetricCloudScapes/VolumetricCloudScapes.hlsli"
-#include "../../Model/Model.hlsli"
 #include "../Reflection/Reflection.hlsli"
-#include "Refraction.hlsli"
+#include "../../Sky/Sky.hlsli"
+#include "../../Model/Model.hlsli"
 
 /**
 * [EN]
@@ -22,7 +25,7 @@
 *
 * Ray-traced refraction (RTPSO / DispatchRays, raygeneration only - no miss /
 * closesthit exports). Only pixels whose KHR_materials_transmission factor is
-* > 0 (read via VisID -> ModelInstance, same as Model/Opaque/DeferredLightingPS.hlsl)
+* > 0 (read via VisID -> ModelStructuredBuffer, same as Model/Opaque/DeferredLightingPS.hlsl)
 * trace at all; everything else writes a=0 (invalid) so DeferredLightingPS.hlsl
 * skips them. Bends the view ray through the surface with Snell's law (HLSL's
 * refract(), eta = 1/ior entering the medium), then walks the bounce chain
@@ -104,22 +107,22 @@
 */
 float3 SampleRefractionSky(float3 direction)
 {
-	if (structured_indices.sky_.environment_cube_index_ != 0)
+	if (shader_resource_indices.sky_.environment_cube_index_ != 0)
 	{
 		return SampleSkyboxEnvironment(direction).rgb;
 	}
 
-	ConstantBuffer<VolumetricCloudScapesRayConstantBuffer> cloud_tuning = ResourceDescriptorHeap[structured_indices.cloud_.ray_constant_index_];
-	if (cloud_tuning.procedural_sky_enabled_ != 0 && structured_indices.sky_.specular_prefiltered_index_ != 0)
+	ConstantBuffer<VolumetricCloudScapesRayConstantBuffer> cloud_tuning = ResourceDescriptorHeap[constant_indices.cloud_index_];
+	if (cloud_tuning.procedural_sky_enabled_ != 0 && shader_resource_indices.sky_.specular_prefiltered_index_ != 0)
 	{
-		TextureCube<float4> prefiltered = ResourceDescriptorHeap[structured_indices.sky_.specular_prefiltered_index_];
+		TextureCube<float4> prefiltered = ResourceDescriptorHeap[shader_resource_indices.sky_.specular_prefiltered_index_];
 		return prefiltered.SampleLevel(sampler_linear_clamp, direction, 0).rgb;
 	}
 	else if (cloud_tuning.procedural_sky_enabled_ != 0)
 	{
-		ConstantBuffer<LightConstantData> light = ResourceDescriptorHeap[constant_indices.light_index_];
-		float3 sun_direction = normalize(-light.directional_direction_);
-		float3 sun_radiance = light.directional_color_.rgb * light.directional_intensity_;
+		ConstantBuffer<LightConstantBuffer> light = ResourceDescriptorHeap[constant_indices.light_index_];
+		float3 sun_direction = normalize(-GetDirectionalLightConstantBuffer().direction_);
+		float3 sun_radiance = GetDirectionalLightConstantBuffer().sun_color_.rgb * GetDirectionalLightConstantBuffer().sun_intensity_;
 		return ProceduralSkyColor(direction, sun_direction, sun_radiance, cloud_tuning);
 	}
 
@@ -130,12 +133,12 @@ float3 SampleRefractionSky(float3 direction)
 void RefractionRayGeneration()
 {
 	uint2 pixel = DispatchRaysIndex().xy;
-	RWTexture2D<float4> output = ResourceDescriptorHeap[structured_indices.refraction_.output_uav_index_];
+	RWTexture2D<float4> output = ResourceDescriptorHeap[unordered_access_indices.refraction_.output_index_];
 
 	/// [EN] Background (reverse-Z far plane = 0) has no refraction. a=0
 	///      becomes the "invalid" marker.
 	/// [JP] 背景(reverse-Z 遠平面=0)は屈折なし。a=0 で「無効」を示す。
-	Texture2D<float> depth_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.depth_index_];
+	Texture2D<float> depth_texture = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.depth_index_];
 	float depth = depth_texture.Load(int3(pixel, 0));
 	if (depth == 0.0)
 	{
@@ -143,30 +146,30 @@ void RefractionRayGeneration()
 		return;
 	}
 
-	/// [EN] Look up instance_index from VisID and read ModelInstance
+	/// [EN] Look up instance_index from VisID and read ModelStructuredBuffer
 	///      directly, bailing out here for any pixel without
 	///      KHR_materials_transmission (same wiring as
 	///      Model/Opaque/DeferredLightingPS.hlsl - see
 	///      Model/Material/MaterialResolveCS.hlsl).
-	/// [JP] VisID から instance_index を引いて ModelInstance を直接読み、
+	/// [JP] VisID から instance_index を引いて ModelStructuredBuffer を直接読み、
 	///      KHR_materials_transmission が無いピクセルはここで抜ける
 	///      (Model/Opaque/DeferredLightingPS.hlsl と同じ配線 -
 	///      Model/Material/MaterialResolveCS.hlsl 参照)。
-	Texture2D<uint4> visibility_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.index_4_];
+	Texture2D<uint4> visibility_texture = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.index_4_];
 	uint4 visibility_id = visibility_texture.Load(int3(pixel, 0));
 	uint material_instance_index, material_meshlet_index, material_triangle_index;
 	UnpackVisibilityID(visibility_id, material_instance_index, material_meshlet_index, material_triangle_index);
-	StructuredBuffer<ModelInstance> material_instances = ResourceDescriptorHeap[structured_indices.model_.instance_index_];
-	ModelInstance material_instance = material_instances[material_instance_index];
+	StructuredBuffer<ModelStructuredBuffer> material_instances = GetModelStructuredBuffer(shader_resource_indices.model_.instance_index_);
+	ModelStructuredBuffer material_instance = material_instances[material_instance_index];
 
-	if (material_instance.transmission_factor_ <= 0.0)
+	if (material_instance.extension_.transmission_factor_ <= 0.0)
 	{
 		output[pixel] = float4(0, 0, 0, 0);
 		return;
 	}
 
 	SceneConstantBuffer scene = GetSceneConstantBuffer();
-	ConstantBuffer<RefractionRayConstantBuffer> tuning = ResourceDescriptorHeap[structured_indices.refraction_.ray_constant_index_];
+	ConstantBuffer<RefractionRayConstantBuffer> tuning = ResourceDescriptorHeap[constant_indices.refraction_index_];
 
 	/// [EN] Reconstruct world position and normal (same procedure as
 	///      ReflectionRT.hlsl).
@@ -177,21 +180,21 @@ void RefractionRayGeneration()
 	float4 world = mul(clip, scene.inverse_view_projection_);
 	float3 world_position = world.xyz / world.w;
 
-	Texture2D<float4> normal_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.index_1_];
+	Texture2D<float4> normal_texture = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.index_1_];
 	float3 normal = OctNormalDecode(normal_texture.Load(int3(pixel, 0)).rg);
 
 	float3 view_direction = normalize(world_position - scene.camera_position_.xyz);
 
-	/// [EN] Refract from air (ior=1) into the medium (instance.ior_) via
-	///      Snell's law. HLSL's refract(i, n, eta) returns the zero vector
-	///      on total internal reflection - normally only happens at a
-	///      near-grazing view angle beyond the critical angle, but a mirror
-	///      reflection fallback is kept as insurance.
-	/// [JP] Snell の法則で空気(ior=1)から媒質(instance.ior_)へ屈折させる。
+	/// [EN] Refract from air (ior=1) into the medium (material_instance.
+	///      texture_.ior_) via Snell's law. HLSL's refract(i, n, eta)
+	///      returns the zero vector on total internal reflection - normally
+	///      only happens at a near-grazing view angle beyond the critical
+	///      angle, but a mirror reflection fallback is kept as insurance.
+	/// [JP] Snell の法則で空気(ior=1)から媒質(material_instance.texture_.ior_)へ屈折させる。
 	///      HLSL の refract(i, n, eta) は全反射時にゼロベクトルを返す -
 	///      入射角が臨界角を超えるほぼ真横からの視線でしか普通は起きないが、
 	///      保険としてミラー反射へフォールバックする。
-	float eta = 1.0 / max(material_instance.ior_, 1.0001);
+	float eta = 1.0 / max(material_instance.texture_.ior_, 1.0001);
 	float3 ray_direction = refract(view_direction, normal, eta);
 	if (dot(ray_direction, ray_direction) < 0.0001)
 	{
@@ -199,7 +202,7 @@ void RefractionRayGeneration()
 	}
 	ray_direction = normalize(ray_direction);
 
-	RaytracingAccelerationStructure tlas = ResourceDescriptorHeap[structured_indices.raytracing_.tlas_index_];
+	RaytracingAccelerationStructure tlas = ResourceDescriptorHeap[shader_resource_indices.raytracing_.tlas_index_];
 
 	float3 ray_origin = world_position + ray_direction * tuning.normal_bias_;
 	float3 throughput = float3(1, 1, 1);
@@ -231,7 +234,7 @@ void RefractionRayGeneration()
 		{
 			if (query.CandidateType() == CANDIDATE_NON_OPAQUE_TRIANGLE)
 			{
-				if (!IsReflectionMaterialPassthrough(structured_indices.raytracing_.instance_data_index_, query.CandidateInstanceID(), query.CandidatePrimitiveIndex(), query.CandidateTriangleBarycentrics()))
+				if (!IsMaterialPassthrough(shader_resource_indices.raytracing_.instance_data_index_, query.CandidateInstanceID(), query.CandidatePrimitiveIndex(), query.CandidateTriangleBarycentrics()))
 				{
 					query.CommitNonOpaqueTriangleHit();
 				}
@@ -251,27 +254,24 @@ void RefractionRayGeneration()
 			break;
 		}
 
-		StructuredBuffer<ReflectionInstanceData> instances = ResourceDescriptorHeap[structured_indices.raytracing_.instance_data_index_];
+		StructuredBuffer<ReflectionInstanceData> instances = ResourceDescriptorHeap[shader_resource_indices.raytracing_.instance_data_index_];
 		ReflectionInstanceData hit_instance = instances[query.CommittedInstanceID()];
 
 		StructuredBuffer<uint> triangle_indices = ResourceDescriptorHeap[hit_instance.index_buffer_index_];
-		StructuredBuffer<ReflectionVertex> vertices = ResourceDescriptorHeap[hit_instance.vertex_buffer_index_];
+        StructuredBuffer<CompressedVertex> vertices = ResourceDescriptorHeap[hit_instance.vertex_buffer_index_];
 
 		uint primitive_index = query.CommittedPrimitiveIndex();
 		uint base_index = primitive_index * 3;
-		ReflectionVertex vertex0 = vertices[triangle_indices[base_index + 0]];
-		ReflectionVertex vertex1 = vertices[triangle_indices[base_index + 1]];
-		ReflectionVertex vertex2 = vertices[triangle_indices[base_index + 2]];
+		CompressedVertex vertex0 = vertices[triangle_indices[base_index + 0]];
+		CompressedVertex vertex1 = vertices[triangle_indices[base_index + 1]];
+        CompressedVertex vertex2 = vertices[triangle_indices[base_index + 2]];
 
 		float2 barycentrics = query.CommittedTriangleBarycentrics();
 		float weight0 = 1.0 - barycentrics.x - barycentrics.y;
 		float weight1 = barycentrics.x;
 		float weight2 = barycentrics.y;
 
-		float3 object_normal =
-			DecodeReflectionVertexNormal(vertex0) * weight0 +
-			DecodeReflectionVertexNormal(vertex1) * weight1 +
-			DecodeReflectionVertexNormal(vertex2) * weight2;
+        float3 object_normal = DecodeCompressedVertexNormal(vertex0) * weight0 + DecodeCompressedVertexNormal(vertex1) * weight1 + DecodeCompressedVertexNormal(vertex2) * weight2;
 
 		/// [EN] v1 approximation: the exact inverse-transpose for non-uniform
 		///      scale is skipped (same as ReflectionRT.hlsl).
@@ -298,11 +298,8 @@ void RefractionRayGeneration()
 		float thickness = material.thickness_factor_;
 		if (thickness > 0.0 && material.thickness_texture_index_ != 0xFFFFFFFF)
 		{
-			float2 hit_texcoord =
-				DecodeReflectionVertexTexcoord(vertex0, hit_instance.texcoord_min_, hit_instance.texcoord_extent_) * weight0 +
-				DecodeReflectionVertexTexcoord(vertex1, hit_instance.texcoord_min_, hit_instance.texcoord_extent_) * weight1 +
-				DecodeReflectionVertexTexcoord(vertex2, hit_instance.texcoord_min_, hit_instance.texcoord_extent_) * weight2;
-
+            float2 hit_texcoord = DecodeCompressedVertexTexcoord(vertex0, hit_instance.texcoord_min_, hit_instance.texcoord_extent_) * weight0 + DecodeCompressedVertexTexcoord(vertex1, hit_instance.texcoord_min_, hit_instance.texcoord_extent_) * weight1 + DecodeCompressedVertexTexcoord(vertex2, hit_instance.texcoord_min_, hit_instance.texcoord_extent_) * weight2;
+			
 			Texture2D<float4> thickness_texture = ResourceDescriptorHeap[material.thickness_texture_index_];
 			thickness *= thickness_texture.SampleLevel(sampler_linear_wrap, hit_texcoord, 0).g;
 		}

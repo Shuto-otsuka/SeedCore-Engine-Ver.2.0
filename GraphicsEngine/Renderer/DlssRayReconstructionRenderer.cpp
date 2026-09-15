@@ -14,9 +14,9 @@ namespace SeedCore
 		/// No Code
 	}
 
-	void DlssRayReconstructionRenderer::Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, IndicesSystem& indicesSystem, Uint32 width, Uint32 height, Uint32 outputWidth, Uint32 outputHeight)
+	void DlssRayReconstructionRenderer::Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, UnorderedAccessIndicesSystem& unorderedAccessIndicesSystem, Uint32 width, Uint32 height, Uint32 outputWidth, Uint32 outputHeight)
 	{
-		indicesSystem_ = &indicesSystem;
+		unorderedAccessIndicesSystem_ = &unorderedAccessIndicesSystem;
 
 		normalRoughnessShader_.Create(shaderCache, device);
 		backgroundVelocityShader_.Create(shaderCache, device);
@@ -46,10 +46,10 @@ namespace SeedCore
 		}
 	}
 
-	void DlssRayReconstructionRenderer::Resize(ID3D12Device* device, BindlessHeap* bindlessHeap, IndicesSystem& indicesSystem, Uint32 width, Uint32 height, Uint32 outputWidth, Uint32 outputHeight)
+	void DlssRayReconstructionRenderer::Resize(ID3D12Device* device, BindlessHeap* bindlessHeap, UnorderedAccessIndicesSystem& unorderedAccessIndicesSystem, Uint32 width, Uint32 height, Uint32 outputWidth, Uint32 outputHeight)
 	{
 		Destroy(bindlessHeap);
-		indicesSystem_ = &indicesSystem;
+		unorderedAccessIndicesSystem_ = &unorderedAccessIndicesSystem;
 		CreateViewResources(device, bindlessHeap, width, height, outputWidth, outputHeight);
 	}
 
@@ -179,15 +179,15 @@ namespace SeedCore
 		///      IndicesSystem::UploadEditor/UploadGame が既にこのフレームの
 		///      定数バッファを確定済み)、Create() 時点の1度だけ
 		///      ConstantIndices へ登録すれば以後全フレームで有効。
-		indicesSystem_->SetEditorDlssNormalRoughnessUnorderedAccessViewIndex(editorView_.normalRoughnessUnorderedAccessViewIndex_);
-		indicesSystem_->SetGameDlssNormalRoughnessUnorderedAccessViewIndex(gameView_.normalRoughnessUnorderedAccessViewIndex_);
-		indicesSystem_->SetEditorDlssSpecularAlbedoUnorderedAccessViewIndex(editorView_.specularAlbedoUnorderedAccessViewIndex_);
-		indicesSystem_->SetGameDlssSpecularAlbedoUnorderedAccessViewIndex(gameView_.specularAlbedoUnorderedAccessViewIndex_);
-		indicesSystem_->SetEditorDlssDiffuseAlbedoUnorderedAccessViewIndex(editorView_.diffuseAlbedoUnorderedAccessViewIndex_);
-		indicesSystem_->SetGameDlssDiffuseAlbedoUnorderedAccessViewIndex(gameView_.diffuseAlbedoUnorderedAccessViewIndex_);
+		unorderedAccessIndicesSystem_->SetEditorDlssNormalRoughnessUnorderedAccessViewIndex(editorView_.normalRoughnessUnorderedAccessViewIndex_);
+		unorderedAccessIndicesSystem_->SetGameDlssNormalRoughnessUnorderedAccessViewIndex(gameView_.normalRoughnessUnorderedAccessViewIndex_);
+		unorderedAccessIndicesSystem_->SetEditorDlssSpecularAlbedoUnorderedAccessViewIndex(editorView_.specularAlbedoUnorderedAccessViewIndex_);
+		unorderedAccessIndicesSystem_->SetGameDlssSpecularAlbedoUnorderedAccessViewIndex(gameView_.specularAlbedoUnorderedAccessViewIndex_);
+		unorderedAccessIndicesSystem_->SetEditorDlssDiffuseAlbedoUnorderedAccessViewIndex(editorView_.diffuseAlbedoUnorderedAccessViewIndex_);
+		unorderedAccessIndicesSystem_->SetGameDlssDiffuseAlbedoUnorderedAccessViewIndex(gameView_.diffuseAlbedoUnorderedAccessViewIndex_);
 	}
 
-	void DlssRayReconstructionRenderer::Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex, RaytracingView view, DlssManager* dlssManager, const SceneConstantBuffer& scene, ID3D12Resource* colorResource, ID3D12Resource* depthResource, ID3D12Resource* velocityResource, Uint32 sourceWidth, Uint32 sourceHeight, UpscaleMode mode)
+	void DlssRayReconstructionRenderer::Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses, RaytracingView view, DlssManager* dlssManager, const SceneConstantBuffer& scene, ID3D12Resource* colorResource, ID3D12Resource* depthResource, ID3D12Resource* velocityResource, Uint32 sourceWidth, Uint32 sourceHeight, UpscaleMode mode)
 	{
 		auto* cmd = cmdList->Get();
 		View& target = ViewFor(view);
@@ -225,9 +225,7 @@ namespace SeedCore
 		ID3D12DescriptorHeap* heaps[] = { heap };
 		cmd->SetDescriptorHeaps(_countof(heaps), heaps);
 		cmd->SetComputeRootSignature(normalRoughnessShader_.GetRootSignature());
-		cmd->SetComputeRootDescriptorTable(0, bindlessHeap_->GPUHandle(0));
-		cmd->SetComputeRootConstantBufferView(2, constantIndex);
-		cmd->SetComputeRootConstantBufferView(3, structuredIndex);
+		RootSignature::BindCompute(cmd, addresses);
 		cmd->SetPipelineState(normalRoughnessPipelineState);
 		cmd->Dispatch((width_ + 7) / 8, (height_ + 7) / 8, 1);
 		ProfilerStats::AddDrawCall();

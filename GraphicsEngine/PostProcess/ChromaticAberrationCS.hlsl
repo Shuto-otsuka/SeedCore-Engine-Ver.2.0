@@ -1,4 +1,6 @@
-#include "../Shader/Constants.hlsli"
+#include "PostProcess.hlsli"
+#include "../Shader/ShaderResources.hlsli"
+#include "../Shader/UnorderedAccesses.hlsli"
 #include "../Shader/Sampler.hlsli"
 
 /**
@@ -71,7 +73,7 @@ float3 SpectralResponse(float t)
 [numthreads(8, 8, 1)]
 void main(uint3 dtid : SV_DispatchThreadID)
 {
-	RWTexture2D<float4> destination = ResourceDescriptorHeap[constant_indices.post_process_.chromatic_aberration_.destination_uav_index_];
+	RWTexture2D<float4> destination = ResourceDescriptorHeap[unordered_access_indices.post_process_.chromatic_aberration_.destination_index_];
 
 	uint width, height;
 	destination.GetDimensions(width, height);
@@ -87,12 +89,12 @@ void main(uint3 dtid : SV_DispatchThreadID)
 		return;
 	}
 
-	Texture2D<float4> source = ResourceDescriptorHeap[constant_indices.post_process_.chromatic_aberration_.source_srv_index_];
+	Texture2D<float4> source = ResourceDescriptorHeap[shader_resource_indices.post_process_.chromatic_aberration_.source_index_];
 
 	float2 uv = (float2(dtid.xy) + 0.5) / float2(width, height);
 
-	float intensity = constant_indices.post_process_.chromatic_aberration_.intensity_;
-	uint sample_count = clamp(constant_indices.post_process_.chromatic_aberration_.sample_count_, 3u, 16u);
+	float intensity = GetPostProcessConstantBuffer().chromatic_aberration_.intensity_;
+	uint sample_count = clamp(GetPostProcessConstantBuffer().chromatic_aberration_.sample_count_, 3u, 16u);
 
 	/// [EN] The vector from center directly becomes the fringe's direction
 	///      and amount - 0 at center, maximal at the corners. This IS the

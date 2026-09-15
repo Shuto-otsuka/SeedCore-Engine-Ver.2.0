@@ -1,6 +1,8 @@
+#include "../../Shader/Scene.hlsli"
+#include "../../Shader/ShaderResources.hlsli"
+#include "../../Shader/UnorderedAccesses.hlsli"
 #include "../../Shader/Constants.hlsli"
-#include "../../Shader/Structured.hlsli"
-#include "../../Shader/Light.hlsli"
+#include "../../Light/Light.hlsli"
 #include "../../Shader/Noise.hlsli"
 #include "VolumetricStar.hlsli"
 
@@ -15,7 +17,7 @@
 * field, the moon disc and any active shooting star streaks into an RGBA16F
 * texture, composited by DeferredLightingPS.hlsl over the procedural sky the
 * same way VolumetricCloudScapesRT.hlsl's cloud texture is. Sky pixels only,
-* no TLAS. Reads the sun/moon direction and night factor from LightConstantData
+* no TLAS. Reads the sun/moon direction and night factor from LightConstantBuffer
 * (populated by CelestialSystem via LightSystem::Gather when DaySystem drives
 * the frame).
 *
@@ -24,7 +26,7 @@
 * 星空・月ディスク・アクティブな流れ星の筋を RGBA16F テクスチャへ描き、
 * DeferredLightingPS.hlsl が VolumetricCloudScapesRT.hlsl の雲テクスチャと
 * 同じ手順でプロシージャル空の上に合成する。空ピクセル限定、TLAS 不使用。
-* 太陽/月の方向と夜の強さは LightConstantData から読む(DaySystem がこの
+* 太陽/月の方向と夜の強さは LightConstantBuffer から読む(DaySystem がこの
 * フレームを駆動している時に CelestialSystem が LightSystem::Gather 経由で
 * 書き込む)。
 */
@@ -34,7 +36,7 @@ void main(uint3 dtid : SV_DispatchThreadID)
 {
 	SceneConstantBuffer scene = GetSceneConstantBuffer();
 
-	RWTexture2D<float4> output = ResourceDescriptorHeap[structured_indices.star_.output_uav_index_];
+	RWTexture2D<float4> output = ResourceDescriptorHeap[unordered_access_indices.star_.output_index_];
 
 	uint star_width;
 	uint star_height;
@@ -55,14 +57,14 @@ void main(uint3 dtid : SV_DispatchThreadID)
 
 	/// [EN] Skip any pixel with scene geometry (sky pixels only).
 	/// [JP] シーンジオメトリがあるピクセルはスキップ(空ピクセル限定)。
-	Texture2D<float> depth_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.depth_index_];
+	Texture2D<float> depth_texture = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.depth_index_];
 	if (depth_texture.Load(int3(pixel, 0)) != 0.0)
 	{
 		output[pixel] = float4(0, 0, 0, 0);
 		return;
 	}
 
-	ConstantBuffer<VolumetricStarRayConstantBuffer> tuning = ResourceDescriptorHeap[structured_indices.star_.ray_constant_index_];
+	ConstantBuffer<VolumetricStarRayConstantBuffer> tuning = ResourceDescriptorHeap[constant_indices.star_index_];
 
 	if (tuning.enabled_ == 0)
 	{
@@ -83,15 +85,15 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	float4 far_world = mul(far_clip, scene.inverse_view_projection_);
 	float3 view_direction = normalize(far_world.xyz / far_world.w - scene.camera_position_.xyz);
 
-	ConstantBuffer<LightConstantData> light = ResourceDescriptorHeap[constant_indices.light_index_];
+	ConstantBuffer<LightConstantBuffer> light = ResourceDescriptorHeap[constant_indices.light_index_];
 	float night_factor = light.night_factor_;
 
 	float3 color = StarFieldColor(view_direction, night_factor, scene.total_time_, tuning);
 
-	if (light.moon_intensity_ > 0.0 || night_factor > 0.0)
+	if (GetDirectionalLightConstantBuffer().moon_intensity_ > 0.0 || night_factor > 0.0)
 	{
-		float3 moon_direction = normalize(-light.moon_direction_);
-		color += MoonDiscColor(view_direction, moon_direction, light.moon_angular_radius_, light.moon_color_.rgb * max(light.moon_intensity_, 0.05), light.moon_phase_);
+		float3 moon_direction = normalize(GetDirectionalLightConstantBuffer().direction_);
+		color += MoonDiscColor(view_direction, moon_direction, GetDirectionalLightConstantBuffer().moon_angular_radius_, GetDirectionalLightConstantBuffer().moon_color_.rgb * max(GetDirectionalLightConstantBuffer().moon_intensity_, 0.05), GetDirectionalLightConstantBuffer().moon_phase_);
 	}
 
 	color += ShootingStarColor(view_direction, tuning);

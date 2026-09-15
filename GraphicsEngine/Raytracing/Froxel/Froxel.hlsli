@@ -13,13 +13,30 @@
 */
 
 /**
-* Exponential depth slicing: the near side is denser (more froxels close to
-* the camera, where volumetric detail matters most). slice_t in [0,1] ->
-* linear view-space Z.
+* Reference:
+* - https://bartwronski.com/wp-content/uploads/2014/08/bwronski_volumetric_fog_siggraph2014.pdf
+*   (Wronski, "Volumetric Fog", SIGGRAPH 2014 - depth slices concentrated
+*   near the camera, where aliasing shows up most easily.)
+* - https://dev.epicgames.com/documentation/en-us/unreal-engine/volumetric-fog-in-unreal-engine
+*   (Unreal Engine Volumetric Fog - 128 depth slices over the view range.)
+*
+* Ratio between the last and the first slice thickness. Slices start almost
+* evenly spaced near the camera and widen geometrically with distance, so the
+* 10-150 m range where light shafts are usually seen keeps most of the slices
+* while the grid still reaches far_plane.
+*/
+static const float FROXEL_DEPTH_DISTRIBUTION = 256.0;
+
+/**
+* Warped depth slicing: view_z = near + (far - near) * (D^t - 1) / (D - 1)
+* with D = FROXEL_DEPTH_DISTRIBUTION. Unlike a pure near * (far / near)^t
+* mapping, the slice count per decade is not fixed, so a very small near
+* plane does not spend half the grid within the first meter. slice_t in
+* [0,1] -> linear view-space Z.
 */
 float FroxelSliceToViewZ(float slice_t, float near_plane, float far_plane)
 {
-	return near_plane * pow(far_plane / near_plane, slice_t);
+	return near_plane + (far_plane - near_plane) * (pow(FROXEL_DEPTH_DISTRIBUTION, slice_t) - 1.0) / (FROXEL_DEPTH_DISTRIBUTION - 1.0);
 }
 
 /**
@@ -27,12 +44,12 @@ float FroxelSliceToViewZ(float slice_t, float near_plane, float far_plane)
 */
 float ViewZToFroxelSlice(float view_z, float near_plane, float far_plane)
 {
-	return log(view_z / near_plane) / log(far_plane / near_plane);
+	return log2(1.0 + max(view_z - near_plane, 0.0) * (FROXEL_DEPTH_DISTRIBUTION - 1.0) / (far_plane - near_plane)) / log2(FROXEL_DEPTH_DISTRIBUTION);
 }
 
 /**
 * Froxel integer coordinate -> world position. froxel_dimensions is e.g.
-* (160, 90, 64). Uses the exponential slice mapping above for Z.
+* (160, 90, 128). Uses the slice mapping above for Z.
 */
 float3 FroxelToWorld(uint3 froxel, uint3 froxel_dimensions, float near_plane, float far_plane, float4x4 inverse_view_projection)
 {

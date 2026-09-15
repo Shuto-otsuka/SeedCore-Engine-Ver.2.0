@@ -5,7 +5,7 @@
 
 namespace SeedCore
 {
-	void OITBuffer::Create(ID3D12Device* device, BindlessHeap* bindlessHeap, IndicesSystem& indicesSystem, Uint32 width, Uint32 height)
+	void OITBuffer::Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ConstantIndicesSystem& constantIndicesSystem, UnorderedAccessIndicesSystem& unorderedAccessIndicesSystem, Uint32 width, Uint32 height)
 	{
 		HRESULT hr{ S_OK };
 
@@ -102,6 +102,10 @@ namespace SeedCore
 			device->CreateUnorderedAccessView(fragmentBuffer_.Get(), nullptr, &unorderedAccessViewDesc, bindlessHeap->CPUHandle(fragmentBufferUAVIndex_));
 
 			fragmentCapacity_ = static_cast<Uint>(fragmentCount);
+			oitConstantBuffer_ = MakePtr<ConstantBuffer<OitConstantBuffer>>(device, bindlessHeap);
+			OitConstantBuffer data{};
+			data.fragmentCapacity_ = fragmentCapacity_;
+			oitConstantBuffer_->Update(data);
 		}
 
 		/// [EN] Counter Buffer: RWByteAddressBuffer, 4 bytes.
@@ -145,10 +149,10 @@ namespace SeedCore
 			device->CreateUnorderedAccessView(counterBuffer_.Get(), nullptr, &unorderedAccessViewDesc, clearHeap_.CPUHandle(clearCounterIndex_));
 		}
 
-		indicesSystem.SetOITHeadPointerIndex(headPointerUAVIndex_);
-		indicesSystem.SetOITFragmentBufferIndex(fragmentBufferUAVIndex_);
-		indicesSystem.SetOITCounterIndex(counterUAVIndex_);
-		indicesSystem.SetOITFragmentCapacity(fragmentCapacity_);
+		unorderedAccessIndicesSystem.SetOITHeadPointerIndex(headPointerUAVIndex_);
+		unorderedAccessIndicesSystem.SetOITFragmentBufferIndex(fragmentBufferUAVIndex_);
+		unorderedAccessIndicesSystem.SetOITCounterIndex(counterUAVIndex_);
+		constantIndicesSystem.SetOitIndex(oitConstantBuffer_->GetIndex());
 	}
 
 	void OITBuffer::Destroy(BindlessHeap* bindlessHeap)
@@ -172,10 +176,10 @@ namespace SeedCore
 		counterBuffer_.Reset();
 	}
 
-	void OITBuffer::Resize(ID3D12Device* device, BindlessHeap* bindlessHeap, IndicesSystem& indicesSystem, Uint32 width, Uint32 height)
+	void OITBuffer::Resize(ID3D12Device* device, BindlessHeap* bindlessHeap, ConstantIndicesSystem& constantIndicesSystem, UnorderedAccessIndicesSystem& unorderedAccessIndicesSystem, Uint32 width, Uint32 height)
 	{
 		Destroy(bindlessHeap);
-		Create(device, bindlessHeap, indicesSystem, width, height);
+		Create(device, bindlessHeap, constantIndicesSystem, unorderedAccessIndicesSystem, width, height);
 	}
 
 	void OITBuffer::Barrier(ID3D12GraphicsCommandList* cmdList)const

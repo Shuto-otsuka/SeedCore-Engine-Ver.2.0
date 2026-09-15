@@ -64,6 +64,8 @@ namespace SeedCore
 		void Resize(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, Uint32 nativeWidth, Uint32 nativeHeight, Uint32 outputWidth, Uint32 outputHeight);
 
 	public:
+		void PrepareFrame(D3D12CommandList* cmdList, LoaderSystem& loaderSystem, ResourceCache& resourceCache, World& world, const SceneConstantBuffer& scene, Float deltaTime, Entity selectedEntity);
+
 		void BeginEditorFrame(D3D12CommandList* cmdList);
 
 		void EndEditorFrame(D3D12CommandList* cmdList, const SceneConstantBuffer& scene);
@@ -97,7 +99,7 @@ namespace SeedCore
 		void EndAvatarFrame(D3D12CommandList* cmdList);
 
 	public:
-		void GatherScenePreview(LoaderSystem& loaderSystem, ResourceCache& resourceCache, World& world, const SceneConstantBuffer& scene, const DynamicArray<ColliderInstance>& colliderInstances, Entity selectedEntity = Entity::Null());
+		void GatherColliders(const DynamicArray<ColliderStructuredBuffer>& colliderInstances);
 
 		void GatherTimelinePreview(LoaderSystem& loaderSystem, ResourceCache& resourceCache, Uint32 meshAssetId, Uint32 animationAssetId, Float time, const Matrix& worldMatrix);
 
@@ -107,7 +109,7 @@ namespace SeedCore
 
 		void GatherSkeletonControllerPreview(LoaderSystem& loaderSystem, ResourceCache& resourceCache, Uint32 meshAssetId, Uint32 animationAssetId, Float time, const Matrix& worldMatrix, Int selectedNodeIndex);
 
-		void GatherAvatarPreview(const AvatarMesh& mesh, const HumanCharacterEvaluator& evaluator, const Matrix& worldMatrix);
+		void GatherAvatarPreview(const AvatarMesh& mesh, Uint32 boneCount, const Matrix& worldMatrix, std::span<const Uint32> regionTextureIndices);
 
 	public:
 		void Raytracing(const RaytracingContext& settings);
@@ -115,7 +117,7 @@ namespace SeedCore
 		[[nodiscard]] Vector2 PostProcessOutputSize()const;
 
 	public:
-		void EditorFlush(D3D12CommandList* cmdList, SceneSystem* sceneSystem, Float deltaTime, ViewMode viewMode);
+		void EditorFlush(D3D12CommandList* cmdList, SceneSystem* sceneSystem, ViewMode viewMode);
 
 		void GameFlush(D3D12CommandList* cmdList, SceneSystem* sceneSystem, Float deltaTime, Bool hasActiveCamera);
 
@@ -175,7 +177,9 @@ namespace SeedCore
 
 		ResourcePtr<EffekseerManager> effekseerManager_;
 
-		ResourcePtr<IndicesSystem> indicesSystem_;
+		ResourcePtr<ConstantIndicesSystem> constantIndicesSystem_;
+		ResourcePtr<ShaderResourceIndicesSystem> shaderResourceIndicesSystem_;
+		ResourcePtr<UnorderedAccessIndicesSystem> unorderedAccessIndicesSystem_;
 
 		ResourcePtr<LightSystem> lightSystem_;
 
@@ -265,14 +269,18 @@ namespace SeedCore
 		CelestialResult celestialResult_;
 
 		/// [EN] Computed once per Gather() via WeatherSystem::ReadGpuState.
-		///      Fed into LightSystem::Gather (wetness_/snowCoverage_/
-		///      thunderFlash_) and RaytracingRenderer::Build (snowIntensity_,
-		///      for the snow particle system's density).
+		///      Fed into weatherSystem_'s WeatherConstantBuffer upload
+		///      (wetness_/snowCoverage_/thunderFlash_) and
+		///      RaytracingRenderer::Build (snowIntensity_, for the snow
+		///      particle system's density).
 		/// [JP] Gather() 毎に WeatherSystem::ReadGpuState で計算する。
-		///      LightSystem::Gather(wetness_/snowCoverage_/thunderFlash_)と
+		///      weatherSystem_ の WeatherConstantBuffer アップロード
+		///      (wetness_/snowCoverage_/thunderFlash_)と
 		///      RaytracingRenderer::Build(snowIntensity_、雪パーティクル系の
 		///      密度用)へ渡す。
 		WeatherGpuState weatherState_;
+
+		WeatherSystem weatherSystem_;
 
 		/// [EN] Cached from the last Gather() call's scene parameter, for
 		///      RaytracingRenderer::Build's weather particle recycling volume

@@ -36,7 +36,7 @@ namespace SeedCore
 
 		static void DispatchTriggerExit(World& world, EntityID entityID, EntityID otherEntityID);
 
-		static DynamicArray<ColliderInstance> GatherColliderInstances(World& world);
+		static DynamicArray<ColliderStructuredBuffer> GatherColliderInstances(World& world);
 
 		static void ResolveMeshColliders(LoaderSystem& loader, ResourceCache& cache, World& world);
 

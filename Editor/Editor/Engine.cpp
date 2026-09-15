@@ -8,7 +8,6 @@
 #include <GraphicsEngine/D3D12/Context/D3D12CommandList.h>
 #include <GraphicsEngine/D3D12/Context/D3D12CommandQueue.h>
 #include <GraphicsEngine/Avatar/AvatarMesh.h>
-#include <GraphicsEngine/Avatar/Human/HumanCharacterEvaluator.h>
 #include <GraphicsEngine/D3D12/Context/D3D12Adapter.h>
 
 #include <PhysicsEngine/Physics/PhysicsSystem.h>
@@ -378,11 +377,11 @@ namespace SeedCore
 					graphics_->SkeletonControllerRender(worldTimer_, skeletonControllerCamera_, *loaderSystem_, *resource_, editorContext_.skeletonControllerPreviewContext_.previewMeshAssetId_, 0, 0.0f, editorContext_.skeletonControllerPreviewContext_.previewWorldMatrix_, editorContext_.skeletonControllerPreviewContext_.selectedNodeIndex_);
 				}
 
-				if (editorContext_.avatarPreviewContext_.previewActive_ && editorContext_.avatarPreviewContext_.mesh_ && editorContext_.avatarPreviewContext_.evaluator_)
+				if (editorContext_.avatarPreviewContext_.previewActive_ && editorContext_.avatarPreviewContext_.mesh_)
 				{
-					editorContext_.avatarPreviewContext_.evaluator_->Evaluate();
-					editorContext_.avatarPreviewContext_.mesh_->Update(*editorContext_.avatarPreviewContext_.evaluator_);
-					graphics_->AvatarRender(worldTimer_, avatarCamera_, *editorContext_.avatarPreviewContext_.mesh_, *editorContext_.avatarPreviewContext_.evaluator_, editorContext_.avatarPreviewContext_.previewWorldMatrix_);
+					const AvatarPreviewContext& avatarPreview = editorContext_.avatarPreviewContext_;
+					avatarPreview.mesh_->Update(avatarPreview.positions_, avatarPreview.normals_);
+					graphics_->AvatarRender(worldTimer_, avatarCamera_, *avatarPreview.mesh_, avatarPreview.boneCount_, avatarPreview.previewWorldMatrix_, std::span<const Uint32>(avatarPreview.regionTextureIndices_, avatarPreview.regionCount_));
 				}
 
 				graphics_->Clear();

@@ -3,7 +3,14 @@
 namespace SeedCore
 {
 	constexpr Uint32 humanCharacterMagic = 0x43485353;
-	constexpr Uint32 humanCharacterVersion = 2;
+	constexpr Uint32 humanCharacterVersion = 3;
+	constexpr Uint32 humanCharacterRegionCount = 4;
+
+	struct HumanCharacterRegionRange
+	{
+		Uint32 firstTriangle_ = 0;
+		Uint32 triangleCount_ = 0;
+	};
 
 	struct HumanCharacterBone
 	{
@@ -63,6 +70,12 @@ namespace SeedCore
 
 		[[nodiscard]] std::span<const Uint32> JointGroup(Uint32 boneIndex)const;
 
+		[[nodiscard]] const HumanCharacterRegionRange& RegionTriangleRange(Uint32 regionIndex)const;
+
+		[[nodiscard]] static std::span<const Char* const> RegionNames();
+
+		[[nodiscard]] static std::span<const Char* const> RegionLabels();
+
 		[[nodiscard]] static std::span<const Char* const> AxisNames();
 
 		[[nodiscard]] static std::span<const Char* const> AxisLabels();
@@ -88,5 +101,6 @@ namespace SeedCore
 
 		DynamicArray<HumanCharacterAxis> axes_;
 		DynamicArray<DynamicArray<Uint32>> jointGroups_;
+		HumanCharacterRegionRange regionRanges_[humanCharacterRegionCount];
 	};
 }

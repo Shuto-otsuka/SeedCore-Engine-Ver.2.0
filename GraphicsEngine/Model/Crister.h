@@ -343,6 +343,9 @@ namespace SeedCore
 		Uint32 raytracingVertexOffset_ = 0;
 		Uint32 raytracingVertexCount_ = 0;
 
+		Uint32 raytracingTriangleOffset_ = 0;
+		Uint32 raytracingTriangleCount_ = 0;
+
 		/// [EN] Offset (in units of float3) into Crister::raytracingMorphDeltaResource_
 		///      where this SubMesh's target-major delta block starts
 		///      ([target][local rt vertex], raytracingVertexCount_ deltas per
@@ -454,7 +457,7 @@ namespace SeedCore
 			template<class Archive>
 			void Serialize(Archive& archive)
 			{
-				archive.Field("emissive_strength", emissiveStrength_);
+				archive.TryField("emissive_strength", emissiveStrength_);
 			}
 		};
 		EmissiveStrength emissiveStrength_;
@@ -477,7 +480,7 @@ namespace SeedCore
 			template<class Archive>
 			void Serialize(Archive& archive)
 			{
-				archive.Field("ior", ior_);
+				archive.TryField("ior", ior_);
 			}
 		};
 		Ior ior_;
@@ -503,10 +506,10 @@ namespace SeedCore
 			template<class Archive>
 			void Serialize(Archive& archive)
 			{
-				archive.Field("specular_factor", specularFactor_);
-				archive.Field("specular_color_factor", specularColorFactor_);
-				archive.Field("specular_texture_index", specularTextureIndex_);
-				archive.Field("specular_color_texture_index", specularColorTextureIndex_);
+				archive.TryField("specular_factor", specularFactor_);
+				archive.TryField("specular_color_factor", specularColorFactor_);
+				archive.TryField("specular_texture_index", specularTextureIndex_);
+				archive.TryField("specular_color_texture_index", specularColorTextureIndex_);
 			}
 		};
 		Specular specular_;
@@ -533,11 +536,11 @@ namespace SeedCore
 			template<class Archive>
 			void Serialize(Archive& archive)
 			{
-				archive.Field("clear_coat_factor", clearCoatFactor_);
-				archive.Field("clear_coat_roughness_factor", clearCoatRoughnessFactor_);
-				archive.Field("clear_coat_texture_index", clearCoatTextureIndex_);
-				archive.Field("clear_coat_roughness_texture_index", clearCoatRoughnessTextureIndex_);
-				archive.Field("clear_coat_normal_texture_index", clearCoatNormalTextureIndex_);
+				archive.TryField("clear_coat_factor", clearCoatFactor_);
+				archive.TryField("clear_coat_roughness_factor", clearCoatRoughnessFactor_);
+				archive.TryField("clear_coat_texture_index", clearCoatTextureIndex_);
+				archive.TryField("clear_coat_roughness_texture_index", clearCoatRoughnessTextureIndex_);
+				archive.TryField("clear_coat_normal_texture_index", clearCoatNormalTextureIndex_);
 			}
 		};
 		ClearCoat clearCoat_;
@@ -561,8 +564,8 @@ namespace SeedCore
 			template<class Archive>
 			void Serialize(Archive& archive)
 			{
-				archive.Field("transmission_factor", transmissionFactor_);
-				archive.Field("transmission_texture_index", transmissionTextureIndex_);
+				archive.TryField("transmission_factor", transmissionFactor_);
+				archive.TryField("transmission_texture_index", transmissionTextureIndex_);
 			}
 		};
 		Transmission transmission_;
@@ -591,10 +594,10 @@ namespace SeedCore
 			template<class Archive>
 			void Serialize(Archive& archive)
 			{
-				archive.Field("thickness_factor", thicknessFactor_);
-				archive.Field("attenuation_distance", attenuationDistance_);
-				archive.Field("attenuation_color", attenuationColor_);
-				archive.Field("thickness_texture_index", thicknessTextureIndex_);
+				archive.TryField("thickness_factor", thicknessFactor_);
+				archive.TryField("attenuation_distance", attenuationDistance_);
+				archive.TryField("attenuation_color", attenuationColor_);
+				archive.TryField("thickness_texture_index", thicknessTextureIndex_);
 			}
 		};
 		Volume volume_;
@@ -620,10 +623,10 @@ namespace SeedCore
 			template<class Archive>
 			void Serialize(Archive& archive)
 			{
-				archive.Field("sheen_color_factor", sheenColorFactor_);
-				archive.Field("sheen_roughness_factor", sheenRoughnessFactor_);
-				archive.Field("sheen_color_texture_index", sheenColorTextureIndex_);
-				archive.Field("sheen_roughness_texture_index", sheenRoughnessTextureIndex_);
+				archive.TryField("sheen_color_factor", sheenColorFactor_);
+				archive.TryField("sheen_roughness_factor", sheenRoughnessFactor_);
+				archive.TryField("sheen_color_texture_index", sheenColorTextureIndex_);
+				archive.TryField("sheen_roughness_texture_index", sheenRoughnessTextureIndex_);
 			}
 		};
 		Sheen sheen_;
@@ -653,12 +656,12 @@ namespace SeedCore
 			template<class Archive>
 			void Serialize(Archive& archive)
 			{
-				archive.Field("iridescence_factor", iridescenceFactor_);
-				archive.Field("iridescence_ior", iridescenceIor_);
-				archive.Field("iridescence_thickness_minimum", iridescenceThicknessMinimum_);
-				archive.Field("iridescence_thickness_maximum", iridescenceThicknessMaximum_);
-				archive.Field("iridescence_texture_index", iridescenceTextureIndex_);
-				archive.Field("iridescence_thickness_texture_index", iridescenceThicknessTextureIndex_);
+				archive.TryField("iridescence_factor", iridescenceFactor_);
+				archive.TryField("iridescence_ior", iridescenceIor_);
+				archive.TryField("iridescence_thickness_minimum", iridescenceThicknessMinimum_);
+				archive.TryField("iridescence_thickness_maximum", iridescenceThicknessMaximum_);
+				archive.TryField("iridescence_texture_index", iridescenceTextureIndex_);
+				archive.TryField("iridescence_thickness_texture_index", iridescenceThicknessTextureIndex_);
 			}
 		};
 		Iridescence iridescence_;
@@ -685,9 +688,9 @@ namespace SeedCore
 			template<class Archive>
 			void Serialize(Archive& archive)
 			{
-				archive.Field("anisotropy_strength", anisotropyStrength_);
-				archive.Field("anisotropy_rotation", anisotropyRotation_);
-				archive.Field("anisotropy_texture_index", anisotropyTextureIndex_);
+				archive.TryField("anisotropy_strength", anisotropyStrength_);
+				archive.TryField("anisotropy_rotation", anisotropyRotation_);
+				archive.TryField("anisotropy_texture_index", anisotropyTextureIndex_);
 			}
 		};
 		Anisotropy anisotropy_;
@@ -709,7 +712,7 @@ namespace SeedCore
 			template<class Archive>
 			void Serialize(Archive& archive)
 			{
-				archive.Field("unlit", unlit_);
+				archive.TryField("unlit", unlit_);
 			}
 		};
 		Unlit unlit_;
@@ -717,16 +720,16 @@ namespace SeedCore
 		template<class Archive>
 		void Serialize(Archive& archive)
 		{
-			archive.Field("emissive_strength", emissiveStrength_);
-			archive.Field("ior", ior_);
-			archive.Field("specular", specular_);
-			archive.Field("clear_coat", clearCoat_);
-			archive.Field("transmission", transmission_);
-			archive.Field("volume", volume_);
-			archive.Field("sheen", sheen_);
-			archive.Field("iridescence", iridescence_);
-			archive.Field("anisotropy", anisotropy_);
-			archive.Field("unlit", unlit_);
+			archive.TryField("emissive_strength", emissiveStrength_);
+			archive.TryField("ior", ior_);
+			archive.TryField("specular", specular_);
+			archive.TryField("clear_coat", clearCoat_);
+			archive.TryField("transmission", transmission_);
+			archive.TryField("volume", volume_);
+			archive.TryField("sheen", sheen_);
+			archive.TryField("iridescence", iridescence_);
+			archive.TryField("anisotropy", anisotropy_);
+			archive.TryField("unlit", unlit_);
 		}
 	};
 
@@ -754,6 +757,8 @@ namespace SeedCore
 		Phong = 2,
 		Toon = 3,
 		Lambert = 4,
+		Flat = 5,
+		Fur = 6,
 	};
 
 	/**
@@ -795,6 +800,18 @@ namespace SeedCore
 		/// [JP] KHR_materials_* 拡張。拡張が無ければ各デフォルト（中立値）のまま。
 		KHR khr_;
 
+		/// [EN] Shell-fur parameters, only consulted when shadingModel_ == Fur:
+		///      the outermost shell sits furLength_ metres above the surface,
+		///      furShellCount_ layers are drawn between, and furDensity_ scales
+		///      the per-strand hash-noise threshold (higher = denser coat).
+		/// [JP] シェルファーのパラメータ。shadingModel_ == Fur のときのみ参照:
+		///      最外殻は面から furLength_ メートル、その間に furShellCount_ 層を
+		///      描画し、furDensity_ が毛1本ごとのハッシュノイズ閾値をスケールする
+		///      (大きいほど密).
+		Float furLength_ = 0.03f;
+		Float furDensity_ = 1.0f;
+		Int furShellCount_ = 16;
+
 		Uint32 baseColorTextureIndex_ = 0xFFFFFFFF;
 		Uint32 normalTextureIndex_ = 0xFFFFFFFF;
 		Uint32 metallicRoughnessTextureIndex_ = 0xFFFFFFFF;
@@ -802,23 +819,32 @@ namespace SeedCore
 		Uint32 emissiveTextureIndex_ = 0xFFFFFFFF;
 
 		template<class Archive>
+		/// [EN] Material fields (Surface + KHR extensions) all use TryField: the
+		///      material set keeps growing, and an older .material simply keeps
+		///      the C++ default for any key it does not carry - no warning spam.
+		/// [JP] マテリアルのフィールド(Surface + KHR拡張)は全て TryField: マテリアル
+		///      は増え続けるため、古い .material は持っていないキーを C++ の
+		///      デフォルトのままにする - 警告ログも出ない。
 		void Serialize(Archive& archive)
 		{
-			archive.Field("name", name_);
-			archive.Field("base_color", baseColor_);
-			archive.Field("metallic", metallic_);
-			archive.Field("roughness", roughness_);
-			archive.Field("emissive_factor", emissiveFactor_);
-			archive.Field("alpha_mode", alphaMode_);
-			archive.Field("alpha_cutoff", alphaCutoff_);
-			archive.Field("double_sided", doubleSided_);
-			archive.Field("shading_model", shadingModel_);
-			archive.Field("khr", khr_);
-			archive.Field("base_color_texture_index", baseColorTextureIndex_);
-			archive.Field("normal_texture_index", normalTextureIndex_);
-			archive.Field("metallic_roughness_texture_index", metallicRoughnessTextureIndex_);
-			archive.Field("occlusion_texture_index", occlusionTextureIndex_);
-			archive.Field("emissive_texture_index", emissiveTextureIndex_);
+			archive.TryField("name", name_);
+			archive.TryField("base_color", baseColor_);
+			archive.TryField("metallic", metallic_);
+			archive.TryField("roughness", roughness_);
+			archive.TryField("emissive_factor", emissiveFactor_);
+			archive.TryField("alpha_mode", alphaMode_);
+			archive.TryField("alpha_cutoff", alphaCutoff_);
+			archive.TryField("double_sided", doubleSided_);
+			archive.TryField("shading_model", shadingModel_);
+			archive.TryField("khr", khr_);
+			archive.TryField("fur_length", furLength_);
+			archive.TryField("fur_density", furDensity_);
+			archive.TryField("fur_shell_count", furShellCount_);
+			archive.TryField("base_color_texture_index", baseColorTextureIndex_);
+			archive.TryField("normal_texture_index", normalTextureIndex_);
+			archive.TryField("metallic_roughness_texture_index", metallicRoughnessTextureIndex_);
+			archive.TryField("occlusion_texture_index", occlusionTextureIndex_);
+			archive.TryField("emissive_texture_index", emissiveTextureIndex_);
 		}
 	};
 
@@ -1091,9 +1117,10 @@ namespace SeedCore
 		///      index-aligned with compressedVertices_ (also serialized),
 		///      so both must survive a cache load equally; BakeMesh() does
 		///      NOT clear this alongside vertices_. Exists solely so the
-		///      raster morph blend path (SkeletalModelMS.hlsl/
-		///      StaticModelMS.hlsl, via Model.hlsli's ApplyMorphBlend) can
-		///      resolve ANY streamed LOD's vertex back to the original
+		///      raster morph blend (SkeletalModelMS.hlsl/StaticModelMS.hlsl/
+		///      FurShellMS.hlsl/DepthPrepassMS.hlsl/Model/Material/
+		///      MaterialResolveCS.hlsl/Model/Transparent/ModelTransparentPS.hlsl)
+		///      can resolve ANY streamed LOD's vertex back to the original
 		///      vertex Morph::positionDeltas_ is index-aligned to — RT's
 		///      morph blend needs no such remap since its proxy only ever
 		///      uses each SubMesh's original (LOD-0/full-detail) cluster.
@@ -1106,9 +1133,11 @@ namespace SeedCore
 		///      compressedVertices_(同じくシリアライズ)とインデックスが
 		///      整合し続ける必要があるため、両者ともキャッシュロードを
 		///      同じように生き延びる必要がある。BakeMesh() は vertices_ と
-		///      一緒にこれをクリアしない。ラスタのモーフブレンドパス
-		///      (SkeletalModelMS.hlsl/StaticModelMS.hlsl、Model.hlsli の
-		///      ApplyMorphBlend 経由)が、ストリームされたどの LOD の頂点も
+		///      一緒にこれをクリアしない。ラスタのモーフブレンド
+		///      (SkeletalModelMS.hlsl/StaticModelMS.hlsl/FurShellMS.hlsl/
+		///      DepthPrepassMS.hlsl/Model/Material/MaterialResolveCS.hlsl/
+		///      Model/Transparent/ModelTransparentPS.hlsl)が、
+		///      ストリームされたどの LOD の頂点も
 		///      Morph::positionDeltas_ がインデックス整合するオリジナル
 		///      頂点へ逆引きできるようにする用途のみに存在する — RT の
 		///      モーフブレンドは、そのプロキシが各 SubMesh のオリジナル
@@ -1268,6 +1297,26 @@ namespace SeedCore
 		* 無ければ false を返す。
 		*/
 		[[nodiscard]] Bool BakeCollision(MeshCollisionDetail detail, DynamicArray<Vector3>& outPositions, DynamicArray<Uint32>& outIndices)const;
+
+		/**
+		* [EN]
+		* Inverse of BakeMesh: decodes compressedVertices_ / compressedSkinVertices_
+		* back into vertices_ and rebuilds vertexIndices_ / subMeshes_ as a flat
+		* per-SubMesh triangle list from the LOD 0 meshlets. For a ".crister"-only
+		* asset (no source glTF/FBX to re-parse) this is how ModelExporter gets an
+		* uncompressed, non-meshlet mesh to export.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* BakeMesh の逆: compressedVertices_ / compressedSkinVertices_ を
+		* vertices_ へデコードし直し、LOD 0 メシュレットから vertexIndices_ /
+		* subMeshes_ を SubMesh ごとのフラットな三角形リストへ再構築する。
+		* ".crister" 単体アセット（再解析できるソース glTF/FBX が無い）を
+		* ModelExporter が書き出すための、非圧縮・非メシュレットのメッシュを
+		* 得る手段。
+		*/
+		void Reconstruct();
 
 		/**
 		* [EN]
@@ -1461,27 +1510,31 @@ namespace SeedCore
 
 		/**
 		* [EN]
-		* Bakes a global position/rotation(euler degrees)/scale/pivot
-		* transform into this Crister's data, same scope as
-		* ApplyAxisConversion (vertices/node hierarchy/skin inverse-bind
-		* matrices/light positions-directions/meshlet bounds), then
-		* re-serialises to cristerPath. scale/pivot/rotation compose about
-		* pivot first, position is a separate world-space offset applied
-		* after. Only root-level nodes (stages_[defaultStage_].nodes_) have
-		* their local transform updated - CumulateTransforms() then
-		* propagates to every descendant, since post-multiplying the whole
-		* transform onto just the root telescopes correctly through the
-		* local-transform chain (node.globalTransform_ = local *
-		* parentGlobal). Returns false if this Crister has no compressed
-		* vertex data.
+		* Applies a global position/rotation(euler degrees)/scale/pivot
+		* transform to this Crister's node hierarchy and light
+		* positions-directions, then re-serialises to cristerPath. Vertices,
+		* skin inverse-bind matrices and meshlet bounds stay in mesh-local
+		* space: static SubMeshes are placed by their node's global transform
+		* at draw time (SubMeshPlacement) and skinned ones through their
+		* joints, so both pick the transform up from the nodes.
+		* scale/pivot/rotation compose about pivot first, position is a
+		* separate world-space offset applied after. Only root-level nodes
+		* (stages_[defaultStage_].nodes_) have their local transform
+		* updated - CumulateTransforms() then propagates to every
+		* descendant, since post-multiplying the whole transform onto just
+		* the root telescopes correctly through the local-transform chain
+		* (node.globalTransform_ = local * parentGlobal). Returns false if
+		* this Crister has no compressed vertex data.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
 		* グローバルな位置/回転(オイラー角、度)/スケール/ピボット変換を
-		* この Crister のデータへ焼き込む。対象範囲は ApplyAxisConversion
-		* と同じ(頂点/ノード階層/スキン逆バインド行列/ライト位置・向き/
-		* メシュレット境界)、その後 cristerPath へ再シリアライズする。
+		* この Crister のノード階層とライト位置・向きへ適用し、その後
+		* cristerPath へ再シリアライズする。頂点・スキン逆バインド行列・
+		* メシュレット境界はメッシュローカル空間のまま: 静的 SubMesh は描画時に
+		* ノードのグローバル変換で配置され(SubMeshPlacement)、スキン付きは
+		* ジョイント経由なので、どちらもノードから変換を受け取る。
 		* スケール/ピボット/回転はまずピボットを中心に合成し、position は
 		* その後に適用する独立したワールド空間オフセット。ローカル
 		* トランスフォームを更新するのはルートノード
@@ -1653,52 +1706,56 @@ namespace SeedCore
 		* [EN]
 		* Minimum corner of the dequantisation AABB for CompressedVertex
 		* positions (see the struct comment). Passed to the shaders through
-		* ModelInstance.
+		* ModelStructuredBuffer.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
 		* CompressedVertex 位置の逆量子化 AABB の最小コーナー（構造体コメント
-		* 参照）。ModelInstance 経由でシェーダに渡す。
+		* 参照）。ModelStructuredBuffer 経由でシェーダに渡す。
 		*/
 		[[nodiscard]] Vector3 PositionMin()const;
 
 		/**
 		* [EN]
 		* Extent (max - min) of the dequantisation AABB for CompressedVertex
-		* positions. Passed to the shaders through ModelInstance.
+		* positions. Passed to the shaders through ModelStructuredBuffer.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
 		* CompressedVertex 位置の逆量子化 AABB の大きさ（max - min）。
-		* ModelInstance 経由でシェーダに渡す。
+		* ModelStructuredBuffer 経由でシェーダに渡す。
 		*/
 		[[nodiscard]] Vector3 PositionExtent()const;
+
+		[[nodiscard]] Vector3 PlacedPositionMin()const;
+
+		[[nodiscard]] Vector3 PlacedPositionExtent()const;
 
 		/**
 		* [EN]
 		* Minimum corner of the dequantisation AABB for CompressedVertex
-		* texcoords. Passed to the shaders through ModelInstance.
+		* texcoords. Passed to the shaders through ModelStructuredBuffer.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
 		* CompressedVertex テクスチャ座標の逆量子化 AABB の最小コーナー。
-		* ModelInstance 経由でシェーダに渡す。
+		* ModelStructuredBuffer 経由でシェーダに渡す。
 		*/
 		[[nodiscard]] Vector2 TexcoordMin()const;
 
 		/**
 		* [EN]
 		* Extent (max - min) of the dequantisation AABB for CompressedVertex
-		* texcoords. Passed to the shaders through ModelInstance.
+		* texcoords. Passed to the shaders through ModelStructuredBuffer.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
 		* CompressedVertex テクスチャ座標の逆量子化 AABB の大きさ
-		* （max - min）。ModelInstance 経由でシェーダに渡す。
+		* （max - min）。ModelStructuredBuffer 経由でシェーダに渡す。
 		*/
 		[[nodiscard]] Vector2 TexcoordExtent()const;
 
@@ -1931,6 +1988,29 @@ namespace SeedCore
 		* GPU アドレス。どの SubMesh も morphs_ を持たなければ 0。
 		*/
 		[[nodiscard]] D3D12_GPU_VIRTUAL_ADDRESS ProxyMorphDeltaBufferAddress()const;
+
+		/**
+		* [EN]
+		* Returns the model-space placements of one SubMesh: the
+		* globalTransform_ of every Node whose mesh_ references the
+		* SubMesh's meshIndex_, so a mesh instanced by several nodes is
+		* drawn once per node. Skinned SubMeshes, and SubMeshes no node
+		* references, get a single identity placement. Resolved in Upload();
+		* an out-of-range index also yields a single identity placement.
+		* Renderers draw each SubMesh with placement * actor world.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* 1つの SubMesh のモデル空間配置を返す: その SubMesh の meshIndex_
+		* を mesh_ で参照する全 Node の globalTransform_。複数ノードから
+		* インスタンスされるメッシュはノードごとに1回ずつ描かれる。スキン
+		* 付き SubMesh と、どのノードからも参照されない SubMesh は単位行列
+		* 1つになる。Upload() で解決し、範囲外のインデックスも単位行列
+		* 1つを返す。レンダラーは各 SubMesh を 配置 * アクターワールド で
+		* 描く。
+		*/
+		[[nodiscard]] const DynamicArray<Matrix>& SubMeshPlacement(Size subMeshIndex)const;
 
 		/**
 		* [EN]
@@ -2235,7 +2315,7 @@ namespace SeedCore
 		* morphDeltaResource_ (which use the crister-wide numbering the
 		* shared pool preserves) — callers populating a raster morph
 		* instance must check this and leave morph fields zeroed
-		* (ModelInstanceData::morphTargetCount_ == 0) for any cluster where
+		* (ModelStructuredBuffer::morphTargetCount_ == 0) for any cluster where
 		* this returns true.
 		*
 		* ---------------------------------------------------------------------
@@ -2250,7 +2330,7 @@ namespace SeedCore
 		* への有効なインデックスでは【ない】— ラスタのモーフ用インスタンス
 		* を組み立てる側はこれを確認し、true が返るクラスタでは
 		* モーフフィールドをゼロのまま
-		* (ModelInstanceData::morphTargetCount_ == 0)にすること。
+		* (ModelStructuredBuffer::morphTargetCount_ == 0)にすること。
 		*/
 		[[nodiscard]] Bool StandaloneVertices(Uint32 clusterIndex)const;
 
@@ -2723,6 +2803,12 @@ namespace SeedCore
 		Vector2 texcoordMin_ = { 0,0 };
 		Vector2 texcoordExtent_ = { 1,1 };
 
+		/// [EN] Per-SubMesh model-space placements (see SubMeshPlacement), indexed like subMeshes_. Resolved from nodes_ in Upload() - not serialized.
+		/// [JP] SubMesh ごとのモデル空間配置(SubMeshPlacement 参照)。subMeshes_ と同じインデックス。Upload() で nodes_ から解決する — シリアライズしない。
+		DynamicArray<DynamicArray<Matrix>> subMeshPlacement_;
+		Vector3 placedPositionMin_ = { 0,0,0 };
+		Vector3 placedPositionExtent_ = { 1,1,1 };
+
 		/// [EN] Streaming bookkeeping shared by every live Crister. All access
 		///      happens on the render thread. Geometry and textures track
 		///      separate resident-byte totals against separate budgets, but
@@ -2741,4 +2827,4 @@ namespace SeedCore
 
 		static constexpr Uint64 evictAgeFrames_ = 8;
 	};
-}
+}

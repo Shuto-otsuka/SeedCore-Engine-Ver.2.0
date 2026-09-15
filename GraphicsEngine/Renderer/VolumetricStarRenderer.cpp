@@ -13,10 +13,12 @@ namespace SeedCore
 		/// No Code
 	}
 
-	void VolumetricStarRenderer::Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, IndicesSystem& indicesSystem, Uint32 width, Uint32 height)
+	void VolumetricStarRenderer::Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, ConstantIndicesSystem& constantIndicesSystem, ShaderResourceIndicesSystem& shaderResourceIndicesSystem, UnorderedAccessIndicesSystem& unorderedAccessIndicesSystem, Uint32 width, Uint32 height)
 	{
 		bindlessHeap_ = bindlessHeap;
-		indicesSystem_ = &indicesSystem;
+		constantIndicesSystem_ = &constantIndicesSystem;
+		shaderResourceIndicesSystem_ = &shaderResourceIndicesSystem;
+		unorderedAccessIndicesSystem_ = &unorderedAccessIndicesSystem;
 
 		width_ = width;
 		height_ = height;
@@ -206,12 +208,12 @@ namespace SeedCore
 		}
 
 		tuningBuffer_->Update(uploadSettings);
-		indicesSystem_->SetStarRayConstantIndex(tuningBuffer_->GetIndex());
-		indicesSystem_->SetStarOutputUnorderedAccessViewIndex(starUnorderedAccessViewIndex_);
-		indicesSystem_->SetStarOutputShaderResourceViewIndex(starShaderResourceViewIndex_);
+		constantIndicesSystem_->SetStarRayConstantIndex(tuningBuffer_->GetIndex());
+		unorderedAccessIndicesSystem_->SetStarOutputUnorderedAccessViewIndex(starUnorderedAccessViewIndex_);
+		shaderResourceIndicesSystem_->SetStarOutputShaderResourceViewIndex(starShaderResourceViewIndex_);
 	}
 
-	void VolumetricStarRenderer::Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex, Bool enabled)
+	void VolumetricStarRenderer::Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses, Bool enabled)
 	{
 		auto* cmd = cmdList->Get();
 
@@ -239,9 +241,7 @@ namespace SeedCore
 			ID3D12DescriptorHeap* heaps[] = { heap };
 			cmd->SetDescriptorHeaps(_countof(heaps), heaps);
 			cmd->SetComputeRootSignature(starShader_.GetRootSignature());
-			cmd->SetComputeRootDescriptorTable(0, bindlessHeap_->GPUHandle(0));
-			cmd->SetComputeRootConstantBufferView(2, constantIndex);
-			cmd->SetComputeRootConstantBufferView(3, structuredIndex);
+			RootSignature::BindCompute(cmd, addresses);
 
 			cmd->SetPipelineState(pipelineState);
 

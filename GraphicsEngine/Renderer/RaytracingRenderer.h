@@ -31,7 +31,10 @@ namespace SeedCore
 	class BindlessHeap;
 	class D3D12CommandList;
 	class ShaderCache;
-	class IndicesSystem;
+	class ConstantIndicesSystem;
+	class ShaderResourceIndicesSystem;
+	class UnorderedAccessIndicesSystem;
+	struct RootAddresses;
 	class RootSignature;
 	class PipelineStateObject;
 	class ModelRenderer;
@@ -78,7 +81,7 @@ namespace SeedCore
 		RaytracingRenderer(RootSignature& rootSignature, PipelineStateObject& pipelineStateObject, RaytracingStateObject& raytracingStateObject);
 		~RaytracingRenderer() = default;
 
-		void Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, IndicesSystem& indicesSystem, Uint32 width, Uint32 height);
+		void Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, ConstantIndicesSystem& constantIndicesSystem, ShaderResourceIndicesSystem& shaderResourceIndicesSystem, UnorderedAccessIndicesSystem& unorderedAccessIndicesSystem, Uint32 width, Uint32 height);
 
 		/// [EN] Resizes every screen-space RT-effect buffer (Shadow/AO/SSS/
 		///      Reflection/GI/VolumetricCloudScapes) to the new native
@@ -107,16 +110,17 @@ namespace SeedCore
 		///      TLAS index into IndicesSystem and preps every owned RT-effect
 		///      renderer's per-frame constant data (currently just
 		///      ShadowRenderer::PrepareFrame) — all of this has no G-Buffer
-		///      dependency, so it must run before IndicesSystem::UploadEditor
-		///      bakes this frame's structured indices (see Renderer::EditorFlush).
+		///      dependency, so it must run before any view's IndicesSystem
+		///      upload bakes this frame's structured indices (see
+		///      Renderer::PrepareFrame).
 		/// [JP] 今回の Gather で見つかった未キャッシュの BLAS を構築し、収集した
 		///      インスタンスから TLAS を再構築、現在のフレームリングスロット用の
 		///      bindless SRV を更新する。併せて TLAS インデックスを IndicesSystem
 		///      へ登録し、保持している各 RT エフェクトレンダラーの毎フレーム定数
 		///      データも準備する（現状は ShadowRenderer::PrepareFrame のみ）—
-		///      これらはすべて G-Buffer に依存しないため、IndicesSystem::
-		///      UploadEditor が今フレームの structured indices を確定する前に
-		///      実行する必要がある（Renderer::EditorFlush 参照）。
+		///      これらはすべて G-Buffer に依存しないため、どのビューの
+		///      IndicesSystem のアップロードが今フレームの structured indices を
+		///      確定するよりも前に実行する必要がある（Renderer::PrepareFrame 参照）。
 		/// [EN] deltaTime/nightFactor feed VolumetricStarRenderer::PrepareFrame
 		///      (shooting star spawn/lifetime advance). cameraPosition/
 		///      totalTime/weather additionally feed
@@ -138,11 +142,11 @@ namespace SeedCore
 		/// [JP] 実際のシャドウレイ GPU 処理（今フレーム TLAS が無効ならフォール
 		///      バッククリア）— G-Buffer の深度/法線が書き込み済みである必要が
 		///      あるため、Build() より後に実行する。
-		void DispatchShadow(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex, RaytracingView view);
+		void DispatchShadow(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses, RaytracingView view);
 
 		/// [EN] Same contract as DispatchShadow, for the AO pass.
 		/// [JP] DispatchShadow と同じ契約。AO パス用。
-		void DispatchAmbientOcclusion(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex, RaytracingView view);
+		void DispatchAmbientOcclusion(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses, RaytracingView view);
 
 		/// [EN] Same contract, for the SSS pass. No view parameter: the pass
 		///      is deterministic (no temporal accumulation), so one shared
@@ -150,7 +154,7 @@ namespace SeedCore
 		/// [JP] 同じ契約の SSS パス用。ビュー引数は無し: このパスは決定論的
 		///      (時間積分なし)なので、共有の透過率テクスチャ1枚を Flush ごとに
 		///      書いて読む。
-		void DispatchSubsurfaceScattering(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex);
+		void DispatchSubsurfaceScattering(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses);
 
 		/// [EN] Same contract, for the reflection RTPSO pass. GGX-sampled and
 		///      denoised per-view (like AO/GI), so it now takes a view
@@ -158,7 +162,7 @@ namespace SeedCore
 		/// [JP] 同じ契約の反射 RTPSO パス用。GGXサンプリング+ビューごとの
 		///      デノイズ(AO/GIと同様)になったため、こちらもビュー引数を取る —
 		///      roughness > 0 では決定論的ではなくなった。
-		void DispatchReflection(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex, RaytracingView view);
+		void DispatchReflection(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses, RaytracingView view);
 
 		/// [EN] Same contract, for the refraction RTPSO pass. Deterministic
 		///      (Snell-refracted ray per pixel, no importance sampling/denoiser)
@@ -166,7 +170,7 @@ namespace SeedCore
 		/// [JP] 同じ契約の屈折 RTPSO パス用。SSSと同様に決定論的(ピクセルごと
 		///      Snell屈折レイ1本、重点サンプリング/デノイザ無し)なので、
 		///      こちらもビュー引数は無し - 共有の出力1枚。
-		void DispatchRefraction(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex);
+		void DispatchRefraction(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses);
 
 		/// [EN] Same contract, for the volumetric cloud pass. Needs no TLAS
 		///      at all (pure raymarch), so its enabled flag is the only gate.
@@ -176,27 +180,28 @@ namespace SeedCore
 		///      view-shared, so no view parameter.
 		/// [JP] 同じ契約の1バウンス拡散GI RTPSO パス用。こちらもビュー共有なので
 		///      ビュー引数は無し。
-		void DispatchGlobalIllumination(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex, RaytracingView view);
+		void DispatchGlobalIllumination(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses, RaytracingView view);
 
-		void DispatchVolumetricCloudScapes(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex);
+		void DispatchVolumetricCloudScapes(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses);
 
 		/// [EN] Same contract, for the star/moon/shooting-star pass. Needs no
 		///      TLAS (pure screen-space), so its enabled flag is the only gate.
 		/// [JP] 同じ契約の星/月/流れ星パス用。TLAS を使わない(純スクリーン空間)
 		///      ので、有効フラグだけがゲート。
-		void DispatchVolumetricStar(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex);
+		void DispatchVolumetricStar(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses);
 
 		/// [EN] The rain/snow particle compute simulate pass. Needs no TLAS or
 		///      G-Buffer, so - like clouds/star - it can run any time, but
 		///      should only run ONCE per frame (not once per view) since it
 		///      advances one shared world-space simulation; Renderer calls this
-		///      only from EditorFlush, never GameFlush.
+		///      only from PrepareFrame, never from a per-view flush.
 		/// [JP] 雨/雪パーティクルのコンピュート・シミュレートパス。TLAS も
 		///      G-Buffer も不要(雲/星と同じ)なのでいつ実行してもよいが、
 		///      共有のワールド空間シミュレーションを1つ進めるだけなので
 		///      フレームに1回だけ実行すること(ビューごとではない) -
-		///      Renderer は EditorFlush からのみ呼び、GameFlush からは呼ばない。
-		void SimulateWeatherParticles(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex);
+		///      Renderer は PrepareFrame からのみ呼び、ビューごとの Flush からは
+		///      呼ばない。
+		void SimulateWeatherParticles(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses);
 
 		/// [EN] The rain/snow particle mesh-shader draw pass - unlike Simulate,
 		///      this DOES run once per view (Editor/Game), each from its own
@@ -208,7 +213,7 @@ namespace SeedCore
 		///      カメラで実行する。G-Buffer の深度が書き込み済みで、呼び出し側が
 		///      geometryBuffer->BeginDepth()/EndDepth() スコープ内であることが
 		///      前提 - WeatherParticleRenderer::Draw 参照。
-		void DrawWeatherParticles(D3D12CommandList* cmdList, FrameBuffer* frameBuffer, GeometryBuffer* geometryBuffer, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex);
+		void DrawWeatherParticles(D3D12CommandList* cmdList, FrameBuffer* frameBuffer, GeometryBuffer* geometryBuffer, ID3D12DescriptorHeap* heap, const RootAddresses& addresses);
 
 		/// [EN] Same contract, for the froxel fog / volumetric light pipeline
 		///      (god rays). Uses the TLAS when present but degrades gracefully
@@ -217,7 +222,7 @@ namespace SeedCore
 		/// [JP] 同じ契約の froxel フォグ/体積光パイプライン(ゴッドレイ)用。
 		///      TLAS があれば使うが無くても動く(ジオメトリ遮蔽なしのフォグのみ)
 		///      ので、ゲートは有効フラグのみ。
-		void DispatchVolumetricLight(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex);
+		void DispatchVolumetricLight(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses, RaytracingView view);
 
 		/// [EN] Per-effect settings are copied into each renderer's tuning
 		///      constant buffer every frame; the enabled flags are master
@@ -460,7 +465,8 @@ namespace SeedCore
 		Bool volumetricLightEnabled_ = false;
 
 		BindlessHeap* bindlessHeap_ = nullptr;
-		IndicesSystem* indicesSystem_ = nullptr;
+		ConstantIndicesSystem* constantIndicesSystem_ = nullptr;
+		ShaderResourceIndicesSystem* shaderResourceIndicesSystem_ = nullptr;
 
 		Uint32 tlasBindlessIndices_[FrameRing::frameCount] = { 0xFFFFFFFF, 0xFFFFFFFF };
 
@@ -475,6 +481,7 @@ namespace SeedCore
 		Bool morphedBlasBuildFailureLogged_ = false;
 		Bool degenerateInstanceLogged_ = false;
 		Bool rtProxyNotReadyLogged_ = false;
+		Bool instanceLimitLogged_ = false;
 
 		/// [EN] Reports the device-removed reason once instead of every frame.
 		/// [JP] デバイス削除の理由を毎フレームでなく 1 度だけ報告する。

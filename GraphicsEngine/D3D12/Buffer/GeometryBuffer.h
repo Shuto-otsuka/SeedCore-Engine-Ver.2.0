@@ -15,7 +15,7 @@ namespace SeedCore
 		const DXGI_FORMAT formats_[bufferCount_] =
 		{
 			DXGI_FORMAT_R8G8B8A8_UNORM,		// RT0: base_color.rgb + metallic
-			DXGI_FORMAT_R16G16B16A16_UNORM,	// RT1: octNormal.rg + roughness (.a unused/reserved - KHR extension scalars are no longer baked per-pixel, DeferredLightingPS.hlsl reads them straight from ModelInstance via VisID)
+			DXGI_FORMAT_R16G16B16A16_UNORM,	// RT1: octNormal.rg + roughness (.a unused/reserved - KHR extension scalars are no longer baked per-pixel, DeferredLightingPS.hlsl reads them straight from ModelStructuredBuffer via VisID)
 			DXGI_FORMAT_R16G16_FLOAT,		// RT2: velocity
 			DXGI_FORMAT_R11G11B10_FLOAT,		// RT3: emissive.rgb (raw texture*factor - emissive_strength_ is applied at lighting time, not baked in)
 			DXGI_FORMAT_R32G32B32A32_UINT	// RT4: visibility id (instance_index, pack(meshlet_index, triangle_in_meshlet_index)) + asuint(texcoord) - VisibilityBuffer groundwork

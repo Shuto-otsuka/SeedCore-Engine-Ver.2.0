@@ -4,13 +4,52 @@
 
 namespace SeedCore
 {
-	Bool ModelExporter::Export(const Crister& crister, ModelFormat format, String filePath)
+	ExportProfile ModelExporter::Preset(ExportPreset preset)
+	{
+		ExportProfile profile{};
+		switch (preset)
+		{
+		case ExportPreset::Gltf:
+		{
+			profile = ExportProfile{ ModelFormat::Gltf, false, ExportAxis::GltfRightHandedYUp, 1.0f };
+			break;
+		}
+		case ExportPreset::Glb:
+		{
+			profile = ExportProfile{ ModelFormat::Gltf, true, ExportAxis::GltfRightHandedYUp, 1.0f };
+			break;
+		}
+		case ExportPreset::FbxMaya:
+		{
+			profile = ExportProfile{ ModelFormat::Fbx, true, ExportAxis::MayaYUp, 100.0f };
+			break;
+		}
+		case ExportPreset::FbxUnreal:
+		{
+			profile = ExportProfile{ ModelFormat::Fbx, true, ExportAxis::UnrealZUpLeftHanded, 100.0f };
+			break;
+		}
+		case ExportPreset::FbxUnity:
+		{
+			profile = ExportProfile{ ModelFormat::Fbx, true, ExportAxis::MayaYUp, 1.0f };
+			break;
+		}
+		case ExportPreset::FbxNative:
+		{
+			profile = ExportProfile{ ModelFormat::Fbx, true, ExportAxis::EngineNativeDirectX, 1.0f };
+			break;
+		}
+		}
+		return profile;
+	}
+
+	Bool ModelExporter::Export(const Crister& crister, const ExportProfile& profile, String filePath)
 	{
 		std::filesystem::path outputPath(filePath.c_str());
 		std::error_code directoryError;
 		std::filesystem::create_directories(outputPath.parent_path(), directoryError);
 
-		switch (format)
+		switch (profile.format_)
 		{
 		case ModelFormat::Gltf:
 		{
@@ -19,9 +58,7 @@ namespace SeedCore
 				return false;
 			}
 
-			std::string outputExtension = outputPath.extension().string();
-			std::ranges::transform(outputExtension, outputExtension.begin(), [](char character) { return static_cast<char>(std::tolower(static_cast<unsigned char>(character))); });
-			Bool binary = outputExtension == ".glb";
+			Bool binary = profile.binary_;
 
 			tinygltf::Model model;
 			model.asset.version = "2.0";
@@ -360,6 +397,8 @@ namespace SeedCore
 				return false;
 			}
 
+			Float unitScale = profile.unitScale_;
+
 			FbxManager* manager = FbxManager::Create();
 			manager->SetIOSettings(FbxIOSettings::Create(manager, IOSROOT));
 			FbxScene* scene = FbxScene::Create(manager, outputPath.stem().string().c_str());
@@ -394,7 +433,7 @@ namespace SeedCore
 				FbxAMatrix rotationMatrix;
 				rotationMatrix.SetQ(rotationQuaternion);
 				FbxVector4 euler = rotationMatrix.GetR();
-				fbxNode->LclTranslation.Set(FbxDouble3(node.translation_.x, node.translation_.y, node.translation_.z));
+				fbxNode->LclTranslation.Set(FbxDouble3(node.translation_.x * unitScale, node.translation_.y * unitScale, node.translation_.z * unitScale));
 				fbxNode->LclRotation.Set(FbxDouble3(euler[0], euler[1], euler[2]));
 				fbxNode->LclScaling.Set(FbxDouble3(node.scale_.x, node.scale_.y, node.scale_.z));
 
@@ -540,7 +579,7 @@ namespace SeedCore
 					for (Uint32 vertexIndex = 0; vertexIndex < subMesh->vertexCount_; vertexIndex++)
 					{
 						const Vertex& vertex = crister.vertices_[subMesh->vertexOffset_ + vertexIndex];
-						mesh->SetControlPointAt(FbxVector4(vertex.position_.x, vertex.position_.y, vertex.position_.z), static_cast<int>(controlPointCursor + vertexIndex));
+						mesh->SetControlPointAt(FbxVector4(vertex.position_.x * unitScale, vertex.position_.y * unitScale, vertex.position_.z * unitScale), static_cast<int>(controlPointCursor + vertexIndex));
 						normalElement->GetDirectArray().Add(FbxVector4(vertex.normal_.x, vertex.normal_.y, vertex.normal_.z));
 						uvElement->GetDirectArray().Add(FbxVector2(vertex.texcoord_.x, 1.0 - vertex.texcoord_.y));
 					}
@@ -665,6 +704,30 @@ namespace SeedCore
 				}
 			}
 
+			scene->GetGlobalSettings().SetSystemUnit(unitScale >= 99.0f ? FbxSystemUnit::cm : FbxSystemUnit::m);
+
+			switch (profile.axis_)
+			{
+			case ExportAxis::MayaYUp:
+			{
+				FbxAxisSystem mayaAxisSystem(FbxAxisSystem::MayaYUp);
+				mayaAxisSystem.DeepConvertScene(scene);
+				break;
+			}
+			case ExportAxis::UnrealZUpLeftHanded:
+			{
+				FbxAxisSystem unrealAxisSystem(FbxAxisSystem::eZAxis, FbxAxisSystem::eParityOdd, FbxAxisSystem::eLeftHanded);
+				unrealAxisSystem.DeepConvertScene(scene);
+				break;
+			}
+			case ExportAxis::EngineNativeDirectX:
+				[[fallthrough]];
+			case ExportAxis::GltfRightHandedYUp:
+			{
+				break;
+			}
+			}
+
 			FbxExporter* exporter = FbxExporter::Create(manager, "");
 			Bool result = exporter->Initialize(outputPath.string().c_str(), -1, manager->GetIOSettings());
 			if (result)
@@ -678,5 +741,407 @@ namespace SeedCore
 		}
 
 		return false;
+	}
+
+	Bool ModelExporter::Export(const tinygltf::Model& model, const ExportProfile& profile, String filePath)
+	{
+		std::filesystem::path outputPath(filePath.c_str());
+		std::error_code directoryError;
+		std::filesystem::create_directories(outputPath.parent_path(), directoryError);
+
+		if (profile.format_ == ModelFormat::Gltf)
+		{
+			tinygltf::TinyGLTF writer;
+			return writer.WriteGltfSceneToFile(&model, outputPath.string(), profile.binary_, profile.binary_, !profile.binary_, profile.binary_);
+		}
+
+		if (model.meshes.empty())
+		{
+			return false;
+		}
+
+		Float unitScale = profile.unitScale_;
+
+		auto readFloats = [&](Int accessorIndex, Int components)
+		{
+			DynamicArray<Float> values;
+			if (accessorIndex < 0 || accessorIndex >= static_cast<Int>(model.accessors.size()))
+			{
+				return values;
+			}
+			const tinygltf::Accessor& accessor = model.accessors[accessorIndex];
+			const tinygltf::BufferView& bufferView = model.bufferViews[accessor.bufferView];
+			const tinygltf::Buffer& buffer = model.buffers[bufferView.buffer];
+			Size stride = bufferView.byteStride != 0 ? bufferView.byteStride : static_cast<Size>(components) * sizeof(Float);
+			const unsigned char* base = buffer.data.data() + bufferView.byteOffset + accessor.byteOffset;
+			values.resize(accessor.count * static_cast<Size>(components));
+			for (Size element = 0; element < accessor.count; element++)
+			{
+				const Float* source = reinterpret_cast<const Float*>(base + element * stride);
+				for (Int component = 0; component < components; component++)
+				{
+					values[element * static_cast<Size>(components) + component] = source[component];
+				}
+			}
+			return values;
+		};
+
+		auto readUints = [&](Int accessorIndex, Int components)
+		{
+			DynamicArray<Uint32> values;
+			if (accessorIndex < 0 || accessorIndex >= static_cast<Int>(model.accessors.size()))
+			{
+				return values;
+			}
+			const tinygltf::Accessor& accessor = model.accessors[accessorIndex];
+			const tinygltf::BufferView& bufferView = model.bufferViews[accessor.bufferView];
+			const tinygltf::Buffer& buffer = model.buffers[bufferView.buffer];
+			Size componentSize = accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT ? 4 : accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT ? 2 : 1;
+			Size stride = bufferView.byteStride != 0 ? bufferView.byteStride : componentSize * static_cast<Size>(components);
+			const unsigned char* base = buffer.data.data() + bufferView.byteOffset + accessor.byteOffset;
+			values.resize(accessor.count * static_cast<Size>(components));
+			for (Size element = 0; element < accessor.count; element++)
+			{
+				const unsigned char* source = base + element * stride;
+				for (Int component = 0; component < components; component++)
+				{
+					const unsigned char* value = source + component * componentSize;
+					if (componentSize == 4)
+					{
+						values[element * static_cast<Size>(components) + component] = *reinterpret_cast<const Uint32*>(value);
+					}
+					else if (componentSize == 2)
+					{
+						values[element * static_cast<Size>(components) + component] = *reinterpret_cast<const Uint16*>(value);
+					}
+					else
+					{
+						values[element * static_cast<Size>(components) + component] = *value;
+					}
+				}
+			}
+			return values;
+		};
+
+		FbxManager* manager = FbxManager::Create();
+		manager->SetIOSettings(FbxIOSettings::Create(manager, IOSROOT));
+		FbxScene* scene = FbxScene::Create(manager, outputPath.stem().string().c_str());
+		scene->GetGlobalSettings().SetAxisSystem(FbxAxisSystem::OpenGL);
+		scene->GetGlobalSettings().SetSystemUnit(FbxSystemUnit::m);
+
+		DynamicArray<Bool> isJoint(model.nodes.size(), false);
+		for (const tinygltf::Skin& skin : model.skins)
+		{
+			for (Int joint : skin.joints)
+			{
+				if (joint >= 0 && joint < static_cast<Int>(model.nodes.size()))
+				{
+					isJoint[joint] = true;
+				}
+			}
+		}
+
+		DynamicArray<FbxNode*> fbxNodes(model.nodes.size(), nullptr);
+		for (Size nodeIndex = 0; nodeIndex < model.nodes.size(); nodeIndex++)
+		{
+			const tinygltf::Node& node = model.nodes[nodeIndex];
+			std::string nodeName = node.name.empty() ? ("node_" + std::to_string(nodeIndex)) : node.name;
+			FbxNode* fbxNode = FbxNode::Create(scene, nodeName.c_str());
+
+			Vector3 translation(0.0f, 0.0f, 0.0f);
+			Quaternion rotation = Quaternion::Identity;
+			Vector3 scale(1.0f, 1.0f, 1.0f);
+			if (node.translation.size() == 3)
+			{
+				translation = Vector3(static_cast<Float>(node.translation[0]), static_cast<Float>(node.translation[1]), static_cast<Float>(node.translation[2]));
+			}
+			if (node.rotation.size() == 4)
+			{
+				rotation = Quaternion(static_cast<Float>(node.rotation[0]), static_cast<Float>(node.rotation[1]), static_cast<Float>(node.rotation[2]), static_cast<Float>(node.rotation[3]));
+			}
+			if (node.scale.size() == 3)
+			{
+				scale = Vector3(static_cast<Float>(node.scale[0]), static_cast<Float>(node.scale[1]), static_cast<Float>(node.scale[2]));
+			}
+
+			FbxQuaternion rotationQuaternion(rotation.x, rotation.y, rotation.z, rotation.w);
+			FbxAMatrix rotationMatrix;
+			rotationMatrix.SetQ(rotationQuaternion);
+			FbxVector4 euler = rotationMatrix.GetR();
+			fbxNode->LclTranslation.Set(FbxDouble3(translation.x * unitScale, translation.y * unitScale, translation.z * unitScale));
+			fbxNode->LclRotation.Set(FbxDouble3(euler[0], euler[1], euler[2]));
+			fbxNode->LclScaling.Set(FbxDouble3(scale.x, scale.y, scale.z));
+
+			if (isJoint[nodeIndex])
+			{
+				FbxSkeleton* skeleton = FbxSkeleton::Create(scene, "");
+				skeleton->SetSkeletonType(FbxSkeleton::eLimbNode);
+				fbxNode->SetNodeAttribute(skeleton);
+			}
+			fbxNodes[nodeIndex] = fbxNode;
+		}
+
+		DynamicArray<Bool> isChild(model.nodes.size(), false);
+		for (Size nodeIndex = 0; nodeIndex < model.nodes.size(); nodeIndex++)
+		{
+			for (Int child : model.nodes[nodeIndex].children)
+			{
+				if (child >= 0 && child < static_cast<Int>(model.nodes.size()))
+				{
+					fbxNodes[nodeIndex]->AddChild(fbxNodes[child]);
+					isChild[child] = true;
+				}
+			}
+		}
+		for (Size nodeIndex = 0; nodeIndex < model.nodes.size(); nodeIndex++)
+		{
+			if (!isChild[nodeIndex])
+			{
+				scene->GetRootNode()->AddChild(fbxNodes[nodeIndex]);
+			}
+		}
+
+		DynamicArray<FbxSurfaceMaterial*> fbxMaterials(model.materials.size(), nullptr);
+		for (Size materialIndex = 0; materialIndex < model.materials.size(); materialIndex++)
+		{
+			const tinygltf::Material& material = model.materials[materialIndex];
+			std::string materialName = material.name.empty() ? ("material_" + std::to_string(materialIndex)) : material.name;
+			FbxSurfacePhong* fbxMaterial = FbxSurfacePhong::Create(scene, materialName.c_str());
+			const std::vector<double>& baseColor = material.pbrMetallicRoughness.baseColorFactor;
+			if (baseColor.size() == 4)
+			{
+				fbxMaterial->Diffuse.Set(FbxDouble3(baseColor[0], baseColor[1], baseColor[2]));
+			}
+			if (material.emissiveFactor.size() == 3)
+			{
+				fbxMaterial->Emissive.Set(FbxDouble3(material.emissiveFactor[0], material.emissiveFactor[1], material.emissiveFactor[2]));
+			}
+			fbxMaterial->Shininess.Set((1.0 - material.pbrMetallicRoughness.roughnessFactor) * 100.0);
+			fbxMaterials[materialIndex] = fbxMaterial;
+		}
+
+		for (Size meshIndex = 0; meshIndex < model.meshes.size(); meshIndex++)
+		{
+			const tinygltf::Mesh& gltfMesh = model.meshes[meshIndex];
+
+			Int ownerNode = -1;
+			for (Size nodeIndex = 0; nodeIndex < model.nodes.size(); nodeIndex++)
+			{
+				if (model.nodes[nodeIndex].mesh == static_cast<Int>(meshIndex))
+				{
+					ownerNode = static_cast<Int>(nodeIndex);
+					break;
+				}
+			}
+
+			Size totalControlPoints = 0;
+			for (const tinygltf::Primitive& primitive : gltfMesh.primitives)
+			{
+				auto found = primitive.attributes.find("POSITION");
+				if (found != primitive.attributes.end())
+				{
+					totalControlPoints += model.accessors[found->second].count;
+				}
+			}
+			if (totalControlPoints == 0)
+			{
+				continue;
+			}
+
+			FbxMesh* fbxMesh = FbxMesh::Create(scene, "");
+			fbxMesh->InitControlPoints(static_cast<int>(totalControlPoints));
+			FbxGeometryElementNormal* normalElement = fbxMesh->CreateElementNormal();
+			normalElement->SetMappingMode(FbxGeometryElement::eByControlPoint);
+			normalElement->SetReferenceMode(FbxGeometryElement::eDirect);
+			FbxGeometryElementUV* uvElement = fbxMesh->CreateElementUV("uv");
+			uvElement->SetMappingMode(FbxGeometryElement::eByControlPoint);
+			uvElement->SetReferenceMode(FbxGeometryElement::eDirect);
+			FbxGeometryElementMaterial* materialElement = fbxMesh->CreateElementMaterial();
+			materialElement->SetMappingMode(FbxGeometryElement::eByPolygon);
+			materialElement->SetReferenceMode(FbxGeometryElement::eIndexToDirect);
+
+			FbxNode* meshNode = ownerNode >= 0 ? fbxNodes[ownerNode] : FbxNode::Create(scene, ("mesh_" + std::to_string(meshIndex)).c_str());
+			if (ownerNode < 0)
+			{
+				scene->GetRootNode()->AddChild(meshNode);
+			}
+			meshNode->SetNodeAttribute(fbxMesh);
+
+			DynamicArray<Int> usedMaterials;
+			for (const tinygltf::Primitive& primitive : gltfMesh.primitives)
+			{
+				Bool known = false;
+				for (Int used : usedMaterials)
+				{
+					if (used == primitive.material)
+					{
+						known = true;
+						break;
+					}
+				}
+				if (!known)
+				{
+					usedMaterials.push_back(primitive.material);
+				}
+			}
+			for (Int used : usedMaterials)
+			{
+				if (used >= 0 && used < static_cast<Int>(fbxMaterials.size()) && fbxMaterials[used])
+				{
+					meshNode->AddMaterial(fbxMaterials[used]);
+				}
+			}
+
+			Int skinIndex = ownerNode >= 0 ? model.nodes[ownerNode].skin : -1;
+
+			Size controlPointCursor = 0;
+			DynamicArray<Uint32> allJoints;
+			DynamicArray<Float> allWeights;
+			for (const tinygltf::Primitive& primitive : gltfMesh.primitives)
+			{
+				auto positionIt = primitive.attributes.find("POSITION");
+				auto normalIt = primitive.attributes.find("NORMAL");
+				auto texcoordIt = primitive.attributes.find("TEXCOORD_0");
+				auto jointsIt = primitive.attributes.find("JOINTS_0");
+				auto weightsIt = primitive.attributes.find("WEIGHTS_0");
+				if (positionIt == primitive.attributes.end())
+				{
+					continue;
+				}
+
+				DynamicArray<Float> positions = readFloats(positionIt->second, 3);
+				DynamicArray<Float> normals = normalIt != primitive.attributes.end() ? readFloats(normalIt->second, 3) : DynamicArray<Float>();
+				DynamicArray<Float> texcoords = texcoordIt != primitive.attributes.end() ? readFloats(texcoordIt->second, 2) : DynamicArray<Float>();
+				DynamicArray<Uint32> primitiveJoints = jointsIt != primitive.attributes.end() ? readUints(jointsIt->second, 4) : DynamicArray<Uint32>();
+				DynamicArray<Float> primitiveWeights = weightsIt != primitive.attributes.end() ? readFloats(weightsIt->second, 4) : DynamicArray<Float>();
+
+				Size vertexCount = positions.size() / 3;
+				for (Size vertexIndex = 0; vertexIndex < vertexCount; vertexIndex++)
+				{
+					fbxMesh->SetControlPointAt(FbxVector4(positions[vertexIndex * 3 + 0] * unitScale, positions[vertexIndex * 3 + 1] * unitScale, positions[vertexIndex * 3 + 2] * unitScale), static_cast<int>(controlPointCursor + vertexIndex));
+					if (normals.size() >= (vertexIndex + 1) * 3)
+					{
+						normalElement->GetDirectArray().Add(FbxVector4(normals[vertexIndex * 3 + 0], normals[vertexIndex * 3 + 1], normals[vertexIndex * 3 + 2]));
+					}
+					else
+					{
+						normalElement->GetDirectArray().Add(FbxVector4(0.0, 1.0, 0.0));
+					}
+					if (texcoords.size() >= (vertexIndex + 1) * 2)
+					{
+						uvElement->GetDirectArray().Add(FbxVector2(texcoords[vertexIndex * 2 + 0], 1.0 - texcoords[vertexIndex * 2 + 1]));
+					}
+					else
+					{
+						uvElement->GetDirectArray().Add(FbxVector2(0.0, 0.0));
+					}
+
+					for (Int influence = 0; influence < 4; influence++)
+					{
+						allJoints.push_back(primitiveJoints.size() >= (vertexIndex + 1) * 4 ? primitiveJoints[vertexIndex * 4 + influence] : 0);
+						allWeights.push_back(primitiveWeights.size() >= (vertexIndex + 1) * 4 ? primitiveWeights[vertexIndex * 4 + influence] : 0.0f);
+					}
+				}
+
+				Int nodeMaterialSlot = 0;
+				for (Size slot = 0; slot < usedMaterials.size(); slot++)
+				{
+					if (usedMaterials[slot] == primitive.material)
+					{
+						nodeMaterialSlot = static_cast<Int>(slot);
+						break;
+					}
+				}
+
+				DynamicArray<Uint32> indices = readUints(primitive.indices, 1);
+				for (Size triangleStart = 0; triangleStart + 2 < indices.size(); triangleStart += 3)
+				{
+					fbxMesh->BeginPolygon(nodeMaterialSlot);
+					for (Uint32 corner = 0; corner < 3; corner++)
+					{
+						fbxMesh->AddPolygon(static_cast<int>(controlPointCursor + indices[triangleStart + corner]));
+					}
+					fbxMesh->EndPolygon();
+				}
+
+				controlPointCursor += vertexCount;
+			}
+
+			if (skinIndex >= 0 && skinIndex < static_cast<Int>(model.skins.size()))
+			{
+				const tinygltf::Skin& skin = model.skins[skinIndex];
+				DynamicArray<Float> inverseBindMatrices = readFloats(skin.inverseBindMatrices, 16);
+
+				FbxSkin* fbxSkin = FbxSkin::Create(scene, "");
+				DynamicArray<FbxCluster*> clusters(skin.joints.size(), nullptr);
+				for (Size jointIndex = 0; jointIndex < skin.joints.size(); jointIndex++)
+				{
+					Int nodeIndex = skin.joints[jointIndex];
+					if (nodeIndex < 0 || nodeIndex >= static_cast<Int>(model.nodes.size()))
+					{
+						continue;
+					}
+					FbxCluster* cluster = FbxCluster::Create(scene, "");
+					cluster->SetLink(fbxNodes[nodeIndex]);
+					cluster->SetLinkMode(FbxCluster::eTotalOne);
+					cluster->SetTransformMatrix(meshNode->EvaluateGlobalTransform());
+					cluster->SetTransformLinkMatrix(fbxNodes[nodeIndex]->EvaluateGlobalTransform());
+					clusters[jointIndex] = cluster;
+					fbxSkin->AddCluster(cluster);
+				}
+
+				for (Size vertexIndex = 0; vertexIndex < controlPointCursor; vertexIndex++)
+				{
+					for (Int influence = 0; influence < 4; influence++)
+					{
+						Uint32 joint = allJoints[vertexIndex * 4 + influence];
+						Float weight = allWeights[vertexIndex * 4 + influence];
+						if (weight > 0.0f && joint < clusters.size() && clusters[joint])
+						{
+							clusters[joint]->AddControlPointIndex(static_cast<int>(vertexIndex), weight);
+						}
+					}
+				}
+				fbxMesh->AddDeformer(fbxSkin);
+			}
+		}
+
+		scene->GetGlobalSettings().SetSystemUnit(unitScale >= 99.0f ? FbxSystemUnit::cm : FbxSystemUnit::m);
+
+		switch (profile.axis_)
+		{
+		case ExportAxis::MayaYUp:
+		{
+			FbxAxisSystem mayaAxisSystem(FbxAxisSystem::MayaYUp);
+			mayaAxisSystem.DeepConvertScene(scene);
+			break;
+		}
+		case ExportAxis::UnrealZUpLeftHanded:
+		{
+			FbxAxisSystem unrealAxisSystem(FbxAxisSystem::eZAxis, FbxAxisSystem::eParityOdd, FbxAxisSystem::eLeftHanded);
+			unrealAxisSystem.DeepConvertScene(scene);
+			break;
+		}
+		case ExportAxis::EngineNativeDirectX:
+		{
+			FbxAxisSystem directXAxisSystem(FbxAxisSystem::DirectX);
+			directXAxisSystem.DeepConvertScene(scene);
+			break;
+		}
+		case ExportAxis::GltfRightHandedYUp:
+		{
+			break;
+		}
+		}
+
+		FbxExporter* exporter = FbxExporter::Create(manager, "");
+		Bool result = exporter->Initialize(outputPath.string().c_str(), -1, manager->GetIOSettings());
+		if (result)
+		{
+			result = exporter->Export(scene);
+		}
+		exporter->Destroy();
+		manager->Destroy();
+		return result;
 	}
 }

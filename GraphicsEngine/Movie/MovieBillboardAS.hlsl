@@ -1,5 +1,5 @@
 #include "Movie.hlsli"
-#include "../Shader/Structured.hlsli"
+#include "../Shader/ShaderResources.hlsli"
 #include "../Shader/Culling.hlsli"
 
 groupshared uint survived_count;
@@ -9,7 +9,7 @@ groupshared MovieASPayload payload;
 [numthreads(32, 1, 1)]
 void main(uint3 gtid : SV_GroupThreadID, uint3 dtid : SV_DispatchThreadID)
 {
-	StructuredBuffer<MovieBillboardInstance> movie_billboard = ResourceDescriptorHeap[structured_indices.movie_.billboard_index_];
+	StructuredBuffer<MovieBillboardStructuredBuffer> movie_billboard = GetMovieBillboardStructuredBuffer(shader_resource_indices.movie_.billboard_index_);
 	SceneConstantBuffer scene_constant = GetSceneConstantBuffer();
 
 	if (gtid.x == 0)
@@ -23,12 +23,12 @@ void main(uint3 gtid : SV_GroupThreadID, uint3 dtid : SV_DispatchThreadID)
 
 	if (instance_id < 1024)
 	{
-		MovieBillboardInstance instance = movie_billboard[instance_id];
+		MovieBillboardStructuredBuffer instance = movie_billboard[instance_id];
 
-		if (instance.scale.x > 0.0 && instance.scale.y > 0.0)
+		if (instance.scale_.x > 0.0 && instance.scale_.y > 0.0)
 		{
-			float radius = max(instance.scale.x, instance.scale.y) * 0.5f;
-			is_visible = IsVisibleInFrustum(instance.position, radius, scene_constant.current_view_projection_);
+			float radius = max(instance.scale_.x, instance.scale_.y) * 0.5f;
+			is_visible = IsVisibleInFrustum(instance.position_, radius, scene_constant.current_view_projection_);
 		}
 	}
 

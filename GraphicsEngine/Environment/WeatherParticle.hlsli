@@ -72,4 +72,18 @@ struct WeatherParticleMSOutput
 	nointerpolation uint isRain_ : BLENDINDICES;
 };
 
+struct WeatherParticleShaderResourceIndices
+{
+	uint rain_particle_index_;
+	uint snow_particle_index_;
+	uint2 weather_particle_shader_resource_padding_0_;
+};
+
+struct WeatherParticleUnorderedAccessIndices
+{
+	uint rain_particle_index_;
+	uint snow_particle_index_;
+	uint2 weather_particle_unordered_access_padding_0_;
+};
+
 #endif // __WEATHER_PARTICLE_HLSL__

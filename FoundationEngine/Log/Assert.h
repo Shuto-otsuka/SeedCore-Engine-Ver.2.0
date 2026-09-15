@@ -14,6 +14,39 @@
 
 /**
 * [EN]
+* Asserts that a C++ struct's size matches its HLSL mirror's, with a
+* Japanese message generated from the type name and the HLSL file it
+* mirrors - avoids hand-writing "<Type> が <file> と一致していません"
+* at every call site.
+*
+* ---------------------------------------------------------------------
+*
+* [JP]
+* C++ 構造体のサイズが対応する HLSL 側と一致することを表明する。
+* 型名とミラー先の HLSL ファイル名から日本語メッセージを自動生成する
+* ため、呼び出し側で「<型> が <ファイル> と一致していません」を
+* 毎回手書きしなくてよい。
+*/
+#define SC_STATIC_ASSERT_SIZE(type, size, hlslFile) static_assert(sizeof(type) == (size), #type " が " hlslFile " と一致していません")
+
+/**
+* [EN]
+* Asserts that a C++ struct's size is a whole multiple of 16 bytes (one
+* cbuffer row), with a generated Japanese message. For cbuffer-mirror
+* structs whose HLSL side has no single fixed byte size to compare
+* against directly.
+*
+* ---------------------------------------------------------------------
+*
+* [JP]
+* C++ 構造体のサイズが 16 バイト(cbuffer の1行)の倍数であることを
+* 表明する。日本語メッセージは自動生成する。HLSL 側に比較すべき単一の
+* 固定バイト数が無い cbuffer ミラー構造体向け。
+*/
+#define SC_STATIC_ASSERT_ALIGNED16(type) static_assert(sizeof(type) % 16 == 0, #type " が 16 バイト行の倍数ではありません")
+
+/**
+* [EN]
 * Runtime assertion. If cond is false, reports via HandleAssert
 * (optionally with a formatted message) and terminates. Wrapped in a
 * do { } while (false) so it behaves like a single statement at the
@@ -74,4 +107,4 @@ namespace SeedCore
 		std::cerr << std::format("[Assert Failed] {}\nFile: {}\nLine: {}\n", cond, loc.file_name(), loc.line());
 		std::terminate();
 	}
-}
+}

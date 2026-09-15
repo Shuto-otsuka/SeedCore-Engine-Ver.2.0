@@ -1,6 +1,6 @@
 #include "../Model.hlsli"
-#include "../../Shader/Structured.hlsli"
-#include "../../Shader/Constants.hlsli"
+#include "../../Shader/ShaderResources.hlsli"
+#include "../../Shader/Scene.hlsli"
 #include "../../Shader/Culling.hlsli"
 
 /**
@@ -48,16 +48,16 @@ groupshared float4 clip_positions[64];
 [OutputTopology("triangle")]
 void main(in payload ModelASPayload as_payload, uint gtid : SV_GroupThreadID, uint gid : SV_GroupID, out vertices ModelMSOutput verts[64], out indices uint3 tris[124], out primitives ModelMSPrimitiveOutput prims[124])
 {
-	StructuredBuffer<ModelInstance> instances = ResourceDescriptorHeap[structured_indices.model_.instance_index_];
+	StructuredBuffer<ModelStructuredBuffer> instances = GetModelStructuredBuffer(shader_resource_indices.model_.instance_index_);
 
 	uint meshlet_index = as_payload.meshlet_indices[gid];
 	uint instance_index = as_payload.instance_index;
-	ModelInstance instance = instances[instance_index];
+	ModelStructuredBuffer instance = instances[instance_index];
 
-	StructuredBuffer<CompressedModelVertex> vertices = ResourceDescriptorHeap[instance.vertex_buffer_index_];
-	StructuredBuffer<ModelMeshlet> meshlets = ResourceDescriptorHeap[instance.meshlet_buffer_index_];
-	StructuredBuffer<uint> vertex_indices = ResourceDescriptorHeap[instance.vertex_indices_buffer_index_];
-	ByteAddressBuffer primitive_indices = ResourceDescriptorHeap[instance.primitive_indices_buffer_index_];
+	StructuredBuffer<CompressedModelVertex> vertices = ResourceDescriptorHeap[instance.geometry_.vertex_buffer_index_];
+	StructuredBuffer<ModelMeshlet> meshlets = ResourceDescriptorHeap[instance.geometry_.meshlet_buffer_index_];
+	StructuredBuffer<uint> vertex_indices = ResourceDescriptorHeap[instance.geometry_.vertex_indices_buffer_index_];
+	ByteAddressBuffer primitive_indices = ResourceDescriptorHeap[instance.geometry_.primitive_indices_buffer_index_];
 
 	ModelMeshlet meshlet = meshlets[meshlet_index];
 	SceneConstantBuffer scene = GetSceneConstantBuffer();
@@ -70,7 +70,7 @@ void main(in payload ModelASPayload as_payload, uint gtid : SV_GroupThreadID, ui
 	///      出力しない。DXIL バリデータが SetMeshOutputCounts の複数 call site を
 	///      禁止しているため、カウントに畳み込む（instance はペイロード由来なので
 	///      分岐は wave-uniform）。
-	bool skip = instance.skin_index_ != 0xFFFFFFFF;
+	bool skip = instance.skining_.skin_index_ != 0xFFFFFFFF;
 	SetMeshOutputCounts(skip ? 0 : meshlet.vertex_count_, skip ? 0 : meshlet.triangle_count_);
 	if (skip)
 	{
@@ -82,10 +82,21 @@ void main(in payload ModelASPayload as_payload, uint gtid : SV_GroupThreadID, ui
 	if (gtid < meshlet.vertex_count_)
 	{
 		uint global_vertex_index = vertex_indices[meshlet.vertex_offset_ + gtid];
-		ModelVertex vertex = DecodeModelVertex(vertices[global_vertex_index], instance);
-		vertex.position_ = ApplyMorphBlend(vertex.position_, global_vertex_index, instance, structured_indices.model_.morph_weight_index_);
+		ExpandedModelVertex vertex = DecodeModelVertex(vertices[global_vertex_index], instance);
+		if (instance.morph_.morph_target_count_ != 0)
+		{
+			StructuredBuffer<uint> vertex_morph_source = ResourceDescriptorHeap[instance.morph_.vertex_morph_source_buffer_index_];
+			StructuredBuffer<float3> morph_deltas = ResourceDescriptorHeap[instance.morph_.morph_delta_buffer_index_];
+			StructuredBuffer<float> morph_weights = ResourceDescriptorHeap[shader_resource_indices.model_.morph_weight_index_];
 
-		float4 world_position = mul(float4(vertex.position_, 1.0), instance.world_);
+			uint local_vertex_index = vertex_morph_source[global_vertex_index] - instance.morph_.morph_vertex_offset_;
+			for (uint target = 0; target < instance.morph_.morph_target_count_; ++target)
+			{
+				vertex.position_ += morph_deltas[instance.morph_.morph_delta_offset_ + target * instance.morph_.morph_vertex_count_ + local_vertex_index] * morph_weights[instance.morph_.morph_weight_offset_ + target];
+			}
+		}
+
+		float4 world_position = mul(float4(vertex.position_, 1.0), instance.transform_.world_);
 		float4 clip_position = mul(world_position, scene.current_view_projection_);
 
 		ModelMSOutput output;
@@ -132,7 +143,7 @@ void main(in payload ModelASPayload as_payload, uint gtid : SV_GroupThreadID, ui
 		///      degenerate triangle. doubleSided materials keep both sides.
 		/// [JP] 片面マテリアル: 縮退三角形を出力してここで裏面をカリングする。
 		///      doubleSided マテリアルは両面を残す。
-		if (instance.double_sided_ == 0 && IsBackFace(clip_positions[i0], clip_positions[i1], clip_positions[i2]))
+		if (instance.shading_.double_sided_ == 0 && IsBackFace(clip_positions[i0], clip_positions[i1], clip_positions[i2]))
 		{
 			tris[triangle_index] = uint3(0, 0, 0);
 		}

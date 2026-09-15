@@ -175,6 +175,12 @@
     <Filter Include="Avater\Human">
       <UniqueIdentifier>{5cf60aa6-6af2-42a9-906f-9853ea26d8ab}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Avater\Animal">
+      <UniqueIdentifier>{22df3da3-1f91-4cc4-ac18-b0deb0a4e5fa}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Effect\Zephyr\Module">
+      <UniqueIdentifier>{5bf8e8b5-4b4d-49f1-b160-f07bdb69f1e3}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="D3D12\Context\D3D12Adapter.h">
@@ -314,12 +320,6 @@
       <Filter>Camera</Filter>
     </ClInclude>
     <ClInclude Include="Camera\EditorCameraController.h">
-      <Filter>Camera</Filter>
-    </ClInclude>
-    <ClInclude Include="Camera\FreeCameraController.h">
-      <Filter>Camera</Filter>
-    </ClInclude>
-    <ClInclude Include="Camera\OrbitCameraController.h">
       <Filter>Camera</Filter>
     </ClInclude>
     <ClInclude Include="D3D12\PipelineState\DepthStencilState.h">
@@ -733,9 +733,6 @@
     <ClInclude Include="Model\Mesh.h">
       <Filter>Model</Filter>
     </ClInclude>
-    <ClInclude Include="Model\ModelInstanceData.h">
-      <Filter>Model</Filter>
-    </ClInclude>
     <ClInclude Include="Model\ModelLoader.h">
       <Filter>Model</Filter>
     </ClInclude>
@@ -867,6 +864,27 @@
     </ClInclude>
     <ClInclude Include="Renderer\AvatarRenderer.h">
       <Filter>Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Avatar\Animal\AnimalCharacterConverter.h">
+      <Filter>Avater\Animal</Filter>
+    </ClInclude>
+    <ClInclude Include="Avatar\Animal\AnimalCharacterEvaluator.h">
+      <Filter>Avater\Animal</Filter>
+    </ClInclude>
+    <ClInclude Include="Avatar\Animal\AnimalCharacterModel.h">
+      <Filter>Avater\Animal</Filter>
+    </ClInclude>
+    <ClInclude Include="Effect\Zephyr\ZephyrModuleRegistry.h">
+      <Filter>Effect\Zephyr</Filter>
+    </ClInclude>
+    <ClInclude Include="Effect\Zephyr\ZephyrModuleAssembler.h">
+      <Filter>Effect\Zephyr</Filter>
+    </ClInclude>
+    <ClInclude Include="Model\ModelRecord.h">
+      <Filter>Model</Filter>
+    </ClInclude>
+    <ClInclude Include="Camera\CameraBrain.h">
+      <Filter>Camera</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -1024,12 +1042,6 @@
     </ClCompile>
     <ClCompile Include="System\CameraSystem.cpp">
       <Filter>System</Filter>
-    </ClCompile>
-    <ClCompile Include="Camera\FreeCameraController.cpp">
-      <Filter>Camera</Filter>
-    </ClCompile>
-    <ClCompile Include="Camera\OrbitCameraController.cpp">
-      <Filter>Camera</Filter>
     </ClCompile>
     <ClCompile Include="System\SplashScreen.cpp">
       <Filter>System</Filter>
@@ -1451,6 +1463,24 @@
     <ClCompile Include="Renderer\AvatarRenderer.cpp">
       <Filter>Renderer</Filter>
     </ClCompile>
+    <ClCompile Include="Avatar\Animal\AnimalCharacterConverter.cpp">
+      <Filter>Avater\Animal</Filter>
+    </ClCompile>
+    <ClCompile Include="Avatar\Animal\AnimalCharacterEvaluator.cpp">
+      <Filter>Avater\Animal</Filter>
+    </ClCompile>
+    <ClCompile Include="Avatar\Animal\AnimalCharacterModel.cpp">
+      <Filter>Avater\Animal</Filter>
+    </ClCompile>
+    <ClCompile Include="Effect\Zephyr\ZephyrModuleRegistry.cpp">
+      <Filter>Effect\Zephyr</Filter>
+    </ClCompile>
+    <ClCompile Include="Effect\Zephyr\ZephyrModuleAssembler.cpp">
+      <Filter>Effect\Zephyr</Filter>
+    </ClCompile>
+    <ClCompile Include="Camera\CameraBrain.cpp">
+      <Filter>Camera</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="Shader\Sampler.hlsli">
@@ -1470,9 +1500,6 @@
     </None>
     <None Include="Light\Cluster.hlsli">
       <Filter>Light</Filter>
-    </None>
-    <None Include="Shader\Light.hlsli">
-      <Filter>Shader</Filter>
     </None>
     <None Include="Shader\Normal.hlsli">
       <Filter>Shader</Filter>
@@ -1569,6 +1596,51 @@
     </None>
     <None Include="Shader\Dispatch.hlsli">
       <Filter>Shader</Filter>
+    </None>
+    <None Include="Model\Opaque\FurShading.hlsli">
+      <Filter>Model\Opaque</Filter>
+    </None>
+    <None Include="Shader\Vertex.hlsli">
+      <Filter>Shader</Filter>
+    </None>
+    <None Include="Effect\Zephyr\Particle.hlsli">
+      <Filter>Effect\Zephyr</Filter>
+    </None>
+    <None Include="Effect\Zephyr\ParticlePool.hlsli">
+      <Filter>Effect\Zephyr</Filter>
+    </None>
+    <None Include="Effect\Zephyr\Module\DragModule.hlsli">
+      <Filter>Effect\Zephyr\Module</Filter>
+    </None>
+    <None Include="Effect\Zephyr\Module\GravityModule.hlsli">
+      <Filter>Effect\Zephyr\Module</Filter>
+    </None>
+    <None Include="Shader\ShaderResources.hlsli">
+      <Filter>Shader</Filter>
+    </None>
+    <None Include="Shader\UnorderedAccesses.hlsli">
+      <Filter>Shader</Filter>
+    </None>
+    <None Include="PostProcess\PostProcess.hlsli">
+      <Filter>PostProcess</Filter>
+    </None>
+    <None Include="Shader\Scene.hlsli">
+      <Filter>Shader</Filter>
+    </None>
+    <None Include="DLSS\Dlss.hlsli">
+      <Filter>DLSS</Filter>
+    </None>
+    <None Include="Light\Light.hlsli">
+      <Filter>Light</Filter>
+    </None>
+    <None Include="Environment\Weather.hlsli">
+      <Filter>Environment</Filter>
+    </None>
+    <None Include="Shape\HUD\HUD.hlsli">
+      <Filter>Shape\HUD</Filter>
+    </None>
+    <None Include="Model\Transparent\OitShading.hlsli">
+      <Filter>Model\Transparent</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>
@@ -1913,6 +1985,15 @@
     </Text>
     <Text Include="Avatar\AvatarPreviewPS.hlsl">
       <Filter>Avater</Filter>
+    </Text>
+    <Text Include="Model\Opaque\FurShellAS.hlsl">
+      <Filter>Model\Opaque</Filter>
+    </Text>
+    <Text Include="Model\Opaque\FurShellMS.hlsl">
+      <Filter>Model\Opaque</Filter>
+    </Text>
+    <Text Include="Model\Opaque\FurShellPS.hlsl">
+      <Filter>Model\Opaque</Filter>
     </Text>
   </ItemGroup>
 </Project>

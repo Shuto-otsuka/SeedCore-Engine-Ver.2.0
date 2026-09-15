@@ -8,6 +8,7 @@ namespace SeedCore
 	class ImGuiTexture;
 	enum class MeshCollisionDetail;
 	enum class ModelFormat;
+	enum class ExportPreset;
 
 	class ContentsDrawerPanel
 	{
@@ -71,7 +72,7 @@ namespace SeedCore
 
 		void GenerateSkeleton(const Asset& asset);
 
-		void ExportModel(const Asset& asset, ModelFormat format, const Wchar* extension);
+		void ExportModel(const Asset& asset, ExportPreset preset, const Wchar* extension);
 
 		void DrawBackgroundContextMenu();
 

@@ -5,6 +5,7 @@
 #include <GraphicsEngine/Font/FontResource.h>
 #include <GraphicsEngine/D3D12/Descriptor/BindlessHeap.h>
 #include <GraphicsEngine/D3D12/PipelineState/PipelineStateObject.h>
+#include <GraphicsEngine/D3D12/Context/D3D12Check.h>
 #include <GraphicsEngine/System/IndicesSystem.h>
 #include <GraphicsEngine/D3D12/SwapChain/GraphicsResolution.h>
 #include <FoundationEngine/ECS/Query.h>
@@ -19,23 +20,23 @@ namespace SeedCore
 		/// No Code
 	}
 
-	void FontRenderer::Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, IndicesSystem& indicesSystem)
+	void FontRenderer::Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, ShaderResourceIndicesSystem& shaderResourceIndicesSystem)
 	{
 		bindlessHeap_ = bindlessHeap;
 		maxCount_ = 65536;
 
 		fontShader_.Create(shaderCache, device);
 
-		indicesSystem_ = &indicesSystem;
+		shaderResourceIndicesSystem_ = &shaderResourceIndicesSystem;
 
-		spriteBuffer_ = MakePtr<ReadOnlyStructuredBuffer<FontSpriteInstance>>(device, bindlessHeap, maxCount_);
-		billboardBuffer_ = MakePtr<ReadOnlyStructuredBuffer<FontBillboardInstance>>(device, bindlessHeap, maxCount_);
+		spriteBuffer_ = MakePtr<ReadOnlyStructuredBuffer<FontSpriteStructuredBuffer>>(device, bindlessHeap, maxCount_);
+		billboardBuffer_ = MakePtr<ReadOnlyStructuredBuffer<FontBillboardStructuredBuffer>>(device, bindlessHeap, maxCount_);
 
 		
 		
 
-		indicesSystem.SetFontSpriteIndex(spriteBuffer_->Index());
-		indicesSystem.SetFontBillboardIndex(billboardBuffer_->Index());
+		shaderResourceIndicesSystem.SetFontSpriteIndex(spriteBuffer_->Index());
+		shaderResourceIndicesSystem.SetFontBillboardIndex(billboardBuffer_->Index());
 
 
 	}
@@ -159,7 +160,7 @@ namespace SeedCore
 									textBoxMinY = Min(textBoxMinY, text.pivot_.y - glyphTop - glyphHeight);
 									textBoxMaxY = Max(textBoxMaxY, text.pivot_.y - glyphTop);
 
-									FontSpriteInstance instance{};
+									FontSpriteStructuredBuffer instance{};
 									instance.size_ = Vector2(glyphWidth * scale.x, glyphHeight * scale.y);
 									instance.uvMin_ = uvMin;
 									instance.uvMax_ = uvMax;
@@ -175,7 +176,7 @@ namespace SeedCore
 
 									if (text.shadowEnable_)
 									{
-										FontSpriteInstance shadow = instance;
+										FontSpriteStructuredBuffer shadow = instance;
 										shadow.position_ = basePosition + Vector2(text.shadowOffset_.x * scale.x, text.shadowOffset_.y * scale.y);
 										shadow.color_ = text.shadowColor_;
 										shadow.outlineColor_ = text.shadowColor_;
@@ -188,7 +189,7 @@ namespace SeedCore
 									instance.selected_ = selected;
 									spriteInstances_.push_back(instance);
 
-									FontBillboardInstance canvasInstance{};
+									FontBillboardStructuredBuffer canvasInstance{};
 									canvasInstance.position_ = Vector3(100000.0f + position.x, 100000.0f + (ScResolution::SC_HD.Height - position.y), 100000.0f);
 									canvasInstance.rotation_ = Vector3::Zero;
 									canvasInstance.localPosition_ = Vector2((glyphLeft - text.pivot_.x) * scale.x, (text.pivot_.y - glyphTop - glyphHeight) * scale.y);
@@ -208,7 +209,7 @@ namespace SeedCore
 								}
 								else
 								{
-									FontBillboardInstance instance{};
+									FontBillboardStructuredBuffer instance{};
 									instance.position_ = position;
 									instance.rotation_ = rotationEuler;
 									instance.uvMin_ = uvMin;
@@ -229,7 +230,7 @@ namespace SeedCore
 
 									if (text.shadowEnable_)
 									{
-										FontBillboardInstance shadow = instance;
+										FontBillboardStructuredBuffer shadow = instance;
 										shadow.localPosition_ = baseLocal + Vector2(text.shadowOffset_.x * pixelToUnitX, -text.shadowOffset_.y * pixelToUnitY);
 										shadow.color_ = text.shadowColor_;
 										shadow.outlineColor_ = text.shadowColor_;
@@ -280,8 +281,8 @@ namespace SeedCore
 
 	void FontRenderer::Upload()
 	{
-		indicesSystem_->SetFontSpriteIndex(spriteBuffer_->Index());
-		indicesSystem_->SetFontBillboardIndex(billboardBuffer_->Index());
+		shaderResourceIndicesSystem_->SetFontSpriteIndex(spriteBuffer_->Index());
+		shaderResourceIndicesSystem_->SetFontBillboardIndex(billboardBuffer_->Index());
 
 		if (!spriteInstances_.empty())
 		{
@@ -294,7 +295,7 @@ namespace SeedCore
 		}
 	}
 
-	void FontRenderer::DrawSprite(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex)
+	void FontRenderer::DrawSprite(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
 	{
 		if (spriteInstances_.empty())
 		{
@@ -305,18 +306,24 @@ namespace SeedCore
 		cmdList->SetDescriptorHeaps(_countof(heaps), heaps);
 		cmdList->SetGraphicsRootSignature(fontShader_.GetRootSignature());
 
-		cmdList->SetGraphicsRootConstantBufferView(2, constantIndex);
-		cmdList->SetGraphicsRootConstantBufferView(3, structuredIndex);
+		RootSignature::BindGraphics(cmdList, addresses);
 
 		cmdList->SetPipelineState(fontShader_.GetPipelineStateSprite());
-		cmdList->SetGraphicsRootDescriptorTable(0, bindlessHeap_->GPUHandle(0));
 
-		Uint groupCount = (static_cast<Uint>(spriteInstances_.size()) + 31) / 32;
-		cmdList->DispatchMesh(groupCount, 1, 1);
+		if (D3D12Check::GetLevel() == D3D12Level::D12_2)
+		{
+			Uint groupCount = (static_cast<Uint>(spriteInstances_.size()) + 31) / 32;
+			cmdList->DispatchMesh(groupCount, 1, 1);
+		}
+		else
+		{
+			cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			cmdList->DrawInstanced(6, static_cast<Uint>(spriteInstances_.size()), 0, 0);
+		}
 		ProfilerStats::AddDrawCall();
 	}
 
-	void FontRenderer::DrawBillboard(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex)
+	void FontRenderer::DrawBillboard(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
 	{
 		if (billboardInstances_.empty())
 		{
@@ -327,18 +334,24 @@ namespace SeedCore
 		cmdList->SetDescriptorHeaps(_countof(heaps), heaps);
 		cmdList->SetGraphicsRootSignature(fontShader_.GetRootSignature());
 
-		cmdList->SetGraphicsRootConstantBufferView(2, constantIndex);
-		cmdList->SetGraphicsRootConstantBufferView(3, structuredIndex);
+		RootSignature::BindGraphics(cmdList, addresses);
 
 		cmdList->SetPipelineState(fontShader_.GetPipelineStateBillboard());
-		cmdList->SetGraphicsRootDescriptorTable(0, bindlessHeap_->GPUHandle(0));
 
-		Uint groupCount = (static_cast<Uint>(billboardInstances_.size()) + 31) / 32;
-		cmdList->DispatchMesh(groupCount, 1, 1);
+		if (D3D12Check::GetLevel() == D3D12Level::D12_2)
+		{
+			Uint groupCount = (static_cast<Uint>(billboardInstances_.size()) + 31) / 32;
+			cmdList->DispatchMesh(groupCount, 1, 1);
+		}
+		else
+		{
+			cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			cmdList->DrawInstanced(6, static_cast<Uint>(billboardInstances_.size()), 0, 0);
+		}
 		ProfilerStats::AddDrawCall();
 	}
 
-	void FontRenderer::DrawSelectionMaskSprite(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex)
+	void FontRenderer::DrawSelectionMaskSprite(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
 	{
 		if (spriteInstances_.empty())
 		{
@@ -348,18 +361,24 @@ namespace SeedCore
 		ID3D12DescriptorHeap* heaps[] = { heap };
 		cmdList->SetDescriptorHeaps(_countof(heaps), heaps);
 		cmdList->SetGraphicsRootSignature(fontShader_.GetRootSignature());
-		cmdList->SetGraphicsRootConstantBufferView(2, constantIndex);
-		cmdList->SetGraphicsRootConstantBufferView(3, structuredIndex);
+		RootSignature::BindGraphics(cmdList, addresses);
 
 		cmdList->SetPipelineState(fontShader_.GetPipelineStateSelectionMaskSprite());
-		cmdList->SetGraphicsRootDescriptorTable(0, bindlessHeap_->GPUHandle(0));
 
-		Uint groupCount = (static_cast<Uint>(spriteInstances_.size()) + 31) / 32;
-		cmdList->DispatchMesh(groupCount, 1, 1);
+		if (D3D12Check::GetLevel() == D3D12Level::D12_2)
+		{
+			Uint groupCount = (static_cast<Uint>(spriteInstances_.size()) + 31) / 32;
+			cmdList->DispatchMesh(groupCount, 1, 1);
+		}
+		else
+		{
+			cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			cmdList->DrawInstanced(6, static_cast<Uint>(spriteInstances_.size()), 0, 0);
+		}
 		ProfilerStats::AddDrawCall();
 	}
 
-	void FontRenderer::DrawSelectionMaskBillboard(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex)
+	void FontRenderer::DrawSelectionMaskBillboard(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
 	{
 		if (billboardInstances_.empty())
 		{
@@ -369,14 +388,20 @@ namespace SeedCore
 		ID3D12DescriptorHeap* heaps[] = { heap };
 		cmdList->SetDescriptorHeaps(_countof(heaps), heaps);
 		cmdList->SetGraphicsRootSignature(fontShader_.GetRootSignature());
-		cmdList->SetGraphicsRootConstantBufferView(2, constantIndex);
-		cmdList->SetGraphicsRootConstantBufferView(3, structuredIndex);
+		RootSignature::BindGraphics(cmdList, addresses);
 
 		cmdList->SetPipelineState(fontShader_.GetPipelineStateSelectionMaskBillboard());
-		cmdList->SetGraphicsRootDescriptorTable(0, bindlessHeap_->GPUHandle(0));
 
-		Uint groupCount = (static_cast<Uint>(billboardInstances_.size()) + 31) / 32;
-		cmdList->DispatchMesh(groupCount, 1, 1);
+		if (D3D12Check::GetLevel() == D3D12Level::D12_2)
+		{
+			Uint groupCount = (static_cast<Uint>(billboardInstances_.size()) + 31) / 32;
+			cmdList->DispatchMesh(groupCount, 1, 1);
+		}
+		else
+		{
+			cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			cmdList->DrawInstanced(6, static_cast<Uint>(billboardInstances_.size()), 0, 0);
+		}
 		ProfilerStats::AddDrawCall();
 	}
-}
+}

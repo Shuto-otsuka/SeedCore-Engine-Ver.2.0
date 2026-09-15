@@ -1,7 +1,7 @@
 #ifndef __CULLING_HLSL__
 #define __CULLING_HLSL__
 
-#include "Constants.hlsli"
+#include "Scene.hlsli"
 
 bool IsVisibleInScreen(float2 position, float2 size, float2 screen_size)
 {

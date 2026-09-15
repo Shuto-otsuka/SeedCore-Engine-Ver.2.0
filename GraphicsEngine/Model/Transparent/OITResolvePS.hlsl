@@ -1,5 +1,5 @@
 #include "../Model.hlsli"
-#include "../../Shader/Structured.hlsli"
+#include "../../Shader/UnorderedAccesses.hlsli"
 
 /**
 * [EN]
@@ -20,8 +20,8 @@
 */
 float4 main(OITResolveOutput input) : SV_Target0
 {
-	RWTexture2D<uint> head_pointer = ResourceDescriptorHeap[structured_indices.oit_.head_pointer_index_];
-	RWStructuredBuffer<OITFragment> fragment_buffer = ResourceDescriptorHeap[structured_indices.oit_.fragment_buffer_index_];
+	RWTexture2D<uint> head_pointer = ResourceDescriptorHeap[unordered_access_indices.oit_.head_pointer_index_];
+	RWStructuredBuffer<OITFragment> fragment_buffer = ResourceDescriptorHeap[unordered_access_indices.oit_.fragment_buffer_index_];
 
 	uint2 pixel = uint2(input.position.xy);
 	uint index = head_pointer[pixel];
@@ -107,7 +107,7 @@ float4 main(OITResolveOutput input) : SV_Target0
 	{
 		for (uint index = 0; index < count; index++)
 		{
-			float4 color = UnpackColorHalf4(uint2(fragments[index].packed_color_rg_, fragments[index].packed_color_ba_));
+			float4 color = UnpackColor(uint2(fragments[index].packed_color_rg_, fragments[index].packed_color_ba_));
 			result.rgb = color.rgb * color.a + result.rgb * (1.0 - color.a);
 			result.a = color.a + result.a * (1.0 - color.a);
 		}

@@ -1,4 +1,6 @@
-#include "../Shader/Constants.hlsli"
+#include "PostProcess.hlsli"
+#include "../Shader/UnorderedAccesses.hlsli"
+#include "../Shader/Scene.hlsli"
 
 /**
 * [EN]
@@ -108,7 +110,7 @@ float GrainLuminanceResponse(float luminance, float response)
 [numthreads(8, 8, 1)]
 void main(uint3 dtid : SV_DispatchThreadID)
 {
-	RWTexture2D<float4> destination = ResourceDescriptorHeap[constant_indices.post_process_.film_grain_.destination_uav_index_];
+	RWTexture2D<float4> destination = ResourceDescriptorHeap[unordered_access_indices.post_process_.film_grain_.destination_index_];
 
 	uint width, height;
 	destination.GetDimensions(width, height);
@@ -126,10 +128,10 @@ void main(uint3 dtid : SV_DispatchThreadID)
 
 	float3 color = destination[dtid.xy].rgb;
 
-	float intensity = constant_indices.post_process_.film_grain_.intensity_;
-	float size = max(constant_indices.post_process_.film_grain_.size_, 1.0);
-	float response = constant_indices.post_process_.film_grain_.luminance_response_;
-	bool colored = constant_indices.post_process_.film_grain_.colored_ != 0;
+	float intensity = GetPostProcessConstantBuffer().film_grain_.intensity_;
+	float size = max(GetPostProcessConstantBuffer().film_grain_.size_, 1.0);
+	float response = GetPostProcessConstantBuffer().film_grain_.luminance_response_;
+	bool colored = GetPostProcessConstantBuffer().film_grain_.colored_ != 0;
 
 	SceneConstantBuffer scene = GetSceneConstantBuffer();
 	float seed = scene.total_time_;

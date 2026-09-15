@@ -2,9 +2,11 @@
 #define __MATERIAL_HLSL__
 
 #include "../Model/Model.hlsli"
-#include "Constants.hlsli"
+#include "Scene.hlsli"
 #include "Normal.hlsli"
-#include "Light.hlsli"
+#include "Vertex.hlsli"
+#include "../Light/Light.hlsli"
+#include "../Environment/Weather.hlsli"
 #include "Sampler.hlsli"
 
 // One entry per material slot in the mesh's Crister::Materials() list.
@@ -52,7 +54,7 @@ struct ReflectionMaterial
 // packing, no cbuffer 16-byte rules).
 struct ReflectionInstanceData
 {
-	// Bindless SRV of the mesh's StructuredBuffer<ReflectionVertex> (Crister
+	// Bindless SRV of the mesh's StructuredBuffer<CompressedVertex> (Crister
 	// compressed vertex buffer - 16 bytes, see Model/Crister.h CompressedVertex).
 	uint vertex_buffer_index_;
 
@@ -118,10 +120,10 @@ struct WeatherMaterial
 // why a roughness near 0 is a breakdown, not a sharp highlight.
 WeatherMaterial ResolveWeatherMaterial(float3 base_color, float roughness, float3 normal)
 {
-	ConstantBuffer<LightConstantData> weather_light = ResourceDescriptorHeap[constant_indices.light_index_];
+	ConstantBuffer<WeatherConstantBuffer> weather = GetWeatherConstantBuffer();
 	float weather_up_facing = saturate(normal.y);
 
-	float wetness = weather_light.wetness_ * weather_up_facing;
+	float wetness = weather.wetness_ * weather_up_facing;
 	roughness = lerp(roughness, roughness * 0.25, wetness);
 	base_color = lerp(base_color, base_color * 0.8, wetness * 0.6);
 
@@ -130,7 +132,7 @@ WeatherMaterial ResolveWeatherMaterial(float3 base_color, float roughness, float
 	roughness = lerp(roughness, 0.03, puddle);
 	base_color = lerp(base_color, base_color * 0.5, puddle * 0.5);
 
-	float snow = weather_light.snow_coverage_ * weather_up_facing;
+	float snow = weather.snow_coverage_ * weather_up_facing;
 	base_color = lerp(base_color, float3(0.95, 0.96, 1.0), snow);
 	roughness = lerp(roughness, 0.9, snow);
 
@@ -179,7 +181,7 @@ struct GBufferMaterial
 };
 
 // Resolves everything EvalDirectLightDispatch needs from the raw G-Buffer
-// values plus this surface's ModelInstance, applying (in order): weather
+// values plus this surface's ModelStructuredBuffer, applying (in order): weather
 // (wetness/puddle/snow reshape base_color/roughness before any KHR texture is
 // sampled, so both the analytic terms below and the KHR extensions read the
 // weathered surface), the minimum perceptual roughness clamp (avoids the
@@ -192,10 +194,11 @@ struct GBufferMaterial
 // RT1.a (PackTangentAngle's output - see Normal.hlsli), needed to rebuild the
 // tangent basis for the clearcoat normal map and anisotropy direction, both
 // of which can differ from the base normal map's own tangent space.
-// material_texcoord is the model UV recovered from the VisibilityBuffer
-// (UnpackVisibilityTexcoord) - the deferred/raytraced callers have no
-// interpolated texcoord of their own, only the G-Buffer/VisibilityBuffer.
-GBufferMaterial ResolveGBufferMaterial(float3 base_color, float metallic, float roughness, float3 normal, float3 view, ModelInstance material_instance, float2 material_texcoord, float tangent_angle)
+// material_texcoord is the model UV recovered from the VisibilityBuffer's
+// zw (asfloat, as written by PackVisibilityID) - the deferred/raytraced
+// callers have no interpolated texcoord of their own, only the
+// G-Buffer/VisibilityBuffer.
+GBufferMaterial ResolveGBufferMaterial(float3 base_color, float metallic, float roughness, float3 normal, float3 view, ModelStructuredBuffer material_instance, float2 material_texcoord, float tangent_angle)
 {
 	WeatherMaterial weather_material = ResolveWeatherMaterial(base_color, roughness, normal);
 	base_color = weather_material.base_color_;
@@ -203,44 +206,44 @@ GBufferMaterial ResolveGBufferMaterial(float3 base_color, float metallic, float 
 	float wetness = weather_material.wetness_;
 	float puddle = weather_material.puddle_;
 
-	float specular_factor = material_instance.specular_factor_;
-	if (material_instance.specular_texture_index_ != 0xFFFFFFFF)
+	float specular_factor = material_instance.extension_.specular_factor_;
+	if (material_instance.extension_.specular_texture_index_ != 0xFFFFFFFF)
 	{
-		Texture2D<float4> specular_texture = ResourceDescriptorHeap[material_instance.specular_texture_index_];
+		Texture2D<float4> specular_texture = ResourceDescriptorHeap[material_instance.extension_.specular_texture_index_];
 		specular_factor *= specular_texture.SampleLevel(sampler_aniso_wrap, material_texcoord, 0).a;
 	}
 
-	float3 specular_color = material_instance.specular_color_;
-	if (material_instance.specular_color_texture_index_ != 0xFFFFFFFF)
+	float3 specular_color = material_instance.extension_.specular_color_;
+	if (material_instance.extension_.specular_color_texture_index_ != 0xFFFFFFFF)
 	{
-		Texture2D<float4> specular_color_texture = ResourceDescriptorHeap[material_instance.specular_color_texture_index_];
+		Texture2D<float4> specular_color_texture = ResourceDescriptorHeap[material_instance.extension_.specular_color_texture_index_];
 		specular_color *= specular_color_texture.SampleLevel(sampler_aniso_wrap, material_texcoord, 0).rgb;
 	}
 
-	float iridescence_factor = material_instance.iridescence_factor_;
-	if (material_instance.iridescence_texture_index_ != 0xFFFFFFFF)
+	float iridescence_factor = material_instance.extension_.iridescence_factor_;
+	if (material_instance.extension_.iridescence_texture_index_ != 0xFFFFFFFF)
 	{
-		Texture2D<float4> iridescence_texture = ResourceDescriptorHeap[material_instance.iridescence_texture_index_];
+		Texture2D<float4> iridescence_texture = ResourceDescriptorHeap[material_instance.extension_.iridescence_texture_index_];
 		iridescence_factor *= iridescence_texture.SampleLevel(sampler_aniso_wrap, material_texcoord, 0).r;
 	}
 
-	float iridescence_thickness = material_instance.iridescence_thickness_;
-	if (material_instance.iridescence_thickness_texture_index_ != 0xFFFFFFFF)
+	float iridescence_thickness = material_instance.extension_.iridescence_thickness_;
+	if (material_instance.extension_.iridescence_thickness_texture_index_ != 0xFFFFFFFF)
 	{
-		Texture2D<float4> iridescence_thickness_texture = ResourceDescriptorHeap[material_instance.iridescence_thickness_texture_index_];
+		Texture2D<float4> iridescence_thickness_texture = ResourceDescriptorHeap[material_instance.extension_.iridescence_thickness_texture_index_];
 		iridescence_thickness *= iridescence_thickness_texture.SampleLevel(sampler_aniso_wrap, material_texcoord, 0).g;
 	}
 
-	float transmission_factor = material_instance.transmission_factor_;
-	if (material_instance.transmission_texture_index_ != 0xFFFFFFFF)
+	float transmission_factor = material_instance.extension_.transmission_factor_;
+	if (material_instance.extension_.transmission_texture_index_ != 0xFFFFFFFF)
 	{
-		Texture2D<float4> transmission_texture = ResourceDescriptorHeap[material_instance.transmission_texture_index_];
+		Texture2D<float4> transmission_texture = ResourceDescriptorHeap[material_instance.extension_.transmission_texture_index_];
 		transmission_factor *= transmission_texture.SampleLevel(sampler_aniso_wrap, material_texcoord, 0).r;
 	}
 
 	// KHR_materials_ior/specular: dielectric F0 computed on the spot from IOR.
 	// Metals use base_color instead (see f0_ below).
-	float dielectric = (material_instance.ior_ - 1.0) / (material_instance.ior_ + 1.0);
+	float dielectric = (material_instance.texture_.ior_ - 1.0) / (material_instance.texture_.ior_ + 1.0);
 	dielectric *= dielectric;
 	float3 dielectric_f0 = saturate(dielectric * specular_color * specular_factor);
 
@@ -250,7 +253,7 @@ GBufferMaterial ResolveGBufferMaterial(float3 base_color, float metallic, float 
 	if (iridescence_factor > 0.0)
 	{
 		float normal_dot_view_for_iridescence = saturate(dot(normal, view));
-		float phase = iridescence_thickness * 0.01 * normal_dot_view_for_iridescence + material_instance.iridescence_ior_;
+		float phase = iridescence_thickness * 0.01 * normal_dot_view_for_iridescence + material_instance.extension_.iridescence_ior_;
 		float3 iridescence_shift = sin(float3(phase, phase + 2.094395, phase + 4.18879)) * 0.5 + 0.5;
 		dielectric_f0 = lerp(dielectric_f0, iridescence_shift, saturate(iridescence_factor));
 	}
@@ -266,17 +269,17 @@ GBufferMaterial ResolveGBufferMaterial(float3 base_color, float metallic, float 
 	f0 = lerp(f0, max(f0, 0.02), wetness);
 	f0 = lerp(f0, max(f0, 0.05), puddle);
 
-	float clearcoat_factor = material_instance.clearcoat_factor_;
-	if (material_instance.clearcoat_texture_index_ != 0xFFFFFFFF)
+	float clearcoat_factor = material_instance.extension_.clearcoat_factor_;
+	if (material_instance.extension_.clearcoat_texture_index_ != 0xFFFFFFFF)
 	{
-		Texture2D<float4> clearcoat_texture = ResourceDescriptorHeap[material_instance.clearcoat_texture_index_];
+		Texture2D<float4> clearcoat_texture = ResourceDescriptorHeap[material_instance.extension_.clearcoat_texture_index_];
 		clearcoat_factor *= clearcoat_texture.SampleLevel(sampler_aniso_wrap, material_texcoord, 0).r;
 	}
 
-	float clearcoat_roughness = material_instance.clearcoat_roughness_;
-	if (material_instance.clearcoat_roughness_texture_index_ != 0xFFFFFFFF)
+	float clearcoat_roughness = material_instance.extension_.clearcoat_roughness_;
+	if (material_instance.extension_.clearcoat_roughness_texture_index_ != 0xFFFFFFFF)
 	{
-		Texture2D<float4> clearcoat_roughness_texture = ResourceDescriptorHeap[material_instance.clearcoat_roughness_texture_index_];
+		Texture2D<float4> clearcoat_roughness_texture = ResourceDescriptorHeap[material_instance.extension_.clearcoat_roughness_texture_index_];
 		clearcoat_roughness *= clearcoat_roughness_texture.SampleLevel(sampler_aniso_wrap, material_texcoord, 0).g;
 	}
 
@@ -284,7 +287,7 @@ GBufferMaterial ResolveGBufferMaterial(float3 base_color, float metallic, float 
 	// clearcoat layer can carry a normal independent of the base surface, so
 	// only the coat's normal is swapped here, never the base normal.
 	float3 clearcoat_normal = normal;
-	if (material_instance.clearcoat_normal_texture_index_ != 0xFFFFFFFF)
+	if (material_instance.extension_.clearcoat_normal_texture_index_ != 0xFFFFFFFF)
 	{
 		float3 clearcoat_tangent;
 		float clearcoat_handedness;
@@ -293,7 +296,7 @@ GBufferMaterial ResolveGBufferMaterial(float3 base_color, float metallic, float 
 		float3 clearcoat_bitangent = cross(normal, clearcoat_tangent) * clearcoat_handedness;
 		float3x3 clearcoat_tbn = float3x3(clearcoat_tangent, clearcoat_bitangent, normal);
 
-		Texture2D<float4> clearcoat_normal_texture = ResourceDescriptorHeap[material_instance.clearcoat_normal_texture_index_];
+		Texture2D<float4> clearcoat_normal_texture = ResourceDescriptorHeap[material_instance.extension_.clearcoat_normal_texture_index_];
 		float3 clearcoat_normal_sample = clearcoat_normal_texture.SampleLevel(sampler_linear_wrap, material_texcoord, 0).xyz * 2.0 - 1.0;
 		clearcoat_normal = normalize(mul(clearcoat_normal_sample, clearcoat_tbn));
 	}
@@ -304,13 +307,13 @@ GBufferMaterial ResolveGBufferMaterial(float3 base_color, float metallic, float 
 	// same RT1.a-derived tangent basis as the clearcoat normal above.
 	float3 anisotropy_tangent = float3(1, 0, 0);
 	float3 anisotropy_bitangent = float3(0, 1, 0);
-	float anisotropy_strength = material_instance.anisotropy_;
+	float anisotropy_strength = material_instance.extension_.anisotropy_;
 	if (abs(anisotropy_strength) > 0.0)
 	{
-		float2 anisotropy_direction = float2(cos(material_instance.anisotropy_rotation_), sin(material_instance.anisotropy_rotation_));
-		if (material_instance.anisotropy_texture_index_ != 0xFFFFFFFF)
+		float2 anisotropy_direction = float2(cos(material_instance.extension_.anisotropy_rotation_), sin(material_instance.extension_.anisotropy_rotation_));
+		if (material_instance.extension_.anisotropy_texture_index_ != 0xFFFFFFFF)
 		{
-			Texture2D<float4> anisotropy_texture = ResourceDescriptorHeap[material_instance.anisotropy_texture_index_];
+			Texture2D<float4> anisotropy_texture = ResourceDescriptorHeap[material_instance.extension_.anisotropy_texture_index_];
 			float3 anisotropy_sample = anisotropy_texture.SampleLevel(sampler_aniso_wrap, material_texcoord, 0).rgb;
 
 			float2 texture_direction = anisotropy_sample.rg * 2.0 - 1.0;
@@ -327,17 +330,17 @@ GBufferMaterial ResolveGBufferMaterial(float3 base_color, float metallic, float 
 		anisotropy_bitangent = normalize(cross(normal, anisotropy_tangent));
 	}
 
-	float3 sheen_color = material_instance.sheen_color_;
-	if (material_instance.sheen_color_texture_index_ != 0xFFFFFFFF)
+	float3 sheen_color = material_instance.extension_.sheen_color_;
+	if (material_instance.extension_.sheen_color_texture_index_ != 0xFFFFFFFF)
 	{
-		Texture2D<float4> sheen_color_texture = ResourceDescriptorHeap[material_instance.sheen_color_texture_index_];
+		Texture2D<float4> sheen_color_texture = ResourceDescriptorHeap[material_instance.extension_.sheen_color_texture_index_];
 		sheen_color *= sheen_color_texture.SampleLevel(sampler_aniso_wrap, material_texcoord, 0).rgb;
 	}
 
-	float sheen_roughness_value = material_instance.sheen_roughness_;
-	if (material_instance.sheen_roughness_texture_index_ != 0xFFFFFFFF)
+	float sheen_roughness_value = material_instance.extension_.sheen_roughness_;
+	if (material_instance.extension_.sheen_roughness_texture_index_ != 0xFFFFFFFF)
 	{
-		Texture2D<float4> sheen_roughness_texture = ResourceDescriptorHeap[material_instance.sheen_roughness_texture_index_];
+		Texture2D<float4> sheen_roughness_texture = ResourceDescriptorHeap[material_instance.extension_.sheen_roughness_texture_index_];
 		sheen_roughness_value *= sheen_roughness_texture.SampleLevel(sampler_aniso_wrap, material_texcoord, 0).a;
 	}
 	float sheen_roughness = max(sheen_roughness_value, 0.001);
@@ -356,5 +359,71 @@ GBufferMaterial ResolveGBufferMaterial(float3 base_color, float metallic, float 
 	result.anisotropy_strength_ = anisotropy_strength;
 	return result;
 }
+
+/**
+* True when a ray should pass THROUGH this candidate triangle: OPAQUE always
+* blocks, MASK blocks only where base color alpha reaches alphaCutoff, BLEND
+* never blocks (the PPLL in Model/Transparent draws those surfaces instead).
+* Only reached on meshes whose BLAS geometry was declared non-opaque, which
+* RaytracingRenderer does whenever any of the mesh's materials is MASK or
+* BLEND (see geometryDesc.opaque_); a fully OPAQUE mesh keeps
+* D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE and never reaches here.
+* instance_data_index is shader_resource_indices.raytracing_.instance_data_index_,
+* passed in so this header needs no extra includes. Shared by the reflection,
+* refraction, ambient-occlusion, subsurface-scattering and global-illumination
+* ray paths.
+*/
+bool IsMaterialPassthrough(uint instance_data_index, uint instance_id, uint primitive_index, float2 barycentrics)
+{
+	StructuredBuffer<ReflectionInstanceData> instances = ResourceDescriptorHeap[instance_data_index];
+	ReflectionInstanceData instance = instances[instance_id];
+
+	ReflectionMaterial material = ResolveReflectionMaterial(instance, primitive_index);
+
+	/// alpha_mode_: 0 = OPAQUE, 1 = MASK, 2 = BLEND (glTF convention).
+	if (material.alpha_mode_ == 0)
+	{
+		return false;
+	}
+
+	if (material.alpha_mode_ == 2)
+	{
+		return true;
+	}
+
+	float alpha = material.base_color_alpha_;
+
+	if (material.base_color_texture_index_ != 0xFFFFFFFF)
+	{
+		StructuredBuffer<uint> triangle_indices = ResourceDescriptorHeap[instance.index_buffer_index_];
+		StructuredBuffer<CompressedVertex> vertices = ResourceDescriptorHeap[instance.vertex_buffer_index_];
+
+		uint base_index = primitive_index * 3;
+		CompressedVertex vertex0 = vertices[triangle_indices[base_index + 0]];
+		CompressedVertex vertex1 = vertices[triangle_indices[base_index + 1]];
+		CompressedVertex vertex2 = vertices[triangle_indices[base_index + 2]];
+
+		float weight0 = 1.0 - barycentrics.x - barycentrics.y;
+		float weight1 = barycentrics.x;
+		float weight2 = barycentrics.y;
+
+		float2 texcoord =
+			DecodeCompressedVertexTexcoord(vertex0, instance.texcoord_min_, instance.texcoord_extent_) * weight0 +
+			DecodeCompressedVertexTexcoord(vertex1, instance.texcoord_min_, instance.texcoord_extent_) * weight1 +
+			DecodeCompressedVertexTexcoord(vertex2, instance.texcoord_min_, instance.texcoord_extent_) * weight2;
+
+		Texture2D<float4> base_color_texture = ResourceDescriptorHeap[material.base_color_texture_index_];
+		alpha *= base_color_texture.SampleLevel(sampler_linear_wrap, texcoord, 0).a;
+	}
+
+	return alpha < material.alpha_cutoff_;
+}
+
+struct MaterialSortUnorderedAccessIndices
+{
+	uint bucket_index_;
+	uint sorted_pixel_list_index_;
+	uint2 material_sort_unordered_access_padding_0_;
+};
 
 #endif // __MATERIAL_HLSL__

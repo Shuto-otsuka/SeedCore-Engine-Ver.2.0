@@ -1,8 +1,9 @@
-#include "../../Shader/Constants.hlsli"
-#include "../../Shader/Structured.hlsli"
+#include "../../Shader/Scene.hlsli"
 #include "../../Shader/Sampler.hlsli"
 #include "../../Shader/Normal.hlsli"
 #include "../../Shader/Denoiser.hlsli"
+#include "../../Shader/ShaderResources.hlsli"
+#include "../../Shader/UnorderedAccesses.hlsli"
 
 static const float GI_TEMPORAL_BLEND_ALPHA = 0.05;
 
@@ -91,14 +92,14 @@ void main(uint3 dtid : SV_DispatchThreadID)
 
 	uint2 pixel = dtid.xy;
 
-	/// [EN] raw is view-shared (structured_indices); the accumulation chain
-	///      is per-view (constant_indices).
-	/// [JP] raw はビュー共有(structured_indices)、蓄積チェーンはビューごと
-	///      (constant_indices)から取る。
-	Texture2D<float4> raw_radiance = ResourceDescriptorHeap[structured_indices.global_illumination_.output_srv_index_];
-	RWTexture2D<float4> scratch_output = ResourceDescriptorHeap[constant_indices.global_illumination_.atrous_scratch0_uav_index_];
+	/// [EN] raw is view-shared (the same index in every view's shader_resource_indices); the accumulation chain
+	///      is per-view (global_illumination_accumulation_).
+	/// [JP] raw はビュー共有(全ビューの shader_resource_indices に同じ値)、蓄積チェーンはビューごと
+	///      (global_illumination_accumulation_)から取る。
+	Texture2D<float4> raw_radiance = ResourceDescriptorHeap[shader_resource_indices.global_illumination_.output_index_];
+	RWTexture2D<float4> scratch_output = ResourceDescriptorHeap[unordered_access_indices.global_illumination_accumulation_.atrous_scratch0_index_];
 
-	Texture2D<float> depth_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.depth_index_];
+	Texture2D<float> depth_texture = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.depth_index_];
 	float depth = depth_texture.Load(int3(pixel, 0));
 
 	if (depth == 0.0)
@@ -115,7 +116,7 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	/// [JP] velocity は (current_ndc - previous_ndc) * 0.5 で書き込まれて
 	///      いる(StaticModelPS.hlsl 等)。NDC->UV 変換で y は反転するため、
 	///      UV 空間の移動量は (velocity.x, -velocity.y)。
-	Texture2D<float2> velocity_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.index_2_];
+	Texture2D<float2> velocity_texture = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.index_2_];
 	float2 velocity = velocity_texture.Load(int3(pixel, 0));
 	float2 delta_uv = float2(velocity.x, -velocity.y);
 	float2 previous_uv = uv - delta_uv;
@@ -131,7 +132,7 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	///      「平面フィット深度」+「法線の一致度」に加え、近傍自身が背景
 	///      (raw.a == 0)なら重み0にして、ジオメトリの縁が空の黒を拾わない
 	///      ようにする。
-	Texture2D<float4> normal_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.index_1_];
+	Texture2D<float4> normal_texture = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.index_1_];
 	float3 center_normal = OctNormalDecode(normal_texture.Load(int3(pixel, 0)).rg);
 
 	int2 screen_max = int2(scene.screen_size_) - 1;
@@ -228,11 +229,11 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	///      引きずられる」体感の原因)。Mが低い間(リセット直後)は
 	///      reservoir 自体がまだ信号を安定させていないので、このデノイザ
 	///      自身の時間的ブレンドに通常通り頼る。
-	Texture2D<float> confidence_texture = ResourceDescriptorHeap[structured_indices.global_illumination_.confidence_srv_index_];
+	Texture2D<float> confidence_texture = ResourceDescriptorHeap[shader_resource_indices.global_illumination_.confidence_index_];
 	float confidence = confidence_texture.Load(int3(pixel, 0));
 	float adaptive_temporal_alpha = lerp(GI_TEMPORAL_BLEND_ALPHA, 1.0, confidence);
 
-	Texture2D<float4> history_radiance = ResourceDescriptorHeap[constant_indices.global_illumination_.history_srv_index_];
+	Texture2D<float4> history_radiance = ResourceDescriptorHeap[shader_resource_indices.global_illumination_accumulation_.history_index_];
 	float3 result = DenoiserTemporalBlend(history_radiance, previous_uv, clip_min, clip_max, filtered_raw, adaptive_temporal_alpha);
 
 	scratch_output[pixel] = float4(result, 1.0);
@@ -252,7 +253,7 @@ void AtrousPassCommon(uint2 pixel, Texture2D<float4> source, RWTexture2D<float4>
 {
 	SceneConstantBuffer scene = GetSceneConstantBuffer();
 
-	Texture2D<float> depth_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.depth_index_];
+	Texture2D<float> depth_texture = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.depth_index_];
 	float depth = depth_texture.Load(int3(pixel, 0));
 
 	if (depth == 0.0)
@@ -261,7 +262,7 @@ void AtrousPassCommon(uint2 pixel, Texture2D<float4> source, RWTexture2D<float4>
 		return;
 	}
 
-	Texture2D<float4> normal_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.index_1_];
+	Texture2D<float4> normal_texture = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.index_1_];
 	float3 center_normal = OctNormalDecode(normal_texture.Load(int3(pixel, 0)).rg);
 
 	int2 screen_max = int2(scene.screen_size_) - 1;
@@ -311,8 +312,8 @@ void ATrousPass1(uint3 dtid : SV_DispatchThreadID)
 		return;
 	}
 
-	Texture2D<float4> source = ResourceDescriptorHeap[constant_indices.global_illumination_.atrous_scratch0_srv_index_];
-	RWTexture2D<float4> dest = ResourceDescriptorHeap[constant_indices.global_illumination_.atrous_scratch1_uav_index_];
+	Texture2D<float4> source = ResourceDescriptorHeap[shader_resource_indices.global_illumination_accumulation_.atrous_scratch0_index_];
+	RWTexture2D<float4> dest = ResourceDescriptorHeap[unordered_access_indices.global_illumination_accumulation_.atrous_scratch1_index_];
 	AtrousPassCommon(dtid.xy, source, dest, 1);
 }
 
@@ -325,8 +326,8 @@ void ATrousPass2(uint3 dtid : SV_DispatchThreadID)
 		return;
 	}
 
-	Texture2D<float4> source = ResourceDescriptorHeap[constant_indices.global_illumination_.atrous_scratch1_srv_index_];
-	RWTexture2D<float4> dest = ResourceDescriptorHeap[constant_indices.global_illumination_.atrous_scratch0_uav_index_];
+	Texture2D<float4> source = ResourceDescriptorHeap[shader_resource_indices.global_illumination_accumulation_.atrous_scratch1_index_];
+	RWTexture2D<float4> dest = ResourceDescriptorHeap[unordered_access_indices.global_illumination_accumulation_.atrous_scratch0_index_];
 	AtrousPassCommon(dtid.xy, source, dest, 2);
 }
 
@@ -345,7 +346,7 @@ void ATrousPass3(uint3 dtid : SV_DispatchThreadID)
 		return;
 	}
 
-	Texture2D<float4> source = ResourceDescriptorHeap[constant_indices.global_illumination_.atrous_scratch0_srv_index_];
-	RWTexture2D<float4> dest = ResourceDescriptorHeap[constant_indices.global_illumination_.accumulated_uav_index_];
+	Texture2D<float4> source = ResourceDescriptorHeap[shader_resource_indices.global_illumination_accumulation_.atrous_scratch0_index_];
+	RWTexture2D<float4> dest = ResourceDescriptorHeap[unordered_access_indices.global_illumination_accumulation_.accumulated_index_];
 	AtrousPassCommon(dtid.xy, source, dest, 4);
 }

@@ -260,4 +260,19 @@ namespace SeedCore
 
 		return state;
 	}
+
+	void WeatherSystem::Upload(ID3D12Device* device, BindlessHeap* bindlessHeap, const WeatherConstantBuffer& buffer)
+	{
+		if (!weatherConstantBuffer_)
+		{
+			weatherConstantBuffer_ = MakePtr<ConstantBuffer<WeatherConstantBuffer>>(device, bindlessHeap);
+		}
+
+		weatherConstantBuffer_->Update(buffer);
+	}
+
+	Uint WeatherSystem::GetIndex()const
+	{
+		return weatherConstantBuffer_ ? weatherConstantBuffer_->GetIndex() : 0;
+	}
 }

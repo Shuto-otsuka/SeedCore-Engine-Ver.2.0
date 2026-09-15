@@ -11,17 +11,20 @@ namespace SeedCore
 	class BindlessHeap;
 	class ShaderCache;
 	class D3D12CommandList;
-	class IndicesSystem;
+	class ConstantIndicesSystem;
+	class ShaderResourceIndicesSystem;
+	class UnorderedAccessIndicesSystem;
+	struct RootAddresses;
 
 	/// [EN] Mirrors Raytracing/GlobalIllumination/GlobalIllumination.hlsli's
 	///      GlobalIlluminationRayConstantBuffer — read by
 	///      GlobalIlluminationRT.hlsl and DeferredLightingPS.hlsl via
-	///      structured_indices.global_illumination_ray_constant_index_. Must
+	///      constant_indices.global_illumination_index_. Must
 	///      stay byte-for-byte in sync with the HLSL side.
 	/// [JP] Raytracing/GlobalIllumination/GlobalIllumination.hlsli の
 	///      GlobalIlluminationRayConstantBuffer と対応。GlobalIlluminationRT.hlsl
 	///      と DeferredLightingPS.hlsl の両方が
-	///      structured_indices.global_illumination_ray_constant_index_ 経由で
+	///      constant_indices.global_illumination_index_ 経由で
 	///      読む。HLSL 側とバイト単位で一致させること。
 	struct GlobalIlluminationRayConstantBuffer
 	{
@@ -48,6 +51,10 @@ namespace SeedCore
 		///      ならず時間的に平均化されるようにする。
 		Uint32 frameIndex_ = 0;
 
+		Uint32 temporalReuseEnabled_ = 1;
+
+		Vector3 globalIlluminationRayPadding_ = { 0.0f, 0.0f, 0.0f };
+
 		template<class Archive>
 		void Serialize(Archive& archive)
 		{
@@ -57,9 +64,9 @@ namespace SeedCore
 		}
 	};
 
-	/// [EN] The HLSL mirror is one 16-byte cbuffer row of 4 scalars.
-	/// [JP] HLSL 側は 4 スカラー × 1 行(16バイト)。
-	static_assert(sizeof(GlobalIlluminationRayConstantBuffer) == 4 * sizeof(Float),
+	/// [EN] The HLSL mirror is two 16-byte cbuffer rows of 8 scalars.
+	/// [JP] HLSL 側は 8 スカラー × 2 行(32バイト)。
+	static_assert(sizeof(GlobalIlluminationRayConstantBuffer) == 8 * sizeof(Float),
 		"GlobalIlluminationRayConstantBuffer が GlobalIllumination.hlsli とバイト単位で一致していません");
 
 	/**
@@ -98,7 +105,7 @@ namespace SeedCore
 		GlobalIlluminationRenderer(RootSignature& rootSignature, RaytracingStateObject& raytracingStateObject, PipelineStateObject& pipelineStateObject);
 		~GlobalIlluminationRenderer() = default;
 
-		void Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, IndicesSystem& indicesSystem, Uint32 width, Uint32 height);
+		void Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, ConstantIndicesSystem& constantIndicesSystem, ShaderResourceIndicesSystem& shaderResourceIndicesSystem, UnorderedAccessIndicesSystem& unorderedAccessIndicesSystem, Uint32 width, Uint32 height);
 
 		void Destroy(BindlessHeap* bindlessHeap);
 
@@ -149,7 +156,7 @@ namespace SeedCore
 		///      PIXEL_SHADER_RESOURCE へ遷移させるだけでよい(PrepareFrame() が
 		///      既に合成シェーダの参照先をそこへ直接向けているため)。G-Buffer の
 		///      深度/法線/速度が書き込み済みであることが前提。
-		void Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex, Bool tlasValid, RaytracingView view, Bool useDlssRayReconstruction);
+		void Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses, Bool tlasValid, RaytracingView view, Bool useDlssRayReconstruction);
 
 	private:
 		static constexpr Uint32 accumulationSlotCount = 2;
@@ -235,7 +242,7 @@ namespace SeedCore
 		///      StructuredBuffer(要素サイズ reservoirElementSizeInBytes バイト —
 		///      GlobalIllumination.hlsli の GlobalIlluminationReservoir とバイト単位で
 		///      一致させること)。
-		static constexpr Uint32 reservoirElementSizeInBytes_ = 48;
+		static constexpr Uint32 reservoirElementSizeInBytes_ = 64;
 		Microsoft::WRL::ComPtr<ID3D12Resource> reservoirResource_[viewCount][accumulationSlotCount];
 		D3D12_RESOURCE_STATES reservoirState_[viewCount][accumulationSlotCount] = {};
 		Uint32 reservoirUnorderedAccessViewIndex_[viewCount][accumulationSlotCount] = {};
@@ -298,7 +305,9 @@ namespace SeedCore
 		Bool reservoirCleared_ = false;
 
 		BindlessHeap* bindlessHeap_ = nullptr;
-		IndicesSystem* indicesSystem_ = nullptr;
+		ConstantIndicesSystem* constantIndicesSystem_ = nullptr;
+		ShaderResourceIndicesSystem* shaderResourceIndicesSystem_ = nullptr;
+		UnorderedAccessIndicesSystem* unorderedAccessIndicesSystem_ = nullptr;
 
 		Uint32 width_ = 0;
 		Uint32 height_ = 0;

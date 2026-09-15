@@ -6,12 +6,12 @@ namespace SeedCore
 	/// [EN] The day/night clock: current time of day and calendar date. CPU-only
 	///      - never uploaded to the GPU directly, only the direction/color it
 	///      derives (via CelestialSystem::Compute) reach the shaders through
-	///      LightConstantData. Mirrors the *RayConstantBuffer structs' shape
+	///      LightConstantBuffer. Mirrors the *RayConstantBuffer structs' shape
 	///      (default-constructed values, a Serialize() hook) even though it has
 	///      no HLSL counterpart.
 	/// [JP] 昼夜の時計: 現在時刻と暦日。CPU 専用 - GPU へ直接アップロードせず、
 	///      そこから導出される方向/色(CelestialSystem::Compute 経由)だけが
-	///      LightConstantData を通してシェーダへ届く。HLSL 側の対応は無いが、
+	///      LightConstantBuffer を通してシェーダへ届く。HLSL 側の対応は無いが、
 	///      他の *RayConstantBuffer 構造体と同じ形(デフォルト値、Serialize()
 	///      フック)にしてある。
 	struct DaySystemConstantBuffer

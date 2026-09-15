@@ -6,8 +6,6 @@
 namespace SeedCore
 {
 	class BindlessHeap;
-	class HumanCharacterModel;
-	class HumanCharacterEvaluator;
 
 	class SEEDCORE_API AvatarMesh :public NonCopyable
 	{
@@ -15,9 +13,19 @@ namespace SeedCore
 		AvatarMesh() = default;
 		~AvatarMesh() = default;
 
-		Bool Create(ID3D12Device* device, BindlessHeap* bindlessHeap, const HumanCharacterModel& model);
+		struct RegionMeshletRange
+		{
+			Uint32 meshletOffset_ = 0;
+			Uint32 meshletCount_ = 0;
+		};
 
-		void Update(const HumanCharacterEvaluator& evaluator);
+		Bool Create(ID3D12Device* device, BindlessHeap* bindlessHeap, std::span<const Uint32> triangles, std::span<const Uint32> skinIndices, std::span<const Float> skinWeights, std::span<const Vector2> texcoords, std::span<const Vector3> neutralPositions, Uint32 bodyVertexCount, std::span<const Uint32> regionTriangleRanges);
+
+		[[nodiscard]] const RegionMeshletRange& MeshletRangeForRegion(Uint32 regionIndex)const;
+
+		[[nodiscard]] Uint32 RegionCount()const;
+
+		void Update(std::span<const Vector3> positions, std::span<const Vector3> normals);
 
 		[[nodiscard]] Bool IsCreated()const;
 
@@ -36,7 +44,14 @@ namespace SeedCore
 		[[nodiscard]] Vector2 TexcoordExtent()const;
 
 	private:
+		static constexpr Uint32 maxVerticesPerMeshlet_ = 64;
+		static constexpr Uint32 maxTrianglesPerMeshlet_ = 124;
+
+		static constexpr Uint32 maxRegionCount_ = 4;
+
 		Uint32 bodyVertexCount_ = 0;
+		Uint32 regionCount_ = 0;
+		RegionMeshletRange regionMeshletRanges_[maxRegionCount_];
 
 		DynamicArray<Vector2> baseTexcoords_;
 

@@ -511,6 +511,34 @@ namespace SeedCore
 		WriteAssetMetaFile(metaPath, meta);
 	}
 
+	void ResourceCache::AppendAssetModelTransform(Uint32 assetId, const Matrix& transform)
+	{
+		auto it = assetsMap_.find(assetId);
+		if (it == assetsMap_.end())
+		{
+			return;
+		}
+
+		std::filesystem::path metaPath = std::filesystem::path(it->second.fullpath_.c_str());
+		metaPath += ".meta";
+
+		AssetMeta meta;
+		meta.guid_ = assetId;
+
+		if (std::filesystem::exists(metaPath))
+		{
+			if (!ReadAssetMeta(metaPath, meta))
+			{
+				meta = AssetMeta{};
+				meta.guid_ = assetId;
+			}
+		}
+
+		meta.version_ = 2;
+		meta.modelTransform_ = meta.modelTransform_ * transform;
+		WriteAssetMetaFile(metaPath, meta);
+	}
+
 	/**
 	* [EN]
 	* Synchronously rescans the project for asset changes and loads

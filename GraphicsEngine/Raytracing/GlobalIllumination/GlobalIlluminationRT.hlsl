@@ -1,13 +1,16 @@
+#include "GlobalIllumination.hlsli"
+#include "../../Shader/Scene.hlsli"
 #include "../../Shader/Constants.hlsli"
-#include "../../Shader/Structured.hlsli"
-#include "../../Shader/Light.hlsli"
+#include "../../Light/Light.hlsli"
 #include "../../Shader/Normal.hlsli"
 #include "../../Shader/Noise.hlsli"
 #include "../../Shader/Sampler.hlsli"
+#include "../../Shader/Vertex.hlsli"
 #include "../../Light/ImageBasedLighting.hlsli"
 #include "../VolumetricCloudScapes/VolumetricCloudScapes.hlsli"
-#include "../Reflection/Reflection.hlsli"
-#include "GlobalIllumination.hlsli"
+#include "../../Sky/SkyGenerate.hlsli"
+#include "../../Shader/ShaderResources.hlsli"
+#include "../../Shader/UnorderedAccesses.hlsli"
 
 /**
 * [EN]
@@ -45,12 +48,12 @@
 void GlobalIlluminationRayGeneration()
 {
 	uint2 pixel = DispatchRaysIndex().xy;
-	RWTexture2D<float4> output = ResourceDescriptorHeap[structured_indices.global_illumination_.output_uav_index_];
+	RWTexture2D<float4> output = ResourceDescriptorHeap[unordered_access_indices.global_illumination_.output_index_];
 
 	/// [EN] Background (reverse-Z far plane = 0) has no indirect light. a=0
 	///      becomes the "invalid" marker downstream.
 	/// [JP] 背景(reverse-Z 遠平面=0)は間接光なし。a=0 で「無効」を示す。
-	Texture2D<float> depth_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.depth_index_];
+	Texture2D<float> depth_texture = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.depth_index_];
 	float depth = depth_texture.Load(int3(pixel, 0));
 
 	if (depth == 0.0)
@@ -60,7 +63,7 @@ void GlobalIlluminationRayGeneration()
 	}
 
 	SceneConstantBuffer scene = GetSceneConstantBuffer();
-	ConstantBuffer<GlobalIlluminationRayConstantBuffer> tuning = ResourceDescriptorHeap[structured_indices.global_illumination_.ray_constant_index_];
+	ConstantBuffer<GlobalIlluminationRayConstantBuffer> tuning = ResourceDescriptorHeap[constant_indices.global_illumination_index_];
 
 	/// [EN] Reconstruct world position and normal (same procedure as
 	///      ShadowRT.hlsl, mul takes the row vector on the left).
@@ -72,7 +75,7 @@ void GlobalIlluminationRayGeneration()
 	float4 world = mul(clip, scene.inverse_view_projection_);
 	float3 world_position = world.xyz / world.w;
 
-	Texture2D<float4> normal_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.index_1_];
+	Texture2D<float4> normal_texture = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.index_1_];
 	float3 normal = OctNormalDecode(normal_texture.Load(int3(pixel, 0)).rg);
 
 	/// [EN] RNG seed that changes every frame. A constant offset is mixed
@@ -86,7 +89,7 @@ void GlobalIlluminationRayGeneration()
 
 	float3 ray_direction = CosineSampleHemisphere(rng_state, normal);
 
-	RaytracingAccelerationStructure tlas = ResourceDescriptorHeap[structured_indices.raytracing_.tlas_index_];
+	RaytracingAccelerationStructure tlas = ResourceDescriptorHeap[shader_resource_indices.raytracing_.tlas_index_];
 
 	RayDesc ray_desc;
 	ray_desc.Origin = world_position + normal * tuning.normal_bias_;
@@ -125,8 +128,10 @@ void GlobalIlluminationRayGeneration()
 	float3 candidate_position = world_position + ray_direction * payload.hit_distance_;
 
 	GlobalIlluminationReservoir reservoir = GlobalIlluminationReservoirFromSample(candidate_position, normal, candidate_radiance);
+	reservoir.receiver_normal_ = normal;
+	reservoir.receiver_depth_ = abs(mul(float4(world_position, 1.0), scene.non_jitter_view_projection_).w);
 
-	StructuredBuffer<GlobalIlluminationReservoir> reservoir_history = ResourceDescriptorHeap[constant_indices.global_illumination_.reservoir_history_srv_index_];
+	StructuredBuffer<GlobalIlluminationReservoir> reservoir_history = ResourceDescriptorHeap[shader_resource_indices.global_illumination_accumulation_.reservoir_history_index_];
 
 	/// [EN] ReSTIR temporal reuse. Velocity-buffer reprojection follows the
 	///      same procedure as GlobalIlluminationDenoiseCS.hlsl's main()
@@ -134,11 +139,11 @@ void GlobalIlluminationRayGeneration()
 	/// [JP] ReSTIR 時間的リユース。速度バッファでの再投影は
 	///      GlobalIlluminationDenoiseCS.hlsl の main() と同じ手順(UV空間の
 	///      移動量は (velocity.x, -velocity.y))。
-	Texture2D<float2> velocity_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.index_2_];
+	Texture2D<float2> velocity_texture = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.index_2_];
 	float2 velocity = velocity_texture.Load(int3(pixel, 0)).rg;
 	float2 previous_uv = uv - float2(velocity.x, -velocity.y);
 
-	bool temporal_valid = all(previous_uv >= 0.0) && all(previous_uv <= 1.0);
+	bool temporal_valid = tuning.temporal_reuse_enabled_ != 0 && all(previous_uv >= 0.0) && all(previous_uv <= 1.0);
 
 	if (temporal_valid)
 	{
@@ -147,11 +152,15 @@ void GlobalIlluminationRayGeneration()
 
 		GlobalIlluminationReservoir temporal = reservoir_history[previous_index];
 		temporal.sample_m_ = min(temporal.sample_m_, GI_RESERVOIR_M_CAP);
+		temporal.sample_age_ += 1.0;
 
-		reservoir = GlobalIlluminationReservoirCombine(reservoir, temporal, temporal_valid, rng_state);
+		float expected_previous_depth = abs(mul(float4(world_position, 1.0), scene.previous_non_jitter_view_projection_).w);
+		bool history_valid = temporal.receiver_depth_ > 0.0 && abs(temporal.receiver_depth_ - expected_previous_depth) <= GI_RESERVOIR_DEPTH_THRESHOLD * expected_previous_depth && dot(normal, temporal.receiver_normal_) >= GI_RESERVOIR_NORMAL_THRESHOLD && temporal.sample_age_ <= GI_RESERVOIR_MAX_AGE;
+
+		reservoir = GlobalIlluminationReservoirCombine(reservoir, temporal, history_valid, rng_state);
 	}
 
-	RWStructuredBuffer<GlobalIlluminationReservoir> reservoir_write = ResourceDescriptorHeap[constant_indices.global_illumination_.reservoir_uav_index_];
+	RWStructuredBuffer<GlobalIlluminationReservoir> reservoir_write = ResourceDescriptorHeap[unordered_access_indices.global_illumination_accumulation_.reservoir_index_];
 	reservoir_write[pixel.y * (uint)scene.screen_size_.x + pixel.x] = reservoir;
 
 	output[pixel] = float4(reservoir.sample_radiance_ * reservoir.sample_w_ * tuning.intensity_, 1.0);
@@ -168,24 +177,24 @@ void GlobalIlluminationMiss(inout GlobalIlluminationPayload payload)
 	///      プロシージャル空(有効時)を、それも無ければ黒をサンプルする。
 	///      GI は低周波なので、鏡面反射と違ってボケた畳み込み済みキューブで
 	///      十分。
-	if (structured_indices.sky_.environment_cube_index_ != 0)
+	if (shader_resource_indices.sky_.environment_cube_index_ != 0)
 	{
 		payload.radiance_ = SampleSkyboxEnvironment(WorldRayDirection()).rgb;
 	}
 	else
 	{
-		ConstantBuffer<VolumetricCloudScapesRayConstantBuffer> cloud_tuning = ResourceDescriptorHeap[structured_indices.cloud_.ray_constant_index_];
+		ConstantBuffer<VolumetricCloudScapesRayConstantBuffer> cloud_tuning = ResourceDescriptorHeap[constant_indices.cloud_index_];
 
-		if (cloud_tuning.procedural_sky_enabled_ != 0 && structured_indices.sky_.specular_prefiltered_index_ != 0)
+		if (cloud_tuning.procedural_sky_enabled_ != 0 && shader_resource_indices.sky_.specular_prefiltered_index_ != 0)
 		{
-			TextureCube<float4> prefiltered = ResourceDescriptorHeap[structured_indices.sky_.specular_prefiltered_index_];
+			TextureCube<float4> prefiltered = ResourceDescriptorHeap[shader_resource_indices.sky_.specular_prefiltered_index_];
 			payload.radiance_ = prefiltered.SampleLevel(sampler_linear_clamp, WorldRayDirection(), 0).rgb;
 		}
 		else if (cloud_tuning.procedural_sky_enabled_ != 0)
 		{
-			ConstantBuffer<LightConstantData> light = ResourceDescriptorHeap[constant_indices.light_index_];
-			float3 sun_direction = normalize(-light.directional_direction_);
-			float3 sun_radiance = light.directional_color_.rgb * light.directional_intensity_;
+			ConstantBuffer<LightConstantBuffer> light = ResourceDescriptorHeap[constant_indices.light_index_];
+			float3 sun_direction = normalize(-GetDirectionalLightConstantBuffer().direction_);
+			float3 sun_radiance = GetDirectionalLightConstantBuffer().sun_color_.rgb * GetDirectionalLightConstantBuffer().sun_intensity_;
 			payload.radiance_ = ProceduralSkyColor(WorldRayDirection(), sun_direction, sun_radiance, cloud_tuning);
 		}
 		else
@@ -200,7 +209,7 @@ void GlobalIlluminationMiss(inout GlobalIlluminationPayload payload)
 [shader("anyhit")]
 void GlobalIlluminationAnyHit(inout GlobalIlluminationPayload payload, in BuiltInTriangleIntersectionAttributes attributes)
 {
-	if (IsReflectionMaterialPassthrough(structured_indices.raytracing_.instance_data_index_, InstanceID(), PrimitiveIndex(), attributes.barycentrics))
+	if (IsMaterialPassthrough(shader_resource_indices.raytracing_.instance_data_index_, InstanceID(), PrimitiveIndex(), attributes.barycentrics))
 	{
 		IgnoreHit();
 	}
@@ -215,31 +224,24 @@ void GlobalIlluminationClosestHit(inout GlobalIlluminationPayload payload, in Bu
 	/// [JP] インスタンステーブル(反射パスと共有)からヒットメッシュの
 	///      頂点/インデックス SRV を引き、barycentrics で法線と UV を
 	///      補間する。
-	StructuredBuffer<ReflectionInstanceData> instances = ResourceDescriptorHeap[structured_indices.raytracing_.instance_data_index_];
+	StructuredBuffer<ReflectionInstanceData> instances = ResourceDescriptorHeap[shader_resource_indices.raytracing_.instance_data_index_];
 	ReflectionInstanceData instance = instances[InstanceID()];
 
 	StructuredBuffer<uint> triangle_indices = ResourceDescriptorHeap[instance.index_buffer_index_];
-	StructuredBuffer<ReflectionVertex> vertices = ResourceDescriptorHeap[instance.vertex_buffer_index_];
+	StructuredBuffer<CompressedVertex> vertices = ResourceDescriptorHeap[instance.vertex_buffer_index_];
 
 	uint base_index = PrimitiveIndex() * 3;
-	ReflectionVertex vertex0 = vertices[triangle_indices[base_index + 0]];
-	ReflectionVertex vertex1 = vertices[triangle_indices[base_index + 1]];
-	ReflectionVertex vertex2 = vertices[triangle_indices[base_index + 2]];
+	CompressedVertex vertex0 = vertices[triangle_indices[base_index + 0]];
+	CompressedVertex vertex1 = vertices[triangle_indices[base_index + 1]];
+    CompressedVertex vertex2 = vertices[triangle_indices[base_index + 2]];
 
 	float2 barycentrics = attributes.barycentrics;
 	float weight0 = 1.0 - barycentrics.x - barycentrics.y;
 	float weight1 = barycentrics.x;
 	float weight2 = barycentrics.y;
 
-	float3 object_normal =
-		DecodeReflectionVertexNormal(vertex0) * weight0 +
-		DecodeReflectionVertexNormal(vertex1) * weight1 +
-		DecodeReflectionVertexNormal(vertex2) * weight2;
-
-	float2 texcoord =
-		DecodeReflectionVertexTexcoord(vertex0, instance.texcoord_min_, instance.texcoord_extent_) * weight0 +
-		DecodeReflectionVertexTexcoord(vertex1, instance.texcoord_min_, instance.texcoord_extent_) * weight1 +
-		DecodeReflectionVertexTexcoord(vertex2, instance.texcoord_min_, instance.texcoord_extent_) * weight2;
+    float3 object_normal = DecodeCompressedVertexNormal(vertex0) * weight0 + DecodeCompressedVertexNormal(vertex1) * weight1 + DecodeCompressedVertexNormal(vertex2) * weight2;
+    float2 texcoord = DecodeCompressedVertexTexcoord(vertex0, instance.texcoord_min_, instance.texcoord_extent_) * weight0 + DecodeCompressedVertexTexcoord(vertex1, instance.texcoord_min_, instance.texcoord_extent_) * weight1 + DecodeCompressedVertexTexcoord(vertex2, instance.texcoord_min_, instance.texcoord_extent_) * weight2;
 
 	/// [EN] Object space -> world space. The exact inverse-transpose for
 	///      non-uniform scale is skipped.
@@ -264,7 +266,7 @@ void GlobalIlluminationClosestHit(inout GlobalIlluminationPayload payload, in Bu
 	float3 hit_position = WorldRayOrigin() + WorldRayDirection() * RayTCurrent();
 
 	SceneConstantBuffer scene = GetSceneConstantBuffer();
-	ConstantBuffer<LightConstantData> light = ResourceDescriptorHeap[constant_indices.light_index_];
+	ConstantBuffer<LightConstantBuffer> light = ResourceDescriptorHeap[constant_indices.light_index_];
 
 	float3 lighting = float3(0, 0, 0);
 
@@ -278,15 +280,15 @@ void GlobalIlluminationClosestHit(inout GlobalIlluminationPayload payload, in Bu
 	///      (ImageBasedLightingRadianceLambertian と同じ)。sky_intensity_
 	///      はコンポジット側では GI に掛からないので、反射パスと違いここで
 	///      掛ける。
-	if (structured_indices.sky_.diffuse_irradiance_index_ != 0)
+	if (shader_resource_indices.sky_.diffuse_irradiance_index_ != 0)
 	{
-		TextureCube<float4> diffuse_irradiance = ResourceDescriptorHeap[structured_indices.sky_.diffuse_irradiance_index_];
-		lighting += diffuse_irradiance.SampleLevel(sampler_linear_clamp, world_normal, 0).rgb * structured_indices.sky_.intensity_;
+		TextureCube<float4> diffuse_irradiance = ResourceDescriptorHeap[shader_resource_indices.sky_.diffuse_irradiance_index_];
+		lighting += diffuse_irradiance.SampleLevel(sampler_linear_clamp, world_normal, 0).rgb * GetSkyConstantBuffer().intensity_;
 	}
 
-	if (light.directional_intensity_ > 0.0)
+	if (GetDirectionalLightConstantBuffer().sun_intensity_ > 0.0)
 	{
-		float3 light_direction = normalize(-light.directional_direction_);
+		float3 light_direction = normalize(-GetDirectionalLightConstantBuffer().direction_);
 		float normal_dot_light = saturate(dot(world_normal, light_direction));
 
 		/// [EN] Shadow for the bounce surface. Without this, indirect light
@@ -304,8 +306,8 @@ void GlobalIlluminationClosestHit(inout GlobalIlluminationPayload payload, in Bu
 
 		if (normal_dot_light > 0.0)
 		{
-			ConstantBuffer<GlobalIlluminationRayConstantBuffer> tuning = ResourceDescriptorHeap[structured_indices.global_illumination_.ray_constant_index_];
-			RaytracingAccelerationStructure tlas = ResourceDescriptorHeap[structured_indices.raytracing_.tlas_index_];
+			ConstantBuffer<GlobalIlluminationRayConstantBuffer> tuning = ResourceDescriptorHeap[constant_indices.global_illumination_index_];
+			RaytracingAccelerationStructure tlas = ResourceDescriptorHeap[shader_resource_indices.raytracing_.tlas_index_];
 
 			RayDesc shadow_ray;
 			shadow_ray.Origin = hit_position + world_normal * tuning.normal_bias_;
@@ -313,7 +315,7 @@ void GlobalIlluminationClosestHit(inout GlobalIlluminationPayload payload, in Bu
 			shadow_ray.TMin = 0.001;
 			shadow_ray.TMax = tuning.ray_t_max_;
 
-			if (IsReflectionRayOccluded(tlas, shadow_ray, structured_indices.raytracing_.instance_data_index_))
+			if (IsReflectionRayOccluded(tlas, shadow_ray, shader_resource_indices.raytracing_.instance_data_index_))
 			{
 				sun_visibility = 0.0;
 			}
@@ -328,7 +330,7 @@ void GlobalIlluminationClosestHit(inout GlobalIlluminationPayload payload, in Bu
 		///      が albedo/PI を返す規約なので、ここで割らないとバウンス面
 		///      だけ PI 倍明るくなる(反射パスで踏んだのと同じ罠)。
 		const float lambert_normalization = 1.0 / 3.14159265358979;
-		lighting += light.directional_color_.rgb * light.directional_intensity_ * normal_dot_light * sun_visibility * lambert_normalization;
+		lighting += GetDirectionalLightConstantBuffer().sun_color_.rgb * GetDirectionalLightConstantBuffer().sun_intensity_ * normal_dot_light * sun_visibility * lambert_normalization;
 	}
 
 	/// [EN] Point/Spot/Rect lights, sharing the same

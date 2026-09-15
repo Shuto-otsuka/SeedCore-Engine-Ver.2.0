@@ -5,7 +5,7 @@
 
 namespace SeedCore
 {
-	void MaterialSortBuffer::Create(ID3D12Device* device, BindlessHeap* bindlessHeap, IndicesSystem& indicesSystem, Uint32 width, Uint32 height)
+	void MaterialSortBuffer::Create(ID3D12Device* device, BindlessHeap* bindlessHeap, UnorderedAccessIndicesSystem& unorderedAccessIndicesSystem, Uint32 width, Uint32 height)
 	{
 		HRESULT hr{ S_OK };
 
@@ -96,8 +96,8 @@ namespace SeedCore
 			device->CreateUnorderedAccessView(sortedPixelListBuffer_.Get(), nullptr, &unorderedAccessViewDesc, clearHeap_.CPUHandle(clearSortedPixelListIndex_));
 		}
 
-		indicesSystem.SetMaterialSortBucketIndex(bucketUAVIndex_);
-		indicesSystem.SetMaterialSortedPixelListIndex(sortedPixelListUAVIndex_);
+		unorderedAccessIndicesSystem.SetMaterialSortBucketIndex(bucketUAVIndex_);
+		unorderedAccessIndicesSystem.SetMaterialSortedPixelListIndex(sortedPixelListUAVIndex_);
 	}
 
 	void MaterialSortBuffer::Destroy(BindlessHeap* bindlessHeap)
@@ -118,10 +118,10 @@ namespace SeedCore
 		sortedPixelListBuffer_.Reset();
 	}
 
-	void MaterialSortBuffer::Resize(ID3D12Device* device, BindlessHeap* bindlessHeap, IndicesSystem& indicesSystem, Uint32 width, Uint32 height)
+	void MaterialSortBuffer::Resize(ID3D12Device* device, BindlessHeap* bindlessHeap, UnorderedAccessIndicesSystem& unorderedAccessIndicesSystem, Uint32 width, Uint32 height)
 	{
 		Destroy(bindlessHeap);
-		Create(device, bindlessHeap, indicesSystem, width, height);
+		Create(device, bindlessHeap, unorderedAccessIndicesSystem, width, height);
 	}
 
 	void MaterialSortBuffer::Barrier(ID3D12GraphicsCommandList* cmdList)const

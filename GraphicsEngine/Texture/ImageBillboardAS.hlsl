@@ -1,5 +1,5 @@
 #include "Image.hlsli"
-#include "../Shader/Structured.hlsli"
+#include "../Shader/ShaderResources.hlsli"
 #include "../Shader/Culling.hlsli"
 
 groupshared uint survived_count;
@@ -9,7 +9,7 @@ groupshared ImageASPayload payload;
 [numthreads(32, 1, 1)]
 void main(uint3 gtid : SV_GroupThreadID, uint3 dtid : SV_DispatchThreadID)
 {
-	StructuredBuffer<ImageBillboardInstance> image_billboard = ResourceDescriptorHeap[structured_indices.sprite_.image_billboard_index_];
+	StructuredBuffer<ImageBillboardStructuredBuffer> image_billboard = GetImageBillboardStructuredBuffer(shader_resource_indices.image_.billboard_index_);
 	SceneConstantBuffer scene_constant = GetSceneConstantBuffer();
 
 	if (gtid.x == 0)
@@ -23,12 +23,12 @@ void main(uint3 gtid : SV_GroupThreadID, uint3 dtid : SV_DispatchThreadID)
 
 	if (billboard_id < 32768)
 	{
-		ImageBillboardInstance billboard = image_billboard[billboard_id];
+		ImageBillboardStructuredBuffer billboard = image_billboard[billboard_id];
 
-		if (billboard.scale.x > 0.0 && billboard.scale.y > 0.0)
+		if (billboard.scale_.x > 0.0 && billboard.scale_.y > 0.0)
 		{
-			float radius = max(billboard.scale.x, billboard.scale.y) * 0.5f;
-			is_visible = IsVisibleInFrustum(billboard.position, radius, scene_constant.current_view_projection_);
+			float radius = max(billboard.scale_.x, billboard.scale_.y) * 0.5f;
+			is_visible = IsVisibleInFrustum(billboard.position_, radius, scene_constant.current_view_projection_);
 		}
 	}
 

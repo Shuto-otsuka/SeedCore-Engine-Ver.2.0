@@ -5,6 +5,7 @@
 #include <GraphicsEngine/Texture/ImageResource.h>
 #include <GraphicsEngine/D3D12/Descriptor/BindlessHeap.h>
 #include <GraphicsEngine/D3D12/PipelineState/PipelineStateObject.h>
+#include <GraphicsEngine/D3D12/Context/D3D12Check.h>
 #include <GraphicsEngine/System/IndicesSystem.h>
 #include <GraphicsEngine/D3D12/SwapChain/GraphicsResolution.h>
 #include <FoundationEngine/ECS/Query.h>
@@ -19,20 +20,20 @@ namespace SeedCore
 		/// No Code
 	}
 
-	void ImageRenderer::Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, IndicesSystem& indicesSystem)
+	void ImageRenderer::Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, ShaderResourceIndicesSystem& shaderResourceIndicesSystem)
 	{
 		bindlessHeap_ = bindlessHeap;
 		maxCount_ = 65536;
 
 		imageShader_.Create(shaderCache, device);
 
-		indicesSystem_ = &indicesSystem;
+		shaderResourceIndicesSystem_ = &shaderResourceIndicesSystem;
 
-		spriteBuffer_ = MakePtr<ReadOnlyStructuredBuffer<ImageSpriteInstance>>(device, bindlessHeap, maxCount_);
-		billboardBuffer_ = MakePtr<ReadOnlyStructuredBuffer<ImageBillboardInstance>>(device, bindlessHeap, maxCount_);
+		spriteBuffer_ = MakePtr<ReadOnlyStructuredBuffer<ImageSpriteStructuredBuffer>>(device, bindlessHeap, maxCount_);
+		billboardBuffer_ = MakePtr<ReadOnlyStructuredBuffer<ImageBillboardStructuredBuffer>>(device, bindlessHeap, maxCount_);
 
-		indicesSystem.SetImageSpriteIndex(spriteBuffer_->Index());
-		indicesSystem.SetImageBillboardIndex(billboardBuffer_->Index());
+		shaderResourceIndicesSystem.SetImageSpriteIndex(spriteBuffer_->Index());
+		shaderResourceIndicesSystem.SetImageBillboardIndex(billboardBuffer_->Index());
 	}
 
 	void ImageRenderer::Gather(LoaderSystem& loader, ImageResource& resource, World& world, Vector2 nativeScreenSize, Entity selectedEntity)
@@ -121,7 +122,7 @@ namespace SeedCore
 					Float rotationAngle = worldRotation.ToEuler().x;
 					Vector2 scale = Vector2(worldScale.x, worldScale.y);
 
-					ImageSpriteInstance instance{};
+					ImageSpriteStructuredBuffer instance{};
 					instance.position_ = position * spriteReferenceScale;
 					instance.rotation_ = rotationAngle;
 					instance.scale_ = scale;
@@ -138,7 +139,7 @@ namespace SeedCore
 
 					hasSelectedBillboardInstance_ = hasSelectedBillboardInstance_ || selected != 0;
 
-					ImageBillboardInstance canvasInstance{};
+					ImageBillboardStructuredBuffer canvasInstance{};
 					canvasInstance.position_ = Vector3(100000.0f + position.x, 100000.0f + (ScResolution::SC_HD.Height - position.y), 100000.0f);
 					canvasInstance.rotation_ = Vector3(0.0f, 0.0f, rotationAngle);
 					canvasInstance.scale_ = Vector2(scale.x * textureSize.x, scale.y * textureSize.y);
@@ -158,7 +159,7 @@ namespace SeedCore
 				{
 					hasSelectedBillboardInstance_ = hasSelectedBillboardInstance_ || selected != 0;
 
-					ImageBillboardInstance instance{};
+					ImageBillboardStructuredBuffer instance{};
 					instance.position_ = worldTranslation;
 					instance.rotation_ = worldRotation.ToEuler();
 					instance.scale_ = Vector2(worldScale.x, worldScale.y);
@@ -182,8 +183,8 @@ namespace SeedCore
 
 	void ImageRenderer::Upload()
 	{
-		indicesSystem_->SetImageSpriteIndex(spriteBuffer_->Index());
-		indicesSystem_->SetImageBillboardIndex(billboardBuffer_->Index());
+		shaderResourceIndicesSystem_->SetImageSpriteIndex(spriteBuffer_->Index());
+		shaderResourceIndicesSystem_->SetImageBillboardIndex(billboardBuffer_->Index());
 
 		if (!spriteInstances_.empty())
 		{
@@ -196,7 +197,7 @@ namespace SeedCore
 		}
 	}
 
-	void ImageRenderer::DrawSprite(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex)
+	void ImageRenderer::DrawSprite(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
 	{
 		if (spriteInstances_.empty())
 		{
@@ -207,18 +208,24 @@ namespace SeedCore
 		cmdList->SetDescriptorHeaps(_countof(heaps), heaps);
 		cmdList->SetGraphicsRootSignature(imageShader_.GetRootSignature());
 
-		cmdList->SetGraphicsRootConstantBufferView(2, constantIndex);
-		cmdList->SetGraphicsRootConstantBufferView(3, structuredIndex);
+		RootSignature::BindGraphics(cmdList, addresses);
 
 		cmdList->SetPipelineState(imageShader_.GetPipelineStateSprite());
-		cmdList->SetGraphicsRootDescriptorTable(0, bindlessHeap_->GPUHandle(0));
 
-		Uint groupCount = (static_cast<Uint>(spriteInstances_.size()) + 31) / 32;
-		cmdList->DispatchMesh(groupCount, 1, 1);
+		if (D3D12Check::GetLevel() == D3D12Level::D12_2)
+		{
+			Uint groupCount = (static_cast<Uint>(spriteInstances_.size()) + 31) / 32;
+			cmdList->DispatchMesh(groupCount, 1, 1);
+		}
+		else
+		{
+			cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			cmdList->DrawInstanced(6, static_cast<Uint>(spriteInstances_.size()), 0, 0);
+		}
 		ProfilerStats::AddDrawCall();
 	}
 
-	void ImageRenderer::DrawBillboard(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex)
+	void ImageRenderer::DrawBillboard(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
 	{
 		if (billboardInstances_.empty())
 		{
@@ -229,18 +236,24 @@ namespace SeedCore
 		cmdList->SetDescriptorHeaps(_countof(heaps), heaps);
 		cmdList->SetGraphicsRootSignature(imageShader_.GetRootSignature());
 
-		cmdList->SetGraphicsRootConstantBufferView(2, constantIndex);
-		cmdList->SetGraphicsRootConstantBufferView(3, structuredIndex);
+		RootSignature::BindGraphics(cmdList, addresses);
 
 		cmdList->SetPipelineState(imageShader_.GetPipelineStateBillboard());
-		cmdList->SetGraphicsRootDescriptorTable(0, bindlessHeap_->GPUHandle(0));
 
-		Uint groupCount = (static_cast<Uint>(billboardInstances_.size()) + 31) / 32;
-		cmdList->DispatchMesh(groupCount, 1, 1);
+		if (D3D12Check::GetLevel() == D3D12Level::D12_2)
+		{
+			Uint groupCount = (static_cast<Uint>(billboardInstances_.size()) + 31) / 32;
+			cmdList->DispatchMesh(groupCount, 1, 1);
+		}
+		else
+		{
+			cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			cmdList->DrawInstanced(6, static_cast<Uint>(billboardInstances_.size()), 0, 0);
+		}
 		ProfilerStats::AddDrawCall();
 	}
 
-	void ImageRenderer::DrawSelectionMaskSprite(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex)
+	void ImageRenderer::DrawSelectionMaskSprite(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
 	{
 		if (!hasSelectedSpriteInstance_)
 		{
@@ -250,18 +263,24 @@ namespace SeedCore
 		ID3D12DescriptorHeap* heaps[] = { heap };
 		cmdList->SetDescriptorHeaps(_countof(heaps), heaps);
 		cmdList->SetGraphicsRootSignature(imageShader_.GetRootSignature());
-		cmdList->SetGraphicsRootConstantBufferView(2, constantIndex);
-		cmdList->SetGraphicsRootConstantBufferView(3, structuredIndex);
+		RootSignature::BindGraphics(cmdList, addresses);
 
 		cmdList->SetPipelineState(imageShader_.GetPipelineStateSelectionMaskSprite());
-		cmdList->SetGraphicsRootDescriptorTable(0, bindlessHeap_->GPUHandle(0));
 
-		Uint groupCount = (static_cast<Uint>(spriteInstances_.size()) + 31) / 32;
-		cmdList->DispatchMesh(groupCount, 1, 1);
+		if (D3D12Check::GetLevel() == D3D12Level::D12_2)
+		{
+			Uint groupCount = (static_cast<Uint>(spriteInstances_.size()) + 31) / 32;
+			cmdList->DispatchMesh(groupCount, 1, 1);
+		}
+		else
+		{
+			cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			cmdList->DrawInstanced(6, static_cast<Uint>(spriteInstances_.size()), 0, 0);
+		}
 		ProfilerStats::AddDrawCall();
 	}
 
-	void ImageRenderer::DrawSelectionMaskBillboard(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex)
+	void ImageRenderer::DrawSelectionMaskBillboard(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
 	{
 		if (!hasSelectedBillboardInstance_)
 		{
@@ -271,14 +290,20 @@ namespace SeedCore
 		ID3D12DescriptorHeap* heaps[] = { heap };
 		cmdList->SetDescriptorHeaps(_countof(heaps), heaps);
 		cmdList->SetGraphicsRootSignature(imageShader_.GetRootSignature());
-		cmdList->SetGraphicsRootConstantBufferView(2, constantIndex);
-		cmdList->SetGraphicsRootConstantBufferView(3, structuredIndex);
+		RootSignature::BindGraphics(cmdList, addresses);
 
 		cmdList->SetPipelineState(imageShader_.GetPipelineStateSelectionMaskBillboard());
-		cmdList->SetGraphicsRootDescriptorTable(0, bindlessHeap_->GPUHandle(0));
 
-		Uint groupCount = (static_cast<Uint>(billboardInstances_.size()) + 31) / 32;
-		cmdList->DispatchMesh(groupCount, 1, 1);
+		if (D3D12Check::GetLevel() == D3D12Level::D12_2)
+		{
+			Uint groupCount = (static_cast<Uint>(billboardInstances_.size()) + 31) / 32;
+			cmdList->DispatchMesh(groupCount, 1, 1);
+		}
+		else
+		{
+			cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			cmdList->DrawInstanced(6, static_cast<Uint>(billboardInstances_.size()), 0, 0);
+		}
 		ProfilerStats::AddDrawCall();
 	}
 }

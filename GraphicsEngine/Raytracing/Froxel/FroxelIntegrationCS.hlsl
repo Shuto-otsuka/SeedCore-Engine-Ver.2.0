@@ -1,5 +1,6 @@
+#include "../../Shader/Scene.hlsli"
+#include "../../Shader/UnorderedAccesses.hlsli"
 #include "../../Shader/Constants.hlsli"
-#include "../../Shader/Structured.hlsli"
 #include "../Froxel/Froxel.hlsli"
 #include "../VolumetricLight/VolumetricLight.hlsli"
 
@@ -36,7 +37,7 @@
 [numthreads(8, 8, 1)]
 void main(uint3 dtid : SV_DispatchThreadID)
 {
-	ConstantBuffer<VolumetricLightRayConstantBuffer> tuning = ResourceDescriptorHeap[structured_indices.volumetric_light_.ray_constant_index_];
+	ConstantBuffer<VolumetricLightRayConstantBuffer> tuning = ResourceDescriptorHeap[constant_indices.volumetric_light_index_];
 	uint3 froxel_dimensions = uint3(tuning.froxel_dimension_x_, tuning.froxel_dimension_y_, tuning.froxel_dimension_z_);
 
 	/// [EN] Bounds guard for the XY column this thread owns - Z is walked
@@ -50,8 +51,8 @@ void main(uint3 dtid : SV_DispatchThreadID)
 
 	SceneConstantBuffer scene = GetSceneConstantBuffer();
 
-	RWTexture3D<float4> scattering_volume = ResourceDescriptorHeap[structured_indices.volumetric_light_.scattering_uav_index_];
-	RWTexture3D<float4> integration_volume = ResourceDescriptorHeap[structured_indices.volumetric_light_.integration_uav_index_];
+	RWTexture3D<float4> scattering_volume = ResourceDescriptorHeap[GetVolumetricLightDispatchConstantBuffer().scattering_write_unordered_access_view_index_];
+	RWTexture3D<float4> integration_volume = ResourceDescriptorHeap[unordered_access_indices.volumetric_light_.integration_index_];
 
 	float3 accumulated_scattering = float3(0, 0, 0);
 	float transmittance = 1.0;

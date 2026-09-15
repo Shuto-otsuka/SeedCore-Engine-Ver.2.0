@@ -1,11 +1,12 @@
 #include "../Model/Model.hlsli"
-#include "../Shader/Structured.hlsli"
-#include "../Shader/Constants.hlsli"
+#include "../Shader/ShaderResources.hlsli"
+#include "../Shader/Scene.hlsli"
+#include "../Shader/Sampler.hlsli"
 
 float4 main(ModelMSOutput input) : SV_Target0
 {
-	StructuredBuffer<ModelInstance> instances = ResourceDescriptorHeap[structured_indices.model_.instance_index_];
-	ModelInstance instance = instances[input.instance_index];
+	StructuredBuffer<ModelStructuredBuffer> instances = GetModelStructuredBuffer(shader_resource_indices.model_.instance_index_);
+	ModelStructuredBuffer instance = instances[input.instance_index];
 	SceneConstantBuffer scene = GetSceneConstantBuffer();
 
 	float2 screen_uv = input.position.xy * scene.inverse_screen_size_;
@@ -25,7 +26,12 @@ float4 main(ModelMSOutput input) : SV_Target0
 	float3 ground_color = float3(0.20, 0.18, 0.17);
 	float3 ambient = lerp(ground_color, sky_color, face_normal.y * 0.5 + 0.5);
 
-	float3 base_color = instance.base_color_.rgb;
+	float3 base_color = instance.texture_.base_color_.rgb;
+	if (instance.texture_.base_color_texture_index_ != 0xFFFFFFFF)
+	{
+		Texture2D base_color_texture = ResourceDescriptorHeap[instance.texture_.base_color_texture_index_];
+		base_color = base_color_texture.Sample(sampler_linear_wrap, input.texcoord).rgb;
+	}
 	float3 lit_color = base_color * (ambient + diffuse * 0.9);
 
 	return float4(lit_color, 1.0);

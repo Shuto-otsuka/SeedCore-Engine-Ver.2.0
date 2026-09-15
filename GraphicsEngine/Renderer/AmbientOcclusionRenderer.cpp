@@ -61,10 +61,12 @@ namespace SeedCore
 		/// No Code
 	}
 
-	void AmbientOcclusionRenderer::Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, IndicesSystem& indicesSystem, Uint32 width, Uint32 height)
+	void AmbientOcclusionRenderer::Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, ConstantIndicesSystem& constantIndicesSystem, ShaderResourceIndicesSystem& shaderResourceIndicesSystem, UnorderedAccessIndicesSystem& unorderedAccessIndicesSystem, Uint32 width, Uint32 height)
 	{
 		bindlessHeap_ = bindlessHeap;
-		indicesSystem_ = &indicesSystem;
+		constantIndicesSystem_ = &constantIndicesSystem;
+		shaderResourceIndicesSystem_ = &shaderResourceIndicesSystem;
+		unorderedAccessIndicesSystem_ = &unorderedAccessIndicesSystem;
 		width_ = width;
 		height_ = height;
 
@@ -142,12 +144,12 @@ namespace SeedCore
 		++frameIndex_;
 
 		tuningBuffer_->Update(uploadSettings);
-		indicesSystem_->SetAmbientOcclusionRayConstantIndex(tuningBuffer_->GetIndex());
+		constantIndicesSystem_->SetAmbientOcclusionRayConstantIndex(tuningBuffer_->GetIndex());
 
 		Uint32 writeSlot = 1 - historySlot_;
 
-		indicesSystem_->SetAmbientOcclusionRawUnorderedAccessViewIndex(rawOpennessUnorderedAccessViewIndex_);
-		indicesSystem_->SetAmbientOcclusionRawShaderResourceViewIndex(rawOpennessShaderResourceViewIndex_);
+		unorderedAccessIndicesSystem_->SetAmbientOcclusionRawUnorderedAccessViewIndex(rawOpennessUnorderedAccessViewIndex_);
+		shaderResourceIndicesSystem_->SetAmbientOcclusionRawShaderResourceViewIndex(rawOpennessShaderResourceViewIndex_);
 
 		constexpr Uint32 editorView = static_cast<Uint32>(RaytracingView::Editor);
 		constexpr Uint32 gameView = static_cast<Uint32>(RaytracingView::Game);
@@ -157,17 +159,43 @@ namespace SeedCore
 			/// [JP] DLSS-RRが合成フレーム全体をデノイズするので、このビューの
 			///      「最終」AO読み取りは生の単一バッファテクスチャを直接指す
 			///      (ピンポン蓄積チェーンには一切触れない)。
-			indicesSystem_->SetEditorAmbientOcclusionIndices(rawOpennessShaderResourceViewIndex_, accumulatedUnorderedAccessViewIndex_[editorView][writeSlot], rawOpennessShaderResourceViewIndex_);
-			indicesSystem_->SetGameAmbientOcclusionIndices(rawOpennessShaderResourceViewIndex_, accumulatedUnorderedAccessViewIndex_[gameView][writeSlot], rawOpennessShaderResourceViewIndex_);
+			AmbientOcclusionAccumulationShaderResourceIndices editorSrv{};
+			editorSrv.historyIndex_ = rawOpennessShaderResourceViewIndex_;
+			editorSrv.opennessIndex_ = rawOpennessShaderResourceViewIndex_;
+			shaderResourceIndicesSystem_->SetEditorAmbientOcclusionAccumulationIndices(editorSrv);
+			shaderResourceIndicesSystem_->SetGameAmbientOcclusionAccumulationIndices(editorSrv);
+
+			AmbientOcclusionAccumulationUnorderedAccessIndices editorUav{};
+			editorUav.accumulatedIndex_ = accumulatedUnorderedAccessViewIndex_[editorView][writeSlot];
+			unorderedAccessIndicesSystem_->SetEditorAmbientOcclusionAccumulationIndices(editorUav);
+
+			AmbientOcclusionAccumulationUnorderedAccessIndices gameUav{};
+			gameUav.accumulatedIndex_ = accumulatedUnorderedAccessViewIndex_[gameView][writeSlot];
+			unorderedAccessIndicesSystem_->SetGameAmbientOcclusionAccumulationIndices(gameUav);
 		}
 		else
 		{
-			indicesSystem_->SetEditorAmbientOcclusionIndices(accumulatedShaderResourceViewIndex_[editorView][historySlot_], accumulatedUnorderedAccessViewIndex_[editorView][writeSlot], accumulatedShaderResourceViewIndex_[editorView][writeSlot]);
-			indicesSystem_->SetGameAmbientOcclusionIndices(accumulatedShaderResourceViewIndex_[gameView][historySlot_], accumulatedUnorderedAccessViewIndex_[gameView][writeSlot], accumulatedShaderResourceViewIndex_[gameView][writeSlot]);
+			AmbientOcclusionAccumulationShaderResourceIndices editorSrv{};
+			editorSrv.historyIndex_ = accumulatedShaderResourceViewIndex_[editorView][historySlot_];
+			editorSrv.opennessIndex_ = accumulatedShaderResourceViewIndex_[editorView][writeSlot];
+			shaderResourceIndicesSystem_->SetEditorAmbientOcclusionAccumulationIndices(editorSrv);
+
+			AmbientOcclusionAccumulationShaderResourceIndices gameSrv{};
+			gameSrv.historyIndex_ = accumulatedShaderResourceViewIndex_[gameView][historySlot_];
+			gameSrv.opennessIndex_ = accumulatedShaderResourceViewIndex_[gameView][writeSlot];
+			shaderResourceIndicesSystem_->SetGameAmbientOcclusionAccumulationIndices(gameSrv);
+
+			AmbientOcclusionAccumulationUnorderedAccessIndices editorUav{};
+			editorUav.accumulatedIndex_ = accumulatedUnorderedAccessViewIndex_[editorView][writeSlot];
+			unorderedAccessIndicesSystem_->SetEditorAmbientOcclusionAccumulationIndices(editorUav);
+
+			AmbientOcclusionAccumulationUnorderedAccessIndices gameUav{};
+			gameUav.accumulatedIndex_ = accumulatedUnorderedAccessViewIndex_[gameView][writeSlot];
+			unorderedAccessIndicesSystem_->SetGameAmbientOcclusionAccumulationIndices(gameUav);
 		}
 	}
 
-	void AmbientOcclusionRenderer::Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex, Bool tlasValid, RaytracingView view, Bool useDlssRayReconstruction)
+	void AmbientOcclusionRenderer::Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses, Bool tlasValid, RaytracingView view, Bool useDlssRayReconstruction)
 	{
 		auto* cmd = cmdList->Get();
 
@@ -233,9 +261,7 @@ namespace SeedCore
 			ID3D12DescriptorHeap* heaps[] = { heap };
 			cmd->SetDescriptorHeaps(_countof(heaps), heaps);
 			cmd->SetComputeRootSignature(ambientOcclusionShader_.GetRootSignature());
-			cmd->SetComputeRootDescriptorTable(0, bindlessHeap_->GPUHandle(0));
-			cmd->SetComputeRootConstantBufferView(2, constantIndex);
-			cmd->SetComputeRootConstantBufferView(3, structuredIndex);
+			RootSignature::BindCompute(cmd, addresses);
 			cmd->SetPipelineState(ambientOcclusionPipelineState);
 
 			Uint32 groupCountX = (width_ + 7) / 8;

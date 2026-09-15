@@ -1,5 +1,6 @@
 #include "WeatherParticle.hlsli"
-#include "../Shader/Structured.hlsli"
+#include "../Shader/ShaderResources.hlsli"
+#include "../Shader/Constants.hlsli"
 #include "../Shader/Culling.hlsli"
 
 // Frustum-culls rain+snow particles (combined dispatch range: [0,
@@ -16,7 +17,7 @@ groupshared WeatherParticleASPayload payload;
 [numthreads(32, 1, 1)]
 void main(uint3 gtid : SV_GroupThreadID, uint3 dtid : SV_DispatchThreadID)
 {
-	ConstantBuffer<WeatherParticleConstantBuffer> tuning = ResourceDescriptorHeap[structured_indices.weather_particle_.ray_constant_index_];
+	ConstantBuffer<WeatherParticleConstantBuffer> tuning = ResourceDescriptorHeap[constant_indices.weather_particle_index_];
 	SceneConstantBuffer scene_constant = GetSceneConstantBuffer();
 
 	if (gtid.x == 0)
@@ -38,12 +39,12 @@ void main(uint3 gtid : SV_GroupThreadID, uint3 dtid : SV_DispatchThreadID)
 		float3 position;
 		if (is_rain)
 		{
-			StructuredBuffer<WeatherParticle> particles = ResourceDescriptorHeap[structured_indices.weather_particle_.rain_particle_srv_index_];
+			StructuredBuffer<WeatherParticle> particles = ResourceDescriptorHeap[shader_resource_indices.weather_particle_.rain_particle_index_];
 			position = particles[local_id].position_;
 		}
 		else
 		{
-			StructuredBuffer<WeatherParticle> particles = ResourceDescriptorHeap[structured_indices.weather_particle_.snow_particle_srv_index_];
+			StructuredBuffer<WeatherParticle> particles = ResourceDescriptorHeap[shader_resource_indices.weather_particle_.snow_particle_index_];
 			position = particles[local_id].position_;
 		}
 

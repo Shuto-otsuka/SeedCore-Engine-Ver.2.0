@@ -9,7 +9,10 @@ namespace SeedCore
 	class BindlessHeap;
 	class ShaderCache;
 	class D3D12CommandList;
-	class IndicesSystem;
+	class ConstantIndicesSystem;
+	class ShaderResourceIndicesSystem;
+	class UnorderedAccessIndicesSystem;
+	struct RootAddresses;
 
 	/// [EN] One CPU-side shooting star slot. Mirrors HLSL ShootingStarInstance
 	///      (Raytracing/VolumetricStar/VolumetricStar.hlsli) byte-for-byte.
@@ -27,14 +30,14 @@ namespace SeedCore
 
 	/// [EN] Mirrors Raytracing/VolumetricStar/VolumetricStar.hlsli's
 	///      VolumetricStarRayConstantBuffer. Read by both VolumetricStarRT.hlsl
-	///      and DeferredLightingPS.hlsl via structured_indices.star_.
-	///      ray_constant_index_. Must stay byte-for-byte in sync with the HLSL
+	///      and DeferredLightingPS.hlsl via constant_indices.star_index_.
+	///      Must stay byte-for-byte in sync with the HLSL
 	///      side - laid out in 4-scalar (16 byte) cbuffer rows, same convention
 	///      as VolumetricCloudScapesRayConstantBuffer.
 	/// [JP] Raytracing/VolumetricStar/VolumetricStar.hlsli の
 	///      VolumetricStarRayConstantBuffer と対応。VolumetricStarRT.hlsl と
-	///      DeferredLightingPS.hlsl の両方が structured_indices.star_.
-	///      ray_constant_index_ 経由で読む。HLSL 側とバイト単位で一致させること
+	///      DeferredLightingPS.hlsl の両方が constant_indices.star_index_
+	///      経由で読む。HLSL 側とバイト単位で一致させること
 	///      - VolumetricCloudScapesRayConstantBuffer と同じく4スカラー
 	///      (16バイト)単位の cbuffer 行で並べてある。
 	struct VolumetricStarRayConstantBuffer
@@ -145,7 +148,7 @@ namespace SeedCore
 		VolumetricStarRenderer(RootSignature& rootSignature, PipelineStateObject& pipelineStateObject);
 		~VolumetricStarRenderer() = default;
 
-		void Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, IndicesSystem& indicesSystem, Uint32 width, Uint32 height);
+		void Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, ConstantIndicesSystem& constantIndicesSystem, ShaderResourceIndicesSystem& shaderResourceIndicesSystem, UnorderedAccessIndicesSystem& unorderedAccessIndicesSystem, Uint32 width, Uint32 height);
 
 		void Destroy(BindlessHeap* bindlessHeap);
 
@@ -153,12 +156,12 @@ namespace SeedCore
 
 		/// [EN] Advances shooting star slots (spawn roll, progress, expiry),
 		///      updates the tuning constant buffer (stamping enabled into
-		///      enabled_) and registers its bindless indices into IndicesSystem.
-		///      Must run before IndicesSystem::UploadEditor/UploadGame bakes this
+		///      enabled_) and registers its bindless indices into the index systems.
+		///      Must run before the index systems' UploadEditor/UploadGame bakes this
 		///      frame's indices. No GPU work.
 		/// [JP] 流れ星スロットを進め(スポーン抽選・進行・満了)、チューニング用
 		///      定数バッファを更新し(enabled を enabled_ に焼き込む)、bindless
-		///      インデックスを IndicesSystem へ登録する。IndicesSystem::
+		///      インデックスを 各インデックスシステムへ登録する。各インデックスシステムの 
 		///      UploadEditor/UploadGame が今フレームのインデックスを確定する前に
 		///      呼ぶこと。GPU 処理は無い。
 		void PrepareFrame(const VolumetricStarRayConstantBuffer& settings, Bool enabled, Float deltaTime, Float nightFactor);
@@ -171,7 +174,7 @@ namespace SeedCore
 		///      無ければ 0 でクリア)。テクスチャは PIXEL_SHADER_RESOURCE 状態で
 		///      終える。G-Buffer の深度が書き込み済みであることが前提
 		///      (空ピクセル判定)。
-		void Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex, Bool enabled);
+		void Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses, Bool enabled);
 
 	private:
 		void SpawnShootingStar(Uint32 slot);
@@ -197,7 +200,9 @@ namespace SeedCore
 		Uint32 clearIndex_ = 0;
 
 		BindlessHeap* bindlessHeap_ = nullptr;
-		IndicesSystem* indicesSystem_ = nullptr;
+		ConstantIndicesSystem* constantIndicesSystem_ = nullptr;
+		ShaderResourceIndicesSystem* shaderResourceIndicesSystem_ = nullptr;
+		UnorderedAccessIndicesSystem* unorderedAccessIndicesSystem_ = nullptr;
 
 		Uint32 width_ = 0;
 		Uint32 height_ = 0;

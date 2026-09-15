@@ -100,7 +100,7 @@ namespace SeedCore
 		return handle;
 	}
 
-	Bool ModelResource::Export(LoaderSystem& loader, ID3D12Device* device, D3D12CommandQueue* cmdQueue, BindlessHeap* heap, BC7CompressShader& bc7Shader, ResourceCache& cache, Uint32 assetId, ModelFormat format, String outputPath)
+	Bool ModelResource::Export(LoaderSystem& loader, ID3D12Device* device, D3D12CommandQueue* cmdQueue, BindlessHeap* heap, BC7CompressShader& bc7Shader, ResourceCache& cache, Uint32 assetId, ExportPreset preset, String outputPath)
 	{
 		Asset* asset = cache.GetAsset(assetId);
 		if (!asset)
@@ -124,7 +124,7 @@ namespace SeedCore
 		}
 
 		ModelExporter exporter;
-		Bool result = exporter.Export(*crister, format, outputPath);
+		Bool result = exporter.Export(*crister, ModelExporter::Preset(preset), outputPath);
 
 		loader.modelLoader_->Clear(handle, heap);
 		return result;

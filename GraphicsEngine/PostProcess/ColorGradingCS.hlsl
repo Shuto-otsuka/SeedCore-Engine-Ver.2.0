@@ -1,4 +1,6 @@
-#include "../Shader/Constants.hlsli"
+#include "PostProcess.hlsli"
+#include "../Shader/ShaderResources.hlsli"
+#include "../Shader/UnorderedAccesses.hlsli"
 #include "../Shader/Sampler.hlsli"
 
 /**
@@ -211,7 +213,7 @@ float3 ColorCorrect(float3 color, float temperature, float saturation, float con
 [numthreads(8, 8, 1)]
 void main(uint3 dtid : SV_DispatchThreadID)
 {
-	RWTexture2D<float4> destination = ResourceDescriptorHeap[constant_indices.post_process_.color_grading_.destination_uav_index_];
+	RWTexture2D<float4> destination = ResourceDescriptorHeap[unordered_access_indices.post_process_.color_grading_.destination_index_];
 
 	uint width, height;
 	destination.GetDimensions(width, height);
@@ -239,53 +241,53 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	float2 uv = (float2(dtid.xy) + 0.5) / float2(width, height);
 
 	float3 color;
-	if (constant_indices.post_process_.lens_stage_enabled_ != 0)
+	if (GetPostProcessConstantBuffer().lens_stage_enabled_ != 0)
 	{
-		Texture2D<float4> lens_stage_source = ResourceDescriptorHeap[constant_indices.post_process_.lens_stage_srv_index_];
+		Texture2D<float4> lens_stage_source = ResourceDescriptorHeap[shader_resource_indices.post_process_.lens_stage_index_];
 		color = lens_stage_source.SampleLevel(sampler_linear_clamp, uv, 0).rgb;
 	}
-	else if (constant_indices.post_process_.depth_of_field_.enabled_ != 0)
+	else if (GetPostProcessConstantBuffer().depth_of_field_.enabled_ != 0)
 	{
-		Texture2D<float4> depth_of_field_source = ResourceDescriptorHeap[constant_indices.post_process_.depth_of_field_.shader_resource_view_index_];
+		Texture2D<float4> depth_of_field_source = ResourceDescriptorHeap[shader_resource_indices.post_process_.depth_of_field_.index_];
 		color = depth_of_field_source.SampleLevel(sampler_linear_clamp, uv, 0).rgb;
 	}
 	else
 	{
-		Texture2D<float4> source = ResourceDescriptorHeap[constant_indices.post_process_.source_color_index_];
+		Texture2D<float4> source = ResourceDescriptorHeap[shader_resource_indices.post_process_.source_color_index_];
 		color = source.SampleLevel(sampler_linear_clamp, uv, 0).rgb;
 	}
 
-	if (constant_indices.post_process_.lens_flare_.enabled_ != 0)
+	if (GetPostProcessConstantBuffer().lens_flare_.enabled_ != 0)
 	{
-		Texture2D<float4> lens_flare = ResourceDescriptorHeap[constant_indices.post_process_.lens_flare_.shader_resource_view_index_];
+		Texture2D<float4> lens_flare = ResourceDescriptorHeap[shader_resource_indices.post_process_.lens_flare_.index_];
 		color += lens_flare.SampleLevel(sampler_linear_clamp, uv, 0).rgb;
 	}
 
-	if (constant_indices.post_process_.bloom_.enabled_ != 0)
+	if (GetPostProcessConstantBuffer().bloom_.enabled_ != 0)
 	{
-		Texture2D<float4> bloom = ResourceDescriptorHeap[constant_indices.post_process_.bloom_.level0_srv_index_];
-		color += bloom.SampleLevel(sampler_linear_clamp, uv, 0).rgb * constant_indices.post_process_.bloom_.intensity_;
+		Texture2D<float4> bloom = ResourceDescriptorHeap[shader_resource_indices.post_process_.bloom_.level0_index_];
+		color += bloom.SampleLevel(sampler_linear_clamp, uv, 0).rgb * GetPostProcessConstantBuffer().bloom_.intensity_;
 	}
 
-	if (constant_indices.post_process_.anamorphic_flare_.enabled_ != 0)
+	if (GetPostProcessConstantBuffer().anamorphic_flare_.enabled_ != 0)
 	{
-		Texture2D<float4> anamorphic_flare = ResourceDescriptorHeap[constant_indices.post_process_.anamorphic_flare_.output_srv_index_];
+		Texture2D<float4> anamorphic_flare = ResourceDescriptorHeap[shader_resource_indices.post_process_.anamorphic_flare_.output_index_];
 		color += anamorphic_flare.SampleLevel(sampler_linear_clamp, uv, 0).rgb;
 	}
 
-	float exposure_ev = constant_indices.post_process_.exposure_.exposure_compensation_;
-	if (constant_indices.post_process_.exposure_.auto_exposure_enabled_ != 0)
+	float exposure_ev = GetPostProcessConstantBuffer().exposure_.exposure_compensation_;
+	if (GetPostProcessConstantBuffer().exposure_.auto_exposure_enabled_ != 0)
 	{
-		RWStructuredBuffer<float> exposure = ResourceDescriptorHeap[constant_indices.post_process_.exposure_.exposure_uav_index_];
+		RWStructuredBuffer<float> exposure = ResourceDescriptorHeap[unordered_access_indices.post_process_.exposure_.exposure_index_];
 		exposure_ev += exposure[0];
 	}
 
 	color *= exp2(exposure_ev);
 
-	ColorGradingRangeIndices global_range = constant_indices.post_process_.color_grading_.global_;
-	ColorGradingRangeIndices shadows_range = constant_indices.post_process_.color_grading_.shadows_;
-	ColorGradingRangeIndices midtones_range = constant_indices.post_process_.color_grading_.midtones_;
-	ColorGradingRangeIndices highlights_range = constant_indices.post_process_.color_grading_.highlights_;
+	ColorGradingRangeIndices global_range = GetPostProcessConstantBuffer().color_grading_.global_;
+	ColorGradingRangeIndices shadows_range = GetPostProcessConstantBuffer().color_grading_.shadows_;
+	ColorGradingRangeIndices midtones_range = GetPostProcessConstantBuffer().color_grading_.midtones_;
+	ColorGradingRangeIndices highlights_range = GetPostProcessConstantBuffer().color_grading_.highlights_;
 
 	/// [EN] Each range's value is 【multiplied】 with the global value
 	///      (offset and temperature are added). This makes the global wheel
@@ -327,8 +329,8 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	///      切り替えるのが要点で、硬いしきい値にすると2つの域を別々に
 	///      グレーディングした瞬間、空やグラデーションに等高線が出る。
 	///      中間調の重みは「残り」なので、3つの重みは必ず1になる。
-	float shadows_max = constant_indices.post_process_.color_grading_.shadows_max_;
-	float highlights_min = constant_indices.post_process_.color_grading_.highlights_min_;
+	float shadows_max = GetPostProcessConstantBuffer().color_grading_.shadows_max_;
+	float highlights_min = GetPostProcessConstantBuffer().color_grading_.highlights_min_;
 
 	float graded_luminance = dot(color, float3(0.2126, 0.7152, 0.0722));
 	float shadows_weight = 1.0 - smoothstep(0.0, max(shadows_max, 0.0001), graded_luminance);

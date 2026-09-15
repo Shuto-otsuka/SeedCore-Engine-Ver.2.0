@@ -1,6 +1,7 @@
 #include "../Model.hlsli"
-#include "../../Shader/Structured.hlsli"
-#include "../../Shader/Constants.hlsli"
+#include "../../Shader/ShaderResources.hlsli"
+#include "../../Shader/UnorderedAccesses.hlsli"
+#include "../../Shader/Scene.hlsli"
 
 /**
 * [EN]
@@ -35,7 +36,7 @@ void main(uint3 dtid : SV_DispatchThreadID)
 
 	uint2 pixel = dtid.xy;
 
-	Texture2D<float> depth_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.depth_index_];
+	Texture2D<float> depth_texture = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.depth_index_];
 	float depth = depth_texture.Load(int3(pixel, 0));
 
 	if (depth == 0.0)
@@ -43,7 +44,7 @@ void main(uint3 dtid : SV_DispatchThreadID)
 		return;
 	}
 
-	Texture2D<uint4> visibility_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.index_4_];
+	Texture2D<uint4> visibility_texture = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.index_4_];
 	uint4 visibility_id = visibility_texture.Load(int3(pixel, 0));
 
 	uint instance_index;
@@ -53,11 +54,11 @@ void main(uint3 dtid : SV_DispatchThreadID)
 
 	uint bucket = instance_index % MATERIAL_SORT_BUCKET_COUNT;
 
-	RWByteAddressBuffer bucket_buffer = ResourceDescriptorHeap[structured_indices.material_sort_.bucket_index_];
+	RWByteAddressBuffer bucket_buffer = ResourceDescriptorHeap[unordered_access_indices.material_sort_.bucket_index_];
 	uint write_slot;
 	bucket_buffer.InterlockedAdd(bucket * 4, 1, write_slot);
 
-	RWByteAddressBuffer sorted_pixel_list = ResourceDescriptorHeap[structured_indices.material_sort_.sorted_pixel_list_index_];
+	RWByteAddressBuffer sorted_pixel_list = ResourceDescriptorHeap[unordered_access_indices.material_sort_.sorted_pixel_list_index_];
 	uint screen_width = (uint)scene.screen_size_.x;
 	uint linear_pixel = pixel.y * screen_width + pixel.x;
 	sorted_pixel_list.Store(write_slot * 4, linear_pixel);

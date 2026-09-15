@@ -739,36 +739,58 @@ namespace SeedCore
 			///      全三角形の各頂点を、vertexIndices_/primitiveIndices_ 経由で
 			///      グローバル頂点インデックスへ解決する。
 			const Cluster& cluster = clusters_[clusterIndex];
-			for (Uint32 meshletIndex = cluster.meshletOffset_; meshletIndex < cluster.meshletOffset_ + cluster.meshletCount_; meshletIndex++)
+
+			DynamicArray<Matrix> placements;
+			if (subMesh.skinIndex_ < 0 && subMesh.meshIndex_ >= 0)
 			{
-				const Meshlet& meshlet = meshlets_[meshletIndex];
-				for (Uint32 triangleIndex = 0; triangleIndex < meshlet.triangleCount_; triangleIndex++)
+				for (const Node& node : nodes_)
 				{
-					Uint32 byteOffset = meshlet.triangleOffset_ + triangleIndex * 3;
-					for (Int corner = 0; corner < 3; corner++)
+					if (node.mesh_ == subMesh.meshIndex_)
 					{
-						Uint32 globalIndex = vertexIndices_[meshlet.vertexOffset_ + primitiveIndices_[byteOffset + corner]];
-						auto found = remap.find(globalIndex);
-						if (found == remap.end())
+						placements.push_back(node.globalTransform_);
+					}
+				}
+			}
+			if (placements.empty())
+			{
+				placements.push_back(Matrix::Identity);
+			}
+
+			for (const Matrix& placement : placements)
+			{
+				remap.clear();
+
+				for (Uint32 meshletIndex = cluster.meshletOffset_; meshletIndex < cluster.meshletOffset_ + cluster.meshletCount_; meshletIndex++)
+				{
+					const Meshlet& meshlet = meshlets_[meshletIndex];
+					for (Uint32 triangleIndex = 0; triangleIndex < meshlet.triangleCount_; triangleIndex++)
+					{
+						Uint32 byteOffset = meshlet.triangleOffset_ + triangleIndex * 3;
+						for (Int corner = 0; corner < 3; corner++)
 						{
-							/// [EN] First time this global vertex is seen: decode its
-							///      position and append it, remembering the compact
-							///      index for later corners that share it.
-							/// [JP] このグローバル頂点を初めて見た場合: 位置を
-							///      デコードして追加し、後で同じ頂点を共有する
-							///      角のためにコンパクトインデックスを記憶する。
-							Uint32 compactIndex = static_cast<Uint32>(outPositions.size());
-							remap[globalIndex] = compactIndex;
-							outPositions.push_back(DecodePosition(compressedVertices_[globalIndex]));
-							outIndices.push_back(compactIndex);
-						}
-						else
-						{
-							/// [EN] Already emitted: reuse its compact index instead
-							///      of pushing a duplicate position.
-							/// [JP] 既に出力済み: 位置を重複追加せず、そのコンパクト
-							///      インデックスを再利用する。
-							outIndices.push_back(found->second);
+							Uint32 globalIndex = vertexIndices_[meshlet.vertexOffset_ + primitiveIndices_[byteOffset + corner]];
+							auto found = remap.find(globalIndex);
+							if (found == remap.end())
+							{
+								/// [EN] First time this global vertex is seen: decode its
+								///      position and append it, remembering the compact
+								///      index for later corners that share it.
+								/// [JP] このグローバル頂点を初めて見た場合: 位置を
+								///      デコードして追加し、後で同じ頂点を共有する
+								///      角のためにコンパクトインデックスを記憶する。
+								Uint32 compactIndex = static_cast<Uint32>(outPositions.size());
+								remap[globalIndex] = compactIndex;
+								outPositions.push_back(Vector3::Transform(DecodePosition(compressedVertices_[globalIndex]), placement));
+								outIndices.push_back(compactIndex);
+							}
+							else
+							{
+								/// [EN] Already emitted: reuse its compact index instead
+								///      of pushing a duplicate position.
+								/// [JP] 既に出力済み: 位置を重複追加せず、そのコンパクト
+								///      インデックスを再利用する。
+								outIndices.push_back(found->second);
+							}
 						}
 					}
 				}
@@ -776,6 +798,66 @@ namespace SeedCore
 		}
 
 		return outIndices.size() >= 3;
+	}
+
+	/**
+	* [EN]
+	* Inverse of BakeMesh: decodes compressedVertices_ / compressedSkinVertices_
+	* back into vertices_ and rebuilds vertexIndices_ / subMeshes_ as a flat
+	* per-SubMesh triangle list from the LOD 0 meshlets. See the header.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* BakeMesh の逆: compressedVertices_ / compressedSkinVertices_ を vertices_
+	* へデコードし直し、LOD 0 メシュレットから vertexIndices_ / subMeshes_ を
+	* SubMesh ごとのフラットな三角形リストへ再構築する。ヘッダ参照。
+	*/
+	void Crister::Reconstruct()
+	{
+		if (!vertices_.empty() || compressedVertices_.empty())
+		{
+			return;
+		}
+
+		vertices_.reserve(compressedVertices_.size());
+		for (Size vertexIndex = 0; vertexIndex < compressedVertices_.size(); vertexIndex++)
+		{
+			Vertex vertex = DecodeVertex(compressedVertices_[vertexIndex]);
+			if (vertexIndex < compressedSkinVertices_.size())
+			{
+				DecodeSkin(compressedSkinVertices_[vertexIndex], vertex.joints_, vertex.weights_);
+			}
+			vertices_.push_back(vertex);
+		}
+
+		DynamicArray<Uint32> flatIndices;
+		for (SubMesh& subMesh : subMeshes_)
+		{
+			Uint32 indexStart = static_cast<Uint32>(flatIndices.size());
+			if (subMesh.clusterCount_ > 0 && subMesh.clusterOffset_ < clusters_.size())
+			{
+				const Cluster& cluster = clusters_[subMesh.clusterOffset_];
+				for (Uint32 meshletIndex = cluster.meshletOffset_; meshletIndex < cluster.meshletOffset_ + cluster.meshletCount_; meshletIndex++)
+				{
+					const Meshlet& meshlet = meshlets_[meshletIndex];
+					for (Uint32 triangleIndex = 0; triangleIndex < meshlet.triangleCount_; triangleIndex++)
+					{
+						Uint32 byteOffset = meshlet.triangleOffset_ + triangleIndex * 3;
+						for (Int corner = 0; corner < 3; corner++)
+						{
+							flatIndices.push_back(vertexIndices_[meshlet.vertexOffset_ + primitiveIndices_[byteOffset + corner]]);
+						}
+					}
+				}
+			}
+			subMesh.vertexOffset_ = 0;
+			subMesh.vertexCount_ = static_cast<Uint32>(vertices_.size());
+			subMesh.indexOffset_ = indexStart;
+			subMesh.indexCount_ = static_cast<Uint32>(flatIndices.size()) - indexStart;
+			subMesh.morphs_.clear();
+		}
+		vertexIndices_ = std::move(flatIndices);
 	}
 
 	/**
@@ -815,6 +897,7 @@ namespace SeedCore
 			outVertices.push_back(DecodeVertex(compressed));
 		}
 
+		DynamicArray<Bool> placedVertices(outVertices.size(), false);
 		for (const SubMesh& subMesh : subMeshes_)
 		{
 			if (subMesh.clusterCount_ == 0)
@@ -830,6 +913,19 @@ namespace SeedCore
 				continue;
 			}
 
+			Matrix placement = Matrix::Identity;
+			if (subMesh.skinIndex_ < 0 && subMesh.meshIndex_ >= 0)
+			{
+				auto placementNode = std::ranges::find_if(nodes_, [&subMesh](const Node& node) { return node.mesh_ == subMesh.meshIndex_; });
+				if (placementNode != nodes_.end())
+				{
+					placement = placementNode->globalTransform_;
+				}
+			}
+			Bool placed = placement != Matrix::Identity;
+			Matrix normalPlacement = placement.Invert().Transpose();
+			Float tangentSign = placement.Determinant() < 0.0f ? -1.0f : 1.0f;
+
 			const Cluster& cluster = clusters_[clusterIndex];
 			for (Uint32 meshletIndex = cluster.meshletOffset_; meshletIndex < cluster.meshletOffset_ + cluster.meshletCount_; meshletIndex++)
 			{
@@ -839,7 +935,20 @@ namespace SeedCore
 					Uint32 byteOffset = meshlet.triangleOffset_ + triangleIndex * 3;
 					for (Int corner = 0; corner < 3; corner++)
 					{
-						outIndices.push_back(vertexIndices_[meshlet.vertexOffset_ + primitiveIndices_[byteOffset + corner]]);
+						Uint32 globalIndex = vertexIndices_[meshlet.vertexOffset_ + primitiveIndices_[byteOffset + corner]];
+						outIndices.push_back(globalIndex);
+
+						if (placed && !placedVertices[globalIndex])
+						{
+							placedVertices[globalIndex] = true;
+							Vertex& vertex = outVertices[globalIndex];
+							vertex.position_ = Vector3::Transform(vertex.position_, placement);
+							vertex.normal_ = Vector3::TransformNormal(vertex.normal_, normalPlacement);
+							vertex.normal_.Normalize();
+							Vector3 tangent = Vector3::TransformNormal(Vector3(vertex.tangent_.x, vertex.tangent_.y, vertex.tangent_.z), placement);
+							tangent.Normalize();
+							vertex.tangent_ = Vector4(tangent.x, tangent.y, tangent.z, vertex.tangent_.w * tangentSign);
+						}
 					}
 				}
 			}
@@ -933,6 +1042,19 @@ namespace SeedCore
 				continue;
 			}
 
+			Matrix placement = Matrix::Identity;
+			if (subMesh.skinIndex_ < 0 && subMesh.meshIndex_ >= 0)
+			{
+				auto placementNode = std::ranges::find_if(nodes_, [&subMesh](const Node& node) { return node.mesh_ == subMesh.meshIndex_; });
+				if (placementNode != nodes_.end())
+				{
+					placement = placementNode->globalTransform_;
+				}
+			}
+			Bool placed = placement != Matrix::Identity;
+			Matrix normalPlacement = placement.Invert().Transpose();
+			Float tangentSign = placement.Determinant() < 0.0f ? -1.0f : 1.0f;
+
 			const Cluster& cluster = clusters_[clusterIndex];
 			for (Uint32 meshletIndex = cluster.meshletOffset_; meshletIndex < cluster.meshletOffset_ + cluster.meshletCount_; meshletIndex++)
 			{
@@ -947,6 +1069,10 @@ namespace SeedCore
 
 						Vertex vertex;
 						vertex.position_ = DecodePosition(compressed);
+						if (placed)
+						{
+							vertex.position_ = Vector3::Transform(vertex.position_, placement);
+						}
 
 						Uint64 key = quantisedPositionKey(vertex.position_);
 						auto found = remap.find(key);
@@ -958,6 +1084,14 @@ namespace SeedCore
 							vertex.normal_ = DecodeOctahedralNormal(compressed.normal_);
 							vertex.tangent_ = DecodeTangent(compressed);
 							vertex.texcoord_ = DecodeTexcoord(compressed);
+							if (placed)
+							{
+								vertex.normal_ = Vector3::TransformNormal(vertex.normal_, normalPlacement);
+								vertex.normal_.Normalize();
+								Vector3 tangent = Vector3::TransformNormal(Vector3(vertex.tangent_.x, vertex.tangent_.y, vertex.tangent_.z), placement);
+								tangent.Normalize();
+								vertex.tangent_ = Vector4(tangent.x, tangent.y, tangent.z, vertex.tangent_.w * tangentSign);
+							}
 							outVertices.push_back(vertex);
 
 							outIndices.push_back(compactIndex);
@@ -1224,27 +1358,31 @@ namespace SeedCore
 
 	/**
 	* [EN]
-	* Bakes a global position/rotation(euler degrees)/scale/pivot
-	* transform into this Crister's data, same scope as
-	* ApplyAxisConversion (vertices/node hierarchy/skin inverse-bind
-	* matrices/light positions-directions/meshlet bounds), then
-	* re-serialises to cristerPath. scale/pivot/rotation compose about
-	* pivot first, position is a separate world-space offset applied
-	* after. Only root-level nodes (stages_[defaultStage_].nodes_) have
-	* their local transform updated - CumulateTransforms() then
-	* propagates to every descendant, since post-multiplying the whole
-	* transform onto just the root telescopes correctly through the
-	* local-transform chain (node.globalTransform_ = local *
-	* parentGlobal). Returns false if this Crister has no compressed
-	* vertex data.
+	* Applies a global position/rotation(euler degrees)/scale/pivot
+	* transform to this Crister's node hierarchy and light
+	* positions-directions, then re-serialises to cristerPath. Vertices,
+	* skin inverse-bind matrices and meshlet bounds stay in mesh-local
+	* space: static SubMeshes are placed by their node's global transform
+	* at draw time (SubMeshPlacement) and skinned ones through their
+	* joints, so both pick the transform up from the nodes.
+	* scale/pivot/rotation compose about pivot first, position is a
+	* separate world-space offset applied after. Only root-level nodes
+	* (stages_[defaultStage_].nodes_) have their local transform
+	* updated - CumulateTransforms() then propagates to every
+	* descendant, since post-multiplying the whole transform onto just
+	* the root telescopes correctly through the local-transform chain
+	* (node.globalTransform_ = local * parentGlobal). Returns false if
+	* this Crister has no compressed vertex data.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
 	* グローバルな位置/回転(オイラー角、度)/スケール/ピボット変換を
-	* この Crister のデータへ焼き込む。対象範囲は ApplyAxisConversion
-	* と同じ(頂点/ノード階層/スキン逆バインド行列/ライト位置・向き/
-	* メシュレット境界)、その後 cristerPath へ再シリアライズする。
+	* この Crister のノード階層とライト位置・向きへ適用し、その後
+	* cristerPath へ再シリアライズする。頂点・スキン逆バインド行列・
+	* メシュレット境界はメッシュローカル空間のまま: 静的 SubMesh は描画時に
+	* ノードのグローバル変換で配置され(SubMeshPlacement)、スキン付きは
+	* ジョイント経由なので、どちらもノードから変換を受け取る。
 	* スケール/ピボット/回転はまずピボットを中心に合成し、position は
 	* その後に適用する独立したワールド空間オフセット。ローカル
 	* トランスフォームを更新するのはルートノード
@@ -1261,43 +1399,19 @@ namespace SeedCore
 			return false;
 		}
 
-		/// [EN] Away-from-zero clamp: a zero/near-zero axis would bake a
-		///      singular linearBasis, making normalBasis (its inverse-transpose)
-		///      undefined.
+		/// [EN] Away-from-zero clamp: a zero/near-zero axis would make
+		///      linearBasis singular, and the root nodes' S/R/T could no longer
+		///      be decomposed back out of the composed transform.
 		/// [JP] ゼロから離す方向へのクランプ: 軸が 0/0 近傍だと linearBasis が
-		///      特異になり、その逆転置である normalBasis が定義できなくなる。
+		///      特異になり、合成した変換からルートノードの S/R/T を分解し直せなく
+		///      なる。
 		Vector3 clampedScale(
 			std::abs(scale.x) < 0.0001f ? std::copysign(0.0001f, scale.x) : scale.x,
 			std::abs(scale.y) < 0.0001f ? std::copysign(0.0001f, scale.y) : scale.y,
 			std::abs(scale.z) < 0.0001f ? std::copysign(0.0001f, scale.z) : scale.z);
 
 		Matrix linearBasis = Matrix::CreateScale(clampedScale.x, clampedScale.y, clampedScale.z) * Matrix::CreateFromYawPitchRoll(ToRadians(rotation.y), ToRadians(rotation.x), ToRadians(rotation.z));
-		Matrix normalBasis = linearBasis.Invert().Transpose();
 		Matrix fullTransform = Matrix::CreateTranslation(-pivot) * linearBasis * Matrix::CreateTranslation(pivot + position);
-
-		Float tangentSign = linearBasis.Determinant() < 0.0f ? -1.0f : 1.0f;
-
-		DynamicArray<Vertex> transformedVertices(compressedVertices_.size());
-		for (Size vertexIndex = 0; vertexIndex < compressedVertices_.size(); vertexIndex++)
-		{
-			const CompressedVertex& compressed = compressedVertices_[vertexIndex];
-			Vertex& vertex = transformedVertices[vertexIndex];
-
-			Vertex decoded = DecodeVertex(compressed);
-			vertex.position_ = Vector3::Transform(decoded.position_, fullTransform);
-			vertex.texcoord_ = decoded.texcoord_;
-			vertex.normal_ = Vector3::TransformNormal(decoded.normal_, normalBasis);
-			vertex.normal_.Normalize();
-
-			Vector3 tangentXyz = Vector3::TransformNormal(Vector3(decoded.tangent_.x, decoded.tangent_.y, decoded.tangent_.z), linearBasis);
-			tangentXyz.Normalize();
-			vertex.tangent_ = Vector4(tangentXyz.x, tangentXyz.y, tangentXyz.z, decoded.tangent_.w * tangentSign);
-
-			if (!compressedSkinVertices_.empty())
-			{
-				DecodeSkin(compressedSkinVertices_[vertexIndex], vertex.joints_, vertex.weights_);
-			}
-		}
 
 		if (defaultStage_ >= 0 && static_cast<Size>(defaultStage_) < stages_.size())
 		{
@@ -1319,33 +1433,12 @@ namespace SeedCore
 		}
 		CumulateTransforms();
 
-		Matrix inverseFullTransform = fullTransform.Invert();
-		for (Skin& skin : skins_)
-		{
-			for (Matrix& inverseBindMatrix : skin.inverseBindMatrices_)
-			{
-				inverseBindMatrix = inverseFullTransform * inverseBindMatrix;
-			}
-		}
-
 		for (PunctualLight& light : lights_)
 		{
 			light.position_ = Vector3::Transform(light.position_, fullTransform);
 			light.direction_ = Vector3::TransformNormal(light.direction_, linearBasis);
 			light.direction_.Normalize();
 		}
-
-		Float radiusScale = Max(Max(std::abs(clampedScale.x), std::abs(clampedScale.y)), std::abs(clampedScale.z));
-		for (MeshletBound& bound : meshletBounds_)
-		{
-			bound.center_ = Vector3::Transform(bound.center_, fullTransform);
-			bound.coneAxis_ = Vector3::TransformNormal(bound.coneAxis_, linearBasis);
-			bound.coneAxis_.Normalize();
-			bound.radius_ *= radiusScale;
-		}
-
-		vertices_ = std::move(transformedVertices);
-		BakeMesh();
 
 		BinaryOutputArchive archive;
 		Serialize(archive);
@@ -1406,6 +1499,29 @@ namespace SeedCore
 		device_ = device;
 		uploadQueue_ = cmdQueue;
 		bindlessHeap_ = heap;
+
+		subMeshPlacement_.assign(subMeshes_.size(), DynamicArray<Matrix>{});
+		for (Size subMeshIndex = 0; subMeshIndex < subMeshes_.size(); subMeshIndex++)
+		{
+			const SubMesh& subMesh = subMeshes_[subMeshIndex];
+			DynamicArray<Matrix>& placements = subMeshPlacement_[subMeshIndex];
+
+			if (subMesh.skinIndex_ < 0 && subMesh.meshIndex_ >= 0)
+			{
+				for (const Node& node : nodes_)
+				{
+					if (node.mesh_ == subMesh.meshIndex_)
+					{
+						placements.push_back(node.globalTransform_);
+					}
+				}
+			}
+
+			if (placements.empty())
+			{
+				placements.push_back(Matrix::Identity);
+			}
+		}
 
 		/// [EN] Derive each cluster's page ranges from its meshlet slice.
 		///      buildMeshletsFromIndices appends sequentially, so a cluster's
@@ -1515,8 +1631,10 @@ namespace SeedCore
 		DynamicArray<Vector3> raytracingMorphDeltas;
 		Bool buildRaytracingSkinVertices = skins_.size() == 1 && !compressedSkinVertices_.empty();
 		std::unordered_map<Uint32, Uint32> raytracingRemap;
-		for (SubMesh& subMesh : subMeshes_)
+		for (Size subMeshIndex = 0; subMeshIndex < subMeshes_.size(); subMeshIndex++)
 		{
+			SubMesh& subMesh = subMeshes_[subMeshIndex];
+
 			if (subMesh.clusterCount_ == 0)
 			{
 				continue;
@@ -1543,96 +1661,126 @@ namespace SeedCore
 			///      raytracingVertexOffset_ + raytracingVertexCount_) は正しく、
 			///      submeshMorphDeltas[target] も同じ順序で埋まる。
 			subMesh.raytracingVertexOffset_ = static_cast<Uint32>(raytracingVertices.size());
+			subMesh.raytracingTriangleOffset_ = static_cast<Uint32>(flatTriangleIndices.size() / 3);
 			DynamicArray<DynamicArray<Vector3>> submeshMorphDeltas(subMesh.morphs_.size());
 
-			for (Uint32 meshletIndex = cluster.meshletOffset_; meshletIndex < cluster.meshletOffset_ + cluster.meshletCount_; meshletIndex++)
+			const DynamicArray<Matrix>& placements = subMeshPlacement_[subMeshIndex];
+			Size placementCount = subMesh.morphs_.empty() ? placements.size() : 1;
+			for (Size placementIndex = 0; placementIndex < placementCount; placementIndex++)
 			{
-				const Meshlet& meshlet = meshlets_[meshletIndex];
-				for (Uint32 triangleIndex = 0; triangleIndex < meshlet.triangleCount_; triangleIndex++)
+				const Matrix& placement = placements[placementIndex];
+				Bool placed = placement != Matrix::Identity;
+				Matrix normalPlacement = placement.Invert().Transpose();
+				Float tangentSign = placement.Determinant() < 0.0f ? -1.0f : 1.0f;
+				raytracingRemap.clear();
+
+				for (Uint32 meshletIndex = cluster.meshletOffset_; meshletIndex < cluster.meshletOffset_ + cluster.meshletCount_; meshletIndex++)
 				{
-					Uint32 byteOffset = meshlet.triangleOffset_ + triangleIndex * 3;
-					for (Int corner = 0; corner < 3; corner++)
+					const Meshlet& meshlet = meshlets_[meshletIndex];
+					for (Uint32 triangleIndex = 0; triangleIndex < meshlet.triangleCount_; triangleIndex++)
 					{
-						Uint32 globalIndex = vertexIndices_[meshlet.vertexOffset_ + primitiveIndices_[byteOffset + corner]];
-						auto found = raytracingRemap.find(globalIndex);
-						if (found == raytracingRemap.end())
+						Uint32 byteOffset = meshlet.triangleOffset_ + triangleIndex * 3;
+						for (Int corner = 0; corner < 3; corner++)
 						{
-							Uint32 compactIndex = static_cast<Uint32>(raytracingVertices.size());
-							raytracingRemap[globalIndex] = compactIndex;
-
-							const CompressedVertex& compressed = compressedVertices_[globalIndex];
-							raytracingVertices.push_back(compressed);
-
-							/// [EN] A source asset with a degenerate/non-finite
-							///      quantisation AABB (positionMin_/positionExtent_)
-							///      decodes to a NaN/Inf position here even though
-							///      the compressed bit pattern itself is well-formed.
-							///      That NaN reaches the BLAS's position buffer,
-							///      producing a NaN bounding box the traversal
-							///      hardware can never cull against - every ray
-							///      descends into it instead of skipping it, which
-							///      is a no-page-fault DispatchRays hang rather than
-							///      a crash. Falling back to the origin keeps this
-							///      mesh's triangle count/indexing intact (so BLAS
-							///      build still succeeds) while giving the BVH a
-							///      finite, if wrong-looking, box.
-							/// [JP] 量子化 AABB(positionMin_/positionExtent_)が退化/非有限な
-							///      ソースアセットは、圧縮ビットパターン自体は
-							///      正常でもここで NaN/Inf の位置へデコードされる。
-							///      その NaN は BLAS の位置バッファへそのまま渡り、
-							///      走査ハードウェアが絶対にカリングできない NaN
-							///      境界ボックスを生む - 全てのレイがスキップされず
-							///      そこへ降りていくため、クラッシュではなく
-							///      ページフォルト無しの DispatchRays ハングになる。
-							///      原点へフォールバックすれば、このメッシュの
-							///      三角形数/インデックス構造は保ったまま
-							///      (BLAS 構築を成功させたまま)、見た目はおかしくとも
-							///      有限な境界ボックスを BVH に与えられる。
-							Vector3 position = DecodePosition(compressed);
-							if (!std::isfinite(position.x) || !std::isfinite(position.y) || !std::isfinite(position.z))
+							Uint32 globalIndex = vertexIndices_[meshlet.vertexOffset_ + primitiveIndices_[byteOffset + corner]];
+							auto found = raytracingRemap.find(globalIndex);
+							if (found == raytracingRemap.end())
 							{
-								if (!degenerateRaytracingPositionLogged_)
+								Uint32 compactIndex = static_cast<Uint32>(raytracingVertices.size());
+								raytracingRemap[globalIndex] = compactIndex;
+
+								const CompressedVertex& compressed = compressedVertices_[globalIndex];
+
+								/// [EN] A source asset with a degenerate/non-finite
+								///      quantisation AABB (positionMin_/positionExtent_)
+								///      decodes to a NaN/Inf position here even though
+								///      the compressed bit pattern itself is well-formed.
+								///      That NaN reaches the BLAS's position buffer,
+								///      producing a NaN bounding box the traversal
+								///      hardware can never cull against - every ray
+								///      descends into it instead of skipping it, which
+								///      is a no-page-fault DispatchRays hang rather than
+								///      a crash. Falling back to the origin keeps this
+								///      mesh's triangle count/indexing intact (so BLAS
+								///      build still succeeds) while giving the BVH a
+								///      finite, if wrong-looking, box.
+								/// [JP] 量子化 AABB(positionMin_/positionExtent_)が退化/非有限な
+								///      ソースアセットは、圧縮ビットパターン自体は
+								///      正常でもここで NaN/Inf の位置へデコードされる。
+								///      その NaN は BLAS の位置バッファへそのまま渡り、
+								///      走査ハードウェアが絶対にカリングできない NaN
+								///      境界ボックスを生む - 全てのレイがスキップされず
+								///      そこへ降りていくため、クラッシュではなく
+								///      ページフォルト無しの DispatchRays ハングになる。
+								///      原点へフォールバックすれば、このメッシュの
+								///      三角形数/インデックス構造は保ったまま
+								///      (BLAS 構築を成功させたまま)、見た目はおかしくとも
+								///      有限な境界ボックスを BVH に与えられる。
+								Vector3 position = DecodePosition(compressed);
+								if (!std::isfinite(position.x) || !std::isfinite(position.y) || !std::isfinite(position.z))
 								{
-									SC_LOG_WARNING("RT プロキシの頂点位置が非有限です。ソースアセットの量子化 AABB が壊れている可能性があります。");
-									degenerateRaytracingPositionLogged_ = true;
+									if (!degenerateRaytracingPositionLogged_)
+									{
+										SC_LOG_WARNING("RT プロキシの頂点位置が非有限です。ソースアセットの量子化 AABB が壊れている可能性があります。");
+										degenerateRaytracingPositionLogged_ = true;
+									}
+									position = Vector3::Zero;
 								}
-								position = Vector3::Zero;
-							}
 
-							raytracingPositions.push_back(position);
-							flatTriangleIndices.push_back(compactIndex);
-
-							if (buildRaytracingSkinVertices)
-							{
-								if (subMesh.skinIndex_ >= 0 && globalIndex < compressedSkinVertices_.size())
+								if (placed)
 								{
-									raytracingSkinVertices.push_back(compressedSkinVertices_[globalIndex]);
+									Vertex placedVertex = DecodeVertex(compressed);
+									placedVertex.position_ = Vector3::Transform(position, placement);
+									placedVertex.normal_ = Vector3::TransformNormal(placedVertex.normal_, normalPlacement);
+									placedVertex.normal_.Normalize();
+									Vector3 placedTangent = Vector3::TransformNormal(Vector3(placedVertex.tangent_.x, placedVertex.tangent_.y, placedVertex.tangent_.z), placement);
+									placedTangent.Normalize();
+									placedVertex.tangent_ = Vector4(placedTangent.x, placedTangent.y, placedTangent.z, placedVertex.tangent_.w * tangentSign);
+									position = placedVertex.position_;
+									raytracingVertices.push_back(EncodeVertex(placedVertex, positionMin_, positionExtent_, texcoordMin_, texcoordExtent_));
 								}
 								else
 								{
-									raytracingSkinVertices.push_back(CompressedSkinVertex{});
+									raytracingVertices.push_back(compressed);
 								}
-							}
 
-							if (!subMesh.morphs_.empty() && globalIndex >= subMesh.vertexOffset_)
-							{
-								Uint32 localVertexIndex = globalIndex - subMesh.vertexOffset_;
-								for (Size targetIndex = 0; targetIndex < subMesh.morphs_.size(); targetIndex++)
+								raytracingPositions.push_back(position);
+								flatTriangleIndices.push_back(compactIndex);
+
+								if (buildRaytracingSkinVertices)
 								{
-									const DynamicArray<Vector3>& deltas = subMesh.morphs_[targetIndex].positionDeltas_;
-									submeshMorphDeltas[targetIndex].push_back(localVertexIndex < deltas.size() ? deltas[localVertexIndex] : Vector3::Zero);
+									if (subMesh.skinIndex_ >= 0 && globalIndex < compressedSkinVertices_.size())
+									{
+										raytracingSkinVertices.push_back(compressedSkinVertices_[globalIndex]);
+									}
+									else
+									{
+										raytracingSkinVertices.push_back(CompressedSkinVertex{});
+									}
+								}
+
+								if (!subMesh.morphs_.empty() && globalIndex >= subMesh.vertexOffset_)
+								{
+									Uint32 localVertexIndex = globalIndex - subMesh.vertexOffset_;
+									for (Size targetIndex = 0; targetIndex < subMesh.morphs_.size(); targetIndex++)
+									{
+										const DynamicArray<Vector3>& deltas = subMesh.morphs_[targetIndex].positionDeltas_;
+										Vector3 delta = localVertexIndex < deltas.size() ? deltas[localVertexIndex] : Vector3::Zero;
+										submeshMorphDeltas[targetIndex].push_back(placed ? Vector3::TransformNormal(delta, placement) : delta);
+									}
 								}
 							}
-						}
-						else
-						{
-							flatTriangleIndices.push_back(found->second);
+							else
+							{
+								flatTriangleIndices.push_back(found->second);
+							}
 						}
 					}
 				}
 			}
 
 			subMesh.raytracingVertexCount_ = static_cast<Uint32>(raytracingVertices.size()) - subMesh.raytracingVertexOffset_;
+			subMesh.raytracingTriangleCount_ = static_cast<Uint32>(flatTriangleIndices.size() / 3) - subMesh.raytracingTriangleOffset_;
 
 			if (!subMesh.morphs_.empty())
 			{
@@ -1642,6 +1790,20 @@ namespace SeedCore
 					raytracingMorphDeltas.insert(raytracingMorphDeltas.end(), targetDeltas.begin(), targetDeltas.end());
 				}
 			}
+		}
+
+		placedPositionMin_ = positionMin_;
+		placedPositionExtent_ = positionExtent_;
+		if (!raytracingPositions.empty())
+		{
+			Vector3 placedMax = raytracingPositions.front();
+			placedPositionMin_ = raytracingPositions.front();
+			for (const Vector3& position : raytracingPositions)
+			{
+				placedPositionMin_ = Vector3::Min(placedPositionMin_, position);
+				placedMax = Vector3::Max(placedMax, position);
+			}
+			placedPositionExtent_ = placedMax - placedPositionMin_;
 		}
 
 		if (!flatTriangleIndices.empty())
@@ -1678,14 +1840,18 @@ namespace SeedCore
 		///      deltas per target, back to back) since the raster path
 		///      already has its own per-vertex remap (vertexMorphSource_)
 		///      to resolve any streamed LOD's vertex back to this buffer's
-		///      indexing. See ApplyMorphBlend in Model.hlsli.
+		///      indexing. See the raster morph blend in the model mesh
+		///      shaders and Model/Material/MaterialResolveCS.hlsl/
+		///      Model/Transparent/ModelTransparentPS.hlsl.
 		/// [JP] ラスタのモーフ対応: 上の RT プロキシ用モーフデルタプールと
 		///      違い、Morph::positionDeltas_ からそのまま焼き込む(圧縮/
 		///      リマップ無し — 各 SubMesh のオリジナル vertexCount_ 個の
 		///      デルタをターゲットごとに連続で)。ラスタ経路はストリーム
 		///      されたどの LOD の頂点もこのバッファの番号付けへ逆引きする
 		///      独自の頂点リマップ(vertexMorphSource_)を既に持つため。
-		///      Model.hlsli の ApplyMorphBlend 参照。
+		///      モデル用メッシュシェーダーと Model/Material/MaterialResolveCS.hlsl/
+		///      Model/Transparent/ModelTransparentPS.hlsl のラスタのモーフ
+		///      ブレンド参照。
 		DynamicArray<Vector3> morphDeltas;
 		for (SubMesh& subMesh : subMeshes_)
 		{
@@ -1960,13 +2126,13 @@ namespace SeedCore
 	* [EN]
 	* Minimum corner of the dequantisation AABB for CompressedVertex
 	* positions (see the struct comment). Passed to the shaders through
-	* ModelInstance.
+	* ModelStructuredBuffer.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
 	* CompressedVertex 位置の逆量子化 AABB の最小コーナー（構造体コメント
-	* 参照）。ModelInstance 経由でシェーダに渡す。
+	* 参照）。ModelStructuredBuffer 経由でシェーダに渡す。
 	*/
 	Vector3 Crister::PositionMin()const
 	{
@@ -1976,29 +2142,39 @@ namespace SeedCore
 	/**
 	* [EN]
 	* Extent (max - min) of the dequantisation AABB for CompressedVertex
-	* positions. Passed to the shaders through ModelInstance.
+	* positions. Passed to the shaders through ModelStructuredBuffer.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
 	* CompressedVertex 位置の逆量子化 AABB の大きさ（max - min）。
-	* ModelInstance 経由でシェーダに渡す。
+	* ModelStructuredBuffer 経由でシェーダに渡す。
 	*/
 	Vector3 Crister::PositionExtent()const
 	{
 		return positionExtent_;
 	}
 
+	Vector3 Crister::PlacedPositionMin()const
+	{
+		return placedPositionMin_;
+	}
+
+	Vector3 Crister::PlacedPositionExtent()const
+	{
+		return placedPositionExtent_;
+	}
+
 	/**
 	* [EN]
 	* Minimum corner of the dequantisation AABB for CompressedVertex
-	* texcoords. Passed to the shaders through ModelInstance.
+	* texcoords. Passed to the shaders through ModelStructuredBuffer.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
 	* CompressedVertex テクスチャ座標の逆量子化 AABB の最小コーナー。
-	* ModelInstance 経由でシェーダに渡す。
+	* ModelStructuredBuffer 経由でシェーダに渡す。
 	*/
 	Vector2 Crister::TexcoordMin()const
 	{
@@ -2008,13 +2184,13 @@ namespace SeedCore
 	/**
 	* [EN]
 	* Extent (max - min) of the dequantisation AABB for CompressedVertex
-	* texcoords. Passed to the shaders through ModelInstance.
+	* texcoords. Passed to the shaders through ModelStructuredBuffer.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
 	* CompressedVertex テクスチャ座標の逆量子化 AABB の大きさ
-	* （max - min）。ModelInstance 経由でシェーダに渡す。
+	* （max - min）。ModelStructuredBuffer 経由でシェーダに渡す。
 	*/
 	Vector2 Crister::TexcoordExtent()const
 	{
@@ -2301,6 +2477,35 @@ namespace SeedCore
 
 	/**
 	* [EN]
+	* Returns the model-space placements of one SubMesh: the
+	* globalTransform_ of every Node whose mesh_ references the
+	* SubMesh's meshIndex_, so a mesh instanced by several nodes is
+	* drawn once per node. Skinned SubMeshes, and SubMeshes no node
+	* references, get a single identity placement. Resolved in Upload();
+	* an out-of-range index also yields a single identity placement.
+	* Renderers draw each SubMesh with placement * actor world.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 1つの SubMesh のモデル空間配置を返す: その SubMesh の meshIndex_
+	* を mesh_ で参照する全 Node の globalTransform_。複数ノードから
+	* インスタンスされるメッシュはノードごとに1回ずつ描かれる。スキン
+	* 付き SubMesh と、どのノードからも参照されない SubMesh は単位行列
+	* 1つになる。Upload() で解決し、範囲外のインデックスも単位行列
+	* 1つを返す。レンダラーは各 SubMesh を 配置 * アクターワールド で
+	* 描く。
+	*/
+	const DynamicArray<Matrix>& Crister::SubMeshPlacement(Size subMeshIndex)const
+	{
+		/// [EN] Fallback for an index Upload() has not resolved: one identity placement, i.e. draw at the actor world as-is.
+		/// [JP] Upload() が解決していないインデックス用のフォールバック: 単位行列1つ、つまりアクターワールドのまま描く。
+		static const DynamicArray<Matrix> identityPlacement = { Matrix::Identity };
+		return subMeshIndex < subMeshPlacement_.size() ? subMeshPlacement_[subMeshIndex] : identityPlacement;
+	}
+
+	/**
+	* [EN]
 	* Copies the RT proxy's base (bind-pose) positions
 	* (positionResource_, VertexCount() * sizeof(Vector3) bytes) into
 	* destination, which the caller must have already transitioned to
@@ -2356,10 +2561,10 @@ namespace SeedCore
 		}
 
 		/// [EN] Rebase the cluster's meshlets to page-local offsets. The mesh
-		///      shaders are untouched: ModelInstance simply points at the page's
+		///      shaders are untouched: ModelStructuredBuffer simply points at the page's
 		///      buffers and a page-local meshlet offset.
 		/// [JP] クラスタの meshlet をページローカルオフセットへリベースする。
-		///      メッシュシェーダは無変更: ModelInstance がページのバッファと
+		///      メッシュシェーダは無変更: ModelStructuredBuffer がページのバッファと
 		///      ページローカルの meshlet オフセットを指すだけ。
 		DynamicArray<Meshlet> localMeshlets(cluster.meshletCount_);
 		DynamicArray<MeshletBound> localBounds(cluster.meshletCount_);
@@ -3019,7 +3224,7 @@ namespace SeedCore
 	* morphDeltaResource_ (which use the crister-wide numbering the shared
 	* pool preserves) — callers populating a raster morph instance must
 	* check this and leave morph fields zeroed
-	* (ModelInstanceData::morphTargetCount_ == 0) for any cluster where
+	* (ModelStructuredBuffer::morphTargetCount_ == 0) for any cluster where
 	* this returns true.
 	*
 	* ---------------------------------------------------------------------
@@ -3032,7 +3237,7 @@ namespace SeedCore
 	* morphDeltaResource_(共有プールが保つ Crister 全体の番号付けを使う)
 	* への有効なインデックスでは【ない】— ラスタのモーフ用インスタンスを
 	* 組み立てる側はこれを確認し、true が返るクラスタではモーフフィールドを
-	* ゼロのまま(ModelInstanceData::morphTargetCount_ == 0)にすること。
+	* ゼロのまま(ModelStructuredBuffer::morphTargetCount_ == 0)にすること。
 	*/
 	Bool Crister::StandaloneVertices(Uint32 clusterIndex)const
 	{

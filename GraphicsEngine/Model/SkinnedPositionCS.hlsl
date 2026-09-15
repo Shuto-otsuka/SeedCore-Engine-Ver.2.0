@@ -10,7 +10,7 @@ struct SkinnedPositionParams
 
 ConstantBuffer<SkinnedPositionParams> params : register(b0);
 StructuredBuffer<float3> rt_positions : register(t0);
-StructuredBuffer<ModelSkinVertex> rt_skin_vertices : register(t1);
+StructuredBuffer<CompressedModelSkin> rt_skin_vertices : register(t1);
 StructuredBuffer<ModelBoneMatrix> bone_matrices : register(t2);
 RWStructuredBuffer<float3> skinned_positions : register(u0);
 
@@ -23,23 +23,21 @@ void main(uint3 id : SV_DispatchThreadID)
 		return;
 	}
 
-	uint4 joints;
-	float4 weights;
-	DecodeModelSkinVertex(rt_skin_vertices[index], joints, weights);
+	ExpandedModelSkin skin = DecodeSkinVertex(rt_skin_vertices[index]);
 
 	float3 position = rt_positions[index];
 
-	if (dot(weights, 1.0) < 1e-5)
+	if (dot(skin.weights_, 1.0) < 1e-5)
 	{
 		skinned_positions[index] = position;
 		return;
 	}
 
 	float4x4 skin_matrix =
-		LoadBoneMatrix(bone_matrices[params.bone_offset_ + joints.x]) * weights.x +
-		LoadBoneMatrix(bone_matrices[params.bone_offset_ + joints.y]) * weights.y +
-		LoadBoneMatrix(bone_matrices[params.bone_offset_ + joints.z]) * weights.z +
-		LoadBoneMatrix(bone_matrices[params.bone_offset_ + joints.w]) * weights.w;
+		LoadBoneMatrix(bone_matrices[params.bone_offset_ + skin.joints_.x]) * skin.weights_.x +
+		LoadBoneMatrix(bone_matrices[params.bone_offset_ + skin.joints_.y]) * skin.weights_.y +
+		LoadBoneMatrix(bone_matrices[params.bone_offset_ + skin.joints_.z]) * skin.weights_.z +
+		LoadBoneMatrix(bone_matrices[params.bone_offset_ + skin.joints_.w]) * skin.weights_.w;
 
 	float3 skinned = mul(float4(position, 1.0), skin_matrix).xyz;
 

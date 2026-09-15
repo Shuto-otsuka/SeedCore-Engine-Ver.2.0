@@ -9,17 +9,20 @@ namespace SeedCore
 	class BindlessHeap;
 	class ShaderCache;
 	class D3D12CommandList;
-	class IndicesSystem;
+	class ConstantIndicesSystem;
+	class ShaderResourceIndicesSystem;
+	class UnorderedAccessIndicesSystem;
+	struct RootAddresses;
 
 	/// [EN] Mirrors Raytracing/VolumetricCloudScapes/VolumetricCloudScapes.hlsli's
 	///      VolumetricCloudScapesRayConstantBuffer — read by both
 	///      VolumetricCloudScapesRT.hlsl and DeferredLightingPS.hlsl via
-	///      structured_indices.cloud_ray_constant_index_. Must stay
+	///      constant_indices.cloud_index_. Must stay
 	///      byte-for-byte in sync with the HLSL side.
 	/// [JP] Raytracing/VolumetricCloudScapes/VolumetricCloudScapes.hlsli の
 	///      VolumetricCloudScapesRayConstantBuffer と対応。
 	///      VolumetricCloudScapesRT.hlsl と DeferredLightingPS.hlsl の両方が
-	///      structured_indices.cloud_ray_constant_index_ 経由で読む。HLSL 側と
+	///      constant_indices.cloud_index_ 経由で読む。HLSL 側と
 	///      バイト単位で一致させること。以下は 4 スカラー = cbuffer 1 行
 	///      (16 バイト)単位で並べてある — フィールドを足すときもこの区切りを
 	///      崩さないこと。
@@ -325,7 +328,7 @@ namespace SeedCore
 		VolumetricCloudScapesRenderer(RootSignature& rootSignature, PipelineStateObject& pipelineStateObject);
 		~VolumetricCloudScapesRenderer() = default;
 
-		void Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, IndicesSystem& indicesSystem, Uint32 width, Uint32 height);
+		void Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, ConstantIndicesSystem& constantIndicesSystem, ShaderResourceIndicesSystem& shaderResourceIndicesSystem, UnorderedAccessIndicesSystem& unorderedAccessIndicesSystem, Uint32 width, Uint32 height);
 
 		void Destroy(BindlessHeap* bindlessHeap);
 
@@ -333,11 +336,11 @@ namespace SeedCore
 
 		/// [EN] Updates the tuning constant buffer (stamping enabled into
 		///      proceduralSkyEnabled_) and registers its bindless indices into
-		///      IndicesSystem. Must run before IndicesSystem::
+		///      the index systems. Must run before the index systems' 
 		///      UploadEditor/UploadGame bakes this frame's indices. No GPU work.
 		/// [JP] チューニング用定数バッファを更新し(enabled を
 		///      proceduralSkyEnabled_ に焼き込む)、bindless インデックスを
-		///      IndicesSystem へ登録する。IndicesSystem::UploadEditor/UploadGame
+		///      各インデックスシステムへ登録する。各インデックスシステムの UploadEditor/UploadGame
 		///      が今フレームのインデックスを確定する前に呼ぶこと。GPU 処理は無い。
 		void PrepareFrame(const VolumetricCloudScapesRayConstantBuffer& settings, Bool enabled);
 
@@ -349,7 +352,7 @@ namespace SeedCore
 		///      か PSO が無ければ 0 でクリア)。テクスチャは
 		///      PIXEL_SHADER_RESOURCE 状態で終える。G-Buffer の深度が書き込み
 		///      済みであることが前提(空ピクセル判定)。
-		void Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex, Bool enabled);
+		void Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses, Bool enabled);
 
 	private:
 		/// [JP] ノイズ Texture3D を1枚作る(UAV+SRV、ベイク用)。
@@ -412,7 +415,9 @@ namespace SeedCore
 		Uint32 clearIndex_ = 0;
 
 		BindlessHeap* bindlessHeap_ = nullptr;
-		IndicesSystem* indicesSystem_ = nullptr;
+		ConstantIndicesSystem* constantIndicesSystem_ = nullptr;
+		ShaderResourceIndicesSystem* shaderResourceIndicesSystem_ = nullptr;
+		UnorderedAccessIndicesSystem* unorderedAccessIndicesSystem_ = nullptr;
 
 		/// [EN] Cloud texture resolution — the SCREEN size divided by
 		///      resolutionDivisor_, not the screen size itself.

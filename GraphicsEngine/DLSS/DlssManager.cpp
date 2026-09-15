@@ -83,7 +83,7 @@ namespace SeedCore
 		preference.featuresToLoad = features;
 		preference.numFeaturesToLoad = static_cast<Uint32>(std::size(features));
 		preference.engine = sl::EngineType::eCustom;
-		preference.engineVersion = "2.0";
+		preference.engineVersion = SC_VERTION;
 		preference.projectId = SC_ENCRYPTION_KEY_SEED;
 		preference.renderAPI = sl::RenderAPI::eD3D12;
 		preference.flags = sl::PreferenceFlags::eDisableCLStateTracking | sl::PreferenceFlags::eAllowOTA | sl::PreferenceFlags::eLoadDownloadedPlugins | sl::PreferenceFlags::eUseFrameBasedResourceTagging | sl::PreferenceFlags::eDisableDebugText;

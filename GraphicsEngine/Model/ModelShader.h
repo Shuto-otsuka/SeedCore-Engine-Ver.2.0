@@ -8,6 +8,7 @@ namespace SeedCore
 {
 	class ShaderCache;
 
+	class VertexShader;
 	class AmplificationShader;
 	class MeshShader;
 	class PixelShader;
@@ -60,6 +61,8 @@ namespace SeedCore
 		[[nodiscard]] ID3D12PipelineState* GetPipelineStateStaticTransparent()const;
 
 		[[nodiscard]] ID3D12PipelineState* GetPipelineStateSkeletalTransparent()const;
+
+		[[nodiscard]] ID3D12PipelineState* GetPipelineStateFurShell()const;
 
 		[[nodiscard]] ID3D12PipelineState* GetPipelineStateResolve()const;
 
@@ -118,6 +121,7 @@ namespace SeedCore
 		Handle<AmplificationShader> amplificationShader_;
 		Handle<AmplificationShader> geometryBufferAmplificationShader_;
 		Handle<AmplificationShader> transparentAmplificationShader_;
+		Handle<AmplificationShader> furShellAmplificationShader_;
 
 		Handle<MeshShader> depthPrepassMeshShader_;
 		Handle<PixelShader> depthPrepassPixelShader_;
@@ -132,13 +136,19 @@ namespace SeedCore
 		Handle<Microsoft::WRL::ComPtr<ID3D12PipelineState>> pipelineStateObjectSkeletal_;
 
 		Handle<PixelShader> transparentPixelShader_;
+
+		Handle<MeshShader> furShellMeshShader_;
+		Handle<PixelShader> furShellPixelShader_;
 		Handle<Microsoft::WRL::ComPtr<ID3D12PipelineState>> pipelineStateObjectStaticTransparent_;
 		Handle<Microsoft::WRL::ComPtr<ID3D12PipelineState>> pipelineStateObjectSkeletalTransparent_;
+		Handle<Microsoft::WRL::ComPtr<ID3D12PipelineState>> pipelineStateObjectFurShell_;
 
+		Handle<VertexShader> resolveVertexShader_;
 		Handle<MeshShader> resolveMeshShader_;
 		Handle<PixelShader> resolvePixelShader_;
 		Handle<Microsoft::WRL::ComPtr<ID3D12PipelineState>> pipelineStateObjectResolve_;
 
+		Handle<VertexShader> compositeVertexShader_;
 		Handle<MeshShader> compositeMeshShader_;
 		Handle<PixelShader> compositePixelShader_;
 		Handle<Microsoft::WRL::ComPtr<ID3D12PipelineState>> pipelineStateObjectComposite_;

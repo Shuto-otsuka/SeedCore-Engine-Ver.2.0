@@ -4,7 +4,7 @@
 /**
 * Refraction tuning constant buffer, read by both RefractionRT.hlsl and
 * Model/Opaque/DeferredLightingPS.hlsl via
-* structured_indices.refraction_.ray_constant_index_. Must match the C++
+* constant_indices.refraction_index_. Must match the C++
 * mirror in Renderer/RefractionRenderer.h byte-for-byte.
 */
 struct RefractionRayConstantBuffer
@@ -23,6 +23,18 @@ struct RefractionRayConstantBuffer
 
 	/// Padding to keep the buffer's byte size aligned with the C++ mirror.
 	float refraction_padding_;
+};
+
+struct RefractionShaderResourceIndices
+{
+	uint output_index_;
+	uint3 refraction_shader_resource_padding_0_;
+};
+
+struct RefractionUnorderedAccessIndices
+{
+	uint output_index_;
+	uint3 refraction_unordered_access_padding_0_;
 };
 
 #endif // __REFRACTION_HLSL__

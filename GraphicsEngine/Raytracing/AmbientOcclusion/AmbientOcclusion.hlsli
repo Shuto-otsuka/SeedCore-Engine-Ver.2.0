@@ -27,4 +27,16 @@ struct AmbientOcclusionRayConstantBuffer
 	uint frame_index_;
 };
 
+struct AmbientOcclusionShaderResourceIndices
+{
+	uint raw_index_;
+	uint3 ambient_occlusion_shader_resource_padding_0_;
+};
+
+struct AmbientOcclusionUnorderedAccessIndices
+{
+	uint raw_index_;
+	uint3 ambient_occlusion_unordered_access_padding_0_;
+};
+
 #endif // __AMBIENT_OCCLUSION_HLSL__

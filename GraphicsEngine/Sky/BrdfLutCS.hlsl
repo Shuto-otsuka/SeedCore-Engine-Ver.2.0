@@ -1,4 +1,4 @@
-#include "SkyMath.hlsli"
+#include "Sky.hlsli"
 #include "SkyGenerate.hlsli"
 
 /**
@@ -28,13 +28,13 @@ float GeometrySmith(float normal_dot_view, float normal_dot_light, float roughne
 [numthreads(8, 8, 1)]
 void main(uint3 id : SV_DispatchThreadID)
 {
-	uint size = sky_generate.face_size_;
+	uint size = GetSkyDispatchBuffer().face_size_;
 	if (id.x >= size || id.y >= size)
 	{
 		return;
 	}
 
-	RWTexture2D<float2> destination = ResourceDescriptorHeap[sky_generate.dest_index_];
+	RWTexture2D<float2> destination = ResourceDescriptorHeap[GetSkyDispatchBuffer().dest_index_];
 
 	float normal_dot_view = (float(id.x) + 0.5) / float(size);
 	float roughness = (float(id.y) + 0.5) / float(size);
@@ -45,7 +45,7 @@ void main(uint3 id : SV_DispatchThreadID)
 	float scale = 0.0;
 	float bias = 0.0;
 
-	uint count = max(sky_generate.sample_count_, 1u);
+	uint count = max(GetSkyDispatchBuffer().sample_count_, 1u);
 	for (uint i = 0; i < count; i++)
 	{
 		float2 xi = Hammersley(i, count);

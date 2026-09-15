@@ -1,9 +1,11 @@
+#include "../Shader/Scene.hlsli"
 #include "../Shader/Denoiser.hlsli"
+#include "../Shader/Dispatch.hlsli"
 
 static const float TAAU_TEMPORAL_BLEND_ALPHA = 0.1;
 static const float TAAU_HISTORY_CLIP_GAMMA = 0.75;
 
-struct TaauResolveConstants
+struct TaauResolveConstantBuffer
 {
 	uint color_index_;
 	uint depth_index_;
@@ -20,7 +22,11 @@ struct TaauResolveConstants
 	uint taau_resolve_padding_1_;
 	uint taau_resolve_padding_2_;
 };
-ConstantBuffer<TaauResolveConstants> taau_resolve : register(b0, space1);
+
+ConstantBuffer<TaauResolveConstantBuffer> GetTaauResolveConstantBuffer()
+{
+	return ResourceDescriptorHeap[dispatch_buffer_index_];
+}
 
 float4 CatmullRomWeights(float t)
 {
@@ -66,22 +72,35 @@ float3 SampleCatmullRom(Texture2D<float4> source_texture, float2 source_pixel_f,
 [numthreads(8, 8, 1)]
 void main(uint3 dtid : SV_DispatchThreadID)
 {
-	if (dtid.x >= taau_resolve.destination_width_ || dtid.y >= taau_resolve.destination_height_)
+	if (dtid.x >= GetTaauResolveConstantBuffer().destination_width_ || dtid.y >= GetTaauResolveConstantBuffer().destination_height_)
 	{
 		return;
 	}
 
 	uint2 destination_pixel = dtid.xy;
-	int2 source_max = int2(taau_resolve.source_width_ - 1, taau_resolve.source_height_ - 1);
+	int2 source_max = int2(GetTaauResolveConstantBuffer().source_width_ - 1, GetTaauResolveConstantBuffer().source_height_ - 1);
 
-	float2 destination_size = float2(taau_resolve.destination_width_, taau_resolve.destination_height_);
-	float2 source_size = float2(taau_resolve.source_width_, taau_resolve.source_height_);
+	float2 destination_size = float2(GetTaauResolveConstantBuffer().destination_width_, GetTaauResolveConstantBuffer().destination_height_);
+	float2 source_size = float2(GetTaauResolveConstantBuffer().source_width_, GetTaauResolveConstantBuffer().source_height_);
+
+	SceneConstantBuffer scene = GetSceneConstantBuffer();
+
+	float4 jitter_reference = float4(scene.camera_position_.xyz + scene.inverse_view_[2].xyz * scene.far_plane_ * 0.5, 1.0);
+	float4 jittered_clip = mul(jitter_reference, scene.current_view_projection_);
+	float4 non_jittered_clip = mul(jitter_reference, scene.non_jitter_view_projection_);
+	float4 previous_jittered_clip = mul(jitter_reference, scene.previous_view_projection_);
+	float4 previous_non_jittered_clip = mul(jitter_reference, scene.previous_non_jitter_view_projection_);
+
+	float2 jitter_ndc = abs(jittered_clip.w) > 1e-4 ? (jittered_clip.xy / jittered_clip.w - non_jittered_clip.xy / non_jittered_clip.w) : float2(0, 0);
+	float2 previous_jitter_ndc = abs(previous_jittered_clip.w) > 1e-4 ? (previous_jittered_clip.xy / previous_jittered_clip.w - previous_non_jittered_clip.xy / previous_non_jittered_clip.w) : float2(0, 0);
+	float2 jitter_uv = float2(jitter_ndc.x, -jitter_ndc.y) * 0.5;
+	float2 previous_jitter_uv = float2(previous_jitter_ndc.x, -previous_jitter_ndc.y) * 0.5;
 
 	float2 output_uv = (float2(destination_pixel) + 0.5) / destination_size;
-	float2 source_pixel_f = output_uv * source_size;
+	float2 source_pixel_f = (output_uv + jitter_uv) * source_size;
 	int2 center_pixel = clamp(int2(round(source_pixel_f - 0.5)), int2(0, 0), source_max);
 
-	Texture2D<float4> color_texture = ResourceDescriptorHeap[taau_resolve.color_index_];
+	Texture2D<float4> color_texture = ResourceDescriptorHeap[GetTaauResolveConstantBuffer().color_index_];
 	float3 filtered_raw = SampleCatmullRom(color_texture, source_pixel_f, source_max);
 
 	DenoiserMoments moments = DenoiserMomentsInit();
@@ -101,14 +120,14 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	float3 clip_min = DenoiserVarianceClipMin(moments, filtered_raw, TAAU_HISTORY_CLIP_GAMMA);
 	float3 clip_max = DenoiserVarianceClipMax(moments, filtered_raw, TAAU_HISTORY_CLIP_GAMMA);
 
-	Texture2D<float2> velocity_texture = ResourceDescriptorHeap[taau_resolve.velocity_index_];
+	Texture2D<float2> velocity_texture = ResourceDescriptorHeap[GetTaauResolveConstantBuffer().velocity_index_];
 	float2 velocity = velocity_texture.Load(int3(center_pixel, 0));
-	float2 delta_uv = float2(velocity.x, -velocity.y);
+	float2 delta_uv = float2(velocity.x, -velocity.y) - (jitter_uv - previous_jitter_uv);
 	float2 previous_output_uv = output_uv - delta_uv;
 
-	Texture2D<float4> history_texture = ResourceDescriptorHeap[taau_resolve.history_index_];
+	Texture2D<float4> history_texture = ResourceDescriptorHeap[GetTaauResolveConstantBuffer().history_index_];
 	float3 result = DenoiserTemporalBlend(history_texture, previous_output_uv, clip_min, clip_max, filtered_raw, TAAU_TEMPORAL_BLEND_ALPHA);
 
-	RWTexture2D<float4> destination = ResourceDescriptorHeap[taau_resolve.destination_index_];
+	RWTexture2D<float4> destination = ResourceDescriptorHeap[GetTaauResolveConstantBuffer().destination_index_];
 	destination[destination_pixel] = float4(result, 1.0);
 }

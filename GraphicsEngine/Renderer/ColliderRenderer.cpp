@@ -2,6 +2,8 @@
 #include <GraphicsEngine/Profiler/ProfilerStats.h>
 #include <GraphicsEngine/D3D12/Descriptor/BindlessHeap.h>
 #include <GraphicsEngine/D3D12/Context/D3D12CommandList.h>
+#include <GraphicsEngine/D3D12/Context/D3D12Check.h>
+#include <GraphicsEngine/System/IndicesSystem.h>
 
 namespace SeedCore
 {
@@ -124,12 +126,18 @@ namespace SeedCore
 		}
 	}
 
-	void ColliderRenderer::Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache)
+	ColliderRenderer::ColliderRenderer(RootSignature& rootSignature, PipelineStateObject& pipelineStateObject) : colliderLineShader_(rootSignature, pipelineStateObject)
+	{
+		/// No Code
+	}
+
+	void ColliderRenderer::Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, ConstantIndicesSystem& constantIndicesSystem)
 	{
 		bindlessHeap_ = bindlessHeap;
+		constantIndicesSystem_ = &constantIndicesSystem;
 
-		instanceBuffer_ = MakePtr<ReadOnlyStructuredBuffer<ColliderInstance>>(device, bindlessHeap, maxInstanceCount_);
-		instanceConstantsBuffer_ = MakePtr<ConstantBuffer<ColliderInstanceConstants>>(device, bindlessHeap);
+		instanceBuffer_ = MakePtr<ReadOnlyStructuredBuffer<ColliderStructuredBuffer>>(device, bindlessHeap, maxInstanceCount_);
+		instanceConstantsBuffer_ = MakePtr<ConstantBuffer<ColliderConstantBuffer>>(device, bindlessHeap);
 
 		BuildIcosphereEdges(icosphereSubdivisionLevel_, sphereEdgeData_, hemisphereEdgeData_);
 		sphereEdgeCount_ = static_cast<Uint>(sphereEdgeData_.size() / 2);
@@ -143,7 +151,7 @@ namespace SeedCore
 		Uint maxLinesPerInstance = std::max({ cylinderBodyLineCount, capsuleLineCount, sphereEdgeCount_, cylinderRingSegments_ });
 		groupsPerInstance_ = (maxLinesPerInstance + threadsPerGroup_ - 1) / threadsPerGroup_;
 
-		colliderLineShader_.Create(shaderCache, device, pipelineStateObject_);
+		colliderLineShader_.Create(shaderCache, device);
 	}
 
 	void ColliderRenderer::Clear()
@@ -158,7 +166,7 @@ namespace SeedCore
 			return;
 		}
 
-		ColliderInstance instance{};
+		ColliderStructuredBuffer instance{};
 		instance.position_ = position;
 		instance.shapeKind_ = static_cast<Uint32>(shapeKind);
 		instance.rotation_ = rotation;
@@ -168,7 +176,7 @@ namespace SeedCore
 		instances_.push_back(instance);
 	}
 
-	void ColliderRenderer::Draw(D3D12CommandList* cmdList, D3D12_CPU_DESCRIPTOR_HANDLE renderTargetView, D3D12_CPU_DESCRIPTOR_HANDLE depthStencilView, D3D12_VIEWPORT viewport, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex)
+	void ColliderRenderer::Upload()
 	{
 		if (instances_.empty())
 		{
@@ -190,8 +198,8 @@ namespace SeedCore
 		sphereEdgeBuffer_->Update(sphereEdgeData_.data(), static_cast<Uint>(sphereEdgeData_.size()));
 		hemisphereEdgeBuffer_->Update(hemisphereEdgeData_.data(), static_cast<Uint>(hemisphereEdgeData_.size()));
 
-		ColliderInstanceConstants constants{};
-		constants.lineVertexBufferIndex_ = instanceBuffer_->Index();
+		ColliderConstantBuffer constants{};
+		constants.instanceBufferIndex_ = instanceBuffer_->Index();
 		constants.instanceCount_ = instanceCount;
 		constants.groupsPerInstance_ = groupsPerInstance_;
 		constants.sphereEdgeBufferIndex_ = sphereEdgeBuffer_->Index();
@@ -199,6 +207,22 @@ namespace SeedCore
 		constants.hemisphereEdgeBufferIndex_ = hemisphereEdgeBuffer_->Index();
 		constants.hemisphereEdgeCount_ = hemisphereEdgeCount_;
 		instanceConstantsBuffer_->Update(constants);
+
+		constantIndicesSystem_->SetColliderIndex(instanceConstantsBuffer_->GetIndex());
+	}
+
+	void ColliderRenderer::Draw(D3D12CommandList* cmdList, D3D12_CPU_DESCRIPTOR_HANDLE renderTargetView, D3D12_CPU_DESCRIPTOR_HANDLE depthStencilView, D3D12_VIEWPORT viewport, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
+	{
+		if (instances_.empty())
+		{
+			return;
+		}
+
+		Uint instanceCount = static_cast<Uint>(instances_.size());
+		if (instanceCount > maxInstanceCount_)
+		{
+			instanceCount = maxInstanceCount_;
+		}
 
 		auto* cmd = cmdList->Get();
 
@@ -215,16 +239,23 @@ namespace SeedCore
 		ID3D12DescriptorHeap* heaps[] = { heap };
 		cmd->SetDescriptorHeaps(_countof(heaps), heaps);
 		cmd->SetGraphicsRootSignature(colliderLineShader_.GetRootSignature());
-		cmd->SetGraphicsRootConstantBufferView(0, constantIndex);
-		cmd->SetGraphicsRootConstantBufferView(1, instanceConstantsBuffer_->Address());
+		RootSignature::BindGraphics(cmd, addresses);
 
 		cmd->SetPipelineState(colliderLineShader_.GetPipelineState());
 
-		/// [JP] 1インスタンスにつき groupsPerInstance_ 個のスレッドグループを
-		///      割り当てる — Jolt本家相当密度の球/カプセルはもはや1グループ
-		///      (threadsPerGroup_ スレッド)には収まらないため（ColliderLineMS.hlsl
-		///      参照）。
-		cmd->DispatchMesh(instanceCount * groupsPerInstance_, 1, 1);
+		if (D3D12Check::GetLevel() == D3D12Level::D12_2)
+		{
+			/// [JP] 1インスタンスにつき groupsPerInstance_ 個のスレッドグループを
+			///      割り当てる — Jolt本家相当密度の球/カプセルはもはや1グループ
+			///      (threadsPerGroup_ スレッド)には収まらないため（ColliderLineMS.hlsl
+			///      参照）。
+			cmd->DispatchMesh(instanceCount * groupsPerInstance_, 1, 1);
+		}
+		else
+		{
+			cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
+			cmd->DrawInstanced(groupsPerInstance_ * threadsPerGroup_ * 2, instanceCount, 0, 0);
+		}
 		ProfilerStats::AddDrawCall();
 	}
 }

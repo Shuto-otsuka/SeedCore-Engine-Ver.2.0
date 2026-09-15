@@ -1,5 +1,5 @@
 #include "../Model.hlsli"
-#include "../../Shader/Structured.hlsli"
+#include "../../Shader/UnorderedAccesses.hlsli"
 
 /**
 * [EN]
@@ -27,7 +27,7 @@ groupshared uint scan_data[MATERIAL_SORT_BUCKET_COUNT];
 [numthreads(MATERIAL_SORT_BUCKET_COUNT, 1, 1)]
 void main(uint thread_id : SV_GroupThreadID)
 {
-	RWByteAddressBuffer bucket_buffer = ResourceDescriptorHeap[structured_indices.material_sort_.bucket_index_];
+	RWByteAddressBuffer bucket_buffer = ResourceDescriptorHeap[unordered_access_indices.material_sort_.bucket_index_];
 
 	uint original_count = bucket_buffer.Load(thread_id * 4);
 	scan_data[thread_id] = original_count;

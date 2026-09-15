@@ -11,7 +11,10 @@ namespace SeedCore
 	class BindlessHeap;
 	class ShaderCache;
 	class D3D12CommandList;
-	class IndicesSystem;
+	class ConstantIndicesSystem;
+	class ShaderResourceIndicesSystem;
+	class UnorderedAccessIndicesSystem;
+	struct RootAddresses;
 
 	/// [EN] 0 = own temporal (reprojected) accumulation, 1 = DLSS Ray
 	///      Reconstruction (RaytracingRenderer drives this field from the
@@ -37,19 +40,19 @@ namespace SeedCore
 
 	/// [EN] Mirrors Raytracing/Shadow/Shadow.hlsli's ShadowRayConstantBuffer —
 	///      read by both ShadowRT.hlsl and DeferredLightingPS.hlsl via
-	///      structured_indices.shadow_ray_constant_index_. Must stay
+	///      constant_indices.shadow_index_. Must stay
 	///      byte-for-byte in sync with the HLSL side.
 	/// [JP] Raytracing/Shadow/Shadow.hlsli の ShadowRayConstantBuffer と対応。
 	///      ShadowRT.hlsl と DeferredLightingPS.hlsl の両方が
-	///      structured_indices.shadow_ray_constant_index_ 経由で読む。HLSL 側と
+	///      constant_indices.shadow_index_ 経由で読む。HLSL 側と
 	///      バイト単位で一致させること。
 	struct ShadowRayConstantBuffer
 	{
 		Float rayTMax_ = 1000.0f;
 		Float normalBias_ = 0.01f;
 
-		/// [EN] 0 = ignore traced visibility (always lit), 1 = apply it as-is.
-		/// [JP] 0=シャドウレイの結果を無視(常に照射)、1=可視性をそのまま適用。
+		/// [EN] Shadow darkness: 0 = ignore traced visibility (always lit), 1 = apply it as-is, 2 = also remove the indirect light inside sun-facing shadows (fully black umbra).
+		/// [JP] 影の濃さ: 0=シャドウレイの結果を無視(常に照射)、1=可視性をそのまま適用、2=太陽を向いた面の影の中の間接光も消す(本影が真っ黒)。
 		Float shadowStrength_ = 1.0f;
 
 		/// [EN] Directional light's disk half-angle (radians) — soft shadow
@@ -120,7 +123,7 @@ namespace SeedCore
 		ShadowRenderer(RootSignature& rootSignature, PipelineStateObject& pipelineStateObject);
 		~ShadowRenderer() = default;
 
-		void Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, IndicesSystem& indicesSystem, Uint32 width, Uint32 height);
+		void Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, ConstantIndicesSystem& constantIndicesSystem, ShaderResourceIndicesSystem& shaderResourceIndicesSystem, UnorderedAccessIndicesSystem& unorderedAccessIndicesSystem, Uint32 width, Uint32 height);
 
 		void Destroy(BindlessHeap* bindlessHeap);
 
@@ -169,7 +172,7 @@ namespace SeedCore
 		///      テクスチャを遷移させるだけでよい(PrepareFrame() が既に合成
 		///      シェーダの参照先をそこへ直接向けているため)。G-Buffer の
 		///      深度/法線/速度が書き込み済みであることが前提。
-		void Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex, Bool tlasValid, RaytracingView view);
+		void Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses, Bool tlasValid, RaytracingView view);
 
 	private:
 		/// [EN] Allocates the raw texture and every per-view buffer of the SVGF
@@ -393,7 +396,9 @@ namespace SeedCore
 		Bool historyCleared_ = false;
 
 		BindlessHeap* bindlessHeap_ = nullptr;
-		IndicesSystem* indicesSystem_ = nullptr;
+		ConstantIndicesSystem* constantIndicesSystem_ = nullptr;
+		ShaderResourceIndicesSystem* shaderResourceIndicesSystem_ = nullptr;
+		UnorderedAccessIndicesSystem* unorderedAccessIndicesSystem_ = nullptr;
 
 		Uint32 width_ = 0;
 		Uint32 height_ = 0;

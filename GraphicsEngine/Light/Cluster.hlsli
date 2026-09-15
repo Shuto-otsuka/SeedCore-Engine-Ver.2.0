@@ -1,6 +1,8 @@
 #ifndef __CLUSTER_HLSL__
 #define __CLUSTER_HLSL__
 
+#include "../Shader/Constants.hlsli"
+
 #define CLUSTER_TILE_SIZE 64
 #define CLUSTER_DEPTH_SLICES 16
 #define CLUSTER_MAX_POINT_LIGHTS 64
@@ -8,12 +10,80 @@
 #define CLUSTER_MAX_RECT_LIGHTS 64
 #define CLUSTER_STRIDE (CLUSTER_MAX_POINT_LIGHTS + CLUSTER_MAX_SPOT_LIGHTS + CLUSTER_MAX_RECT_LIGHTS)
 
-struct ClusterData
+/**
+* [EN]
+* Per-view cluster-light-assignment tuning (2 rows / 32 bytes). Values only
+* - the UAV/SRV indices for the cluster buffers live in
+* ClusterAssignUnorderedAccessIndices/ClusterAssignShaderResourceIndices
+* below, same split as ConstantIndices/ShaderResourceIndices/
+* UnorderedAccessIndices elsewhere.
+*/
+struct ClusterAssignConstantBuffer
+{
+	uint point_light_count_;
+	uint spot_light_count_;
+	uint rect_light_count_;
+	uint total_clusters_;
+
+	uint cluster_count_x_;
+	uint cluster_count_y_;
+	float near_plane_;
+	float far_plane_;
+};
+
+ConstantBuffer<ClusterAssignConstantBuffer> GetClusterConstantBuffer()
+{
+	return ResourceDescriptorHeap[constant_indices.cluster_assign_index_];
+}
+
+/**
+* [EN]
+* Read views of the point/spot/rect light arrays ClusterAssignCS.hlsl bins
+* into the cluster grid.
+*/
+struct ClusterAssignShaderResourceIndices
+{
+	uint point_light_index_;
+	uint spot_light_index_;
+	uint rect_light_index_;
+	uint cluster_assign_shader_resource_padding_0_;
+};
+
+/**
+* [EN]
+* Write targets of ClusterAssignCS.hlsl: the per-cluster light-count/offset
+* header (ClusterInstance) and the flat light-index list it points into.
+*/
+struct ClusterAssignUnorderedAccessIndices
+{
+	uint cluster_data_index_;
+	uint cluster_light_list_index_;
+	float2 cluster_assign_unordered_access_padding_0_;
+};
+
+/**
+* [EN]
+* Read views of the point/spot/rect light arrays and the cluster-assignment
+* output (ClusterAssignUnorderedAccessIndices' write side) that
+* DeferredLightingPS.hlsl/ShadowRT.hlsl bin per-pixel lighting against.
+*/
+struct LightShaderResourceIndices
+{
+	uint point_light_index_;
+	uint spot_light_index_;
+	uint rect_light_index_;
+	uint cluster_data_index_;
+
+	uint cluster_light_list_index_;
+	float3 light_shader_resource_padding_0_;
+};
+
+struct ClusterInstance
 {
 	uint point_count_;
 	uint spot_count_;
 	uint rect_count_;
-	float cluster_data_padding_;
+	float cluster_instance_padding_0_;
 };
 
 uint3 ComputeClusterCount(float2 screen_size)

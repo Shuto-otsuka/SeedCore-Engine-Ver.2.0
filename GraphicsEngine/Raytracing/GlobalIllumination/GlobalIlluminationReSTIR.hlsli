@@ -1,6 +1,8 @@
 #ifndef __GLOBAL_ILLUMINATION_RESTIR_HLSL__
 #define __GLOBAL_ILLUMINATION_RESTIR_HLSL__
 
+#include "../../Shader/Noise.hlsli"
+
 /**
 * Reference:
 * - https://cs.dartmouth.edu/~wjarosz/publications/bitterli20spatiotemporal.html
@@ -18,7 +20,7 @@
 * reprojected history's M before combining) and
 * GlobalIlluminationReservoirSpatialCS.hlsl (which normalizes the final M
 * into a 0..1 confidence signal for GlobalIlluminationDenoiseCS.hlsl - see
-* that file's use of structured_indices.global_illumination_.confidence_).
+* that file's use of shader_resource_indices.global_illumination_.confidence_index_).
 *
 * This directly trades noise for responsiveness: the streaming RIS combine's
 * probability of accepting a brand-new frame's candidate over the existing
@@ -32,9 +34,15 @@
 */
 static const float GI_RESERVOIR_M_CAP = 8.0;
 
+static const float GI_RESERVOIR_MAX_AGE = 30.0;
+
+static const float GI_RESERVOIR_DEPTH_THRESHOLD = 0.1;
+
+static const float GI_RESERVOIR_NORMAL_THRESHOLD = 0.5;
+
 /**
 * Per-pixel ReSTIR reservoir for the single cosine-weighted hemisphere sample
-* GlobalIlluminationRayGeneration traces per frame. 48 bytes - must match the
+* GlobalIlluminationRayGeneration traces per frame. 64 bytes - must match the
 * C++ side (GlobalIlluminationRenderer::reservoirElementSizeInBytes)
 * byte-for-byte.
 */
@@ -62,8 +70,11 @@ struct GlobalIlluminationReservoir
 	/// payload.radiance_ used to be written directly).
 	float3 sample_radiance_;
 
-	/// Padding to keep the struct's byte size matching the C++ mirror.
-	float sample_padding_;
+	float sample_age_;
+
+	float3 receiver_normal_;
+
+	float receiver_depth_;
 };
 
 /**
@@ -81,7 +92,9 @@ GlobalIlluminationReservoir GlobalIlluminationReservoirFromSample(float3 positio
 	reservoir.sample_radiance_ = radiance;
 	reservoir.sample_m_ = 1.0;
 	reservoir.sample_w_ = 1.0;
-	reservoir.sample_padding_ = 0.0;
+	reservoir.sample_age_ = 0.0;
+	reservoir.receiver_normal_ = float3(0, 0, 0);
+	reservoir.receiver_depth_ = 0.0;
 	return reservoir;
 }
 
@@ -141,13 +154,27 @@ GlobalIlluminationReservoir GlobalIlluminationReservoirCombine(GlobalIlluminatio
 		result.sample_position_ = b.sample_position_;
 		result.sample_normal_ = b.sample_normal_;
 		result.sample_radiance_ = b.sample_radiance_;
+		result.sample_age_ = b.sample_age_;
 	}
 
 	float selected_target = dot(result.sample_radiance_, float3(0.2126, 0.7152, 0.0722));
 	result.sample_w_ = selected_target > 0.0 ? (weight_sum / (result.sample_m_ * selected_target)) : 0.0;
-	result.sample_padding_ = 0.0;
 
 	return result;
 }
+
+struct GlobalIlluminationShaderResourceIndices
+{
+	uint output_index_;
+	uint confidence_index_;
+	uint2 global_illumination_shader_resource_padding_0_;
+};
+
+struct GlobalIlluminationUnorderedAccessIndices
+{
+	uint output_index_;
+	uint confidence_index_;
+	uint2 global_illumination_unordered_access_padding_0_;
+};
 
 #endif // __GLOBAL_ILLUMINATION_RESTIR_HLSL__

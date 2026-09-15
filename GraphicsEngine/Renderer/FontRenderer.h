@@ -6,17 +6,18 @@
 
 namespace SeedCore
 {
+	struct RootAddresses;
 	class World;
 	class BindlessHeap;
 	class ShaderCache;
 	class PipelineStateObject;
-	class IndicesSystem;
+	class ShaderResourceIndicesSystem;
 	class FontResource;
 
 	class FontRenderer
 	{
 	private:
-		struct FontSpriteInstance
+		struct FontSpriteStructuredBuffer
 		{
 			Vector2 position_;
 			Vector2 size_;
@@ -37,7 +38,7 @@ namespace SeedCore
 			Float padding2_;
 		};
 
-		struct FontBillboardInstance
+		struct FontBillboardStructuredBuffer
 		{
 			Vector3 position_;
 			Float padding0_;
@@ -67,31 +68,31 @@ namespace SeedCore
 		FontRenderer(RootSignature& rootSignature, PipelineStateObject& pipelineStateObject);
 		~FontRenderer() = default;
 
-		void Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, IndicesSystem& indicesSystem);
+		void Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, ShaderResourceIndicesSystem& shaderResourceIndicesSystem);
 
 		void Gather(FontResource& fontResource, World& world, Vector2 nativeScreenSize, Entity selectedEntity = Entity::Null());
 
 		void Upload();
 
-		void DrawSprite(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex);
+		void DrawSprite(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses);
 
-		void DrawBillboard(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex);
+		void DrawBillboard(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses);
 
-		void DrawSelectionMaskSprite(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex);
+		void DrawSelectionMaskSprite(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses);
 
-		void DrawSelectionMaskBillboard(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex);
+		void DrawSelectionMaskBillboard(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses);
 
 	private:
-		DynamicArray<FontSpriteInstance> spriteInstances_;
-		DynamicArray<FontBillboardInstance> billboardInstances_;
+		DynamicArray<FontSpriteStructuredBuffer> spriteInstances_;
+		DynamicArray<FontBillboardStructuredBuffer> billboardInstances_;
 
-		ResourcePtr<ReadOnlyStructuredBuffer<FontSpriteInstance>> spriteBuffer_;
-		ResourcePtr<ReadOnlyStructuredBuffer<FontBillboardInstance>> billboardBuffer_;
+		ResourcePtr<ReadOnlyStructuredBuffer<FontSpriteStructuredBuffer>> spriteBuffer_;
+		ResourcePtr<ReadOnlyStructuredBuffer<FontBillboardStructuredBuffer>> billboardBuffer_;
 
 		FontShader fontShader_;
 
 		BindlessHeap* bindlessHeap_ = nullptr;
-		IndicesSystem* indicesSystem_ = nullptr;
+		ShaderResourceIndicesSystem* shaderResourceIndicesSystem_ = nullptr;
 
 		Uint maxCount_ = 0;
 	};

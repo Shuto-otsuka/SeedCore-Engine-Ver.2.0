@@ -27,7 +27,7 @@ namespace SeedCore
 		movieRenderer_ = MakePtr<MovieRenderer>(rootSignature_, pipelineStateObject_);
 		outlineRenderer_ = MakePtr<OutlineRenderer>(rootSignature_, pipelineStateObject_);
 		hudComposeRenderer_ = MakePtr<HUDComposeRenderer>(rootSignature_, pipelineStateObject_);
-		colliderRenderer_ = MakePtr<ColliderRenderer>();
+		colliderRenderer_ = MakePtr<ColliderRenderer>(rootSignature_, pipelineStateObject_);
 		raytracingRenderer_ = MakePtr<RaytracingRenderer>(rootSignature_, pipelineStateObject_, raytracingStateObject_);
 		skyRenderer_ = MakePtr<SkyRenderer>();
 		timelineRenderer_ = MakePtr<TimelineRenderer>(rootSignature_, pipelineStateObject_);
@@ -53,7 +53,9 @@ namespace SeedCore
 		effekseerManager_->Initialize(*effekseerRenderer_);
 		Gateway::BindEffekseerManager(effekseerManager_.get());
 
-		indicesSystem_ = MakePtr<IndicesSystem>(device, bindlessHeap);
+		constantIndicesSystem_ = MakePtr<ConstantIndicesSystem>(device, bindlessHeap);
+		shaderResourceIndicesSystem_ = MakePtr<ShaderResourceIndicesSystem>(device, bindlessHeap);
+		unorderedAccessIndicesSystem_ = MakePtr<UnorderedAccessIndicesSystem>(device, bindlessHeap);
 
 		RasterizerState::Create();
 		BlendState::Create();
@@ -72,26 +74,26 @@ namespace SeedCore
 		canvasFrameBuffer_ = MakePtr<FrameBuffer>(device, &canvasRenderTargetViewHeap_, bindlessHeap, width, height, DXGI_FORMAT_R16G16B16A16_FLOAT, &canvasDepthStencilViewHeap_);
 
 		uiColorAlphaFrameBuffer_ = MakePtr<FrameBuffer>(device, &uiColorAlphaRenderTargetViewHeap_, bindlessHeap, width, height, DXGI_FORMAT_R16G16B16A16_FLOAT, nullptr, 0.0f, 0.0f, 0.0f, 0.0f);
-		indicesSystem_->SetUIColorAlphaIndex(uiColorAlphaFrameBuffer_->ColorShaderResourceViewIndex());
+		shaderResourceIndicesSystem_->SetUIColorAlphaIndex(uiColorAlphaFrameBuffer_->ColorShaderResourceViewIndex());
 
 		hudlessBuffer_.Create(device, width, height);
 
 		geometryBuffer_.Create(device, bindlessHeap, width, height);
-		materialSortBuffer_.Create(device, bindlessHeap, *indicesSystem_, width, height);
+		materialSortBuffer_.Create(device, bindlessHeap, *unorderedAccessIndicesSystem_, width, height);
 
-		indicesSystem_->SetGBuffer0Index(geometryBuffer_.ColorShaderResourceViewIndex(0));
-		indicesSystem_->SetGBuffer1Index(geometryBuffer_.ColorShaderResourceViewIndex(1));
-		indicesSystem_->SetGBuffer2Index(geometryBuffer_.ColorShaderResourceViewIndex(2));
-		indicesSystem_->SetGBuffer3Index(geometryBuffer_.ColorShaderResourceViewIndex(3));
-		indicesSystem_->SetGBuffer4Index(geometryBuffer_.ColorShaderResourceViewIndex(4));
-		indicesSystem_->SetGBufferDepthIndex(geometryBuffer_.DepthShaderResourceViewIndex());
-		indicesSystem_->SetGBufferVelocityUnorderedAccessViewIndex(geometryBuffer_.VelocityUnorderedAccessViewIndex());
-		indicesSystem_->SetGBuffer0UnorderedAccessViewIndex(geometryBuffer_.ColorUnorderedAccessViewIndex(0));
-		indicesSystem_->SetGBuffer1UnorderedAccessViewIndex(geometryBuffer_.ColorUnorderedAccessViewIndex(1));
-		indicesSystem_->SetGBuffer3UnorderedAccessViewIndex(geometryBuffer_.ColorUnorderedAccessViewIndex(3));
+		shaderResourceIndicesSystem_->SetGBuffer0Index(geometryBuffer_.ColorShaderResourceViewIndex(0));
+		shaderResourceIndicesSystem_->SetGBuffer1Index(geometryBuffer_.ColorShaderResourceViewIndex(1));
+		shaderResourceIndicesSystem_->SetGBuffer2Index(geometryBuffer_.ColorShaderResourceViewIndex(2));
+		shaderResourceIndicesSystem_->SetGBuffer3Index(geometryBuffer_.ColorShaderResourceViewIndex(3));
+		shaderResourceIndicesSystem_->SetGBuffer4Index(geometryBuffer_.ColorShaderResourceViewIndex(4));
+		shaderResourceIndicesSystem_->SetGBufferDepthIndex(geometryBuffer_.DepthShaderResourceViewIndex());
+		unorderedAccessIndicesSystem_->SetGBufferVelocityUnorderedAccessViewIndex(geometryBuffer_.VelocityUnorderedAccessViewIndex());
+		unorderedAccessIndicesSystem_->SetGBuffer0UnorderedAccessViewIndex(geometryBuffer_.ColorUnorderedAccessViewIndex(0));
+		unorderedAccessIndicesSystem_->SetGBuffer1UnorderedAccessViewIndex(geometryBuffer_.ColorUnorderedAccessViewIndex(1));
+		unorderedAccessIndicesSystem_->SetGBuffer3UnorderedAccessViewIndex(geometryBuffer_.ColorUnorderedAccessViewIndex(3));
 
 		hiZBuffer_.Create(device, bindlessHeap, shaderCache, rootSignature_, pipelineStateObject_, width, height, geometryBuffer_.DepthShaderResourceViewIndex());
-		indicesSystem_->SetHiZIndex(hiZBuffer_.ShaderResourceViewIndex());
+		shaderResourceIndicesSystem_->SetHiZIndex(hiZBuffer_.ShaderResourceViewIndex());
 
 		debugDepthResizeBuffer_.Create(device, bindlessHeap, shaderCache, rootSignature_, pipelineStateObject_, width, height);
 
@@ -99,20 +101,20 @@ namespace SeedCore
 		/// [JP] フレームリングではないため SRV インデックスは毎フレーム固定。
 		selectionMaskRenderTargetViewHeap_.Create(device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 1);
 		selectionMaskFrameBuffer_ = MakePtr<FrameBuffer>(device, &selectionMaskRenderTargetViewHeap_, bindlessHeap, width, height, DXGI_FORMAT_R8_UNORM, nullptr, 0.0f, 0.0f, 0.0f, 0.0f);
-		indicesSystem_->SetSelectionMaskIndex(selectionMaskFrameBuffer_->ColorShaderResourceViewIndex());
+		shaderResourceIndicesSystem_->SetSelectionMaskIndex(selectionMaskFrameBuffer_->ColorShaderResourceViewIndex());
 
 		lightSystem_ = MakePtr<LightSystem>(device, bindlessHeap, shaderCache, rootSignature_, pipelineStateObject_, width, height);
-		indicesSystem_->SetLightIndex(lightSystem_->GetIndex());
-		indicesSystem_->SetClusterConstantIndex(lightSystem_->GetClusterConstantIndex());
+		constantIndicesSystem_->SetLightIndex(lightSystem_->GetIndex());
+		constantIndicesSystem_->SetClusterAssignIndex(lightSystem_->GetClusterAssignIndex());
 
-		modelRenderer_->Create(device, bindlessHeap, shaderCache, *indicesSystem_, width, height);
-		imageRenderer_->Create(device, bindlessHeap, shaderCache, *indicesSystem_);
-		fontRenderer_->Create(device, bindlessHeap, shaderCache, *indicesSystem_);
-		movieRenderer_->Create(device, bindlessHeap, shaderCache, *indicesSystem_);
+		modelRenderer_->Create(device, bindlessHeap, shaderCache, *constantIndicesSystem_, *shaderResourceIndicesSystem_, *unorderedAccessIndicesSystem_, width, height);
+		imageRenderer_->Create(device, bindlessHeap, shaderCache, *shaderResourceIndicesSystem_);
+		fontRenderer_->Create(device, bindlessHeap, shaderCache, *shaderResourceIndicesSystem_);
+		movieRenderer_->Create(device, bindlessHeap, shaderCache, *shaderResourceIndicesSystem_);
 		outlineRenderer_->Create(device, bindlessHeap, shaderCache);
 		hudComposeRenderer_->Create(device, bindlessHeap, shaderCache);
-		colliderRenderer_->Create(device, bindlessHeap, shaderCache);
-		raytracingRenderer_->Create(device, bindlessHeap, shaderCache, *indicesSystem_, width, height);
+		colliderRenderer_->Create(device, bindlessHeap, shaderCache, *constantIndicesSystem_);
+		raytracingRenderer_->Create(device, bindlessHeap, shaderCache, *constantIndicesSystem_, *shaderResourceIndicesSystem_, *unorderedAccessIndicesSystem_, width, height);
 		skyRenderer_->Create(device, bindlessHeap, shaderCache, rootSignature_, pipelineStateObject_);
 		timelineRenderer_->Create(device, bindlessHeap, shaderCache, width, height);
 		modelTransformRenderer_->Create(device, bindlessHeap, shaderCache, width, height);
@@ -120,7 +122,7 @@ namespace SeedCore
 		skeletonControllerRenderer_->Create(device, bindlessHeap, shaderCache, width, height);
 		avatarRenderer_->Create(device, bindlessHeap, shaderCache, width, height);
 		postProcessRenderer_->Create(device, bindlessHeap, shaderCache, width, height, width, height);
-		dlssRayReconstructionRenderer_->Create(device, bindlessHeap, shaderCache, *indicesSystem_, width, height, width, height);
+		dlssRayReconstructionRenderer_->Create(device, bindlessHeap, shaderCache, *unorderedAccessIndicesSystem_, width, height, width, height);
 		taauUpsamplingRenderer_->Create(device, bindlessHeap, shaderCache, width, height);
 		materialResolveShader_->Create(shaderCache, device);
 
@@ -146,38 +148,38 @@ namespace SeedCore
 		gameFrameBuffer_->Resize(device, bindlessHeap, nativeWidth, nativeHeight);
 		canvasFrameBuffer_->Resize(device, bindlessHeap, nativeWidth, nativeHeight);
 		uiColorAlphaFrameBuffer_->Resize(device, bindlessHeap, outputWidth, outputHeight);
-		indicesSystem_->SetUIColorAlphaIndex(uiColorAlphaFrameBuffer_->ColorShaderResourceViewIndex());
+		shaderResourceIndicesSystem_->SetUIColorAlphaIndex(uiColorAlphaFrameBuffer_->ColorShaderResourceViewIndex());
 
 		hudlessBuffer_.Resize(device, outputWidth, outputHeight);
 
 		geometryBuffer_.Resize(device, bindlessHeap, nativeWidth, nativeHeight);
-		materialSortBuffer_.Resize(device, bindlessHeap, *indicesSystem_, nativeWidth, nativeHeight);
+		materialSortBuffer_.Resize(device, bindlessHeap, *unorderedAccessIndicesSystem_, nativeWidth, nativeHeight);
 
-		indicesSystem_->SetGBuffer0Index(geometryBuffer_.ColorShaderResourceViewIndex(0));
-		indicesSystem_->SetGBuffer1Index(geometryBuffer_.ColorShaderResourceViewIndex(1));
-		indicesSystem_->SetGBuffer2Index(geometryBuffer_.ColorShaderResourceViewIndex(2));
-		indicesSystem_->SetGBuffer3Index(geometryBuffer_.ColorShaderResourceViewIndex(3));
-		indicesSystem_->SetGBuffer4Index(geometryBuffer_.ColorShaderResourceViewIndex(4));
-		indicesSystem_->SetGBufferDepthIndex(geometryBuffer_.DepthShaderResourceViewIndex());
-		indicesSystem_->SetGBufferVelocityUnorderedAccessViewIndex(geometryBuffer_.VelocityUnorderedAccessViewIndex());
-		indicesSystem_->SetGBuffer0UnorderedAccessViewIndex(geometryBuffer_.ColorUnorderedAccessViewIndex(0));
-		indicesSystem_->SetGBuffer1UnorderedAccessViewIndex(geometryBuffer_.ColorUnorderedAccessViewIndex(1));
-		indicesSystem_->SetGBuffer3UnorderedAccessViewIndex(geometryBuffer_.ColorUnorderedAccessViewIndex(3));
+		shaderResourceIndicesSystem_->SetGBuffer0Index(geometryBuffer_.ColorShaderResourceViewIndex(0));
+		shaderResourceIndicesSystem_->SetGBuffer1Index(geometryBuffer_.ColorShaderResourceViewIndex(1));
+		shaderResourceIndicesSystem_->SetGBuffer2Index(geometryBuffer_.ColorShaderResourceViewIndex(2));
+		shaderResourceIndicesSystem_->SetGBuffer3Index(geometryBuffer_.ColorShaderResourceViewIndex(3));
+		shaderResourceIndicesSystem_->SetGBuffer4Index(geometryBuffer_.ColorShaderResourceViewIndex(4));
+		shaderResourceIndicesSystem_->SetGBufferDepthIndex(geometryBuffer_.DepthShaderResourceViewIndex());
+		unorderedAccessIndicesSystem_->SetGBufferVelocityUnorderedAccessViewIndex(geometryBuffer_.VelocityUnorderedAccessViewIndex());
+		unorderedAccessIndicesSystem_->SetGBuffer0UnorderedAccessViewIndex(geometryBuffer_.ColorUnorderedAccessViewIndex(0));
+		unorderedAccessIndicesSystem_->SetGBuffer1UnorderedAccessViewIndex(geometryBuffer_.ColorUnorderedAccessViewIndex(1));
+		unorderedAccessIndicesSystem_->SetGBuffer3UnorderedAccessViewIndex(geometryBuffer_.ColorUnorderedAccessViewIndex(3));
 
 		hiZBuffer_.Resize(device, bindlessHeap, shaderCache, rootSignature_, pipelineStateObject_, nativeWidth, nativeHeight, geometryBuffer_.DepthShaderResourceViewIndex());
-		indicesSystem_->SetHiZIndex(hiZBuffer_.ShaderResourceViewIndex());
+		shaderResourceIndicesSystem_->SetHiZIndex(hiZBuffer_.ShaderResourceViewIndex());
 
 		debugDepthResizeBuffer_.Resize(device, bindlessHeap, shaderCache, rootSignature_, pipelineStateObject_, outputWidth, outputHeight);
 
 		selectionMaskRenderTargetViewHeap_.Create(device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 1);
 		selectionMaskFrameBuffer_->Resize(device, bindlessHeap, nativeWidth, nativeHeight);
-		indicesSystem_->SetSelectionMaskIndex(selectionMaskFrameBuffer_->ColorShaderResourceViewIndex());
+		shaderResourceIndicesSystem_->SetSelectionMaskIndex(selectionMaskFrameBuffer_->ColorShaderResourceViewIndex());
 
 		lightSystem_->Resize(device, bindlessHeap, nativeWidth, nativeHeight);
-		indicesSystem_->SetLightIndex(lightSystem_->GetIndex());
-		indicesSystem_->SetClusterConstantIndex(lightSystem_->GetClusterConstantIndex());
+		constantIndicesSystem_->SetLightIndex(lightSystem_->GetIndex());
+		constantIndicesSystem_->SetClusterAssignIndex(lightSystem_->GetClusterAssignIndex());
 
-		modelRenderer_->Resize(device, bindlessHeap, *indicesSystem_, nativeWidth, nativeHeight);
+		modelRenderer_->Resize(device, bindlessHeap, *constantIndicesSystem_, *unorderedAccessIndicesSystem_, nativeWidth, nativeHeight);
 		raytracingRenderer_->Resize(device, bindlessHeap, nativeWidth, nativeHeight);
 		timelineRenderer_->Resize(device, bindlessHeap, nativeWidth, nativeHeight);
 		modelTransformRenderer_->Resize(device, bindlessHeap, nativeWidth, nativeHeight);
@@ -185,7 +187,7 @@ namespace SeedCore
 		skeletonControllerRenderer_->Resize(device, bindlessHeap, nativeWidth, nativeHeight);
 		avatarRenderer_->Resize(device, bindlessHeap, nativeWidth, nativeHeight);
 		postProcessRenderer_->Resize(device, bindlessHeap, nativeWidth, nativeHeight, outputWidth, outputHeight);
-		dlssRayReconstructionRenderer_->Resize(device, bindlessHeap, *indicesSystem_, nativeWidth, nativeHeight, outputWidth, outputHeight);
+		dlssRayReconstructionRenderer_->Resize(device, bindlessHeap, *unorderedAccessIndicesSystem_, nativeWidth, nativeHeight, outputWidth, outputHeight);
 		taauUpsamplingRenderer_->Resize(device, bindlessHeap, outputWidth, outputHeight);
 	}
 
@@ -199,15 +201,107 @@ namespace SeedCore
 		return gpuProfiler_;
 	}
 
-	void Renderer::BeginEditorFrame(D3D12CommandList* cmdList)
+	void Renderer::PrepareFrame(D3D12CommandList* cmdList, LoaderSystem& loaderSystem, ResourceCache& resourceCache, World& world, const SceneConstantBuffer& scene, Float deltaTime, Entity selectedEntity)
 	{
 		ProfilerStats::Reset();
 
-		/// [JP] GPU プロファイラのフレーム境界。エンジンのフレームループは常に
-		///      EditorRender→GameRender→CanvasRender の順なので、ここが
-		///      「フレームの先頭」= 前フレームの resolve を積む場所になる。
+		/// [JP] GPU プロファイラのフレーム境界。PrepareFrame はどのビューより先に
+		///      1フレーム1回だけ走るので、ここが「フレームの先頭」= 前フレームの
+		///      resolve を積む場所になる。
 		gpuProfiler_.Advance(cmdList);
 
+		ModelResource* modelResource = resourceCache.GetModelResource();
+		MaterialResource* materialResource = resourceCache.GetMaterialResource();
+		AnimationResource* animationResource = resourceCache.GetAnimationResource();
+
+		constraintSystem_.Execute(world);
+		animationSystem_.Execute(world, loaderSystem, *animationResource, *modelResource);
+		constraintSystem_.Execute(world);
+
+		modelRenderer_->Gather(loaderSystem, *modelResource, *materialResource, *animationResource, world, scene, selectedEntity);
+		raytracingRenderer_->Gather(loaderSystem, *modelResource, world, *modelRenderer_);
+
+		ImageResource* imageResource = resourceCache.GetImageResource();
+		Vector2 gameDisplaySize = PostProcessOutputSize();
+		imageRenderer_->Gather(loaderSystem, *imageResource, world, gameDisplaySize, selectedEntity);
+
+		FontResource* fontResource = resourceCache.GetFontResource();
+		fontRenderer_->Gather(*fontResource, world, gameDisplaySize, selectedEntity);
+
+		MovieResource* movieResource = resourceCache.GetMovieResource();
+		movieRenderer_->Gather(*movieResource, world, gameDisplaySize, selectedEntity);
+
+		celestialResult_ = CelestialSystem::Compute(daySystem_, sunLight_, moonLight_);
+		Bool sunOverride = daySystemEnabled_ && sunLightEnabled_;
+		weatherState_ = WeatherSystem::ReadGpuState(world);
+		lightSystem_->Gather(loaderSystem, *modelResource, world, sunOverride ? &celestialResult_ : nullptr);
+
+		WeatherConstantBuffer weatherConstantBuffer{};
+		weatherConstantBuffer.wetness_ = weatherState_.wetness_;
+		weatherConstantBuffer.snowCoverage_ = weatherState_.snowCoverage_;
+		weatherConstantBuffer.thunderFlash_ = weatherState_.thunderFlash_;
+		weatherConstantBuffer.snowIntensity_ = weatherState_.snowIntensity_;
+		weatherConstantBuffer.thunderSeed_ = weatherState_.thunderSeed_;
+		weatherSystem_.Upload(device_, bindlessHeap_, weatherConstantBuffer);
+
+		lastCameraPosition_ = Vector3(scene.cameraPosition_.x, scene.cameraPosition_.y, scene.cameraPosition_.z);
+
+		skyRenderer_->Gather(loaderSystem, resourceCache, world);
+
+		postProcessRenderer_->Gather(world);
+
+		effekseerRenderer_->SetCamera(scene);
+
+		skyTotalTime_ += deltaTime;
+
+		constantIndicesSystem_->SetLightIndex(lightSystem_->GetIndex());
+		constantIndicesSystem_->SetClusterAssignIndex(lightSystem_->GetClusterAssignIndex());
+		constantIndicesSystem_->SetDirectionalLightIndex(lightSystem_->GetDirectionalLightIndex());
+		constantIndicesSystem_->SetWeatherIndex(weatherSystem_.GetIndex());
+		shaderResourceIndicesSystem_->SetLightIndices(lightSystem_->GetLightShaderResourceIndices());
+		shaderResourceIndicesSystem_->SetClusterAssignIndices(lightSystem_->GetClusterAssignShaderResourceIndices());
+		unorderedAccessIndicesSystem_->SetClusterAssignIndices(lightSystem_->GetClusterAssignUnorderedAccessIndices());
+
+		lightSystem_->Upload();
+		modelRenderer_->Upload();
+		imageRenderer_->Upload();
+		fontRenderer_->Upload();
+		movieRenderer_->Upload();
+
+		/// [EN] BLAS/TLAS build (and prepping every RT-effect renderer's per-frame
+		///      data, e.g. ShadowRenderer::PrepareFrame) has no G-Buffer
+		///      dependency, so it runs here, once per frame and before any view's
+		///      Upload bakes this frame's structured indices, which is where the
+		///      TLAS SRV index needs to already be set. The actual ray dispatches
+		///      run per view, once that view's G-Buffer depth/normal exist.
+		/// [JP] BLAS/TLAS 構築(および各 RT エフェクトレンダラーの毎フレームデータ
+		///      準備、例: ShadowRenderer::PrepareFrame)は G-Buffer に依存しない
+		///      ので、ここで1フレーム1回、どのビューの Upload が今フレームの
+		///      structured indices を確定するよりも前 — TLAS SRV インデックスが
+		///      既に設定済みである必要がある地点 — に実行する。実際のレイの
+		///      ディスパッチは、各ビューの G-Buffer の深度/法線ができた後に
+		///      ビューごとに行う。
+		raytracingRenderer_->Build(cmdList, device_, *modelRenderer_, deltaTime, celestialResult_.nightFactor_, lastCameraPosition_, skyTotalTime_, weatherState_);
+
+		/// [JP] 天候パーティクルのシミュレートは共有のワールド空間状態を進める
+		///      だけなので、フレームに1回(ここのみ)実行する。描画はビューごとに
+		///      別途行う。
+		ID3D12DescriptorHeap* heap = bindlessHeap_->Heap();
+		RootAddresses addresses{ shaderResourceIndicesSystem_->GameAddress(), unorderedAccessIndicesSystem_->GameAddress(), constantIndicesSystem_->GameConstantAddress() };
+
+		gpuProfiler_.Begin(cmdList, GpuProfileView::Game, GpuProfileScope::WeatherParticle);
+		raytracingRenderer_->SimulateWeatherParticles(cmdList, heap, addresses);
+		gpuProfiler_.End(cmdList, GpuProfileView::Game, GpuProfileScope::WeatherParticle);
+
+		gpuProfiler_.Begin(cmdList, GpuProfileView::Game, GpuProfileScope::SkyGenerate);
+		skyRenderer_->Generate(cmdList, heap, addresses);
+		gpuProfiler_.End(cmdList, GpuProfileView::Game, GpuProfileScope::SkyGenerate);
+
+		skyRenderer_->SetIndices(*constantIndicesSystem_, *shaderResourceIndicesSystem_, lightSystem_->GetDirectionalIntensity());
+	}
+
+	void Renderer::BeginEditorFrame(D3D12CommandList* cmdList)
+	{
 		editorFrameBuffer_->Begin(cmdList);
 		editorFrameBuffer_->Clear(cmdList);
 	}
@@ -216,12 +310,14 @@ namespace SeedCore
 	{
 		editorFrameBuffer_->End(cmdList);
 
+		RootAddresses addresses{ shaderResourceIndicesSystem_->EditorAddress(), unorderedAccessIndicesSystem_->EditorAddress(), constantIndicesSystem_->EditorConstantAddress() };
+
 		ID3D12Resource* postProcessSource = editorFrameBuffer_->ColorResource();
 
 		if (Gateway::GetDlssManager().RayReconstructionEnable())
 		{
 			gpuProfiler_.Begin(cmdList, GpuProfileView::Editor, GpuProfileScope::DlssRayReconstruction);
-			dlssRayReconstructionRenderer_->Dispatch(cmdList, bindlessHeap_->Heap(), indicesSystem_->EditorConstantAddress(), indicesSystem_->StructuredAddress(), RaytracingView::Editor, &Gateway::GetDlssManager(), scene, editorFrameBuffer_->ColorResource(), geometryBuffer_.DepthResource(), geometryBuffer_.ColorResource(2), nativeWidth_, nativeHeight_, upscaleMode_);
+			dlssRayReconstructionRenderer_->Dispatch(cmdList, bindlessHeap_->Heap(), addresses, RaytracingView::Editor, &Gateway::GetDlssManager(), scene, editorFrameBuffer_->ColorResource(), geometryBuffer_.DepthResource(), geometryBuffer_.ColorResource(2), nativeWidth_, nativeHeight_, upscaleMode_);
 			gpuProfiler_.End(cmdList, GpuProfileView::Editor, GpuProfileScope::DlssRayReconstruction);
 
 			postProcessSource = dlssRayReconstructionRenderer_->OutputResource(RaytracingView::Editor);
@@ -229,14 +325,14 @@ namespace SeedCore
 		else
 		{
 			gpuProfiler_.Begin(cmdList, GpuProfileView::Editor, GpuProfileScope::Taau);
-			taauUpsamplingRenderer_->Dispatch(cmdList, bindlessHeap_->Heap(), indicesSystem_->EditorConstantAddress(), indicesSystem_->StructuredAddress(), RaytracingView::Editor, geometryBuffer_.ColorResource(2), editorFrameBuffer_->ColorShaderResourceViewIndex(), geometryBuffer_.DepthShaderResourceViewIndex(), geometryBuffer_.ColorShaderResourceViewIndex(2), nativeWidth_, nativeHeight_);
+			taauUpsamplingRenderer_->Dispatch(cmdList, bindlessHeap_->Heap(), addresses, RaytracingView::Editor, geometryBuffer_.ColorResource(2), editorFrameBuffer_->ColorShaderResourceViewIndex(), geometryBuffer_.DepthShaderResourceViewIndex(), geometryBuffer_.ColorShaderResourceViewIndex(2), nativeWidth_, nativeHeight_);
 			gpuProfiler_.End(cmdList, GpuProfileView::Editor, GpuProfileScope::Taau);
 
 			postProcessSource = taauUpsamplingRenderer_->OutputResource(RaytracingView::Editor);
 		}
 
 		gpuProfiler_.Begin(cmdList, GpuProfileView::Editor, GpuProfileScope::PostProcess);
-		postProcessRenderer_->Dispatch(cmdList, bindlessHeap_->Heap(), indicesSystem_->EditorConstantAddress(), indicesSystem_->StructuredAddress(), RaytracingView::Editor, postProcessSource, true);
+		postProcessRenderer_->Dispatch(cmdList, bindlessHeap_->Heap(), addresses, RaytracingView::Editor, postProcessSource, true);
 		gpuProfiler_.End(cmdList, GpuProfileView::Editor, GpuProfileScope::PostProcess);
 
 		if (Gateway::GetDlssManager().DeepDVCEnable())
@@ -253,11 +349,11 @@ namespace SeedCore
 		D3D12_CPU_DESCRIPTOR_HANDLE debugRenderTargetView = postProcessRenderer_->OutputRenderTargetViewHandle(RaytracingView::Editor);
 		D3D12_VIEWPORT debugViewport = postProcessRenderer_->Viewport(RaytracingView::Editor);
 
-		debugDepthResizeBuffer_.Dispatch(cmdList, bindlessHeap_->Heap(), geometryBuffer_, nativeWidth_, nativeHeight_);
-		colliderRenderer_->Draw(cmdList, debugRenderTargetView, debugDepthResizeBuffer_.DepthStencilViewHandle(), debugViewport, bindlessHeap_->Heap(), indicesSystem_->EditorConstantAddress());
+		debugDepthResizeBuffer_.Dispatch(cmdList, bindlessHeap_->Heap(), geometryBuffer_, nativeWidth_, nativeHeight_, addresses);
+		colliderRenderer_->Draw(cmdList, debugRenderTargetView, debugDepthResizeBuffer_.DepthStencilViewHandle(), debugViewport, bindlessHeap_->Heap(), addresses);
 		geometryBuffer_.BeginDepth(cmdList);
 
-		outlineRenderer_->Draw(cmdList, debugRenderTargetView, debugViewport, bindlessHeap_->Heap(), indicesSystem_->EditorConstantAddress(), indicesSystem_->StructuredAddress());
+		outlineRenderer_->Draw(cmdList, debugRenderTargetView, debugViewport, bindlessHeap_->Heap(), addresses);
 
 		postProcessRenderer_->EndDebugOverlay(cmdList, RaytracingView::Editor);
 
@@ -274,12 +370,14 @@ namespace SeedCore
 	{
 		gameFrameBuffer_->End(cmdList);
 
+		RootAddresses addresses{ shaderResourceIndicesSystem_->GameAddress(), unorderedAccessIndicesSystem_->GameAddress(), constantIndicesSystem_->GameConstantAddress() };
+
 		ID3D12Resource* postProcessSource = gameFrameBuffer_->ColorResource();
 
 		if (Gateway::GetDlssManager().RayReconstructionEnable())
 		{
 			gpuProfiler_.Begin(cmdList, GpuProfileView::Game, GpuProfileScope::DlssRayReconstruction);
-			dlssRayReconstructionRenderer_->Dispatch(cmdList, bindlessHeap_->Heap(), indicesSystem_->GameConstantAddress(), indicesSystem_->StructuredAddress(), RaytracingView::Game, &Gateway::GetDlssManager(), scene, gameFrameBuffer_->ColorResource(), geometryBuffer_.DepthResource(), geometryBuffer_.ColorResource(2), nativeWidth_, nativeHeight_, upscaleMode_);
+			dlssRayReconstructionRenderer_->Dispatch(cmdList, bindlessHeap_->Heap(), addresses, RaytracingView::Game, &Gateway::GetDlssManager(), scene, gameFrameBuffer_->ColorResource(), geometryBuffer_.DepthResource(), geometryBuffer_.ColorResource(2), nativeWidth_, nativeHeight_, upscaleMode_);
 			gpuProfiler_.End(cmdList, GpuProfileView::Game, GpuProfileScope::DlssRayReconstruction);
 
 			postProcessSource = dlssRayReconstructionRenderer_->OutputResource(RaytracingView::Game);
@@ -287,14 +385,14 @@ namespace SeedCore
 		else
 		{
 			gpuProfiler_.Begin(cmdList, GpuProfileView::Game, GpuProfileScope::Taau);
-			taauUpsamplingRenderer_->Dispatch(cmdList, bindlessHeap_->Heap(), indicesSystem_->GameConstantAddress(), indicesSystem_->StructuredAddress(), RaytracingView::Game, geometryBuffer_.ColorResource(2), gameFrameBuffer_->ColorShaderResourceViewIndex(), geometryBuffer_.DepthShaderResourceViewIndex(), geometryBuffer_.ColorShaderResourceViewIndex(2), nativeWidth_, nativeHeight_);
+			taauUpsamplingRenderer_->Dispatch(cmdList, bindlessHeap_->Heap(), addresses, RaytracingView::Game, geometryBuffer_.ColorResource(2), gameFrameBuffer_->ColorShaderResourceViewIndex(), geometryBuffer_.DepthShaderResourceViewIndex(), geometryBuffer_.ColorShaderResourceViewIndex(2), nativeWidth_, nativeHeight_);
 			gpuProfiler_.End(cmdList, GpuProfileView::Game, GpuProfileScope::Taau);
 
 			postProcessSource = taauUpsamplingRenderer_->OutputResource(RaytracingView::Game);
 		}
 
 		gpuProfiler_.Begin(cmdList, GpuProfileView::Game, GpuProfileScope::PostProcess);
-		postProcessRenderer_->Dispatch(cmdList, bindlessHeap_->Heap(), indicesSystem_->GameConstantAddress(), indicesSystem_->StructuredAddress(), RaytracingView::Game, postProcessSource, true);
+		postProcessRenderer_->Dispatch(cmdList, bindlessHeap_->Heap(), addresses, RaytracingView::Game, postProcessSource, true);
 		gpuProfiler_.End(cmdList, GpuProfileView::Game, GpuProfileScope::PostProcess);
 
 		if (Gateway::GetDlssManager().DeepDVCEnable())
@@ -313,8 +411,6 @@ namespace SeedCore
 		D3D12_VIEWPORT gameDisplayViewport = postProcessRenderer_->Viewport(RaytracingView::Game);
 
 		ID3D12DescriptorHeap* spriteHeap = bindlessHeap_->Heap();
-		D3D12_GPU_VIRTUAL_ADDRESS spriteConstantAddr = indicesSystem_->GameConstantAddress();
-		D3D12_GPU_VIRTUAL_ADDRESS spriteStructuredAddr = indicesSystem_->StructuredAddress();
 
 		uiColorAlphaFrameBuffer_->Begin(cmdList);
 		uiColorAlphaFrameBuffer_->Clear(cmdList, 0.0f, 0.0f, 0.0f, 0.0f);
@@ -324,18 +420,15 @@ namespace SeedCore
 		D3D12_RECT uiColorAlphaScissorRect = { 0, 0, static_cast<LONG>(uiColorAlphaViewport.Width), static_cast<LONG>(uiColorAlphaViewport.Height) };
 		cmdList->Get()->RSSetScissorRects(1, &uiColorAlphaScissorRect);
 
-		imageRenderer_->Upload();
-		imageRenderer_->DrawSprite(cmdList->Get(), spriteHeap, spriteConstantAddr, spriteStructuredAddr);
-		imageRenderer_->DrawBillboard(cmdList->Get(), spriteHeap, spriteConstantAddr, spriteStructuredAddr);
+		imageRenderer_->DrawSprite(cmdList->Get(), spriteHeap, addresses);
+		imageRenderer_->DrawBillboard(cmdList->Get(), spriteHeap, addresses);
 
-		fontRenderer_->Upload();
-		fontRenderer_->DrawSprite(cmdList->Get(), spriteHeap, spriteConstantAddr, spriteStructuredAddr);
-		fontRenderer_->DrawBillboard(cmdList->Get(), spriteHeap, spriteConstantAddr, spriteStructuredAddr);
+		fontRenderer_->DrawSprite(cmdList->Get(), spriteHeap, addresses);
+		fontRenderer_->DrawBillboard(cmdList->Get(), spriteHeap, addresses);
 
-		movieRenderer_->Upload();
-		movieRenderer_->DrawBillboard(cmdList->Get(), spriteHeap, spriteConstantAddr, spriteStructuredAddr);
-		movieRenderer_->DrawSprite(cmdList->Get(), spriteHeap, spriteConstantAddr, spriteStructuredAddr);
-		movieRenderer_->DrawFullscreen(cmdList->Get(), spriteHeap, spriteConstantAddr, spriteStructuredAddr);
+		movieRenderer_->DrawBillboard(cmdList->Get(), spriteHeap, addresses);
+		movieRenderer_->DrawSprite(cmdList->Get(), spriteHeap, addresses);
+		movieRenderer_->DrawFullscreen(cmdList->Get(), spriteHeap, addresses);
 
 		uiColorAlphaFrameBuffer_->End(cmdList);
 
@@ -350,7 +443,7 @@ namespace SeedCore
 			Gateway::GetDlssManager().FrameGenerationTag(frameGenerationBufferTag, cmdList->Get(), hudlessBuffer_.ColorResource(), uiColorAlphaFrameBuffer_->ColorResource(), 1, static_cast<Uint32>(gameDisplayViewport.Width), static_cast<Uint32>(gameDisplayViewport.Height));
 		}
 
-		hudComposeRenderer_->Draw(cmdList, gameDisplayRenderTargetView, gameDisplayViewport, spriteHeap, spriteConstantAddr, spriteStructuredAddr);
+		hudComposeRenderer_->Draw(cmdList, gameDisplayRenderTargetView, gameDisplayViewport, spriteHeap, addresses);
 
 		postProcessRenderer_->EndDebugOverlay(cmdList, RaytracingView::Game);
 
@@ -418,47 +511,14 @@ namespace SeedCore
 		avatarRenderer_->End(cmdList);
 	}
 
-	void Renderer::GatherScenePreview(LoaderSystem& loaderSystem, ResourceCache& resourceCache, World& world, const SceneConstantBuffer& scene, const DynamicArray<ColliderInstance>& colliderInstances, Entity selectedEntity)
+	void Renderer::GatherColliders(const DynamicArray<ColliderStructuredBuffer>& colliderInstances)
 	{
 		colliderRenderer_->Clear();
-		for (const ColliderInstance& instance : colliderInstances)
+		for (const ColliderStructuredBuffer& instance : colliderInstances)
 		{
 			colliderRenderer_->AddInstance(static_cast<ColliderShapeKind>(instance.shapeKind_), instance.position_, instance.rotation_, instance.dimensions_, instance.color_);
 		}
-
-		ModelResource* modelResource = resourceCache.GetModelResource();
-		MaterialResource* materialResource = resourceCache.GetMaterialResource();
-		AnimationResource* animationResource = resourceCache.GetAnimationResource();
-
-		constraintSystem_.Execute(world);
-		animationSystem_.Execute(world, loaderSystem, *animationResource, *modelResource);
-		constraintSystem_.Execute(world);
-
-		modelRenderer_->Gather(loaderSystem, *modelResource, *materialResource, *animationResource, world, scene, selectedEntity);
-		raytracingRenderer_->Gather(loaderSystem, *modelResource, world, *modelRenderer_);
-
-		ImageResource* imageResource = resourceCache.GetImageResource();
-		Vector2 gameDisplaySize = PostProcessOutputSize();
-		imageRenderer_->Gather(loaderSystem, *imageResource, world, gameDisplaySize, selectedEntity);
-
-		FontResource* fontResource = resourceCache.GetFontResource();
-		fontRenderer_->Gather(*fontResource, world, gameDisplaySize, selectedEntity);
-
-		MovieResource* movieResource = resourceCache.GetMovieResource();
-		movieRenderer_->Gather(*movieResource, world, gameDisplaySize, selectedEntity);
-
-		celestialResult_ = CelestialSystem::Compute(daySystem_, sunLight_, moonLight_);
-		Bool sunOverride = daySystemEnabled_ && sunLightEnabled_;
-		weatherState_ = WeatherSystem::ReadGpuState(world);
-		lightSystem_->Gather(loaderSystem, *modelResource, world, sunOverride ? &celestialResult_ : nullptr, &weatherState_);
-
-		lastCameraPosition_ = Vector3(scene.cameraPosition_.x, scene.cameraPosition_.y, scene.cameraPosition_.z);
-
-		skyRenderer_->Gather(loaderSystem, resourceCache, world);
-
-		postProcessRenderer_->Gather(world);
-
-		effekseerRenderer_->SetCamera(scene);
+		colliderRenderer_->Upload();
 	}
 
 	void Renderer::GatherTimelinePreview(LoaderSystem& loaderSystem, ResourceCache& resourceCache, Uint32 meshAssetId, Uint32 animationAssetId, Float time, const Matrix& worldMatrix)
@@ -489,9 +549,9 @@ namespace SeedCore
 		skeletonControllerRenderer_->Gather(loaderSystem, *modelResource, *animationResource, meshAssetId, animationAssetId, time, worldMatrix, selectedNodeIndex);
 	}
 
-	void Renderer::GatherAvatarPreview(const AvatarMesh& mesh, const HumanCharacterEvaluator& evaluator, const Matrix& worldMatrix)
+	void Renderer::GatherAvatarPreview(const AvatarMesh& mesh, Uint32 boneCount, const Matrix& worldMatrix, std::span<const Uint32> regionTextureIndices)
 	{
-		avatarRenderer_->Gather(mesh, evaluator, worldMatrix);
+		avatarRenderer_->Gather(mesh, boneCount, worldMatrix, regionTextureIndices);
 	}
 
 	void Renderer::Raytracing(const RaytracingContext& settings)
@@ -520,40 +580,18 @@ namespace SeedCore
 			hash = (hash ^ bytes[byteIndex]) * 16777619u;
 		}
 
-		/// [JP] 時刻(風スクロール)は EditorFlush で蓄積した skyTotalTime_ を渡す
+		/// [JP] 時刻(風スクロール)は PrepareFrame で蓄積した skyTotalTime_ を渡す
 		///      (1フレーム遅れだが定期リフレッシュ間隔からすれば誤差)。
 		skyRenderer_->SetProceduralSky(settings.volumetricCloudScapesEnabled_, hash, lightSystem_ ? lightSystem_->GetIndex() : 0, skyTotalTime_);
 	}
 
-	void Renderer::EditorFlush(D3D12CommandList* cmdList, SceneSystem* sceneSystem, Float deltaTime, ViewMode viewMode)
+	void Renderer::EditorFlush(D3D12CommandList* cmdList, SceneSystem* sceneSystem, ViewMode viewMode)
 	{
-		skyTotalTime_ += deltaTime;
-
 		ID3D12DescriptorHeap* heap = bindlessHeap_->Heap();
-		D3D12_GPU_VIRTUAL_ADDRESS constantAddr = indicesSystem_->EditorConstantAddress();
-		D3D12_GPU_VIRTUAL_ADDRESS structuredAddr = indicesSystem_->StructuredAddress();
 
-		indicesSystem_->SetEditorViewMode(static_cast<Uint>(viewMode));
-		indicesSystem_->SetEditorSceneIndex(sceneSystem->GetIndex());
-		indicesSystem_->SetLightIndex(lightSystem_->GetIndex());
-		indicesSystem_->SetClusterConstantIndex(lightSystem_->GetClusterConstantIndex());
-		skyRenderer_->SetIndices(*indicesSystem_, lightSystem_->GetDirectionalIntensity());
-		lightSystem_->Upload();
-		modelRenderer_->Upload();
+		constantIndicesSystem_->SetEditorSceneIndex(sceneSystem->GetIndex());
 
-		/// [EN] BLAS/TLAS build (and prepping every RT-effect renderer's per-frame
-		///      data, e.g. ShadowRenderer::PrepareFrame) has no G-Buffer
-		///      dependency, so it can run here — before UploadEditor bakes this
-		///      frame's structured indices, which is where the TLAS SRV index
-		///      needs to already be set. The actual shadow ray dispatch runs
-		///      later, once the G-Buffer's depth/normal exist (see below).
-		/// [JP] BLAS/TLAS 構築(および各 RT エフェクトレンダラーの毎フレームデータ
-		///      準備、例: ShadowRenderer::PrepareFrame)は G-Buffer に依存しない
-		///      ので、UploadEditor が今フレームの structured indices を確定する
-		///      前 — TLAS SRV インデックスが既に設定済みである必要がある地点 —
-		///      でここで実行できる。実際のシャドウレイディスパッチは、G-Buffer
-		///      の深度/法線が存在するようになった後で行う（下記参照）。
-		raytracingRenderer_->Build(cmdList, device_, *modelRenderer_, deltaTime, celestialResult_.nightFactor_, lastCameraPosition_, skyTotalTime_, weatherState_);
+		RootAddresses addresses{ shaderResourceIndicesSystem_->EditorAddress(), unorderedAccessIndicesSystem_->EditorAddress(), constantIndicesSystem_->EditorConstantAddress() };
 
 		Uint32 editorPostProcessSourceColorIndex;
 		if (Gateway::GetDlssManager().RayReconstructionEnable())
@@ -565,16 +603,18 @@ namespace SeedCore
 			taauUpsamplingRenderer_->PrepareView(RaytracingView::Editor);
 			editorPostProcessSourceColorIndex = taauUpsamplingRenderer_->OutputShaderResourceViewIndex(RaytracingView::Editor);
 		}
-		postProcessRenderer_->PrepareView(*indicesSystem_, RaytracingView::Editor, editorPostProcessSourceColorIndex, true);
+		postProcessRenderer_->PrepareView(*constantIndicesSystem_, *shaderResourceIndicesSystem_, *unorderedAccessIndicesSystem_, RaytracingView::Editor, editorPostProcessSourceColorIndex, true);
 
-		indicesSystem_->UploadEditor();
+		constantIndicesSystem_->UploadEditor();
+		shaderResourceIndicesSystem_->UploadEditor();
+		unorderedAccessIndicesSystem_->UploadEditor();
 
 		const GpuProfileView profileView = GpuProfileView::Editor;
 
 		gpuProfiler_.Begin(cmdList, profileView, GpuProfileScope::DepthPrepass);
 		geometryBuffer_.BeginDepthOnly(cmdList);
 		geometryBuffer_.ClearDepth(cmdList);
-		modelRenderer_->DrawDepthPrepass(cmdList, heap, constantAddr, structuredAddr);
+		modelRenderer_->DrawDepthPrepass(cmdList, heap, addresses);
 		gpuProfiler_.End(cmdList, profileView, GpuProfileScope::DepthPrepass);
 
 		/// [EN] Build the Hi-Z pyramid from the prepass depth so the G-Buffer
@@ -582,13 +622,13 @@ namespace SeedCore
 		/// [JP] プリパス深度から Hi-Z ピラミッドを構築し、G-Buffer パスと
 		///      透過パスがオクルージョンカリングに使えるようにする。
 		gpuProfiler_.Begin(cmdList, profileView, GpuProfileScope::HiZBuild);
-		hiZBuffer_.Build(cmdList, geometryBuffer_, heap);
+		hiZBuffer_.Build(cmdList, geometryBuffer_, heap, addresses);
 		gpuProfiler_.End(cmdList, profileView, GpuProfileScope::HiZBuild);
 
 		gpuProfiler_.Begin(cmdList, profileView, GpuProfileScope::GeometryBuffer);
 		geometryBuffer_.BeginVisibility(cmdList);
 		geometryBuffer_.ClearVisibility(cmdList);
-		modelRenderer_->DrawOpaque(cmdList, heap, constantAddr, structuredAddr);
+		modelRenderer_->DrawOpaque(cmdList, heap, addresses);
 		geometryBuffer_.End(cmdList);
 		gpuProfiler_.End(cmdList, profileView, GpuProfileScope::GeometryBuffer);
 
@@ -623,9 +663,7 @@ namespace SeedCore
 				ID3D12DescriptorHeap* heaps[] = { heap };
 				cmd->SetDescriptorHeaps(_countof(heaps), heaps);
 				cmd->SetComputeRootSignature(materialResolveShader_->GetRootSignature());
-				cmd->SetComputeRootDescriptorTable(0, bindlessHeap_->GPUHandle(0));
-				cmd->SetComputeRootConstantBufferView(2, constantAddr);
-				cmd->SetComputeRootConstantBufferView(3, structuredAddr);
+				RootSignature::BindCompute(cmd, addresses);
 
 				/// [JP] パス1/4: バケットごとのピクセル数を数える。全画面走査する
 				///      唯一のパスなので、背景ピクセルのRT0-3ゼロ書きもここで行う。
@@ -661,7 +699,7 @@ namespace SeedCore
 		gpuProfiler_.End(cmdList, profileView, GpuProfileScope::MaterialResolve);
 
 		gpuProfiler_.Begin(cmdList, profileView, GpuProfileScope::LightCluster);
-		lightSystem_->DispatchCluster(cmdList, heap, constantAddr, structuredAddr);
+		lightSystem_->DispatchCluster(cmdList, heap, addresses);
 		gpuProfiler_.End(cmdList, profileView, GpuProfileScope::LightCluster);
 
 		/// [JP] G-Buffer の深度/法線と、このビューのクラスタライトリスト
@@ -669,51 +707,40 @@ namespace SeedCore
 		///      ので、シャドウレイをディスパッチする。クラスタより前に走らせる
 		///      と前フレーム(しかも別ビュー)のライトリストを読んでしまう。
 		gpuProfiler_.Begin(cmdList, profileView, GpuProfileScope::RaytraceShadow);
-		raytracingRenderer_->DispatchShadow(cmdList, heap, constantAddr, structuredAddr, RaytracingView::Editor);
+		raytracingRenderer_->DispatchShadow(cmdList, heap, addresses, RaytracingView::Editor);
 		gpuProfiler_.End(cmdList, profileView, GpuProfileScope::RaytraceShadow);
 
 		gpuProfiler_.Begin(cmdList, profileView, GpuProfileScope::RaytraceAmbientOcclusion);
-		raytracingRenderer_->DispatchAmbientOcclusion(cmdList, heap, constantAddr, structuredAddr, RaytracingView::Editor);
+		raytracingRenderer_->DispatchAmbientOcclusion(cmdList, heap, addresses, RaytracingView::Editor);
 		gpuProfiler_.End(cmdList, profileView, GpuProfileScope::RaytraceAmbientOcclusion);
 
 		gpuProfiler_.Begin(cmdList, profileView, GpuProfileScope::RaytraceSubsurfaceScattering);
-		raytracingRenderer_->DispatchSubsurfaceScattering(cmdList, heap, constantAddr, structuredAddr);
+		raytracingRenderer_->DispatchSubsurfaceScattering(cmdList, heap, addresses);
 		gpuProfiler_.End(cmdList, profileView, GpuProfileScope::RaytraceSubsurfaceScattering);
 
 		gpuProfiler_.Begin(cmdList, profileView, GpuProfileScope::RaytraceReflection);
-		raytracingRenderer_->DispatchReflection(cmdList, heap, constantAddr, structuredAddr, RaytracingView::Editor);
+		raytracingRenderer_->DispatchReflection(cmdList, heap, addresses, RaytracingView::Editor);
 		gpuProfiler_.End(cmdList, profileView, GpuProfileScope::RaytraceReflection);
 
 		gpuProfiler_.Begin(cmdList, profileView, GpuProfileScope::RaytraceRefraction);
-		raytracingRenderer_->DispatchRefraction(cmdList, heap, constantAddr, structuredAddr);
+		raytracingRenderer_->DispatchRefraction(cmdList, heap, addresses);
 		gpuProfiler_.End(cmdList, profileView, GpuProfileScope::RaytraceRefraction);
 
 		gpuProfiler_.Begin(cmdList, profileView, GpuProfileScope::RaytraceGlobalIllumination);
-		raytracingRenderer_->DispatchGlobalIllumination(cmdList, heap, constantAddr, structuredAddr, RaytracingView::Editor);
+		raytracingRenderer_->DispatchGlobalIllumination(cmdList, heap, addresses, RaytracingView::Editor);
 		gpuProfiler_.End(cmdList, profileView, GpuProfileScope::RaytraceGlobalIllumination);
 
 		gpuProfiler_.Begin(cmdList, profileView, GpuProfileScope::VolumetricCloudScapes);
-		raytracingRenderer_->DispatchVolumetricCloudScapes(cmdList, heap, constantAddr, structuredAddr);
+		raytracingRenderer_->DispatchVolumetricCloudScapes(cmdList, heap, addresses);
 		gpuProfiler_.End(cmdList, profileView, GpuProfileScope::VolumetricCloudScapes);
 
 		gpuProfiler_.Begin(cmdList, profileView, GpuProfileScope::VolumetricStar);
-		raytracingRenderer_->DispatchVolumetricStar(cmdList, heap, constantAddr, structuredAddr);
+		raytracingRenderer_->DispatchVolumetricStar(cmdList, heap, addresses);
 		gpuProfiler_.End(cmdList, profileView, GpuProfileScope::VolumetricStar);
 
-		/// [JP] 天候パーティクルのシミュレートは共有のワールド空間状態を進める
-		///      だけなので、フレームに1回(EditorFlushのみ)実行する。描画は
-		///      ビューごとに別途行う(下の DrawTransparent 付近参照)。
-		gpuProfiler_.Begin(cmdList, profileView, GpuProfileScope::WeatherParticle);
-		raytracingRenderer_->SimulateWeatherParticles(cmdList, heap, constantAddr, structuredAddr);
-		gpuProfiler_.End(cmdList, profileView, GpuProfileScope::WeatherParticle);
-
 		gpuProfiler_.Begin(cmdList, profileView, GpuProfileScope::VolumetricLight);
-		raytracingRenderer_->DispatchVolumetricLight(cmdList, heap, constantAddr, structuredAddr);
+		raytracingRenderer_->DispatchVolumetricLight(cmdList, heap, addresses, RaytracingView::Editor);
 		gpuProfiler_.End(cmdList, profileView, GpuProfileScope::VolumetricLight);
-
-		gpuProfiler_.Begin(cmdList, profileView, GpuProfileScope::SkyGenerate);
-		skyRenderer_->Generate(cmdList, heap, structuredAddr);
-		gpuProfiler_.End(cmdList, profileView, GpuProfileScope::SkyGenerate);
 
 		/// [JP] ワイヤーフレーム / メッシュレット表示: Lit 合成と透明を飛ばし、
 		///      クリア済みフレームバッファにデバッグ描画だけを行う（シーン深度で遮蔽）。
@@ -721,21 +748,22 @@ namespace SeedCore
 		if (viewMode == ViewMode::Wireframe)
 		{
 			geometryBuffer_.BeginDepth(cmdList);
-			modelRenderer_->DrawWireframe(cmdList, editorFrameBuffer_.get(), &geometryBuffer_, heap, constantAddr, structuredAddr);
+			modelRenderer_->DrawWireframe(cmdList, editorFrameBuffer_.get(), &geometryBuffer_, heap, addresses);
 			geometryBuffer_.EndDepth(cmdList);
 		}
 		else if (viewMode == ViewMode::Meshlet)
 		{
 			geometryBuffer_.BeginDepth(cmdList);
-			modelRenderer_->DrawMeshlet(cmdList, editorFrameBuffer_.get(), &geometryBuffer_, heap, constantAddr, structuredAddr);
+			modelRenderer_->DrawMeshlet(cmdList, editorFrameBuffer_.get(), &geometryBuffer_, heap, addresses);
 			geometryBuffer_.EndDepth(cmdList);
 		}
 		else
 		{
-			modelRenderer_->Compose(cmdList, editorFrameBuffer_.get(), heap, constantAddr, structuredAddr);
+			modelRenderer_->Compose(cmdList, editorFrameBuffer_.get(), heap, addresses);
 
 			geometryBuffer_.BeginDepth(cmdList);
-			modelRenderer_->DrawTransparent(cmdList, editorFrameBuffer_.get(), &geometryBuffer_, heap, constantAddr, structuredAddr);
+			modelRenderer_->DrawTransparent(cmdList, editorFrameBuffer_.get(), &geometryBuffer_, heap, addresses);
+			modelRenderer_->DrawFurShell(cmdList, heap, addresses);
 
 			/// [JP] 雨/雪パーティクル: 不透明合成+透明の後、既存の深度に対して
 			///      画素単位で遮蔽判定しながら加算合成する。DrawTransparent が
@@ -743,7 +771,7 @@ namespace SeedCore
 			///      (下のコライダーデバッグ描画と同じ作法)。
 			gpuProfiler_.Begin(cmdList, profileView, GpuProfileScope::WeatherParticle);
 			geometryBuffer_.BeginDepth(cmdList);
-			raytracingRenderer_->DrawWeatherParticles(cmdList, editorFrameBuffer_.get(), &geometryBuffer_, heap, constantAddr, structuredAddr);
+			raytracingRenderer_->DrawWeatherParticles(cmdList, editorFrameBuffer_.get(), &geometryBuffer_, heap, addresses);
 			geometryBuffer_.EndDepth(cmdList);
 			gpuProfiler_.End(cmdList, profileView, GpuProfileScope::WeatherParticle);
 		}
@@ -775,24 +803,21 @@ namespace SeedCore
 		///      CanvasFlush 側で同じマスクを使い回して行う。
 		selectionMaskFrameBuffer_->Begin(cmdList);
 		selectionMaskFrameBuffer_->Clear(cmdList, 0.0f, 0.0f, 0.0f, 0.0f);
-		modelRenderer_->DrawSelectionMask(cmdList, heap, constantAddr, structuredAddr);
-		imageRenderer_->DrawSelectionMaskBillboard(cmdList->Get(), heap, constantAddr, structuredAddr);
-		fontRenderer_->DrawSelectionMaskBillboard(cmdList->Get(), heap, constantAddr, structuredAddr);
-		movieRenderer_->DrawSelectionMaskBillboard(cmdList->Get(), heap, constantAddr, structuredAddr);
+		modelRenderer_->DrawSelectionMask(cmdList, heap, addresses);
+		imageRenderer_->DrawSelectionMaskBillboard(cmdList->Get(), heap, addresses);
+		fontRenderer_->DrawSelectionMaskBillboard(cmdList->Get(), heap, addresses);
+		movieRenderer_->DrawSelectionMaskBillboard(cmdList->Get(), heap, addresses);
 		selectionMaskFrameBuffer_->End(cmdList);
 
-		imageRenderer_->Upload();
-		imageRenderer_->DrawBillboard(cmdList->Get(), heap, constantAddr, structuredAddr);
+		imageRenderer_->DrawBillboard(cmdList->Get(), heap, addresses);
 
 		/// [JP] Font の Billboard（3D ワールドテキスト）のみ。Sprite（2D UI テキスト）は
 		///      Canvas/Game 専用なのでここでは描かない。
-		fontRenderer_->Upload();
-		fontRenderer_->DrawBillboard(cmdList->Get(), heap, constantAddr, structuredAddr);
+		fontRenderer_->DrawBillboard(cmdList->Get(), heap, addresses);
 
 		/// [JP] Movie の Billboard（3D ワールド動画）のみ。Sprite/Fullscreen は
 		///      Canvas/Game 専用なのでここでは描かない。
-		movieRenderer_->Upload();
-		movieRenderer_->DrawBillboard(cmdList->Get(), heap, constantAddr, structuredAddr);
+		movieRenderer_->DrawBillboard(cmdList->Get(), heap, addresses);
 	}
 
 	void Renderer::GameFlush(D3D12CommandList* cmdList, SceneSystem* sceneSystem, Float deltaTime, Bool hasActiveCamera)
@@ -803,12 +828,7 @@ namespace SeedCore
 		///      hasActiveCamera で丸ごとスキップすると、後続のResize()で破棄
 		///      済みとなったリソースのindexを読み続け、遅延回収リングが実際に
 		///      解放した時点でフォルトする。
-		indicesSystem_->SetGameSceneIndex(sceneSystem->GetIndex());
-		indicesSystem_->SetLightIndex(lightSystem_->GetIndex());
-		indicesSystem_->SetClusterConstantIndex(lightSystem_->GetClusterConstantIndex());
-		skyRenderer_->SetIndices(*indicesSystem_, lightSystem_->GetDirectionalIntensity());
-		lightSystem_->Upload();
-		modelRenderer_->Upload();
+		constantIndicesSystem_->SetGameSceneIndex(sceneSystem->GetIndex());
 		Uint32 gamePostProcessSourceColorIndex;
 		if (Gateway::GetDlssManager().RayReconstructionEnable())
 		{
@@ -819,8 +839,10 @@ namespace SeedCore
 			taauUpsamplingRenderer_->PrepareView(RaytracingView::Game);
 			gamePostProcessSourceColorIndex = taauUpsamplingRenderer_->OutputShaderResourceViewIndex(RaytracingView::Game);
 		}
-		postProcessRenderer_->PrepareView(*indicesSystem_, RaytracingView::Game, gamePostProcessSourceColorIndex, true);
-		indicesSystem_->UploadGame();
+		postProcessRenderer_->PrepareView(*constantIndicesSystem_, *shaderResourceIndicesSystem_, *unorderedAccessIndicesSystem_, RaytracingView::Game, gamePostProcessSourceColorIndex, true);
+		constantIndicesSystem_->UploadGame();
+		shaderResourceIndicesSystem_->UploadGame();
+		unorderedAccessIndicesSystem_->UploadGame();
 
 		if (!hasActiveCamera)
 		{
@@ -828,25 +850,24 @@ namespace SeedCore
 		}
 
 		ID3D12DescriptorHeap* heap = bindlessHeap_->Heap();
-		D3D12_GPU_VIRTUAL_ADDRESS constantAddr = indicesSystem_->GameConstantAddress();
-		D3D12_GPU_VIRTUAL_ADDRESS structuredAddr = indicesSystem_->StructuredAddress();
+		RootAddresses addresses{ shaderResourceIndicesSystem_->GameAddress(), unorderedAccessIndicesSystem_->GameAddress(), constantIndicesSystem_->GameConstantAddress() };
 
 		const GpuProfileView profileView = GpuProfileView::Game;
 
 		gpuProfiler_.Begin(cmdList, profileView, GpuProfileScope::DepthPrepass);
 		geometryBuffer_.BeginDepthOnly(cmdList);
 		geometryBuffer_.ClearDepth(cmdList);
-		modelRenderer_->DrawDepthPrepass(cmdList, heap, constantAddr, structuredAddr);
+		modelRenderer_->DrawDepthPrepass(cmdList, heap, addresses);
 		gpuProfiler_.End(cmdList, profileView, GpuProfileScope::DepthPrepass);
 
 		gpuProfiler_.Begin(cmdList, profileView, GpuProfileScope::HiZBuild);
-		hiZBuffer_.Build(cmdList, geometryBuffer_, heap);
+		hiZBuffer_.Build(cmdList, geometryBuffer_, heap, addresses);
 		gpuProfiler_.End(cmdList, profileView, GpuProfileScope::HiZBuild);
 
 		gpuProfiler_.Begin(cmdList, profileView, GpuProfileScope::GeometryBuffer);
 		geometryBuffer_.BeginVisibility(cmdList);
 		geometryBuffer_.ClearVisibility(cmdList);
-		modelRenderer_->DrawOpaque(cmdList, heap, constantAddr, structuredAddr);
+		modelRenderer_->DrawOpaque(cmdList, heap, addresses);
 		geometryBuffer_.End(cmdList);
 		gpuProfiler_.End(cmdList, profileView, GpuProfileScope::GeometryBuffer);
 
@@ -874,9 +895,7 @@ namespace SeedCore
 				ID3D12DescriptorHeap* heaps[] = { heap };
 				cmd->SetDescriptorHeaps(_countof(heaps), heaps);
 				cmd->SetComputeRootSignature(materialResolveShader_->GetRootSignature());
-				cmd->SetComputeRootDescriptorTable(0, bindlessHeap_->GPUHandle(0));
-				cmd->SetComputeRootConstantBufferView(2, constantAddr);
-				cmd->SetComputeRootConstantBufferView(3, structuredAddr);
+				RootSignature::BindCompute(cmd, addresses);
 
 				cmd->SetPipelineState(classifyPipelineState);
 				cmd->Dispatch((nativeWidth_ + 7) / 8, (nativeHeight_ + 7) / 8, 1);
@@ -907,68 +926,64 @@ namespace SeedCore
 		gpuProfiler_.End(cmdList, profileView, GpuProfileScope::MaterialResolve);
 
 		gpuProfiler_.Begin(cmdList, profileView, GpuProfileScope::LightCluster);
-		lightSystem_->DispatchCluster(cmdList, heap, constantAddr, structuredAddr);
+		lightSystem_->DispatchCluster(cmdList, heap, addresses);
 		gpuProfiler_.End(cmdList, profileView, GpuProfileScope::LightCluster);
 
-		/// [JP] TLAS 自体はビュー非依存（同じ 3D シーン）なので EditorFlush で
-		///      毎フレーム 1 回だけ構築済み（Engine のフレームループは常に
-		///      EditorRender→GameRender→CanvasRender の順）。ここでは Game
-		///      カメラの G-Buffer とクラスタライトリストに対してシャドウレイの
-		///      ディスパッチだけ行う（Editor 側と同じくクラスタの後）。
+		/// [JP] TLAS 自体はビュー非依存（同じ 3D シーン）なので PrepareFrame で
+		///      毎フレーム 1 回だけ構築済み。ここでは Game カメラの G-Buffer と
+		///      クラスタライトリストに対してシャドウレイのディスパッチだけ行う
+		///      （Editor 側と同じくクラスタの後）。
 		gpuProfiler_.Begin(cmdList, profileView, GpuProfileScope::RaytraceShadow);
-		raytracingRenderer_->DispatchShadow(cmdList, heap, constantAddr, structuredAddr, RaytracingView::Game);
+		raytracingRenderer_->DispatchShadow(cmdList, heap, addresses, RaytracingView::Game);
 		gpuProfiler_.End(cmdList, profileView, GpuProfileScope::RaytraceShadow);
 
 		gpuProfiler_.Begin(cmdList, profileView, GpuProfileScope::RaytraceAmbientOcclusion);
-		raytracingRenderer_->DispatchAmbientOcclusion(cmdList, heap, constantAddr, structuredAddr, RaytracingView::Game);
+		raytracingRenderer_->DispatchAmbientOcclusion(cmdList, heap, addresses, RaytracingView::Game);
 		gpuProfiler_.End(cmdList, profileView, GpuProfileScope::RaytraceAmbientOcclusion);
 
 		gpuProfiler_.Begin(cmdList, profileView, GpuProfileScope::RaytraceSubsurfaceScattering);
-		raytracingRenderer_->DispatchSubsurfaceScattering(cmdList, heap, constantAddr, structuredAddr);
+		raytracingRenderer_->DispatchSubsurfaceScattering(cmdList, heap, addresses);
 		gpuProfiler_.End(cmdList, profileView, GpuProfileScope::RaytraceSubsurfaceScattering);
 
 		gpuProfiler_.Begin(cmdList, profileView, GpuProfileScope::RaytraceReflection);
-		raytracingRenderer_->DispatchReflection(cmdList, heap, constantAddr, structuredAddr, RaytracingView::Game);
+		raytracingRenderer_->DispatchReflection(cmdList, heap, addresses, RaytracingView::Game);
 		gpuProfiler_.End(cmdList, profileView, GpuProfileScope::RaytraceReflection);
 
 		gpuProfiler_.Begin(cmdList, profileView, GpuProfileScope::RaytraceRefraction);
-		raytracingRenderer_->DispatchRefraction(cmdList, heap, constantAddr, structuredAddr);
+		raytracingRenderer_->DispatchRefraction(cmdList, heap, addresses);
 		gpuProfiler_.End(cmdList, profileView, GpuProfileScope::RaytraceRefraction);
 
 		gpuProfiler_.Begin(cmdList, profileView, GpuProfileScope::RaytraceGlobalIllumination);
-		raytracingRenderer_->DispatchGlobalIllumination(cmdList, heap, constantAddr, structuredAddr, RaytracingView::Game);
+		raytracingRenderer_->DispatchGlobalIllumination(cmdList, heap, addresses, RaytracingView::Game);
 		gpuProfiler_.End(cmdList, profileView, GpuProfileScope::RaytraceGlobalIllumination);
 
 		gpuProfiler_.Begin(cmdList, profileView, GpuProfileScope::VolumetricCloudScapes);
-		raytracingRenderer_->DispatchVolumetricCloudScapes(cmdList, heap, constantAddr, structuredAddr);
+		raytracingRenderer_->DispatchVolumetricCloudScapes(cmdList, heap, addresses);
 		gpuProfiler_.End(cmdList, profileView, GpuProfileScope::VolumetricCloudScapes);
 
 		gpuProfiler_.Begin(cmdList, profileView, GpuProfileScope::VolumetricStar);
-		raytracingRenderer_->DispatchVolumetricStar(cmdList, heap, constantAddr, structuredAddr);
+		raytracingRenderer_->DispatchVolumetricStar(cmdList, heap, addresses);
 		gpuProfiler_.End(cmdList, profileView, GpuProfileScope::VolumetricStar);
 
 		gpuProfiler_.Begin(cmdList, profileView, GpuProfileScope::VolumetricLight);
-		raytracingRenderer_->DispatchVolumetricLight(cmdList, heap, constantAddr, structuredAddr);
+		raytracingRenderer_->DispatchVolumetricLight(cmdList, heap, addresses, RaytracingView::Game);
 		gpuProfiler_.End(cmdList, profileView, GpuProfileScope::VolumetricLight);
 
-		gpuProfiler_.Begin(cmdList, profileView, GpuProfileScope::SkyGenerate);
-		skyRenderer_->Generate(cmdList, heap, structuredAddr);
-		gpuProfiler_.End(cmdList, profileView, GpuProfileScope::SkyGenerate);
-
 		gpuProfiler_.Begin(cmdList, profileView, GpuProfileScope::Composite);
-		modelRenderer_->Compose(cmdList, gameFrameBuffer_.get(), heap, constantAddr, structuredAddr);
+		modelRenderer_->Compose(cmdList, gameFrameBuffer_.get(), heap, addresses);
 		gpuProfiler_.End(cmdList, profileView, GpuProfileScope::Composite);
 
 		gpuProfiler_.Begin(cmdList, profileView, GpuProfileScope::Transparent);
 		geometryBuffer_.BeginDepth(cmdList);
-		modelRenderer_->DrawTransparent(cmdList, gameFrameBuffer_.get(), &geometryBuffer_, heap, constantAddr, structuredAddr);
+		modelRenderer_->DrawTransparent(cmdList, gameFrameBuffer_.get(), &geometryBuffer_, heap, addresses);
+		modelRenderer_->DrawFurShell(cmdList, heap, addresses);
 		gpuProfiler_.End(cmdList, profileView, GpuProfileScope::Transparent);
 
 		/// [JP] 雨/雪パーティクル(EditorFlushと同じ作法、DrawTransparent が
 		///      自分で EndDepth 済みなので改めて Begin/End する)。
 		gpuProfiler_.Begin(cmdList, profileView, GpuProfileScope::WeatherParticle);
 		geometryBuffer_.BeginDepth(cmdList);
-		raytracingRenderer_->DrawWeatherParticles(cmdList, gameFrameBuffer_.get(), &geometryBuffer_, heap, constantAddr, structuredAddr);
+		raytracingRenderer_->DrawWeatherParticles(cmdList, gameFrameBuffer_.get(), &geometryBuffer_, heap, addresses);
 		geometryBuffer_.EndDepth(cmdList);
 		gpuProfiler_.End(cmdList, profileView, GpuProfileScope::WeatherParticle);
 
@@ -979,30 +994,28 @@ namespace SeedCore
 	void Renderer::CanvasFlush(D3D12CommandList* cmdList, SceneSystem* sceneSystem)
 	{
 		ID3D12DescriptorHeap* heap = bindlessHeap_->Heap();
-		D3D12_GPU_VIRTUAL_ADDRESS constantAddr = indicesSystem_->CanvasConstantAddress();
-		D3D12_GPU_VIRTUAL_ADDRESS structuredAddr = indicesSystem_->StructuredAddress();
+		RootAddresses addresses{ shaderResourceIndicesSystem_->CanvasAddress(), unorderedAccessIndicesSystem_->CanvasAddress(), constantIndicesSystem_->CanvasConstantAddress() };
 
-		indicesSystem_->SetCanvasSceneIndex(sceneSystem->GetIndex());
-		indicesSystem_->UploadCanvas();
+		constantIndicesSystem_->SetCanvasSceneIndex(sceneSystem->GetIndex());
+		constantIndicesSystem_->UploadCanvas();
+		shaderResourceIndicesSystem_->UploadCanvas();
+		unorderedAccessIndicesSystem_->UploadCanvas();
 
-		imageRenderer_->Upload();
-		imageRenderer_->DrawBillboard(cmdList->Get(), heap, constantAddr, structuredAddr);
+		imageRenderer_->DrawBillboard(cmdList->Get(), heap, addresses);
 
-		fontRenderer_->Upload();
-		fontRenderer_->DrawBillboard(cmdList->Get(), heap, constantAddr, structuredAddr);
+		fontRenderer_->DrawBillboard(cmdList->Get(), heap, addresses);
 
-		movieRenderer_->Upload();
-		movieRenderer_->DrawBillboard(cmdList->Get(), heap, constantAddr, structuredAddr);
-		movieRenderer_->DrawFullscreen(cmdList->Get(), heap, constantAddr, structuredAddr);
+		movieRenderer_->DrawBillboard(cmdList->Get(), heap, addresses);
+		movieRenderer_->DrawFullscreen(cmdList->Get(), heap, addresses);
 
 		selectionMaskFrameBuffer_->Begin(cmdList);
 		selectionMaskFrameBuffer_->Clear(cmdList, 0.0f, 0.0f, 0.0f, 0.0f);
-		imageRenderer_->DrawSelectionMaskBillboard(cmdList->Get(), heap, constantAddr, structuredAddr);
-		fontRenderer_->DrawSelectionMaskBillboard(cmdList->Get(), heap, constantAddr, structuredAddr);
-		movieRenderer_->DrawSelectionMaskBillboard(cmdList->Get(), heap, constantAddr, structuredAddr);
+		imageRenderer_->DrawSelectionMaskBillboard(cmdList->Get(), heap, addresses);
+		fontRenderer_->DrawSelectionMaskBillboard(cmdList->Get(), heap, addresses);
+		movieRenderer_->DrawSelectionMaskBillboard(cmdList->Get(), heap, addresses);
 		selectionMaskFrameBuffer_->End(cmdList);
 
-		outlineRenderer_->Draw(cmdList, canvasFrameBuffer_->RenderTargetViewHandle(), canvasFrameBuffer_->GetViewport(), heap, constantAddr, structuredAddr);
+		outlineRenderer_->Draw(cmdList, canvasFrameBuffer_->RenderTargetViewHandle(), canvasFrameBuffer_->GetViewport(), heap, addresses);
 	}
 
 	void Renderer::TimelineFlush(D3D12CommandList* cmdList, const SceneConstantBuffer& scene)

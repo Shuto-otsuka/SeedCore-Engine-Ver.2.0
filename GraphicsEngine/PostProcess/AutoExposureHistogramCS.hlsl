@@ -1,4 +1,6 @@
-#include "../Shader/Constants.hlsli"
+#include "PostProcess.hlsli"
+#include "../Shader/ShaderResources.hlsli"
+#include "../Shader/UnorderedAccesses.hlsli"
 
 /**
 * [EN]
@@ -22,7 +24,7 @@
 * global atomics per group for what would otherwise be one global atomic per
 * pixel - the standard cheap trick for histogram building on the GPU.
 *
-* The caller must clear constant_indices.post_process_.exposure_.histogram_uav_index_'s
+* The caller must clear unordered_access_indices.post_process_.exposure_.histogram_index_'s
 * buffer to 0 before this dispatch runs each frame (see
 * PostProcessRenderer::Dispatch); this shader only adds.
 *
@@ -43,7 +45,7 @@
 * グローバル原子加算で済ませる、GPU ヒストグラム構築の定番の軽量化。
 *
 * 呼び出し側は、このディスパッチの前に毎フレーム
-* constant_indices.post_process_.exposure_.histogram_uav_index_ のバッファを 0
+* unordered_access_indices.post_process_.exposure_.histogram_index_ のバッファを 0
 * クリアしておくこと(PostProcessRenderer::Dispatch 参照)。このシェーダは
 * 加算のみ行う。
 */
@@ -56,7 +58,7 @@ void main(uint3 dtid : SV_DispatchThreadID, uint group_index : SV_GroupIndex)
 	local_histogram[group_index] = 0;
 	GroupMemoryBarrierWithGroupSync();
 
-	Texture2D<float4> source = ResourceDescriptorHeap[constant_indices.post_process_.source_color_index_];
+	Texture2D<float4> source = ResourceDescriptorHeap[shader_resource_indices.post_process_.source_color_index_];
 
 	uint width, height;
 	source.GetDimensions(width, height);
@@ -73,8 +75,8 @@ void main(uint3 dtid : SV_DispatchThreadID, uint group_index : SV_GroupIndex)
 		}
 		else
 		{
-			float min_log = constant_indices.post_process_.exposure_.min_log_luminance_;
-			float max_log = constant_indices.post_process_.exposure_.max_log_luminance_;
+			float min_log = GetPostProcessConstantBuffer().exposure_.min_log_luminance_;
+			float max_log = GetPostProcessConstantBuffer().exposure_.max_log_luminance_;
 			float normalized_log_luminance = saturate((log2(luminance) - min_log) / max(max_log - min_log, 0.0001));
 			bin = uint(normalized_log_luminance * 254.0) + 1;
 		}
@@ -87,7 +89,7 @@ void main(uint3 dtid : SV_DispatchThreadID, uint group_index : SV_GroupIndex)
 	uint count = local_histogram[group_index];
 	if (count > 0)
 	{
-		RWStructuredBuffer<uint> histogram = ResourceDescriptorHeap[constant_indices.post_process_.exposure_.histogram_uav_index_];
+		RWStructuredBuffer<uint> histogram = ResourceDescriptorHeap[unordered_access_indices.post_process_.exposure_.histogram_index_];
 		InterlockedAdd(histogram[group_index], count);
 	}
 }

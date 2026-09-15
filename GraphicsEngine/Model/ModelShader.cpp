@@ -1,5 +1,7 @@
 #include <GraphicsEngine/Model/ModelShader.h>
 #include <GraphicsEngine/Shader/ShaderCache.h>
+#include <GraphicsEngine/D3D12/Context/D3D12Check.h>
+#include <GraphicsEngine/D3D12/PipelineState/VertexShader.h>
 #include <GraphicsEngine/D3D12/PipelineState/AmplificationShader.h>
 #include <GraphicsEngine/D3D12/PipelineState/MeshShader.h>
 #include <GraphicsEngine/D3D12/PipelineState/PixelShader.h>
@@ -23,8 +25,9 @@ namespace SeedCore
 		///      The prepass keeps the plain AS because it generates the Hi-Z data.
 		/// [JP] G-Buffer パスは Hi-Z オクルージョンカリング付きの AS を使う。
 		///      プリパスは Hi-Z データを生成する側なので通常の AS のまま。
-		geometryBufferAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Model/Opaque/ModelGeometryBufferAS.hlsl"));
+		geometryBufferAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Model/Opaque/GeometryBufferAS.hlsl"));
 		transparentAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Model/Transparent/ModelTransparentAS.hlsl"));
+		furShellAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Model/Opaque/FurShellAS.hlsl"));
 
 		/// [EN] Depth prepass PSO: ModelAS + DepthPrepassMS + DepthPrepassPS (alpha-cutout
 		///      clip only), depth-only output. The PS is required so masked (alphaMode=MASK)
@@ -271,16 +274,50 @@ namespace SeedCore
 			pipelineStateObjectSkeletalTransparent_ = pipelineStateObject_.GetOrCreate(device, psokey);
 		}
 
+		/// [EN] Shell-fur PSO: forward alpha blend onto the lit HDR frame, depth
+		///      test without write. Drawn after the opaque/transparent passes.
+		/// [JP] シェルファー PSO: ライティング済み HDR フレームへ前方アルファ
+		///      ブレンド、深度テストのみ（書き込みなし）。不透明/透明パスの後に描画。
+		{
+			furShellMeshShader_ = shaderCache.GetOrCreateMeshShader(String("../GraphicsEngine/Model/Opaque/FurShellMS.hlsl"));
+			furShellPixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Model/Opaque/FurShellPS.hlsl"));
+
+			PipelineStateKey psokey{};
+			memset(&psokey, 0, sizeof(psokey));
+			psokey.rootSignature_ = rootSignature_.Get(modelRootSignature_)->Get();
+			psokey.amplificationShader_ = shaderCache.GetAmplificationShader(furShellAmplificationShader_)->Bytecode();
+			psokey.meshShader_ = shaderCache.GetMeshShader(furShellMeshShader_)->Bytecode();
+			psokey.pixelShader_ = shaderCache.GetPixelShader(furShellPixelShader_)->Bytecode();
+			psokey.rasterizerDesc_ = RasterizerState::Get(RasterizerStateType::SolidNoneLHS);
+			psokey.blendDesc_ = BlendState::Get(BlendStateType::Alpha);
+			psokey.depthStencilDesc_ = DepthStencilState::Get(DepthStencilStateType::DepthOnWriteOffReverseZ);
+			psokey.renderTargetViewFormat_[0] = DXGI_FORMAT_R16G16B16A16_FLOAT;
+			psokey.renderTargetViewCount_ = 1;
+			psokey.depthStencilViewFormat_ = DXGI_FORMAT_D32_FLOAT;
+			psokey.primitiveTopologyType_ = D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED;
+			pipelineStateObjectFurShell_ = pipelineStateObject_.GetOrCreate(device, psokey);
+		}
+
 		/// [EN] OIT Resolve PSO: fullscreen, alpha blend onto opaque scene.
 		/// [JP] OIT リゾルブ PSO: フルスクリーン、不透明シーン上にアルファブレンド。
 		{
-			resolveMeshShader_ = shaderCache.GetOrCreateMeshShader(String("../GraphicsEngine/Model/Transparent/OITResolveMS.hlsl"));
 			resolvePixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Model/Transparent/OITResolvePS.hlsl"));
 
 			PipelineStateKey psokey{};
 			memset(&psokey, 0, sizeof(psokey));
 			psokey.rootSignature_ = rootSignature_.Get(modelRootSignature_)->Get();
-			psokey.meshShader_ = shaderCache.GetMeshShader(resolveMeshShader_)->Bytecode();
+			if (D3D12Check::GetLevel() == D3D12Level::D12_2)
+			{
+				resolveMeshShader_ = shaderCache.GetOrCreateMeshShader(String("../GraphicsEngine/Model/Transparent/OITResolveMS.hlsl"));
+				psokey.meshShader_ = shaderCache.GetMeshShader(resolveMeshShader_)->Bytecode();
+				psokey.primitiveTopologyType_ = D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED;
+			}
+			else
+			{
+				resolveVertexShader_ = shaderCache.GetOrCreateVertexShader(String("../GraphicsEngine/Shape/HUD/FullscreenVS.hlsl"));
+				psokey.vertexShader_ = shaderCache.GetVertexShader(resolveVertexShader_)->Bytecode();
+				psokey.primitiveTopologyType_ = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+			}
 			psokey.pixelShader_ = shaderCache.GetPixelShader(resolvePixelShader_)->Bytecode();
 			psokey.rasterizerDesc_ = RasterizerState::Get(RasterizerStateType::SolidNoneLHS);
 			/// [JP] OITResolvePS.hlsl は事前乗算済み(premultiplied)の rgb を出力する
@@ -291,20 +328,29 @@ namespace SeedCore
 			psokey.renderTargetViewFormat_[0] = DXGI_FORMAT_R16G16B16A16_FLOAT;
 			psokey.renderTargetViewCount_ = 1;
 			psokey.depthStencilViewFormat_ = DXGI_FORMAT_UNKNOWN;
-			psokey.primitiveTopologyType_ = D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED;
 			pipelineStateObjectResolve_ = pipelineStateObject_.GetOrCreate(device, psokey);
 		}
 
 		/// [EN] Deferred lighting PSO: fullscreen, reads G-Buffer SRVs, outputs to FrameBuffer.
 		/// [JP] ディファードライティング PSO: フルスクリーン、G-Buffer SRV を読み出しフレームバッファに出力。
 		{
-			compositeMeshShader_ = shaderCache.GetOrCreateMeshShader(String("../GraphicsEngine/Model/Opaque/DeferredLightingMS.hlsl"));
 			compositePixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Model/Opaque/DeferredLightingPS.hlsl"));
 
 			PipelineStateKey psokey{};
 			memset(&psokey, 0, sizeof(psokey));
 			psokey.rootSignature_ = rootSignature_.Get(modelRootSignature_)->Get();
-			psokey.meshShader_ = shaderCache.GetMeshShader(compositeMeshShader_)->Bytecode();
+			if (D3D12Check::GetLevel() == D3D12Level::D12_2)
+			{
+				compositeMeshShader_ = shaderCache.GetOrCreateMeshShader(String("../GraphicsEngine/Model/Opaque/DeferredLightingMS.hlsl"));
+				psokey.meshShader_ = shaderCache.GetMeshShader(compositeMeshShader_)->Bytecode();
+				psokey.primitiveTopologyType_ = D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED;
+			}
+			else
+			{
+				compositeVertexShader_ = shaderCache.GetOrCreateVertexShader(String("../GraphicsEngine/Shape/HUD/FullscreenVS.hlsl"));
+				psokey.vertexShader_ = shaderCache.GetVertexShader(compositeVertexShader_)->Bytecode();
+				psokey.primitiveTopologyType_ = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+			}
 			psokey.pixelShader_ = shaderCache.GetPixelShader(compositePixelShader_)->Bytecode();
 			psokey.rasterizerDesc_ = RasterizerState::Get(RasterizerStateType::SolidNoneLHS);
 			psokey.blendDesc_ = BlendState::Get(BlendStateType::Opaque);
@@ -312,7 +358,6 @@ namespace SeedCore
 			psokey.renderTargetViewFormat_[0] = DXGI_FORMAT_R16G16B16A16_FLOAT;
 			psokey.renderTargetViewCount_ = 1;
 			psokey.depthStencilViewFormat_ = DXGI_FORMAT_UNKNOWN;
-			psokey.primitiveTopologyType_ = D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED;
 			pipelineStateObjectComposite_ = pipelineStateObject_.GetOrCreate(device, psokey);
 		}
 	}
@@ -340,6 +385,11 @@ namespace SeedCore
 	ID3D12PipelineState* ModelShader::GetPipelineStateSkeletalTransparent()const
 	{
 		return pipelineStateObject_.Get(pipelineStateObjectSkeletalTransparent_);
+	}
+
+	ID3D12PipelineState* ModelShader::GetPipelineStateFurShell()const
+	{
+		return pipelineStateObject_.Get(pipelineStateObjectFurShell_);
 	}
 
 	ID3D12PipelineState* ModelShader::GetPipelineStateResolve()const

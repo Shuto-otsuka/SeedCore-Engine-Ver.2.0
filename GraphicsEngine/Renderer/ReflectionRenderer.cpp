@@ -89,10 +89,12 @@ namespace SeedCore
 	* テーブル、チューニング用定数バッファ、3 レコードのシェーダテーブルを
 	* 生成する。
 	*/
-	void ReflectionRenderer::Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, IndicesSystem& indicesSystem, Uint32 width, Uint32 height)
+	void ReflectionRenderer::Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, ConstantIndicesSystem& constantIndicesSystem, ShaderResourceIndicesSystem& shaderResourceIndicesSystem, UnorderedAccessIndicesSystem& unorderedAccessIndicesSystem, Uint32 width, Uint32 height)
 	{
 		bindlessHeap_ = bindlessHeap;
-		indicesSystem_ = &indicesSystem;
+		constantIndicesSystem_ = &constantIndicesSystem;
+		shaderResourceIndicesSystem_ = &shaderResourceIndicesSystem;
+		unorderedAccessIndicesSystem_ = &unorderedAccessIndicesSystem;
 
 		/// [JP] デバイスは常に ID3D12Device5 として生成されている(D3D12Device 参照)。
 		ID3D12Device5* device5 = static_cast<ID3D12Device5*>(device);
@@ -308,18 +310,19 @@ namespace SeedCore
 
 		ReflectionRayConstantBuffer uploadSettings = settings;
 		uploadSettings.frameIndex_ = frameIndex_;
+		uploadSettings.temporalReuseEnabled_ = useDlssRayReconstruction ? 0 : 1;
 		++frameIndex_;
 
 		tuningBuffer_->Update(uploadSettings);
-		indicesSystem_->SetReflectionRayConstantIndex(tuningBuffer_->GetIndex());
-		indicesSystem_->SetReflectionOutputUnorderedAccessViewIndex(radianceUnorderedAccessViewIndex_);
-		indicesSystem_->SetReflectionOutputShaderResourceViewIndex(radianceShaderResourceViewIndex_);
-		indicesSystem_->SetReflectionConfidenceUnorderedAccessViewIndex(confidenceUnorderedAccessViewIndex_);
-		indicesSystem_->SetReflectionConfidenceShaderResourceViewIndex(confidenceShaderResourceViewIndex_);
+		constantIndicesSystem_->SetReflectionRayConstantIndex(tuningBuffer_->GetIndex());
+		unorderedAccessIndicesSystem_->SetReflectionOutputUnorderedAccessViewIndex(radianceUnorderedAccessViewIndex_);
+		shaderResourceIndicesSystem_->SetReflectionOutputShaderResourceViewIndex(radianceShaderResourceViewIndex_);
+		unorderedAccessIndicesSystem_->SetReflectionConfidenceUnorderedAccessViewIndex(confidenceUnorderedAccessViewIndex_);
+		shaderResourceIndicesSystem_->SetReflectionConfidenceShaderResourceViewIndex(confidenceShaderResourceViewIndex_);
 
 		/// [JP] フレームリングバッファなので SRV インデックスは毎フレーム変わる
 		///      — 必ず毎フレーム登録し直す(frame-ring-rules)。
-		indicesSystem_->SetReflectionInstanceDataIndex(instanceTable_->Index());
+		shaderResourceIndicesSystem_->SetReflectionInstanceDataIndex(instanceTable_->Index());
 
 		Uint32 writeSlot = 1 - historySlot_;
 
@@ -331,53 +334,62 @@ namespace SeedCore
 		///      書く。1組の historySlot_/writeSlot がまとめて駆動する — ずれると、
 		///      あるフレームの幾何で整合性を判定しながら別のフレームの放射輝度を
 		///      ブレンドすることになる。
-		auto buildIndices = [&](Uint32 viewIndex)
+		auto buildShaderResourceIndices = [&](Uint32 viewIndex)
 		{
-			ReflectionAccumulationIndices values{};
+			ReflectionAccumulationShaderResourceIndices values{};
 
-			values.historyShaderResourceViewIndex_ = accumulatedShaderResourceViewIndex_[viewIndex][historySlot_];
-			values.accumulatedUnorderedAccessViewIndex_ = accumulatedUnorderedAccessViewIndex_[viewIndex][writeSlot];
-			values.accumulatedShaderResourceViewIndex_ = accumulatedShaderResourceViewIndex_[viewIndex][writeSlot];
+			values.historyIndex_ = accumulatedShaderResourceViewIndex_[viewIndex][historySlot_];
+			values.accumulatedIndex_ = accumulatedShaderResourceViewIndex_[viewIndex][writeSlot];
 
 			/// [JP] DLSS-RRが合成フレーム全体をデノイズするので、その間だけ
 			///      「最終」反射読み取りは生の単一バッファテクスチャを直接指す
 			///      (SVGFチェーンには一切触れない)。
-			values.radianceShaderResourceViewIndex_ = useDlssRayReconstruction ? radianceShaderResourceViewIndex_ : denoisedShaderResourceViewIndex_[viewIndex];
+			values.radianceIndex_ = useDlssRayReconstruction ? radianceShaderResourceViewIndex_ : denoisedShaderResourceViewIndex_[viewIndex];
 
-			values.atrousScratch0ShaderResourceViewIndex_ = atrousScratchShaderResourceViewIndex_[viewIndex][0];
-			values.atrousScratch0UnorderedAccessViewIndex_ = atrousScratchUnorderedAccessViewIndex_[viewIndex][0];
-			values.atrousScratch1ShaderResourceViewIndex_ = atrousScratchShaderResourceViewIndex_[viewIndex][1];
-			values.atrousScratch1UnorderedAccessViewIndex_ = atrousScratchUnorderedAccessViewIndex_[viewIndex][1];
+			values.atrousScratch0Index_ = atrousScratchShaderResourceViewIndex_[viewIndex][0];
+			values.atrousScratch1Index_ = atrousScratchShaderResourceViewIndex_[viewIndex][1];
 
-			values.momentsHistoryShaderResourceViewIndex_ = momentsShaderResourceViewIndex_[viewIndex][historySlot_];
-			values.momentsShaderResourceViewIndex_ = momentsShaderResourceViewIndex_[viewIndex][writeSlot];
-			values.momentsUnorderedAccessViewIndex_ = momentsUnorderedAccessViewIndex_[viewIndex][writeSlot];
+			values.momentsHistoryIndex_ = momentsShaderResourceViewIndex_[viewIndex][historySlot_];
+			values.momentsIndex_ = momentsShaderResourceViewIndex_[viewIndex][writeSlot];
 
-			values.historyLengthHistoryShaderResourceViewIndex_ = historyLengthShaderResourceViewIndex_[viewIndex][historySlot_];
-			values.historyLengthShaderResourceViewIndex_ = historyLengthShaderResourceViewIndex_[viewIndex][writeSlot];
-			values.historyLengthUnorderedAccessViewIndex_ = historyLengthUnorderedAccessViewIndex_[viewIndex][writeSlot];
+			values.historyLengthHistoryIndex_ = historyLengthShaderResourceViewIndex_[viewIndex][historySlot_];
+			values.historyLengthIndex_ = historyLengthShaderResourceViewIndex_[viewIndex][writeSlot];
 
-			values.depthNormalHistoryShaderResourceViewIndex_ = depthNormalShaderResourceViewIndex_[viewIndex][historySlot_];
-			values.depthNormalShaderResourceViewIndex_ = depthNormalShaderResourceViewIndex_[viewIndex][writeSlot];
-			values.depthNormalUnorderedAccessViewIndex_ = depthNormalUnorderedAccessViewIndex_[viewIndex][writeSlot];
-
-			values.denoisedUnorderedAccessViewIndex_ = denoisedUnorderedAccessViewIndex_[viewIndex];
+			values.depthNormalHistoryIndex_ = depthNormalShaderResourceViewIndex_[viewIndex][historySlot_];
+			values.depthNormalIndex_ = depthNormalShaderResourceViewIndex_[viewIndex][writeSlot];
 
 			/// [JP] ReSTIR Reservoir はデノイズ経路(SVGF/DLSS-RR)に関わらず常に
 			///      使う — history_/accumulated_ と同じ historySlot_/writeSlot
 			///      (GlobalIlluminationRenderer と同じ扱い)。
-			values.reservoirHistoryShaderResourceViewIndex_ = reservoirShaderResourceViewIndex_[viewIndex][historySlot_];
-			values.reservoirUnorderedAccessViewIndex_ = reservoirUnorderedAccessViewIndex_[viewIndex][writeSlot];
-			values.reservoirWriteShaderResourceViewIndex_ = reservoirShaderResourceViewIndex_[viewIndex][writeSlot];
+			values.reservoirHistoryIndex_ = reservoirShaderResourceViewIndex_[viewIndex][historySlot_];
+			values.reservoirWriteIndex_ = reservoirShaderResourceViewIndex_[viewIndex][writeSlot];
 
 			return values;
 		};
 
-		indicesSystem_->SetEditorReflectionAccumulationIndices(buildIndices(editorView));
-		indicesSystem_->SetGameReflectionAccumulationIndices(buildIndices(gameView));
+		auto buildUnorderedAccessIndices = [&](Uint32 viewIndex)
+		{
+			ReflectionAccumulationUnorderedAccessIndices values{};
+
+			values.accumulatedIndex_ = accumulatedUnorderedAccessViewIndex_[viewIndex][writeSlot];
+			values.atrousScratch0Index_ = atrousScratchUnorderedAccessViewIndex_[viewIndex][0];
+			values.atrousScratch1Index_ = atrousScratchUnorderedAccessViewIndex_[viewIndex][1];
+			values.momentsIndex_ = momentsUnorderedAccessViewIndex_[viewIndex][writeSlot];
+			values.historyLengthIndex_ = historyLengthUnorderedAccessViewIndex_[viewIndex][writeSlot];
+			values.depthNormalIndex_ = depthNormalUnorderedAccessViewIndex_[viewIndex][writeSlot];
+			values.denoisedIndex_ = denoisedUnorderedAccessViewIndex_[viewIndex];
+			values.reservoirIndex_ = reservoirUnorderedAccessViewIndex_[viewIndex][writeSlot];
+
+			return values;
+		};
+
+		shaderResourceIndicesSystem_->SetEditorReflectionAccumulationIndices(buildShaderResourceIndices(editorView));
+		shaderResourceIndicesSystem_->SetGameReflectionAccumulationIndices(buildShaderResourceIndices(gameView));
+		unorderedAccessIndicesSystem_->SetEditorReflectionAccumulationIndices(buildUnorderedAccessIndices(editorView));
+		unorderedAccessIndicesSystem_->SetGameReflectionAccumulationIndices(buildUnorderedAccessIndices(gameView));
 	}
 
-	void ReflectionRenderer::Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex, Bool tlasValid, RaytracingView view, Bool useDlssRayReconstruction)
+	void ReflectionRenderer::Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses, Bool tlasValid, RaytracingView view, Bool useDlssRayReconstruction)
 	{
 		auto* cmd = cmdList->Get();
 
@@ -543,9 +555,7 @@ namespace SeedCore
 			ID3D12DescriptorHeap* heaps[] = { heap };
 			cmd->SetDescriptorHeaps(_countof(heaps), heaps);
 			cmd->SetComputeRootSignature(reflectionShader_.GetRootSignature());
-			cmd->SetComputeRootDescriptorTable(0, bindlessHeap_->GPUHandle(0));
-			cmd->SetComputeRootConstantBufferView(2, constantIndex);
-			cmd->SetComputeRootConstantBufferView(3, structuredIndex);
+			RootSignature::BindCompute(cmd, addresses);
 			cmd->SetPipelineState1(stateObject);
 
 			D3D12_GPU_VIRTUAL_ADDRESS tableAddress = shaderTableResource_->GetGPUVirtualAddress();

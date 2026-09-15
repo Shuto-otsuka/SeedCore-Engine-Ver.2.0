@@ -83,9 +83,9 @@ namespace SeedCore
 		mipConstants_.resize(mipCount_);
 		for (Uint mip = 0; mip < mipCount_; mip++)
 		{
-			mipConstantBuffers_[mip] = MakePtr<ConstantBuffer<HiZBuildConstants>>(device, bindlessHeap);
+			mipConstantBuffers_[mip] = MakePtr<ConstantBuffer<HiZBuildConstantBuffer>>(device, bindlessHeap);
 
-			HiZBuildConstants constants{};
+			HiZBuildConstantBuffer constants{};
 			constants.destinationIndex_ = mipUnorderedAccessViewIndices_[mip];
 			constants.destinationWidth_ = mipWidths_[mip];
 			constants.destinationHeight_ = mipHeights_[mip];
@@ -141,7 +141,7 @@ namespace SeedCore
 		Create(device, bindlessHeap, shaderCache, rootSignature, pipelineStateObject, width, height, depthShaderResourceViewIndex);
 	}
 
-	void HiZBuffer::Build(D3D12CommandList* cmdList, GeometryBuffer& geometryBuffer, ID3D12DescriptorHeap* heap)
+	void HiZBuffer::Build(D3D12CommandList* cmdList, GeometryBuffer& geometryBuffer, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
 	{
 		auto* cmd = cmdList->Get();
 
@@ -158,13 +158,14 @@ namespace SeedCore
 		ID3D12DescriptorHeap* heaps[] = { heap };
 		cmd->SetDescriptorHeaps(_countof(heaps), heaps);
 		cmd->SetComputeRootSignature(rootSignature_->Get());
-		cmd->SetComputeRootDescriptorTable(0, bindlessHeap_->GPUHandle(0));
+		RootSignature::BindCompute(cmd, addresses);
 		cmd->SetPipelineState(pipelineState_.Get());
 
 		for (Uint mip = 0; mip < mipCount_; mip++)
 		{
 			mipConstantBuffers_[mip]->Update(mipConstants_[mip]);
-			cmd->SetComputeRootConstantBufferView(2, mipConstantBuffers_[mip]->Address());
+			Uint dispatchBufferIndex = mipConstantBuffers_[mip]->GetIndex();
+			cmd->SetComputeRoot32BitConstants(3, 1, &dispatchBufferIndex, 0);
 
 			Uint dispatchX = (mipWidths_[mip] + 7) / 8;
 			Uint dispatchY = (mipHeights_[mip] + 7) / 8;

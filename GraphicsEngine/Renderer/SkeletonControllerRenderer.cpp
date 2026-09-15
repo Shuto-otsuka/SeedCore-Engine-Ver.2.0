@@ -5,6 +5,7 @@
 #include <GraphicsEngine/Model/Animation/AnimationResource.h>
 #include <GraphicsEngine/D3D12/Descriptor/BindlessHeap.h>
 #include <GraphicsEngine/D3D12/Context/D3D12CommandList.h>
+#include <GraphicsEngine/D3D12/Context/D3D12Check.h>
 
 namespace SeedCore
 {
@@ -101,7 +102,7 @@ namespace SeedCore
 		}
 	}
 
-	SkeletonControllerRenderer::SkeletonControllerRenderer(RootSignature& rootSignature, PipelineStateObject& pipelineStateObject) : modelShader_(rootSignature, pipelineStateObject)
+	SkeletonControllerRenderer::SkeletonControllerRenderer(RootSignature& rootSignature, PipelineStateObject& pipelineStateObject) : modelShader_(rootSignature, pipelineStateObject), boneLineShader_(rootSignature, pipelineStateObject)
 	{
 		/// No Code
 	}
@@ -116,7 +117,7 @@ namespace SeedCore
 
 		modelShader_.Create(shaderCache, device);
 
-		instanceBuffer_ = MakePtr<ReadOnlyStructuredBuffer<ModelInstanceData>>(device, bindlessHeap, maxInstanceCount_);
+		instanceBuffer_ = MakePtr<ReadOnlyStructuredBuffer<ModelStructuredBuffer>>(device, bindlessHeap, maxInstanceCount_);
 		boneBuffer_ = MakePtr<ReadOnlyStructuredBuffer<Matrix>>(device, bindlessHeap, maxBoneCount_);
 
 		renderTargetViewHeap_.Create(device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 1);
@@ -126,12 +127,12 @@ namespace SeedCore
 		sceneSystem_ = MakePtr<SceneSystem>(device, bindlessHeap);
 
 		constantIndicesBuffer_ = MakePtr<ConstantBuffer<ConstantIndices>>(device, bindlessHeap);
-		structuredIndicesBuffer_ = MakePtr<ConstantBuffer<StructuredIndices>>(device, bindlessHeap);
+		shaderResourceIndicesBuffer_ = MakePtr<ConstantBuffer<ShaderResourceIndices>>(device, bindlessHeap);
 
-		boneLineShader_.Create(shaderCache, device, boneLinePipelineStateObject_, DepthStencilStateType::DepthOff);
+		boneLineShader_.Create(shaderCache, device, DepthStencilStateType::DepthOff);
 
-		boneInstanceBuffer_ = MakePtr<ReadOnlyStructuredBuffer<ColliderInstance>>(device, bindlessHeap, maxBoneInstanceCount_);
-		boneInstanceConstantsBuffer_ = MakePtr<ConstantBuffer<ColliderInstanceConstants>>(device, bindlessHeap);
+		boneInstanceBuffer_ = MakePtr<ReadOnlyStructuredBuffer<ColliderStructuredBuffer>>(device, bindlessHeap, maxBoneInstanceCount_);
+		boneInstanceConstantsBuffer_ = MakePtr<ConstantBuffer<ColliderConstantBuffer>>(device, bindlessHeap);
 
 		BuildIcosphereEdges(icosphereSubdivisionLevel_, sphereEdgeData_);
 		sphereEdgeCount_ = static_cast<Uint>(sphereEdgeData_.size() / 2);
@@ -170,8 +171,6 @@ namespace SeedCore
 		{
 			return;
 		}
-
-		Matrix inverseTransposeWorld = worldMatrix.Invert().Transpose();
 
 		const DynamicArray<SubMesh>& subMeshes = crister->SubMeshes();
 		const DynamicArray<Surface>& surfaces = crister->Surfaces();
@@ -271,8 +270,10 @@ namespace SeedCore
 			}
 		}
 
-		for (const SubMesh& subMesh : subMeshes)
+		for (Size subMeshIndex = 0; subMeshIndex < subMeshes.size(); subMeshIndex++)
 		{
+			const SubMesh& subMesh = subMeshes[subMeshIndex];
+
 			const Surface& material = surfaces[subMesh.surfaceIndex_];
 
 			Bool skinned = subMesh.skinIndex_ >= 0 && subMesh.skinIndex_ < static_cast<Int>(skins.size()) && !boneOverflow;
@@ -317,111 +318,118 @@ namespace SeedCore
 				}
 
 				constexpr Uint32 maxMeshletsPerDispatch = 32;
-				Uint32 remaining = cluster.meshletCount_;
-				Uint32 offset = cluster.meshletOffset_;
 
-				while (remaining > 0)
+				for (const Matrix& placement : crister->SubMeshPlacement(subMeshIndex))
 				{
-					Uint32 count = (remaining > maxMeshletsPerDispatch) ? maxMeshletsPerDispatch : remaining;
+					Matrix placedWorldMatrix = placement * worldMatrix;
+					Matrix placedInverseTransposeWorld = placedWorldMatrix.Invert().Transpose();
 
-					ModelInstanceData instanceData{};
-					instanceData.world_ = worldMatrix;
-					instanceData.inverseTransposeWorld_ = inverseTransposeWorld;
+					Uint32 remaining = cluster.meshletCount_;
+					Uint32 offset = cluster.meshletOffset_;
 
-					instanceData.baseColor_ = material.baseColor_;
-					instanceData.metallic_ = material.metallic_;
-					instanceData.roughness_ = material.roughness_;
-					instanceData.alphaCutoff_ = material.alphaMode_ == 1 ? material.alphaCutoff_ : (material.alphaMode_ == 2 ? 0.01f : 0.0f);
-					instanceData.emissive_ = Vector3(material.emissiveFactor_[0], material.emissiveFactor_[1], material.emissiveFactor_[2]);
-
-					instanceData.ior_ = material.khr_.ior_.ior_;
-					instanceData.emissiveStrength_ = material.khr_.emissiveStrength_.emissiveStrength_;
-					instanceData.specularFactor_ = material.khr_.specular_.specularFactor_;
-					instanceData.specularColor_ = Vector3(material.khr_.specular_.specularColorFactor_[0], material.khr_.specular_.specularColorFactor_[1], material.khr_.specular_.specularColorFactor_[2]);
-					instanceData.clearCoatFactor_ = material.khr_.clearCoat_.clearCoatFactor_;
-					instanceData.clearCoatRoughness_ = material.khr_.clearCoat_.clearCoatRoughnessFactor_;
-					instanceData.anisotropy_ = material.khr_.anisotropy_.anisotropyStrength_;
-					instanceData.transmissionFactor_ = material.khr_.transmission_.transmissionFactor_;
-					instanceData.volumeThicknessFactor_ = material.khr_.volume_.thicknessFactor_;
-					instanceData.volumeAttenuationDistance_ = material.khr_.volume_.attenuationDistance_;
-					instanceData.volumeAttenuationColor_ = Vector3(material.khr_.volume_.attenuationColor_[0], material.khr_.volume_.attenuationColor_[1], material.khr_.volume_.attenuationColor_[2]);
-					instanceData.sheenColor_ = Vector3(material.khr_.sheen_.sheenColorFactor_[0], material.khr_.sheen_.sheenColorFactor_[1], material.khr_.sheen_.sheenColorFactor_[2]);
-					instanceData.sheenRoughness_ = material.khr_.sheen_.sheenRoughnessFactor_;
-					instanceData.iridescenceFactor_ = material.khr_.iridescence_.iridescenceFactor_;
-					instanceData.iridescenceIor_ = material.khr_.iridescence_.iridescenceIor_;
-					instanceData.iridescenceThickness_ = (material.khr_.iridescence_.iridescenceThicknessMinimum_ + material.khr_.iridescence_.iridescenceThicknessMaximum_) * 0.5f;
-					instanceData.unlit_ = material.khr_.unlit_.unlit_ != 0 ? 1.0f : 0.0f;
-					instanceData.shadingModel_ = material.khr_.unlit_.unlit_ != 0 ? static_cast<Uint>(ShadingModel::Unlit) : static_cast<Uint>(material.shadingModel_);
-
-					instanceData.baseColorTextureIndex_ = crister->TextureBindlessIndex(material.baseColorTextureIndex_);
-					instanceData.normalTextureIndex_ = crister->TextureBindlessIndex(material.normalTextureIndex_);
-					instanceData.metallicRoughnessTextureIndex_ = crister->TextureBindlessIndex(material.metallicRoughnessTextureIndex_);
-					instanceData.emissiveTextureIndex_ = crister->TextureBindlessIndex(material.emissiveTextureIndex_);
-					instanceData.occlusionTextureIndex_ = crister->TextureBindlessIndex(material.occlusionTextureIndex_);
-					instanceData.specularTextureIndex_ = crister->TextureBindlessIndex(material.khr_.specular_.specularTextureIndex_);
-					instanceData.specularColorTextureIndex_ = crister->TextureBindlessIndex(material.khr_.specular_.specularColorTextureIndex_);
-					instanceData.clearCoatTextureIndex_ = crister->TextureBindlessIndex(material.khr_.clearCoat_.clearCoatTextureIndex_);
-					instanceData.clearCoatRoughnessTextureIndex_ = crister->TextureBindlessIndex(material.khr_.clearCoat_.clearCoatRoughnessTextureIndex_);
-					instanceData.clearCoatNormalTextureIndex_ = crister->TextureBindlessIndex(material.khr_.clearCoat_.clearCoatNormalTextureIndex_);
-					instanceData.transmissionTextureIndex_ = crister->TextureBindlessIndex(material.khr_.transmission_.transmissionTextureIndex_);
-					instanceData.thicknessTextureIndex_ = crister->TextureBindlessIndex(material.khr_.volume_.thicknessTextureIndex_);
-					instanceData.sheenColorTextureIndex_ = crister->TextureBindlessIndex(material.khr_.sheen_.sheenColorTextureIndex_);
-					instanceData.sheenRoughnessTextureIndex_ = crister->TextureBindlessIndex(material.khr_.sheen_.sheenRoughnessTextureIndex_);
-					instanceData.iridescenceTextureIndex_ = crister->TextureBindlessIndex(material.khr_.iridescence_.iridescenceTextureIndex_);
-					instanceData.iridescenceThicknessTextureIndex_ = crister->TextureBindlessIndex(material.khr_.iridescence_.iridescenceThicknessTextureIndex_);
-					instanceData.anisotropyTextureIndex_ = crister->TextureBindlessIndex(material.khr_.anisotropy_.anisotropyTextureIndex_);
-					instanceData.anisotropyRotation_ = material.khr_.anisotropy_.anisotropyRotation_;
-
-					instanceData.vertexBufferIndex_ = crister->ClusterVertexBufferIndex(clusterIndex);
-					instanceData.skinVertexBufferIndex_ = crister->SkinVertexBufferIndex();
-					instanceData.positionMin_ = crister->PositionMin();
-					instanceData.positionExtent_ = crister->PositionExtent();
-					instanceData.texcoordMinU_ = crister->TexcoordMin().x;
-					instanceData.texcoordMinV_ = crister->TexcoordMin().y;
-					instanceData.texcoordExtent_ = crister->TexcoordExtent();
-					instanceData.meshletBufferIndex_ = crister->ClusterMeshletBufferIndex(clusterIndex);
-					instanceData.meshletBoundBufferIndex_ = crister->ClusterMeshletBoundBufferIndex(clusterIndex);
-					instanceData.vertexIndicesBufferIndex_ = crister->ClusterVertexIndicesBufferIndex(clusterIndex);
-					instanceData.primitiveIndicesBufferIndex_ = crister->ClusterPrimitiveIndicesBufferIndex(clusterIndex);
-
-					instanceData.meshletOffset_ = offset - cluster.meshletOffset_;
-					instanceData.meshletCount_ = count;
-
-					instanceData.lodError_ = cluster.lodError_;
-					instanceData.lodErrorNext_ = lodErrorNext;
-
-					if (skinned)
+					while (remaining > 0)
 					{
-						Uint skinBoneOffset = boneBase;
-						for (Int skinIndex = 0; skinIndex < subMesh.skinIndex_; skinIndex++)
+						Uint32 count = (remaining > maxMeshletsPerDispatch) ? maxMeshletsPerDispatch : remaining;
+
+						ModelStructuredBuffer instanceData{};
+						instanceData.transform_.world_ = placedWorldMatrix;
+						instanceData.transform_.inverseTransposeWorld_ = placedInverseTransposeWorld;
+
+						instanceData.texture_.baseColor_ = material.baseColor_;
+						instanceData.texture_.metallic_ = material.metallic_;
+						instanceData.texture_.roughness_ = material.roughness_;
+						instanceData.texture_.alphaCutoff_ = material.alphaMode_ == 1 ? material.alphaCutoff_ : (material.alphaMode_ == 2 ? 0.01f : 0.0f);
+						instanceData.texture_.emissive_ = Vector3(material.emissiveFactor_[0], material.emissiveFactor_[1], material.emissiveFactor_[2]);
+
+						instanceData.texture_.ior_ = material.khr_.ior_.ior_;
+						instanceData.texture_.emissiveStrength_ = material.khr_.emissiveStrength_.emissiveStrength_;
+						instanceData.extension_.specularFactor_ = material.khr_.specular_.specularFactor_;
+						instanceData.extension_.specularColor_ = Vector3(material.khr_.specular_.specularColorFactor_[0], material.khr_.specular_.specularColorFactor_[1], material.khr_.specular_.specularColorFactor_[2]);
+						instanceData.extension_.clearCoatFactor_ = material.khr_.clearCoat_.clearCoatFactor_;
+						instanceData.extension_.clearCoatRoughness_ = material.khr_.clearCoat_.clearCoatRoughnessFactor_;
+						instanceData.extension_.anisotropy_ = material.khr_.anisotropy_.anisotropyStrength_;
+						instanceData.extension_.transmissionFactor_ = material.khr_.transmission_.transmissionFactor_;
+						instanceData.extension_.volumeThicknessFactor_ = material.khr_.volume_.thicknessFactor_;
+						instanceData.extension_.volumeAttenuationDistance_ = material.khr_.volume_.attenuationDistance_;
+						instanceData.extension_.volumeAttenuationColor_ = Vector3(material.khr_.volume_.attenuationColor_[0], material.khr_.volume_.attenuationColor_[1], material.khr_.volume_.attenuationColor_[2]);
+						instanceData.extension_.sheenColor_ = Vector3(material.khr_.sheen_.sheenColorFactor_[0], material.khr_.sheen_.sheenColorFactor_[1], material.khr_.sheen_.sheenColorFactor_[2]);
+						instanceData.extension_.sheenRoughness_ = material.khr_.sheen_.sheenRoughnessFactor_;
+						instanceData.extension_.iridescenceFactor_ = material.khr_.iridescence_.iridescenceFactor_;
+						instanceData.extension_.iridescenceIor_ = material.khr_.iridescence_.iridescenceIor_;
+						instanceData.extension_.iridescenceThickness_ = (material.khr_.iridescence_.iridescenceThicknessMinimum_ + material.khr_.iridescence_.iridescenceThicknessMaximum_) * 0.5f;
+						instanceData.extension_.unlit_ = material.khr_.unlit_.unlit_ != 0 ? 1.0f : 0.0f;
+						instanceData.shading_.shadingModel_ = material.khr_.unlit_.unlit_ != 0 ? static_cast<Uint>(ShadingModel::Unlit) : static_cast<Uint>(material.shadingModel_);
+
+						instanceData.texture_.baseColorTextureIndex_ = crister->TextureBindlessIndex(material.baseColorTextureIndex_);
+						instanceData.texture_.normalTextureIndex_ = crister->TextureBindlessIndex(material.normalTextureIndex_);
+						instanceData.texture_.metallicRoughnessTextureIndex_ = crister->TextureBindlessIndex(material.metallicRoughnessTextureIndex_);
+						instanceData.texture_.emissiveTextureIndex_ = crister->TextureBindlessIndex(material.emissiveTextureIndex_);
+						instanceData.texture_.occlusionTextureIndex_ = crister->TextureBindlessIndex(material.occlusionTextureIndex_);
+						instanceData.extension_.specularTextureIndex_ = crister->TextureBindlessIndex(material.khr_.specular_.specularTextureIndex_);
+						instanceData.extension_.specularColorTextureIndex_ = crister->TextureBindlessIndex(material.khr_.specular_.specularColorTextureIndex_);
+						instanceData.extension_.clearCoatTextureIndex_ = crister->TextureBindlessIndex(material.khr_.clearCoat_.clearCoatTextureIndex_);
+						instanceData.extension_.clearCoatRoughnessTextureIndex_ = crister->TextureBindlessIndex(material.khr_.clearCoat_.clearCoatRoughnessTextureIndex_);
+						instanceData.extension_.clearCoatNormalTextureIndex_ = crister->TextureBindlessIndex(material.khr_.clearCoat_.clearCoatNormalTextureIndex_);
+						instanceData.extension_.transmissionTextureIndex_ = crister->TextureBindlessIndex(material.khr_.transmission_.transmissionTextureIndex_);
+						instanceData.extension_.thicknessTextureIndex_ = crister->TextureBindlessIndex(material.khr_.volume_.thicknessTextureIndex_);
+						instanceData.extension_.sheenColorTextureIndex_ = crister->TextureBindlessIndex(material.khr_.sheen_.sheenColorTextureIndex_);
+						instanceData.extension_.sheenRoughnessTextureIndex_ = crister->TextureBindlessIndex(material.khr_.sheen_.sheenRoughnessTextureIndex_);
+						instanceData.extension_.iridescenceTextureIndex_ = crister->TextureBindlessIndex(material.khr_.iridescence_.iridescenceTextureIndex_);
+						instanceData.extension_.iridescenceThicknessTextureIndex_ = crister->TextureBindlessIndex(material.khr_.iridescence_.iridescenceThicknessTextureIndex_);
+						instanceData.extension_.anisotropyTextureIndex_ = crister->TextureBindlessIndex(material.khr_.anisotropy_.anisotropyTextureIndex_);
+						instanceData.extension_.anisotropyRotation_ = material.khr_.anisotropy_.anisotropyRotation_;
+
+						instanceData.geometry_.vertexBufferIndex_ = crister->ClusterVertexBufferIndex(clusterIndex);
+						instanceData.skining_.skinVertexBufferIndex_ = crister->SkinVertexBufferIndex();
+						instanceData.streaming_.positionMin_ = crister->PositionMin();
+						instanceData.streaming_.positionExtent_ = crister->PositionExtent();
+						instanceData.streaming_.texcoordMinU_ = crister->TexcoordMin().x;
+						instanceData.streaming_.texcoordMinV_ = crister->TexcoordMin().y;
+						instanceData.streaming_.texcoordExtent_ = crister->TexcoordExtent();
+						instanceData.geometry_.meshletBufferIndex_ = crister->ClusterMeshletBufferIndex(clusterIndex);
+						instanceData.geometry_.meshletBoundBufferIndex_ = crister->ClusterMeshletBoundBufferIndex(clusterIndex);
+						instanceData.geometry_.vertexIndicesBufferIndex_ = crister->ClusterVertexIndicesBufferIndex(clusterIndex);
+						instanceData.geometry_.primitiveIndicesBufferIndex_ = crister->ClusterPrimitiveIndicesBufferIndex(clusterIndex);
+
+						instanceData.geometry_.meshletOffset_ = offset - cluster.meshletOffset_;
+						instanceData.geometry_.meshletCount_ = count;
+
+						instanceData.streaming_.lodError_ = cluster.lodError_;
+						instanceData.streaming_.lodErrorNext_ = lodErrorNext;
+
+						if (skinned)
 						{
-							skinBoneOffset += static_cast<Uint>(skins[skinIndex].joints_.size());
+							Uint skinBoneOffset = boneBase;
+							for (Int skinIndex = 0; skinIndex < subMesh.skinIndex_; skinIndex++)
+							{
+								skinBoneOffset += static_cast<Uint>(skins[skinIndex].joints_.size());
+							}
+							instanceData.skining_.skinIndex_ = static_cast<Uint>(subMesh.skinIndex_);
+							instanceData.skining_.boneOffset_ = skinBoneOffset;
 						}
-						instanceData.skinIndex_ = static_cast<Uint>(subMesh.skinIndex_);
-						instanceData.boneOffset_ = skinBoneOffset;
-					}
-					else
-					{
-						instanceData.skinIndex_ = 0xFFFFFFFF;
-						instanceData.boneOffset_ = 0;
-					}
+						else
+						{
+							instanceData.skining_.skinIndex_ = 0xFFFFFFFF;
+							instanceData.skining_.boneOffset_ = 0;
+						}
 
-					instanceData.doubleSided_ = material.doubleSided_ ? 1 : 0;
-					instanceData.blend_ = material.alphaMode_ == 2 ? 1 : 0;
-					instanceData.selected_ = 0;
+						instanceData.shading_.doubleSided_ = material.doubleSided_ ? 1 : 0;
+						instanceData.shading_.blend_ = material.alphaMode_ == 2 ? 1 : 0;
+						instanceData.shading_.selected_ = 0;
 
-					if (material.alphaMode_ != 2)
-					{
-						opaqueInstances_.push_back(instanceData);
-						hasSkinnedOpaque_ = hasSkinnedOpaque_ || instanceData.skinIndex_ != 0xFFFFFFFF;
-					}
-					else
-					{
-						transparentInstances_.push_back(instanceData);
-					}
+						if (material.alphaMode_ != 2)
+						{
+							opaqueInstances_.push_back(instanceData);
+							hasSkinnedOpaque_ = hasSkinnedOpaque_ || instanceData.skining_.skinIndex_ != 0xFFFFFFFF;
+						}
+						else
+						{
+							transparentInstances_.push_back(instanceData);
+						}
 
-					offset += count;
-					remaining -= count;
+						offset += count;
+						remaining -= count;
+					}
 				}
 			}
 		}
@@ -499,7 +507,7 @@ namespace SeedCore
 				break;
 			}
 
-			ColliderInstance sphereInstance{};
+			ColliderStructuredBuffer sphereInstance{};
 			sphereInstance.position_ = worldNodePositions[static_cast<Size>(jointIndex)];
 			sphereInstance.shapeKind_ = static_cast<Uint32>(ColliderShapeKind::Sphere);
 			sphereInstance.rotation_ = Quaternion::Identity;
@@ -536,7 +544,7 @@ namespace SeedCore
 				coneRotation = Quaternion::CreateFromAxisAngle(axis, Acos(dot));
 			}
 
-			ColliderInstance coneInstance{};
+			ColliderStructuredBuffer coneInstance{};
 			coneInstance.position_ = parentPosition + direction * (boneLength * 0.5f);
 			coneInstance.shapeKind_ = static_cast<Uint32>(ColliderShapeKind::Cone);
 			coneInstance.rotation_ = coneRotation;
@@ -554,12 +562,13 @@ namespace SeedCore
 		}
 		uploaded_ = true;
 
-		structuredIndices_.model_.instanceIndex_ = instanceBuffer_->Index();
-		structuredIndices_.model_.boneMatrixIndex_ = boneBuffer_->Index();
+		shaderResourceIndices_.model_.instanceIndex_ = instanceBuffer_->Index();
+		shaderResourceIndices_.model_.boneMatrixIndex_ = boneBuffer_->Index();
+		shaderResourceIndices_.model_.previousBoneMatrixIndex_ = boneBuffer_->Index();
 
 		if (!opaqueInstances_.empty() || !transparentInstances_.empty())
 		{
-			DynamicArray<ModelInstanceData> allInstances;
+			DynamicArray<ModelStructuredBuffer> allInstances;
 			allInstances.reserve(opaqueInstances_.size() + transparentInstances_.size());
 			allInstances.insert(allInstances.end(), opaqueInstances_.begin(), opaqueInstances_.end());
 			allInstances.insert(allInstances.end(), transparentInstances_.begin(), transparentInstances_.end());
@@ -584,8 +593,9 @@ namespace SeedCore
 		sceneSystem_->Upload(scene);
 
 		constantIndices_.sceneIndex_ = sceneSystem_->GetIndex();
+		constantIndices_.colliderIndex_ = boneInstanceConstantsBuffer_->GetIndex();
 		constantIndicesBuffer_->Update(constantIndices_);
-		structuredIndicesBuffer_->Update(structuredIndices_);
+		shaderResourceIndicesBuffer_->Update(shaderResourceIndices_);
 
 		if (opaqueInstances_.empty())
 		{
@@ -593,7 +603,7 @@ namespace SeedCore
 		}
 
 		D3D12_GPU_VIRTUAL_ADDRESS constantAddr = constantIndicesBuffer_->Address();
-		D3D12_GPU_VIRTUAL_ADDRESS structuredAddr = structuredIndicesBuffer_->Address();
+		D3D12_GPU_VIRTUAL_ADDRESS shaderResourceAddr = shaderResourceIndicesBuffer_->Address();
 
 		auto* cmd = cmdList->Get();
 
@@ -601,8 +611,7 @@ namespace SeedCore
 		cmd->SetDescriptorHeaps(_countof(heaps), heaps);
 		cmd->SetGraphicsRootSignature(modelShader_.GetRootSignature());
 		cmd->SetGraphicsRootConstantBufferView(2, constantAddr);
-		cmd->SetGraphicsRootConstantBufferView(3, structuredAddr);
-		cmd->SetGraphicsRootDescriptorTable(0, bindlessHeap_->GPUHandle(0));
+		cmd->SetGraphicsRootConstantBufferView(0, shaderResourceAddr);
 
 		cmd->SetPipelineState(modelShader_.GetPipelineStatePreviewStatic());
 		cmd->DispatchMesh(static_cast<Uint>(opaqueInstances_.size() + transparentInstances_.size()), 1, 1);
@@ -632,8 +641,8 @@ namespace SeedCore
 		boneInstanceBuffer_->Update(boneInstances_.data(), instanceCount);
 		sphereEdgeBuffer_->Update(sphereEdgeData_.data(), static_cast<Uint>(sphereEdgeData_.size()));
 
-		ColliderInstanceConstants constants{};
-		constants.lineVertexBufferIndex_ = boneInstanceBuffer_->Index();
+		ColliderConstantBuffer constants{};
+		constants.instanceBufferIndex_ = boneInstanceBuffer_->Index();
 		constants.instanceCount_ = instanceCount;
 		constants.groupsPerInstance_ = groupsPerBoneInstance_;
 		constants.sphereEdgeBufferIndex_ = sphereEdgeBuffer_->Index();
@@ -656,12 +665,19 @@ namespace SeedCore
 		ID3D12DescriptorHeap* heaps[] = { heap };
 		cmd->SetDescriptorHeaps(_countof(heaps), heaps);
 		cmd->SetGraphicsRootSignature(boneLineShader_.GetRootSignature());
-		cmd->SetGraphicsRootConstantBufferView(0, constantIndicesBuffer_->Address());
-		cmd->SetGraphicsRootConstantBufferView(1, boneInstanceConstantsBuffer_->Address());
+		cmd->SetGraphicsRootConstantBufferView(2, constantIndicesBuffer_->Address());
 
 		cmd->SetPipelineState(boneLineShader_.GetPipelineState());
 
-		cmd->DispatchMesh(instanceCount * groupsPerBoneInstance_, 1, 1);
+		if (D3D12Check::GetLevel() == D3D12Level::D12_2)
+		{
+			cmd->DispatchMesh(instanceCount * groupsPerBoneInstance_, 1, 1);
+		}
+		else
+		{
+			cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
+			cmd->DrawInstanced(groupsPerBoneInstance_ * threadsPerGroup_ * 2, instanceCount, 0, 0);
+		}
 		ProfilerStats::AddDrawCall();
 	}
 

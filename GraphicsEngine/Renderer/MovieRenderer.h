@@ -6,17 +6,18 @@
 
 namespace SeedCore
 {
+	struct RootAddresses;
 	class World;
 	class BindlessHeap;
 	class ShaderCache;
 	class PipelineStateObject;
-	class IndicesSystem;
+	class ShaderResourceIndicesSystem;
 	class MovieResource;
 
 	class MovieRenderer
 	{
 	private:
-		struct MovieSpriteInstance
+		struct MovieSpriteStructuredBuffer
 		{
 			Vector2 position_;
 			Float rotation_;
@@ -32,7 +33,7 @@ namespace SeedCore
 			Vector2 padding3_;
 		};
 
-		struct MovieBillboardInstance
+		struct MovieBillboardStructuredBuffer
 		{
 			Vector3 position_;
 			Vector3 rotation_;
@@ -48,7 +49,7 @@ namespace SeedCore
 			Float padding2_;
 		};
 
-		struct MovieFullscreenInstance
+		struct MovieFullscreenStructuredBuffer
 		{
 			Color color_;
 			Uint textureIndex_;
@@ -61,34 +62,34 @@ namespace SeedCore
 
 		~MovieRenderer() = default;
 
-		void Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, IndicesSystem& indicesSystem);
+		void Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, ShaderResourceIndicesSystem& shaderResourceIndicesSystem);
 
 		void Gather(MovieResource& movieResource, World& world, Vector2 nativeScreenSize, Entity selectedEntity = Entity::Null());
 
 		void Upload();
 
-		void DrawFullscreen(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex);
+		void DrawFullscreen(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses);
 
-		void DrawSprite(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex);
+		void DrawSprite(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses);
 
-		void DrawBillboard(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex);
+		void DrawBillboard(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses);
 
-		void DrawSelectionMaskSprite(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex);
+		void DrawSelectionMaskSprite(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses);
 
-		void DrawSelectionMaskBillboard(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex);
+		void DrawSelectionMaskBillboard(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses);
 
 	private:
-		DynamicArray<MovieSpriteInstance> spriteInstances_;
+		DynamicArray<MovieSpriteStructuredBuffer> spriteInstances_;
 
-		DynamicArray<MovieBillboardInstance> billboardInstances_;
+		DynamicArray<MovieBillboardStructuredBuffer> billboardInstances_;
 
-		DynamicArray<MovieFullscreenInstance> fullscreenInstances_;
+		DynamicArray<MovieFullscreenStructuredBuffer> fullscreenInstances_;
 
-		ResourcePtr<ReadOnlyStructuredBuffer<MovieSpriteInstance>> spriteBuffer_;
+		ResourcePtr<ReadOnlyStructuredBuffer<MovieSpriteStructuredBuffer>> spriteBuffer_;
 
-		ResourcePtr<ReadOnlyStructuredBuffer<MovieBillboardInstance>> billboardBuffer_;
+		ResourcePtr<ReadOnlyStructuredBuffer<MovieBillboardStructuredBuffer>> billboardBuffer_;
 
-		ResourcePtr<ReadOnlyStructuredBuffer<MovieFullscreenInstance>> fullscreenBuffer_;
+		ResourcePtr<ReadOnlyStructuredBuffer<MovieFullscreenStructuredBuffer>> fullscreenBuffer_;
 
 		Bool hasSelectedSpriteInstance_ = false;
 
@@ -98,7 +99,7 @@ namespace SeedCore
 
 		BindlessHeap* bindlessHeap_ = nullptr;
 
-		IndicesSystem* indicesSystem_ = nullptr;
+		ShaderResourceIndicesSystem* shaderResourceIndicesSystem_ = nullptr;
 
 		Uint maxCount_ = 0;
 	};

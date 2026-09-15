@@ -18,7 +18,6 @@
 #include <GraphicsEngine/Font/FontResource.h>
 #include <GraphicsEngine/Movie/MovieResource.h>
 #include <GraphicsEngine/Avatar/AvatarMesh.h>
-#include <GraphicsEngine/Avatar/Human/HumanCharacterEvaluator.h>
 
 namespace SeedCore
 {
@@ -207,8 +206,11 @@ namespace SeedCore
 #endif
 	}
 
-	void Graphics::EditorRender(WorldTimer& timer, const EditorCamera& editorCamera, LoaderSystem& loaderSystem, ResourceCache& resourceCache, World& world, ViewMode viewMode, const DynamicArray<ColliderInstance>& colliderInstances, Entity selectedEntity)
+	void Graphics::EditorRender(WorldTimer& timer, const EditorCamera& editorCamera, LoaderSystem& loaderSystem, ResourceCache& resourceCache, World& world, ViewMode viewMode, const DynamicArray<ColliderStructuredBuffer>& colliderInstances, Entity selectedEntity)
 	{
+		PrepareFrame(timer.DeltaTime(), loaderSystem, resourceCache, world, selectedEntity);
+		renderer_->GatherColliders(colliderInstances);
+
 		SceneConstantBuffer editorSceneConstantBuffer{};
 		editorSceneConstantBuffer.view_ = editorCamera.View();
 		editorSceneConstantBuffer.inverseView_ = editorCamera.InverseView();
@@ -225,6 +227,7 @@ namespace SeedCore
 		editorSceneConstantBuffer.fieldOfView_ = editorCamera.Fov();
 		editorSceneConstantBuffer.nearPlane_ = editorCamera.Near();
 		editorSceneConstantBuffer.farPlane_ = editorCamera.Far();
+		editorSceneConstantBuffer.viewMode_ = static_cast<Uint>(viewMode);
 		editorSceneConstantBuffer.totalTime_ = timer.TotalTime();
 		editorSceneConstantBuffer.deltaTime_ = timer.DeltaTime();
 		editorSceneConstantBuffer.screenSize_ = Vector2(static_cast<Float>(nativeWidth_), static_cast<Float>(nativeHeight_));
@@ -232,22 +235,15 @@ namespace SeedCore
 		editorSceneConstantBuffer.displaySize_ = renderer_->PostProcessOutputSize();
 		editorSceneSystem_->Upload(editorSceneConstantBuffer);
 
-		resourceCache.GetFontResource()->Update(context_->GetDevice(), context_->GetDirectQueue()->GetCommandQueue(), bindlessHeap_.get());
-
-		movieSystem_.Update(world, resourceCache);
-		resourceCache.GetMovieResource()->Update(context_->GetDevice(), context_->GetDirectList()->Get(), bindlessHeap_.get());
-
-		/// [JP] ストリーミングの LOD 要求判定用に前フレームのカメラを渡す
-		///      （カメラ更新は Gather の後 — 1 フレーム遅れで十分）。
-		renderer_->GatherScenePreview(loaderSystem, resourceCache, world, cameraSystem_.GetSceneConstantBuffer(), colliderInstances, selectedEntity);
-
 		renderer_->BeginEditorFrame(context_->GetDirectList());
-		renderer_->EditorFlush(context_->GetDirectList(), editorSceneSystem_.get(), timer.DeltaTime(), viewMode);
+		renderer_->EditorFlush(context_->GetDirectList(), editorSceneSystem_.get(), viewMode);
 		renderer_->EndEditorFrame(context_->GetDirectList(), editorSceneConstantBuffer);
 	}
 
 	void Graphics::GameRender(GameTimer& timer, LoaderSystem& loaderSystem, ResourceCache& resourceCache, World& world)
 	{
+		PrepareFrame(timer.DeltaTime(), loaderSystem, resourceCache, world, Entity::Null());
+
 		cameraSystem_.Update(world, timer, static_cast<Float>(nativeWidth_), static_cast<Float>(nativeHeight_));
 
 		SceneConstantBuffer gameSceneConstantBuffer = cameraSystem_.GetSceneConstantBuffer();
@@ -276,6 +272,8 @@ namespace SeedCore
 
 	void Graphics::CanvasRender(WorldTimer& timer, const CanvasCamera& canvasCamera, LoaderSystem& loaderSystem, ResourceCache& resourceCache, World& world)
 	{
+		PrepareFrame(timer.DeltaTime(), loaderSystem, resourceCache, world, Entity::Null());
+
 		SceneConstantBuffer canvasSceneConstantBuffer{};
 		canvasSceneConstantBuffer.view_ = canvasCamera.View();
 		canvasSceneConstantBuffer.inverseView_ = canvasCamera.InverseView();
@@ -423,9 +421,9 @@ namespace SeedCore
 		renderer_->EndSkeletonControllerFrame(context_->GetDirectList());
 	}
 
-	void Graphics::AvatarRender(WorldTimer& timer, const PreviewCamera& avatarCamera, const AvatarMesh& mesh, const HumanCharacterEvaluator& evaluator, const Matrix& worldMatrix)
+	void Graphics::AvatarRender(WorldTimer& timer, const PreviewCamera& avatarCamera, const AvatarMesh& mesh, Uint32 boneCount, const Matrix& worldMatrix, std::span<const Uint32> regionTextureIndices)
 	{
-		renderer_->GatherAvatarPreview(mesh, evaluator, worldMatrix);
+		renderer_->GatherAvatarPreview(mesh, boneCount, worldMatrix, regionTextureIndices);
 
 		SceneConstantBuffer previewSceneConstantBuffer{};
 		previewSceneConstantBuffer.view_ = avatarCamera.View();
@@ -455,6 +453,8 @@ namespace SeedCore
 
 	void Graphics::Begin()
 	{
+		frameCount_++;
+
 		context_->BeginFrame();
 
 		/// [JP] Streamlineのフレームトークンはフレーム単位(ビュー非依存)。
@@ -629,6 +629,24 @@ namespace SeedCore
 	D3D12_GPU_DESCRIPTOR_HANDLE Graphics::AvatarImGuiGPUHandle()const
 	{
 		return renderer_->AvatarImGuiGPUHandle();
+	}
+
+	void Graphics::PrepareFrame(Float deltaTime, LoaderSystem& loaderSystem, ResourceCache& resourceCache, World& world, Entity selectedEntity)
+	{
+		if (preparedFrame_ == frameCount_)
+		{
+			return;
+		}
+		preparedFrame_ = frameCount_;
+
+		resourceCache.GetFontResource()->Update(context_->GetDevice(), context_->GetDirectQueue()->GetCommandQueue(), bindlessHeap_.get());
+
+		movieSystem_.Update(world, resourceCache);
+		resourceCache.GetMovieResource()->Update(context_->GetDevice(), context_->GetDirectList()->Get(), bindlessHeap_.get());
+
+		/// [JP] ストリーミングの LOD 要求判定用に前フレームのカメラを渡す
+		///      （カメラ更新は Gather の後 — 1 フレーム遅れで十分）。
+		renderer_->PrepareFrame(context_->GetDirectList(), loaderSystem, resourceCache, world, cameraSystem_.GetSceneConstantBuffer(), deltaTime, selectedEntity);
 	}
 
 	CameraSystem& Graphics::GetCameraSystem()

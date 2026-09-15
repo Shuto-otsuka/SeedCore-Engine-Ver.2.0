@@ -8,8 +8,7 @@
 #include <FoundationEngine/ECS/Component/Spawner.h>
 #include <FoundationEngine/ECS/Component/Velocity.h>
 #include <GraphicsEngine/Camera/Camera.h>
-#include <GraphicsEngine/Camera/FreeCameraController.h>
-#include <GraphicsEngine/Camera/OrbitCameraController.h>
+#include <GraphicsEngine/Camera/CameraBrain.h>
 #include <GraphicsEngine/Constraint/AttachmentConstraint.h>
 #include <GraphicsEngine/Constraint/IKConstraint.h>
 #include <GraphicsEngine/Constraint/LookAtConstraint.h>
@@ -50,8 +49,7 @@ extern "C" int _force_reflection_Scale = 0;
 extern "C" int _force_reflection_Spawner = 0;
 extern "C" int _force_reflection_Velocity = 0;
 extern "C" int _force_reflection_Camera = 0;
-extern "C" int _force_reflection_FreeCameraController = 0;
-extern "C" int _force_reflection_OrbitCameraController = 0;
+extern "C" int _force_reflection_CameraBrain = 0;
 extern "C" int _force_reflection_AttachmentConstraint = 0;
 extern "C" int _force_reflection_Effector = 0;
 extern "C" int _force_reflection_IKConstraint = 0;
@@ -361,66 +359,64 @@ namespace SeedCore
 		};
 		static Register_Camera global_Camera_register;
 
-		// ---- GraphicsEngine/Camera/FreeCameraController.h ----
-		struct Register_FreeCameraController
+		// ---- GraphicsEngine/Camera/CameraBrain.h ----
+		struct Register_CameraBrain
 		{
-			Register_FreeCameraController()
+			Register_CameraBrain()
 			{
-				ReflectionRegistry::Register(String("FreeCameraController"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
-					FreeCameraController& obj = *static_cast<FreeCameraController*>(ptr);
-					outInfo.push_back({ String("移動速度"), offsetof(FreeCameraController, moveSpeed_), AttributeType::Float });
-					outInfo.push_back({ String("回転速度"), offsetof(FreeCameraController, rotateSpeed_), AttributeType::Float });
-					outInfo.push_back({ String("スクロール速度"), offsetof(FreeCameraController, scrollSpeed_), AttributeType::Float });
-					outInfo.push_back({ String("パン速度"), offsetof(FreeCameraController, panSpeed_), AttributeType::Float });
-					outInfo.push_back({ String("Shift速度倍率"), offsetof(FreeCameraController, shiftSpeedMultiplier_), AttributeType::Float });
-				});
-			}
-		};
-		static Register_FreeCameraController global_FreeCameraController_register;
-
-		// ---- GraphicsEngine/Camera/OrbitCameraController.h ----
-		struct Register_OrbitCameraController
-		{
-			Register_OrbitCameraController()
-			{
-				ReflectionRegistry::Register(String("OrbitCameraController"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
-					OrbitCameraController& obj = *static_cast<OrbitCameraController*>(ptr);
-					outInfo.push_back({ String("注視点X"), offsetof(OrbitCameraController, targetX_), AttributeType::Float });
-					outInfo.push_back({ String("注視点Y"), offsetof(OrbitCameraController, targetY_), AttributeType::Float });
-					outInfo.push_back({ String("注視点Z"), offsetof(OrbitCameraController, targetZ_), AttributeType::Float });
+				ReflectionRegistry::Register(String("CameraBrain"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
+					CameraBrain& obj = *static_cast<CameraBrain*>(ptr);
+					{
+						FieldInfo fi;
+						fi.name_ = String("モード");
+						fi.offset_ = offsetof(CameraBrain, mode_);
+						fi.type_ = AttributeType::Enum;
+						fi.enum_.typeName_ = String("CameraBrainMode");
+						outInfo.push_back(std::move(fi));
+					}
+					outInfo.push_back({ String("カメラ向き"), offsetof(CameraBrain, direction_), AttributeType::Vector3 });
+					{
+						FieldInfo fi;
+						fi.name_ = String("重み");
+						fi.offset_ = offsetof(CameraBrain, weight_);
+						fi.type_ = AttributeType::Int;
+						fi.clampMin_ = 1;
+						fi.clampMax_ = 500;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("ブレンド時間");
+						fi.offset_ = offsetof(CameraBrain, blendTime_);
+						fi.type_ = AttributeType::Float;
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 10.0f;
+						outInfo.push_back(std::move(fi));
+					}
 					{
 						FieldInfo fi;
 						fi.name_ = String("距離");
-						fi.offset_ = offsetof(OrbitCameraController, distance_);
+						fi.offset_ = offsetof(CameraBrain, distance_);
 						fi.type_ = AttributeType::Float;
-						fi.clampMin_ = 0.1f;
-						fi.clampMax_ = 1000.0f;
-						outInfo.push_back(std::move(fi));
-					}
-					outInfo.push_back({ String("回転速度"), offsetof(OrbitCameraController, rotateSpeed_), AttributeType::Float });
-					outInfo.push_back({ String("ズーム速度"), offsetof(OrbitCameraController, zoomSpeed_), AttributeType::Float });
-					{
-						FieldInfo fi;
-						fi.name_ = String("最小距離");
-						fi.offset_ = offsetof(OrbitCameraController, minDistance_);
-						fi.type_ = AttributeType::Float;
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<CameraBrain*>(p); return o.mode_ == CameraBrainMode::Orbit || o.mode_ == CameraBrainMode::Follow || o.mode_ == CameraBrainMode::Lockon; };
 						fi.clampMin_ = 0.1f;
 						fi.clampMax_ = 1000.0f;
 						outInfo.push_back(std::move(fi));
 					}
 					{
 						FieldInfo fi;
-						fi.name_ = String("最大距離");
-						fi.offset_ = offsetof(OrbitCameraController, maxDistance_);
+						fi.name_ = String("遅れ");
+						fi.offset_ = offsetof(CameraBrain, damping_);
 						fi.type_ = AttributeType::Float;
-						fi.clampMin_ = 0.1f;
-						fi.clampMax_ = 10000.0f;
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<CameraBrain*>(p); return o.mode_ == CameraBrainMode::Follow || o.mode_ == CameraBrainMode::Lockon; };
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 5.0f;
 						outInfo.push_back(std::move(fi));
 					}
 				});
 			}
 		};
-		static Register_OrbitCameraController global_OrbitCameraController_register;
+		static Register_CameraBrain global_CameraBrain_register;
 
 		// ---- GraphicsEngine/Constraint/AttachmentConstraint.h ----
 		struct Register_AttachmentConstraint
@@ -3116,6 +3112,22 @@ namespace SeedCore
 			}
 		};
 		static RegisterEnum_BodyType global_BodyType_enum_register;
+
+		struct RegisterEnum_CameraBrainMode
+		{
+			RegisterEnum_CameraBrainMode()
+			{
+				EnumRegistry::Register(String("CameraBrainMode"), {
+					{ static_cast<Int>(CameraBrainMode::Free), String("Free") },
+					{ static_cast<Int>(CameraBrainMode::Orbit), String("Orbit") },
+					{ static_cast<Int>(CameraBrainMode::Follow), String("Follow") },
+					{ static_cast<Int>(CameraBrainMode::Lookat), String("Lookat") },
+					{ static_cast<Int>(CameraBrainMode::Lockon), String("Lockon") },
+					{ static_cast<Int>(CameraBrainMode::Cinematic), String("Cinematic") },
+				});
+			}
+		};
+		static RegisterEnum_CameraBrainMode global_CameraBrainMode_enum_register;
 
 		struct RegisterEnum_DisplayMode
 		{

@@ -12,6 +12,7 @@ namespace SeedCore
 	class ShaderCache;
 	class D3D12CommandList;
 	class GeometryBuffer;
+	struct RootAddresses;
 
 	/**
 	* [EN]
@@ -61,7 +62,7 @@ namespace SeedCore
 	class DepthResizeBuffer
 	{
 	private:
-		struct DepthResizeConstants
+		struct DepthResizeConstantBuffer
 		{
 			Uint sourceIndex_ = 0;
 			Uint destinationIndex_ = 0;
@@ -109,7 +110,7 @@ namespace SeedCore
 		* を自分で呼ぶ必要がある - この呼び出しから戻った時点でバインド済み
 		* にはならない。
 		*/
-		void Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, GeometryBuffer& geometryBuffer, Uint32 sourceWidth, Uint32 sourceHeight);
+		void Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, GeometryBuffer& geometryBuffer, Uint32 sourceWidth, Uint32 sourceHeight, const RootAddresses& addresses);
 
 		[[nodiscard]] D3D12_CPU_DESCRIPTOR_HANDLE DepthStencilViewHandle()const;
 
@@ -126,7 +127,7 @@ namespace SeedCore
 		DescriptorHeap depthStencilViewHeap_;
 		Uint32 unorderedAccessViewIndex_ = 0;
 
-		ResourcePtr<ConstantBuffer<DepthResizeConstants>> constantBuffer_;
+		ResourcePtr<ConstantBuffer<DepthResizeConstantBuffer>> constantBuffer_;
 
 		BindlessHeap* bindlessHeap_ = nullptr;
 		RootSignature* rootSignature_ = nullptr;

@@ -1,4 +1,6 @@
-#include "../Shader/Constants.hlsli"
+#include "PostProcess.hlsli"
+#include "../Shader/ShaderResources.hlsli"
+#include "../Shader/UnorderedAccesses.hlsli"
 #include "../Shader/Sampler.hlsli"
 
 /**
@@ -145,22 +147,26 @@ float2 AxisDirection(uint axis, float angle_offset, uint axis_count)
 
 uint AxisPingUnorderedAccessViewIndex(uint axis)
 {
-	return constant_indices.post_process_.lens_flare_streak_.axis_indices_[axis].x;
+	RWStructuredBuffer<LensFlareStreakAxisIndices> axis_buffer = ResourceDescriptorHeap[unordered_access_indices.post_process_.lens_flare_streak_.axis_buffer_index_];
+	return axis_buffer[axis].ping_index_;
 }
 
 uint AxisPingShaderResourceViewIndex(uint axis)
 {
-	return constant_indices.post_process_.lens_flare_streak_.axis_indices_[axis].y;
+	StructuredBuffer<LensFlareStreakAxisIndices> axis_buffer = ResourceDescriptorHeap[shader_resource_indices.post_process_.lens_flare_streak_.axis_buffer_index_];
+	return axis_buffer[axis].ping_index_;
 }
 
 uint AxisPongUnorderedAccessViewIndex(uint axis)
 {
-	return constant_indices.post_process_.lens_flare_streak_.axis_indices_[axis].z;
+	RWStructuredBuffer<LensFlareStreakAxisIndices> axis_buffer = ResourceDescriptorHeap[unordered_access_indices.post_process_.lens_flare_streak_.axis_buffer_index_];
+	return axis_buffer[axis].pong_index_;
 }
 
 uint AxisPongShaderResourceViewIndex(uint axis)
 {
-	return constant_indices.post_process_.lens_flare_streak_.axis_indices_[axis].w;
+	StructuredBuffer<LensFlareStreakAxisIndices> axis_buffer = ResourceDescriptorHeap[shader_resource_indices.post_process_.lens_flare_streak_.axis_buffer_index_];
+	return axis_buffer[axis].pong_index_;
 }
 
 /**
@@ -230,7 +236,7 @@ float AxisVariation(uint axis, float variation, float phase)
 [numthreads(8, 8, 1)]
 void Downsample(uint3 dtid : SV_DispatchThreadID)
 {
-	RWTexture2D<float4> destination = ResourceDescriptorHeap[constant_indices.post_process_.lens_flare_streak_.bright_uav_index_];
+	RWTexture2D<float4> destination = ResourceDescriptorHeap[unordered_access_indices.post_process_.lens_flare_streak_.bright_index_];
 
 	uint width, height;
 	destination.GetDimensions(width, height);
@@ -246,7 +252,7 @@ void Downsample(uint3 dtid : SV_DispatchThreadID)
 		return;
 	}
 
-	uint source_index = constant_indices.post_process_.depth_of_field_.enabled_ != 0 ? constant_indices.post_process_.depth_of_field_.shader_resource_view_index_ : constant_indices.post_process_.source_color_index_;
+	uint source_index = GetPostProcessConstantBuffer().depth_of_field_.enabled_ != 0 ? shader_resource_indices.post_process_.depth_of_field_.index_ : shader_resource_indices.post_process_.source_color_index_;
 	Texture2D<float4> source = ResourceDescriptorHeap[source_index];
 
 	uint source_width, source_height;
@@ -254,7 +260,7 @@ void Downsample(uint3 dtid : SV_DispatchThreadID)
 	float2 source_texel = 1.0 / float2(source_width, source_height);
 
 	float2 uv = (float2(dtid.xy) + 0.5) / float2(width, height);
-	float threshold = constant_indices.post_process_.lens_flare_.threshold_;
+	float threshold = GetPostProcessConstantBuffer().lens_flare_.threshold_;
 
 	float3 result = BrightPass(source.SampleLevel(sampler_linear_clamp, uv + float2(-1.0, -1.0) * source_texel, 0).rgb, threshold);
 	result += BrightPass(source.SampleLevel(sampler_linear_clamp, uv + float2(1.0, -1.0) * source_texel, 0).rgb, threshold);
@@ -372,13 +378,13 @@ void FirstPass(uint3 dtid, float spacing)
 
 	float2 uv = (float2(dtid.xy) + 0.5) / float2(width, height);
 	float2 texel = 1.0 / float2(width, height);
-	float angle_offset = constant_indices.post_process_.lens_flare_.angle_offset_;
-	float attenuation = constant_indices.post_process_.lens_flare_.streak_attenuation_;
-	float length_scale = constant_indices.post_process_.lens_flare_.streak_length_ * 4.0;
-	uint axis_count = constant_indices.post_process_.lens_flare_.axis_count_;
-	float variation = constant_indices.post_process_.lens_flare_.spike_variation_;
+	float angle_offset = GetPostProcessConstantBuffer().lens_flare_.angle_offset_;
+	float attenuation = GetPostProcessConstantBuffer().lens_flare_.streak_attenuation_;
+	float length_scale = GetPostProcessConstantBuffer().lens_flare_.streak_length_ * 4.0;
+	uint axis_count = GetPostProcessConstantBuffer().lens_flare_.axis_count_;
+	float variation = GetPostProcessConstantBuffer().lens_flare_.spike_variation_;
 
-	Texture2D<float4> source = ResourceDescriptorHeap[constant_indices.post_process_.lens_flare_streak_.bright_srv_index_];
+	Texture2D<float4> source = ResourceDescriptorHeap[shader_resource_indices.post_process_.lens_flare_streak_.bright_index_];
 
 	[loop]
 	for (uint axis = 0; axis < axis_count; axis++)
@@ -423,11 +429,11 @@ void BlurPass(uint3 dtid, float spacing, bool read_ping)
 
 	float2 uv = (float2(dtid.xy) + 0.5) / float2(width, height);
 	float2 texel = 1.0 / float2(width, height);
-	float angle_offset = constant_indices.post_process_.lens_flare_.angle_offset_;
-	float attenuation = constant_indices.post_process_.lens_flare_.streak_attenuation_;
-	float length_scale = constant_indices.post_process_.lens_flare_.streak_length_ * 4.0;
-	uint axis_count = constant_indices.post_process_.lens_flare_.axis_count_;
-	float variation = constant_indices.post_process_.lens_flare_.spike_variation_;
+	float angle_offset = GetPostProcessConstantBuffer().lens_flare_.angle_offset_;
+	float attenuation = GetPostProcessConstantBuffer().lens_flare_.streak_attenuation_;
+	float length_scale = GetPostProcessConstantBuffer().lens_flare_.streak_length_ * 4.0;
+	uint axis_count = GetPostProcessConstantBuffer().lens_flare_.axis_count_;
+	float variation = GetPostProcessConstantBuffer().lens_flare_.spike_variation_;
 
 	[loop]
 	for (uint axis = 0; axis < axis_count; axis++)
@@ -491,7 +497,7 @@ void BlurPass4(uint3 dtid : SV_DispatchThreadID)
 [numthreads(8, 8, 1)]
 void Compose(uint3 dtid : SV_DispatchThreadID)
 {
-	RWTexture2D<float4> output = ResourceDescriptorHeap[constant_indices.post_process_.lens_flare_.unordered_access_view_index_];
+	RWTexture2D<float4> output = ResourceDescriptorHeap[unordered_access_indices.post_process_.lens_flare_.index_];
 
 	uint width, height;
 	output.GetDimensions(width, height);
@@ -508,11 +514,11 @@ void Compose(uint3 dtid : SV_DispatchThreadID)
 	}
 
 	float2 uv = (float2(dtid.xy) + 0.5) / float2(width, height);
-	float chromatic_aberration = constant_indices.post_process_.lens_flare_.chromatic_aberration_;
-	float intensity = constant_indices.post_process_.lens_flare_.intensity_;
-	float angle_offset = constant_indices.post_process_.lens_flare_.angle_offset_;
-	uint axis_count = constant_indices.post_process_.lens_flare_.axis_count_;
-	float variation = constant_indices.post_process_.lens_flare_.spike_variation_;
+	float chromatic_aberration = GetPostProcessConstantBuffer().lens_flare_.chromatic_aberration_;
+	float intensity = GetPostProcessConstantBuffer().lens_flare_.intensity_;
+	float angle_offset = GetPostProcessConstantBuffer().lens_flare_.angle_offset_;
+	uint axis_count = GetPostProcessConstantBuffer().lens_flare_.axis_count_;
+	float variation = GetPostProcessConstantBuffer().lens_flare_.spike_variation_;
 
 	float3 accum = float3(0.0, 0.0, 0.0);
 
@@ -637,7 +643,7 @@ float3 LensColor(float radius01)
 [numthreads(8, 8, 1)]
 void Ghost(uint3 dtid : SV_DispatchThreadID)
 {
-	RWTexture2D<float4> output = ResourceDescriptorHeap[constant_indices.post_process_.lens_flare_.unordered_access_view_index_];
+	RWTexture2D<float4> output = ResourceDescriptorHeap[unordered_access_indices.post_process_.lens_flare_.index_];
 
 	uint width, height;
 	output.GetDimensions(width, height);
@@ -653,7 +659,7 @@ void Ghost(uint3 dtid : SV_DispatchThreadID)
 		return;
 	}
 
-	Texture2D<float4> source = ResourceDescriptorHeap[constant_indices.post_process_.lens_flare_streak_.bright_srv_index_];
+	Texture2D<float4> source = ResourceDescriptorHeap[shader_resource_indices.post_process_.lens_flare_streak_.bright_index_];
 
 	float2 uv = 1.0 - (float2(dtid.xy) + 0.5) / float2(width, height);
 
@@ -665,12 +671,12 @@ void Ghost(uint3 dtid : SV_DispatchThreadID)
 	float2 aspect_scale = float2(float(width) / float(height), 1.0);
 	float max_radius = length(float2(0.5, 0.5) * aspect_scale);
 
-	uint ghost_count = min(constant_indices.post_process_.lens_flare_.ghost_count_, 8u);
-	float ghost_dispersal = constant_indices.post_process_.lens_flare_.ghost_dispersal_;
-	float ghost_intensity = constant_indices.post_process_.lens_flare_.ghost_intensity_;
-	float halo_width = constant_indices.post_process_.lens_flare_.halo_width_;
-	float chromatic_aberration = constant_indices.post_process_.lens_flare_.chromatic_aberration_;
-	float intensity = constant_indices.post_process_.lens_flare_.intensity_;
+	uint ghost_count = min(GetPostProcessConstantBuffer().lens_flare_.ghost_count_, 8u);
+	float ghost_dispersal = GetPostProcessConstantBuffer().lens_flare_.ghost_dispersal_;
+	float ghost_intensity = GetPostProcessConstantBuffer().lens_flare_.ghost_intensity_;
+	float halo_width = GetPostProcessConstantBuffer().lens_flare_.halo_width_;
+	float chromatic_aberration = GetPostProcessConstantBuffer().lens_flare_.chromatic_aberration_;
+	float intensity = GetPostProcessConstantBuffer().lens_flare_.intensity_;
 
 	float3 distortion = float3(-chromatic_aberration, 0.0, chromatic_aberration);
 

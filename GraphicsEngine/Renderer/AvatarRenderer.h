@@ -5,7 +5,7 @@
 #include <GraphicsEngine/D3D12/Descriptor/DescriptorHeap.h>
 #include <GraphicsEngine/D3D12/Buffer/FrameBuffer.h>
 #include <GraphicsEngine/Model/ModelShader.h>
-#include <GraphicsEngine/Model/ModelInstanceData.h>
+#include <GraphicsEngine/Model/ModelRecord.h>
 #include <GraphicsEngine/System/SceneSystem.h>
 #include <GraphicsEngine/System/IndicesSystem.h>
 
@@ -17,7 +17,6 @@ namespace SeedCore
 	class PipelineStateObject;
 	class D3D12CommandList;
 	class AvatarMesh;
-	class HumanCharacterEvaluator;
 
 	class SEEDCORE_API AvatarRenderer :public NonCopyable
 	{
@@ -29,7 +28,7 @@ namespace SeedCore
 
 		void Resize(ID3D12Device* device, BindlessHeap* bindlessHeap, Uint32 width, Uint32 height);
 
-		void Gather(const AvatarMesh& mesh, const HumanCharacterEvaluator& evaluator, const Matrix& worldMatrix);
+		void Gather(const AvatarMesh& mesh, Uint32 boneCount, const Matrix& worldMatrix, std::span<const Uint32> regionTextureIndices);
 
 		void Upload();
 
@@ -50,11 +49,11 @@ namespace SeedCore
 
 		ModelShader modelShader_;
 
-		DynamicArray<ModelInstanceData> instances_;
+		DynamicArray<ModelStructuredBuffer> instances_;
 		DynamicArray<Matrix> boneMatrices_;
 		Bool uploaded_ = false;
 
-		ResourcePtr<ReadOnlyStructuredBuffer<ModelInstanceData>> instanceBuffer_;
+		ResourcePtr<ReadOnlyStructuredBuffer<ModelStructuredBuffer>> instanceBuffer_;
 		ResourcePtr<ReadOnlyStructuredBuffer<Matrix>> boneBuffer_;
 
 		BindlessHeap* bindlessHeap_ = nullptr;
@@ -66,9 +65,9 @@ namespace SeedCore
 		ResourcePtr<SceneSystem> sceneSystem_;
 
 		ConstantIndices constantIndices_{};
-		StructuredIndices structuredIndices_{};
+		ShaderResourceIndices shaderResourceIndices_{};
 		ResourcePtr<ConstantBuffer<ConstantIndices>> constantIndicesBuffer_;
-		ResourcePtr<ConstantBuffer<StructuredIndices>> structuredIndicesBuffer_;
+		ResourcePtr<ConstantBuffer<ShaderResourceIndices>> shaderResourceIndicesBuffer_;
 
 		DescriptorHeap* imguiHeap_ = nullptr;
 		Uint32 imguiShaderResourceViewIndex_ = 0;

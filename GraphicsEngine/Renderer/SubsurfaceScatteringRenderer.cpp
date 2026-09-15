@@ -13,10 +13,12 @@ namespace SeedCore
 		/// No Code
 	}
 
-	void SubsurfaceScatteringRenderer::Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, IndicesSystem& indicesSystem, Uint32 width, Uint32 height)
+	void SubsurfaceScatteringRenderer::Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, ConstantIndicesSystem& constantIndicesSystem, ShaderResourceIndicesSystem& shaderResourceIndicesSystem, UnorderedAccessIndicesSystem& unorderedAccessIndicesSystem, Uint32 width, Uint32 height)
 	{
 		bindlessHeap_ = bindlessHeap;
-		indicesSystem_ = &indicesSystem;
+		constantIndicesSystem_ = &constantIndicesSystem;
+		shaderResourceIndicesSystem_ = &shaderResourceIndicesSystem;
+		unorderedAccessIndicesSystem_ = &unorderedAccessIndicesSystem;
 		width_ = width;
 		height_ = height;
 
@@ -125,12 +127,12 @@ namespace SeedCore
 	void SubsurfaceScatteringRenderer::PrepareFrame(const SubsurfaceScatteringRayConstantBuffer& settings)
 	{
 		tuningBuffer_->Update(settings);
-		indicesSystem_->SetSubsurfaceScatteringRayConstantIndex(tuningBuffer_->GetIndex());
-		indicesSystem_->SetSubsurfaceScatteringTransmittanceUnorderedAccessViewIndex(transmittanceUnorderedAccessViewIndex_);
-		indicesSystem_->SetSubsurfaceScatteringTransmittanceShaderResourceViewIndex(transmittanceShaderResourceViewIndex_);
+		constantIndicesSystem_->SetSubsurfaceScatteringRayConstantIndex(tuningBuffer_->GetIndex());
+		unorderedAccessIndicesSystem_->SetSubsurfaceScatteringTransmittanceUnorderedAccessViewIndex(transmittanceUnorderedAccessViewIndex_);
+		shaderResourceIndicesSystem_->SetSubsurfaceScatteringTransmittanceShaderResourceViewIndex(transmittanceShaderResourceViewIndex_);
 	}
 
-	void SubsurfaceScatteringRenderer::Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex, Bool tlasValid)
+	void SubsurfaceScatteringRenderer::Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses, Bool tlasValid)
 	{
 		auto* cmd = cmdList->Get();
 
@@ -160,9 +162,7 @@ namespace SeedCore
 			ID3D12DescriptorHeap* heaps[] = { heap };
 			cmd->SetDescriptorHeaps(_countof(heaps), heaps);
 			cmd->SetComputeRootSignature(subsurfaceScatteringShader_.GetRootSignature());
-			cmd->SetComputeRootDescriptorTable(0, bindlessHeap_->GPUHandle(0));
-			cmd->SetComputeRootConstantBufferView(2, constantIndex);
-			cmd->SetComputeRootConstantBufferView(3, structuredIndex);
+			RootSignature::BindCompute(cmd, addresses);
 			cmd->SetPipelineState(pipelineState);
 
 			Uint32 groupCountX = (width_ + 7) / 8;

@@ -5,6 +5,7 @@ namespace SeedCore
 {
 	class HumanCharacterModel;
 	class HumanCharacterEvaluator;
+	enum class ExportPreset;
 
 	class SEEDCORE_API HumanCharacterConverter
 	{
@@ -13,6 +14,6 @@ namespace SeedCore
 
 		static void Convert(const HumanCharacterModel& model, const HumanCharacterEvaluator& evaluator, tinygltf::Model& outModel);
 
-		static Bool Bake(const HumanCharacterModel& model, const HumanCharacterEvaluator& evaluator, Bool binary, String filePath);
+		static Bool Bake(const HumanCharacterModel& model, const HumanCharacterEvaluator& evaluator, ExportPreset preset, String filePath);
 	};
 }

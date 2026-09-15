@@ -1,4 +1,6 @@
-#include "../Shader/Constants.hlsli"
+#include "PostProcess.hlsli"
+#include "../Shader/UnorderedAccesses.hlsli"
+#include "../Shader/Scene.hlsli"
 
 /**
 * [EN]
@@ -23,7 +25,7 @@
 * exponential decay (1 - exp(-delta_time_ * speed)), using ExposureSettings'
 * two asymmetric speeds - see AdaptSpeed's doc comment in PostProcess.h for
 * why brightening and darkening adapt at different rates. The persistent
-* buffer (constant_indices.post_process_.exposure_.exposure_uav_index_) is a single
+* buffer (unordered_access_indices.post_process_.exposure_.exposure_index_) is a single
 * float that PostProcessRenderer never clears after its one-time zero
 * initialization - reading and writing it here IS the adaptation state
 * carrying across frames.
@@ -46,7 +48,7 @@
 * 時間順応は、永続値を target_ev へ指数的減衰(1 - exp(-delta_time_ * speed))で
 * ブレンドする。ExposureSettings の非対称な2つの速度を使う理由は
 * PostProcess.h の AdaptSpeed 系フィールドのコメント参照。永続バッファ
-* (constant_indices.post_process_.exposure_.exposure_uav_index_)は単一の float で、
+* (unordered_access_indices.post_process_.exposure_.exposure_index_)は単一の float で、
 * PostProcessRenderer は初回のゼロ初期化以降クリアしない — ここでの読み書き
 * そのものが、フレームを跨いだ順応状態の保持になっている。
 */
@@ -56,7 +58,7 @@ void main()
 {
 	SceneConstantBuffer scene = GetSceneConstantBuffer();
 
-	RWStructuredBuffer<uint> histogram = ResourceDescriptorHeap[constant_indices.post_process_.exposure_.histogram_uav_index_];
+	RWStructuredBuffer<uint> histogram = ResourceDescriptorHeap[unordered_access_indices.post_process_.exposure_.histogram_index_];
 
 	float weighted_log_sum = 0.0;
 	float total_count = 0.0;
@@ -68,22 +70,22 @@ void main()
 		total_count += count;
 	}
 
-	float min_log = constant_indices.post_process_.exposure_.min_log_luminance_;
-	float max_log = constant_indices.post_process_.exposure_.max_log_luminance_;
+	float min_log = GetPostProcessConstantBuffer().exposure_.min_log_luminance_;
+	float max_log = GetPostProcessConstantBuffer().exposure_.max_log_luminance_;
 
 	float avg_log_luminance = total_count > 0.0 ? (weighted_log_sum / total_count) * (max_log - min_log) + min_log : min_log;
 
-	float key_value = constant_indices.post_process_.exposure_.key_value_;
+	float key_value = GetPostProcessConstantBuffer().exposure_.key_value_;
 	float target_ev = clamp(log2(max(key_value, 0.0001)) - avg_log_luminance, -8.0, 8.0);
 
-	RWStructuredBuffer<float> exposure = ResourceDescriptorHeap[constant_indices.post_process_.exposure_.exposure_uav_index_];
+	RWStructuredBuffer<float> exposure = ResourceDescriptorHeap[unordered_access_indices.post_process_.exposure_.exposure_index_];
 	float smoothed_ev = exposure[0];
 
 	/// [EN] target_ev dropped = the scene got brighter = light adaptation
 	///      (the faster of the two speeds).
 	/// [JP] 目標EVが下がった = シーンが明るくなった = 明順応(速い方の速度)。
 	bool brightening = target_ev < smoothed_ev;
-	float speed = brightening ? constant_indices.post_process_.exposure_.adapt_speed_to_bright_ : constant_indices.post_process_.exposure_.adapt_speed_to_dark_;
+	float speed = brightening ? GetPostProcessConstantBuffer().exposure_.adapt_speed_to_bright_ : GetPostProcessConstantBuffer().exposure_.adapt_speed_to_dark_;
 	float blend = 1.0 - exp(-scene.delta_time_ * max(speed, 0.0001));
 
 	smoothed_ev += (target_ev - smoothed_ev) * blend;

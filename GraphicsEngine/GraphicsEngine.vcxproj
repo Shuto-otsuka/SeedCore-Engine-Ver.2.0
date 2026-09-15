@@ -19,16 +19,18 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Avatar\Animal\AnimalCharacterConverter.h" />
+    <ClInclude Include="Avatar\Animal\AnimalCharacterEvaluator.h" />
+    <ClInclude Include="Avatar\Animal\AnimalCharacterModel.h" />
     <ClInclude Include="Avatar\AvatarMesh.h" />
     <ClInclude Include="Avatar\Human\HumanCharacterConverter.h" />
     <ClInclude Include="Avatar\Human\HumanCharacterEvaluator.h" />
     <ClInclude Include="Avatar\Human\HumanCharacterModel.h" />
     <ClInclude Include="Camera\Camera.h" />
+    <ClInclude Include="Camera\CameraBrain.h" />
     <ClInclude Include="Camera\CanvasCamera.h" />
     <ClInclude Include="Camera\EditorCamera.h" />
     <ClInclude Include="Camera\EditorCameraController.h" />
-    <ClInclude Include="Camera\FreeCameraController.h" />
-    <ClInclude Include="Camera\OrbitCameraController.h" />
     <ClInclude Include="Camera\PreviewCamera.h" />
     <ClInclude Include="Camera\PreviewCameraController.h" />
     <ClInclude Include="Camera\ScreenSpace.h" />
@@ -94,6 +96,8 @@
     <ClInclude Include="Effect\Zephyr\EffectLoader.h" />
     <ClInclude Include="Effect\Zephyr\EffectResource.h" />
     <ClInclude Include="Effect\Zephyr\Zephyr.h" />
+    <ClInclude Include="Effect\Zephyr\ZephyrModuleAssembler.h" />
+    <ClInclude Include="Effect\Zephyr\ZephyrModuleRegistry.h" />
     <ClInclude Include="Environment\Weather.h" />
     <ClInclude Include="Environment\WeatherParticleShader.h" />
     <ClInclude Include="Font\Font.h" />
@@ -131,8 +135,8 @@
     <ClInclude Include="Model\Material\MaterialState.h" />
     <ClInclude Include="Model\Mesh.h" />
     <ClInclude Include="Model\ModelExporter.h" />
-    <ClInclude Include="Model\ModelInstanceData.h" />
     <ClInclude Include="Model\ModelLoader.h" />
+    <ClInclude Include="Model\ModelRecord.h" />
     <ClInclude Include="Model\ModelResource.h" />
     <ClInclude Include="Model\ModelShader.h" />
     <ClInclude Include="Model\Morph\MorphBlendShader.h" />
@@ -252,13 +256,15 @@
     <ClInclude Include="Texture\Texture.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Avatar\Animal\AnimalCharacterConverter.cpp" />
+    <ClCompile Include="Avatar\Animal\AnimalCharacterEvaluator.cpp" />
+    <ClCompile Include="Avatar\Animal\AnimalCharacterModel.cpp" />
     <ClCompile Include="Avatar\AvatarMesh.cpp" />
     <ClCompile Include="Avatar\Human\HumanCharacterConverter.cpp" />
     <ClCompile Include="Avatar\Human\HumanCharacterEvaluator.cpp" />
     <ClCompile Include="Avatar\Human\HumanCharacterModel.cpp" />
+    <ClCompile Include="Camera\CameraBrain.cpp" />
     <ClCompile Include="Camera\CanvasCamera.cpp" />
-    <ClCompile Include="Camera\FreeCameraController.cpp" />
-    <ClCompile Include="Camera\OrbitCameraController.cpp" />
     <ClCompile Include="Camera\PreviewCamera.cpp" />
     <ClCompile Include="Camera\PreviewCameraController.cpp" />
     <ClCompile Include="Camera\ScreenSpace.cpp" />
@@ -275,6 +281,8 @@
     <ClCompile Include="Effect\Effekseer\EffekseerResource.cpp" />
     <ClCompile Include="Effect\Zephyr\EffectLoader.cpp" />
     <ClCompile Include="Effect\Zephyr\EffectResource.cpp" />
+    <ClCompile Include="Effect\Zephyr\ZephyrModuleAssembler.cpp" />
+    <ClCompile Include="Effect\Zephyr\ZephyrModuleRegistry.cpp" />
     <ClCompile Include="Environment\WeatherParticleShader.cpp" />
     <ClCompile Include="Font\Font.cpp" />
     <ClCompile Include="Font\FontManager.cpp" />
@@ -502,6 +510,30 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <None Include="DLSS\Dlss.hlsli">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </None>
+    <None Include="Effect\Zephyr\Module\DragModule.hlsli">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </None>
+    <None Include="Effect\Zephyr\Module\GravityModule.hlsli">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </None>
+    <None Include="Effect\Zephyr\Particle.hlsli">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </None>
+    <None Include="Effect\Zephyr\ParticlePool.hlsli">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </None>
+    <None Include="Environment\Weather.hlsli">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </None>
     <None Include="Environment\WeatherParticle.hlsli">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
@@ -512,7 +544,15 @@
     </None>
     <None Include="Light\BidirectionalReflectanceDistributionFunction.hlsli" />
     <None Include="Light\ImageBasedLighting.hlsli" />
+    <None Include="Light\Light.hlsli">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </None>
     <None Include="Model\Model.hlsli">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </None>
+    <None Include="Model\Opaque\FurShading.hlsli">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </None>
@@ -528,7 +568,15 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </None>
+    <None Include="Model\Transparent\OitShading.hlsli">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </None>
     <None Include="Movie\Movie.hlsli">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </None>
+    <None Include="PostProcess\PostProcess.hlsli">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </None>
@@ -605,10 +653,6 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
     </None>
-    <None Include="Shader\Light.hlsli">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
-    </None>
     <None Include="Shader\Material.hlsli">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
@@ -629,13 +673,33 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </None>
+    <None Include="Shader\Scene.hlsli">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </None>
+    <None Include="Shader\ShaderResources.hlsli">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </None>
     <None Include="Shader\Structured.hlsli">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </None>
+    <None Include="Shader\UnorderedAccesses.hlsli">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </None>
+    <None Include="Shader\Vertex.hlsli">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </None>
     <None Include="Shape\Collider\ColliderLine.hlsli">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+    </None>
+    <None Include="Shape\HUD\HUD.hlsli">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </None>
     <None Include="Sky\SkyGenerate.hlsli">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
@@ -1085,6 +1149,19 @@
   </ItemGroup>
   <ItemGroup>
     <Text Include="Avatar\AvatarPreviewPS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Model\Opaque\FurShellAS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Model\Opaque\FurShellMS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Model\Opaque\FurShellPS.hlsl">
       <FileType>Document</FileType>
     </Text>
   </ItemGroup>

@@ -5,7 +5,7 @@
 namespace SeedCore
 {
 	class BindlessHeap;
-	class IndicesSystem;
+	class UnorderedAccessIndicesSystem;
 
 	/**
 	* [EN]
@@ -58,11 +58,11 @@ namespace SeedCore
 		MaterialSortBuffer() = default;
 		~MaterialSortBuffer() = default;
 
-		void Create(ID3D12Device* device, BindlessHeap* bindlessHeap, IndicesSystem& indicesSystem, Uint32 width, Uint32 height);
+		void Create(ID3D12Device* device, BindlessHeap* bindlessHeap, UnorderedAccessIndicesSystem& unorderedAccessIndicesSystem, Uint32 width, Uint32 height);
 
 		void Destroy(BindlessHeap* bindlessHeap);
 
-		void Resize(ID3D12Device* device, BindlessHeap* bindlessHeap, IndicesSystem& indicesSystem, Uint32 width, Uint32 height);
+		void Resize(ID3D12Device* device, BindlessHeap* bindlessHeap, UnorderedAccessIndicesSystem& unorderedAccessIndicesSystem, Uint32 width, Uint32 height);
 
 		void Clear(ID3D12GraphicsCommandList* cmdList);
 

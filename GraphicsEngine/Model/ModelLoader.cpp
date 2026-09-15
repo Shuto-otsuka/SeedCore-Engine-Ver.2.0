@@ -59,7 +59,7 @@ namespace SeedCore
 		///      シリアライズレイアウトのキャッシュは解析に失敗するため、
 		///      キャッシュミス扱いにする。
 		Bool loadedFromCache = false;
-		if (!forExport && path.extension() == ".crister" && std::filesystem::exists(cristerPath))
+		if (path.extension() == ".crister" && std::filesystem::exists(cristerPath))
 		{
 			BinaryInputArchive archive;
 			if (archive.Read(String(cristerPath.string())))
@@ -76,6 +76,11 @@ namespace SeedCore
 							crister->nodes_[childIndex].parentIndex_ = static_cast<Int>(nodeIndex);
 						}
 					}
+				}
+
+				if (forExport)
+				{
+					crister->Reconstruct();
 				}
 			}
 			else

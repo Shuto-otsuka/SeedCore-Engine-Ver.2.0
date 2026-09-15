@@ -1,8 +1,9 @@
-#include "../../Shader/Constants.hlsli"
-#include "../../Shader/Structured.hlsli"
+#include "../../Shader/Scene.hlsli"
 #include "../../Shader/Sampler.hlsli"
 #include "../../Shader/Normal.hlsli"
 #include "../../Shader/Denoiser.hlsli"
+#include "../../Shader/ShaderResources.hlsli"
+#include "../../Shader/UnorderedAccesses.hlsli"
 #include "Shadow.hlsli"
 
 /**
@@ -258,18 +259,18 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	int2 pixel = int2(dtid.xy);
 	int2 screen_max = int2(scene.screen_size_) - 1;
 
-	/// [JP] raw はビュー共有(structured_indices)、蓄積チェーンはビューごと
-	///      (constant_indices — Editor/Game で別バッファ)から取る。
-	Texture2D<float4> raw_signal = ResourceDescriptorHeap[structured_indices.shadow_.raw_visibility_srv_index_];
+	/// [JP] raw はビュー共有(全ビューの shader_resource_indices に同じ値)、蓄積チェーンはビューごと
+	///      (shadow_accumulation_ — Editor/Game で別バッファ)から取る。
+	Texture2D<float4> raw_signal = ResourceDescriptorHeap[shader_resource_indices.shadow_.raw_visibility_index_];
 
-	RWTexture2D<float2> directional_filtered_output = ResourceDescriptorHeap[constant_indices.shadow_.directional_atrous_scratch0_uav_index_];
-	RWTexture2D<float4> punctual_filtered_output = ResourceDescriptorHeap[constant_indices.shadow_.punctual_atrous_scratch0_uav_index_];
-	RWTexture2D<float2> directional_moments_output = ResourceDescriptorHeap[constant_indices.shadow_.directional_moments_uav_index_];
-	RWTexture2D<float2> punctual_moments_output = ResourceDescriptorHeap[constant_indices.shadow_.punctual_moments_uav_index_];
-	RWTexture2D<float> history_length_output = ResourceDescriptorHeap[constant_indices.shadow_.history_length_uav_index_];
-	RWTexture2D<float4> depth_normal_output = ResourceDescriptorHeap[constant_indices.shadow_.depth_normal_uav_index_];
+	RWTexture2D<float2> directional_filtered_output = ResourceDescriptorHeap[unordered_access_indices.shadow_accumulation_.directional_atrous_scratch0_index_];
+	RWTexture2D<float4> punctual_filtered_output = ResourceDescriptorHeap[unordered_access_indices.shadow_accumulation_.punctual_atrous_scratch0_index_];
+	RWTexture2D<float2> directional_moments_output = ResourceDescriptorHeap[unordered_access_indices.shadow_accumulation_.directional_moments_index_];
+	RWTexture2D<float2> punctual_moments_output = ResourceDescriptorHeap[unordered_access_indices.shadow_accumulation_.punctual_moments_index_];
+	RWTexture2D<float> history_length_output = ResourceDescriptorHeap[unordered_access_indices.shadow_accumulation_.history_length_index_];
+	RWTexture2D<float4> depth_normal_output = ResourceDescriptorHeap[unordered_access_indices.shadow_accumulation_.depth_normal_index_];
 
-	Texture2D<float> depth_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.depth_index_];
+	Texture2D<float> depth_texture = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.depth_index_];
 	float depth = depth_texture.Load(int3(pixel, 0));
 
 	if (depth == 0.0)
@@ -292,7 +293,7 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	float view_z_down = LoadViewDepth(depth_texture, scene, pixel + int2(0, 1), screen_max);
 	float view_z_derivative = SvgfViewDepthDerivative(view_z_left, view_z_right, view_z_up, view_z_down);
 
-	Texture2D<float4> normal_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.index_1_];
+	Texture2D<float4> normal_texture = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.index_1_];
 	float3 normal = OctNormalDecode(normal_texture.Load(int3(pixel, 0)).rg);
 
 	float3 normal_left = OctNormalDecode(normal_texture.Load(int3(clamp(pixel + int2(-1, 0), int2(0, 0), screen_max), 0)).rg);
@@ -307,16 +308,16 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	float directional_raw = raw_value.x;
 	float3 punctual_raw = raw_value.gba;
 
-	Texture2D<float2> velocity_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.index_2_];
+	Texture2D<float2> velocity_texture = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.index_2_];
 	float2 velocity = velocity_texture.Load(int3(pixel, 0));
 	float2 previous_uv = DenoiserPreviousUv(uv, velocity);
 
-	Texture2D<float2> directional_history = ResourceDescriptorHeap[constant_indices.shadow_.directional_history_srv_index_];
-	Texture2D<float4> punctual_history = ResourceDescriptorHeap[constant_indices.shadow_.punctual_history_srv_index_];
-	Texture2D<float2> directional_moments_history = ResourceDescriptorHeap[constant_indices.shadow_.directional_moments_history_srv_index_];
-	Texture2D<float2> punctual_moments_history = ResourceDescriptorHeap[constant_indices.shadow_.punctual_moments_history_srv_index_];
-	Texture2D<float> history_length_texture = ResourceDescriptorHeap[constant_indices.shadow_.history_length_history_srv_index_];
-	Texture2D<float4> history_depth_normal = ResourceDescriptorHeap[constant_indices.shadow_.depth_normal_history_srv_index_];
+	Texture2D<float2> directional_history = ResourceDescriptorHeap[shader_resource_indices.shadow_accumulation_.directional_history_index_];
+	Texture2D<float4> punctual_history = ResourceDescriptorHeap[shader_resource_indices.shadow_accumulation_.punctual_history_index_];
+	Texture2D<float2> directional_moments_history = ResourceDescriptorHeap[shader_resource_indices.shadow_accumulation_.directional_moments_history_index_];
+	Texture2D<float2> punctual_moments_history = ResourceDescriptorHeap[shader_resource_indices.shadow_accumulation_.punctual_moments_history_index_];
+	Texture2D<float> history_length_texture = ResourceDescriptorHeap[shader_resource_indices.shadow_accumulation_.history_length_history_index_];
+	Texture2D<float4> history_depth_normal = ResourceDescriptorHeap[shader_resource_indices.shadow_accumulation_.depth_normal_history_index_];
 
 	float2 previous_position = previous_uv * scene.screen_size_ - 0.5;
 	int2 previous_base = int2(floor(previous_position));
@@ -487,14 +488,14 @@ void FilterMoments(uint3 dtid : SV_DispatchThreadID)
 	int2 pixel = int2(dtid.xy);
 	int2 screen_max = int2(scene.screen_size_) - 1;
 
-	Texture2D<float2> directional_source = ResourceDescriptorHeap[constant_indices.shadow_.directional_atrous_scratch0_srv_index_];
-	Texture2D<float4> punctual_source = ResourceDescriptorHeap[constant_indices.shadow_.punctual_atrous_scratch0_srv_index_];
-	Texture2D<float2> directional_moments_texture = ResourceDescriptorHeap[constant_indices.shadow_.directional_moments_srv_index_];
-	Texture2D<float2> punctual_moments_texture = ResourceDescriptorHeap[constant_indices.shadow_.punctual_moments_srv_index_];
-	Texture2D<float> history_length_texture = ResourceDescriptorHeap[constant_indices.shadow_.history_length_srv_index_];
-	Texture2D<float4> depth_normal_texture = ResourceDescriptorHeap[constant_indices.shadow_.depth_normal_srv_index_];
-	RWTexture2D<float2> directional_dest = ResourceDescriptorHeap[constant_indices.shadow_.directional_atrous_scratch1_uav_index_];
-	RWTexture2D<float4> punctual_dest = ResourceDescriptorHeap[constant_indices.shadow_.punctual_atrous_scratch1_uav_index_];
+	Texture2D<float2> directional_source = ResourceDescriptorHeap[shader_resource_indices.shadow_accumulation_.directional_atrous_scratch0_index_];
+	Texture2D<float4> punctual_source = ResourceDescriptorHeap[shader_resource_indices.shadow_accumulation_.punctual_atrous_scratch0_index_];
+	Texture2D<float2> directional_moments_texture = ResourceDescriptorHeap[shader_resource_indices.shadow_accumulation_.directional_moments_index_];
+	Texture2D<float2> punctual_moments_texture = ResourceDescriptorHeap[shader_resource_indices.shadow_accumulation_.punctual_moments_index_];
+	Texture2D<float> history_length_texture = ResourceDescriptorHeap[shader_resource_indices.shadow_accumulation_.history_length_index_];
+	Texture2D<float4> depth_normal_texture = ResourceDescriptorHeap[shader_resource_indices.shadow_accumulation_.depth_normal_index_];
+	RWTexture2D<float2> directional_dest = ResourceDescriptorHeap[unordered_access_indices.shadow_accumulation_.directional_atrous_scratch1_index_];
+	RWTexture2D<float4> punctual_dest = ResourceDescriptorHeap[unordered_access_indices.shadow_accumulation_.punctual_atrous_scratch1_index_];
 
 	float2 directional_center = directional_source.Load(int3(pixel, 0));
 	float4 punctual_center = punctual_source.Load(int3(pixel, 0));
@@ -606,7 +607,7 @@ void AtrousPassCommon(int2 pixel, Texture2D<float2> directional_source, RWTextur
 
 	int2 screen_max = int2(scene.screen_size_) - 1;
 
-	Texture2D<float4> depth_normal_texture = ResourceDescriptorHeap[constant_indices.shadow_.depth_normal_srv_index_];
+	Texture2D<float4> depth_normal_texture = ResourceDescriptorHeap[shader_resource_indices.shadow_accumulation_.depth_normal_index_];
 
 	float2 directional_center = directional_source.Load(int3(pixel, 0));
 	float4 punctual_center = punctual_source.Load(int3(pixel, 0));
@@ -692,10 +693,10 @@ void ATrousPass1(uint3 dtid : SV_DispatchThreadID)
 		return;
 	}
 
-	Texture2D<float2> directional_source = ResourceDescriptorHeap[constant_indices.shadow_.directional_atrous_scratch1_srv_index_];
-	RWTexture2D<float2> directional_dest = ResourceDescriptorHeap[constant_indices.shadow_.directional_atrous_scratch0_uav_index_];
-	Texture2D<float4> punctual_source = ResourceDescriptorHeap[constant_indices.shadow_.punctual_atrous_scratch1_srv_index_];
-	RWTexture2D<float4> punctual_dest = ResourceDescriptorHeap[constant_indices.shadow_.punctual_atrous_scratch0_uav_index_];
+	Texture2D<float2> directional_source = ResourceDescriptorHeap[shader_resource_indices.shadow_accumulation_.directional_atrous_scratch1_index_];
+	RWTexture2D<float2> directional_dest = ResourceDescriptorHeap[unordered_access_indices.shadow_accumulation_.directional_atrous_scratch0_index_];
+	Texture2D<float4> punctual_source = ResourceDescriptorHeap[shader_resource_indices.shadow_accumulation_.punctual_atrous_scratch1_index_];
+	RWTexture2D<float4> punctual_dest = ResourceDescriptorHeap[unordered_access_indices.shadow_accumulation_.punctual_atrous_scratch0_index_];
 	AtrousPassCommon(int2(dtid.xy), directional_source, directional_dest, punctual_source, punctual_dest, 1);
 }
 
@@ -725,10 +726,10 @@ void ATrousPass2(uint3 dtid : SV_DispatchThreadID)
 		return;
 	}
 
-	Texture2D<float2> directional_source = ResourceDescriptorHeap[constant_indices.shadow_.directional_atrous_scratch0_srv_index_];
-	RWTexture2D<float2> directional_dest = ResourceDescriptorHeap[constant_indices.shadow_.directional_accumulated_uav_index_];
-	Texture2D<float4> punctual_source = ResourceDescriptorHeap[constant_indices.shadow_.punctual_atrous_scratch0_srv_index_];
-	RWTexture2D<float4> punctual_dest = ResourceDescriptorHeap[constant_indices.shadow_.punctual_accumulated_uav_index_];
+	Texture2D<float2> directional_source = ResourceDescriptorHeap[shader_resource_indices.shadow_accumulation_.directional_atrous_scratch0_index_];
+	RWTexture2D<float2> directional_dest = ResourceDescriptorHeap[unordered_access_indices.shadow_accumulation_.directional_accumulated_index_];
+	Texture2D<float4> punctual_source = ResourceDescriptorHeap[shader_resource_indices.shadow_accumulation_.punctual_atrous_scratch0_index_];
+	RWTexture2D<float4> punctual_dest = ResourceDescriptorHeap[unordered_access_indices.shadow_accumulation_.punctual_accumulated_index_];
 	AtrousPassCommon(int2(dtid.xy), directional_source, directional_dest, punctual_source, punctual_dest, 2);
 }
 
@@ -756,11 +757,11 @@ void ATrousPass3(uint3 dtid : SV_DispatchThreadID)
 	int2 pixel = int2(dtid.xy);
 	int2 screen_max = int2(scene.screen_size_) - 1;
 
-	Texture2D<float2> directional_source = ResourceDescriptorHeap[constant_indices.shadow_.directional_accumulated_srv_index_];
-	Texture2D<float4> punctual_source = ResourceDescriptorHeap[constant_indices.shadow_.punctual_accumulated_srv_index_];
-	Texture2D<float4> depth_normal_texture = ResourceDescriptorHeap[constant_indices.shadow_.depth_normal_srv_index_];
-	RWTexture2D<float> directional_dest = ResourceDescriptorHeap[constant_indices.shadow_.directional_denoised_uav_index_];
-	RWTexture2D<float4> punctual_dest = ResourceDescriptorHeap[constant_indices.shadow_.punctual_denoised_uav_index_];
+	Texture2D<float2> directional_source = ResourceDescriptorHeap[shader_resource_indices.shadow_accumulation_.directional_accumulated_index_];
+	Texture2D<float4> punctual_source = ResourceDescriptorHeap[shader_resource_indices.shadow_accumulation_.punctual_accumulated_index_];
+	Texture2D<float4> depth_normal_texture = ResourceDescriptorHeap[shader_resource_indices.shadow_accumulation_.depth_normal_index_];
+	RWTexture2D<float> directional_dest = ResourceDescriptorHeap[unordered_access_indices.shadow_accumulation_.directional_denoised_index_];
+	RWTexture2D<float4> punctual_dest = ResourceDescriptorHeap[unordered_access_indices.shadow_accumulation_.punctual_denoised_index_];
 
 	float2 directional_center = directional_source.Load(int3(pixel, 0));
 	float4 punctual_center = punctual_source.Load(int3(pixel, 0));

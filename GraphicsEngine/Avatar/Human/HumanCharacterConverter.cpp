@@ -1,6 +1,7 @@
 #include <GraphicsEngine/Avatar/Human/HumanCharacterConverter.h>
 #include <GraphicsEngine/Avatar/Human/HumanCharacterModel.h>
 #include <GraphicsEngine/Avatar/Human/HumanCharacterEvaluator.h>
+#include <GraphicsEngine/Model/ModelExporter.h>
 
 namespace SeedCore
 {
@@ -74,22 +75,47 @@ namespace SeedCore
 		}
 
 		tinygltf::Mesh& mesh = outModel.meshes.emplace_back();
-		tinygltf::Primitive& primitive = mesh.primitives.emplace_back();
-		primitive.mode = TINYGLTF_MODE_TRIANGLES;
-		primitive.material = -1;
 
 		Int positionAccessor = appendAccessor(positions.data(), positions.size() * sizeof(Vector3), TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC3, bodyVertexCount, TINYGLTF_TARGET_ARRAY_BUFFER);
 		outModel.accessors[positionAccessor].minValues = { positionMin.x, positionMin.y, positionMin.z };
 		outModel.accessors[positionAccessor].maxValues = { positionMax.x, positionMax.y, positionMax.z };
-		primitive.attributes["POSITION"] = positionAccessor;
-		primitive.attributes["NORMAL"] = appendAccessor(normals.data(), normals.size() * sizeof(Vector3), TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC3, bodyVertexCount, TINYGLTF_TARGET_ARRAY_BUFFER);
-		primitive.attributes["TEXCOORD_0"] = appendAccessor(texcoords.data(), texcoords.size() * sizeof(Vector2), TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC2, bodyVertexCount, TINYGLTF_TARGET_ARRAY_BUFFER);
-		primitive.attributes["JOINTS_0"] = appendAccessor(joints.data(), joints.size() * sizeof(Uint16), TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT, TINYGLTF_TYPE_VEC4, bodyVertexCount, TINYGLTF_TARGET_ARRAY_BUFFER);
-		primitive.attributes["WEIGHTS_0"] = appendAccessor(weights.data(), weights.size() * sizeof(Vector4), TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC4, bodyVertexCount, TINYGLTF_TARGET_ARRAY_BUFFER);
+		Int normalAccessor = appendAccessor(normals.data(), normals.size() * sizeof(Vector3), TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC3, bodyVertexCount, TINYGLTF_TARGET_ARRAY_BUFFER);
+		Int texcoordAccessor = appendAccessor(texcoords.data(), texcoords.size() * sizeof(Vector2), TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC2, bodyVertexCount, TINYGLTF_TARGET_ARRAY_BUFFER);
+		Int jointAccessor = appendAccessor(joints.data(), joints.size() * sizeof(Uint16), TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT, TINYGLTF_TYPE_VEC4, bodyVertexCount, TINYGLTF_TARGET_ARRAY_BUFFER);
+		Int weightAccessor = appendAccessor(weights.data(), weights.size() * sizeof(Vector4), TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC4, bodyVertexCount, TINYGLTF_TARGET_ARRAY_BUFFER);
 
 		std::span<const Uint32> triangles = model.Triangles();
-		DynamicArray<Uint32> indices(triangles.begin(), triangles.end());
-		primitive.indices = appendAccessor(indices.data(), indices.size() * sizeof(Uint32), TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT, TINYGLTF_TYPE_SCALAR, indices.size(), TINYGLTF_TARGET_ELEMENT_ARRAY_BUFFER);
+		std::span<const Char* const> regionNames = HumanCharacterModel::RegionNames();
+
+		/// [EN] One primitive + material per region so each region's own [0,1] UV
+		///      atlas maps to its own base-colour texture on export.
+		/// [JP] リージョンごとに1プリミティブ+1マテリアル - 各リージョン固有の
+		///      [0,1] UV アトラスが個別のベースカラーテクスチャに対応する。
+		for (Uint32 regionIndex = 0; regionIndex < humanCharacterRegionCount; regionIndex++)
+		{
+			const HumanCharacterRegionRange& regionRange = model.RegionTriangleRange(regionIndex);
+			if (regionRange.triangleCount_ == 0)
+			{
+				continue;
+			}
+
+			DynamicArray<Uint32> regionIndices(triangles.begin() + static_cast<Size>(regionRange.firstTriangle_) * 3, triangles.begin() + static_cast<Size>(regionRange.firstTriangle_ + regionRange.triangleCount_) * 3);
+
+			tinygltf::Material& material = outModel.materials.emplace_back();
+			material.name = regionIndex < regionNames.size() ? regionNames[regionIndex] : "region";
+			material.pbrMetallicRoughness.metallicFactor = 0.0;
+			material.pbrMetallicRoughness.roughnessFactor = 0.9;
+
+			tinygltf::Primitive& primitive = mesh.primitives.emplace_back();
+			primitive.mode = TINYGLTF_MODE_TRIANGLES;
+			primitive.material = static_cast<Int>(outModel.materials.size()) - 1;
+			primitive.attributes["POSITION"] = positionAccessor;
+			primitive.attributes["NORMAL"] = normalAccessor;
+			primitive.attributes["TEXCOORD_0"] = texcoordAccessor;
+			primitive.attributes["JOINTS_0"] = jointAccessor;
+			primitive.attributes["WEIGHTS_0"] = weightAccessor;
+			primitive.indices = appendAccessor(regionIndices.data(), regionIndices.size() * sizeof(Uint32), TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT, TINYGLTF_TYPE_SCALAR, regionIndices.size(), TINYGLTF_TARGET_ELEMENT_ARRAY_BUFFER);
+		}
 
 		std::span<const Vector3> jointHeads = evaluator.JointHeads();
 		std::span<const Char* const> boneNames = HumanCharacterModel::BoneNames();
@@ -161,12 +187,12 @@ namespace SeedCore
 		scene.nodes.push_back(meshNode);
 	}
 
-	Bool HumanCharacterConverter::Bake(const HumanCharacterModel& model, const HumanCharacterEvaluator& evaluator, Bool binary, String filePath)
+	Bool HumanCharacterConverter::Bake(const HumanCharacterModel& model, const HumanCharacterEvaluator& evaluator, ExportPreset preset, String filePath)
 	{
 		tinygltf::Model gltfModel;
 		Convert(model, evaluator, gltfModel);
 
-		tinygltf::TinyGLTF writer;
-		return writer.WriteGltfSceneToFile(&gltfModel, std::string(filePath.c_str()), binary, binary, !binary, binary);
+		ModelExporter exporter;
+		return exporter.Export(gltfModel, ModelExporter::Preset(preset), filePath);
 	}
 }

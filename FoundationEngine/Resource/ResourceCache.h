@@ -142,7 +142,7 @@ namespace SeedCore
 	{
 		/// [EN] Meta file format version, for future migration.
 		/// [JP] メタファイルフォーマットのバージョン。将来のマイグレーション用。
-		Uint32 version_ = 1;
+		Uint32 version_ = 2;
 
 		/// [EN] Stable identifier for this asset, persisted across file moves/renames.
 		/// [JP] このアセットの安定的な識別子。ファイルの移動/リネームを跨いで永続化される。
@@ -158,14 +158,18 @@ namespace SeedCore
 		///      アセット種別では未使用。
 		AxisConvention axisConvention_;
 
+		Matrix modelTransform_ = Matrix::Identity;
+
 		/**
 		* [EN]
-		* Serialization hook: reads/writes version_, guid_, and axisConvention_.
+		* Serialization hook: reads/writes version_, guid_, axisConvention_,
+		* and modelTransform_.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* シリアライズ用フック: version_、guid_、axisConvention_ を読み書きする。
+		* シリアライズ用フック: version_、guid_、axisConvention_、
+		* modelTransform_ を読み書きする。
 		*/
 		template<class Archive>
 		void Serialize(Archive& archive)
@@ -173,6 +177,7 @@ namespace SeedCore
 			archive.Field("version", version_);
 			archive.Field("guid", guid_);
 			archive.Field("axis_convention", axisConvention_);
+			archive.TryField("model_transform", modelTransform_);
 		}
 	};
 
@@ -392,6 +397,8 @@ namespace SeedCore
 		* 保持する。.meta ファイがまだ無ければ新規作成する。
 		*/
 		void WriteAssetMeta(Uint32 assetId, const AxisConvention& convention);
+
+		void AppendAssetModelTransform(Uint32 assetId, const Matrix& transform);
 
 		/**
 		* [EN]

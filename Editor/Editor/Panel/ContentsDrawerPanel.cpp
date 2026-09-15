@@ -10,6 +10,7 @@
 #include <GraphicsEngine/Texture/Texture.h>
 #include <GraphicsEngine/Model/ModelResource.h>
 #include <GraphicsEngine/Model/ModelLoader.h>
+#include <GraphicsEngine/Model/ModelExporter.h>
 #include <GraphicsEngine/Model/Crister.h>
 #include <FoundationEngine/File/FileDialog.h>
 #include <GraphicsEngine/D3D12/Descriptor/BindlessHeap.h>
@@ -1017,19 +1018,37 @@ namespace SeedCore
 				{
 					if (ImGui::MenuItem("glTF"))
 					{
-						ExportModel(asset, ModelFormat::Gltf, L"gltf");
+						ExportModel(asset, ExportPreset::Gltf, L"gltf");
 						ImGui::CloseCurrentPopup();
 					}
 
 					if (ImGui::MenuItem("glTF binary"))
 					{
-						ExportModel(asset, ModelFormat::Gltf, L"glb");
+						ExportModel(asset, ExportPreset::Glb, L"glb");
 						ImGui::CloseCurrentPopup();
 					}
 
-					if (ImGui::MenuItem("FBX"))
+					if (ImGui::MenuItem("FBX (Maya)"))
 					{
-						ExportModel(asset, ModelFormat::Fbx, L"fbx");
+						ExportModel(asset, ExportPreset::FbxMaya, L"fbx");
+						ImGui::CloseCurrentPopup();
+					}
+
+					if (ImGui::MenuItem("FBX (Unreal)"))
+					{
+						ExportModel(asset, ExportPreset::FbxUnreal, L"fbx");
+						ImGui::CloseCurrentPopup();
+					}
+
+					if (ImGui::MenuItem("FBX (Unity)"))
+					{
+						ExportModel(asset, ExportPreset::FbxUnity, L"fbx");
+						ImGui::CloseCurrentPopup();
+					}
+
+					if (ImGui::MenuItem("FBX (エンジン)"))
+					{
+						ExportModel(asset, ExportPreset::FbxNative, L"fbx");
 						ImGui::CloseCurrentPopup();
 					}
 
@@ -1145,7 +1164,7 @@ namespace SeedCore
 		SC_LOG_NOTICE("ContentsDrawerPanel: スケルトンを生成しました: {}", asset.path_.c_str());
 	}
 
-	void ContentsDrawerPanel::ExportModel(const Asset& asset, ModelFormat format, const Wchar* extension)
+	void ContentsDrawerPanel::ExportModel(const Asset& asset, ExportPreset preset, const Wchar* extension)
 	{
 		std::filesystem::path sourcePath(asset.fullpath_.str());
 
@@ -1164,7 +1183,7 @@ namespace SeedCore
 
 		D3D12Context* d3d12Context = context_.graphicsContext_.graphics_->GetContext();
 
-		Bool exported = context_.worldContext_.resource_->GetModelResource()->Export(*context_.worldContext_.loader_, d3d12Context->GetDevice(), d3d12Context->GetDirectQueue(), context_.graphicsContext_.graphics_->GetBindlessHeap(), context_.graphicsContext_.graphics_->GetBC7CompressShader(), *context_.worldContext_.resource_, asset.assetID_, format, String(outputPath.string()));
+		Bool exported = context_.worldContext_.resource_->GetModelResource()->Export(*context_.worldContext_.loader_, d3d12Context->GetDevice(), d3d12Context->GetDirectQueue(), context_.graphicsContext_.graphics_->GetBindlessHeap(), context_.graphicsContext_.graphics_->GetBC7CompressShader(), *context_.worldContext_.resource_, asset.assetID_, preset, String(outputPath.string()));
 		if (!exported)
 		{
 			SC_LOG_WARNING("ContentsDrawerPanel: モデルのエクスポートに失敗しました: {}", asset.path_.c_str());

@@ -1,5 +1,6 @@
-#include "../Shader/Constants.hlsli"
-#include "../Shader/Structured.hlsli"
+#include "../Shader/Scene.hlsli"
+#include "../Shader/ShaderResources.hlsli"
+#include "../Shader/UnorderedAccesses.hlsli"
 #include "../Shader/Normal.hlsli"
 #include "../Model/Model.hlsli"
 
@@ -58,13 +59,13 @@ void main(uint3 dtid : SV_DispatchThreadID)
 
 	uint2 pixel = dtid.xy;
 
-	Texture2D<float4> gbuffer0 = ResourceDescriptorHeap[structured_indices.gbuffer_.index_0_];
-	Texture2D<float4> gbuffer1 = ResourceDescriptorHeap[structured_indices.gbuffer_.index_1_];
-	Texture2D<uint4> gbuffer4 = ResourceDescriptorHeap[structured_indices.gbuffer_.index_4_];
-	Texture2D<float> depth_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.depth_index_];
-	RWTexture2D<float4> normal_roughness = ResourceDescriptorHeap[constant_indices.dlss_.normal_roughness_uav_index_];
-	RWTexture2D<float4> specular_albedo = ResourceDescriptorHeap[constant_indices.dlss_.specular_albedo_uav_index_];
-	RWTexture2D<float4> diffuse_albedo = ResourceDescriptorHeap[constant_indices.dlss_.diffuse_albedo_uav_index_];
+	Texture2D<float4> gbuffer0 = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.index_0_];
+	Texture2D<float4> gbuffer1 = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.index_1_];
+	Texture2D<uint4> gbuffer4 = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.index_4_];
+	Texture2D<float> depth_texture = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.depth_index_];
+	RWTexture2D<float4> normal_roughness = ResourceDescriptorHeap[unordered_access_indices.dlss_.normal_roughness_index_];
+	RWTexture2D<float4> specular_albedo = ResourceDescriptorHeap[unordered_access_indices.dlss_.specular_albedo_index_];
+	RWTexture2D<float4> diffuse_albedo = ResourceDescriptorHeap[unordered_access_indices.dlss_.diffuse_albedo_index_];
 
 	float4 packed = gbuffer1.Load(int3(pixel, 0));
 	float3 normal = OctNormalDecode(packed.rg);
@@ -88,11 +89,11 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	uint4 visibility_id = gbuffer4.Load(int3(pixel, 0));
 	uint material_instance_index, material_meshlet_index, material_triangle_index;
 	UnpackVisibilityID(visibility_id, material_instance_index, material_meshlet_index, material_triangle_index);
-	StructuredBuffer<ModelInstance> material_instances = ResourceDescriptorHeap[structured_indices.model_.instance_index_];
-	ModelInstance material_instance = material_instances[material_instance_index];
-	float dielectric = (material_instance.ior_ - 1.0) / (material_instance.ior_ + 1.0);
+	StructuredBuffer<ModelStructuredBuffer> material_instances = GetModelStructuredBuffer(shader_resource_indices.model_.instance_index_);
+	ModelStructuredBuffer material_instance = material_instances[material_instance_index];
+	float dielectric = (material_instance.texture_.ior_ - 1.0) / (material_instance.texture_.ior_ + 1.0);
 	dielectric *= dielectric;
-	float3 dielectric_f0 = saturate(dielectric * material_instance.specular_color_ * material_instance.specular_factor_);
+	float3 dielectric_f0 = saturate(dielectric * material_instance.extension_.specular_color_ * material_instance.extension_.specular_factor_);
 	float3 specular_color = lerp(dielectric_f0, base_color_metallic.rgb, base_color_metallic.a);
 	specular_albedo[pixel] = float4(EnvBRDFApprox2(specular_color, roughness * roughness, n_o_v), 1.0);
 

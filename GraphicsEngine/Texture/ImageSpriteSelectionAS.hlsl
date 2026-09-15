@@ -1,5 +1,5 @@
 #include "Image.hlsli"
-#include "../Shader/Structured.hlsli"
+#include "../Shader/ShaderResources.hlsli"
 #include "../Shader/Culling.hlsli"
 
 groupshared uint survived_count;
@@ -9,7 +9,7 @@ groupshared ImageASPayload payload;
 [numthreads(32, 1, 1)]
 void main(uint3 gtid : SV_GroupThreadID, uint3 dtid : SV_DispatchThreadID)
 {
-	StructuredBuffer<ImageSpriteInstance> image_sprite = ResourceDescriptorHeap[structured_indices.sprite_.image_index_];
+	StructuredBuffer<ImageSpriteStructuredBuffer> image_sprite = GetImageSpriteStructuredBuffer(shader_resource_indices.image_.sprite_index_);
 	SceneConstantBuffer scene_constant = GetSceneConstantBuffer();
 
 	if (gtid.x == 0)
@@ -23,11 +23,11 @@ void main(uint3 gtid : SV_GroupThreadID, uint3 dtid : SV_DispatchThreadID)
 
 	if (sprite_id < 32768)
 	{
-		ImageSpriteInstance sprite = image_sprite[sprite_id];
+		ImageSpriteStructuredBuffer sprite = image_sprite[sprite_id];
 
-		if (sprite.selected != 0 && sprite.scale.x > 0.0 && sprite.scale.y > 0.0)
+		if (sprite.selected_ != 0 && sprite.scale_.x > 0.0 && sprite.scale_.y > 0.0)
 		{
-			is_visible = IsVisibleInScreen(sprite.position, sprite.texture_size * sprite.scale, scene_constant.screen_size_);
+			is_visible = IsVisibleInScreen(sprite.position_, sprite.texture_size_ * sprite.scale_, scene_constant.screen_size_);
 		}
 	}
 

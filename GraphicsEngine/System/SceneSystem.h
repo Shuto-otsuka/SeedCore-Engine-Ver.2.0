@@ -26,7 +26,7 @@ namespace SeedCore
 		Float fieldOfView_;
 		Float nearPlane_;
 		Float farPlane_;
-		Float sceneConstantPadding1_;
+		Uint viewMode_;
 
 		Float totalTime_;
 		Float deltaTime_;

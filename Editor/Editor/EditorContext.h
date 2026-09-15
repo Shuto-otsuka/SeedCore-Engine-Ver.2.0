@@ -35,7 +35,6 @@ namespace SeedCore
 	class SkeletonControllerPanel;
 	class AvatarPanel;
 	class AvatarMesh;
-	class HumanCharacterEvaluator;
 
 	struct WorldContext
 	{
@@ -142,8 +141,12 @@ namespace SeedCore
 	{
 		Bool previewActive_ = false;
 		AvatarMesh* mesh_ = nullptr;
-		HumanCharacterEvaluator* evaluator_ = nullptr;
+		std::span<const Vector3> positions_;
+		std::span<const Vector3> normals_;
+		Uint32 boneCount_ = 0;
 		Matrix previewWorldMatrix_ = Matrix::Identity;
+		Uint32 regionTextureIndices_[4] = { 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF };
+		Uint32 regionCount_ = 0;
 	};
 
 	struct PanelContext

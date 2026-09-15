@@ -71,8 +71,7 @@ namespace SeedCore
 		///      のフォールバック。
 		ComponentTransform,
 		ComponentCamera,
-		ComponentFreeCameraController,
-		ComponentOrbitCameraController,
+		ComponentCameraBrain,
 		ComponentPointLight,
 		ComponentDirectionalLight,
 		ComponentSpotLight,

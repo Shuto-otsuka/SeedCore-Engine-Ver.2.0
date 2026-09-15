@@ -2,6 +2,7 @@
 #include <GraphicsEngine/Profiler/ProfilerStats.h>
 #include <GraphicsEngine/D3D12/Descriptor/BindlessHeap.h>
 #include <GraphicsEngine/D3D12/Context/D3D12CommandList.h>
+#include <GraphicsEngine/D3D12/Context/D3D12Check.h>
 #include <GraphicsEngine/System/IndicesSystem.h>
 #include <GraphicsEngine/D3D12/Buffer/FrameBuffer.h>
 #include <GraphicsEngine/D3D12/Buffer/GeometryBuffer.h>
@@ -60,10 +61,12 @@ namespace SeedCore
 		device->CreateShaderResourceView(outResource.Get(), &shaderResourceViewDesc, bindlessHeap->CPUHandle(outShaderResourceViewIndex));
 	}
 
-	void WeatherParticleRenderer::Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, IndicesSystem& indicesSystem)
+	void WeatherParticleRenderer::Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, ConstantIndicesSystem& constantIndicesSystem, ShaderResourceIndicesSystem& shaderResourceIndicesSystem, UnorderedAccessIndicesSystem& unorderedAccessIndicesSystem)
 	{
 		bindlessHeap_ = bindlessHeap;
-		indicesSystem_ = &indicesSystem;
+		constantIndicesSystem_ = &constantIndicesSystem;
+		shaderResourceIndicesSystem_ = &shaderResourceIndicesSystem;
+		unorderedAccessIndicesSystem_ = &unorderedAccessIndicesSystem;
 
 		particleShader_.Create(shaderCache, device);
 
@@ -118,16 +121,16 @@ namespace SeedCore
 		activeTotal_ = settings.rainActiveCount_ + settings.snowActiveCount_;
 
 		tuningBuffer_->Update(settings);
-		indicesSystem_->SetWeatherParticleRayConstantIndex(tuningBuffer_->GetIndex());
-		indicesSystem_->SetRainParticleUnorderedAccessViewIndex(rainParticleUnorderedAccessViewIndex_);
-		indicesSystem_->SetRainParticleShaderResourceViewIndex(rainParticleShaderResourceViewIndex_);
-		indicesSystem_->SetSnowParticleUnorderedAccessViewIndex(snowParticleUnorderedAccessViewIndex_);
-		indicesSystem_->SetSnowParticleShaderResourceViewIndex(snowParticleShaderResourceViewIndex_);
+		constantIndicesSystem_->SetWeatherParticleRayConstantIndex(tuningBuffer_->GetIndex());
+		unorderedAccessIndicesSystem_->SetRainParticleUnorderedAccessViewIndex(rainParticleUnorderedAccessViewIndex_);
+		shaderResourceIndicesSystem_->SetRainParticleShaderResourceViewIndex(rainParticleShaderResourceViewIndex_);
+		unorderedAccessIndicesSystem_->SetSnowParticleUnorderedAccessViewIndex(snowParticleUnorderedAccessViewIndex_);
+		shaderResourceIndicesSystem_->SetSnowParticleShaderResourceViewIndex(snowParticleShaderResourceViewIndex_);
 
 		initialized_ = true;
 	}
 
-	void WeatherParticleRenderer::Simulate(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex)
+	void WeatherParticleRenderer::Simulate(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
 	{
 		auto* cmd = cmdList->Get();
 
@@ -156,9 +159,7 @@ namespace SeedCore
 		ID3D12DescriptorHeap* heaps[] = { heap };
 		cmd->SetDescriptorHeaps(_countof(heaps), heaps);
 		cmd->SetComputeRootSignature(particleShader_.GetRootSignature());
-		cmd->SetComputeRootDescriptorTable(0, bindlessHeap_->GPUHandle(0));
-		cmd->SetComputeRootConstantBufferView(2, constantIndex);
-		cmd->SetComputeRootConstantBufferView(3, structuredIndex);
+		RootSignature::BindCompute(cmd, addresses);
 		cmd->SetPipelineState(pipelineState);
 
 		Uint32 totalCapacity = rainCapacity_ + snowCapacity_;
@@ -167,7 +168,7 @@ namespace SeedCore
 		ProfilerStats::AddDrawCall();
 	}
 
-	void WeatherParticleRenderer::Draw(D3D12CommandList* cmdList, FrameBuffer* frameBuffer, GeometryBuffer* geometryBuffer, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex)
+	void WeatherParticleRenderer::Draw(D3D12CommandList* cmdList, FrameBuffer* frameBuffer, GeometryBuffer* geometryBuffer, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
 	{
 		if (activeTotal_ == 0)
 		{
@@ -208,13 +209,19 @@ namespace SeedCore
 		ID3D12DescriptorHeap* heaps[] = { heap };
 		cmd->SetDescriptorHeaps(_countof(heaps), heaps);
 		cmd->SetGraphicsRootSignature(particleShader_.GetRootSignature());
-		cmd->SetGraphicsRootConstantBufferView(2, constantIndex);
-		cmd->SetGraphicsRootConstantBufferView(3, structuredIndex);
+		RootSignature::BindGraphics(cmd, addresses);
 		cmd->SetPipelineState(pipelineState);
-		cmd->SetGraphicsRootDescriptorTable(0, bindlessHeap_->GPUHandle(0));
 
-		Uint32 groupCount = (activeTotal_ + 31) / 32;
-		cmd->DispatchMesh(groupCount, 1, 1);
+		if (D3D12Check::GetLevel() == D3D12Level::D12_2)
+		{
+			Uint32 groupCount = (activeTotal_ + 31) / 32;
+			cmd->DispatchMesh(groupCount, 1, 1);
+		}
+		else
+		{
+			cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			cmd->DrawInstanced(6, activeTotal_, 0, 0);
+		}
 		ProfilerStats::AddDrawCall();
 	}
 }

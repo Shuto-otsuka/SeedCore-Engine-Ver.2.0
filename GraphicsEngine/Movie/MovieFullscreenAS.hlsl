@@ -1,5 +1,5 @@
 #include "Movie.hlsli"
-#include "../Shader/Structured.hlsli"
+#include "../Shader/ShaderResources.hlsli"
 
 groupshared uint survived_count;
 groupshared uint local_indices[32];
@@ -8,7 +8,7 @@ groupshared MovieASPayload payload;
 [numthreads(32, 1, 1)]
 void main(uint3 gtid : SV_GroupThreadID, uint3 dtid : SV_DispatchThreadID)
 {
-	StructuredBuffer<MovieFullscreenInstance> movie_fullscreen = ResourceDescriptorHeap[structured_indices.movie_.fullscreen_index_];
+	StructuredBuffer<MovieFullscreenStructuredBuffer> movie_fullscreen = GetMovieFullscreenStructuredBuffer(shader_resource_indices.movie_.fullscreen_index_);
 
 	if (gtid.x == 0)
 	{
@@ -21,8 +21,8 @@ void main(uint3 gtid : SV_GroupThreadID, uint3 dtid : SV_DispatchThreadID)
 
 	if (instance_id < 32)
 	{
-		MovieFullscreenInstance instance = movie_fullscreen[instance_id];
-		is_visible = instance.texture_aspect > 0.0f;
+		MovieFullscreenStructuredBuffer instance = movie_fullscreen[instance_id];
+		is_visible = instance.texture_aspect_ > 0.0f;
 	}
 
 	if (is_visible)

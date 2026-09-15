@@ -33,26 +33,27 @@ namespace SeedCore
 		volumetricLightRenderer_ = MakePtr<VolumetricLightRenderer>(rootSignature, pipelineStateObject);
 	}
 
-	void RaytracingRenderer::Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, IndicesSystem& indicesSystem, Uint32 width, Uint32 height)
+	void RaytracingRenderer::Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, ConstantIndicesSystem& constantIndicesSystem, ShaderResourceIndicesSystem& shaderResourceIndicesSystem, UnorderedAccessIndicesSystem& unorderedAccessIndicesSystem, Uint32 width, Uint32 height)
 	{
 		bindlessHeap_ = bindlessHeap;
-		indicesSystem_ = &indicesSystem;
+		constantIndicesSystem_ = &constantIndicesSystem;
+		shaderResourceIndicesSystem_ = &shaderResourceIndicesSystem;
 
 		for (Uint frame = 0; frame < FrameRing::frameCount; frame++)
 		{
 			tlasBindlessIndices_[frame] = bindlessHeap->AllocateIndex();
 		}
 
-		shadowRenderer_->Create(device, bindlessHeap, shaderCache, indicesSystem, width, height);
-		ambientOcclusionRenderer_->Create(device, bindlessHeap, shaderCache, indicesSystem, width, height);
-		subsurfaceScatteringRenderer_->Create(device, bindlessHeap, shaderCache, indicesSystem, width, height);
-		reflectionRenderer_->Create(device, bindlessHeap, shaderCache, indicesSystem, width, height);
-		refractionRenderer_->Create(device, bindlessHeap, shaderCache, indicesSystem, width, height);
-		globalIlluminationRenderer_->Create(device, bindlessHeap, shaderCache, indicesSystem, width, height);
-		volumetricCloudScapesRenderer_->Create(device, bindlessHeap, shaderCache, indicesSystem, width, height);
-		volumetricStarRenderer_->Create(device, bindlessHeap, shaderCache, indicesSystem, width, height);
-		weatherParticleRenderer_->Create(device, bindlessHeap, shaderCache, indicesSystem);
-		volumetricLightRenderer_->Create(device, bindlessHeap, shaderCache, indicesSystem, width, height);
+		shadowRenderer_->Create(device, bindlessHeap, shaderCache, constantIndicesSystem, shaderResourceIndicesSystem, unorderedAccessIndicesSystem, width, height);
+		ambientOcclusionRenderer_->Create(device, bindlessHeap, shaderCache, constantIndicesSystem, shaderResourceIndicesSystem, unorderedAccessIndicesSystem, width, height);
+		subsurfaceScatteringRenderer_->Create(device, bindlessHeap, shaderCache, constantIndicesSystem, shaderResourceIndicesSystem, unorderedAccessIndicesSystem, width, height);
+		reflectionRenderer_->Create(device, bindlessHeap, shaderCache, constantIndicesSystem, shaderResourceIndicesSystem, unorderedAccessIndicesSystem, width, height);
+		refractionRenderer_->Create(device, bindlessHeap, shaderCache, constantIndicesSystem, shaderResourceIndicesSystem, unorderedAccessIndicesSystem, width, height);
+		globalIlluminationRenderer_->Create(device, bindlessHeap, shaderCache, constantIndicesSystem, shaderResourceIndicesSystem, unorderedAccessIndicesSystem, width, height);
+		volumetricCloudScapesRenderer_->Create(device, bindlessHeap, shaderCache, constantIndicesSystem, shaderResourceIndicesSystem, unorderedAccessIndicesSystem, width, height);
+		volumetricStarRenderer_->Create(device, bindlessHeap, shaderCache, constantIndicesSystem, shaderResourceIndicesSystem, unorderedAccessIndicesSystem, width, height);
+		weatherParticleRenderer_->Create(device, bindlessHeap, shaderCache, constantIndicesSystem, shaderResourceIndicesSystem, unorderedAccessIndicesSystem);
+		volumetricLightRenderer_->Create(device, bindlessHeap, shaderCache, constantIndicesSystem, shaderResourceIndicesSystem, unorderedAccessIndicesSystem, width, height);
 
 		skinnedPositionShader_.Create(shaderCache, device);
 		morphBlendShader_.Create(shaderCache, device);
@@ -266,7 +267,9 @@ namespace SeedCore
 	* Builds the two small per-Crister GPU tables Reflection.hlsli's
 	* ResolveReflectionMaterial reads: the mesh's material list, and a
 	* per-triangle index into it (from each SubMesh's surfaceIndex_ over its
-	* own [indexOffset_/3, (indexOffset_+indexCount_)/3) triangle range).
+	* own triangle range in the RT proxy, [raytracingTriangleOffset_,
+	* raytracingTriangleOffset_ + raytracingTriangleCount_), which covers
+	* every node placement of that SubMesh).
 	* Called once per unique Crister from the pendingBlasBuilds_ loop above -
 	* same lifecycle as the BLAS, never rebuilt per frame.
 	*
@@ -281,7 +284,9 @@ namespace SeedCore
 	* Reflection.hlsli の ResolveReflectionMaterial が読む、Crister ごとの
 	* 小さな GPU テーブルを2つ構築する: メッシュのマテリアル一覧と、そこへの
 	* 三角形ごとのインデックス(各 SubMesh の surfaceIndex_ を、その
-	* [indexOffset_/3, (indexOffset_+indexCount_)/3) の三角形範囲へ書き込んで
+	* RT プロキシ内の三角形範囲 [raytracingTriangleOffset_,
+	* raytracingTriangleOffset_ + raytracingTriangleCount_)(その SubMesh の
+	* 全ノード配置ぶんを含む)へ書き込んで
 	* 作る)。上の pendingBlasBuilds_ ループから、ユニークな Crister ごとに
 	* 一度だけ呼ばれる — BLAS と同じライフサイクルで、毎フレーム再構築しない。
 	*
@@ -377,8 +382,8 @@ namespace SeedCore
 
 			for (const SubMesh& subMesh : crister->SubMeshes())
 			{
-				Uint32 firstTriangle = subMesh.indexOffset_ / 3;
-				Uint32 triangleSpan = subMesh.indexCount_ / 3;
+				Uint32 firstTriangle = subMesh.raytracingTriangleOffset_;
+				Uint32 triangleSpan = subMesh.raytracingTriangleCount_;
 
 				for (Uint32 offset = 0; offset < triangleSpan; offset++)
 				{
@@ -458,7 +463,7 @@ namespace SeedCore
 				deviceRemovedLogged_ = true;
 			}
 
-			indicesSystem_->SetTLASIndex(TLASBindlessIndex());
+			shaderResourceIndicesSystem_->SetTLASIndex(TLASBindlessIndex());
 			return;
 		}
 
@@ -472,7 +477,7 @@ namespace SeedCore
 		///      含めない(PrepareFrame は両経路で呼ぶ)。
 		if (!shadowEnabled_ && !ambientOcclusionEnabled_ && !subsurfaceScatteringEnabled_ && !reflectionEnabled_ && !refractionEnabled_ && !globalIlluminationEnabled_ && !volumetricLightEnabled_)
 		{
-			indicesSystem_->SetTLASIndex(TLASBindlessIndex());
+			shaderResourceIndicesSystem_->SetTLASIndex(TLASBindlessIndex());
 			shadowRenderer_->PrepareFrame(shadowSettings_);
 			ambientOcclusionRenderer_->PrepareFrame(ambientOcclusionSettings_, dlssRayReconstructionEnabled);
 			subsurfaceScatteringRenderer_->PrepareFrame(subsurfaceScatteringSettings_);
@@ -917,6 +922,16 @@ namespace SeedCore
 
 			for (const PendingInstance& pending : pendingInstances_)
 			{
+				if (instanceDescs.size() >= ReflectionRenderer::maxInstances)
+				{
+					if (!instanceLimitLogged_)
+					{
+						SC_LOG_WARNING("レイトレーシングのインスタンス数が上限({})に達したため、超過分を TLAS から除外しました。", ReflectionRenderer::maxInstances);
+						instanceLimitLogged_ = true;
+					}
+					break;
+				}
+
 				/// [JP] スキン付きは今フレーム構築したスキン済み BLAS を優先。
 				///      構築できなかったフレームは静的(バインドポーズ)BLAS へ
 				///      フォールバックする。
@@ -1147,7 +1162,7 @@ namespace SeedCore
 		/// [JP] 成否に関わらず必ず実行する。何も構築されなかった場合、
 		///      IndicesSystem と ShadowRenderer には一貫して 0xFFFFFFFF
 		///      （フォールバック）が見える。
-		indicesSystem_->SetTLASIndex(TLASBindlessIndex());
+		shaderResourceIndicesSystem_->SetTLASIndex(TLASBindlessIndex());
 		shadowRenderer_->PrepareFrame(shadowSettings_);
 		ambientOcclusionRenderer_->PrepareFrame(ambientOcclusionSettings_, dlssRayReconstructionEnabled);
 		subsurfaceScatteringRenderer_->PrepareFrame(subsurfaceScatteringSettings_);
@@ -1160,67 +1175,67 @@ namespace SeedCore
 		volumetricLightRenderer_->PrepareFrame(volumetricLightSettings_);
 	}
 
-	void RaytracingRenderer::DispatchShadow(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex, RaytracingView view)
+	void RaytracingRenderer::DispatchShadow(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses, RaytracingView view)
 	{
 		/// [JP] AO のみ有効で TLAS がある場合でも、影が無効なら影は全照射クリアに
 		///      倒す(tlasValid && enabled で個別ゲート)。
 		Bool tlasValid = TLASBindlessIndex() != 0xFFFFFFFF;
-		shadowRenderer_->Dispatch(cmdList, heap, constantIndex, structuredIndex, tlasValid && shadowEnabled_, view);
+		shadowRenderer_->Dispatch(cmdList, heap, addresses, tlasValid && shadowEnabled_, view);
 	}
 
-	void RaytracingRenderer::DispatchAmbientOcclusion(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex, RaytracingView view)
+	void RaytracingRenderer::DispatchAmbientOcclusion(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses, RaytracingView view)
 	{
 		Bool tlasValid = TLASBindlessIndex() != 0xFFFFFFFF;
-		ambientOcclusionRenderer_->Dispatch(cmdList, heap, constantIndex, structuredIndex, tlasValid && ambientOcclusionEnabled_, view, Gateway::GetDlssManager().RayReconstructionEnable());
+		ambientOcclusionRenderer_->Dispatch(cmdList, heap, addresses, tlasValid && ambientOcclusionEnabled_, view, Gateway::GetDlssManager().RayReconstructionEnable());
 	}
 
-	void RaytracingRenderer::DispatchSubsurfaceScattering(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex)
+	void RaytracingRenderer::DispatchSubsurfaceScattering(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
 	{
 		Bool tlasValid = TLASBindlessIndex() != 0xFFFFFFFF;
-		subsurfaceScatteringRenderer_->Dispatch(cmdList, heap, constantIndex, structuredIndex, tlasValid && subsurfaceScatteringEnabled_);
+		subsurfaceScatteringRenderer_->Dispatch(cmdList, heap, addresses, tlasValid && subsurfaceScatteringEnabled_);
 	}
 
-	void RaytracingRenderer::DispatchReflection(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex, RaytracingView view)
+	void RaytracingRenderer::DispatchReflection(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses, RaytracingView view)
 	{
 		Bool tlasValid = TLASBindlessIndex() != 0xFFFFFFFF;
-		reflectionRenderer_->Dispatch(cmdList, heap, constantIndex, structuredIndex, tlasValid && reflectionEnabled_, view, Gateway::GetDlssManager().RayReconstructionEnable());
+		reflectionRenderer_->Dispatch(cmdList, heap, addresses, tlasValid && reflectionEnabled_, view, Gateway::GetDlssManager().RayReconstructionEnable());
 	}
 
-	void RaytracingRenderer::DispatchRefraction(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex)
+	void RaytracingRenderer::DispatchRefraction(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
 	{
 		Bool tlasValid = TLASBindlessIndex() != 0xFFFFFFFF;
-		refractionRenderer_->Dispatch(cmdList, heap, constantIndex, structuredIndex, tlasValid && refractionEnabled_);
+		refractionRenderer_->Dispatch(cmdList, heap, addresses, tlasValid && refractionEnabled_);
 	}
 
-	void RaytracingRenderer::DispatchGlobalIllumination(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex, RaytracingView view)
+	void RaytracingRenderer::DispatchGlobalIllumination(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses, RaytracingView view)
 	{
 		Bool tlasValid = TLASBindlessIndex() != 0xFFFFFFFF;
-		globalIlluminationRenderer_->Dispatch(cmdList, heap, constantIndex, structuredIndex, tlasValid && globalIlluminationEnabled_, view, Gateway::GetDlssManager().RayReconstructionEnable());
+		globalIlluminationRenderer_->Dispatch(cmdList, heap, addresses, tlasValid && globalIlluminationEnabled_, view, Gateway::GetDlssManager().RayReconstructionEnable());
 	}
 
-	void RaytracingRenderer::DispatchVolumetricCloudScapes(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex)
+	void RaytracingRenderer::DispatchVolumetricCloudScapes(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
 	{
-		volumetricCloudScapesRenderer_->Dispatch(cmdList, heap, constantIndex, structuredIndex, volumetricCloudScapesEnabled_);
+		volumetricCloudScapesRenderer_->Dispatch(cmdList, heap, addresses, volumetricCloudScapesEnabled_);
 	}
 
-	void RaytracingRenderer::DispatchVolumetricStar(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex)
+	void RaytracingRenderer::DispatchVolumetricStar(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
 	{
-		volumetricStarRenderer_->Dispatch(cmdList, heap, constantIndex, structuredIndex, volumetricStarEnabled_);
+		volumetricStarRenderer_->Dispatch(cmdList, heap, addresses, volumetricStarEnabled_);
 	}
 
-	void RaytracingRenderer::SimulateWeatherParticles(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex)
+	void RaytracingRenderer::SimulateWeatherParticles(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
 	{
-		weatherParticleRenderer_->Simulate(cmdList, heap, constantIndex, structuredIndex);
+		weatherParticleRenderer_->Simulate(cmdList, heap, addresses);
 	}
 
-	void RaytracingRenderer::DrawWeatherParticles(D3D12CommandList* cmdList, FrameBuffer* frameBuffer, GeometryBuffer* geometryBuffer, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex)
+	void RaytracingRenderer::DrawWeatherParticles(D3D12CommandList* cmdList, FrameBuffer* frameBuffer, GeometryBuffer* geometryBuffer, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
 	{
-		weatherParticleRenderer_->Draw(cmdList, frameBuffer, geometryBuffer, heap, constantIndex, structuredIndex);
+		weatherParticleRenderer_->Draw(cmdList, frameBuffer, geometryBuffer, heap, addresses);
 	}
 
-	void RaytracingRenderer::DispatchVolumetricLight(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex)
+	void RaytracingRenderer::DispatchVolumetricLight(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses, RaytracingView view)
 	{
-		volumetricLightRenderer_->Dispatch(cmdList, heap, constantIndex, structuredIndex, volumetricLightEnabled_);
+		volumetricLightRenderer_->Dispatch(cmdList, heap, addresses, view, volumetricLightEnabled_);
 	}
 
 	void RaytracingRenderer::SetRaytracingSettings(const RaytracingContext& settings)

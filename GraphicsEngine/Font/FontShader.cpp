@@ -1,5 +1,7 @@
 #include <GraphicsEngine/Font/FontShader.h>
 #include <GraphicsEngine/Shader/ShaderCache.h>
+#include <GraphicsEngine/D3D12/Context/D3D12Check.h>
+#include <GraphicsEngine/D3D12/PipelineState/VertexShader.h>
 #include <GraphicsEngine/D3D12/PipelineState/AmplificationShader.h>
 #include <GraphicsEngine/D3D12/PipelineState/MeshShader.h>
 #include <GraphicsEngine/D3D12/PipelineState/PixelShader.h>
@@ -19,15 +21,25 @@ namespace SeedCore
 		fontRootSignature_ = rootSignature_.GetOrCreate(device);
 
 		{
-			spriteAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Font/FontSpriteAS.hlsl"));
-			spriteMeshShader_ = shaderCache.GetOrCreateMeshShader(String("../GraphicsEngine/Font/FontSpriteMS.hlsl"));
 			spritePixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Font/FontSpritePS.hlsl"));
 
 			PipelineStateKey psokey{};
 			memset(&psokey, 0, sizeof(psokey));
 			psokey.rootSignature_ = rootSignature_.Get(fontRootSignature_)->Get();
-			psokey.amplificationShader_ = shaderCache.GetAmplificationShader(spriteAmplificationShader_)->Bytecode();
-			psokey.meshShader_ = shaderCache.GetMeshShader(spriteMeshShader_)->Bytecode();
+			if (D3D12Check::GetLevel() == D3D12Level::D12_2)
+			{
+				spriteAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Font/FontSpriteAS.hlsl"));
+				spriteMeshShader_ = shaderCache.GetOrCreateMeshShader(String("../GraphicsEngine/Font/FontSpriteMS.hlsl"));
+				psokey.amplificationShader_ = shaderCache.GetAmplificationShader(spriteAmplificationShader_)->Bytecode();
+				psokey.meshShader_ = shaderCache.GetMeshShader(spriteMeshShader_)->Bytecode();
+				psokey.primitiveTopologyType_ = D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED;
+			}
+			else
+			{
+				spriteVertexShader_ = shaderCache.GetOrCreateVertexShader(String("../GraphicsEngine/Font/FontSpriteVS.hlsl"));
+				psokey.vertexShader_ = shaderCache.GetVertexShader(spriteVertexShader_)->Bytecode();
+				psokey.primitiveTopologyType_ = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+			}
 			psokey.pixelShader_ = shaderCache.GetPixelShader(spritePixelShader_)->Bytecode();
 			psokey.rasterizerDesc_ = RasterizerState::Get(RasterizerStateType::SolidNoneLHS);
 			psokey.blendDesc_ = BlendState::Get(BlendStateType::Alpha);
@@ -35,20 +47,29 @@ namespace SeedCore
 			psokey.renderTargetViewFormat_[0] = DXGI_FORMAT_R16G16B16A16_FLOAT;
 			psokey.renderTargetViewCount_ = 1;
 			psokey.depthStencilViewFormat_ = DXGI_FORMAT_D32_FLOAT;
-			psokey.primitiveTopologyType_ = D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED;
 			pipelineStateObjectSprite_ = pipelineStateObject_.GetOrCreate(device, psokey);
 		}
 
 		{
-			billboardAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Font/FontBillboardAS.hlsl"));
-			billboardMeshShader_ = shaderCache.GetOrCreateMeshShader(String("../GraphicsEngine/Font/FontBillboardMS.hlsl"));
 			billboardPixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Font/FontBillboardPS.hlsl"));
 
 			PipelineStateKey psokey{};
 			memset(&psokey, 0, sizeof(psokey));
 			psokey.rootSignature_ = rootSignature_.Get(fontRootSignature_)->Get();
-			psokey.amplificationShader_ = shaderCache.GetAmplificationShader(billboardAmplificationShader_)->Bytecode();
-			psokey.meshShader_ = shaderCache.GetMeshShader(billboardMeshShader_)->Bytecode();
+			if (D3D12Check::GetLevel() == D3D12Level::D12_2)
+			{
+				billboardAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Font/FontBillboardAS.hlsl"));
+				billboardMeshShader_ = shaderCache.GetOrCreateMeshShader(String("../GraphicsEngine/Font/FontBillboardMS.hlsl"));
+				psokey.amplificationShader_ = shaderCache.GetAmplificationShader(billboardAmplificationShader_)->Bytecode();
+				psokey.meshShader_ = shaderCache.GetMeshShader(billboardMeshShader_)->Bytecode();
+				psokey.primitiveTopologyType_ = D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED;
+			}
+			else
+			{
+				billboardVertexShader_ = shaderCache.GetOrCreateVertexShader(String("../GraphicsEngine/Font/FontBillboardVS.hlsl"));
+				psokey.vertexShader_ = shaderCache.GetVertexShader(billboardVertexShader_)->Bytecode();
+				psokey.primitiveTopologyType_ = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+			}
 			psokey.pixelShader_ = shaderCache.GetPixelShader(billboardPixelShader_)->Bytecode();
 			psokey.rasterizerDesc_ = RasterizerState::Get(RasterizerStateType::SolidNoneLHS);
 			psokey.blendDesc_ = BlendState::Get(BlendStateType::Alpha);
@@ -56,7 +77,6 @@ namespace SeedCore
 			psokey.renderTargetViewFormat_[0] = DXGI_FORMAT_R16G16B16A16_FLOAT;
 			psokey.renderTargetViewCount_ = 1;
 			psokey.depthStencilViewFormat_ = DXGI_FORMAT_D32_FLOAT;
-			psokey.primitiveTopologyType_ = D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED;
 			pipelineStateObjectBillboard_ = pipelineStateObject_.GetOrCreate(device, psokey);
 		}
 
@@ -66,15 +86,24 @@ namespace SeedCore
 		/// [JP] 選択アウトラインマスク PSO: 両方とも深度オフ（上の通常 Billboard PSO
 		///      は深度テストするが、マスクは無視する。理由はモデル側マスクと同じ）。
 		{
-			spriteSelectionAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Font/FontSpriteSelectionAS.hlsl"));
-			billboardSelectionAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Font/FontBillboardSelectionAS.hlsl"));
 			selectionMaskPixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Font/FontSelectionMaskPS.hlsl"));
 
 			PipelineStateKey psokey{};
 			memset(&psokey, 0, sizeof(psokey));
 			psokey.rootSignature_ = rootSignature_.Get(fontRootSignature_)->Get();
-			psokey.amplificationShader_ = shaderCache.GetAmplificationShader(spriteSelectionAmplificationShader_)->Bytecode();
-			psokey.meshShader_ = shaderCache.GetMeshShader(spriteMeshShader_)->Bytecode();
+			if (D3D12Check::GetLevel() == D3D12Level::D12_2)
+			{
+				spriteSelectionAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Font/FontSpriteSelectionAS.hlsl"));
+				psokey.amplificationShader_ = shaderCache.GetAmplificationShader(spriteSelectionAmplificationShader_)->Bytecode();
+				psokey.meshShader_ = shaderCache.GetMeshShader(spriteMeshShader_)->Bytecode();
+				psokey.primitiveTopologyType_ = D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED;
+			}
+			else
+			{
+				spriteSelectionVertexShader_ = shaderCache.GetOrCreateVertexShader(String("../GraphicsEngine/Font/FontSpriteSelectionVS.hlsl"));
+				psokey.vertexShader_ = shaderCache.GetVertexShader(spriteSelectionVertexShader_)->Bytecode();
+				psokey.primitiveTopologyType_ = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+			}
 			psokey.pixelShader_ = shaderCache.GetPixelShader(selectionMaskPixelShader_)->Bytecode();
 			psokey.rasterizerDesc_ = RasterizerState::Get(RasterizerStateType::SolidNoneLHS);
 			psokey.blendDesc_ = BlendState::Get(BlendStateType::Opaque);
@@ -82,11 +111,19 @@ namespace SeedCore
 			psokey.renderTargetViewFormat_[0] = DXGI_FORMAT_R8_UNORM;
 			psokey.renderTargetViewCount_ = 1;
 			psokey.depthStencilViewFormat_ = DXGI_FORMAT_UNKNOWN;
-			psokey.primitiveTopologyType_ = D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED;
 			pipelineStateObjectSelectionMaskSprite_ = pipelineStateObject_.GetOrCreate(device, psokey);
 
-			psokey.amplificationShader_ = shaderCache.GetAmplificationShader(billboardSelectionAmplificationShader_)->Bytecode();
-			psokey.meshShader_ = shaderCache.GetMeshShader(billboardMeshShader_)->Bytecode();
+			if (D3D12Check::GetLevel() == D3D12Level::D12_2)
+			{
+				billboardSelectionAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Font/FontBillboardSelectionAS.hlsl"));
+				psokey.amplificationShader_ = shaderCache.GetAmplificationShader(billboardSelectionAmplificationShader_)->Bytecode();
+				psokey.meshShader_ = shaderCache.GetMeshShader(billboardMeshShader_)->Bytecode();
+			}
+			else
+			{
+				billboardSelectionVertexShader_ = shaderCache.GetOrCreateVertexShader(String("../GraphicsEngine/Font/FontBillboardSelectionVS.hlsl"));
+				psokey.vertexShader_ = shaderCache.GetVertexShader(billboardSelectionVertexShader_)->Bytecode();
+			}
 			pipelineStateObjectSelectionMaskBillboard_ = pipelineStateObject_.GetOrCreate(device, psokey);
 		}
 	}

@@ -1,11 +1,27 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
+#include <FoundationEngine/Log/Assert.h>
 #include <GraphicsEngine/Renderer/VolumetricCloudScapesRenderer.h>
 #include <GraphicsEngine/Environment/Weather.h>
+#include <GraphicsEngine/D3D12/Buffer/ConstantBuffer.h>
 
 namespace SeedCore
 {
 	class World;
+	class BindlessHeap;
+
+	struct WeatherConstantBuffer
+	{
+		Float wetness_ = 0.0f;
+		Float snowCoverage_ = 0.0f;
+		Float thunderFlash_ = 0.0f;
+		Float weatherPadding0_ = 0.0f;
+
+		Float snowIntensity_ = 0.0f;
+		Float thunderSeed_ = 0.0f;
+		Vector2 weatherPadding1_;
+	};
+	SC_STATIC_ASSERT_SIZE(WeatherConstantBuffer, 32, "Environment/Weather.hlsli");
 
 	/// [EN] Snapshot of the scene's Weather runtime state for the GPU (see
 	///      LightSystem::Gather's weather parameter). Zeroed when the scene
@@ -67,6 +83,10 @@ namespace SeedCore
 		///      コンポーネントを何も変更せず読む。無ければ既定値(全0)を返す。
 		[[nodiscard]] static WeatherGpuState ReadGpuState(World& world);
 
+		void Upload(ID3D12Device* device, BindlessHeap* bindlessHeap, const WeatherConstantBuffer& buffer);
+
+		[[nodiscard]] Uint GetIndex()const;
+
 	private:
 		static void GetTarget(WeatherType type, VolumetricCloudScapesRayConstantBuffer& target);
 
@@ -75,5 +95,7 @@ namespace SeedCore
 		[[nodiscard]] Float RandomRange(Float minValue, Float maxValue);
 
 		std::mt19937 randomEngine_ = std::mt19937(std::random_device{}());
+
+		ResourcePtr<ConstantBuffer<WeatherConstantBuffer>> weatherConstantBuffer_;
 	};
 }

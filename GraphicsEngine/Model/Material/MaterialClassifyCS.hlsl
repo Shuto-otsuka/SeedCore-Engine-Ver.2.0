@@ -1,6 +1,7 @@
 #include "../Model.hlsli"
-#include "../../Shader/Structured.hlsli"
-#include "../../Shader/Constants.hlsli"
+#include "../../Shader/ShaderResources.hlsli"
+#include "../../Shader/UnorderedAccesses.hlsli"
+#include "../../Shader/Scene.hlsli"
 
 /**
 * [EN]
@@ -34,7 +35,7 @@ void main(uint3 dtid : SV_DispatchThreadID)
 
 	uint2 pixel = dtid.xy;
 
-	Texture2D<float> depth_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.depth_index_];
+	Texture2D<float> depth_texture = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.depth_index_];
 	float depth = depth_texture.Load(int3(pixel, 0));
 
 	/// [JP] reverse-Z のクリア値は 0.0 = 背景。ソートに参加させないが、この
@@ -46,10 +47,10 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	///      (DeferredLightingPS.hlsl は rt1 が全ゼロかどうかで背景判定する)。
 	if (depth == 0.0)
 	{
-		RWTexture2D<float4> background_rt0 = ResourceDescriptorHeap[structured_indices.gbuffer_.index_0_uav_];
-		RWTexture2D<float4> background_rt1 = ResourceDescriptorHeap[structured_indices.gbuffer_.index_1_uav_];
-		RWTexture2D<float2> background_rt2 = ResourceDescriptorHeap[structured_indices.gbuffer_.velocity_uav_index_];
-		RWTexture2D<float4> background_rt3 = ResourceDescriptorHeap[structured_indices.gbuffer_.index_3_uav_];
+		RWTexture2D<float4> background_rt0 = ResourceDescriptorHeap[unordered_access_indices.geometry_buffer_.index_0_];
+		RWTexture2D<float4> background_rt1 = ResourceDescriptorHeap[unordered_access_indices.geometry_buffer_.index_1_];
+		RWTexture2D<float2> background_rt2 = ResourceDescriptorHeap[unordered_access_indices.geometry_buffer_.index_2_];
+		RWTexture2D<float4> background_rt3 = ResourceDescriptorHeap[unordered_access_indices.geometry_buffer_.index_3_];
 		background_rt0[pixel] = float4(0.0, 0.0, 0.0, 0.0);
 		background_rt1[pixel] = float4(0.0, 0.0, 0.0, 0.0);
 		background_rt2[pixel] = float2(0.0, 0.0);
@@ -57,7 +58,7 @@ void main(uint3 dtid : SV_DispatchThreadID)
 		return;
 	}
 
-	Texture2D<uint4> visibility_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.index_4_];
+	Texture2D<uint4> visibility_texture = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.index_4_];
 	uint4 visibility_id = visibility_texture.Load(int3(pixel, 0));
 
 	uint instance_index;
@@ -67,7 +68,7 @@ void main(uint3 dtid : SV_DispatchThreadID)
 
 	uint bucket = instance_index % MATERIAL_SORT_BUCKET_COUNT;
 
-	RWByteAddressBuffer bucket_buffer = ResourceDescriptorHeap[structured_indices.material_sort_.bucket_index_];
+	RWByteAddressBuffer bucket_buffer = ResourceDescriptorHeap[unordered_access_indices.material_sort_.bucket_index_];
 	uint original_value;
 	bucket_buffer.InterlockedAdd(bucket * 4, 1, original_value);
 }

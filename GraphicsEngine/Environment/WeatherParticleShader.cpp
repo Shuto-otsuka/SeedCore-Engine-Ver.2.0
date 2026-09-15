@@ -1,5 +1,7 @@
 #include <GraphicsEngine/Environment/WeatherParticleShader.h>
 #include <GraphicsEngine/Shader/ShaderCache.h>
+#include <GraphicsEngine/D3D12/Context/D3D12Check.h>
+#include <GraphicsEngine/D3D12/PipelineState/VertexShader.h>
 #include <GraphicsEngine/D3D12/PipelineState/ComputeShader.h>
 #include <GraphicsEngine/D3D12/PipelineState/AmplificationShader.h>
 #include <GraphicsEngine/D3D12/PipelineState/MeshShader.h>
@@ -28,15 +30,25 @@ namespace SeedCore
 		simulateKey.computeShader_ = shaderCache.GetComputeShader(simulateShader_)->Bytecode();
 		simulatePipelineStateHandle_ = pipelineStateObject_.GetOrCreate(device, simulateKey);
 
-		Handle<AmplificationShader> amplificationShader = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Environment/WeatherParticleAS.hlsl"));
-		Handle<MeshShader> meshShader = shaderCache.GetOrCreateMeshShader(String("../GraphicsEngine/Environment/WeatherParticleMS.hlsl"));
 		Handle<PixelShader> pixelShader = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Environment/WeatherParticlePS.hlsl"));
 
 		PipelineStateKey drawKey{};
 		memset(&drawKey, 0, sizeof(drawKey));
 		drawKey.rootSignature_ = signature;
-		drawKey.amplificationShader_ = shaderCache.GetAmplificationShader(amplificationShader)->Bytecode();
-		drawKey.meshShader_ = shaderCache.GetMeshShader(meshShader)->Bytecode();
+		if (D3D12Check::GetLevel() == D3D12Level::D12_2)
+		{
+			Handle<AmplificationShader> amplificationShader = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Environment/WeatherParticleAS.hlsl"));
+			Handle<MeshShader> meshShader = shaderCache.GetOrCreateMeshShader(String("../GraphicsEngine/Environment/WeatherParticleMS.hlsl"));
+			drawKey.amplificationShader_ = shaderCache.GetAmplificationShader(amplificationShader)->Bytecode();
+			drawKey.meshShader_ = shaderCache.GetMeshShader(meshShader)->Bytecode();
+			drawKey.primitiveTopologyType_ = D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED;
+		}
+		else
+		{
+			Handle<VertexShader> vertexShader = shaderCache.GetOrCreateVertexShader(String("../GraphicsEngine/Environment/WeatherParticleVS.hlsl"));
+			drawKey.vertexShader_ = shaderCache.GetVertexShader(vertexShader)->Bytecode();
+			drawKey.primitiveTopologyType_ = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+		}
 		drawKey.pixelShader_ = shaderCache.GetPixelShader(pixelShader)->Bytecode();
 		drawKey.rasterizerDesc_ = RasterizerState::Get(RasterizerStateType::SolidNoneLHS);
 		drawKey.blendDesc_ = BlendState::Get(BlendStateType::Additive);
@@ -47,7 +59,6 @@ namespace SeedCore
 		drawKey.renderTargetViewFormat_[0] = DXGI_FORMAT_R16G16B16A16_FLOAT;
 		drawKey.renderTargetViewCount_ = 1;
 		drawKey.depthStencilViewFormat_ = DXGI_FORMAT_D32_FLOAT;
-		drawKey.primitiveTopologyType_ = D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED;
 		drawPipelineStateHandle_ = pipelineStateObject_.GetOrCreate(device, drawKey);
 	}
 

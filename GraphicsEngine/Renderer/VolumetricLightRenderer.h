@@ -3,22 +3,26 @@
 #include <GraphicsEngine/D3D12/Buffer/ConstantBuffer.h>
 #include <GraphicsEngine/D3D12/Descriptor/DescriptorHeap.h>
 #include <GraphicsEngine/Raytracing/VolumetricLight/VolumetricLightShader.h>
+#include <GraphicsEngine/Raytracing/RaytracingView.h>
 
 namespace SeedCore
 {
 	class BindlessHeap;
 	class ShaderCache;
 	class D3D12CommandList;
-	class IndicesSystem;
+	class ConstantIndicesSystem;
+	class ShaderResourceIndicesSystem;
+	class UnorderedAccessIndicesSystem;
+	struct RootAddresses;
 
 	/// [EN] Mirrors Raytracing/VolumetricLight/VolumetricLight.hlsli's
 	///      VolumetricLightRayConstantBuffer — read by the three froxel passes
 	///      and DeferredLightingPS.hlsl via
-	///      structured_indices.vl_ray_constant_index_. Must stay byte-for-byte
+	///      constant_indices.volumetric_light_index_. Must stay byte-for-byte
 	///      in sync with the HLSL side.
 	/// [JP] Raytracing/VolumetricLight/VolumetricLight.hlsli の
 	///      VolumetricLightRayConstantBuffer と対応。froxel 3パスと
-	///      DeferredLightingPS.hlsl が structured_indices.vl_ray_constant_index_
+	///      DeferredLightingPS.hlsl が constant_indices.volumetric_light_index_
 	///      経由で読む。HLSL 側とバイト単位で一致させること。
 	struct VolumetricLightRayConstantBuffer
 	{
@@ -91,8 +95,10 @@ namespace SeedCore
 	* VolumetricLightScatteringRT (sun occlusion via inline RayQuery + cloud
 	* lightmarch = god rays) -> FroxelIntegrationCS (front-to-back scan into
 	* the integration volume, sampled by DeferredLightingPS.hlsl with a
-	* linear sampler at each pixel's depth slice). Deterministic — no
-	* denoiser, no per-view chain (one 160x90x64 grid re-written per flush).
+	* linear sampler at each pixel's depth slice). The scattering volume is
+	* jittered every frame and temporally accumulated, so each view owns its
+	* own history/write ping-pong pair; the density and integration volumes
+	* are shared and re-written per flush (160x90x128 grid).
 	* When disabled the integration volume is cleared to (0,0,0,1) =
 	* no scattering, full transmittance, so the composite is a no-op.
 	*
@@ -103,29 +109,30 @@ namespace SeedCore
 	* VolumetricLightScatteringRT(インライン RayQuery の太陽遮蔽+雲ライト
 	* マーチ=ゴッドレイ)→ FroxelIntegrationCS(front-to-back 積分。
 	* DeferredLightingPS.hlsl が各ピクセルの深度スライスでリニアサンプル)。
-	* 決定論的 — デノイザもビュー別チェーンも無し(160x90x64 のグリッド1式を
-	* Flush ごとに書き直す)。無効時は積分ボリュームを (0,0,0,1)=散乱なし・
-	* 全透過にクリアするので合成は実質no-op。
+	* 散乱ボリュームは毎フレームジッターして時間積分するので、ビューごとに
+	* history/write のピンポンを持つ。密度と積分ボリュームは共有で Flush ごとに
+	* 書き直す(160x90x128 のグリッド)。無効時は積分ボリュームを (0,0,0,1)=
+	* 散乱なし・全透過にクリアするので合成は実質no-op。
 	*/
 	class VolumetricLightRenderer
 	{
 	public:
 		static constexpr Uint32 froxelDimensionX = 160;
 		static constexpr Uint32 froxelDimensionY = 90;
-		static constexpr Uint32 froxelDimensionZ = 64;
+		static constexpr Uint32 froxelDimensionZ = 128;
 
 		VolumetricLightRenderer(RootSignature& rootSignature, PipelineStateObject& pipelineStateObject);
 		~VolumetricLightRenderer() = default;
 
-		void Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, IndicesSystem& indicesSystem, Uint32 width, Uint32 height);
+		void Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, ConstantIndicesSystem& constantIndicesSystem, ShaderResourceIndicesSystem& shaderResourceIndicesSystem, UnorderedAccessIndicesSystem& unorderedAccessIndicesSystem, Uint32 width, Uint32 height);
 
 		/// [EN] Updates the tuning constant buffer (stamping the froxel
 		///      dimensions) and registers every bindless index into
-		///      IndicesSystem. Must run before IndicesSystem::UploadEditor/
+		///      the index systems. Must run before the index systems' UploadEditor/
 		///      UploadGame bakes this frame's indices. No GPU work.
 		/// [JP] チューニング用定数バッファを更新し(froxel 次元を焼き込む)、
-		///      bindless インデックスを IndicesSystem へ登録する。
-		///      IndicesSystem::UploadEditor/UploadGame が今フレームの
+		///      bindless インデックスを 各インデックスシステムへ登録する。
+		///      各インデックスシステムの UploadEditor/UploadGame が今フレームの
 		///      インデックスを確定する前に呼ぶこと。GPU 処理は無い。
 		void PrepareFrame(const VolumetricLightRayConstantBuffer& settings);
 
@@ -136,9 +143,38 @@ namespace SeedCore
 		/// [JP] 実際の GPU 処理: UAV バリアを挟んだ froxel 3ディスパッチ
 		///      (無効時/PSO 無し時は積分ボリュームを (0,0,0,1) にクリア)。
 		///      積分ボリュームは PIXEL_SHADER_RESOURCE 状態で終える。
-		void Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex, Bool enabled);
+		void Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses, RaytracingView view, Bool enabled);
 
 	private:
+		static constexpr Uint32 scatteringSlotCount_ = 2;
+		static constexpr Uint32 froxelJitterSequenceLength_ = 16;
+
+		struct VolumetricLightDispatchConstantBuffer
+		{
+			Uint scatteringWriteUnorderedAccessViewIndex_ = 0;
+			Uint scatteringHistoryShaderResourceViewIndex_ = 0;
+			Uint historyValid_ = 0;
+			Uint frameIndex_ = 0;
+
+			Vector3 jitter_ = { 0.0f, 0.0f, 0.0f };
+			Float volumetricLightDispatchPadding_ = 0.0f;
+		};
+
+		struct View
+		{
+			Microsoft::WRL::ComPtr<ID3D12Resource> scatteringVolumeResource_[scatteringSlotCount_];
+			D3D12_RESOURCE_STATES scatteringVolumeState_[scatteringSlotCount_] = { D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COMMON };
+			Uint32 scatteringVolumeUnorderedAccessViewIndex_[scatteringSlotCount_] = { 0, 0 };
+			Uint32 scatteringVolumeShaderResourceViewIndex_[scatteringSlotCount_] = { 0, 0 };
+			Uint32 writeSlot_ = 0;
+			Uint32 frameIndex_ = 0;
+			Bool historyValid_ = false;
+
+			ResourcePtr<ConstantBuffer<VolumetricLightDispatchConstantBuffer>> constantBuffer_;
+		};
+
+		[[nodiscard]] View& ViewFor(RaytracingView view);
+
 		void CreateVolume(ID3D12Device* device, BindlessHeap* bindlessHeap, Bool createShaderResourceView,
 			Microsoft::WRL::ComPtr<ID3D12Resource>& outResource, Uint32& outUnorderedAccessViewIndex, Uint32* outShaderResourceViewIndex, Uint32* outClearIndex);
 
@@ -151,10 +187,11 @@ namespace SeedCore
 		Microsoft::WRL::ComPtr<ID3D12Resource> densityVolumeResource_;
 		Uint32 densityVolumeUnorderedAccessViewIndex_ = 0;
 
-		/// [EN] Pass 2 output (rgb = in-scattered light, a = extinction).
-		/// [JP] パス2出力(rgb=内散乱、a=消衰)。
-		Microsoft::WRL::ComPtr<ID3D12Resource> scatteringVolumeResource_;
-		Uint32 scatteringVolumeUnorderedAccessViewIndex_ = 0;
+		/// [EN] Pass 2 output (rgb = in-scattered light, a = extinction), one
+		///      history/write pair per view.
+		/// [JP] パス2出力(rgb=内散乱、a=消衰)。ビューごとに history/write の組。
+		View editorView_;
+		View gameView_;
 
 		/// [EN] Pass 3 output (rgb = accumulated scattering, a =
 		///      transmittance), sampled by the composite.
@@ -171,14 +208,16 @@ namespace SeedCore
 		DescriptorHeap clearHeap_;
 		Uint32 clearIntegrationIndex_ = 0;
 
-		/// [EN] density/scattering volumes stay in UNORDERED_ACCESS for their
-		///      whole life (written+read by UAV only); transitioned once.
-		/// [JP] density/scattering ボリュームは生涯 UNORDERED_ACCESS のまま
+		/// [EN] The density volume stays in UNORDERED_ACCESS for its whole life
+		///      (written+read by UAV only); transitioned once.
+		/// [JP] density ボリュームは生涯 UNORDERED_ACCESS のまま
 		///      (UAV でしか読み書きしない)。初回に一度だけ遷移する。
 		Bool workingVolumesTransitioned_ = false;
 
 		BindlessHeap* bindlessHeap_ = nullptr;
-		IndicesSystem* indicesSystem_ = nullptr;
+		ConstantIndicesSystem* constantIndicesSystem_ = nullptr;
+		ShaderResourceIndicesSystem* shaderResourceIndicesSystem_ = nullptr;
+		UnorderedAccessIndicesSystem* unorderedAccessIndicesSystem_ = nullptr;
 
 		/// [EN] Logs the PSO-creation-failed warning once instead of every frame.
 		/// [JP] PSO 作成失敗の警告を毎フレームでなく 1 度だけログ出力する。

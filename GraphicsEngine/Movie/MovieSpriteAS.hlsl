@@ -1,5 +1,5 @@
 #include "Movie.hlsli"
-#include "../Shader/Structured.hlsli"
+#include "../Shader/ShaderResources.hlsli"
 #include "../Shader/Culling.hlsli"
 
 groupshared uint survived_count;
@@ -9,7 +9,7 @@ groupshared MovieASPayload payload;
 [numthreads(32, 1, 1)]
 void main(uint3 gtid : SV_GroupThreadID, uint3 dtid : SV_DispatchThreadID)
 {
-	StructuredBuffer<MovieSpriteInstance> movie_sprite = ResourceDescriptorHeap[structured_indices.movie_.sprite_index_];
+	StructuredBuffer<MovieSpriteStructuredBuffer> movie_sprite = GetMovieSpriteStructuredBuffer(shader_resource_indices.movie_.sprite_index_);
 	SceneConstantBuffer scene_constant = GetSceneConstantBuffer();
 
 	if (gtid.x == 0)
@@ -23,11 +23,11 @@ void main(uint3 gtid : SV_GroupThreadID, uint3 dtid : SV_DispatchThreadID)
 
 	if (instance_id < 1024)
 	{
-		MovieSpriteInstance instance = movie_sprite[instance_id];
+		MovieSpriteStructuredBuffer instance = movie_sprite[instance_id];
 
-		if (instance.size.x > 0.0 && instance.size.y > 0.0)
+		if (instance.size_.x > 0.0 && instance.size_.y > 0.0)
 		{
-			is_visible = IsVisibleInScreen(instance.position, instance.size, scene_constant.screen_size_);
+			is_visible = IsVisibleInScreen(instance.position_, instance.size_, scene_constant.screen_size_);
 		}
 	}
 

@@ -5,7 +5,7 @@
 #include <GraphicsEngine/D3D12/Descriptor/DescriptorHeap.h>
 #include <GraphicsEngine/D3D12/Buffer/FrameBuffer.h>
 #include <GraphicsEngine/Model/ModelShader.h>
-#include <GraphicsEngine/Model/ModelInstanceData.h>
+#include <GraphicsEngine/Model/ModelRecord.h>
 #include <GraphicsEngine/System/SceneSystem.h>
 #include <GraphicsEngine/System/IndicesSystem.h>
 
@@ -27,7 +27,7 @@ namespace SeedCore
 	* Transform panel's 3D viewport. Deliberately shares NOTHING with
 	* ModelRenderer, IndicesSystem, or TimelineRenderer — its own
 	* instance/bone StructuredBuffers, its own FrameBuffer, its own
-	* SceneSystem, and its own ConstantIndices/StructuredIndices constant
+	* SceneSystem, and its own ConstantIndices/ShaderResourceIndices constant
 	* buffers. This is not an optimization choice: those buffers are
 	* frame-ring (one physical slot per frame, re-written by every Update()
 	* call that frame), and the GPU only reads their contents at
@@ -49,7 +49,7 @@ namespace SeedCore
 	* プレビューレンダラー。ModelRenderer、IndicesSystem、
 	* TimelineRendererとは意図的に何も共有しない —
 	* instance/boneのStructuredBuffer、FrameBuffer、SceneSystem、
-	* ConstantIndices/StructuredIndices定数バッファ、すべて専有する。これは
+	* ConstantIndices/ShaderResourceIndices定数バッファ、すべて専有する。これは
 	* 最適化上の選択ではない: これらのバッファはフレームリング(フレームあたり
 	* 物理スロット1つで、そのフレーム中のUpdate()呼び出しのたびに上書きされる)
 	* であり、GPUはフレーム全体のコマンドリストが記録し終わった後の描画実行
@@ -96,11 +96,11 @@ namespace SeedCore
 	private:
 		ModelShader modelShader_;
 
-		DynamicArray<ModelInstanceData> opaqueInstances_;
-		DynamicArray<ModelInstanceData> transparentInstances_;
+		DynamicArray<ModelStructuredBuffer> opaqueInstances_;
+		DynamicArray<ModelStructuredBuffer> transparentInstances_;
 		DynamicArray<Matrix> boneMatrices_;
 
-		ResourcePtr<ReadOnlyStructuredBuffer<ModelInstanceData>> instanceBuffer_;
+		ResourcePtr<ReadOnlyStructuredBuffer<ModelStructuredBuffer>> instanceBuffer_;
 		ResourcePtr<ReadOnlyStructuredBuffer<Matrix>> boneBuffer_;
 
 		Bool hasSkinnedOpaque_ = false;
@@ -121,9 +121,9 @@ namespace SeedCore
 		ResourcePtr<SceneSystem> sceneSystem_;
 
 		ConstantIndices constantIndices_{};
-		StructuredIndices structuredIndices_{};
+		ShaderResourceIndices shaderResourceIndices_{};
 		ResourcePtr<ConstantBuffer<ConstantIndices>> constantIndicesBuffer_;
-		ResourcePtr<ConstantBuffer<StructuredIndices>> structuredIndicesBuffer_;
+		ResourcePtr<ConstantBuffer<ShaderResourceIndices>> shaderResourceIndicesBuffer_;
 
 		DescriptorHeap* imguiHeap_ = nullptr;
 		Uint32 imguiShaderResourceViewIndex_ = 0;

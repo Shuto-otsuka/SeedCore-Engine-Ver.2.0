@@ -1,0 +1,30 @@
+SeedCore Engine — Third-Party Asset Notices
+==========================================
+
+This file lists third-party assets whose data is embedded (in whole, in part, or
+as a derived form) in engine content shipped with a build. Ship this file, or an
+equivalent credits screen entry, alongside the executable.
+
+
+Parametric Animal presets  (GraphicsEngine/Avatar/Preset/SeedAnimal.ac)
+----------------------------------------------------------------------
+The animal body-type shapes are derived (retargeted / morphed onto a shared
+topology) from the following source meshes:
+
+  "Animated Animal Pack" by Quaternius
+    https://quaternius.com/  /  https://poly.pizza/bundle/Animated-Animal-Pack-ILAPXeUYiS
+    License: CC0 1.0 (public domain) — no attribution required, listed for reference.
+
+  "Cougar" by Poly by Google
+    https://poly.pizza/m/8nuCN-gn2s-
+    License: Creative Commons Attribution 3.0 (CC BY 3.0)
+    https://creativecommons.org/licenses/by/3.0/
+    Modified: retargeted to a shared low-poly topology and blended into a
+    parametric shape axis.
+
+
+Parametric Human presets  (GraphicsEngine/Avatar/Preset/SeedHuman.hc)
+--------------------------------------------------------------------
+  MakeHuman project data (base mesh, morph targets, skeleton, weights)
+    https://www.makehumancommunity.org/
+    License: CC0 1.0 (public domain) — no attribution required, listed for reference.

@@ -1,5 +1,7 @@
-#include "../Shader/Constants.hlsli"
-#include "../Shader/Structured.hlsli"
+#include "PostProcess.hlsli"
+#include "../Shader/ShaderResources.hlsli"
+#include "../Shader/UnorderedAccesses.hlsli"
+#include "../Shader/Scene.hlsli"
 #include "../Shader/Sampler.hlsli"
 
 /**
@@ -101,7 +103,7 @@ float BokehPolygonRadiusScale(float angle, uint blade_count)
 [numthreads(8, 8, 1)]
 void main(uint3 dtid : SV_DispatchThreadID)
 {
-	RWTexture2D<float4> output = ResourceDescriptorHeap[constant_indices.post_process_.depth_of_field_.unordered_access_view_index_];
+	RWTexture2D<float4> output = ResourceDescriptorHeap[unordered_access_indices.post_process_.depth_of_field_.index_];
 
 	uint width, height;
 	output.GetDimensions(width, height);
@@ -117,15 +119,15 @@ void main(uint3 dtid : SV_DispatchThreadID)
 		return;
 	}
 
-	Texture2D<float4> source = ResourceDescriptorHeap[constant_indices.post_process_.source_color_index_];
-	Texture2D<float> depth_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.depth_index_];
+	Texture2D<float4> source = ResourceDescriptorHeap[shader_resource_indices.post_process_.source_color_index_];
+	Texture2D<float> depth_texture = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.depth_index_];
 	SceneConstantBuffer scene = GetSceneConstantBuffer();
 
 	float2 uv = (float2(dtid.xy) + 0.5) / float2(width, height);
 
-	float focus_distance = constant_indices.post_process_.depth_of_field_.focus_distance_;
-	float focus_range = constant_indices.post_process_.depth_of_field_.focus_range_;
-	float max_blur_radius = constant_indices.post_process_.depth_of_field_.max_blur_radius_;
+	float focus_distance = GetPostProcessConstantBuffer().depth_of_field_.focus_distance_;
+	float focus_range = GetPostProcessConstantBuffer().depth_of_field_.focus_range_;
+	float max_blur_radius = GetPostProcessConstantBuffer().depth_of_field_.max_blur_radius_;
 
 	float center_view_depth = BokehLinearViewDepth(uv, depth_texture, scene);
 	float center_coc = saturate(abs(center_view_depth - focus_distance) / max(focus_range, 0.0001));
@@ -136,9 +138,9 @@ void main(uint3 dtid : SV_DispatchThreadID)
 		return;
 	}
 
-	float threshold = constant_indices.post_process_.bokeh_.highlight_threshold_;
-	float intensity = constant_indices.post_process_.bokeh_.highlight_intensity_;
-	uint blade_count = max(constant_indices.post_process_.bokeh_.blade_count_, 3);
+	float threshold = GetPostProcessConstantBuffer().bokeh_.highlight_threshold_;
+	float intensity = GetPostProcessConstantBuffer().bokeh_.highlight_intensity_;
+	uint blade_count = max(GetPostProcessConstantBuffer().bokeh_.blade_count_, 3);
 
 	float3 accum = float3(0.0, 0.0, 0.0);
 

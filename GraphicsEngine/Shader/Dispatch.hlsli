@@ -1,7 +1,7 @@
 #ifndef __DISPATCH_HLSL__
 #define __DISPATCH_HLSL__
 
-cbuffer DispatchIndices : register(b2, space1)
+cbuffer DispatchIndices : register(b4, space1)
 {
 	uint dispatch_buffer_index_;
 };
@@ -16,7 +16,7 @@ struct ParticleDispatchBuffer
 	uint counter_index_;
 	uint module_index_;
 	uint meta_index_;
-	uint particle_dispatch_buffer_0_padding_;
+	uint particle_dispatch_buffer_padding_0_;
 };
 
 ConstantBuffer<ParticleDispatchBuffer> GetParticleDispatchBuffer()

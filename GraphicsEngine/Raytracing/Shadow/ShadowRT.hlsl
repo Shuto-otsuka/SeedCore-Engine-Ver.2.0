@@ -1,6 +1,8 @@
+#include "../../Shader/Scene.hlsli"
+#include "../../Shader/ShaderResources.hlsli"
+#include "../../Shader/UnorderedAccesses.hlsli"
 #include "../../Shader/Constants.hlsli"
-#include "../../Shader/Structured.hlsli"
-#include "../../Shader/Light.hlsli"
+#include "../../Light/Light.hlsli"
 #include "../../Shader/Normal.hlsli"
 #include "../../Shader/Noise.hlsli"
 #include "../../Shader/Material.hlsli"
@@ -39,7 +41,7 @@
 *     ResolveGBufferMaterial - the SAME function Model/Opaque/
 *     DeferredLightingPS.hlsl uses, so the specular response matches),
 *     evaluates the picked light's full BRDF response, divides by the RIS
-*     selection pdf (weight_sum / picked_weight) to keep the single-sample
+*     selection pdf (picked_weight / weight_sum) to keep the single-sample
 *     estimate unbiased, and multiplies by the shadow ray's visibility. The
 *     result is a noisy single-sample RGB radiance estimate rather than a
 *     scalar - ShadowDenoiseCS.hlsl accumulates it over time (tracking
@@ -75,7 +77,7 @@
 *     (Shader/Material.hlsli の ResolveGBufferMaterial - Model/Opaque/
 *     DeferredLightingPS.hlsl と【同じ】関数を使うので鏡面ハイライトの
 *     形が一致する)、選ばれた光の完全な BRDF 応答を評価し、RIS の選択
-*     pdf(weight_sum / picked_weight)で割って単一サンプル推定量を
+*     pdf(picked_weight / weight_sum)で割って単一サンプル推定量を
 *     アンバイアスに保ち、影レイの可視性を掛ける。結果はスカラーではなく
 *     ノイズを含む単一サンプルの RGB 放射輝度推定量になる -
 *     ShadowDenoiseCS.hlsl がこれを時間積分する(モーメントは輝度から追跡
@@ -107,7 +109,7 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	}
 
 	uint2 pixel = dtid.xy;
-	RWTexture2D<float4> raw_signal = ResourceDescriptorHeap[structured_indices.shadow_.raw_visibility_uav_index_];
+	RWTexture2D<float4> raw_signal = ResourceDescriptorHeap[unordered_access_indices.shadow_.raw_visibility_index_];
 
 	/// [EN] Sample scene depth. With reverse-Z the far plane is 0.0, so a
 	///      depth of 0 means "nothing rendered here" (background) - there is
@@ -115,7 +117,7 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	/// [JP] シーン深度をサンプルする。reverse-Z では遠平面が 0.0 なので、
 	///      深度0は「何も描画されていない」(背景)を意味する。影を落とす
 	///      対象の面が無いので、完全照射(1.0)として扱う。
-	Texture2D<float> depth_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.depth_index_];
+	Texture2D<float> depth_texture = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.depth_index_];
 	float depth = depth_texture.Load(int3(pixel, 0));
 
 	if (depth == 0.0)
@@ -141,7 +143,7 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	float4 world = mul(clip, scene.inverse_view_projection_);
 	float3 world_position = world.xyz / world.w;
 
-	ConstantBuffer<ShadowRayConstantBuffer> tuning = ResourceDescriptorHeap[structured_indices.shadow_.ray_constant_index_];
+	ConstantBuffer<ShadowRayConstantBuffer> tuning = ResourceDescriptorHeap[constant_indices.shadow_index_];
 
 	/// [EN] The normal is stored oct-encoded in G-Buffer RT1, so decode it.
 	///      The ray origin is pushed off the surface along the normal by
@@ -149,12 +151,12 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	/// [JP] 法線は G-Buffer RT1 に oct エンコードで格納されているので
 	///      デコードする。レイ原点は自己交差(シャドウアクネ)を避けるため
 	///      normal_bias_ ぶん法線方向へ押し出す。
-	Texture2D<float4> normal_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.index_1_];
+	Texture2D<float4> normal_texture = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.index_1_];
 	float4 rt1 = normal_texture.Load(int3(pixel, 0));
 	float3 normal = OctNormalDecode(rt1.rg);
 	float3 origin = world_position + normal * tuning.normal_bias_;
 
-	RaytracingAccelerationStructure tlas = ResourceDescriptorHeap[structured_indices.raytracing_.tlas_index_];
+	RaytracingAccelerationStructure tlas = ResourceDescriptorHeap[shader_resource_indices.raytracing_.tlas_index_];
 
 	/// [EN] RNG seed that changes every frame. Varying the ray direction each
 	///      frame is what lets temporal accumulation converge to a smooth
@@ -167,10 +169,10 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	/// ---- Directional light (always evaluated - a single dominant light, no probabilistic selection needed) ----
 	/// ---- ディレクショナルライト(常に評価。1本で済む主光源なので確率選択しない) ----
 	float directional_visibility = 1.0;
-	ConstantBuffer<LightConstantData> light = ResourceDescriptorHeap[constant_indices.light_index_];
-	float3 directional_base = normalize(-light.directional_direction_);
+	ConstantBuffer<LightConstantBuffer> light = ResourceDescriptorHeap[constant_indices.light_index_];
+	float3 directional_base = normalize(-GetDirectionalLightConstantBuffer().direction_);
 
-	if (light.directional_intensity_ > 0.0)
+	if (GetDirectionalLightConstantBuffer().sun_intensity_ > 0.0)
 	{
 		/// [EN] A surface facing away from the light (N.L<=0) receives zero
 		///      direct light, so there is no point tracing a ray. Explicitly
@@ -194,7 +196,7 @@ void main(uint3 dtid : SV_DispatchThreadID)
 			ray_desc.TMin = 0.001;
 			ray_desc.TMax = tuning.ray_t_max_;
 
-			directional_visibility = IsReflectionRayOccluded(tlas, ray_desc, structured_indices.raytracing_.instance_data_index_) ? 0.0 : 1.0;
+			directional_visibility = IsReflectionRayOccluded(tlas, ray_desc, shader_resource_indices.raytracing_.instance_data_index_) ? 0.0 : 1.0;
 		}
 	}
 
@@ -211,8 +213,8 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	uint slice = ComputeDepthSlice(linear_depth, scene.near_plane_, scene.far_plane_);
 	uint cluster_index = ClusterIndex(uint3(tile_x, tile_y, slice), cluster_count);
 
-	StructuredBuffer<ClusterData> cluster_data = ResourceDescriptorHeap[light.cluster_data_shader_resource_view_index_];
-	ClusterData cluster = cluster_data[cluster_index];
+	StructuredBuffer<ClusterInstance> cluster_data = ResourceDescriptorHeap[shader_resource_indices.light_.cluster_data_index_];
+	ClusterInstance cluster = cluster_data[cluster_index];
 
 	uint point_count = min(cluster.point_count_, CLUSTER_MAX_POINT_LIGHTS);
 	uint spot_count = min(cluster.spot_count_, CLUSTER_MAX_SPOT_LIGHTS);
@@ -221,12 +223,12 @@ void main(uint3 dtid : SV_DispatchThreadID)
 
 	if (total_punctual > 0)
 	{
-		ByteAddressBuffer light_list = ResourceDescriptorHeap[light.cluster_light_list_shader_resource_view_index_];
+		ByteAddressBuffer light_list = ResourceDescriptorHeap[shader_resource_indices.light_.cluster_light_list_index_];
 		uint base = cluster_index * CLUSTER_STRIDE;
 
-		StructuredBuffer<PointLightData> point_lights = ResourceDescriptorHeap[light.point_light_index_];
-		StructuredBuffer<SpotLightData> spot_lights = ResourceDescriptorHeap[light.spot_light_index_];
-		StructuredBuffer<RectLightData> rect_lights = ResourceDescriptorHeap[light.rect_light_index_];
+		StructuredBuffer<PointLightStructuredBuffer> point_lights = GetPointLightStructuredBuffer(shader_resource_indices.light_.point_light_index_);
+		StructuredBuffer<SpotLightStructuredBuffer> spot_lights = GetSpotLightStructuredBuffer(shader_resource_indices.light_.spot_light_index_);
+		StructuredBuffer<RectLightStructuredBuffer> rect_lights = GetRectLightStructuredBuffer(shader_resource_indices.light_.rect_light_index_);
 
 		/// [EN] Weighted reservoir sampling (a simplified single-pass form of
 		///      Algorithm A-Res). Picking uniformly at random would waste the
@@ -265,50 +267,65 @@ void main(uint3 dtid : SV_DispatchThreadID)
 			if (index < point_count)
 			{
 				uint light_index = light_list.Load((base + index) * 4);
-				PointLightData point_light = point_lights[light_index];
+				PointLightStructuredBuffer point_light = point_lights[light_index];
 
-				float3 to_light = point_light.position - world_position;
+				float3 to_light = point_light.position_ - world_position;
 				float distance_to_light = length(to_light);
 				float3 light_direction = to_light / max(distance_to_light, 0.0001);
 
 				if (dot(normal, light_direction) > 0.0)
 				{
-					weight = point_light.intensity * AttenuateDistance(distance_to_light, point_light.range);
+					float attenuation_ratio = saturate(distance_to_light / point_light.range_);
+					float attenuation_ratio2 = attenuation_ratio * attenuation_ratio;
+					float attenuation = saturate(1.0 - attenuation_ratio2 * attenuation_ratio2);
+					attenuation = attenuation * attenuation / max(distance_to_light * distance_to_light, 0.0001);
+					weight = point_light.intensity_ * attenuation;
 				}
 			}
 			else if (index < point_count + spot_count)
 			{
 				uint local_index = index - point_count;
 				uint light_index = light_list.Load((base + CLUSTER_MAX_POINT_LIGHTS + local_index) * 4);
-				SpotLightData spot_light = spot_lights[light_index];
+				SpotLightStructuredBuffer spot_light = spot_lights[light_index];
 
-				float3 to_light = spot_light.position - world_position;
+				float3 to_light = spot_light.position_ - world_position;
 				float distance_to_light = length(to_light);
 				float3 light_direction = to_light / max(distance_to_light, 0.0001);
 
 				if (dot(normal, light_direction) > 0.0)
 				{
-					float cos_angle = dot(-light_direction, spot_light.direction);
-					float spot_fade = saturate((cos_angle - spot_light.cos_half_angle) / max(spot_light.softness * (1.0 - spot_light.cos_half_angle), 0.0001));
-					weight = spot_light.intensity * AttenuateDistance(distance_to_light, spot_light.range) * spot_fade;
+					float cos_angle = dot(-light_direction, spot_light.direction_);
+					float spot_fade = saturate((cos_angle - spot_light.cos_half_angle_) / max(spot_light.softness_ * (1.0 - spot_light.cos_half_angle_), 0.0001));
+					float attenuation_ratio = saturate(distance_to_light / spot_light.range_);
+					float attenuation_ratio2 = attenuation_ratio * attenuation_ratio;
+					float attenuation = saturate(1.0 - attenuation_ratio2 * attenuation_ratio2);
+					attenuation = attenuation * attenuation / max(distance_to_light * distance_to_light, 0.0001);
+					weight = spot_light.intensity_ * attenuation * spot_fade;
 				}
 			}
 			else
 			{
 				uint local_index = index - point_count - spot_count;
 				uint light_index = light_list.Load((base + CLUSTER_MAX_POINT_LIGHTS + CLUSTER_MAX_SPOT_LIGHTS + local_index) * 4);
-				RectLightData rect_light = rect_lights[light_index];
+				RectLightStructuredBuffer rect_light = rect_lights[light_index];
 
-				if (dot(world_position - rect_light.position, rect_light.normal) > 0.0)
+				if (dot(world_position - rect_light.position_, rect_light.normal_) > 0.0)
 				{
-					float3 representative_point = ClosestPointOnRect(world_position, rect_light.position, rect_light.right, rect_light.up, rect_light.half_width, rect_light.half_height);
+					float3 rect_delta = world_position - rect_light.position_;
+					float rect_local_x = clamp(dot(rect_delta, rect_light.right_), -rect_light.half_width_, rect_light.half_width_);
+					float rect_local_y = clamp(dot(rect_delta, rect_light.up_), -rect_light.half_height_, rect_light.half_height_);
+					float3 representative_point = rect_light.position_ + rect_light.right_ * rect_local_x + rect_light.up_ * rect_local_y;
 					float3 to_light = representative_point - world_position;
 					float distance_to_light = length(to_light);
 					float3 light_direction = to_light / max(distance_to_light, 0.0001);
 
 					if (dot(normal, light_direction) > 0.0)
 					{
-						weight = rect_light.intensity * AttenuateDistance(distance_to_light, rect_light.range);
+						float attenuation_ratio = saturate(distance_to_light / rect_light.range_);
+						float attenuation_ratio2 = attenuation_ratio * attenuation_ratio;
+						float attenuation = saturate(1.0 - attenuation_ratio2 * attenuation_ratio2);
+						attenuation = attenuation * attenuation / max(distance_to_light * distance_to_light, 0.0001);
+						weight = rect_light.intensity_ * attenuation;
 					}
 				}
 			}
@@ -367,23 +384,23 @@ void main(uint3 dtid : SV_DispatchThreadID)
 			if (picked < point_count)
 			{
 				uint light_index = light_list.Load((base + picked) * 4);
-				PointLightData point_light = point_lights[light_index];
-				sample_point = point_light.position;
-				light_color = point_light.color.rgb;
+				PointLightStructuredBuffer point_light = point_lights[light_index];
+				sample_point = point_light.position_;
+				light_color = point_light.color_.rgb;
 			}
 			else if (picked < point_count + spot_count)
 			{
 				uint local_index = picked - point_count;
 				uint light_index = light_list.Load((base + CLUSTER_MAX_POINT_LIGHTS + local_index) * 4);
-				SpotLightData spot_light = spot_lights[light_index];
-				sample_point = spot_light.position;
-				light_color = spot_light.color.rgb;
+				SpotLightStructuredBuffer spot_light = spot_lights[light_index];
+				sample_point = spot_light.position_;
+				light_color = spot_light.color_.rgb;
 			}
 			else
 			{
 				uint local_index = picked - point_count - spot_count;
 				uint light_index = light_list.Load((base + CLUSTER_MAX_POINT_LIGHTS + CLUSTER_MAX_SPOT_LIGHTS + local_index) * 4);
-				RectLightData rect_light = rect_lights[light_index];
+				RectLightStructuredBuffer rect_light = rect_lights[light_index];
 
 				/// [EN] An area light only needs a random point on its own
 				///      surface sampled - the physical size then naturally
@@ -393,8 +410,8 @@ void main(uint3 dtid : SV_DispatchThreadID)
 				///      物理サイズに応じた半影が自然に出る(コーンジッター
 				///      不要)。
 				float2 rect_uv = Rand2(rng_state) * 2.0 - 1.0;
-				sample_point = rect_light.position + rect_light.right * (rect_uv.x * rect_light.half_width) + rect_light.up * (rect_uv.y * rect_light.half_height);
-				light_color = rect_light.color.rgb;
+				sample_point = rect_light.position_ + rect_light.right_ * (rect_uv.x * rect_light.half_width_) + rect_light.up_ * (rect_uv.y * rect_light.half_height_);
+				light_color = rect_light.color_.rgb;
 				light_radius = 0.0;
 			}
 
@@ -421,7 +438,7 @@ void main(uint3 dtid : SV_DispatchThreadID)
 			ray_desc.TMin = 0.001;
 			ray_desc.TMax = max(distance_to_light - 0.01, 0.001);
 
-			float ray_visibility = IsReflectionRayOccluded(tlas, ray_desc, structured_indices.raytracing_.instance_data_index_) ? 0.0 : 1.0;
+			float ray_visibility = IsReflectionRayOccluded(tlas, ray_desc, shader_resource_indices.raytracing_.instance_data_index_) ? 0.0 : 1.0;
 			float shadow_factor = saturate(lerp(1.0, ray_visibility, max(tuning.shadow_strength_, 0.0)));
 
 			/// [EN] Resolve this pixel's G-Buffer material. Using the exact
@@ -432,42 +449,43 @@ void main(uint3 dtid : SV_DispatchThreadID)
 			///      DeferredLightingPS.hlsl と全く同じ ResolveGBufferMaterial
 			///      を使うことで、鏡面ハイライトの形が主要視点(G-Buffer)側と
 			///      一致する。
-			Texture2D<float4> gbuffer0 = ResourceDescriptorHeap[structured_indices.gbuffer_.index_0_];
+			Texture2D<float4> gbuffer0 = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.index_0_];
 			float4 rt0 = gbuffer0.Load(int3(pixel, 0));
 			float3 base_color = rt0.rgb;
 			float metallic = rt0.a;
 			float roughness = rt1.b;
 
-			Texture2D<uint4> gbuffer4 = ResourceDescriptorHeap[structured_indices.gbuffer_.index_4_];
+			Texture2D<uint4> gbuffer4 = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.index_4_];
 			uint4 visibility_id = gbuffer4.Load(int3(pixel, 0));
 			uint material_instance_index, material_meshlet_index, material_triangle_index;
 			UnpackVisibilityID(visibility_id, material_instance_index, material_meshlet_index, material_triangle_index);
-			StructuredBuffer<ModelInstance> material_instances = ResourceDescriptorHeap[structured_indices.model_.instance_index_];
-			ModelInstance material_instance = material_instances[material_instance_index];
+			StructuredBuffer<ModelStructuredBuffer> material_instances = GetModelStructuredBuffer(shader_resource_indices.model_.instance_index_);
+			ModelStructuredBuffer material_instance = material_instances[material_instance_index];
 
 			float3 view = normalize(scene.camera_position_.xyz - world_position);
-			float2 material_texcoord = UnpackVisibilityTexcoord(visibility_id);
+			float2 material_texcoord = float2(asfloat(visibility_id.z), asfloat(visibility_id.w));
 			GBufferMaterial gbuffer_material = ResolveGBufferMaterial(base_color, metallic, roughness, normal, view, material_instance, material_texcoord, rt1.a);
 
-			float3 brdf_response = EvalDirectLightDispatch(material_instance.shading_model_, normal, view, base_direction, gbuffer_material.diffuse_color_, gbuffer_material.f0_, gbuffer_material.roughness_, gbuffer_material.clearcoat_factor_, gbuffer_material.clearcoat_roughness_, gbuffer_material.clearcoat_normal_, gbuffer_material.sheen_color_, gbuffer_material.sheen_roughness_, gbuffer_material.anisotropy_tangent_, gbuffer_material.anisotropy_bitangent_, gbuffer_material.anisotropy_strength_);
+			float3 brdf_response = EvalDirectLightDispatch(material_instance.shading_.shading_model_, normal, view, base_direction, gbuffer_material.diffuse_color_, gbuffer_material.f0_, gbuffer_material.roughness_, gbuffer_material.clearcoat_factor_, gbuffer_material.clearcoat_roughness_, gbuffer_material.clearcoat_normal_, gbuffer_material.sheen_color_, gbuffer_material.sheen_roughness_, gbuffer_material.anisotropy_tangent_, gbuffer_material.anisotropy_bitangent_, gbuffer_material.anisotropy_strength_);
 
 			/// [EN] Divide by the RIS selection pdf (picked_weight/weight_sum)
 			///      to keep the single-sample estimate unbiased (result =
-			///      f(picked) / pdf(picked) = f(picked) * weight_sum /
-			///      picked_weight). f(picked) is brdf_response*light_color
-			///      (this light's actual contribution to this pixel) -
-			///      picked_weight (intensity * distance attenuation * spot
-			///      fade, no color) is purely a selection weight and is not
-			///      multiplied into f(picked).
+			///      f(picked) / pdf(picked)). f(picked) is this light's actual
+			///      contribution to this pixel: brdf_response * light_color *
+			///      picked_weight, since picked_weight (intensity * distance
+			///      attenuation * spot fade, no color) is exactly the light's
+			///      colorless radiance scale at this point. picked_weight
+			///      therefore cancels against the pdf, leaving
+			///      brdf_response * light_color * weight_sum.
 			/// [JP] RIS の選択pdf(picked_weight/weight_sum)で割って単一
 			///      サンプル推定量をアンバイアスに保つ(result = f(picked) /
-			///      pdf(picked) = f(picked) * weight_sum / picked_weight)。
-			///      f(picked)は brdf_response*light_color(このピクセルへの
-			///      この光の実際の寄与) - picked_weight(強度×距離減衰×
-			///      スポットフェード、色は含まない)はあくまで選択用の重みで、
-			///      f(picked)には掛けない。
-			float inverse_pdf = weight_sum / max(picked_weight, 0.0001);
-			punctual_radiance = brdf_response * light_color * inverse_pdf * shadow_factor;
+			///      pdf(picked))。f(picked)はこのピクセルへのこの光の実際の
+			///      寄与 brdf_response * light_color * picked_weight -
+			///      picked_weight(強度×距離減衰×スポットフェード、色は
+			///      含まない)がそのまま、この点での光の色抜きの放射輝度
+			///      スケールだから。よって picked_weight は pdf と約分され、
+			///      brdf_response * light_color * weight_sum が残る。
+			punctual_radiance = brdf_response * light_color * weight_sum * shadow_factor;
 		}
 	}
 

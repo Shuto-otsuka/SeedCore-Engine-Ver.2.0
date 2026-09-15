@@ -1,6 +1,8 @@
+#include "../../Shader/Scene.hlsli"
+#include "../../Shader/ShaderResources.hlsli"
+#include "../../Shader/UnorderedAccesses.hlsli"
 #include "../../Shader/Constants.hlsli"
-#include "../../Shader/Structured.hlsli"
-#include "../../Shader/Light.hlsli"
+#include "../../Light/Light.hlsli"
 #include "../../Shader/Normal.hlsli"
 #include "../Reflection/Reflection.hlsli"
 #include "SubsurfaceScattering.hlsli"
@@ -58,11 +60,11 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	}
 
 	uint2 pixel = dtid.xy;
-	RWTexture2D<float> transmittance_output = ResourceDescriptorHeap[structured_indices.subsurface_scattering_.transmittance_uav_index_];
+	RWTexture2D<float> transmittance_output = ResourceDescriptorHeap[unordered_access_indices.subsurface_scattering_.transmittance_index_];
 
 	/// [EN] Background (reverse-Z far plane = 0) has no translucency = 0.0.
 	/// [JP] 背景(reverse-Z 遠平面=0)は透光なし=0.0。
-	Texture2D<float> depth_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.depth_index_];
+	Texture2D<float> depth_texture = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.depth_index_];
 	float depth = depth_texture.Load(int3(pixel, 0));
 
 	if (depth == 0.0)
@@ -73,8 +75,8 @@ void main(uint3 dtid : SV_DispatchThreadID)
 
 	/// [EN] No point measuring without a directional light.
 	/// [JP] ディレクショナルライトが無ければ測る意味がない。
-	ConstantBuffer<LightConstantData> light = ResourceDescriptorHeap[constant_indices.light_index_];
-	if (light.directional_intensity_ <= 0.0)
+	ConstantBuffer<LightConstantBuffer> light = ResourceDescriptorHeap[constant_indices.light_index_];
+	if (GetDirectionalLightConstantBuffer().sun_intensity_ <= 0.0)
 	{
 		transmittance_output[pixel] = 0.0;
 		return;
@@ -90,12 +92,12 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	float4 world = mul(clip, scene.inverse_view_projection_);
 	float3 world_position = world.xyz / world.w;
 
-	ConstantBuffer<SubsurfaceScatteringRayConstantBuffer> tuning = ResourceDescriptorHeap[structured_indices.subsurface_scattering_.ray_constant_index_];
+	ConstantBuffer<SubsurfaceScatteringRayConstantBuffer> tuning = ResourceDescriptorHeap[constant_indices.subsurface_scattering_index_];
 
-	Texture2D<float4> normal_texture = ResourceDescriptorHeap[structured_indices.gbuffer_.index_1_];
+	Texture2D<float4> normal_texture = ResourceDescriptorHeap[shader_resource_indices.geometry_buffer_.index_1_];
 	float3 normal = OctNormalDecode(normal_texture.Load(int3(pixel, 0)).rg);
 
-	float3 light_direction = normalize(-light.directional_direction_);
+	float3 light_direction = normalize(-GetDirectionalLightConstantBuffer().direction_);
 
 	/// [EN] A surface lit from the front (N.L>0) is ordinary lighting's
 	///      territory, not translucency. Translucency only means something
@@ -110,7 +112,7 @@ void main(uint3 dtid : SV_DispatchThreadID)
 		return;
 	}
 
-	RaytracingAccelerationStructure tlas = ResourceDescriptorHeap[structured_indices.raytracing_.tlas_index_];
+	RaytracingAccelerationStructure tlas = ResourceDescriptorHeap[shader_resource_indices.raytracing_.tlas_index_];
 
 	/// [EN] Fire from slightly inside the surface toward the light and
 	///      measure the distance to the first exit face = thickness. No
@@ -164,7 +166,7 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	{
 		if (query.CandidateType() == CANDIDATE_NON_OPAQUE_TRIANGLE)
 		{
-			if (!IsReflectionMaterialPassthrough(structured_indices.raytracing_.instance_data_index_, query.CandidateInstanceID(), query.CandidatePrimitiveIndex(), query.CandidateTriangleBarycentrics()))
+			if (!IsMaterialPassthrough(shader_resource_indices.raytracing_.instance_data_index_, query.CandidateInstanceID(), query.CandidatePrimitiveIndex(), query.CandidateTriangleBarycentrics()))
 			{
 				query.CommitNonOpaqueTriangleHit();
 			}

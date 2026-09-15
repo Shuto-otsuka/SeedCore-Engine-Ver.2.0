@@ -83,8 +83,7 @@ namespace SeedCore
 
 		load(IconType::ComponentTransform,             "Component", "Transform");
 		load(IconType::ComponentCamera,                "Component", "Camera");
-		load(IconType::ComponentFreeCameraController,  "Component", "FreeCameraController");
-		load(IconType::ComponentOrbitCameraController, "Component", "OrbitCameraController");
+		load(IconType::ComponentCameraBrain,           "Component", "CameraBrain");
 		load(IconType::ComponentPointLight,       "Component", "PointLight");
 		load(IconType::ComponentDirectionalLight, "Component", "DirectionalLight");
 		load(IconType::ComponentSpotLight,        "Component", "SpotLight");
@@ -167,8 +166,7 @@ namespace SeedCore
 		static const std::unordered_map<std::string, IconType> table =
 		{
 			{ "Camera", IconType::ComponentCamera },
-			{ "FreeCameraController", IconType::ComponentFreeCameraController },
-			{ "OrbitCameraController", IconType::ComponentOrbitCameraController },
+			{ "CameraBrain", IconType::ComponentCameraBrain },
 			{ "PointLight", IconType::ComponentPointLight },
 			{ "DirectionalLight", IconType::ComponentDirectionalLight },
 			{ "SpotLight", IconType::ComponentSpotLight },

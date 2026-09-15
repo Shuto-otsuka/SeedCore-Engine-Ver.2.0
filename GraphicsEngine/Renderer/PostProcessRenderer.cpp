@@ -90,6 +90,10 @@ namespace SeedCore
 	*/
 	void PostProcessRenderer::CreateView(ID3D12Device* device, BindlessHeap* bindlessHeap, View& view, Uint32 width, Uint32 height, Uint32 outputWidth, Uint32 outputHeight)
 	{
+		view.constantBuffer_ = MakePtr<ConstantBuffer<PostProcessConstantBuffer>>(device, bindlessHeap);
+		view.lensFlareStreakUnorderedAccessAxisBuffer_ = MakePtr<ReadOnlyStructuredBuffer<LensFlareStreakAxisIndices>>(device, bindlessHeap, lensFlareMaxAxisCount);
+		view.lensFlareStreakShaderResourceAxisBuffer_ = MakePtr<ReadOnlyStructuredBuffer<LensFlareStreakAxisIndices>>(device, bindlessHeap, lensFlareMaxAxisCount);
+
 		HRESULT hr{ S_OK };
 
 		D3D12_HEAP_PROPERTIES heapProperties{};
@@ -683,44 +687,47 @@ namespace SeedCore
 		return volumes_.empty() ? neutralSettings : volumes_[0];
 	}
 
-	void PostProcessRenderer::PrepareView(IndicesSystem& indicesSystem, RaytracingView view, Uint32 sourceColorIndex, Bool useUpscaledOutput)
+	void PostProcessRenderer::PrepareView(ConstantIndicesSystem& constantIndicesSystem, ShaderResourceIndicesSystem& shaderResourceIndicesSystem, UnorderedAccessIndicesSystem& unorderedAccessIndicesSystem, RaytracingView view, Uint32 sourceColorIndex, Bool useUpscaledOutput)
 	{
 		const PostProcess& settings = ResolveSettings();
 		View& target = ViewFor(view);
 		target.activeIsUpscaled_ = useUpscaledOutput;
 
-		PostProcessIndices values{};
-		values.outputUnorderedAccessViewIndex_ = useUpscaledOutput ? target.outputUnorderedAccessViewIndexUpscaled_ : target.outputUnorderedAccessViewIndex_;
-		values.sourceColorIndex_ = sourceColorIndex;
+		PostProcessConstantBuffer constantValues{};
+		PostProcessShaderResourceIndices srvValues{};
+		PostProcessUnorderedAccessIndices uavValues{};
 
-		values.exposure_.histogramUnorderedAccessViewIndex_ = target.histogramUnorderedAccessViewIndex_;
-		values.exposure_.exposureUnorderedAccessViewIndex_ = target.exposureUnorderedAccessViewIndex_;
-		values.exposure_.autoExposureEnabled_ = settings.exposure_.enabled_ ? 1 : 0;
-		values.exposure_.exposureCompensation_ = settings.exposure_.compensation_;
+		uavValues.outputIndex_ = useUpscaledOutput ? target.outputUnorderedAccessViewIndexUpscaled_ : target.outputUnorderedAccessViewIndex_;
+		srvValues.sourceColorIndex_ = sourceColorIndex;
 
-		values.exposure_.minLogLuminance_ = settings.exposure_.minLogLuminance_;
-		values.exposure_.maxLogLuminance_ = settings.exposure_.maxLogLuminance_;
-		values.exposure_.keyValue_ = settings.exposure_.keyValue_;
-		values.exposure_.adaptSpeedToBright_ = settings.exposure_.adaptSpeedToBright_;
-		values.exposure_.adaptSpeedToDark_ = settings.exposure_.adaptSpeedToDark_;
+		uavValues.exposure_.histogramIndex_ = target.histogramUnorderedAccessViewIndex_;
+		uavValues.exposure_.exposureIndex_ = target.exposureUnorderedAccessViewIndex_;
+		constantValues.exposure_.autoExposureEnabled_ = settings.exposure_.enabled_ ? 1 : 0;
+		constantValues.exposure_.exposureCompensation_ = settings.exposure_.compensation_;
 
-		values.toneMapping_.toneMappingEnabled_ = settings.toneMapping_.enabled_ ? 1 : 0;
-		values.toneMapping_.toneMappingMode_ = static_cast<Uint>(settings.toneMapping_.mode_);
+		constantValues.exposure_.minLogLuminance_ = settings.exposure_.minLogLuminance_;
+		constantValues.exposure_.maxLogLuminance_ = settings.exposure_.maxLogLuminance_;
+		constantValues.exposure_.keyValue_ = settings.exposure_.keyValue_;
+		constantValues.exposure_.adaptSpeedToBright_ = settings.exposure_.adaptSpeedToBright_;
+		constantValues.exposure_.adaptSpeedToDark_ = settings.exposure_.adaptSpeedToDark_;
 
-		values.lensFlare_.enabled_ = settings.lensFlare_.enabled_ ? 1 : 0;
-		values.lensFlare_.unorderedAccessViewIndex_ = target.lensFlareUnorderedAccessViewIndex_;
-		values.lensFlare_.shaderResourceViewIndex_ = target.lensFlareShaderResourceViewIndex_;
-		values.lensFlare_.threshold_ = settings.lensFlare_.threshold_;
-		values.lensFlare_.intensity_ = settings.lensFlare_.intensity_;
-		values.lensFlare_.streakLength_ = settings.lensFlare_.streakLength_;
-		values.lensFlare_.streakAttenuation_ = settings.lensFlare_.streakAttenuation_;
-		values.lensFlare_.chromaticAberration_ = settings.lensFlare_.chromaticAberration_;
-		values.lensFlare_.angleOffset_ = settings.lensFlare_.angleOffset_;
-		values.lensFlare_.ghostCount_ = settings.lensFlare_.ghostCount_;
-		values.lensFlare_.ghostDispersal_ = settings.lensFlare_.ghostDispersal_;
-		values.lensFlare_.ghostIntensity_ = settings.lensFlare_.ghostIntensity_;
-		values.lensFlare_.haloWidth_ = settings.lensFlare_.haloWidth_;
-		values.lensFlare_.spikeVariation_ = settings.lensFlare_.spikeVariation_;
+		constantValues.toneMapping_.toneMappingEnabled_ = settings.toneMapping_.enabled_ ? 1 : 0;
+		constantValues.toneMapping_.toneMappingMode_ = static_cast<Uint>(settings.toneMapping_.mode_);
+
+		constantValues.lensFlare_.enabled_ = settings.lensFlare_.enabled_ ? 1 : 0;
+		uavValues.lensFlare_.index_ = target.lensFlareUnorderedAccessViewIndex_;
+		srvValues.lensFlare_.index_ = target.lensFlareShaderResourceViewIndex_;
+		constantValues.lensFlare_.threshold_ = settings.lensFlare_.threshold_;
+		constantValues.lensFlare_.intensity_ = settings.lensFlare_.intensity_;
+		constantValues.lensFlare_.streakLength_ = settings.lensFlare_.streakLength_;
+		constantValues.lensFlare_.streakAttenuation_ = settings.lensFlare_.streakAttenuation_;
+		constantValues.lensFlare_.chromaticAberration_ = settings.lensFlare_.chromaticAberration_;
+		constantValues.lensFlare_.angleOffset_ = settings.lensFlare_.angleOffset_;
+		constantValues.lensFlare_.ghostCount_ = settings.lensFlare_.ghostCount_;
+		constantValues.lensFlare_.ghostDispersal_ = settings.lensFlare_.ghostDispersal_;
+		constantValues.lensFlare_.ghostIntensity_ = settings.lensFlare_.ghostIntensity_;
+		constantValues.lensFlare_.haloWidth_ = settings.lensFlare_.haloWidth_;
+		constantValues.lensFlare_.spikeVariation_ = settings.lensFlare_.spikeVariation_;
 
 		/// [JP] 棘の軸数は絞りの羽根枚数から決まる。羽根の各エッジが
 		///      それ自身に垂直な方向へ回折するので、羽根n枚だと棘は
@@ -733,54 +740,60 @@ namespace SeedCore
 		///      組み合わせが作れてしまう。
 		Uint32 bladeCount = Clamp(settings.bokeh_.bladeCount_, 3u, 8u);
 		Uint32 axisCount = (bladeCount % 2 == 0) ? bladeCount / 2 : bladeCount;
-		values.lensFlare_.axisCount_ = Min(axisCount, lensFlareMaxAxisCount);
+		constantValues.lensFlare_.axisCount_ = Min(axisCount, lensFlareMaxAxisCount);
 
+		LensFlareStreakAxisIndices unorderedAccessAxisIndices[lensFlareMaxAxisCount]{};
+		LensFlareStreakAxisIndices shaderResourceAxisIndices[lensFlareMaxAxisCount]{};
 		for (Uint32 axis = 0; axis < lensFlareMaxAxisCount; axis++)
 		{
-			values.lensFlareStreak_.axisIndices_[axis][0] = target.lensFlareStreakUnorderedAccessViewIndex_[axis][0];
-			values.lensFlareStreak_.axisIndices_[axis][1] = target.lensFlareStreakShaderResourceViewIndex_[axis][0];
-			values.lensFlareStreak_.axisIndices_[axis][2] = target.lensFlareStreakUnorderedAccessViewIndex_[axis][1];
-			values.lensFlareStreak_.axisIndices_[axis][3] = target.lensFlareStreakShaderResourceViewIndex_[axis][1];
+			unorderedAccessAxisIndices[axis].pingIndex_ = target.lensFlareStreakUnorderedAccessViewIndex_[axis][0];
+			unorderedAccessAxisIndices[axis].pongIndex_ = target.lensFlareStreakUnorderedAccessViewIndex_[axis][1];
+			shaderResourceAxisIndices[axis].pingIndex_ = target.lensFlareStreakShaderResourceViewIndex_[axis][0];
+			shaderResourceAxisIndices[axis].pongIndex_ = target.lensFlareStreakShaderResourceViewIndex_[axis][1];
 		}
+		target.lensFlareStreakUnorderedAccessAxisBuffer_->Update(unorderedAccessAxisIndices, lensFlareMaxAxisCount);
+		target.lensFlareStreakShaderResourceAxisBuffer_->Update(shaderResourceAxisIndices, lensFlareMaxAxisCount);
 
-		values.lensFlareStreak_.brightUnorderedAccessViewIndex_ = target.lensFlareBrightUnorderedAccessViewIndex_;
-		values.lensFlareStreak_.brightShaderResourceViewIndex_ = target.lensFlareBrightShaderResourceViewIndex_;
+		uavValues.lensFlareStreak_.axisBufferIndex_ = target.lensFlareStreakUnorderedAccessAxisBuffer_->Index();
+		uavValues.lensFlareStreak_.brightIndex_ = target.lensFlareBrightUnorderedAccessViewIndex_;
+		srvValues.lensFlareStreak_.axisBufferIndex_ = target.lensFlareStreakShaderResourceAxisBuffer_->Index();
+		srvValues.lensFlareStreak_.brightIndex_ = target.lensFlareBrightShaderResourceViewIndex_;
 
-		values.bloom_.level0UnorderedAccessViewIndex_ = target.bloomUnorderedAccessViewIndex_[0];
-		values.bloom_.level1UnorderedAccessViewIndex_ = target.bloomUnorderedAccessViewIndex_[1];
-		values.bloom_.level2UnorderedAccessViewIndex_ = target.bloomUnorderedAccessViewIndex_[2];
-		values.bloom_.level3UnorderedAccessViewIndex_ = target.bloomUnorderedAccessViewIndex_[3];
-		values.bloom_.level4UnorderedAccessViewIndex_ = target.bloomUnorderedAccessViewIndex_[4];
-		values.bloom_.level5UnorderedAccessViewIndex_ = target.bloomUnorderedAccessViewIndex_[5];
+		uavValues.bloom_.level0Index_ = target.bloomUnorderedAccessViewIndex_[0];
+		uavValues.bloom_.level1Index_ = target.bloomUnorderedAccessViewIndex_[1];
+		uavValues.bloom_.level2Index_ = target.bloomUnorderedAccessViewIndex_[2];
+		uavValues.bloom_.level3Index_ = target.bloomUnorderedAccessViewIndex_[3];
+		uavValues.bloom_.level4Index_ = target.bloomUnorderedAccessViewIndex_[4];
+		uavValues.bloom_.level5Index_ = target.bloomUnorderedAccessViewIndex_[5];
 
-		values.bloom_.level0ShaderResourceViewIndex_ = target.bloomShaderResourceViewIndex_[0];
-		values.bloom_.level1ShaderResourceViewIndex_ = target.bloomShaderResourceViewIndex_[1];
-		values.bloom_.level2ShaderResourceViewIndex_ = target.bloomShaderResourceViewIndex_[2];
-		values.bloom_.level3ShaderResourceViewIndex_ = target.bloomShaderResourceViewIndex_[3];
-		values.bloom_.level4ShaderResourceViewIndex_ = target.bloomShaderResourceViewIndex_[4];
-		values.bloom_.level5ShaderResourceViewIndex_ = target.bloomShaderResourceViewIndex_[5];
+		srvValues.bloom_.level0Index_ = target.bloomShaderResourceViewIndex_[0];
+		srvValues.bloom_.level1Index_ = target.bloomShaderResourceViewIndex_[1];
+		srvValues.bloom_.level2Index_ = target.bloomShaderResourceViewIndex_[2];
+		srvValues.bloom_.level3Index_ = target.bloomShaderResourceViewIndex_[3];
+		srvValues.bloom_.level4Index_ = target.bloomShaderResourceViewIndex_[4];
+		srvValues.bloom_.level5Index_ = target.bloomShaderResourceViewIndex_[5];
 
-		values.bloom_.enabled_ = settings.bloom_.enabled_ ? 1 : 0;
-		values.bloom_.threshold_ = settings.bloom_.threshold_;
-		values.bloom_.softKnee_ = settings.bloom_.softKnee_;
-		values.bloom_.intensity_ = settings.bloom_.intensity_;
-		values.bloom_.filterRadius_ = settings.bloom_.filterRadius_;
+		constantValues.bloom_.enabled_ = settings.bloom_.enabled_ ? 1 : 0;
+		constantValues.bloom_.threshold_ = settings.bloom_.threshold_;
+		constantValues.bloom_.softKnee_ = settings.bloom_.softKnee_;
+		constantValues.bloom_.intensity_ = settings.bloom_.intensity_;
+		constantValues.bloom_.filterRadius_ = settings.bloom_.filterRadius_;
 
-		values.anamorphicFlare_.enabled_ = settings.anamorphicFlare_.enabled_ ? 1 : 0;
-		values.anamorphicFlare_.outputUnorderedAccessViewIndex_ = target.anamorphicFlareOutputUnorderedAccessViewIndex_;
-		values.anamorphicFlare_.outputShaderResourceViewIndex_ = target.anamorphicFlareOutputShaderResourceViewIndex_;
-		values.anamorphicFlare_.threshold_ = settings.anamorphicFlare_.threshold_;
-		values.anamorphicFlare_.pingUnorderedAccessViewIndex_ = target.anamorphicFlareUnorderedAccessViewIndex_[0];
-		values.anamorphicFlare_.pingShaderResourceViewIndex_ = target.anamorphicFlareShaderResourceViewIndex_[0];
-		values.anamorphicFlare_.pongUnorderedAccessViewIndex_ = target.anamorphicFlareUnorderedAccessViewIndex_[1];
-		values.anamorphicFlare_.pongShaderResourceViewIndex_ = target.anamorphicFlareShaderResourceViewIndex_[1];
-		values.anamorphicFlare_.intensity_ = settings.anamorphicFlare_.intensity_;
-		values.anamorphicFlare_.streakLength_ = settings.anamorphicFlare_.streakLength_;
-		values.anamorphicFlare_.attenuation_ = settings.anamorphicFlare_.attenuation_;
-		values.anamorphicFlare_.tint_[0] = settings.anamorphicFlare_.tint_.r;
-		values.anamorphicFlare_.tint_[1] = settings.anamorphicFlare_.tint_.g;
-		values.anamorphicFlare_.tint_[2] = settings.anamorphicFlare_.tint_.b;
-		values.anamorphicFlare_.tint_[3] = settings.anamorphicFlare_.tint_.a;
+		constantValues.anamorphicFlare_.enabled_ = settings.anamorphicFlare_.enabled_ ? 1 : 0;
+		uavValues.anamorphicFlare_.outputIndex_ = target.anamorphicFlareOutputUnorderedAccessViewIndex_;
+		srvValues.anamorphicFlare_.outputIndex_ = target.anamorphicFlareOutputShaderResourceViewIndex_;
+		constantValues.anamorphicFlare_.threshold_ = settings.anamorphicFlare_.threshold_;
+		uavValues.anamorphicFlare_.pingIndex_ = target.anamorphicFlareUnorderedAccessViewIndex_[0];
+		srvValues.anamorphicFlare_.pingIndex_ = target.anamorphicFlareShaderResourceViewIndex_[0];
+		uavValues.anamorphicFlare_.pongIndex_ = target.anamorphicFlareUnorderedAccessViewIndex_[1];
+		srvValues.anamorphicFlare_.pongIndex_ = target.anamorphicFlareShaderResourceViewIndex_[1];
+		constantValues.anamorphicFlare_.intensity_ = settings.anamorphicFlare_.intensity_;
+		constantValues.anamorphicFlare_.streakLength_ = settings.anamorphicFlare_.streakLength_;
+		constantValues.anamorphicFlare_.attenuation_ = settings.anamorphicFlare_.attenuation_;
+		constantValues.anamorphicFlare_.tint_[0] = settings.anamorphicFlare_.tint_.r;
+		constantValues.anamorphicFlare_.tint_[1] = settings.anamorphicFlare_.tint_.g;
+		constantValues.anamorphicFlare_.tint_[2] = settings.anamorphicFlare_.tint_.b;
+		constantValues.anamorphicFlare_.tint_[3] = settings.anamorphicFlare_.tint_.a;
 
 		/// [JP] レンズ段(歪曲 → 色収差 → ビネット)のソース連鎖をここで
 		///      解決する。有効なエフェクトだけを順に繋ぐので、「誰が誰の
@@ -794,13 +807,13 @@ namespace SeedCore
 		Uint32 writeSlot = 0;
 		Bool insideLensStage = false;
 
-		values.lensDistortion_.enabled_ = settings.lensDistortion_.enabled_ ? 1 : 0;
-		values.lensDistortion_.sourceShaderResourceViewIndex_ = currentSourceIndex;
-		values.lensDistortion_.destinationUnorderedAccessViewIndex_ = target.lensStageUnorderedAccessViewIndex_[writeSlot];
-		values.lensDistortion_.k1_ = settings.lensDistortion_.k1_;
-		values.lensDistortion_.k2_ = settings.lensDistortion_.k2_;
-		values.lensDistortion_.k3_ = settings.lensDistortion_.k3_;
-		values.lensDistortion_.scale_ = settings.lensDistortion_.scale_;
+		constantValues.lensDistortion_.enabled_ = settings.lensDistortion_.enabled_ ? 1 : 0;
+		srvValues.lensDistortion_.sourceIndex_ = currentSourceIndex;
+		uavValues.lensDistortion_.destinationIndex_ = target.lensStageUnorderedAccessViewIndex_[writeSlot];
+		constantValues.lensDistortion_.k1_ = settings.lensDistortion_.k1_;
+		constantValues.lensDistortion_.k2_ = settings.lensDistortion_.k2_;
+		constantValues.lensDistortion_.k3_ = settings.lensDistortion_.k3_;
+		constantValues.lensDistortion_.scale_ = settings.lensDistortion_.scale_;
 
 		if (settings.lensDistortion_.enabled_)
 		{
@@ -809,11 +822,11 @@ namespace SeedCore
 			insideLensStage = true;
 		}
 
-		values.chromaticAberration_.enabled_ = settings.chromaticAberration_.enabled_ ? 1 : 0;
-		values.chromaticAberration_.sourceShaderResourceViewIndex_ = currentSourceIndex;
-		values.chromaticAberration_.destinationUnorderedAccessViewIndex_ = target.lensStageUnorderedAccessViewIndex_[writeSlot];
-		values.chromaticAberration_.intensity_ = settings.chromaticAberration_.intensity_;
-		values.chromaticAberration_.sampleCount_ = settings.chromaticAberration_.sampleCount_;
+		constantValues.chromaticAberration_.enabled_ = settings.chromaticAberration_.enabled_ ? 1 : 0;
+		srvValues.chromaticAberration_.sourceIndex_ = currentSourceIndex;
+		uavValues.chromaticAberration_.destinationIndex_ = target.lensStageUnorderedAccessViewIndex_[writeSlot];
+		constantValues.chromaticAberration_.intensity_ = settings.chromaticAberration_.intensity_;
+		constantValues.chromaticAberration_.sampleCount_ = settings.chromaticAberration_.sampleCount_;
 
 		if (settings.chromaticAberration_.enabled_)
 		{
@@ -828,15 +841,15 @@ namespace SeedCore
 		///      いなければ、シーンを読んでスロット0へ書く。
 		Uint32 vignetteSlot = insideLensStage ? (1 - writeSlot) : writeSlot;
 
-		values.vignette_.enabled_ = settings.vignette_.enabled_ ? 1 : 0;
-		values.vignette_.sourceShaderResourceViewIndex_ = currentSourceIndex;
-		values.vignette_.destinationUnorderedAccessViewIndex_ = target.lensStageUnorderedAccessViewIndex_[vignetteSlot];
-		values.vignette_.intensity_ = settings.vignette_.intensity_;
-		values.vignette_.exponent_ = settings.vignette_.exponent_;
-		values.vignette_.color_[0] = settings.vignette_.color_.r;
-		values.vignette_.color_[1] = settings.vignette_.color_.g;
-		values.vignette_.color_[2] = settings.vignette_.color_.b;
-		values.vignette_.color_[3] = settings.vignette_.color_.a;
+		constantValues.vignette_.enabled_ = settings.vignette_.enabled_ ? 1 : 0;
+		srvValues.vignette_.sourceIndex_ = currentSourceIndex;
+		uavValues.vignette_.destinationIndex_ = target.lensStageUnorderedAccessViewIndex_[vignetteSlot];
+		constantValues.vignette_.intensity_ = settings.vignette_.intensity_;
+		constantValues.vignette_.exponent_ = settings.vignette_.exponent_;
+		constantValues.vignette_.color_[0] = settings.vignette_.color_.r;
+		constantValues.vignette_.color_[1] = settings.vignette_.color_.g;
+		constantValues.vignette_.color_[2] = settings.vignette_.color_.b;
+		constantValues.vignette_.color_[3] = settings.vignette_.color_.a;
 
 		if (settings.vignette_.enabled_)
 		{
@@ -844,8 +857,8 @@ namespace SeedCore
 			insideLensStage = true;
 		}
 
-		values.lensStageEnabled_ = insideLensStage ? 1 : 0;
-		values.lensStageShaderResourceViewIndex_ = currentSourceIndex;
+		constantValues.lensStageEnabled_ = insideLensStage ? 1 : 0;
+		srvValues.lensStageIndex_ = currentSourceIndex;
 
 		/// [JP] カラーグレーディングはレンズ段の後に走り、シーンの合成・
 		///      光の加算寄与・露出まで自前で行う(グレーディングが
@@ -860,15 +873,15 @@ namespace SeedCore
 		///      表示してしまう。ディスパッチ側の条件と必ず一致させること。
 		Bool colorGradingReady = settings.colorGrading_.enabled_ && colorGradingShader_.GetPipelineState() != nullptr;
 
-		values.colorGrading_.enabled_ = colorGradingReady ? 1 : 0;
-		values.colorGrading_.sourceShaderResourceViewIndex_ = currentSourceIndex;
-		values.colorGrading_.destinationUnorderedAccessViewIndex_ = target.colorGradingUnorderedAccessViewIndex_;
-		values.colorGrading_.outputShaderResourceViewIndex_ = target.colorGradingShaderResourceViewIndex_;
-		values.colorGrading_.shadowsMax_ = settings.colorGrading_.shadowsMax_;
-		values.colorGrading_.highlightsMin_ = settings.colorGrading_.highlightsMin_;
+		constantValues.colorGrading_.enabled_ = colorGradingReady ? 1 : 0;
+		srvValues.colorGrading_.sourceIndex_ = currentSourceIndex;
+		uavValues.colorGrading_.destinationIndex_ = target.colorGradingUnorderedAccessViewIndex_;
+		srvValues.colorGrading_.outputIndex_ = target.colorGradingShaderResourceViewIndex_;
+		constantValues.colorGrading_.shadowsMax_ = settings.colorGrading_.shadowsMax_;
+		constantValues.colorGrading_.highlightsMin_ = settings.colorGrading_.highlightsMin_;
 
 		const ColorGradingRangeSettings* gradingRanges[4] = { &settings.colorGrading_.global_, &settings.colorGrading_.shadows_, &settings.colorGrading_.midtones_, &settings.colorGrading_.highlights_ };
-		ColorGradingRangeIndices* gradingTargets[4] = { &values.colorGrading_.global_, &values.colorGrading_.shadows_, &values.colorGrading_.midtones_, &values.colorGrading_.highlights_ };
+		ColorGradingRangeIndices* gradingTargets[4] = { &constantValues.colorGrading_.global_, &constantValues.colorGrading_.shadows_, &constantValues.colorGrading_.midtones_, &constantValues.colorGrading_.highlights_ };
 
 		for (Uint32 rangeIndex = 0; rangeIndex < 4; rangeIndex++)
 		{
@@ -883,41 +896,47 @@ namespace SeedCore
 			destination.offset_ = range.offset_;
 		}
 
-		values.filmGrain_.enabled_ = settings.filmGrain_.enabled_ ? 1 : 0;
-		values.filmGrain_.destinationUnorderedAccessViewIndex_ = useUpscaledOutput ? target.sharpenUnorderedAccessViewIndexUpscaled_ : target.sharpenUnorderedAccessViewIndex_;
-		values.filmGrain_.colored_ = settings.filmGrain_.colored_ ? 1 : 0;
-		values.filmGrain_.intensity_ = settings.filmGrain_.intensity_;
-		values.filmGrain_.size_ = settings.filmGrain_.size_;
-		values.filmGrain_.luminanceResponse_ = settings.filmGrain_.luminanceResponse_;
+		constantValues.filmGrain_.enabled_ = settings.filmGrain_.enabled_ ? 1 : 0;
+		uavValues.filmGrain_.destinationIndex_ = useUpscaledOutput ? target.sharpenUnorderedAccessViewIndexUpscaled_ : target.sharpenUnorderedAccessViewIndex_;
+		constantValues.filmGrain_.colored_ = settings.filmGrain_.colored_ ? 1 : 0;
+		constantValues.filmGrain_.intensity_ = settings.filmGrain_.intensity_;
+		constantValues.filmGrain_.size_ = settings.filmGrain_.size_;
+		constantValues.filmGrain_.luminanceResponse_ = settings.filmGrain_.luminanceResponse_;
 
-		values.depthOfField_.enabled_ = settings.depthOfField_.enabled_ ? 1 : 0;
-		values.depthOfField_.unorderedAccessViewIndex_ = target.depthOfFieldUnorderedAccessViewIndex_;
-		values.depthOfField_.shaderResourceViewIndex_ = target.depthOfFieldShaderResourceViewIndex_;
-		values.depthOfField_.focusDistance_ = settings.depthOfField_.focusDistance_;
-		values.depthOfField_.focusRange_ = settings.depthOfField_.focusRange_;
-		values.depthOfField_.maxBlurRadius_ = settings.depthOfField_.maxBlurRadius_;
+		constantValues.depthOfField_.enabled_ = settings.depthOfField_.enabled_ ? 1 : 0;
+		uavValues.depthOfField_.index_ = target.depthOfFieldUnorderedAccessViewIndex_;
+		srvValues.depthOfField_.index_ = target.depthOfFieldShaderResourceViewIndex_;
+		constantValues.depthOfField_.focusDistance_ = settings.depthOfField_.focusDistance_;
+		constantValues.depthOfField_.focusRange_ = settings.depthOfField_.focusRange_;
+		constantValues.depthOfField_.maxBlurRadius_ = settings.depthOfField_.maxBlurRadius_;
 
-		values.bokeh_.enabled_ = (settings.depthOfField_.enabled_ && settings.bokeh_.enabled_) ? 1 : 0;
-		values.bokeh_.highlightThreshold_ = settings.bokeh_.highlightThreshold_;
-		values.bokeh_.highlightIntensity_ = settings.bokeh_.highlightIntensity_;
-		values.bokeh_.bladeCount_ = settings.bokeh_.bladeCount_;
+		constantValues.bokeh_.enabled_ = (settings.depthOfField_.enabled_ && settings.bokeh_.enabled_) ? 1 : 0;
+		constantValues.bokeh_.highlightThreshold_ = settings.bokeh_.highlightThreshold_;
+		constantValues.bokeh_.highlightIntensity_ = settings.bokeh_.highlightIntensity_;
+		constantValues.bokeh_.bladeCount_ = settings.bokeh_.bladeCount_;
 
-		values.sharpness_.enabled_ = settings.sharpness_.enabled_ ? 1 : 0;
-		values.sharpness_.amount_ = settings.sharpness_.amount_;
-		values.sharpness_.sourceShaderResourceViewIndex_ = useUpscaledOutput ? target.outputShaderResourceViewIndexUpscaled_ : target.outputShaderResourceViewIndex_;
-		values.sharpness_.destinationUnorderedAccessViewIndex_ = useUpscaledOutput ? target.sharpenUnorderedAccessViewIndexUpscaled_ : target.sharpenUnorderedAccessViewIndex_;
+		constantValues.sharpness_.enabled_ = settings.sharpness_.enabled_ ? 1 : 0;
+		constantValues.sharpness_.amount_ = settings.sharpness_.amount_;
+		srvValues.sharpness_.sourceIndex_ = useUpscaledOutput ? target.outputShaderResourceViewIndexUpscaled_ : target.outputShaderResourceViewIndex_;
+		uavValues.sharpness_.destinationIndex_ = useUpscaledOutput ? target.sharpenUnorderedAccessViewIndexUpscaled_ : target.sharpenUnorderedAccessViewIndex_;
+
+		target.constantBuffer_->Update(constantValues);
 
 		if (view == RaytracingView::Editor)
 		{
-			indicesSystem.SetEditorPostProcessIndices(values);
+			constantIndicesSystem.SetEditorPostProcessIndex(target.constantBuffer_->GetIndex());
+			shaderResourceIndicesSystem.SetEditorPostProcessIndices(srvValues);
+			unorderedAccessIndicesSystem.SetEditorPostProcessIndices(uavValues);
 		}
 		else
 		{
-			indicesSystem.SetGamePostProcessIndices(values);
+			constantIndicesSystem.SetGamePostProcessIndex(target.constantBuffer_->GetIndex());
+			shaderResourceIndicesSystem.SetGamePostProcessIndices(srvValues);
+			unorderedAccessIndicesSystem.SetGamePostProcessIndices(uavValues);
 		}
 	}
 
-	void PostProcessRenderer::Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex, RaytracingView view, ID3D12Resource* sourceColorResource, Bool useUpscaledOutput)
+	void PostProcessRenderer::Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses, RaytracingView view, ID3D12Resource* sourceColorResource, Bool useUpscaledOutput)
 	{
 		const PostProcess& settings = ResolveSettings();
 		Bool autoExposureEnabled = settings.exposure_.enabled_;
@@ -956,6 +975,9 @@ namespace SeedCore
 			cmdList->Barrier(outputResource.Get(), outputState, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 			outputState = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
 		}
+
+		ID3D12DescriptorHeap* heaps[] = { heap };
+		cmd->SetDescriptorHeaps(_countof(heaps), heaps);
 
 		/// [JP] ヒストグラム/露出バッファは初回のみ COMMON→UNORDERED_ACCESS
 		///      へ遷移し、以後は生存期間中ずっと UNORDERED_ACCESS のまま
@@ -1020,11 +1042,8 @@ namespace SeedCore
 			pipelineStateMissingLogged_ = true;
 		}
 
-		ID3D12DescriptorHeap* heaps[] = { heap };
-		cmd->SetDescriptorHeaps(_countof(heaps), heaps);
-		cmd->SetComputeRootDescriptorTable(0, bindlessHeap_->GPUHandle(0));
-		cmd->SetComputeRootConstantBufferView(2, constantIndex);
-		cmd->SetComputeRootConstantBufferView(3, structuredIndex);
+		cmd->SetComputeRootSignature(toneMappingShader_.GetRootSignature());
+		RootSignature::BindCompute(cmd, addresses);
 
 		if (autoExposureEnabled && histogramPipelineState && averagePipelineState)
 		{

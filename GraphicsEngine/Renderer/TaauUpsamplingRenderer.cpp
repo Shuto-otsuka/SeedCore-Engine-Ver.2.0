@@ -96,7 +96,7 @@ namespace SeedCore
 				device->CreateShaderResourceView(view->accumulatedResource_[slot].Get(), &shaderResourceViewDesc, bindlessHeap->CPUHandle(view->accumulatedShaderResourceViewIndex_[slot]));
 			}
 
-			view->constantBuffer_ = MakePtr<ConstantBuffer<TaauResolveConstants>>(device, bindlessHeap);
+			view->constantBuffer_ = MakePtr<ConstantBuffer<TaauResolveConstantBuffer>>(device, bindlessHeap);
 		}
 	}
 
@@ -106,7 +106,7 @@ namespace SeedCore
 		target.writeSlot_ = 1 - target.writeSlot_;
 	}
 
-	void TaauUpsamplingRenderer::Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex, RaytracingView view, ID3D12Resource* velocityResource, Uint32 colorShaderResourceViewIndex, Uint32 depthShaderResourceViewIndex, Uint32 velocityShaderResourceViewIndex, Uint32 sourceWidth, Uint32 sourceHeight)
+	void TaauUpsamplingRenderer::Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses, RaytracingView view, ID3D12Resource* velocityResource, Uint32 colorShaderResourceViewIndex, Uint32 depthShaderResourceViewIndex, Uint32 velocityShaderResourceViewIndex, Uint32 sourceWidth, Uint32 sourceHeight)
 	{
 		auto* cmd = cmdList->Get();
 		View& target = ViewFor(view);
@@ -129,9 +129,7 @@ namespace SeedCore
 			ID3D12DescriptorHeap* backgroundVelocityHeaps[] = { heap };
 			cmd->SetDescriptorHeaps(_countof(backgroundVelocityHeaps), backgroundVelocityHeaps);
 			cmd->SetComputeRootSignature(backgroundVelocityShader_.GetRootSignature());
-			cmd->SetComputeRootDescriptorTable(0, bindlessHeap_->GPUHandle(0));
-			cmd->SetComputeRootConstantBufferView(2, constantIndex);
-			cmd->SetComputeRootConstantBufferView(3, structuredIndex);
+			RootSignature::BindCompute(cmd, addresses);
 
 			cmdList->Barrier(velocityResource, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 
@@ -157,7 +155,7 @@ namespace SeedCore
 			target.accumulatedState_[historySlot] = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
 		}
 
-		TaauResolveConstants constants{};
+		TaauResolveConstantBuffer constants{};
 		constants.colorShaderResourceViewIndex_ = colorShaderResourceViewIndex;
 		constants.depthShaderResourceViewIndex_ = depthShaderResourceViewIndex;
 		constants.velocityShaderResourceViewIndex_ = velocityShaderResourceViewIndex;
@@ -172,8 +170,9 @@ namespace SeedCore
 		ID3D12DescriptorHeap* heaps[] = { heap };
 		cmd->SetDescriptorHeaps(_countof(heaps), heaps);
 		cmd->SetComputeRootSignature(resolveShader_.GetRootSignature());
-		cmd->SetComputeRootDescriptorTable(0, bindlessHeap_->GPUHandle(0));
-		cmd->SetComputeRootConstantBufferView(2, target.constantBuffer_->Address());
+		RootSignature::BindCompute(cmd, addresses);
+		Uint dispatchBufferIndex = target.constantBuffer_->GetIndex();
+		cmd->SetComputeRoot32BitConstants(3, 1, &dispatchBufferIndex, 0);
 		cmd->SetPipelineState(resolvePipelineState);
 		cmd->Dispatch((outputWidth_ + 7) / 8, (outputHeight_ + 7) / 8, 1);
 		ProfilerStats::AddDrawCall();

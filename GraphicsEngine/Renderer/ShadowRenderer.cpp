@@ -75,10 +75,12 @@ namespace SeedCore
 		/// No Code
 	}
 
-	void ShadowRenderer::Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, IndicesSystem& indicesSystem, Uint32 width, Uint32 height)
+	void ShadowRenderer::Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, ConstantIndicesSystem& constantIndicesSystem, ShaderResourceIndicesSystem& shaderResourceIndicesSystem, UnorderedAccessIndicesSystem& unorderedAccessIndicesSystem, Uint32 width, Uint32 height)
 	{
 		bindlessHeap_ = bindlessHeap;
-		indicesSystem_ = &indicesSystem;
+		constantIndicesSystem_ = &constantIndicesSystem;
+		shaderResourceIndicesSystem_ = &shaderResourceIndicesSystem;
+		unorderedAccessIndicesSystem_ = &unorderedAccessIndicesSystem;
 
 		shadowShader_.Create(shaderCache, device);
 		denoiseShader_.Create(shaderCache, device);
@@ -274,10 +276,10 @@ namespace SeedCore
 		dlssRayReconstructionActive_ = uploadSettings.denoiseMode_ == static_cast<Uint32>(ShadowDenoiseMode::DlssRR);
 
 		tuningBuffer_->Update(uploadSettings);
-		indicesSystem_->SetShadowRayConstantIndex(tuningBuffer_->GetIndex());
+		constantIndicesSystem_->SetShadowRayConstantIndex(tuningBuffer_->GetIndex());
 
-		indicesSystem_->SetShadowRawVisibilityUnorderedAccessViewIndex(rawVisibilityUnorderedAccessViewIndex_);
-		indicesSystem_->SetShadowRawVisibilityShaderResourceViewIndex(rawVisibilityShaderResourceViewIndex_);
+		unorderedAccessIndicesSystem_->SetShadowRawVisibilityUnorderedAccessViewIndex(rawVisibilityUnorderedAccessViewIndex_);
+		shaderResourceIndicesSystem_->SetShadowRawVisibilityShaderResourceViewIndex(rawVisibilityShaderResourceViewIndex_);
 
 		constexpr Uint32 editorView = static_cast<Uint32>(RaytracingView::Editor);
 		constexpr Uint32 gameView = static_cast<Uint32>(RaytracingView::Game);
@@ -289,17 +291,15 @@ namespace SeedCore
 		///      輝度・モーメントと、共有の履歴長・深度法線コピーをまとめて
 		///      駆動する — これらがずれると、あるフレームの幾何で整合性を
 		///      判定しながら別のフレームの輝度をブレンドすることになる。
-		auto buildIndices = [&](Uint32 viewIndex)
+		auto buildShaderResourceIndices = [&](Uint32 viewIndex)
 		{
-			ShadowAccumulationIndices values{};
+			ShadowAccumulationShaderResourceIndices values{};
 
-			values.directionalHistoryShaderResourceViewIndex_ = directionalAccumulatedShaderResourceViewIndex_[viewIndex][historySlot_];
-			values.directionalAccumulatedUnorderedAccessViewIndex_ = directionalAccumulatedUnorderedAccessViewIndex_[viewIndex][writeSlot];
-			values.directionalAccumulatedShaderResourceViewIndex_ = directionalAccumulatedShaderResourceViewIndex_[viewIndex][writeSlot];
+			values.directionalHistoryIndex_ = directionalAccumulatedShaderResourceViewIndex_[viewIndex][historySlot_];
+			values.directionalAccumulatedIndex_ = directionalAccumulatedShaderResourceViewIndex_[viewIndex][writeSlot];
 
-			values.punctualHistoryShaderResourceViewIndex_ = punctualAccumulatedShaderResourceViewIndex_[viewIndex][historySlot_];
-			values.punctualAccumulatedUnorderedAccessViewIndex_ = punctualAccumulatedUnorderedAccessViewIndex_[viewIndex][writeSlot];
-			values.punctualAccumulatedShaderResourceViewIndex_ = punctualAccumulatedShaderResourceViewIndex_[viewIndex][writeSlot];
+			values.punctualHistoryIndex_ = punctualAccumulatedShaderResourceViewIndex_[viewIndex][historySlot_];
+			values.punctualAccumulatedIndex_ = punctualAccumulatedShaderResourceViewIndex_[viewIndex][writeSlot];
 
 			/// [JP] DLSS-RRが合成フレーム全体をデノイズするので、その間だけ
 			///      「最終」読み取りは生の単一バッファテクスチャを直接指す
@@ -310,46 +310,59 @@ namespace SeedCore
 			///      同じビューを両方に使うと、パンクチュアル側が `.rgb` を
 			///      読んだ時に raw の r(ディレクショナル可視性)まで拾って
 			///      しまい、明るい場所ほど赤みがかる不具合になる。
-			values.directionalVisibilityShaderResourceViewIndex_ = dlssRayReconstructionActive_ ? rawVisibilityShaderResourceViewIndex_ : directionalDenoisedShaderResourceViewIndex_[viewIndex];
-			values.punctualRadianceShaderResourceViewIndex_ = dlssRayReconstructionActive_ ? rawPunctualShaderResourceViewIndex_ : punctualDenoisedShaderResourceViewIndex_[viewIndex];
+			values.directionalVisibilityIndex_ = dlssRayReconstructionActive_ ? rawVisibilityShaderResourceViewIndex_ : directionalDenoisedShaderResourceViewIndex_[viewIndex];
+			values.punctualRadianceIndex_ = dlssRayReconstructionActive_ ? rawPunctualShaderResourceViewIndex_ : punctualDenoisedShaderResourceViewIndex_[viewIndex];
 
-			values.directionalAtrousScratch0ShaderResourceViewIndex_ = directionalAtrousScratchShaderResourceViewIndex_[viewIndex][0];
-			values.directionalAtrousScratch0UnorderedAccessViewIndex_ = directionalAtrousScratchUnorderedAccessViewIndex_[viewIndex][0];
-			values.directionalAtrousScratch1ShaderResourceViewIndex_ = directionalAtrousScratchShaderResourceViewIndex_[viewIndex][1];
-			values.directionalAtrousScratch1UnorderedAccessViewIndex_ = directionalAtrousScratchUnorderedAccessViewIndex_[viewIndex][1];
+			values.directionalAtrousScratch0Index_ = directionalAtrousScratchShaderResourceViewIndex_[viewIndex][0];
+			values.directionalAtrousScratch1Index_ = directionalAtrousScratchShaderResourceViewIndex_[viewIndex][1];
 
-			values.punctualAtrousScratch0ShaderResourceViewIndex_ = punctualAtrousScratchShaderResourceViewIndex_[viewIndex][0];
-			values.punctualAtrousScratch0UnorderedAccessViewIndex_ = punctualAtrousScratchUnorderedAccessViewIndex_[viewIndex][0];
-			values.punctualAtrousScratch1ShaderResourceViewIndex_ = punctualAtrousScratchShaderResourceViewIndex_[viewIndex][1];
-			values.punctualAtrousScratch1UnorderedAccessViewIndex_ = punctualAtrousScratchUnorderedAccessViewIndex_[viewIndex][1];
+			values.punctualAtrousScratch0Index_ = punctualAtrousScratchShaderResourceViewIndex_[viewIndex][0];
+			values.punctualAtrousScratch1Index_ = punctualAtrousScratchShaderResourceViewIndex_[viewIndex][1];
 
-			values.directionalMomentsHistoryShaderResourceViewIndex_ = directionalMomentsShaderResourceViewIndex_[viewIndex][historySlot_];
-			values.directionalMomentsShaderResourceViewIndex_ = directionalMomentsShaderResourceViewIndex_[viewIndex][writeSlot];
-			values.directionalMomentsUnorderedAccessViewIndex_ = directionalMomentsUnorderedAccessViewIndex_[viewIndex][writeSlot];
+			values.directionalMomentsHistoryIndex_ = directionalMomentsShaderResourceViewIndex_[viewIndex][historySlot_];
+			values.directionalMomentsIndex_ = directionalMomentsShaderResourceViewIndex_[viewIndex][writeSlot];
 
-			values.punctualMomentsHistoryShaderResourceViewIndex_ = punctualMomentsShaderResourceViewIndex_[viewIndex][historySlot_];
-			values.punctualMomentsShaderResourceViewIndex_ = punctualMomentsShaderResourceViewIndex_[viewIndex][writeSlot];
-			values.punctualMomentsUnorderedAccessViewIndex_ = punctualMomentsUnorderedAccessViewIndex_[viewIndex][writeSlot];
+			values.punctualMomentsHistoryIndex_ = punctualMomentsShaderResourceViewIndex_[viewIndex][historySlot_];
+			values.punctualMomentsIndex_ = punctualMomentsShaderResourceViewIndex_[viewIndex][writeSlot];
 
-			values.historyLengthHistoryShaderResourceViewIndex_ = historyLengthShaderResourceViewIndex_[viewIndex][historySlot_];
-			values.historyLengthShaderResourceViewIndex_ = historyLengthShaderResourceViewIndex_[viewIndex][writeSlot];
-			values.historyLengthUnorderedAccessViewIndex_ = historyLengthUnorderedAccessViewIndex_[viewIndex][writeSlot];
+			values.historyLengthHistoryIndex_ = historyLengthShaderResourceViewIndex_[viewIndex][historySlot_];
+			values.historyLengthIndex_ = historyLengthShaderResourceViewIndex_[viewIndex][writeSlot];
 
-			values.depthNormalHistoryShaderResourceViewIndex_ = depthNormalShaderResourceViewIndex_[viewIndex][historySlot_];
-			values.depthNormalShaderResourceViewIndex_ = depthNormalShaderResourceViewIndex_[viewIndex][writeSlot];
-			values.depthNormalUnorderedAccessViewIndex_ = depthNormalUnorderedAccessViewIndex_[viewIndex][writeSlot];
-
-			values.directionalDenoisedUnorderedAccessViewIndex_ = directionalDenoisedUnorderedAccessViewIndex_[viewIndex];
-			values.punctualDenoisedUnorderedAccessViewIndex_ = punctualDenoisedUnorderedAccessViewIndex_[viewIndex];
+			values.depthNormalHistoryIndex_ = depthNormalShaderResourceViewIndex_[viewIndex][historySlot_];
+			values.depthNormalIndex_ = depthNormalShaderResourceViewIndex_[viewIndex][writeSlot];
 
 			return values;
 		};
 
-		indicesSystem_->SetEditorShadowIndices(buildIndices(editorView));
-		indicesSystem_->SetGameShadowIndices(buildIndices(gameView));
+		auto buildUnorderedAccessIndices = [&](Uint32 viewIndex)
+		{
+			ShadowAccumulationUnorderedAccessIndices values{};
+
+			values.directionalAccumulatedIndex_ = directionalAccumulatedUnorderedAccessViewIndex_[viewIndex][writeSlot];
+			values.directionalMomentsIndex_ = directionalMomentsUnorderedAccessViewIndex_[viewIndex][writeSlot];
+			values.directionalAtrousScratch0Index_ = directionalAtrousScratchUnorderedAccessViewIndex_[viewIndex][0];
+			values.directionalAtrousScratch1Index_ = directionalAtrousScratchUnorderedAccessViewIndex_[viewIndex][1];
+			values.directionalDenoisedIndex_ = directionalDenoisedUnorderedAccessViewIndex_[viewIndex];
+
+			values.punctualAccumulatedIndex_ = punctualAccumulatedUnorderedAccessViewIndex_[viewIndex][writeSlot];
+			values.punctualMomentsIndex_ = punctualMomentsUnorderedAccessViewIndex_[viewIndex][writeSlot];
+			values.punctualAtrousScratch0Index_ = punctualAtrousScratchUnorderedAccessViewIndex_[viewIndex][0];
+			values.punctualAtrousScratch1Index_ = punctualAtrousScratchUnorderedAccessViewIndex_[viewIndex][1];
+			values.punctualDenoisedIndex_ = punctualDenoisedUnorderedAccessViewIndex_[viewIndex];
+
+			values.historyLengthIndex_ = historyLengthUnorderedAccessViewIndex_[viewIndex][writeSlot];
+			values.depthNormalIndex_ = depthNormalUnorderedAccessViewIndex_[viewIndex][writeSlot];
+
+			return values;
+		};
+
+		shaderResourceIndicesSystem_->SetEditorShadowAccumulationIndices(buildShaderResourceIndices(editorView));
+		shaderResourceIndicesSystem_->SetGameShadowAccumulationIndices(buildShaderResourceIndices(gameView));
+		unorderedAccessIndicesSystem_->SetEditorShadowAccumulationIndices(buildUnorderedAccessIndices(editorView));
+		unorderedAccessIndicesSystem_->SetGameShadowAccumulationIndices(buildUnorderedAccessIndices(gameView));
 	}
 
-	void ShadowRenderer::Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex, Bool tlasValid, RaytracingView view)
+	void ShadowRenderer::Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses, Bool tlasValid, RaytracingView view)
 	{
 		auto* cmd = cmdList->Get();
 
@@ -482,9 +495,7 @@ namespace SeedCore
 			ID3D12DescriptorHeap* heaps[] = { heap };
 			cmd->SetDescriptorHeaps(_countof(heaps), heaps);
 			cmd->SetComputeRootSignature(shadowShader_.GetRootSignature());
-			cmd->SetComputeRootDescriptorTable(0, bindlessHeap_->GPUHandle(0));
-			cmd->SetComputeRootConstantBufferView(2, constantIndex);
-			cmd->SetComputeRootConstantBufferView(3, structuredIndex);
+			RootSignature::BindCompute(cmd, addresses);
 			cmd->SetPipelineState(shadowPipelineState);
 
 			Uint32 groupCountX = (width_ + 7) / 8;

@@ -1,4 +1,6 @@
-#include "../Shader/Constants.hlsli"
+#include "PostProcess.hlsli"
+#include "../Shader/ShaderResources.hlsli"
+#include "../Shader/UnorderedAccesses.hlsli"
 
 /**
 * [EN]
@@ -41,7 +43,7 @@
 [numthreads(8, 8, 1)]
 void main(uint3 dtid : SV_DispatchThreadID)
 {
-	RWTexture2D<float4> destination = ResourceDescriptorHeap[constant_indices.post_process_.sharpness_.destination_uav_index_];
+	RWTexture2D<float4> destination = ResourceDescriptorHeap[unordered_access_indices.post_process_.sharpness_.destination_index_];
 
 	uint width, height;
 	destination.GetDimensions(width, height);
@@ -57,7 +59,7 @@ void main(uint3 dtid : SV_DispatchThreadID)
 		return;
 	}
 
-	Texture2D<float4> source = ResourceDescriptorHeap[constant_indices.post_process_.sharpness_.source_srv_index_];
+	Texture2D<float4> source = ResourceDescriptorHeap[shader_resource_indices.post_process_.sharpness_.source_index_];
 
 	int2 pixel = int2(dtid.xy);
 	int2 pixel_max = int2(width - 1, height - 1);
@@ -69,7 +71,7 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	float3 east = source.Load(int3(clamp(pixel + int2(1, 0), int2(0, 0), pixel_max), 0)).rgb;
 
 	float3 blur = (north + south + west + east) * 0.25;
-	float amount = constant_indices.post_process_.sharpness_.amount_ * (constant_indices.post_process_.sharpness_.enabled_ != 0 ? 1.0 : 0.0);
+	float amount = GetPostProcessConstantBuffer().sharpness_.amount_ * (GetPostProcessConstantBuffer().sharpness_.enabled_ != 0 ? 1.0 : 0.0);
 	float3 color = saturate(center + (center - blur) * amount);
 
 	destination[dtid.xy] = float4(color, 1.0);

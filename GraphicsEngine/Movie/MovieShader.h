@@ -8,6 +8,7 @@ namespace SeedCore
 {
 	class ShaderCache;
 
+	class VertexShader;
 	class AmplificationShader;
 	class MeshShader;
 	class PixelShader;
@@ -33,24 +34,29 @@ namespace SeedCore
 		[[nodiscard]] ID3D12RootSignature* GetRootSignature()const;
 
 	private:
+		Handle<VertexShader> spriteVertexShader_;
 		Handle<AmplificationShader> spriteAmplificationShader_;
 		Handle<MeshShader> spriteMeshShader_;
 		Handle<PixelShader> spritePixelShader_;
 
 		Handle<Microsoft::WRL::ComPtr<ID3D12PipelineState>> pipelineStateObjectSprite_;
 
+		Handle<VertexShader> billboardVertexShader_;
 		Handle<AmplificationShader> billboardAmplificationShader_;
 		Handle<MeshShader> billboardMeshShader_;
 		Handle<PixelShader> billboardPixelShader_;
 
 		Handle<Microsoft::WRL::ComPtr<ID3D12PipelineState>> pipelineStateObjectBillboard_;
 
+		Handle<VertexShader> fullscreenVertexShader_;
 		Handle<AmplificationShader> fullscreenAmplificationShader_;
 		Handle<MeshShader> fullscreenMeshShader_;
 		Handle<PixelShader> fullscreenPixelShader_;
 
 		Handle<Microsoft::WRL::ComPtr<ID3D12PipelineState>> pipelineStateObjectFullscreen_;
 
+		Handle<VertexShader> spriteSelectionVertexShader_;
+		Handle<VertexShader> billboardSelectionVertexShader_;
 		Handle<AmplificationShader> spriteSelectionAmplificationShader_;
 		Handle<AmplificationShader> billboardSelectionAmplificationShader_;
 		Handle<PixelShader> selectionMaskPixelShader_;

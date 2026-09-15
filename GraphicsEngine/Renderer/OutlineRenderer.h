@@ -4,6 +4,7 @@
 
 namespace SeedCore
 {
+	struct RootAddresses;
 	class ShaderCache;
 	class BindlessHeap;
 	class D3D12CommandList;
@@ -49,7 +50,7 @@ namespace SeedCore
 		///      合成であり、深度テストされる描画ではない。renderTargetView の
 		///      リソース状態遷移(既にRENDER_TARGETであること)は呼び出し側の
 		///      責任。
-		void Draw(D3D12CommandList* cmdList, D3D12_CPU_DESCRIPTOR_HANDLE renderTargetView, D3D12_VIEWPORT viewport, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex);
+		void Draw(D3D12CommandList* cmdList, D3D12_CPU_DESCRIPTOR_HANDLE renderTargetView, D3D12_VIEWPORT viewport, ID3D12DescriptorHeap* heap, const RootAddresses& addresses);
 
 	private:
 		OutlineShader outlineShader_;

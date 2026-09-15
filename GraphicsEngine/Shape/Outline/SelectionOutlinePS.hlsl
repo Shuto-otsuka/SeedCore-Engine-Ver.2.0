@@ -1,5 +1,5 @@
-#include "../../Shader/Structured.hlsli"
-#include "../../Shader/Constants.hlsli"
+#include "../../Shader/ShaderResources.hlsli"
+#include "../../Shader/Scene.hlsli"
 
 struct SelectionOutlineOutput
 {
@@ -40,7 +40,7 @@ static const int OUTLINE_THICKNESS = 2;
 */
 float4 main(SelectionOutlineOutput input) : SV_Target0
 {
-	Texture2D<float> mask = ResourceDescriptorHeap[structured_indices.model_.selection_mask_index_];
+	Texture2D<float> mask = ResourceDescriptorHeap[shader_resource_indices.model_.selection_mask_index_];
 	SceneConstantBuffer scene = GetSceneConstantBuffer();
 
 	int2 pixel = int2(input.position.xy * (scene.screen_size_ / scene.display_size_));

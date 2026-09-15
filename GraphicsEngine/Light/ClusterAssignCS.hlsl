@@ -1,6 +1,8 @@
-#include "../Shader/Constants.hlsli"
+#include "../Shader/Scene.hlsli"
+#include "../Shader/ShaderResources.hlsli"
+#include "../Shader/UnorderedAccesses.hlsli"
 #include "Cluster.hlsli"
-#include "../Shader/Light.hlsli"
+#include "Light.hlsli"
 
 [numthreads(64, 1, 1)]
 void main(uint3 dtid : SV_DispatchThreadID)
@@ -14,8 +16,8 @@ void main(uint3 dtid : SV_DispatchThreadID)
 		return;
 	}
 
-	RWStructuredBuffer<ClusterData> cluster_data = ResourceDescriptorHeap[cluster_constant.cluster_data_unordered_access_view_index_];
-	RWByteAddressBuffer light_index_list = ResourceDescriptorHeap[cluster_constant.cluster_light_list_unordered_access_view_index_];
+	RWStructuredBuffer<ClusterInstance> cluster_data = ResourceDescriptorHeap[unordered_access_indices.cluster_assign_.cluster_data_index_];
+	RWByteAddressBuffer light_index_list = ResourceDescriptorHeap[unordered_access_indices.cluster_assign_.cluster_light_list_index_];
 
 	uint3 cluster_count = uint3(cluster_constant.cluster_count_x_, cluster_constant.cluster_count_y_, CLUSTER_DEPTH_SLICES);
 	float near_plane = scene.near_plane_;
@@ -29,28 +31,28 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	if (dtid.x < cluster_constant.point_light_count_)
 	{
 		local_index = dtid.x;
-		StructuredBuffer<PointLightData> point_lights = ResourceDescriptorHeap[cluster_constant.point_light_shader_resource_view_index_];
-		PointLightData point_light = point_lights[local_index];
-		light_position = point_light.position;
-		light_range = point_light.range;
+		StructuredBuffer<PointLightStructuredBuffer> point_lights = GetPointLightStructuredBuffer(shader_resource_indices.cluster_assign_.point_light_index_);
+		PointLightStructuredBuffer point_light = point_lights[local_index];
+		light_position = point_light.position_;
+		light_range = point_light.range_;
 		light_type = 0;
 	}
 	else if (dtid.x < cluster_constant.point_light_count_ + cluster_constant.spot_light_count_)
 	{
 		local_index = dtid.x - cluster_constant.point_light_count_;
-		StructuredBuffer<SpotLightData> spot_lights = ResourceDescriptorHeap[cluster_constant.spot_light_shader_resource_view_index_];
-		SpotLightData spot_light = spot_lights[local_index];
-		light_position = spot_light.position;
-		light_range = spot_light.range;
+		StructuredBuffer<SpotLightStructuredBuffer> spot_lights = GetSpotLightStructuredBuffer(shader_resource_indices.cluster_assign_.spot_light_index_);
+		SpotLightStructuredBuffer spot_light = spot_lights[local_index];
+		light_position = spot_light.position_;
+		light_range = spot_light.range_;
 		light_type = 1;
 	}
 	else
 	{
 		local_index = dtid.x - cluster_constant.point_light_count_ - cluster_constant.spot_light_count_;
-		StructuredBuffer<RectLightData> rect_lights = ResourceDescriptorHeap[cluster_constant.rect_light_shader_resource_view_index_];
-		RectLightData rect_light = rect_lights[local_index];
-		light_position = rect_light.position;
-		light_range = rect_light.range;
+		StructuredBuffer<RectLightStructuredBuffer> rect_lights = GetRectLightStructuredBuffer(shader_resource_indices.cluster_assign_.rect_light_index_);
+		RectLightStructuredBuffer rect_light = rect_lights[local_index];
+		light_position = rect_light.position_;
+		light_range = rect_light.range_;
 		light_type = 2;
 	}
 

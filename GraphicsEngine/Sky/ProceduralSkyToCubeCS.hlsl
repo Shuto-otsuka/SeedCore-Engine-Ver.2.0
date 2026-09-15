@@ -1,8 +1,9 @@
-#include "SkyMath.hlsli"
+#include "Sky.hlsli"
 #include "SkyGenerate.hlsli"
-#include "../Shader/Structured.hlsli"
+#include "../Shader/ShaderResources.hlsli"
+#include "../Shader/Constants.hlsli"
 #include "../Shader/Sampler.hlsli"
-#include "../Shader/Light.hlsli"
+#include "../Light/Light.hlsli"
 #include "../Raytracing/VolumetricCloudScapes/VolumetricCloudScapes.hlsli"
 
 /**
@@ -14,10 +15,11 @@
 * skymap is bound. The environment cube's SRV index is deliberately NOT
 * registered in this mode, so the background stays the analytic sky (crisp
 * sun disc) while only the convolved IBL cubes are consumed.
-* Root bindings: sky_generate (b0 space1, root 2) carries dest/face size and
-* - reusing the otherwise-unused source_index_ field - the bindless index of
-* the LightConstantData CBV (for the sun direction). structured_indices
-* (b1 space1, root 3) resolves the cloud/sky tuning constant buffer.
+* Root bindings: SkyDispatchBuffer (params[3], see SkyGenerate.hlsli) carries
+* dest/face size; constant_indices (params[2]) resolves the sun via
+* GetDirectionalLightConstantBuffer() the same way every other shader does;
+* constant_indices (params[2]) also resolves the cloud/sky tuning constant
+* buffer.
 *
 * [JP]
 * プロシージャル空(グラデーション+太陽、
@@ -27,36 +29,35 @@
 * このモードでは environment キューブの SRV インデックスを意図的に登録しない
 * ため、背景は解析的な空(シャープな太陽)のまま、畳み込み済み IBL キューブ
 * だけが消費される。
-* ルートバインディング: sky_generate(b0 space1、ルート2)が出力先/面サイズと
-* — このパスでは未使用の source_index_ を転用して — LightConstantData CBV の
-* bindless インデックス(太陽方向用)を運ぶ。structured_indices(b1 space1、
-* ルート3)から雲/空チューニング定数バッファを引く。
+* ルートバインディング: SkyDispatchBuffer(params[3]、SkyGenerate.hlsli参照)が
+* 出力先/面サイズを運び、constant_indices(params[2])から他の全シェーダと
+* 同じ形で GetDirectionalLightConstantBuffer() 経由で太陽を引く。
+* 同じく constant_indices(params[2])から雲/空チューニング定数バッファを引く。
 */
 [numthreads(8, 8, 1)]
 void main(uint3 id : SV_DispatchThreadID)
 {
-	uint size = sky_generate.face_size_;
+	uint size = GetSkyDispatchBuffer().face_size_;
 	if (id.x >= size || id.y >= size)
 	{
 		return;
 	}
 
-	uint face = id.z + sky_generate.face_offset_;
+	uint face = id.z + GetSkyDispatchBuffer().face_offset_;
 	float2 uv = (float2(id.xy) + 0.5) / float(size) * 2.0 - 1.0;
 	float3 direction = normalize(CubeFaceDirection(face, uv));
 
-	ConstantBuffer<VolumetricCloudScapesRayConstantBuffer> tuning = ResourceDescriptorHeap[structured_indices.cloud_.ray_constant_index_];
-	ConstantBuffer<LightConstantData> light = ResourceDescriptorHeap[sky_generate.source_index_];
+	ConstantBuffer<VolumetricCloudScapesRayConstantBuffer> tuning = ResourceDescriptorHeap[constant_indices.cloud_index_];
 
-	float3 sun_direction = normalize(-light.directional_direction_);
-	float3 sun_radiance = light.directional_color_.rgb * light.directional_intensity_;
+	float3 sun_direction = normalize(-GetDirectionalLightConstantBuffer().direction_);
+	float3 sun_radiance = GetDirectionalLightConstantBuffer().sun_color_.rgb * GetDirectionalLightConstantBuffer().sun_intensity_;
 
 	float3 color = ProceduralSkyColor(direction, sun_direction, sun_radiance, tuning);
 
 	// [JP] 雲もキューブへ焼き込む(縮小版レイマーチ: 固定24ステップ+
 	//      ライト3ステップ)。これで反射(prefilter経由)にも IBL にも雲が乗り、
 	//      雨雲にすると地上の環境光も暗くなる。キャプチャ視点は地上原点
-	//      (0,0,0)。時刻(風スクロール)は sky_generate.roughness_ に転用して
+	//      (0,0,0)。時刻(風スクロール)は GetSkyDispatchBuffer().roughness_ に転用して
 	//      渡される(このパスでは prefilter 用の roughness は未使用)。
 	//      IBL は低周波なので適応ステップまでは持ち込まないが、積分式・シェル
 	//      形状・多重散乱はスクリーン側と揃える — でないとキューブ由来の環境光
@@ -65,10 +66,10 @@ void main(uint3 id : SV_DispatchThreadID)
 	{
 		const uint capture_step_count = 24;
 		const uint capture_light_step_count = 3;
-		float capture_time = sky_generate.roughness_;
+		float capture_time = GetSkyDispatchBuffer().roughness_;
 
-		Texture3D<float> shape_noise = ResourceDescriptorHeap[structured_indices.cloud_.shape_noise_srv_index_];
-		Texture3D<float> detail_noise = ResourceDescriptorHeap[structured_indices.cloud_.detail_noise_srv_index_];
+		Texture3D<float> shape_noise = ResourceDescriptorHeap[shader_resource_indices.cloud_.shape_noise_index_];
+		Texture3D<float> detail_noise = ResourceDescriptorHeap[shader_resource_indices.cloud_.detail_noise_index_];
 
 		float3 ray_origin = float3(0.0, 0.0, 0.0);
 		float layer_thickness = max(tuning.cloud_top_ - tuning.cloud_bottom_, 1.0);
@@ -136,6 +137,6 @@ void main(uint3 id : SV_DispatchThreadID)
 		}
 	}
 
-	RWTexture2DArray<float4> destination = ResourceDescriptorHeap[sky_generate.dest_index_];
+	RWTexture2DArray<float4> destination = ResourceDescriptorHeap[GetSkyDispatchBuffer().dest_index_];
 	destination[uint3(id.xy, face)] = float4(color, 1.0);
 }

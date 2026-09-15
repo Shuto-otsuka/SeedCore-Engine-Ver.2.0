@@ -1,5 +1,5 @@
-#ifndef __SKY_MATH_HLSL__
-#define __SKY_MATH_HLSL__
+#ifndef __SKY_HLSL__
+#define __SKY_HLSL__
 
 // Math helpers shared by the skymap IBL generation compute passes:
 // cube-face directions, equirectangular mapping and GGX importance sampling.
@@ -136,4 +136,12 @@ float3 ImportanceSampleGgx(float2 xi, float3 normal, float roughness)
 	return normalize(tangent * half_tangent.x + bitangent * half_tangent.y + normal * half_tangent.z);
 }
 
-#endif // __SKY_MATH_HLSL__
+struct SkyShaderResourceIndices
+{
+	uint environment_cube_index_;
+	uint diffuse_irradiance_index_;
+	uint specular_prefiltered_index_;
+	uint brdf_lut_index_;
+};
+
+#endif // __SKY_HLSL__

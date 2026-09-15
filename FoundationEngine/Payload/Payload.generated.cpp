@@ -1,6 +1,7 @@
 #include <FoundationEngine/Prelude.h>
 #include <FoundationEngine/ECS/PayloadRegistry.h>
 #include <FoundationEngine/ECS/Component/Spawner.h>
+#include <GraphicsEngine/Camera/CameraBrain.h>
 #include <GraphicsEngine/Constraint/AttachmentConstraint.h>
 #include <GraphicsEngine/Constraint/IKConstraint.h>
 #include <GraphicsEngine/Constraint/LookAtConstraint.h>
@@ -22,6 +23,7 @@
 #include <PhysicsEngine/Joint/SpringJoint.h>
 
 extern "C" int _force_payload_Spawner = 0;
+extern "C" int _force_payload_CameraBrain = 0;
 extern "C" int _force_payload_AttachmentConstraint = 0;
 extern "C" int _force_payload_Effector = 0;
 extern "C" int _force_payload_LookAtConstraint = 0;
@@ -58,6 +60,36 @@ namespace SeedCore
 			}
 		};
 		static Register_Spawner global_Spawner_register;
+
+		// ---- GraphicsEngine/Camera/CameraBrain.h ----
+		struct Register_CameraBrain
+		{
+			Register_CameraBrain()
+			{
+				PayloadRegistry::Register(String("CameraBrain"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
+					CameraBrain& obj = *static_cast<CameraBrain*>(ptr);
+					{
+						FieldInfo fi;
+						fi.name_ = String("メインターゲット");
+						fi.offset_ = offsetof(CameraBrain, mainTarget_);
+						fi.type_ = AttributeType::Int;
+						fi.assetType_ = PayloadAssetType::Actor;
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<CameraBrain*>(p); return o.mode_ != CameraBrainMode::Free && o.mode_ != CameraBrainMode::Cinematic; };
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("サブターゲット");
+						fi.offset_ = offsetof(CameraBrain, subTarget_);
+						fi.type_ = AttributeType::Int;
+						fi.assetType_ = PayloadAssetType::Actor;
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<CameraBrain*>(p); return o.mode_ == CameraBrainMode::Lockon; };
+						outInfo.push_back(std::move(fi));
+					}
+				});
+			}
+		};
+		static Register_CameraBrain global_CameraBrain_register;
 
 		// ---- GraphicsEngine/Constraint/AttachmentConstraint.h ----
 		struct Register_AttachmentConstraint

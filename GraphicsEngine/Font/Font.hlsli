@@ -1,3 +1,6 @@
+#ifndef __FONT_HLSL__
+#define __FONT_HLSL__
+
 struct FontASPayload
 {
 	uint glyph_indices[32];
@@ -14,6 +17,63 @@ struct FontMSOutput
 	nointerpolation float2 unit_range    : TEXCOORD1;
 	nointerpolation float outline_width  : TEXCOORD2;
 	nointerpolation float glow_power     : TEXCOORD3;
+};
+
+struct FontSpriteStructuredBuffer
+{
+	float2 position_;
+	float2 size_;
+	float2 uv_min_;
+	float2 uv_max_;
+	float4 color_;
+	float4 outline_color_;
+	float4 glow_color_;
+	uint texture_index_;
+	float outline_width_;
+	float glow_power_;
+	float font_sprite_structured_buffer_padding_1_;
+	float2 unit_range_;
+	uint selected_;
+	float font_sprite_structured_buffer_padding_2_;
+};
+
+StructuredBuffer<FontSpriteStructuredBuffer> GetFontSpriteStructuredBuffer(uint index)
+{
+	return ResourceDescriptorHeap[index];
+}
+
+struct FontBillboardStructuredBuffer
+{
+	float3 position_;
+	float font_billboard_structured_buffer_padding_0_;
+	float3 rotation_;
+	float font_billboard_structured_buffer_padding_1_;
+	float2 local_position_;
+	float2 local_size_;
+	float2 uv_min_;
+	float2 uv_max_;
+	float4 color_;
+	float4 outline_color_;
+	float4 glow_color_;
+	uint texture_index_;
+	float outline_width_;
+	float glow_power_;
+	float font_billboard_structured_buffer_padding_2_;
+	float2 unit_range_;
+	uint face_camera_;
+	uint selected_;
+};
+
+StructuredBuffer<FontBillboardStructuredBuffer> GetFontBillboardStructuredBuffer(uint index)
+{
+	return ResourceDescriptorHeap[index];
+}
+
+struct FontShaderResourceIndices
+{
+	uint sprite_index_;
+	uint billboard_index_;
+	uint2 font_shader_resource_padding_0_;
 };
 
 float MtsdfMedian(float3 value)
@@ -49,3 +109,5 @@ float4 MtsdfCompose(float4 mtsdf, FontMSOutput input)
 
 	return float4(final_rgb, final_alpha);
 }
+
+#endif // __FONT_HLSL__

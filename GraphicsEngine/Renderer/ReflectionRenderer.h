@@ -12,17 +12,20 @@ namespace SeedCore
 	class BindlessHeap;
 	class ShaderCache;
 	class D3D12CommandList;
-	class IndicesSystem;
+	class ConstantIndicesSystem;
+	class ShaderResourceIndicesSystem;
+	class UnorderedAccessIndicesSystem;
+	struct RootAddresses;
 
 	/// [EN] Mirrors Raytracing/Reflection/Reflection.hlsli's
 	///      ReflectionRayConstantBuffer — read by both ReflectionRT.hlsl and
 	///      DeferredLightingPS.hlsl via
-	///      structured_indices.reflection_ray_constant_index_. Must stay
+	///      constant_indices.reflection_index_. Must stay
 	///      byte-for-byte in sync with the HLSL side.
 	/// [JP] Raytracing/Reflection/Reflection.hlsli の
 	///      ReflectionRayConstantBuffer と対応。ReflectionRT.hlsl と
 	///      DeferredLightingPS.hlsl の両方が
-	///      structured_indices.reflection_ray_constant_index_ 経由で読む。
+	///      constant_indices.reflection_index_ 経由で読む。
 	///      HLSL 側とバイト単位で一致させること。
 	struct ReflectionRayConstantBuffer
 	{
@@ -40,6 +43,10 @@ namespace SeedCore
 		///      — GGX 重点サンプルを回して、ラフネス由来の 1spp ノイズが固定
 		///      パターンにならず時間的に平均化されるようにする。
 		Uint32 frameIndex_ = 0;
+
+		Uint32 temporalReuseEnabled_ = 1;
+
+		Vector3 reflectionRayPadding_ = { 0.0f, 0.0f, 0.0f };
 
 		/// [EN] Loaded field by field through TryField so a missing or
 		///      unparsable name (older save, a field added or renamed since)
@@ -82,11 +89,11 @@ namespace SeedCore
 		Float volumeAttenuationDistance_ = FLT_MAX;
 
 		/// [EN] glTF alphaMode (0 OPAQUE / 1 MASK / 2 BLEND), alphaCutoff and
-		///      baseColorFactor.a - read by Reflection.hlsli's
-		///      IsReflectionMaterialPassthrough.
+		///      baseColorFactor.a - read by Material.hlsli's
+		///      IsMaterialPassthrough.
 		/// [JP] glTF の alphaMode(0 OPAQUE / 1 MASK / 2 BLEND)、alphaCutoff、
-		///      baseColorFactor.a — Reflection.hlsli の
-		///      IsReflectionMaterialPassthrough が読む。
+		///      baseColorFactor.a — Material.hlsli の
+		///      IsMaterialPassthrough が読む。
 		Uint32 alphaMode_ = 0;
 		Float alphaCutoff_ = 0.5f;
 		Float baseColorAlpha_ = 1.0f;
@@ -205,7 +212,7 @@ namespace SeedCore
 		ReflectionRenderer(RootSignature& rootSignature, RaytracingStateObject& raytracingStateObject, PipelineStateObject& pipelineStateObject);
 		~ReflectionRenderer() = default;
 
-		void Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, IndicesSystem& indicesSystem, Uint32 width, Uint32 height);
+		void Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, ConstantIndicesSystem& constantIndicesSystem, ShaderResourceIndicesSystem& shaderResourceIndicesSystem, UnorderedAccessIndicesSystem& unorderedAccessIndicesSystem, Uint32 width, Uint32 height);
 
 		void Destroy(BindlessHeap* bindlessHeap);
 
@@ -273,7 +280,7 @@ namespace SeedCore
 		///      遷移させるだけでよい(PrepareFrame() が既に合成シェーダの参照先を
 		///      そこへ直接向けているため)。G-Buffer の深度/法線/速度が書き込み
 		///      済みであることが前提。
-		void Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex, Bool tlasValid, RaytracingView view, Bool useDlssRayReconstruction);
+		void Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses, Bool tlasValid, RaytracingView view, Bool useDlssRayReconstruction);
 
 	private:
 		/// [EN] Allocates the raw texture and every per-view buffer of the SVGF
@@ -427,7 +434,7 @@ namespace SeedCore
 		///      ReflectionReSTIR.hlsli の ReflectionReservoir とバイト単位で
 		///      一致させること)。GlobalIlluminationRenderer の reservoir 系
 		///      フィールドと同じ形。
-		static constexpr Uint32 reservoirElementSizeInBytes_ = 48;
+		static constexpr Uint32 reservoirElementSizeInBytes_ = 64;
 		Microsoft::WRL::ComPtr<ID3D12Resource> reservoirResource_[viewCount][accumulationSlotCount];
 		D3D12_RESOURCE_STATES reservoirState_[viewCount][accumulationSlotCount] = {};
 		Uint32 reservoirUnorderedAccessViewIndex_[viewCount][accumulationSlotCount] = {};
@@ -514,7 +521,9 @@ namespace SeedCore
 		///      「無し」として扱い、ゴミ値をリサンプルしない。
 
 		BindlessHeap* bindlessHeap_ = nullptr;
-		IndicesSystem* indicesSystem_ = nullptr;
+		ConstantIndicesSystem* constantIndicesSystem_ = nullptr;
+		ShaderResourceIndicesSystem* shaderResourceIndicesSystem_ = nullptr;
+		UnorderedAccessIndicesSystem* unorderedAccessIndicesSystem_ = nullptr;
 
 		Uint32 width_ = 0;
 		Uint32 height_ = 0;

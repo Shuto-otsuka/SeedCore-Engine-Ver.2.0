@@ -13,8 +13,7 @@
 
 // GraphicsEngine
 #include <GraphicsEngine/Camera/Camera.h>
-#include <GraphicsEngine/Camera/FreeCameraController.h>
-#include <GraphicsEngine/Camera/OrbitCameraController.h>
+#include <GraphicsEngine/Camera/CameraBrain.h>
 #include <GraphicsEngine/Constraint/AttachmentConstraint.h>
 #include <GraphicsEngine/Constraint/IKConstraint.h>
 #include <GraphicsEngine/Constraint/LookAtConstraint.h>

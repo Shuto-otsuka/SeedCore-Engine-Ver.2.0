@@ -1,4 +1,6 @@
-#include "../Shader/Constants.hlsli"
+#include "PostProcess.hlsli"
+#include "../Shader/ShaderResources.hlsli"
+#include "../Shader/UnorderedAccesses.hlsli"
 #include "../Shader/Sampler.hlsli"
 #include "ToneMappingCurves.hlsli"
 
@@ -38,7 +40,7 @@
 [numthreads(8, 8, 1)]
 void main(uint3 dtid : SV_DispatchThreadID)
 {
-	RWTexture2D<float4> output = ResourceDescriptorHeap[constant_indices.post_process_.output_uav_index_];
+	RWTexture2D<float4> output = ResourceDescriptorHeap[unordered_access_indices.post_process_.output_index_];
 
 	uint width, height;
 	output.GetDimensions(width, height);
@@ -82,9 +84,9 @@ void main(uint3 dtid : SV_DispatchThreadID)
 	///      他のファイルの都合でここが道連れにコンパイル不能になる依存を
 	///      増やしたくない。
 	float3 color;
-	if (constant_indices.post_process_.color_grading_.enabled_ != 0)
+	if (GetPostProcessConstantBuffer().color_grading_.enabled_ != 0)
 	{
-		Texture2D<float4> graded_source = ResourceDescriptorHeap[constant_indices.post_process_.color_grading_.output_srv_index_];
+		Texture2D<float4> graded_source = ResourceDescriptorHeap[shader_resource_indices.post_process_.color_grading_.output_index_];
 		color = graded_source.SampleLevel(sampler_linear_clamp, uv, 0).rgb;
 	}
 	else
@@ -104,19 +106,19 @@ void main(uint3 dtid : SV_DispatchThreadID)
 		///      DLSS-RR有効時に output と食い違う。Load ではなく UV 経由の
 		///      SampleLevel で読むのはそのため。
 		float3 hdr_color;
-		if (constant_indices.post_process_.lens_stage_enabled_ != 0)
+		if (GetPostProcessConstantBuffer().lens_stage_enabled_ != 0)
 		{
-			Texture2D<float4> lens_stage_source = ResourceDescriptorHeap[constant_indices.post_process_.lens_stage_srv_index_];
+			Texture2D<float4> lens_stage_source = ResourceDescriptorHeap[shader_resource_indices.post_process_.lens_stage_index_];
 			hdr_color = lens_stage_source.SampleLevel(sampler_linear_clamp, uv, 0).rgb;
 		}
-		else if (constant_indices.post_process_.depth_of_field_.enabled_ != 0)
+		else if (GetPostProcessConstantBuffer().depth_of_field_.enabled_ != 0)
 		{
-			Texture2D<float4> depth_of_field_source = ResourceDescriptorHeap[constant_indices.post_process_.depth_of_field_.shader_resource_view_index_];
+			Texture2D<float4> depth_of_field_source = ResourceDescriptorHeap[shader_resource_indices.post_process_.depth_of_field_.index_];
 			hdr_color = depth_of_field_source.SampleLevel(sampler_linear_clamp, uv, 0).rgb;
 		}
 		else
 		{
-			Texture2D<float4> source = ResourceDescriptorHeap[constant_indices.post_process_.source_color_index_];
+			Texture2D<float4> source = ResourceDescriptorHeap[shader_resource_indices.post_process_.source_color_index_];
 			hdr_color = source.Load(int3(dtid.xy, 0)).rgb;
 		}
 
@@ -129,21 +131,21 @@ void main(uint3 dtid : SV_DispatchThreadID)
 		///      これらは光であり、光は露出されるものだから。無効な間は
 		///      バッファに前回有効だった時のデータが残っているので、
 		///      サンプルごと丸ごとスキップする。
-		if (constant_indices.post_process_.lens_flare_.enabled_ != 0)
+		if (GetPostProcessConstantBuffer().lens_flare_.enabled_ != 0)
 		{
-			Texture2D<float4> lens_flare = ResourceDescriptorHeap[constant_indices.post_process_.lens_flare_.shader_resource_view_index_];
+			Texture2D<float4> lens_flare = ResourceDescriptorHeap[shader_resource_indices.post_process_.lens_flare_.index_];
 			hdr_color += lens_flare.SampleLevel(sampler_linear_clamp, uv, 0).rgb;
 		}
 
-		if (constant_indices.post_process_.bloom_.enabled_ != 0)
+		if (GetPostProcessConstantBuffer().bloom_.enabled_ != 0)
 		{
-			Texture2D<float4> bloom = ResourceDescriptorHeap[constant_indices.post_process_.bloom_.level0_srv_index_];
-			hdr_color += bloom.SampleLevel(sampler_linear_clamp, uv, 0).rgb * constant_indices.post_process_.bloom_.intensity_;
+			Texture2D<float4> bloom = ResourceDescriptorHeap[shader_resource_indices.post_process_.bloom_.level0_index_];
+			hdr_color += bloom.SampleLevel(sampler_linear_clamp, uv, 0).rgb * GetPostProcessConstantBuffer().bloom_.intensity_;
 		}
 
-		if (constant_indices.post_process_.anamorphic_flare_.enabled_ != 0)
+		if (GetPostProcessConstantBuffer().anamorphic_flare_.enabled_ != 0)
 		{
-			Texture2D<float4> anamorphic_flare = ResourceDescriptorHeap[constant_indices.post_process_.anamorphic_flare_.output_srv_index_];
+			Texture2D<float4> anamorphic_flare = ResourceDescriptorHeap[shader_resource_indices.post_process_.anamorphic_flare_.output_index_];
 			hdr_color += anamorphic_flare.SampleLevel(sampler_linear_clamp, uv, 0).rgb;
 		}
 
@@ -152,19 +154,19 @@ void main(uint3 dtid : SV_DispatchThreadID)
 		///      ExposureSettings).
 		/// [JP] 手動EVは常に効く。自動露出のEVは有効時だけ上乗せする
 		///      (PostProcess.h の ExposureSettings 参照)。
-		float exposure_ev = constant_indices.post_process_.exposure_.exposure_compensation_;
-		if (constant_indices.post_process_.exposure_.auto_exposure_enabled_ != 0)
+		float exposure_ev = GetPostProcessConstantBuffer().exposure_.exposure_compensation_;
+		if (GetPostProcessConstantBuffer().exposure_.auto_exposure_enabled_ != 0)
 		{
-			RWStructuredBuffer<float> exposure = ResourceDescriptorHeap[constant_indices.post_process_.exposure_.exposure_uav_index_];
+			RWStructuredBuffer<float> exposure = ResourceDescriptorHeap[unordered_access_indices.post_process_.exposure_.exposure_index_];
 			exposure_ev += exposure[0];
 		}
 
 		color = hdr_color * exp2(exposure_ev);
 	}
 
-	if (constant_indices.post_process_.tone_mapping_.tone_mapping_enabled_ != 0)
+	if (GetPostProcessConstantBuffer().tone_mapping_.tone_mapping_enabled_ != 0)
 	{
-		uint mode = constant_indices.post_process_.tone_mapping_.tone_mapping_mode_;
+		uint mode = GetPostProcessConstantBuffer().tone_mapping_.tone_mapping_mode_;
 		if (mode == 1)
 		{
 			color = ReinhardToneMap(color);

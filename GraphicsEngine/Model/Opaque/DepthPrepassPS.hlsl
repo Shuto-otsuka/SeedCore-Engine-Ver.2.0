@@ -1,5 +1,5 @@
 #include "../Model.hlsli"
-#include "../../Shader/Structured.hlsli"
+#include "../../Shader/ShaderResources.hlsli"
 #include "../../Shader/Sampler.hlsli"
 
 /**
@@ -12,21 +12,21 @@
 */
 void main(DepthPrepassOutput input)
 {
-	StructuredBuffer<ModelInstance> instances = ResourceDescriptorHeap[structured_indices.model_.instance_index_];
-	ModelInstance instance = instances[input.instance_index];
+	StructuredBuffer<ModelStructuredBuffer> instances = GetModelStructuredBuffer(shader_resource_indices.model_.instance_index_);
+	ModelStructuredBuffer instance = instances[input.instance_index];
 
 	/// [JP] 不透明はカットアウトしないのでテクスチャサンプルを省く。
-	if (instance.alpha_cutoff_ <= 0.0)
+	if (instance.texture_.alpha_cutoff_ <= 0.0)
 	{
 		return;
 	}
 
-	float4 base_color = instance.base_color_;
-	if (instance.base_color_texture_index_ != 0xFFFFFFFF)
+	float4 base_color = instance.texture_.base_color_;
+	if (instance.texture_.base_color_texture_index_ != 0xFFFFFFFF)
 	{
-		Texture2D base_color_texture = ResourceDescriptorHeap[instance.base_color_texture_index_];
+		Texture2D base_color_texture = ResourceDescriptorHeap[instance.texture_.base_color_texture_index_];
 		base_color *= base_color_texture.Sample(sampler_aniso_wrap, input.texcoord);
 	}
 
-	clip(base_color.a - instance.alpha_cutoff_);
+	clip(base_color.a - instance.texture_.alpha_cutoff_);
 }

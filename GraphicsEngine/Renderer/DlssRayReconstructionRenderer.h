@@ -12,7 +12,8 @@ namespace SeedCore
 	class BindlessHeap;
 	class ShaderCache;
 	class D3D12CommandList;
-	class IndicesSystem;
+	class UnorderedAccessIndicesSystem;
+	struct RootAddresses;
 
 	/**
 	* [EN]
@@ -61,11 +62,11 @@ namespace SeedCore
 		DlssRayReconstructionRenderer(RootSignature& rootSignature, PipelineStateObject& pipelineStateObject);
 		~DlssRayReconstructionRenderer() = default;
 
-		void Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, IndicesSystem& indicesSystem, Uint32 width, Uint32 height, Uint32 outputWidth, Uint32 outputHeight);
+		void Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, UnorderedAccessIndicesSystem& unorderedAccessIndicesSystem, Uint32 width, Uint32 height, Uint32 outputWidth, Uint32 outputHeight);
 
 		void Destroy(BindlessHeap* bindlessHeap);
 
-		void Resize(ID3D12Device* device, BindlessHeap* bindlessHeap, IndicesSystem& indicesSystem, Uint32 width, Uint32 height, Uint32 outputWidth, Uint32 outputHeight);
+		void Resize(ID3D12Device* device, BindlessHeap* bindlessHeap, UnorderedAccessIndicesSystem& unorderedAccessIndicesSystem, Uint32 width, Uint32 height, Uint32 outputWidth, Uint32 outputHeight);
 
 		/// [EN] The full per-view pass: normal+roughness/diffuse-albedo/
 		///      specular-albedo synthesis, DlssManager Tag(), then
@@ -95,7 +96,7 @@ namespace SeedCore
 		///      PIXEL_SHADER_RESOURCE状態で終える。dlssManager はこの
 		///      Presentフレーム内で既に BeginFrame() 済みであること
 		///      (Graphics::Begin() 参照)。
-		void Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, D3D12_GPU_VIRTUAL_ADDRESS constantIndex, D3D12_GPU_VIRTUAL_ADDRESS structuredIndex, RaytracingView view, DlssManager* dlssManager, const SceneConstantBuffer& scene, ID3D12Resource* colorResource, ID3D12Resource* depthResource, ID3D12Resource* velocityResource, Uint32 sourceWidth, Uint32 sourceHeight, UpscaleMode mode);
+		void Dispatch(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses, RaytracingView view, DlssManager* dlssManager, const SceneConstantBuffer& scene, ID3D12Resource* colorResource, ID3D12Resource* depthResource, ID3D12Resource* velocityResource, Uint32 sourceWidth, Uint32 sourceHeight, UpscaleMode mode);
 
 		/// [EN] This view's 3840x2160 denoised+upscaled linear HDR output -
 		///      what Renderer passes as PostProcessRenderer::Dispatch's
@@ -147,7 +148,7 @@ namespace SeedCore
 		void CreateViewResources(ID3D12Device* device, BindlessHeap* bindlessHeap, Uint32 width, Uint32 height, Uint32 outputWidth, Uint32 outputHeight);
 
 		BindlessHeap* bindlessHeap_ = nullptr;
-		IndicesSystem* indicesSystem_ = nullptr;
+		UnorderedAccessIndicesSystem* unorderedAccessIndicesSystem_ = nullptr;
 
 		Uint32 width_ = 0;
 		Uint32 height_ = 0;
