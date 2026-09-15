@@ -46,8 +46,8 @@ ConstantBuffer<ColliderConstantBuffer> GetColliderConstantBuffer()
 
 struct ColliderLineMSOutput
 {
-	float4 position_ : SV_Position;
-	float4 color_ : COLOR0;
+	float4 position : SV_Position;
+	float4 color : COLOR0;
 };
 
 void GetBoxLine(float3 dimensions, uint line_index, out float3 a, out float3 b)

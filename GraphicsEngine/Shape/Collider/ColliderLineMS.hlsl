@@ -118,11 +118,11 @@ void main(uint gtid : SV_GroupThreadID, uint gid : SV_GroupID, out vertices Coll
 		float3 rotation_b = 2.0 * cross(rotation.xyz, local_b);
 		float3 world_b = local_b + rotation.w * rotation_b + cross(rotation.xyz, rotation_b) + position;
 
-		verts[gtid * 2 + 0].position_ = mul(float4(world_a, 1.0), scene.current_view_projection_);
-		verts[gtid * 2 + 0].color_ = color;
+		verts[gtid * 2 + 0].position = mul(float4(world_a, 1.0), scene.current_view_projection_);
+		verts[gtid * 2 + 0].color = color;
 
-		verts[gtid * 2 + 1].position_ = mul(float4(world_b, 1.0), scene.current_view_projection_);
-		verts[gtid * 2 + 1].color_ = color;
+		verts[gtid * 2 + 1].position = mul(float4(world_b, 1.0), scene.current_view_projection_);
+		verts[gtid * 2 + 1].color = color;
 
 		lines[gtid] = uint2(gtid * 2 + 0, gtid * 2 + 1);
 	}

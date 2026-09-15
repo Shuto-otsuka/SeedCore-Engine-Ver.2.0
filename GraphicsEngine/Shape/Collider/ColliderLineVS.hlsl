@@ -5,7 +5,7 @@ ColliderLineMSOutput main(uint vertex_id : SV_VertexID, uint instance_id : SV_In
 	ColliderConstantBuffer collider = GetColliderConstantBuffer();
 
 	ColliderLineMSOutput output = (ColliderLineMSOutput)0;
-	output.position_ = float4(2.0, 2.0, 2.0, 1.0);
+	output.position = float4(2.0, 2.0, 2.0, 1.0);
 
 	if (instance_id >= collider.instance_count_)
 	{
@@ -88,8 +88,8 @@ ColliderLineMSOutput main(uint vertex_id : SV_VertexID, uint instance_id : SV_In
 	float3 rotation = 2.0 * cross(instance.rotation_.xyz, local_position);
 	float3 world_position = local_position + instance.rotation_.w * rotation + cross(instance.rotation_.xyz, rotation) + instance.position_;
 
-	output.position_ = mul(float4(world_position, 1.0), GetSceneConstantBuffer().current_view_projection_);
-	output.color_ = instance.color_;
+	output.position = mul(float4(world_position, 1.0), GetSceneConstantBuffer().current_view_projection_);
+	output.color = instance.color_;
 
 	return output;
 }

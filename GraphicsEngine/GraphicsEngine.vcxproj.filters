@@ -886,6 +886,9 @@
     <ClInclude Include="Camera\CameraBrain.h">
       <Filter>Camera</Filter>
     </ClInclude>
+    <ClInclude Include="D3D12\Context\D3D12Check.h">
+      <Filter>D3D12\Context</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="D3D12\Context\D3D12Adapter.cpp">
@@ -1480,6 +1483,9 @@
     </ClCompile>
     <ClCompile Include="Camera\CameraBrain.cpp">
       <Filter>Camera</Filter>
+    </ClCompile>
+    <ClCompile Include="D3D12\Context\D3D12Check.cpp">
+      <Filter>D3D12\Context</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

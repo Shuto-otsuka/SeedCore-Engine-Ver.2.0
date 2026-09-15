@@ -53,6 +53,7 @@
     <ClInclude Include="D3D12\Buffer\StructuredBuffer.h" />
     <ClInclude Include="D3D12\Buffer\VertexBuffer.h" />
     <ClInclude Include="D3D12\Context\D3D12Adapter.h" />
+    <ClInclude Include="D3D12\Context\D3D12Check.h" />
     <ClInclude Include="D3D12\Context\D3D12CommandAllocator.h" />
     <ClInclude Include="D3D12\Context\D3D12CommandList.h" />
     <ClInclude Include="D3D12\Context\D3D12CommandQueue.h" />
@@ -273,6 +274,7 @@
     <ClCompile Include="D3D12\Buffer\DepthResizeBuffer.cpp" />
     <ClCompile Include="D3D12\Buffer\HudlessBuffer.cpp" />
     <ClCompile Include="D3D12\Buffer\ReservoirBuffer.cpp" />
+    <ClCompile Include="D3D12\Context\D3D12Check.cpp" />
     <ClCompile Include="DLSS\DlssBackgroundVelocityShader.cpp" />
     <ClCompile Include="DLSS\DlssNormalRoughnessShader.cpp" />
     <ClCompile Include="Effect\Effekseer\EffekseerFileInterface.cpp" />
