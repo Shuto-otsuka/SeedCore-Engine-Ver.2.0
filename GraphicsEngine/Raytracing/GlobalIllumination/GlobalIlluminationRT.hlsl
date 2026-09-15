@@ -6,7 +6,7 @@
 #include "../../Shader/Noise.hlsli"
 #include "../../Shader/Sampler.hlsli"
 #include "../../Shader/Vertex.hlsli"
-#include "../../Light/ImageBasedLighting.hlsli"
+#include "../../Sky/IBL/ImageBasedLighting.hlsli"
 #include "../VolumetricCloudScapes/VolumetricCloudScapes.hlsli"
 #include "../../Sky/SkyGenerate.hlsli"
 #include "../../Shader/ShaderResources.hlsli"

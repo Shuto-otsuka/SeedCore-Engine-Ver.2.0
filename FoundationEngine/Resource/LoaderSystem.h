@@ -1,7 +1,7 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
 
-#include <GraphicsEngine/Resource/TextureLoader.h>
+#include <GraphicsEngine/Texture/TextureLoader.h>
 #include <GraphicsEngine/Texture/ImageLoader.h>
 #include <GraphicsEngine/Model/ModelLoader.h>
 #include <GraphicsEngine/Model/Animation/AnimationLoader.h>

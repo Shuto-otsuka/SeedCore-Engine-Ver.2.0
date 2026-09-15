@@ -1,7 +1,7 @@
 #include <GraphicsEngine/Model/Crister.h>
 #include <GraphicsEngine/D3D12/Descriptor/BindlessHeap.h>
 #include <GraphicsEngine/D3D12/Context/D3D12CommandQueue.h>
-#include <GraphicsEngine/Model/BC7CompressShader.h>
+#include <GraphicsEngine/Texture/Compression/BC7CompressShader.h>
 #include <FoundationEngine/Log/DxFail.h>
 #include <FoundationEngine/Log/Warning.h>
 #include <FoundationEngine/Serialization/Binary/BinaryArchive.h>

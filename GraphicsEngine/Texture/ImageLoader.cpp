@@ -1,5 +1,5 @@
 #include <GraphicsEngine/Texture/ImageLoader.h>
-#include <GraphicsEngine/Resource/TextureLoader.h>
+#include <GraphicsEngine/Texture/TextureLoader.h>
 #include <GraphicsEngine/D3D12/Descriptor/BindlessHeap.h>
 
 namespace SeedCore

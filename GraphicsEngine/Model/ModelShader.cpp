@@ -34,38 +34,38 @@ namespace SeedCore
 		}
 		else
 		{
-			depthPrepassVertexShader_ = shaderCache.GetOrCreateVertexShader(String("../GraphicsEngine/Model/Opaque/DepthPrepassVS.hlsl"));
+			depthPrepassVertexShader_ = shaderCache.GetOrCreateVertexShader(String("../GraphicsEngine/Model/Depth/DepthPrepassVS.hlsl"));
 			staticVertexShader_ = shaderCache.GetOrCreateVertexShader(String("../GraphicsEngine/Model/Opaque/StaticModelVS.hlsl"));
 			skeletalVertexShader_ = shaderCache.GetOrCreateVertexShader(String("../GraphicsEngine/Model/Opaque/SkeletalModelVS.hlsl"));
 			furShellVertexShader_ = shaderCache.GetOrCreateVertexShader(String("../GraphicsEngine/Model/Opaque/FurShellVS.hlsl"));
 
 			PipelineStateKey psokey{};
 
-			modelCullingComputeShader_ = shaderCache.GetOrCreateComputeShader(String("../GraphicsEngine/Model/Opaque/ModelCullingCS.hlsl"));
+			modelCullingComputeShader_ = shaderCache.GetOrCreateComputeShader(String("../GraphicsEngine/Model/Culling/ModelCullingCS.hlsl"));
 			memset(&psokey, 0, sizeof(psokey));
 			psokey.rootSignature_ = rootSignature_.Get(modelRootSignature_)->Get();
 			psokey.computeShader_ = shaderCache.GetComputeShader(modelCullingComputeShader_)->Bytecode();
 			pipelineStateObjectModelCulling_ = pipelineStateObject_.GetOrCreate(device, psokey);
 
-			geometryBufferCullingComputeShader_ = shaderCache.GetOrCreateComputeShader(String("../GraphicsEngine/Model/Opaque/GeometryBufferCullingCS.hlsl"));
+			geometryBufferCullingComputeShader_ = shaderCache.GetOrCreateComputeShader(String("../GraphicsEngine/Model/Culling/GeometryBufferCullingCS.hlsl"));
 			memset(&psokey, 0, sizeof(psokey));
 			psokey.rootSignature_ = rootSignature_.Get(modelRootSignature_)->Get();
 			psokey.computeShader_ = shaderCache.GetComputeShader(geometryBufferCullingComputeShader_)->Bytecode();
 			pipelineStateObjectGeometryBufferCulling_ = pipelineStateObject_.GetOrCreate(device, psokey);
 
-			modelTransparentCullingComputeShader_ = shaderCache.GetOrCreateComputeShader(String("../GraphicsEngine/Model/Transparent/ModelTransparentCullingCS.hlsl"));
+			modelTransparentCullingComputeShader_ = shaderCache.GetOrCreateComputeShader(String("../GraphicsEngine/Model/Culling/ModelTransparentCullingCS.hlsl"));
 			memset(&psokey, 0, sizeof(psokey));
 			psokey.rootSignature_ = rootSignature_.Get(modelRootSignature_)->Get();
 			psokey.computeShader_ = shaderCache.GetComputeShader(modelTransparentCullingComputeShader_)->Bytecode();
 			pipelineStateObjectModelTransparentCulling_ = pipelineStateObject_.GetOrCreate(device, psokey);
 
-			modelSilhouetteCullingComputeShader_ = shaderCache.GetOrCreateComputeShader(String("../GraphicsEngine/Model/ModelSilhouetteCullingCS.hlsl"));
+			modelSilhouetteCullingComputeShader_ = shaderCache.GetOrCreateComputeShader(String("../GraphicsEngine/Model/Culling/ModelSilhouetteCullingCS.hlsl"));
 			memset(&psokey, 0, sizeof(psokey));
 			psokey.rootSignature_ = rootSignature_.Get(modelRootSignature_)->Get();
 			psokey.computeShader_ = shaderCache.GetComputeShader(modelSilhouetteCullingComputeShader_)->Bytecode();
 			pipelineStateObjectModelSilhouetteCulling_ = pipelineStateObject_.GetOrCreate(device, psokey);
 
-			furShellCullingComputeShader_ = shaderCache.GetOrCreateComputeShader(String("../GraphicsEngine/Model/Opaque/FurShellCullingCS.hlsl"));
+			furShellCullingComputeShader_ = shaderCache.GetOrCreateComputeShader(String("../GraphicsEngine/Model/Culling/FurShellCullingCS.hlsl"));
 			memset(&psokey, 0, sizeof(psokey));
 			psokey.rootSignature_ = rootSignature_.Get(modelRootSignature_)->Get();
 			psokey.computeShader_ = shaderCache.GetComputeShader(furShellCullingComputeShader_)->Bytecode();
@@ -79,7 +79,7 @@ namespace SeedCore
 		///      clip のみ）、デプスのみ出力。カットアウト（alphaMode=MASK）の穴が深度を書いて
 		///      後ろのジオメトリを隠さないよう、PS が必須。
 		{
-			depthPrepassPixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Model/Opaque/DepthPrepassPS.hlsl"));
+			depthPrepassPixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Model/Depth/DepthPrepassPS.hlsl"));
 
 			PipelineStateKey psokey{};
 			memset(&psokey, 0, sizeof(psokey));
@@ -91,7 +91,7 @@ namespace SeedCore
 			psokey.depthStencilViewFormat_ = DXGI_FORMAT_D32_FLOAT;
 			if (D3D12Check::GetLevel() == D3D12Level::D12_2)
 			{
-				depthPrepassMeshShader_ = shaderCache.GetOrCreateMeshShader(String("../GraphicsEngine/Model/Opaque/DepthPrepassMS.hlsl"));
+				depthPrepassMeshShader_ = shaderCache.GetOrCreateMeshShader(String("../GraphicsEngine/Model/Depth/DepthPrepassMS.hlsl"));
 				psokey.amplificationShader_ = shaderCache.GetAmplificationShader(amplificationShader_)->Bytecode();
 				psokey.meshShader_ = shaderCache.GetMeshShader(depthPrepassMeshShader_)->Bytecode();
 				/// [EN] Cull off: glTF materials are frequently doubleSided (thin wings, hair, cloth).
@@ -319,7 +319,7 @@ namespace SeedCore
 		///      塗り、単一 R16G16B16A16_FLOAT RT、深度は読み取りのみ reverse-Z。
 		///      メッシュレットごとに index のハッシュで単色塗り。エディタ表示モード専用。
 		{
-			meshletPixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Model/MeshletPS.hlsl"));
+			meshletPixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Model/Cluster/MeshletPS.hlsl"));
 
 			PipelineStateKey psokey{};
 			memset(&psokey, 0, sizeof(psokey));
@@ -387,8 +387,8 @@ namespace SeedCore
 			psokey.depthStencilViewFormat_ = DXGI_FORMAT_UNKNOWN;
 			if (D3D12Check::GetLevel() == D3D12Level::D12_2)
 			{
-				selectionAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Model/ModelSilhouetteAS.hlsl"));
-				psokey.amplificationShader_ = shaderCache.GetAmplificationShader(selectionAmplificationShader_)->Bytecode();
+				silhouetteAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Model/ModelSilhouetteAS.hlsl"));
+				psokey.amplificationShader_ = shaderCache.GetAmplificationShader(silhouetteAmplificationShader_)->Bytecode();
 				psokey.meshShader_ = shaderCache.GetMeshShader(staticMeshShader_)->Bytecode();
 				psokey.rasterizerDesc_ = RasterizerState::Get(RasterizerStateType::SolidNoneLHS);
 				psokey.primitiveTopologyType_ = D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED;

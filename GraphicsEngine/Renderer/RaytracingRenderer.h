@@ -19,7 +19,7 @@
 #include <GraphicsEngine/D3D12/Buffer/StructuredBuffer.h>
 #include <GraphicsEngine/D3D12/Buffer/ConstantBuffer.h>
 #include <GraphicsEngine/Raytracing/RaytracingContext.h>
-#include <GraphicsEngine/Model/SkinnedPositionShader.h>
+#include <GraphicsEngine/Model/Skin/SkinBlendShader.h>
 #include <GraphicsEngine/Model/Morph/MorphBlendShader.h>
 
 namespace SeedCore
@@ -372,12 +372,12 @@ namespace SeedCore
 
 		std::unordered_map<EntityID, ResourcePtr<BottomLevelAccelerationStructure>> skinnedBlasCache_[FrameRing::frameCount];
 		std::unordered_map<EntityID, SkinnedPositionBuffer> skinnedPositionBuffers_[FrameRing::frameCount];
-		SkinnedPositionShader skinnedPositionShader_;
+		SkinBlendShader skinBlendShader_;
 
 		/// [EN] Morph blend scratch positions (base rt_positions with
 		///      active SubMeshes' vertex ranges overwritten by
 		///      MorphBlendCS), one per morphed instance per frame-ring
-		///      slot. Feeds SkinnedPositionCS's input in place of
+		///      slot. Feeds SkinBlendCS's input in place of
 		///      crister_->PositionBufferAddress() when an instance is
 		///      both morphed and skinned (morph composes before skin), and
 		///      feeds morphedBlasCache_'s BLAS build directly when an
@@ -388,7 +388,7 @@ namespace SeedCore
 		///      スロットごとに1つ。インスタンスがモーフとスキンの両方を
 		///      持つ場合(モーフはスキンより前に合成)、
 		///      crister_->PositionBufferAddress() の代わりに
-		///      SkinnedPositionCS の入力として使う。モーフのみでスキン無し
+		///      SkinBlendCS の入力として使う。モーフのみでスキン無し
 		///      の場合は、直接 morphedBlasCache_ の BLAS 構築に使う。
 		std::unordered_map<EntityID, SkinnedPositionBuffer> morphedPositionBuffers_[FrameRing::frameCount];
 
@@ -402,11 +402,11 @@ namespace SeedCore
 		std::unordered_map<EntityID, DynamicArray<MorphWeightBuffer>> morphWeightBuffers_[FrameRing::frameCount];
 
 		/// [EN] BLAS for a morphed-but-not-skinned instance, built directly
-		///      from morphedPositionBuffers_ (no SkinnedPositionCS pass
+		///      from morphedPositionBuffers_ (no SkinBlendCS pass
 		///      involved). Parallel cache to skinnedBlasCache_.
 		/// [JP] モーフはあるがスキン無しのインスタンス用 BLAS。
 		///      morphedPositionBuffers_ から直接構築する
-		///      (SkinnedPositionCS パスは介さない)。skinnedBlasCache_ と
+		///      (SkinBlendCS パスは介さない)。skinnedBlasCache_ と
 		///      並列のキャッシュ。
 		std::unordered_map<EntityID, ResourcePtr<BottomLevelAccelerationStructure>> morphedBlasCache_[FrameRing::frameCount];
 

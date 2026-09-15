@@ -6,14 +6,14 @@
 #include <GraphicsEngine/D3D12/SwapChain/GraphicsResolution.h>
 #include <GraphicsEngine/D3D12/Descriptor/BindlessHeap.h>
 #include <GraphicsEngine/Shader/ShaderCache.h>
-#include <GraphicsEngine/Model/BC7CompressShader.h>
+#include <GraphicsEngine/Texture/Compression/BC7CompressShader.h>
 #include <GraphicsEngine/DLSS/DlssManager.h>
 #include <GraphicsEngine/System/SceneSystem.h>
 #include <GraphicsEngine/System/CameraSystem.h>
 #include <GraphicsEngine/System/MovieSystem.h>
 #include <GraphicsEngine/Renderer/Renderer.h>
-#include <GraphicsEngine/System/SplashScreen.h>
-#include <GraphicsEngine/System/FadeScreen.h>
+#include <GraphicsEngine/Shape/Screen/SplashScreen.h>
+#include <GraphicsEngine/Shape/Screen/FadeScreen.h>
 
 namespace SeedCore
 {

@@ -118,11 +118,12 @@
     <ClInclude Include="Model\Animation\AnimationResource.h" />
     <ClInclude Include="Model\Animation\Animator.h" />
     <ClInclude Include="Model\Animation\AnimatorControllerState.h" />
-    <ClInclude Include="Model\BC7CompressShader.h" />
+    <ClInclude Include="Model\Cluster\QuadricErrorMetrics.h" />
     <ClInclude Include="Model\Collision\MeshCollision.h" />
     <ClInclude Include="Model\Collision\MeshCollisionLoader.h" />
     <ClInclude Include="Model\Collision\MeshCollisionResource.h" />
     <ClInclude Include="Model\Crister.h" />
+    <ClInclude Include="Model\Culling\ModelCullingBuffer.h" />
     <ClInclude Include="Model\IK\FABRIK.h" />
     <ClInclude Include="Model\IK\FullBodyIK.h" />
     <ClInclude Include="Model\IK\IKPose.h" />
@@ -135,19 +136,17 @@
     <ClInclude Include="Model\Material\MaterialSortBuffer.h" />
     <ClInclude Include="Model\Material\MaterialState.h" />
     <ClInclude Include="Model\Mesh.h" />
-    <ClInclude Include="Model\ModelCullingBuffer.h" />
     <ClInclude Include="Model\ModelExporter.h" />
     <ClInclude Include="Model\ModelLoader.h" />
     <ClInclude Include="Model\ModelRecord.h" />
     <ClInclude Include="Model\ModelResource.h" />
     <ClInclude Include="Model\ModelShader.h" />
     <ClInclude Include="Model\Morph\MorphBlendShader.h" />
-    <ClInclude Include="Model\QuadricErrorMetrics.h" />
     <ClInclude Include="Model\Skeleton\Skeleton.h" />
     <ClInclude Include="Model\Skeleton\SkeletonLoader.h" />
     <ClInclude Include="Model\Skeleton\SkeletonResource.h" />
     <ClInclude Include="Model\Skeleton\SkeletonState.h" />
-    <ClInclude Include="Model\SkinnedPositionShader.h" />
+    <ClInclude Include="Model\Skin\SkinBlendShader.h" />
     <ClInclude Include="Model\SoftbodyMesh.h" />
     <ClInclude Include="Model\Transparent\OITBuffer.h" />
     <ClInclude Include="Movie\Movie.h" />
@@ -227,7 +226,6 @@
     <ClInclude Include="Renderer\VolumetricLightRenderer.h" />
     <ClInclude Include="Renderer\VolumetricStarRenderer.h" />
     <ClInclude Include="Renderer\WeatherParticleRenderer.h" />
-    <ClInclude Include="Resource\TextureLoader.h" />
     <ClInclude Include="ScreenSpace\ScreenSpaceContext.h" />
     <ClInclude Include="Shader\ShaderCache.h" />
     <ClInclude Include="Shader\ShaderCompiler.h" />
@@ -235,6 +233,8 @@
     <ClInclude Include="Shape\Collider\ColliderLineShader.h" />
     <ClInclude Include="Shape\HUD\HUDComposeShader.h" />
     <ClInclude Include="Shape\Outline\OutlineShader.h" />
+    <ClInclude Include="Shape\Screen\FadeScreen.h" />
+    <ClInclude Include="Shape\Screen\SplashScreen.h" />
     <ClInclude Include="Sky\Skymap.h" />
     <ClInclude Include="Sky\SkymapCache.h" />
     <ClInclude Include="Sky\SkymapLoader.h" />
@@ -243,19 +243,19 @@
     <ClInclude Include="System\CameraSystem.h" />
     <ClInclude Include="System\CelestialSystem.h" />
     <ClInclude Include="System\ConstraintSystem.h" />
-    <ClInclude Include="System\FadeScreen.h" />
     <ClInclude Include="System\IndicesSystem.h" />
     <ClInclude Include="System\LightSystem.h" />
     <ClInclude Include="System\MovieSystem.h" />
     <ClInclude Include="System\SceneSystem.h" />
-    <ClInclude Include="System\SplashScreen.h" />
     <ClInclude Include="System\WeatherSystem.h" />
     <ClInclude Include="TAAU\TaauResolveShader.h" />
+    <ClInclude Include="Texture\Compression\BC7CompressShader.h" />
     <ClInclude Include="Texture\Image.h" />
     <ClInclude Include="Texture\ImageLoader.h" />
     <ClInclude Include="Texture\ImageResource.h" />
     <ClInclude Include="Texture\ImageShader.h" />
     <ClInclude Include="Texture\Texture.h" />
+    <ClInclude Include="Texture\TextureLoader.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Avatar\Animal\AnimalCharacterConverter.cpp" />
@@ -296,11 +296,12 @@
     <ClCompile Include="Model\Animation\AnimationLoader.cpp" />
     <ClCompile Include="Model\Animation\AnimationResource.cpp" />
     <ClCompile Include="Model\Animation\Animator.cpp" />
-    <ClCompile Include="Model\BC7CompressShader.cpp" />
+    <ClCompile Include="Model\Cluster\QuadricErrorMetrics.cpp" />
     <ClCompile Include="Model\Collision\MeshCollision.cpp" />
     <ClCompile Include="Model\Collision\MeshCollisionLoader.cpp" />
     <ClCompile Include="Model\Collision\MeshCollisionResource.cpp" />
     <ClCompile Include="Model\Crister.cpp" />
+    <ClCompile Include="Model\Culling\ModelCullingBuffer.cpp" />
     <ClCompile Include="Model\IK\FABRIK.cpp" />
     <ClCompile Include="Model\IK\FullBodyIK.cpp" />
     <ClCompile Include="Model\IK\IKPose.cpp" />
@@ -312,17 +313,15 @@
     <ClCompile Include="Model\Material\MaterialResource.cpp" />
     <ClCompile Include="Model\Material\MaterialSortBuffer.cpp" />
     <ClCompile Include="Model\ModelCommon.cpp" />
-    <ClCompile Include="Model\ModelCullingBuffer.cpp" />
     <ClCompile Include="Model\ModelExporter.cpp" />
     <ClCompile Include="Model\ModelLoader.cpp" />
     <ClCompile Include="Model\ModelResource.cpp" />
     <ClCompile Include="Model\ModelShader.cpp" />
     <ClCompile Include="Model\Morph\MorphBlendShader.cpp" />
-    <ClCompile Include="Model\QuadricErrorMetrics.cpp" />
     <ClCompile Include="Model\Skeleton\Skeleton.cpp" />
     <ClCompile Include="Model\Skeleton\SkeletonLoader.cpp" />
     <ClCompile Include="Model\Skeleton\SkeletonResource.cpp" />
-    <ClCompile Include="Model\SkinnedPositionShader.cpp" />
+    <ClCompile Include="Model\Skin\SkinBlendShader.cpp" />
     <ClCompile Include="Model\SoftbodyMesh.cpp" />
     <ClCompile Include="Model\Transparent\OITBuffer.cpp" />
     <ClCompile Include="Movie\MovieByteStream.cpp" />
@@ -475,8 +474,6 @@
     <ClCompile Include="Renderer\VolumetricLightRenderer.cpp" />
     <ClCompile Include="Renderer\VolumetricStarRenderer.cpp" />
     <ClCompile Include="Renderer\WeatherParticleRenderer.cpp" />
-    <ClCompile Include="Resource\TextureLoader.cpp">
-    </ClCompile>
     <ClCompile Include="Shader\ShaderCache.cpp">
     </ClCompile>
     <ClCompile Include="Shader\ShaderCompiler.cpp">
@@ -485,6 +482,8 @@
     <ClCompile Include="Shape\Collider\ColliderLineShader.cpp" />
     <ClCompile Include="Shape\HUD\HUDComposeShader.cpp" />
     <ClCompile Include="Shape\Outline\OutlineShader.cpp" />
+    <ClCompile Include="Shape\Screen\FadeScreen.cpp" />
+    <ClCompile Include="Shape\Screen\SplashScreen.cpp" />
     <ClCompile Include="Sky\Skymap.cpp" />
     <ClCompile Include="Sky\SkymapCache.cpp" />
     <ClCompile Include="Sky\SkymapLoader.cpp" />
@@ -493,7 +492,6 @@
     <ClCompile Include="System\CameraSystem.cpp" />
     <ClCompile Include="System\CelestialSystem.cpp" />
     <ClCompile Include="System\ConstraintSystem.cpp" />
-    <ClCompile Include="System\FadeScreen.cpp" />
     <ClCompile Include="System\IndicesSystem.cpp">
     </ClCompile>
     <ClCompile Include="System\LightSystem.cpp">
@@ -501,12 +499,13 @@
     <ClCompile Include="System\MovieSystem.cpp" />
     <ClCompile Include="System\SceneSystem.cpp">
     </ClCompile>
-    <ClCompile Include="System\SplashScreen.cpp" />
     <ClCompile Include="System\WeatherSystem.cpp" />
     <ClCompile Include="TAAU\TaauResolveShader.cpp" />
+    <ClCompile Include="Texture\Compression\BC7CompressShader.cpp" />
     <ClCompile Include="Texture\ImageLoader.cpp" />
     <ClCompile Include="Texture\ImageResource.cpp" />
     <ClCompile Include="Texture\ImageShader.cpp" />
+    <ClCompile Include="Texture\TextureLoader.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\FoundationEngine\FoundationEngine.vcxproj">
@@ -547,7 +546,6 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </None>
     <None Include="Light\BidirectionalReflectanceDistributionFunction.hlsli" />
-    <None Include="Light\ImageBasedLighting.hlsli" />
     <None Include="Light\Light.hlsli">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
@@ -709,6 +707,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </None>
+    <None Include="Sky\IBL\ImageBasedLighting.hlsli" />
     <None Include="Sky\Sky.hlsli">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
@@ -723,54 +722,7 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <Text Include="Font\FontBillboardAS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Font\FontBillboardMS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Font\FontBillboardPS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Font\FontSpriteAS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Font\FontSpriteMS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Font\FontSpritePS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="System\SplashScreenPS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="System\SplashScreenVS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-  </ItemGroup>
-  <ItemGroup>
     <Text Include="Light\ClusterAssignCS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="System\FadeScreenPS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="Sky\BrdfLutCS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Sky\DiffuseIrradianceCS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Sky\EquirectToCubeCS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Sky\SpecularPrefilterCS.hlsl">
       <FileType>Document</FileType>
     </Text>
   </ItemGroup>
@@ -827,60 +779,6 @@
   </ItemGroup>
   <ItemGroup>
     <Text Include="Raytracing\VolumetricCloudScapes\CloudNoiseDetailBakeCS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="Sky\ProceduralSkyToCubeCS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="Movie\MovieBillboardAS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Movie\MovieBillboardMS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Movie\MovieBillboardPS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Movie\MovieFullscreenAS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Movie\MovieFullscreenMS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Movie\MovieFullscreenPS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Movie\MovieSpriteAS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Movie\MovieSpriteMS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Movie\MovieSpritePS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="Texture\ImageBillboardAS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Texture\ImageBillboardMS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Texture\ImageBillboardPS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Texture\ImageSpriteAS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Texture\ImageSpriteMS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Texture\ImageSpritePS.hlsl">
       <FileType>Document</FileType>
     </Text>
   </ItemGroup>
@@ -1041,12 +939,6 @@
     <Text Include="Model\Opaque\DeferredLightingPS.hlsl">
       <FileType>Document</FileType>
     </Text>
-    <Text Include="Model\Opaque\DepthPrepassMS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Model\Opaque\DepthPrepassPS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
     <Text Include="Model\Opaque\ModelAS.hlsl">
       <FileType>Document</FileType>
     </Text>
@@ -1064,22 +956,7 @@
     </Text>
   </ItemGroup>
   <ItemGroup>
-    <Text Include="Model\BC7CompressCS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Model\DepthResizeCS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Model\HiZBufferCS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Model\MeshletPS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
     <Text Include="Model\ModelPreviewPS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Model\SkinnedPositionCS.hlsl">
       <FileType>Document</FileType>
     </Text>
     <Text Include="Model\WireframePS.hlsl">
@@ -1128,25 +1005,6 @@
     </Text>
   </ItemGroup>
   <ItemGroup>
-    <Text Include="Model\Transparent\ModelTransparentCullingCS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="Model\Opaque\FurShellCullingCS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Model\Opaque\GeometryBufferCullingCS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Model\Opaque\ModelCullingCS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="Model\Opaque\DepthPrepassVS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
     <Text Include="Model\Opaque\FurShellVS.hlsl">
       <FileType>Document</FileType>
     </Text>
@@ -1160,31 +1018,7 @@
     </Text>
   </ItemGroup>
   <ItemGroup>
-    <Text Include="Texture\ImageBillboardSilhouetteAS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Texture\ImageBillboardSilhouetteVS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Texture\ImageSpriteSilhouetteAS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Texture\ImageSpriteSilhouetteVS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Movie\MovieBillboardSilhouetteAS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Movie\MovieBillboardSilhouetteVS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
     <Text Include="Movie\MovieSilhouettePS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Movie\MovieSpriteSilhouetteAS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Movie\MovieSpriteSilhouetteVS.hlsl">
       <FileType>Document</FileType>
     </Text>
     <Text Include="Model\ModelSilhouettePS.hlsl">
@@ -1193,25 +1027,10 @@
     <Text Include="Model\ModelSilhouetteAS.hlsl">
       <FileType>Document</FileType>
     </Text>
-    <Text Include="Model\ModelSilhouetteCullingCS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
     <Text Include="Model\Opaque\GeometryBufferAS.hlsl">
       <FileType>Document</FileType>
     </Text>
-    <Text Include="Font\FontBillboardSilhouetteAS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Font\FontBillboardSilhouetteVS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
     <Text Include="Font\FontSilhouettePS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Font\FontSpriteSilhouetteAS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Font\FontSpriteSilhouetteVS.hlsl">
       <FileType>Document</FileType>
     </Text>
     <Text Include="Texture\ImageSilhouettePS.hlsl">
@@ -1232,41 +1051,223 @@
     </Text>
   </ItemGroup>
   <ItemGroup>
-    <Text Include="Texture\ImageSpriteVS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="Texture\ImageBillboardVS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="Font\FontBillboardVS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Font\FontSpriteVS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="Movie\MovieBillboardVS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Movie\MovieFullscreenVS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Movie\MovieSpriteVS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-  </ItemGroup>
-  <ItemGroup>
     <Text Include="Environment\WeatherParticleVS.hlsl">
       <FileType>Document</FileType>
     </Text>
   </ItemGroup>
   <ItemGroup>
     <Text Include="Shape\Collider\ColliderLineVS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Model\Skin\SkinBlendCS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Model\Cluster\MeshletPS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Model\Culling\FurShellCullingCS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Model\Culling\GeometryBufferCullingCS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Model\Culling\ModelCullingCS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Model\Culling\ModelSilhouetteCullingCS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Model\Culling\ModelTransparentCullingCS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Model\Depth\DepthPrepassMS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Model\Depth\DepthPrepassPS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Model\Depth\DepthPrepassVS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Model\Depth\DepthResizeCS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Model\Depth\HiZBufferCS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Texture\Compression\BC7CompressCS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Texture\Billboard\ImageBillboardAS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Texture\Billboard\ImageBillboardMS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Texture\Billboard\ImageBillboardPS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Texture\Billboard\ImageBillboardSilhouetteAS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Texture\Billboard\ImageBillboardSilhouetteVS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Texture\Billboard\ImageBillboardVS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Texture\Sprite\ImageSpriteAS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Texture\Sprite\ImageSpriteMS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Texture\Sprite\ImageSpritePS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Texture\Sprite\ImageSpriteSilhouetteAS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Texture\Sprite\ImageSpriteSilhouetteVS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Texture\Sprite\ImageSpriteVS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Font\Billboard\FontBillboardAS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Font\Billboard\FontBillboardMS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Font\Billboard\FontBillboardPS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Font\Billboard\FontBillboardSilhouetteAS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Font\Billboard\FontBillboardSilhouetteVS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Font\Billboard\FontBillboardVS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Font\Sprite\FontSpriteAS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Font\Sprite\FontSpriteMS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Font\Sprite\FontSpritePS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Font\Sprite\FontSpriteSilhouetteAS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Font\Sprite\FontSpriteSilhouetteVS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Font\Sprite\FontSpriteVS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Movie\Billboard\MovieBillboardAS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Movie\Billboard\MovieBillboardMS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Movie\Billboard\MovieBillboardPS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Movie\Billboard\MovieBillboardSilhouetteAS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Movie\Billboard\MovieBillboardSilhouetteVS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Movie\Billboard\MovieBillboardVS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Movie\Fullscreen\MovieFullscreenAS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Movie\Fullscreen\MovieFullscreenMS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Movie\Fullscreen\MovieFullscreenPS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Movie\Fullscreen\MovieFullscreenVS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Movie\Sprite\MovieSpriteAS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Movie\Sprite\MovieSpriteMS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Movie\Sprite\MovieSpritePS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Movie\Sprite\MovieSpriteSilhouetteAS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Movie\Sprite\MovieSpriteSilhouetteVS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Movie\Sprite\MovieSpriteVS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Sky\IBL\BrdfLutCS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Sky\IBL\DiffuseIrradianceCS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Sky\IBL\SpecularPrefilterCS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Sky\Cubemap\EquirectCubemapCS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Sky\Cubemap\ProceduralCubemapCS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Shape\Screen\FadeScreenPS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Shape\Screen\SplashScreenPS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Shape\Screen\SplashScreenVS.hlsl">
       <FileType>Document</FileType>
     </Text>
   </ItemGroup>

@@ -6,7 +6,7 @@
 #include "../../Light/Light.hlsli"
 #include "../../Shader/Material.hlsli"
 #include "../../Light/Cluster.hlsli"
-#include "../../Light/ImageBasedLighting.hlsli"
+#include "../../Sky/IBL/ImageBasedLighting.hlsli"
 #include "../../Raytracing/Shadow/Shadow.hlsli"
 #include "../../Raytracing/AmbientOcclusion/AmbientOcclusion.hlsli"
 #include "../../Raytracing/SubsurfaceScattering/SubsurfaceScattering.hlsli"

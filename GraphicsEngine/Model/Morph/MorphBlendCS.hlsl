@@ -1,7 +1,7 @@
 /**
 * [EN]
 * Blends a SubMesh's morph target deltas into its RT proxy position range,
-* composing before SkinnedPositionCS's skin matrix pass (which reads
+* composing before SkinBlendCS's skin matrix pass (which reads
 * blended_positions instead of rt_positions when this SubMesh has morphs).
 * Dispatched once per SubMesh that has active morph weights this frame; the
 * caller pre-fills blended_positions with a full copy of rt_positions so
@@ -11,7 +11,7 @@
 *
 * [JP]
 * SubMesh のモーフターゲットデルタを、その RT プロキシ位置範囲へブレンド
-* する。SkinnedPositionCS のスキン行列パス(この SubMesh がモーフを持つ場合
+* する。SkinBlendCS のスキン行列パス(この SubMesh がモーフを持つ場合
 * rt_positions の代わりに blended_positions を読む)より前に合成する。
 * 今フレーム有効なモーフウェイトを持つ SubMesh ごとに1回ディスパッチする —
 * 呼び出し側は blended_positions を rt_positions の全体コピーで事前に
@@ -53,12 +53,12 @@ void main(uint3 id : SV_DispatchThreadID)
 		position += rt_morph_deltas[target * params.vertex_count_ + local_index] * morph_weights[target];
 	}
 
-	/// [EN] Same contract as SkinnedPositionCS: this feeds a BLAS build (either
-	///      directly for a morph-only instance, or through SkinnedPositionCS),
+	/// [EN] Same contract as SkinBlendCS: this feeds a BLAS build (either
+	///      directly for a morph-only instance, or through SkinBlendCS),
 	///      so a non-finite vertex here hangs DXR traversal later. Fall back to
 	///      the unmorphed base position.
-	/// [JP] SkinnedPositionCS と同じ約束: ここの出力は(モーフのみのインスタンス
-	///      なら直接、そうでなければ SkinnedPositionCS 経由で)BLAS 構築へ渡る
+	/// [JP] SkinBlendCS と同じ約束: ここの出力は(モーフのみのインスタンス
+	///      なら直接、そうでなければ SkinBlendCS 経由で)BLAS 構築へ渡る
 	///      ため、非有限な頂点は後段の DXR 走査をハングさせる。モーフ適用前の
 	///      ベース位置へフォールバックする。
 	if (!all(isfinite(position)))

@@ -21,22 +21,22 @@ namespace SeedCore
 		fontRootSignature_ = rootSignature_.GetOrCreate(device);
 
 		{
-			spritePixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Font/FontSpritePS.hlsl"));
+			spritePixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Font/Sprite/FontSpritePS.hlsl"));
 
 			PipelineStateKey psokey{};
 			memset(&psokey, 0, sizeof(psokey));
 			psokey.rootSignature_ = rootSignature_.Get(fontRootSignature_)->Get();
 			if (D3D12Check::GetLevel() == D3D12Level::D12_2)
 			{
-				spriteAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Font/FontSpriteAS.hlsl"));
-				spriteMeshShader_ = shaderCache.GetOrCreateMeshShader(String("../GraphicsEngine/Font/FontSpriteMS.hlsl"));
+				spriteAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Font/Sprite/FontSpriteAS.hlsl"));
+				spriteMeshShader_ = shaderCache.GetOrCreateMeshShader(String("../GraphicsEngine/Font/Sprite/FontSpriteMS.hlsl"));
 				psokey.amplificationShader_ = shaderCache.GetAmplificationShader(spriteAmplificationShader_)->Bytecode();
 				psokey.meshShader_ = shaderCache.GetMeshShader(spriteMeshShader_)->Bytecode();
 				psokey.primitiveTopologyType_ = D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED;
 			}
 			else
 			{
-				spriteVertexShader_ = shaderCache.GetOrCreateVertexShader(String("../GraphicsEngine/Font/FontSpriteVS.hlsl"));
+				spriteVertexShader_ = shaderCache.GetOrCreateVertexShader(String("../GraphicsEngine/Font/Sprite/FontSpriteVS.hlsl"));
 				psokey.vertexShader_ = shaderCache.GetVertexShader(spriteVertexShader_)->Bytecode();
 				psokey.primitiveTopologyType_ = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 			}
@@ -51,22 +51,22 @@ namespace SeedCore
 		}
 
 		{
-			billboardPixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Font/FontBillboardPS.hlsl"));
+			billboardPixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Font/Billboard/FontBillboardPS.hlsl"));
 
 			PipelineStateKey psokey{};
 			memset(&psokey, 0, sizeof(psokey));
 			psokey.rootSignature_ = rootSignature_.Get(fontRootSignature_)->Get();
 			if (D3D12Check::GetLevel() == D3D12Level::D12_2)
 			{
-				billboardAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Font/FontBillboardAS.hlsl"));
-				billboardMeshShader_ = shaderCache.GetOrCreateMeshShader(String("../GraphicsEngine/Font/FontBillboardMS.hlsl"));
+				billboardAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Font/Billboard/FontBillboardAS.hlsl"));
+				billboardMeshShader_ = shaderCache.GetOrCreateMeshShader(String("../GraphicsEngine/Font/Billboard/FontBillboardMS.hlsl"));
 				psokey.amplificationShader_ = shaderCache.GetAmplificationShader(billboardAmplificationShader_)->Bytecode();
 				psokey.meshShader_ = shaderCache.GetMeshShader(billboardMeshShader_)->Bytecode();
 				psokey.primitiveTopologyType_ = D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED;
 			}
 			else
 			{
-				billboardVertexShader_ = shaderCache.GetOrCreateVertexShader(String("../GraphicsEngine/Font/FontBillboardVS.hlsl"));
+				billboardVertexShader_ = shaderCache.GetOrCreateVertexShader(String("../GraphicsEngine/Font/Billboard/FontBillboardVS.hlsl"));
 				psokey.vertexShader_ = shaderCache.GetVertexShader(billboardVertexShader_)->Bytecode();
 				psokey.primitiveTopologyType_ = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 			}
@@ -93,14 +93,14 @@ namespace SeedCore
 			psokey.rootSignature_ = rootSignature_.Get(fontRootSignature_)->Get();
 			if (D3D12Check::GetLevel() == D3D12Level::D12_2)
 			{
-				spriteSilhouetteAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Font/FontSpriteSilhouetteAS.hlsl"));
+				spriteSilhouetteAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Font/Sprite/FontSpriteSilhouetteAS.hlsl"));
 				psokey.amplificationShader_ = shaderCache.GetAmplificationShader(spriteSilhouetteAmplificationShader_)->Bytecode();
 				psokey.meshShader_ = shaderCache.GetMeshShader(spriteMeshShader_)->Bytecode();
 				psokey.primitiveTopologyType_ = D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED;
 			}
 			else
 			{
-				spriteSilhouetteVertexShader_ = shaderCache.GetOrCreateVertexShader(String("../GraphicsEngine/Font/FontSpriteSilhouetteVS.hlsl"));
+				spriteSilhouetteVertexShader_ = shaderCache.GetOrCreateVertexShader(String("../GraphicsEngine/Font/Sprite/FontSpriteSilhouetteVS.hlsl"));
 				psokey.vertexShader_ = shaderCache.GetVertexShader(spriteSilhouetteVertexShader_)->Bytecode();
 				psokey.primitiveTopologyType_ = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 			}
@@ -115,13 +115,13 @@ namespace SeedCore
 
 			if (D3D12Check::GetLevel() == D3D12Level::D12_2)
 			{
-				billboardSilhouetteAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Font/FontBillboardSilhouetteAS.hlsl"));
+				billboardSilhouetteAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Font/Billboard/FontBillboardSilhouetteAS.hlsl"));
 				psokey.amplificationShader_ = shaderCache.GetAmplificationShader(billboardSilhouetteAmplificationShader_)->Bytecode();
 				psokey.meshShader_ = shaderCache.GetMeshShader(billboardMeshShader_)->Bytecode();
 			}
 			else
 			{
-				billboardSilhouetteVertexShader_ = shaderCache.GetOrCreateVertexShader(String("../GraphicsEngine/Font/FontBillboardSilhouetteVS.hlsl"));
+				billboardSilhouetteVertexShader_ = shaderCache.GetOrCreateVertexShader(String("../GraphicsEngine/Font/Billboard/FontBillboardSilhouetteVS.hlsl"));
 				psokey.vertexShader_ = shaderCache.GetVertexShader(billboardSilhouetteVertexShader_)->Bytecode();
 			}
 			pipelineStateObjectSilhouetteBillboard_ = pipelineStateObject_.GetOrCreate(device, psokey);

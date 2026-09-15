@@ -5,7 +5,7 @@ static const float CLOUD_PI = 3.14159265358979;
 
 /**
 * Sky + cloud tuning constant buffer, read by VolumetricCloudScapesRT.hlsl,
-* DeferredLightingPS.hlsl, ProceduralSkyToCubeCS.hlsl and
+* DeferredLightingPS.hlsl, ProceduralCubemapCS.hlsl and
 * VolumetricLightScatteringRT.hlsl via
 * constant_indices.cloud_index_.
 * Must match the C++ mirror in Renderer/VolumetricCloudScapesRenderer.h
@@ -308,7 +308,7 @@ bool CloudLayerInterval(float3 origin, float3 direction, VolumetricCloudScapesRa
 /**
 * Cloud density field: world position -> extinction. Shared by the screen-space
 * raymarch (VolumetricCloudScapesRT.hlsl), the environment cube bake
-* (ProceduralSkyToCubeCS.hlsl - that's how clouds reach IBL and reflections)
+* (ProceduralCubemapCS.hlsl - that's how clouds reach IBL and reflections)
 * and the godray pass (VolumetricLightScatteringRT.hlsl). The noise volumes are
 * the pre-baked tileable Texture3Ds, wrap-sampled.
 *

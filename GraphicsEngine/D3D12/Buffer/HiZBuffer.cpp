@@ -110,7 +110,7 @@ namespace SeedCore
 		Handle<RootSignature> rootSignatureHandle = rootSignature.GetOrCreate(device);
 		rootSignature_ = rootSignature.Get(rootSignatureHandle);
 
-		buildShader_ = shaderCache.GetOrCreateComputeShader(String("../GraphicsEngine/Model/HiZBufferCS.hlsl"));
+		buildShader_ = shaderCache.GetOrCreateComputeShader(String("../GraphicsEngine/Model/Depth/HiZBufferCS.hlsl"));
 
 		PipelineStateKey psokey{};
 		memset(&psokey, 0, sizeof(psokey));

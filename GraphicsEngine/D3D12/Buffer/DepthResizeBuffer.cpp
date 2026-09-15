@@ -83,7 +83,7 @@ namespace SeedCore
 		Handle<RootSignature> rootSignatureHandle = rootSignature.GetOrCreate(device);
 		rootSignature_ = rootSignature.Get(rootSignatureHandle);
 
-		resizeShader_ = shaderCache.GetOrCreateComputeShader(String("../GraphicsEngine/Model/DepthResizeCS.hlsl"));
+		resizeShader_ = shaderCache.GetOrCreateComputeShader(String("../GraphicsEngine/Model/Depth/DepthResizeCS.hlsl"));
 
 		PipelineStateKey psokey{};
 		memset(&psokey, 0, sizeof(psokey));

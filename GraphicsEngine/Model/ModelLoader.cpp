@@ -1,5 +1,5 @@
 #include <GraphicsEngine/Model/ModelLoader.h>
-#include <GraphicsEngine/Model/QuadricErrorMetrics.h>
+#include <GraphicsEngine/Model/Cluster/QuadricErrorMetrics.h>
 #include <GraphicsEngine/D3D12/Descriptor/BindlessHeap.h>
 #include <FoundationEngine/Resource/LoaderSystem.h>
 #include <FoundationEngine/Serialization/Binary/BinaryArchive.h>

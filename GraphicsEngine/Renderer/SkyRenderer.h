@@ -186,11 +186,11 @@ namespace SeedCore
 		RootSignature* rootSignature_ = nullptr;
 		Handle<RootSignature> rootSignatureHandle_;
 
-		Microsoft::WRL::ComPtr<ID3D12PipelineState> equirectToCubePipeline_;
+		Microsoft::WRL::ComPtr<ID3D12PipelineState> equirectCubemapPipeline_;
 		Microsoft::WRL::ComPtr<ID3D12PipelineState> diffuseIrradiancePipeline_;
 		Microsoft::WRL::ComPtr<ID3D12PipelineState> specularPrefilterPipeline_;
 		Microsoft::WRL::ComPtr<ID3D12PipelineState> brdfLookupTablePipeline_;
-		Microsoft::WRL::ComPtr<ID3D12PipelineState> proceduralSkyToCubePipeline_;
+		Microsoft::WRL::ComPtr<ID3D12PipelineState> proceduralCubemapPipeline_;
 
 		DynamicArray<ResourcePtr<ConstantBuffer<SkyDispatchBuffer>>> constantBuffers_;
 		Uint dispatchCursor_ = 0;

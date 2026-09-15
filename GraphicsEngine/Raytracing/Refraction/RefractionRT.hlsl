@@ -7,7 +7,7 @@
 #include "../../Shader/Normal.hlsli"
 #include "../../Shader/Sampler.hlsli"
 #include "../../Shader/Vertex.hlsli"
-#include "../../Light/ImageBasedLighting.hlsli"
+#include "../../Sky/IBL/ImageBasedLighting.hlsli"
 #include "../VolumetricCloudScapes/VolumetricCloudScapes.hlsli"
 #include "../Reflection/Reflection.hlsli"
 #include "../../Sky/Sky.hlsli"

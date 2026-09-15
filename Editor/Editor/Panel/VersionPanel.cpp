@@ -2,7 +2,7 @@
 #include <Editor/Editor/EditorContext.h>
 #include <Editor/Editor/ImGui/ImGuiRenderer.h>
 #include <GraphicsEngine/D3D12/Descriptor/DescriptorHeap.h>
-#include <GraphicsEngine/Resource/TextureLoader.h>
+#include <GraphicsEngine/Texture/TextureLoader.h>
 #include <GraphicsEngine/D3D12/Context/D3D12CommandQueue.h>
 #include <GraphicsEngine/D3D12/Context/D3D12Adapter.h>
 #include <GraphicsEngine/Graphics.h>

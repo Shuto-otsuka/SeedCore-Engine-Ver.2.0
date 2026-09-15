@@ -24,11 +24,11 @@ namespace SeedCore
 		rootSignatureHandle_ = rootSignature.GetOrCreate(device);
 		rootSignature_ = rootSignature.Get(rootSignatureHandle_);
 
-		equirectToCubePipeline_ = CreateComputePipeline(device, shaderCache, pipelineStateObject, String("../GraphicsEngine/Sky/EquirectToCubeCS.hlsl"));
-		diffuseIrradiancePipeline_ = CreateComputePipeline(device, shaderCache, pipelineStateObject, String("../GraphicsEngine/Sky/DiffuseIrradianceCS.hlsl"));
-		specularPrefilterPipeline_ = CreateComputePipeline(device, shaderCache, pipelineStateObject, String("../GraphicsEngine/Sky/SpecularPrefilterCS.hlsl"));
-		brdfLookupTablePipeline_ = CreateComputePipeline(device, shaderCache, pipelineStateObject, String("../GraphicsEngine/Sky/BrdfLutCS.hlsl"));
-		proceduralSkyToCubePipeline_ = CreateComputePipeline(device, shaderCache, pipelineStateObject, String("../GraphicsEngine/Sky/ProceduralSkyToCubeCS.hlsl"));
+		equirectCubemapPipeline_ = CreateComputePipeline(device, shaderCache, pipelineStateObject, String("../GraphicsEngine/Sky/Cubemap/EquirectCubemapCS.hlsl"));
+		diffuseIrradiancePipeline_ = CreateComputePipeline(device, shaderCache, pipelineStateObject, String("../GraphicsEngine/Sky/IBL/DiffuseIrradianceCS.hlsl"));
+		specularPrefilterPipeline_ = CreateComputePipeline(device, shaderCache, pipelineStateObject, String("../GraphicsEngine/Sky/IBL/SpecularPrefilterCS.hlsl"));
+		brdfLookupTablePipeline_ = CreateComputePipeline(device, shaderCache, pipelineStateObject, String("../GraphicsEngine/Sky/IBL/BrdfLutCS.hlsl"));
+		proceduralCubemapPipeline_ = CreateComputePipeline(device, shaderCache, pipelineStateObject, String("../GraphicsEngine/Sky/Cubemap/ProceduralCubemapCS.hlsl"));
 
 		constantBuffers_.reserve(maxGenerateDispatches_);
 		for (Uint dispatchIndex = 0; dispatchIndex < maxGenerateDispatches_; dispatchIndex++)
@@ -347,7 +347,7 @@ namespace SeedCore
 
 		/// [JP] 解析的な空+太陽を environment の6面へ描く。太陽は
 		///      constant_indices 経由の GetDirectionalLightConstantBuffer()
-		///      から引くため(ProceduralSkyToCubeCS.hlsl 参照)、source_index_
+		///      から引くため(ProceduralCubemapCS.hlsl 参照)、source_index_
 		///      はこのパスでは未使用。
 		Transition(cmdList, environmentResource_.Get(), readState, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 		{
@@ -356,9 +356,9 @@ namespace SeedCore
 			data.faceSize_ = environmentSize_;
 
 			/// [JP] roughness_ はこのパスでは prefilter 用として未使用なので、
-			///      雲の風スクロール時刻を転用して渡す(ProceduralSkyToCubeCS 参照)。
+			///      雲の風スクロール時刻を転用して渡す(ProceduralCubemapCS 参照)。
 			data.roughness_ = proceduralSkyTime_;
-			Dispatch(cmdList, heap, proceduralSkyToCubePipeline_.Get(), data, (environmentSize_ + 7) / 8, (environmentSize_ + 7) / 8, 6, addresses);
+			Dispatch(cmdList, heap, proceduralCubemapPipeline_.Get(), data, (environmentSize_ + 7) / 8, (environmentSize_ + 7) / 8, 6, addresses);
 		}
 		UnorderedAccessBarrier(cmdList, environmentResource_.Get());
 		Transition(cmdList, environmentResource_.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, readState);
@@ -378,7 +378,7 @@ namespace SeedCore
 			data.sourceIndex_ = sourceEquirectShaderResourceViewIndex_;
 			data.destIndex_ = environmentUnorderedAccessViewIndices_[0];
 			data.faceSize_ = environmentSize_;
-			Dispatch(cmdList, heap, equirectToCubePipeline_.Get(), data, (environmentSize_ + 7) / 8, (environmentSize_ + 7) / 8, 6, addresses);
+			Dispatch(cmdList, heap, equirectCubemapPipeline_.Get(), data, (environmentSize_ + 7) / 8, (environmentSize_ + 7) / 8, 6, addresses);
 		}
 		UnorderedAccessBarrier(cmdList, environmentResource_.Get());
 		Transition(cmdList, environmentResource_.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, readState);

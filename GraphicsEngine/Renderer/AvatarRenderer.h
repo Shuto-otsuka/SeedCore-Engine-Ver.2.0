@@ -5,7 +5,7 @@
 #include <GraphicsEngine/D3D12/Descriptor/DescriptorHeap.h>
 #include <GraphicsEngine/D3D12/Buffer/FrameBuffer.h>
 #include <GraphicsEngine/Model/ModelShader.h>
-#include <GraphicsEngine/Model/ModelCullingBuffer.h>
+#include <GraphicsEngine/Model/Culling/ModelCullingBuffer.h>
 #include <GraphicsEngine/Model/ModelRecord.h>
 #include <GraphicsEngine/System/SceneSystem.h>
 #include <GraphicsEngine/System/IndicesSystem.h>

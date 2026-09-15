@@ -55,7 +55,7 @@ namespace SeedCore
 		weatherParticleRenderer_->Create(device, bindlessHeap, shaderCache, constantIndicesSystem, shaderResourceIndicesSystem, unorderedAccessIndicesSystem);
 		volumetricLightRenderer_->Create(device, bindlessHeap, shaderCache, constantIndicesSystem, shaderResourceIndicesSystem, unorderedAccessIndicesSystem, width, height);
 
-		skinnedPositionShader_.Create(shaderCache, device);
+		skinBlendShader_.Create(shaderCache, device);
 		morphBlendShader_.Create(shaderCache, device);
 	}
 
@@ -795,7 +795,7 @@ namespace SeedCore
 				skinnedBuffer.capacity_ = vertexCount;
 			}
 
-			struct SkinnedPositionParams
+			struct SkinBlendParams
 			{
 				Uint32 vertexCount_;
 				Uint32 boneOffset_;
@@ -803,7 +803,7 @@ namespace SeedCore
 				Uint32 pad1_;
 			};
 
-			SkinnedPositionParams params{ vertexCount, pending.boneOffset_, 0, 0 };
+			SkinBlendParams params{ vertexCount, pending.boneOffset_, 0, 0 };
 
 			/// [EN] Morph composes before skin: if this instance also has
 			///      active morph weights, its blended position buffer (built
@@ -825,8 +825,8 @@ namespace SeedCore
 				}
 			}
 
-			commandList4->SetPipelineState(skinnedPositionShader_.GetPipelineState());
-			commandList4->SetComputeRootSignature(skinnedPositionShader_.GetRootSignature());
+			commandList4->SetPipelineState(skinBlendShader_.GetPipelineState());
+			commandList4->SetComputeRootSignature(skinBlendShader_.GetRootSignature());
 			commandList4->SetComputeRoot32BitConstants(0, 4, &params, 0);
 			commandList4->SetComputeRootShaderResourceView(1, skinInputPositions);
 			commandList4->SetComputeRootShaderResourceView(2, crister->ProxySkinVertexBufferAddress());

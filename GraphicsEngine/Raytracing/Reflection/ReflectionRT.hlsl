@@ -9,7 +9,7 @@
 #include "../../Shader/Denoiser.hlsli"
 #include "../../Shader/UnorderedAccesses.hlsli"
 #include "../../Shader/Vertex.hlsli"
-#include "../../Light/ImageBasedLighting.hlsli"
+#include "../../Sky/IBL/ImageBasedLighting.hlsli"
 #include "../VolumetricCloudScapes/VolumetricCloudScapes.hlsli"
 #include "../../Sky/Sky.hlsli"
 
@@ -280,11 +280,11 @@ void ReflectionMiss(inout ReflectionPayload payload)
 		{
 			/// [EN] Procedural-sky mode: sample mip0 of the prefiltered cube
 			///      that already has the clouds baked in
-			///      (ProceduralSkyToCubeCS bakes then convolves it). That's
+			///      (ProceduralCubemapCS bakes then convolves it). That's
 			///      roughly 128px, so even a mirror reflection is slightly
 			///      soft, but having the clouds show up matters more.
 			/// [JP] プロシージャル空モード: 雲まで焼き込み済みの prefilter
-			///      キューブ(ProceduralSkyToCubeCS でベイク→畳み込み)の
+			///      キューブ(ProceduralCubemapCS でベイク→畳み込み)の
 			///      mip0 をサンプルする。128px 相当なので鏡面でもわずかに
 			///      柔らかいが、雲が映る方が重要。
 			TextureCube<float4> prefiltered = ResourceDescriptorHeap[shader_resource_indices.sky_.specular_prefiltered_index_];

@@ -21,22 +21,22 @@ namespace SeedCore
 		movieRootSignature_ = rootSignature_.GetOrCreate(device);
 
 		{
-			spritePixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Movie/MovieSpritePS.hlsl"));
+			spritePixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Movie/Sprite/MovieSpritePS.hlsl"));
 
 			PipelineStateKey psokey{};
 			memset(&psokey, 0, sizeof(psokey));
 			psokey.rootSignature_ = rootSignature_.Get(movieRootSignature_)->Get();
 			if (D3D12Check::GetLevel() == D3D12Level::D12_2)
 			{
-				spriteAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Movie/MovieSpriteAS.hlsl"));
-				spriteMeshShader_ = shaderCache.GetOrCreateMeshShader(String("../GraphicsEngine/Movie/MovieSpriteMS.hlsl"));
+				spriteAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Movie/Sprite/MovieSpriteAS.hlsl"));
+				spriteMeshShader_ = shaderCache.GetOrCreateMeshShader(String("../GraphicsEngine/Movie/Sprite/MovieSpriteMS.hlsl"));
 				psokey.amplificationShader_ = shaderCache.GetAmplificationShader(spriteAmplificationShader_)->Bytecode();
 				psokey.meshShader_ = shaderCache.GetMeshShader(spriteMeshShader_)->Bytecode();
 				psokey.primitiveTopologyType_ = D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED;
 			}
 			else
 			{
-				spriteVertexShader_ = shaderCache.GetOrCreateVertexShader(String("../GraphicsEngine/Movie/MovieSpriteVS.hlsl"));
+				spriteVertexShader_ = shaderCache.GetOrCreateVertexShader(String("../GraphicsEngine/Movie/Sprite/MovieSpriteVS.hlsl"));
 				psokey.vertexShader_ = shaderCache.GetVertexShader(spriteVertexShader_)->Bytecode();
 				psokey.primitiveTopologyType_ = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 			}
@@ -51,22 +51,22 @@ namespace SeedCore
 		}
 
 		{
-			billboardPixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Movie/MovieBillboardPS.hlsl"));
+			billboardPixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Movie/Billboard/MovieBillboardPS.hlsl"));
 
 			PipelineStateKey psokey{};
 			memset(&psokey, 0, sizeof(psokey));
 			psokey.rootSignature_ = rootSignature_.Get(movieRootSignature_)->Get();
 			if (D3D12Check::GetLevel() == D3D12Level::D12_2)
 			{
-				billboardAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Movie/MovieBillboardAS.hlsl"));
-				billboardMeshShader_ = shaderCache.GetOrCreateMeshShader(String("../GraphicsEngine/Movie/MovieBillboardMS.hlsl"));
+				billboardAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Movie/Billboard/MovieBillboardAS.hlsl"));
+				billboardMeshShader_ = shaderCache.GetOrCreateMeshShader(String("../GraphicsEngine/Movie/Billboard/MovieBillboardMS.hlsl"));
 				psokey.amplificationShader_ = shaderCache.GetAmplificationShader(billboardAmplificationShader_)->Bytecode();
 				psokey.meshShader_ = shaderCache.GetMeshShader(billboardMeshShader_)->Bytecode();
 				psokey.primitiveTopologyType_ = D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED;
 			}
 			else
 			{
-				billboardVertexShader_ = shaderCache.GetOrCreateVertexShader(String("../GraphicsEngine/Movie/MovieBillboardVS.hlsl"));
+				billboardVertexShader_ = shaderCache.GetOrCreateVertexShader(String("../GraphicsEngine/Movie/Billboard/MovieBillboardVS.hlsl"));
 				psokey.vertexShader_ = shaderCache.GetVertexShader(billboardVertexShader_)->Bytecode();
 				psokey.primitiveTopologyType_ = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 			}
@@ -81,22 +81,22 @@ namespace SeedCore
 		}
 
 		{
-			fullscreenPixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Movie/MovieFullscreenPS.hlsl"));
+			fullscreenPixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Movie/Fullscreen/MovieFullscreenPS.hlsl"));
 
 			PipelineStateKey psokey{};
 			memset(&psokey, 0, sizeof(psokey));
 			psokey.rootSignature_ = rootSignature_.Get(movieRootSignature_)->Get();
 			if (D3D12Check::GetLevel() == D3D12Level::D12_2)
 			{
-				fullscreenAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Movie/MovieFullscreenAS.hlsl"));
-				fullscreenMeshShader_ = shaderCache.GetOrCreateMeshShader(String("../GraphicsEngine/Movie/MovieFullscreenMS.hlsl"));
+				fullscreenAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Movie/Fullscreen/MovieFullscreenAS.hlsl"));
+				fullscreenMeshShader_ = shaderCache.GetOrCreateMeshShader(String("../GraphicsEngine/Movie/Fullscreen/MovieFullscreenMS.hlsl"));
 				psokey.amplificationShader_ = shaderCache.GetAmplificationShader(fullscreenAmplificationShader_)->Bytecode();
 				psokey.meshShader_ = shaderCache.GetMeshShader(fullscreenMeshShader_)->Bytecode();
 				psokey.primitiveTopologyType_ = D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED;
 			}
 			else
 			{
-				fullscreenVertexShader_ = shaderCache.GetOrCreateVertexShader(String("../GraphicsEngine/Movie/MovieFullscreenVS.hlsl"));
+				fullscreenVertexShader_ = shaderCache.GetOrCreateVertexShader(String("../GraphicsEngine/Movie/Fullscreen/MovieFullscreenVS.hlsl"));
 				psokey.vertexShader_ = shaderCache.GetVertexShader(fullscreenVertexShader_)->Bytecode();
 				psokey.primitiveTopologyType_ = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 			}
@@ -118,14 +118,14 @@ namespace SeedCore
 			psokey.rootSignature_ = rootSignature_.Get(movieRootSignature_)->Get();
 			if (D3D12Check::GetLevel() == D3D12Level::D12_2)
 			{
-				spriteSilhouetteAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Movie/MovieSpriteSilhouetteAS.hlsl"));
+				spriteSilhouetteAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Movie/Sprite/MovieSpriteSilhouetteAS.hlsl"));
 				psokey.amplificationShader_ = shaderCache.GetAmplificationShader(spriteSilhouetteAmplificationShader_)->Bytecode();
 				psokey.meshShader_ = shaderCache.GetMeshShader(spriteMeshShader_)->Bytecode();
 				psokey.primitiveTopologyType_ = D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED;
 			}
 			else
 			{
-				spriteSilhouetteVertexShader_ = shaderCache.GetOrCreateVertexShader(String("../GraphicsEngine/Movie/MovieSpriteSilhouetteVS.hlsl"));
+				spriteSilhouetteVertexShader_ = shaderCache.GetOrCreateVertexShader(String("../GraphicsEngine/Movie/Sprite/MovieSpriteSilhouetteVS.hlsl"));
 				psokey.vertexShader_ = shaderCache.GetVertexShader(spriteSilhouetteVertexShader_)->Bytecode();
 				psokey.primitiveTopologyType_ = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 			}
@@ -140,13 +140,13 @@ namespace SeedCore
 
 			if (D3D12Check::GetLevel() == D3D12Level::D12_2)
 			{
-				billboardSilhouetteAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Movie/MovieBillboardSilhouetteAS.hlsl"));
+				billboardSilhouetteAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Movie/Billboard/MovieBillboardSilhouetteAS.hlsl"));
 				psokey.amplificationShader_ = shaderCache.GetAmplificationShader(billboardSilhouetteAmplificationShader_)->Bytecode();
 				psokey.meshShader_ = shaderCache.GetMeshShader(billboardMeshShader_)->Bytecode();
 			}
 			else
 			{
-				billboardSilhouetteVertexShader_ = shaderCache.GetOrCreateVertexShader(String("../GraphicsEngine/Movie/MovieBillboardSilhouetteVS.hlsl"));
+				billboardSilhouetteVertexShader_ = shaderCache.GetOrCreateVertexShader(String("../GraphicsEngine/Movie/Billboard/MovieBillboardSilhouetteVS.hlsl"));
 				psokey.vertexShader_ = shaderCache.GetVertexShader(billboardSilhouetteVertexShader_)->Bytecode();
 			}
 			pipelineStateObjectSilhouetteBillboard_ = pipelineStateObject_.GetOrCreate(device, psokey);

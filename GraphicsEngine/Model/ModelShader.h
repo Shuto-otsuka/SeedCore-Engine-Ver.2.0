@@ -238,7 +238,7 @@ namespace SeedCore
 		Handle<Microsoft::WRL::ComPtr<ID3D12PipelineState>> pipelineStateObjectMeshletSkeletal_;
 		Handle<Microsoft::WRL::ComPtr<ID3D12PipelineState>> pipelineStateObjectMeshletSkeletalDoubleSided_;
 
-		Handle<AmplificationShader> selectionAmplificationShader_;
+		Handle<AmplificationShader> silhouetteAmplificationShader_;
 		Handle<PixelShader> silhouettePixelShader_;
 		Handle<Microsoft::WRL::ComPtr<ID3D12PipelineState>> pipelineStateObjectSilhouetteStatic_;
 		Handle<Microsoft::WRL::ComPtr<ID3D12PipelineState>> pipelineStateObjectSilhouetteStaticDoubleSided_;

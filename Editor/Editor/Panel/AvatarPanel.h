@@ -4,7 +4,7 @@
 #include <GraphicsEngine/Avatar/Human/HumanCharacterEvaluator.h>
 #include <GraphicsEngine/Avatar/Animal/AnimalCharacterModel.h>
 #include <GraphicsEngine/Avatar/Animal/AnimalCharacterEvaluator.h>
-#include <GraphicsEngine/Resource/TextureLoader.h>
+#include <GraphicsEngine/Texture/TextureLoader.h>
 
 namespace SeedCore
 {

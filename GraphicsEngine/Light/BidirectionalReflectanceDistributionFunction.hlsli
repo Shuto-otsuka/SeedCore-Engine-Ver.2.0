@@ -1,7 +1,7 @@
 #ifndef __BIDIRECTIONAL_REFLECTANCE_DISTRIBUTION_FUNCTION_HLSL__
 #define __BIDIRECTIONAL_REFLECTANCE_DISTRIBUTION_FUNCTION_HLSL__
 
-#include "ImageBasedLighting.hlsli"
+#include "../Sky/IBL/ImageBasedLighting.hlsli"
 
 float3 FresnelSchlick(float3 f0, float3 f90, float view_dot_half)
 {

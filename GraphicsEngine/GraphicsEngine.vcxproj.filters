@@ -31,9 +31,6 @@
     <Filter Include="System">
       <UniqueIdentifier>{80937562-0044-4069-a99f-95c23f89795b}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Resource">
-      <UniqueIdentifier>{2c69a3b4-b7a8-4a4b-9208-34f4149d82f9}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Camera">
       <UniqueIdentifier>{97929512-9469-45fa-a1c7-298a35baef4d}</UniqueIdentifier>
     </Filter>
@@ -169,17 +166,62 @@
     <Filter Include="Model\Skeleton">
       <UniqueIdentifier>{9dff901e-71c5-4b7f-bf3b-8528a90b6fe8}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Avater">
-      <UniqueIdentifier>{2c696a44-0c81-485f-b77e-ea1f89f30465}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Avater\Human">
-      <UniqueIdentifier>{5cf60aa6-6af2-42a9-906f-9853ea26d8ab}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Avater\Animal">
-      <UniqueIdentifier>{22df3da3-1f91-4cc4-ac18-b0deb0a4e5fa}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Effect\Zephyr\Module">
       <UniqueIdentifier>{5bf8e8b5-4b4d-49f1-b160-f07bdb69f1e3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Model\Skin">
+      <UniqueIdentifier>{89e4069c-b0c7-4fbc-830d-ff947b9a7703}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Model\Cluster">
+      <UniqueIdentifier>{0b33f1a8-c273-42ea-af40-6fb523ed0a26}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Model\Depth">
+      <UniqueIdentifier>{e6dbe828-904e-4def-adb5-069b52183002}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Model\Culling">
+      <UniqueIdentifier>{c76c08b4-e06c-447b-ab5e-bd5efac6db36}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Texture\Compression">
+      <UniqueIdentifier>{c5fd277a-0c51-4d14-8d8b-63f052c51210}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Texture\Sprite">
+      <UniqueIdentifier>{b8bc3169-4b24-43c8-bbec-63fa8f47a8ff}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Texture\Billboard">
+      <UniqueIdentifier>{d0b1ee2c-8512-4291-bfe3-852d6871529f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Font\Sprite">
+      <UniqueIdentifier>{0fcb83da-5ec8-487c-8dbf-12e4341b419f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Font\Billboard">
+      <UniqueIdentifier>{6bcfbe35-7acc-470d-8e07-94553d674059}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Movie\Sprite">
+      <UniqueIdentifier>{842b63c2-9e29-48ee-b72c-db6f7ff1fbe2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Movie\Billboard">
+      <UniqueIdentifier>{55964158-b661-49aa-8abf-23c6ba137b8c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Movie\Fullscreen">
+      <UniqueIdentifier>{90aa1224-0301-45fc-9030-e1ca7d725f4e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Avatar">
+      <UniqueIdentifier>{2c696a44-0c81-485f-b77e-ea1f89f30465}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Avatar\Human">
+      <UniqueIdentifier>{5cf60aa6-6af2-42a9-906f-9853ea26d8ab}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Avatar\Animal">
+      <UniqueIdentifier>{22df3da3-1f91-4cc4-ac18-b0deb0a4e5fa}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Sky\IBL">
+      <UniqueIdentifier>{2132ce37-828f-406b-8d49-5f3e2b7b7c26}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Sky\Cubemap">
+      <UniqueIdentifier>{8177c022-ed1b-4820-b6e4-1c73308afb7a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shape\Screen">
+      <UniqueIdentifier>{8ded964f-aae8-4f96-847e-1c1f23de5944}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -289,9 +331,6 @@
     <ClInclude Include="D3D12\PipelineState\SamplerState.h">
       <Filter>D3D12\PipelineState</Filter>
     </ClInclude>
-    <ClInclude Include="Resource\TextureLoader.h">
-      <Filter>Resource</Filter>
-    </ClInclude>
     <ClInclude Include="DLSS\DlssManager.h">
       <Filter>DLSS</Filter>
     </ClInclude>
@@ -373,9 +412,6 @@
     <ClInclude Include="System\CameraSystem.h">
       <Filter>System</Filter>
     </ClInclude>
-    <ClInclude Include="System\SplashScreen.h">
-      <Filter>System</Filter>
-    </ClInclude>
     <ClInclude Include="Renderer\ModelRenderer.h">
       <Filter>Renderer</Filter>
     </ClInclude>
@@ -390,9 +426,6 @@
     </ClInclude>
     <ClInclude Include="Camera\CanvasCamera.h">
       <Filter>Camera</Filter>
-    </ClInclude>
-    <ClInclude Include="System\FadeScreen.h">
-      <Filter>System</Filter>
     </ClInclude>
     <ClInclude Include="Light\SkyLight.h">
       <Filter>Light</Filter>
@@ -724,9 +757,6 @@
     <ClInclude Include="Model\Transparent\OITBuffer.h">
       <Filter>Model\Transparent</Filter>
     </ClInclude>
-    <ClInclude Include="Model\BC7CompressShader.h">
-      <Filter>Model</Filter>
-    </ClInclude>
     <ClInclude Include="Model\Crister.h">
       <Filter>Model</Filter>
     </ClInclude>
@@ -740,12 +770,6 @@
       <Filter>Model</Filter>
     </ClInclude>
     <ClInclude Include="Model\ModelShader.h">
-      <Filter>Model</Filter>
-    </ClInclude>
-    <ClInclude Include="Model\QuadricErrorMetrics.h">
-      <Filter>Model</Filter>
-    </ClInclude>
-    <ClInclude Include="Model\SkinnedPositionShader.h">
       <Filter>Model</Filter>
     </ClInclude>
     <ClInclude Include="Model\SoftbodyMesh.h">
@@ -851,28 +875,28 @@
       <Filter>Model</Filter>
     </ClInclude>
     <ClInclude Include="Avatar\Human\HumanCharacterModel.h">
-      <Filter>Avater\Human</Filter>
+      <Filter>Avatar\Human</Filter>
     </ClInclude>
     <ClInclude Include="Avatar\Human\HumanCharacterEvaluator.h">
-      <Filter>Avater\Human</Filter>
+      <Filter>Avatar\Human</Filter>
     </ClInclude>
     <ClInclude Include="Avatar\Human\HumanCharacterConverter.h">
-      <Filter>Avater\Human</Filter>
+      <Filter>Avatar\Human</Filter>
     </ClInclude>
     <ClInclude Include="Avatar\AvatarMesh.h">
-      <Filter>Avater</Filter>
+      <Filter>Avatar</Filter>
     </ClInclude>
     <ClInclude Include="Renderer\AvatarRenderer.h">
       <Filter>Renderer</Filter>
     </ClInclude>
     <ClInclude Include="Avatar\Animal\AnimalCharacterConverter.h">
-      <Filter>Avater\Animal</Filter>
+      <Filter>Avatar\Animal</Filter>
     </ClInclude>
     <ClInclude Include="Avatar\Animal\AnimalCharacterEvaluator.h">
-      <Filter>Avater\Animal</Filter>
+      <Filter>Avatar\Animal</Filter>
     </ClInclude>
     <ClInclude Include="Avatar\Animal\AnimalCharacterModel.h">
-      <Filter>Avater\Animal</Filter>
+      <Filter>Avatar\Animal</Filter>
     </ClInclude>
     <ClInclude Include="Effect\Zephyr\ZephyrModuleRegistry.h">
       <Filter>Effect\Zephyr</Filter>
@@ -889,8 +913,26 @@
     <ClInclude Include="D3D12\Context\D3D12Check.h">
       <Filter>D3D12\Context</Filter>
     </ClInclude>
-    <ClInclude Include="Model\ModelCullingBuffer.h">
-      <Filter>Model</Filter>
+    <ClInclude Include="Model\Skin\SkinBlendShader.h">
+      <Filter>Model\Skin</Filter>
+    </ClInclude>
+    <ClInclude Include="Model\Cluster\QuadricErrorMetrics.h">
+      <Filter>Model\Cluster</Filter>
+    </ClInclude>
+    <ClInclude Include="Model\Culling\ModelCullingBuffer.h">
+      <Filter>Model\Culling</Filter>
+    </ClInclude>
+    <ClInclude Include="Texture\Compression\BC7CompressShader.h">
+      <Filter>Texture\Compression</Filter>
+    </ClInclude>
+    <ClInclude Include="Shape\Screen\FadeScreen.h">
+      <Filter>Shape\Screen</Filter>
+    </ClInclude>
+    <ClInclude Include="Shape\Screen\SplashScreen.h">
+      <Filter>Shape\Screen</Filter>
+    </ClInclude>
+    <ClInclude Include="Texture\TextureLoader.h">
+      <Filter>Texture</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -982,9 +1024,6 @@
     <ClCompile Include="D3D12\PipelineState\SamplerState.cpp">
       <Filter>D3D12\PipelineState</Filter>
     </ClCompile>
-    <ClCompile Include="Resource\TextureLoader.cpp">
-      <Filter>Resource</Filter>
-    </ClCompile>
     <ClCompile Include="DLSS\DlssManager.cpp">
       <Filter>DLSS</Filter>
     </ClCompile>
@@ -1049,9 +1088,6 @@
     <ClCompile Include="System\CameraSystem.cpp">
       <Filter>System</Filter>
     </ClCompile>
-    <ClCompile Include="System\SplashScreen.cpp">
-      <Filter>System</Filter>
-    </ClCompile>
     <ClCompile Include="Renderer\ModelRenderer.cpp">
       <Filter>Renderer</Filter>
     </ClCompile>
@@ -1063,9 +1099,6 @@
     </ClCompile>
     <ClCompile Include="Camera\CanvasCamera.cpp">
       <Filter>Camera</Filter>
-    </ClCompile>
-    <ClCompile Include="System\FadeScreen.cpp">
-      <Filter>System</Filter>
     </ClCompile>
     <ClCompile Include="Renderer\RaytracingRenderer.cpp">
       <Filter>Renderer</Filter>
@@ -1343,9 +1376,6 @@
     <ClCompile Include="Model\Transparent\OITBuffer.cpp">
       <Filter>Model\Transparent</Filter>
     </ClCompile>
-    <ClCompile Include="Model\BC7CompressShader.cpp">
-      <Filter>Model</Filter>
-    </ClCompile>
     <ClCompile Include="Model\Crister.cpp">
       <Filter>Model</Filter>
     </ClCompile>
@@ -1359,12 +1389,6 @@
       <Filter>Model</Filter>
     </ClCompile>
     <ClCompile Include="Model\ModelShader.cpp">
-      <Filter>Model</Filter>
-    </ClCompile>
-    <ClCompile Include="Model\QuadricErrorMetrics.cpp">
-      <Filter>Model</Filter>
-    </ClCompile>
-    <ClCompile Include="Model\SkinnedPositionShader.cpp">
       <Filter>Model</Filter>
     </ClCompile>
     <ClCompile Include="Model\SoftbodyMesh.cpp">
@@ -1455,28 +1479,28 @@
       <Filter>Model</Filter>
     </ClCompile>
     <ClCompile Include="Avatar\Human\HumanCharacterModel.cpp">
-      <Filter>Avater\Human</Filter>
+      <Filter>Avatar\Human</Filter>
     </ClCompile>
     <ClCompile Include="Avatar\Human\HumanCharacterEvaluator.cpp">
-      <Filter>Avater\Human</Filter>
+      <Filter>Avatar\Human</Filter>
     </ClCompile>
     <ClCompile Include="Avatar\Human\HumanCharacterConverter.cpp">
-      <Filter>Avater\Human</Filter>
+      <Filter>Avatar\Human</Filter>
     </ClCompile>
     <ClCompile Include="Avatar\AvatarMesh.cpp">
-      <Filter>Avater</Filter>
+      <Filter>Avatar</Filter>
     </ClCompile>
     <ClCompile Include="Renderer\AvatarRenderer.cpp">
       <Filter>Renderer</Filter>
     </ClCompile>
     <ClCompile Include="Avatar\Animal\AnimalCharacterConverter.cpp">
-      <Filter>Avater\Animal</Filter>
+      <Filter>Avatar\Animal</Filter>
     </ClCompile>
     <ClCompile Include="Avatar\Animal\AnimalCharacterEvaluator.cpp">
-      <Filter>Avater\Animal</Filter>
+      <Filter>Avatar\Animal</Filter>
     </ClCompile>
     <ClCompile Include="Avatar\Animal\AnimalCharacterModel.cpp">
-      <Filter>Avater\Animal</Filter>
+      <Filter>Avatar\Animal</Filter>
     </ClCompile>
     <ClCompile Include="Effect\Zephyr\ZephyrModuleRegistry.cpp">
       <Filter>Effect\Zephyr</Filter>
@@ -1490,8 +1514,26 @@
     <ClCompile Include="D3D12\Context\D3D12Check.cpp">
       <Filter>D3D12\Context</Filter>
     </ClCompile>
-    <ClCompile Include="Model\ModelCullingBuffer.cpp">
-      <Filter>Model</Filter>
+    <ClCompile Include="Model\Skin\SkinBlendShader.cpp">
+      <Filter>Model\Skin</Filter>
+    </ClCompile>
+    <ClCompile Include="Model\Cluster\QuadricErrorMetrics.cpp">
+      <Filter>Model\Cluster</Filter>
+    </ClCompile>
+    <ClCompile Include="Model\Culling\ModelCullingBuffer.cpp">
+      <Filter>Model\Culling</Filter>
+    </ClCompile>
+    <ClCompile Include="Texture\Compression\BC7CompressShader.cpp">
+      <Filter>Texture\Compression</Filter>
+    </ClCompile>
+    <ClCompile Include="Shape\Screen\FadeScreen.cpp">
+      <Filter>Shape\Screen</Filter>
+    </ClCompile>
+    <ClCompile Include="Shape\Screen\SplashScreen.cpp">
+      <Filter>Shape\Screen</Filter>
+    </ClCompile>
+    <ClCompile Include="Texture\TextureLoader.cpp">
+      <Filter>Texture</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -1514,9 +1556,6 @@
       <Filter>Shader</Filter>
     </None>
     <None Include="Light\BidirectionalReflectanceDistributionFunction.hlsli">
-      <Filter>Light</Filter>
-    </None>
-    <None Include="Light\ImageBasedLighting.hlsli">
       <Filter>Light</Filter>
     </None>
     <None Include="Sky\SkyGenerate.hlsli">
@@ -1657,46 +1696,13 @@
     <None Include="Model\Opaque\GeometryBuffer.hlsli">
       <Filter>Model\Opaque</Filter>
     </None>
+    <None Include="Sky\IBL\ImageBasedLighting.hlsli">
+      <Filter>Sky\IBL</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
-    <Text Include="Font\FontBillboardMS.hlsl">
-      <Filter>Font</Filter>
-    </Text>
-    <Text Include="Font\FontBillboardPS.hlsl">
-      <Filter>Font</Filter>
-    </Text>
-    <Text Include="Font\FontSpriteMS.hlsl">
-      <Filter>Font</Filter>
-    </Text>
-    <Text Include="Font\FontSpritePS.hlsl">
-      <Filter>Font</Filter>
-    </Text>
-    <Text Include="Font\FontSpriteAS.hlsl">
-      <Filter>Font</Filter>
-    </Text>
-    <Text Include="System\SplashScreenPS.hlsl">
-      <Filter>System</Filter>
-    </Text>
-    <Text Include="System\SplashScreenVS.hlsl">
-      <Filter>System</Filter>
-    </Text>
     <Text Include="Light\ClusterAssignCS.hlsl">
       <Filter>Light</Filter>
-    </Text>
-    <Text Include="System\FadeScreenPS.hlsl">
-      <Filter>System</Filter>
-    </Text>
-    <Text Include="Sky\BrdfLutCS.hlsl">
-      <Filter>Sky</Filter>
-    </Text>
-    <Text Include="Sky\EquirectToCubeCS.hlsl">
-      <Filter>Sky</Filter>
-    </Text>
-    <Text Include="Sky\DiffuseIrradianceCS.hlsl">
-      <Filter>Sky</Filter>
-    </Text>
-    <Text Include="Sky\SpecularPrefilterCS.hlsl">
-      <Filter>Sky</Filter>
     </Text>
     <Text Include="Raytracing\Shadow\ShadowRT.hlsl">
       <Filter>Raytracing\Shadow</Filter>
@@ -1734,62 +1740,11 @@
     <Text Include="Raytracing\AmbientOcclusion\AmbientOcclusionDenoiseCS.hlsl">
       <Filter>Raytracing\AmbientOcclusion</Filter>
     </Text>
-    <Text Include="Font\FontBillboardAS.hlsl">
-      <Filter>Font</Filter>
-    </Text>
     <Text Include="Raytracing\VolumetricCloudScapes\CloudNoiseShapeBakeCS.hlsl">
       <Filter>Raytracing\VolumetricCloudScapes</Filter>
     </Text>
     <Text Include="Raytracing\VolumetricCloudScapes\CloudNoiseDetailBakeCS.hlsl">
       <Filter>Raytracing\VolumetricCloudScapes</Filter>
-    </Text>
-    <Text Include="Sky\ProceduralSkyToCubeCS.hlsl">
-      <Filter>Sky</Filter>
-    </Text>
-    <Text Include="Movie\MovieBillboardAS.hlsl">
-      <Filter>Movie</Filter>
-    </Text>
-    <Text Include="Movie\MovieBillboardPS.hlsl">
-      <Filter>Movie</Filter>
-    </Text>
-    <Text Include="Movie\MovieBillboardMS.hlsl">
-      <Filter>Movie</Filter>
-    </Text>
-    <Text Include="Movie\MovieFullscreenAS.hlsl">
-      <Filter>Movie</Filter>
-    </Text>
-    <Text Include="Movie\MovieFullscreenMS.hlsl">
-      <Filter>Movie</Filter>
-    </Text>
-    <Text Include="Movie\MovieFullscreenPS.hlsl">
-      <Filter>Movie</Filter>
-    </Text>
-    <Text Include="Movie\MovieSpriteAS.hlsl">
-      <Filter>Movie</Filter>
-    </Text>
-    <Text Include="Movie\MovieSpriteMS.hlsl">
-      <Filter>Movie</Filter>
-    </Text>
-    <Text Include="Movie\MovieSpritePS.hlsl">
-      <Filter>Movie</Filter>
-    </Text>
-    <Text Include="Texture\ImageBillboardAS.hlsl">
-      <Filter>Texture</Filter>
-    </Text>
-    <Text Include="Texture\ImageBillboardMS.hlsl">
-      <Filter>Texture</Filter>
-    </Text>
-    <Text Include="Texture\ImageBillboardPS.hlsl">
-      <Filter>Texture</Filter>
-    </Text>
-    <Text Include="Texture\ImageSpriteAS.hlsl">
-      <Filter>Texture</Filter>
-    </Text>
-    <Text Include="Texture\ImageSpriteMS.hlsl">
-      <Filter>Texture</Filter>
-    </Text>
-    <Text Include="Texture\ImageSpritePS.hlsl">
-      <Filter>Texture</Filter>
     </Text>
     <Text Include="Shape\Collider\ColliderLineMS.hlsl">
       <Filter>Shape\Collider</Filter>
@@ -1899,12 +1854,6 @@
     <Text Include="Model\Opaque\DeferredLightingPS.hlsl">
       <Filter>Model\Opaque</Filter>
     </Text>
-    <Text Include="Model\Opaque\DepthPrepassMS.hlsl">
-      <Filter>Model\Opaque</Filter>
-    </Text>
-    <Text Include="Model\Opaque\DepthPrepassPS.hlsl">
-      <Filter>Model\Opaque</Filter>
-    </Text>
     <Text Include="Model\Opaque\ModelAS.hlsl">
       <Filter>Model\Opaque</Filter>
     </Text>
@@ -1920,22 +1869,7 @@
     <Text Include="Model\Opaque\StaticModelPS.hlsl">
       <Filter>Model\Opaque</Filter>
     </Text>
-    <Text Include="Model\BC7CompressCS.hlsl">
-      <Filter>Model</Filter>
-    </Text>
-    <Text Include="Model\DepthResizeCS.hlsl">
-      <Filter>Model</Filter>
-    </Text>
-    <Text Include="Model\HiZBufferCS.hlsl">
-      <Filter>Model</Filter>
-    </Text>
-    <Text Include="Model\MeshletPS.hlsl">
-      <Filter>Model</Filter>
-    </Text>
     <Text Include="Model\ModelPreviewPS.hlsl">
-      <Filter>Model</Filter>
-    </Text>
-    <Text Include="Model\SkinnedPositionCS.hlsl">
       <Filter>Model</Filter>
     </Text>
     <Text Include="Model\WireframePS.hlsl">
@@ -1957,7 +1891,7 @@
       <Filter>Shape\HUD</Filter>
     </Text>
     <Text Include="Avatar\AvatarPreviewPS.hlsl">
-      <Filter>Avater</Filter>
+      <Filter>Avatar</Filter>
     </Text>
     <Text Include="Model\Opaque\FurShellAS.hlsl">
       <Filter>Model\Opaque</Filter>
@@ -1968,22 +1902,7 @@
     <Text Include="Model\Opaque\FurShellPS.hlsl">
       <Filter>Model\Opaque</Filter>
     </Text>
-    <Text Include="Model\Transparent\ModelTransparentCullingCS.hlsl">
-      <Filter>Model\Transparent</Filter>
-    </Text>
-    <Text Include="Model\Opaque\ModelCullingCS.hlsl">
-      <Filter>Model\Opaque</Filter>
-    </Text>
-    <Text Include="Model\Opaque\GeometryBufferCullingCS.hlsl">
-      <Filter>Model\Opaque</Filter>
-    </Text>
-    <Text Include="Model\Opaque\FurShellCullingCS.hlsl">
-      <Filter>Model\Opaque</Filter>
-    </Text>
     <Text Include="Model\Opaque\FurShellVS.hlsl">
-      <Filter>Model\Opaque</Filter>
-    </Text>
-    <Text Include="Model\Opaque\DepthPrepassVS.hlsl">
       <Filter>Model\Opaque</Filter>
     </Text>
     <Text Include="Model\Opaque\SkeletalModelVS.hlsl">
@@ -1992,19 +1911,7 @@
     <Text Include="Model\Opaque\StaticModelVS.hlsl">
       <Filter>Model\Opaque</Filter>
     </Text>
-    <Text Include="Font\FontBillboardSilhouetteAS.hlsl">
-      <Filter>Font</Filter>
-    </Text>
-    <Text Include="Font\FontBillboardSilhouetteVS.hlsl">
-      <Filter>Font</Filter>
-    </Text>
     <Text Include="Font\FontSilhouettePS.hlsl">
-      <Filter>Font</Filter>
-    </Text>
-    <Text Include="Font\FontSpriteSilhouetteAS.hlsl">
-      <Filter>Font</Filter>
-    </Text>
-    <Text Include="Font\FontSpriteSilhouetteVS.hlsl">
       <Filter>Font</Filter>
     </Text>
     <Text Include="Model\Opaque\GeometryBufferAS.hlsl">
@@ -2013,40 +1920,13 @@
     <Text Include="Model\ModelSilhouetteAS.hlsl">
       <Filter>Model</Filter>
     </Text>
-    <Text Include="Model\ModelSilhouetteCullingCS.hlsl">
-      <Filter>Model</Filter>
-    </Text>
     <Text Include="Model\ModelSilhouettePS.hlsl">
       <Filter>Model</Filter>
-    </Text>
-    <Text Include="Movie\MovieBillboardSilhouetteAS.hlsl">
-      <Filter>Movie</Filter>
-    </Text>
-    <Text Include="Movie\MovieBillboardSilhouetteVS.hlsl">
-      <Filter>Movie</Filter>
     </Text>
     <Text Include="Movie\MovieSilhouettePS.hlsl">
       <Filter>Movie</Filter>
     </Text>
-    <Text Include="Movie\MovieSpriteSilhouetteAS.hlsl">
-      <Filter>Movie</Filter>
-    </Text>
-    <Text Include="Movie\MovieSpriteSilhouetteVS.hlsl">
-      <Filter>Movie</Filter>
-    </Text>
-    <Text Include="Texture\ImageBillboardSilhouetteAS.hlsl">
-      <Filter>Texture</Filter>
-    </Text>
-    <Text Include="Texture\ImageBillboardSilhouetteVS.hlsl">
-      <Filter>Texture</Filter>
-    </Text>
     <Text Include="Texture\ImageSilhouettePS.hlsl">
-      <Filter>Texture</Filter>
-    </Text>
-    <Text Include="Texture\ImageSpriteSilhouetteVS.hlsl">
-      <Filter>Texture</Filter>
-    </Text>
-    <Text Include="Texture\ImageSpriteSilhouetteAS.hlsl">
       <Filter>Texture</Filter>
     </Text>
     <Text Include="Shape\Outline\OutlineMS.hlsl">
@@ -2058,32 +1938,194 @@
     <Text Include="Shape\HUD\FullscreenVS.hlsl">
       <Filter>Shape\HUD</Filter>
     </Text>
-    <Text Include="Texture\ImageSpriteVS.hlsl">
-      <Filter>Texture</Filter>
-    </Text>
-    <Text Include="Texture\ImageBillboardVS.hlsl">
-      <Filter>Texture</Filter>
-    </Text>
-    <Text Include="Font\FontBillboardVS.hlsl">
-      <Filter>Font</Filter>
-    </Text>
-    <Text Include="Font\FontSpriteVS.hlsl">
-      <Filter>Font</Filter>
-    </Text>
-    <Text Include="Movie\MovieBillboardVS.hlsl">
-      <Filter>Movie</Filter>
-    </Text>
-    <Text Include="Movie\MovieFullscreenVS.hlsl">
-      <Filter>Movie</Filter>
-    </Text>
-    <Text Include="Movie\MovieSpriteVS.hlsl">
-      <Filter>Movie</Filter>
-    </Text>
     <Text Include="Environment\WeatherParticleVS.hlsl">
       <Filter>Environment</Filter>
     </Text>
     <Text Include="Shape\Collider\ColliderLineVS.hlsl">
       <Filter>Shape\Collider</Filter>
+    </Text>
+    <Text Include="Model\Skin\SkinBlendCS.hlsl">
+      <Filter>Model\Skin</Filter>
+    </Text>
+    <Text Include="Model\Cluster\MeshletPS.hlsl">
+      <Filter>Model\Cluster</Filter>
+    </Text>
+    <Text Include="Model\Depth\DepthPrepassMS.hlsl">
+      <Filter>Model\Depth</Filter>
+    </Text>
+    <Text Include="Model\Depth\DepthPrepassPS.hlsl">
+      <Filter>Model\Depth</Filter>
+    </Text>
+    <Text Include="Model\Depth\DepthPrepassVS.hlsl">
+      <Filter>Model\Depth</Filter>
+    </Text>
+    <Text Include="Model\Depth\DepthResizeCS.hlsl">
+      <Filter>Model\Depth</Filter>
+    </Text>
+    <Text Include="Model\Depth\HiZBufferCS.hlsl">
+      <Filter>Model\Depth</Filter>
+    </Text>
+    <Text Include="Model\Culling\FurShellCullingCS.hlsl">
+      <Filter>Model\Culling</Filter>
+    </Text>
+    <Text Include="Model\Culling\GeometryBufferCullingCS.hlsl">
+      <Filter>Model\Culling</Filter>
+    </Text>
+    <Text Include="Model\Culling\ModelCullingCS.hlsl">
+      <Filter>Model\Culling</Filter>
+    </Text>
+    <Text Include="Model\Culling\ModelSilhouetteCullingCS.hlsl">
+      <Filter>Model\Culling</Filter>
+    </Text>
+    <Text Include="Model\Culling\ModelTransparentCullingCS.hlsl">
+      <Filter>Model\Culling</Filter>
+    </Text>
+    <Text Include="Texture\Compression\BC7CompressCS.hlsl">
+      <Filter>Texture\Compression</Filter>
+    </Text>
+    <Text Include="Texture\Billboard\ImageBillboardAS.hlsl">
+      <Filter>Texture\Billboard</Filter>
+    </Text>
+    <Text Include="Texture\Billboard\ImageBillboardMS.hlsl">
+      <Filter>Texture\Billboard</Filter>
+    </Text>
+    <Text Include="Texture\Billboard\ImageBillboardPS.hlsl">
+      <Filter>Texture\Billboard</Filter>
+    </Text>
+    <Text Include="Texture\Billboard\ImageBillboardSilhouetteAS.hlsl">
+      <Filter>Texture\Billboard</Filter>
+    </Text>
+    <Text Include="Texture\Billboard\ImageBillboardSilhouetteVS.hlsl">
+      <Filter>Texture\Billboard</Filter>
+    </Text>
+    <Text Include="Texture\Billboard\ImageBillboardVS.hlsl">
+      <Filter>Texture\Billboard</Filter>
+    </Text>
+    <Text Include="Texture\Sprite\ImageSpriteAS.hlsl">
+      <Filter>Texture\Sprite</Filter>
+    </Text>
+    <Text Include="Texture\Sprite\ImageSpriteMS.hlsl">
+      <Filter>Texture\Sprite</Filter>
+    </Text>
+    <Text Include="Texture\Sprite\ImageSpritePS.hlsl">
+      <Filter>Texture\Sprite</Filter>
+    </Text>
+    <Text Include="Texture\Sprite\ImageSpriteSilhouetteAS.hlsl">
+      <Filter>Texture\Sprite</Filter>
+    </Text>
+    <Text Include="Texture\Sprite\ImageSpriteSilhouetteVS.hlsl">
+      <Filter>Texture\Sprite</Filter>
+    </Text>
+    <Text Include="Texture\Sprite\ImageSpriteVS.hlsl">
+      <Filter>Texture\Sprite</Filter>
+    </Text>
+    <Text Include="Font\Billboard\FontBillboardAS.hlsl">
+      <Filter>Font\Billboard</Filter>
+    </Text>
+    <Text Include="Font\Billboard\FontBillboardMS.hlsl">
+      <Filter>Font\Billboard</Filter>
+    </Text>
+    <Text Include="Font\Billboard\FontBillboardPS.hlsl">
+      <Filter>Font\Billboard</Filter>
+    </Text>
+    <Text Include="Font\Billboard\FontBillboardSilhouetteAS.hlsl">
+      <Filter>Font\Billboard</Filter>
+    </Text>
+    <Text Include="Font\Billboard\FontBillboardSilhouetteVS.hlsl">
+      <Filter>Font\Billboard</Filter>
+    </Text>
+    <Text Include="Font\Billboard\FontBillboardVS.hlsl">
+      <Filter>Font\Billboard</Filter>
+    </Text>
+    <Text Include="Font\Sprite\FontSpriteAS.hlsl">
+      <Filter>Font\Sprite</Filter>
+    </Text>
+    <Text Include="Font\Sprite\FontSpriteMS.hlsl">
+      <Filter>Font\Sprite</Filter>
+    </Text>
+    <Text Include="Font\Sprite\FontSpritePS.hlsl">
+      <Filter>Font\Sprite</Filter>
+    </Text>
+    <Text Include="Font\Sprite\FontSpriteSilhouetteAS.hlsl">
+      <Filter>Font\Sprite</Filter>
+    </Text>
+    <Text Include="Font\Sprite\FontSpriteSilhouetteVS.hlsl">
+      <Filter>Font\Sprite</Filter>
+    </Text>
+    <Text Include="Font\Sprite\FontSpriteVS.hlsl">
+      <Filter>Font\Sprite</Filter>
+    </Text>
+    <Text Include="Movie\Billboard\MovieBillboardAS.hlsl">
+      <Filter>Movie\Billboard</Filter>
+    </Text>
+    <Text Include="Movie\Billboard\MovieBillboardMS.hlsl">
+      <Filter>Movie\Billboard</Filter>
+    </Text>
+    <Text Include="Movie\Billboard\MovieBillboardPS.hlsl">
+      <Filter>Movie\Billboard</Filter>
+    </Text>
+    <Text Include="Movie\Billboard\MovieBillboardSilhouetteAS.hlsl">
+      <Filter>Movie\Billboard</Filter>
+    </Text>
+    <Text Include="Movie\Billboard\MovieBillboardSilhouetteVS.hlsl">
+      <Filter>Movie\Billboard</Filter>
+    </Text>
+    <Text Include="Movie\Billboard\MovieBillboardVS.hlsl">
+      <Filter>Movie\Billboard</Filter>
+    </Text>
+    <Text Include="Movie\Fullscreen\MovieFullscreenAS.hlsl">
+      <Filter>Movie\Fullscreen</Filter>
+    </Text>
+    <Text Include="Movie\Fullscreen\MovieFullscreenMS.hlsl">
+      <Filter>Movie\Fullscreen</Filter>
+    </Text>
+    <Text Include="Movie\Fullscreen\MovieFullscreenPS.hlsl">
+      <Filter>Movie\Fullscreen</Filter>
+    </Text>
+    <Text Include="Movie\Fullscreen\MovieFullscreenVS.hlsl">
+      <Filter>Movie\Fullscreen</Filter>
+    </Text>
+    <Text Include="Movie\Sprite\MovieSpriteAS.hlsl">
+      <Filter>Movie\Sprite</Filter>
+    </Text>
+    <Text Include="Movie\Sprite\MovieSpriteMS.hlsl">
+      <Filter>Movie\Sprite</Filter>
+    </Text>
+    <Text Include="Movie\Sprite\MovieSpritePS.hlsl">
+      <Filter>Movie\Sprite</Filter>
+    </Text>
+    <Text Include="Movie\Sprite\MovieSpriteSilhouetteAS.hlsl">
+      <Filter>Movie\Sprite</Filter>
+    </Text>
+    <Text Include="Movie\Sprite\MovieSpriteSilhouetteVS.hlsl">
+      <Filter>Movie\Sprite</Filter>
+    </Text>
+    <Text Include="Movie\Sprite\MovieSpriteVS.hlsl">
+      <Filter>Movie\Sprite</Filter>
+    </Text>
+    <Text Include="Sky\IBL\BrdfLutCS.hlsl">
+      <Filter>Sky\IBL</Filter>
+    </Text>
+    <Text Include="Sky\IBL\DiffuseIrradianceCS.hlsl">
+      <Filter>Sky\IBL</Filter>
+    </Text>
+    <Text Include="Sky\IBL\SpecularPrefilterCS.hlsl">
+      <Filter>Sky\IBL</Filter>
+    </Text>
+    <Text Include="Sky\Cubemap\EquirectCubemapCS.hlsl">
+      <Filter>Sky\Cubemap</Filter>
+    </Text>
+    <Text Include="Sky\Cubemap\ProceduralCubemapCS.hlsl">
+      <Filter>Sky\Cubemap</Filter>
+    </Text>
+    <Text Include="Shape\Screen\FadeScreenPS.hlsl">
+      <Filter>Shape\Screen</Filter>
+    </Text>
+    <Text Include="Shape\Screen\SplashScreenPS.hlsl">
+      <Filter>Shape\Screen</Filter>
+    </Text>
+    <Text Include="Shape\Screen\SplashScreenVS.hlsl">
+      <Filter>Shape\Screen</Filter>
     </Text>
   </ItemGroup>
 </Project>
