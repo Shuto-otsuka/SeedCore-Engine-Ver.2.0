@@ -277,7 +277,6 @@
     <ClInclude Include="Utility\Handle.h" />
     <ClInclude Include="Utility\IndexRange.h" />
     <ClInclude Include="Utility\ArtMap.h" />
-    <ClInclude Include="Utility\MeshInstance.h" />
     <ClInclude Include="Utility\NonCopyable.h" />
     <ClInclude Include="Utility\NonMovable.h" />
     <ClInclude Include="Utility\NonTransferable.h" />

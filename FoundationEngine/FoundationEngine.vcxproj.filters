@@ -635,9 +635,6 @@
     <ClInclude Include="ECS\History.h">
       <Filter>ESC</Filter>
     </ClInclude>
-    <ClInclude Include="Utility\MeshInstance.h">
-      <Filter>Utility</Filter>
-    </ClInclude>
     <ClInclude Include="Interop\ColliderInstance.h">
       <Filter>Interop</Filter>
     </ClInclude>

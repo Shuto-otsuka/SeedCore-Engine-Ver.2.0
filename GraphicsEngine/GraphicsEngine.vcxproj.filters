@@ -1501,9 +1501,6 @@
     <None Include="Shader\Constants.hlsli">
       <Filter>Shader</Filter>
     </None>
-    <None Include="Shader\Structured.hlsli">
-      <Filter>Shader</Filter>
-    </None>
     <None Include="Font\Font.hlsli">
       <Filter>Font</Filter>
     </None>
@@ -1523,9 +1520,6 @@
       <Filter>Light</Filter>
     </None>
     <None Include="Sky\SkyGenerate.hlsli">
-      <Filter>Sky</Filter>
-    </None>
-    <None Include="Sky\SkyMath.hlsli">
       <Filter>Sky</Filter>
     </None>
     <None Include="Raytracing\Froxel\Froxel.hlsli">
@@ -1653,6 +1647,15 @@
     </None>
     <None Include="Model\Transparent\OitShading.hlsli">
       <Filter>Model\Transparent</Filter>
+    </None>
+    <None Include="Sky\Sky.hlsli">
+      <Filter>Sky</Filter>
+    </None>
+    <None Include="Raytracing\Raytracing.hlsli">
+      <Filter>Raytracing</Filter>
+    </None>
+    <None Include="Model\Opaque\GeometryBuffer.hlsli">
+      <Filter>Model\Opaque</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>
@@ -1968,9 +1971,6 @@
     <Text Include="Model\Transparent\ModelTransparentCullingCS.hlsl">
       <Filter>Model\Transparent</Filter>
     </Text>
-    <Text Include="Model\Opaque\ModelVS.hlsl">
-      <Filter>Model\Opaque</Filter>
-    </Text>
     <Text Include="Model\Opaque\ModelCullingCS.hlsl">
       <Filter>Model\Opaque</Filter>
     </Text>
@@ -2054,6 +2054,36 @@
     </Text>
     <Text Include="Shape\Outline\OutlinePS.hlsl">
       <Filter>Shape\Outline</Filter>
+    </Text>
+    <Text Include="Shape\HUD\FullscreenVS.hlsl">
+      <Filter>Shape\HUD</Filter>
+    </Text>
+    <Text Include="Texture\ImageSpriteVS.hlsl">
+      <Filter>Texture</Filter>
+    </Text>
+    <Text Include="Texture\ImageBillboardVS.hlsl">
+      <Filter>Texture</Filter>
+    </Text>
+    <Text Include="Font\FontBillboardVS.hlsl">
+      <Filter>Font</Filter>
+    </Text>
+    <Text Include="Font\FontSpriteVS.hlsl">
+      <Filter>Font</Filter>
+    </Text>
+    <Text Include="Movie\MovieBillboardVS.hlsl">
+      <Filter>Movie</Filter>
+    </Text>
+    <Text Include="Movie\MovieFullscreenVS.hlsl">
+      <Filter>Movie</Filter>
+    </Text>
+    <Text Include="Movie\MovieSpriteVS.hlsl">
+      <Filter>Movie</Filter>
+    </Text>
+    <Text Include="Environment\WeatherParticleVS.hlsl">
+      <Filter>Environment</Filter>
+    </Text>
+    <Text Include="Shape\Collider\ColliderLineVS.hlsl">
+      <Filter>Shape\Collider</Filter>
     </Text>
   </ItemGroup>
 </Project>
