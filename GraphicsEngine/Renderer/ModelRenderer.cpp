@@ -69,6 +69,11 @@ namespace SeedCore
 		constantIndicesSystem.SetModelFurIndex(modelFurConstantBuffer_->GetIndex());
 
 		oitBuffer_.Create(device, bindlessHeap, constantIndicesSystem, unorderedAccessIndicesSystem, width, height);
+
+		if (D3D12Check::GetLevel() != D3D12Level::D12_2)
+		{
+			modelCullingBuffer_.Create(device, bindlessHeap);
+		}
 	}
 
 	void ModelRenderer::Resize(ID3D12Device* device, BindlessHeap* bindlessHeap, ConstantIndicesSystem& constantIndicesSystem, UnorderedAccessIndicesSystem& unorderedAccessIndicesSystem, Uint32 width, Uint32 height)
@@ -1084,6 +1089,11 @@ namespace SeedCore
 			morphWeightBuffer_->Update(morphWeights_.data(), static_cast<Uint>(morphWeights_.size()));
 			previousMorphWeightBuffer_->Update(previousMorphWeights_.data(), static_cast<Uint>(previousMorphWeights_.size()));
 		}
+
+		if (D3D12Check::GetLevel() != D3D12Level::D12_2)
+		{
+			modelCullingBuffer_.Reserve(Max(static_cast<Uint>(opaqueInstances_.size() + transparentInstances_.size()) * 32, static_cast<Uint>(furInstances_.size()) * furShellMax_ * 32));
+		}
 	}
 
 	D3D12_GPU_VIRTUAL_ADDRESS ModelRenderer::BoneMatrixBufferGPUAddress()const
@@ -1136,9 +1146,42 @@ namespace SeedCore
 		///      instances that belong to the other pass (blend_ filter).
 		/// [JP] 全パスが全インスタンスをディスパッチし、AS エントリが他方の
 		///      パスに属するインスタンスをスキップする（blend_ フィルタ）。
-		cmd->SetPipelineState(modelShader_.GetPipelineStateDepthPrepass());
-		cmd->DispatchMesh(static_cast<Uint>(opaqueInstances_.size() + transparentInstances_.size()), 1, 1);
-		ProfilerStats::AddDrawCall();
+		if (D3D12Check::GetLevel() == D3D12Level::D12_2)
+		{
+			cmd->SetPipelineState(modelShader_.GetPipelineStateDepthPrepass());
+			cmd->DispatchMesh(static_cast<Uint>(opaqueInstances_.size() + transparentInstances_.size()), 1, 1);
+			ProfilerStats::AddDrawCall();
+		}
+		else
+		{
+			modelCullingBuffer_.Begin(cmd);
+
+			cmd->SetComputeRootSignature(modelShader_.GetRootSignature());
+			RootSignature::BindCompute(cmd, addresses);
+			Uint cullingIndex = modelCullingBuffer_.GetConstantBufferIndex();
+			cmd->SetComputeRoot32BitConstants(3, 1, &cullingIndex, 0);
+			cmd->SetPipelineState(modelShader_.GetPipelineStateModelCulling());
+			cmd->Dispatch(static_cast<Uint>(opaqueInstances_.size() + transparentInstances_.size()), 1, 1);
+
+			modelCullingBuffer_.Barrier(cmd);
+
+			cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+			Uint singleSidedIndex = modelCullingBuffer_.GetSingleSidedShaderResourceViewIndex();
+			Uint doubleSidedIndex = modelCullingBuffer_.GetDoubleSidedShaderResourceViewIndex();
+
+			cmd->SetGraphicsRoot32BitConstants(3, 1, &singleSidedIndex, 0);
+			cmd->SetPipelineState(modelShader_.GetPipelineStateDepthPrepass());
+			cmd->ExecuteIndirect(modelCullingBuffer_.GetCommandSignature(), 1, modelCullingBuffer_.GetArgumentBuffer(), 0, nullptr, 0);
+			ProfilerStats::AddDrawCall();
+
+			cmd->SetGraphicsRoot32BitConstants(3, 1, &doubleSidedIndex, 0);
+			cmd->SetPipelineState(modelShader_.GetPipelineStateDepthPrepassDoubleSided());
+			cmd->ExecuteIndirect(modelCullingBuffer_.GetCommandSignature(), 1, modelCullingBuffer_.GetArgumentBuffer(), sizeof(D3D12_DRAW_ARGUMENTS), nullptr, 0);
+			ProfilerStats::AddDrawCall();
+
+			modelCullingBuffer_.End(cmd);
+		}
 	}
 
 	void ModelRenderer::DrawOpaque(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
@@ -1155,19 +1198,65 @@ namespace SeedCore
 		cmd->SetGraphicsRootSignature(modelShader_.GetRootSignature());
 		RootSignature::BindGraphics(cmd, addresses);
 
-		cmd->SetPipelineState(modelShader_.GetPipelineStateStatic());
-		cmd->DispatchMesh(static_cast<Uint>(opaqueInstances_.size() + transparentInstances_.size()), 1, 1);
-		ProfilerStats::AddDrawCall();
-
-		/// [EN] Skinned instances are skipped by StaticModelMS and drawn here by
-		///      the skeletal pipeline (SkeletalModelMS filters the inverse set).
-		/// [JP] スキンインスタンスは StaticModelMS でスキップされ、ここでスケルタル
-		///      パイプラインが描画する（SkeletalModelMS が逆の集合をフィルタする）。
-		if (hasSkinnedOpaque_)
+		if (D3D12Check::GetLevel() == D3D12Level::D12_2)
 		{
-			cmd->SetPipelineState(modelShader_.GetPipelineStateSkeletal());
+			cmd->SetPipelineState(modelShader_.GetPipelineStateStatic());
 			cmd->DispatchMesh(static_cast<Uint>(opaqueInstances_.size() + transparentInstances_.size()), 1, 1);
 			ProfilerStats::AddDrawCall();
+
+			/// [EN] Skinned instances are skipped by StaticModelMS and drawn here by
+			///      the skeletal pipeline (SkeletalModelMS filters the inverse set).
+			/// [JP] スキンインスタンスは StaticModelMS でスキップされ、ここでスケルタル
+			///      パイプラインが描画する（SkeletalModelMS が逆の集合をフィルタする）。
+			if (hasSkinnedOpaque_)
+			{
+				cmd->SetPipelineState(modelShader_.GetPipelineStateSkeletal());
+				cmd->DispatchMesh(static_cast<Uint>(opaqueInstances_.size() + transparentInstances_.size()), 1, 1);
+				ProfilerStats::AddDrawCall();
+			}
+		}
+		else
+		{
+			modelCullingBuffer_.Begin(cmd);
+
+			cmd->SetComputeRootSignature(modelShader_.GetRootSignature());
+			RootSignature::BindCompute(cmd, addresses);
+			Uint cullingIndex = modelCullingBuffer_.GetConstantBufferIndex();
+			cmd->SetComputeRoot32BitConstants(3, 1, &cullingIndex, 0);
+			cmd->SetPipelineState(modelShader_.GetPipelineStateGeometryBufferCulling());
+			cmd->Dispatch(static_cast<Uint>(opaqueInstances_.size() + transparentInstances_.size()), 1, 1);
+
+			modelCullingBuffer_.Barrier(cmd);
+
+			cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+			Uint singleSidedIndex = modelCullingBuffer_.GetSingleSidedShaderResourceViewIndex();
+			Uint doubleSidedIndex = modelCullingBuffer_.GetDoubleSidedShaderResourceViewIndex();
+
+			cmd->SetGraphicsRoot32BitConstants(3, 1, &singleSidedIndex, 0);
+			cmd->SetPipelineState(modelShader_.GetPipelineStateStatic());
+			cmd->ExecuteIndirect(modelCullingBuffer_.GetCommandSignature(), 1, modelCullingBuffer_.GetArgumentBuffer(), 0, nullptr, 0);
+			ProfilerStats::AddDrawCall();
+
+			cmd->SetGraphicsRoot32BitConstants(3, 1, &doubleSidedIndex, 0);
+			cmd->SetPipelineState(modelShader_.GetPipelineStateStaticDoubleSided());
+			cmd->ExecuteIndirect(modelCullingBuffer_.GetCommandSignature(), 1, modelCullingBuffer_.GetArgumentBuffer(), sizeof(D3D12_DRAW_ARGUMENTS), nullptr, 0);
+			ProfilerStats::AddDrawCall();
+
+			if (hasSkinnedOpaque_)
+			{
+				cmd->SetGraphicsRoot32BitConstants(3, 1, &singleSidedIndex, 0);
+				cmd->SetPipelineState(modelShader_.GetPipelineStateSkeletal());
+				cmd->ExecuteIndirect(modelCullingBuffer_.GetCommandSignature(), 1, modelCullingBuffer_.GetArgumentBuffer(), 0, nullptr, 0);
+				ProfilerStats::AddDrawCall();
+
+				cmd->SetGraphicsRoot32BitConstants(3, 1, &doubleSidedIndex, 0);
+				cmd->SetPipelineState(modelShader_.GetPipelineStateSkeletalDoubleSided());
+				cmd->ExecuteIndirect(modelCullingBuffer_.GetCommandSignature(), 1, modelCullingBuffer_.GetArgumentBuffer(), sizeof(D3D12_DRAW_ARGUMENTS), nullptr, 0);
+				ProfilerStats::AddDrawCall();
+			}
+
+			modelCullingBuffer_.End(cmd);
 		}
 	}
 
@@ -1219,15 +1308,61 @@ namespace SeedCore
 		cmd->SetGraphicsRootSignature(modelShader_.GetRootSignature());
 		RootSignature::BindGraphics(cmd, addresses);
 
-		cmd->SetPipelineState(modelShader_.GetPipelineStateWireframeStatic());
-		cmd->DispatchMesh(static_cast<Uint>(opaqueInstances_.size() + transparentInstances_.size()), 1, 1);
-		ProfilerStats::AddDrawCall();
-
-		if (hasSkinnedOpaque_)
+		if (D3D12Check::GetLevel() == D3D12Level::D12_2)
 		{
-			cmd->SetPipelineState(modelShader_.GetPipelineStateWireframeSkeletal());
+			cmd->SetPipelineState(modelShader_.GetPipelineStateWireframeStatic());
 			cmd->DispatchMesh(static_cast<Uint>(opaqueInstances_.size() + transparentInstances_.size()), 1, 1);
 			ProfilerStats::AddDrawCall();
+
+			if (hasSkinnedOpaque_)
+			{
+				cmd->SetPipelineState(modelShader_.GetPipelineStateWireframeSkeletal());
+				cmd->DispatchMesh(static_cast<Uint>(opaqueInstances_.size() + transparentInstances_.size()), 1, 1);
+				ProfilerStats::AddDrawCall();
+			}
+		}
+		else
+		{
+			modelCullingBuffer_.Begin(cmd);
+
+			cmd->SetComputeRootSignature(modelShader_.GetRootSignature());
+			RootSignature::BindCompute(cmd, addresses);
+			Uint cullingIndex = modelCullingBuffer_.GetConstantBufferIndex();
+			cmd->SetComputeRoot32BitConstants(3, 1, &cullingIndex, 0);
+			cmd->SetPipelineState(modelShader_.GetPipelineStateGeometryBufferCulling());
+			cmd->Dispatch(static_cast<Uint>(opaqueInstances_.size() + transparentInstances_.size()), 1, 1);
+
+			modelCullingBuffer_.Barrier(cmd);
+
+			cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+			Uint singleSidedIndex = modelCullingBuffer_.GetSingleSidedShaderResourceViewIndex();
+			Uint doubleSidedIndex = modelCullingBuffer_.GetDoubleSidedShaderResourceViewIndex();
+
+			cmd->SetGraphicsRoot32BitConstants(3, 1, &singleSidedIndex, 0);
+			cmd->SetPipelineState(modelShader_.GetPipelineStateWireframeStatic());
+			cmd->ExecuteIndirect(modelCullingBuffer_.GetCommandSignature(), 1, modelCullingBuffer_.GetArgumentBuffer(), 0, nullptr, 0);
+			ProfilerStats::AddDrawCall();
+
+			cmd->SetGraphicsRoot32BitConstants(3, 1, &doubleSidedIndex, 0);
+			cmd->SetPipelineState(modelShader_.GetPipelineStateWireframeStaticDoubleSided());
+			cmd->ExecuteIndirect(modelCullingBuffer_.GetCommandSignature(), 1, modelCullingBuffer_.GetArgumentBuffer(), sizeof(D3D12_DRAW_ARGUMENTS), nullptr, 0);
+			ProfilerStats::AddDrawCall();
+
+			if (hasSkinnedOpaque_)
+			{
+				cmd->SetGraphicsRoot32BitConstants(3, 1, &singleSidedIndex, 0);
+				cmd->SetPipelineState(modelShader_.GetPipelineStateWireframeSkeletal());
+				cmd->ExecuteIndirect(modelCullingBuffer_.GetCommandSignature(), 1, modelCullingBuffer_.GetArgumentBuffer(), 0, nullptr, 0);
+				ProfilerStats::AddDrawCall();
+
+				cmd->SetGraphicsRoot32BitConstants(3, 1, &doubleSidedIndex, 0);
+				cmd->SetPipelineState(modelShader_.GetPipelineStateWireframeSkeletalDoubleSided());
+				cmd->ExecuteIndirect(modelCullingBuffer_.GetCommandSignature(), 1, modelCullingBuffer_.GetArgumentBuffer(), sizeof(D3D12_DRAW_ARGUMENTS), nullptr, 0);
+				ProfilerStats::AddDrawCall();
+			}
+
+			modelCullingBuffer_.End(cmd);
 		}
 	}
 
@@ -1254,15 +1389,61 @@ namespace SeedCore
 		cmd->SetGraphicsRootSignature(modelShader_.GetRootSignature());
 		RootSignature::BindGraphics(cmd, addresses);
 
-		cmd->SetPipelineState(modelShader_.GetPipelineStateMeshletStatic());
-		cmd->DispatchMesh(static_cast<Uint>(opaqueInstances_.size() + transparentInstances_.size()), 1, 1);
-		ProfilerStats::AddDrawCall();
-
-		if (hasSkinnedOpaque_)
+		if (D3D12Check::GetLevel() == D3D12Level::D12_2)
 		{
-			cmd->SetPipelineState(modelShader_.GetPipelineStateMeshletSkeletal());
+			cmd->SetPipelineState(modelShader_.GetPipelineStateMeshletStatic());
 			cmd->DispatchMesh(static_cast<Uint>(opaqueInstances_.size() + transparentInstances_.size()), 1, 1);
 			ProfilerStats::AddDrawCall();
+
+			if (hasSkinnedOpaque_)
+			{
+				cmd->SetPipelineState(modelShader_.GetPipelineStateMeshletSkeletal());
+				cmd->DispatchMesh(static_cast<Uint>(opaqueInstances_.size() + transparentInstances_.size()), 1, 1);
+				ProfilerStats::AddDrawCall();
+			}
+		}
+		else
+		{
+			modelCullingBuffer_.Begin(cmd);
+
+			cmd->SetComputeRootSignature(modelShader_.GetRootSignature());
+			RootSignature::BindCompute(cmd, addresses);
+			Uint cullingIndex = modelCullingBuffer_.GetConstantBufferIndex();
+			cmd->SetComputeRoot32BitConstants(3, 1, &cullingIndex, 0);
+			cmd->SetPipelineState(modelShader_.GetPipelineStateGeometryBufferCulling());
+			cmd->Dispatch(static_cast<Uint>(opaqueInstances_.size() + transparentInstances_.size()), 1, 1);
+
+			modelCullingBuffer_.Barrier(cmd);
+
+			cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+			Uint singleSidedIndex = modelCullingBuffer_.GetSingleSidedShaderResourceViewIndex();
+			Uint doubleSidedIndex = modelCullingBuffer_.GetDoubleSidedShaderResourceViewIndex();
+
+			cmd->SetGraphicsRoot32BitConstants(3, 1, &singleSidedIndex, 0);
+			cmd->SetPipelineState(modelShader_.GetPipelineStateMeshletStatic());
+			cmd->ExecuteIndirect(modelCullingBuffer_.GetCommandSignature(), 1, modelCullingBuffer_.GetArgumentBuffer(), 0, nullptr, 0);
+			ProfilerStats::AddDrawCall();
+
+			cmd->SetGraphicsRoot32BitConstants(3, 1, &doubleSidedIndex, 0);
+			cmd->SetPipelineState(modelShader_.GetPipelineStateMeshletStaticDoubleSided());
+			cmd->ExecuteIndirect(modelCullingBuffer_.GetCommandSignature(), 1, modelCullingBuffer_.GetArgumentBuffer(), sizeof(D3D12_DRAW_ARGUMENTS), nullptr, 0);
+			ProfilerStats::AddDrawCall();
+
+			if (hasSkinnedOpaque_)
+			{
+				cmd->SetGraphicsRoot32BitConstants(3, 1, &singleSidedIndex, 0);
+				cmd->SetPipelineState(modelShader_.GetPipelineStateMeshletSkeletal());
+				cmd->ExecuteIndirect(modelCullingBuffer_.GetCommandSignature(), 1, modelCullingBuffer_.GetArgumentBuffer(), 0, nullptr, 0);
+				ProfilerStats::AddDrawCall();
+
+				cmd->SetGraphicsRoot32BitConstants(3, 1, &doubleSidedIndex, 0);
+				cmd->SetPipelineState(modelShader_.GetPipelineStateMeshletSkeletalDoubleSided());
+				cmd->ExecuteIndirect(modelCullingBuffer_.GetCommandSignature(), 1, modelCullingBuffer_.GetArgumentBuffer(), sizeof(D3D12_DRAW_ARGUMENTS), nullptr, 0);
+				ProfilerStats::AddDrawCall();
+			}
+
+			modelCullingBuffer_.End(cmd);
 		}
 	}
 
@@ -1285,17 +1466,69 @@ namespace SeedCore
 		cmd->SetGraphicsRootSignature(modelShader_.GetRootSignature());
 		RootSignature::BindGraphics(cmd, addresses);
 
-		cmd->SetPipelineState(modelShader_.GetPipelineStateStaticTransparent());
-		cmd->DispatchMesh(static_cast<Uint>(opaqueInstances_.size() + transparentInstances_.size()), 1, 1);
-		ProfilerStats::AddDrawCall();
-
-		if (hasSkinnedTransparent_)
+		if (D3D12Check::GetLevel() == D3D12Level::D12_2)
 		{
-			oitBuffer_.Barrier(cmd);
-
-			cmd->SetPipelineState(modelShader_.GetPipelineStateSkeletalTransparent());
+			cmd->SetPipelineState(modelShader_.GetPipelineStateStaticTransparent());
 			cmd->DispatchMesh(static_cast<Uint>(opaqueInstances_.size() + transparentInstances_.size()), 1, 1);
 			ProfilerStats::AddDrawCall();
+
+			if (hasSkinnedTransparent_)
+			{
+				oitBuffer_.Barrier(cmd);
+
+				cmd->SetPipelineState(modelShader_.GetPipelineStateSkeletalTransparent());
+				cmd->DispatchMesh(static_cast<Uint>(opaqueInstances_.size() + transparentInstances_.size()), 1, 1);
+				ProfilerStats::AddDrawCall();
+			}
+		}
+		else
+		{
+			modelCullingBuffer_.Begin(cmd);
+
+			cmd->SetComputeRootSignature(modelShader_.GetRootSignature());
+			RootSignature::BindCompute(cmd, addresses);
+			Uint cullingIndex = modelCullingBuffer_.GetConstantBufferIndex();
+			cmd->SetComputeRoot32BitConstants(3, 1, &cullingIndex, 0);
+			cmd->SetPipelineState(modelShader_.GetPipelineStateModelTransparentCulling());
+			cmd->Dispatch(static_cast<Uint>(opaqueInstances_.size() + transparentInstances_.size()), 1, 1);
+
+			modelCullingBuffer_.Barrier(cmd);
+
+			cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+			Uint singleSidedIndex = modelCullingBuffer_.GetSingleSidedShaderResourceViewIndex();
+			Uint doubleSidedIndex = modelCullingBuffer_.GetDoubleSidedShaderResourceViewIndex();
+
+			cmd->SetGraphicsRoot32BitConstants(3, 1, &singleSidedIndex, 0);
+			cmd->SetPipelineState(modelShader_.GetPipelineStateStaticTransparent());
+			cmd->ExecuteIndirect(modelCullingBuffer_.GetCommandSignature(), 1, modelCullingBuffer_.GetArgumentBuffer(), 0, nullptr, 0);
+			ProfilerStats::AddDrawCall();
+
+			oitBuffer_.Barrier(cmd);
+
+			cmd->SetGraphicsRoot32BitConstants(3, 1, &doubleSidedIndex, 0);
+			cmd->SetPipelineState(modelShader_.GetPipelineStateStaticTransparentDoubleSided());
+			cmd->ExecuteIndirect(modelCullingBuffer_.GetCommandSignature(), 1, modelCullingBuffer_.GetArgumentBuffer(), sizeof(D3D12_DRAW_ARGUMENTS), nullptr, 0);
+			ProfilerStats::AddDrawCall();
+
+			if (hasSkinnedTransparent_)
+			{
+				oitBuffer_.Barrier(cmd);
+
+				cmd->SetGraphicsRoot32BitConstants(3, 1, &singleSidedIndex, 0);
+				cmd->SetPipelineState(modelShader_.GetPipelineStateSkeletalTransparent());
+				cmd->ExecuteIndirect(modelCullingBuffer_.GetCommandSignature(), 1, modelCullingBuffer_.GetArgumentBuffer(), 0, nullptr, 0);
+				ProfilerStats::AddDrawCall();
+
+				oitBuffer_.Barrier(cmd);
+
+				cmd->SetGraphicsRoot32BitConstants(3, 1, &doubleSidedIndex, 0);
+				cmd->SetPipelineState(modelShader_.GetPipelineStateSkeletalTransparentDoubleSided());
+				cmd->ExecuteIndirect(modelCullingBuffer_.GetCommandSignature(), 1, modelCullingBuffer_.GetArgumentBuffer(), sizeof(D3D12_DRAW_ARGUMENTS), nullptr, 0);
+				ProfilerStats::AddDrawCall();
+			}
+
+			modelCullingBuffer_.End(cmd);
 		}
 
 		oitBuffer_.Barrier(cmd);
@@ -1335,12 +1568,45 @@ namespace SeedCore
 		///      against the opaque depth without writing. Call after DrawTransparent.
 		/// [JP] バインド済みのライティング済み HDR フレームへブレンド描画、
 		///      不透明の深度に対してテストのみ(書き込みなし)。DrawTransparent の後に呼ぶ。
-		cmd->SetPipelineState(modelShader_.GetPipelineStateFurShell());
-		cmd->DispatchMesh(static_cast<Uint>(furInstances_.size()) * furShellMax_, 1, 1);
-		ProfilerStats::AddDrawCall();
+		if (D3D12Check::GetLevel() == D3D12Level::D12_2)
+		{
+			cmd->SetPipelineState(modelShader_.GetPipelineStateFurShell());
+			cmd->DispatchMesh(static_cast<Uint>(furInstances_.size()) * furShellMax_, 1, 1);
+			ProfilerStats::AddDrawCall();
+		}
+		else
+		{
+			modelCullingBuffer_.Begin(cmd);
+
+			cmd->SetComputeRootSignature(modelShader_.GetRootSignature());
+			RootSignature::BindCompute(cmd, addresses);
+			Uint cullingIndex = modelCullingBuffer_.GetConstantBufferIndex();
+			cmd->SetComputeRoot32BitConstants(3, 1, &cullingIndex, 0);
+			cmd->SetPipelineState(modelShader_.GetPipelineStateFurShellCulling());
+			cmd->Dispatch(static_cast<Uint>(furInstances_.size()) * furShellMax_, 1, 1);
+
+			modelCullingBuffer_.Barrier(cmd);
+
+			cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+			Uint singleSidedIndex = modelCullingBuffer_.GetSingleSidedShaderResourceViewIndex();
+			Uint doubleSidedIndex = modelCullingBuffer_.GetDoubleSidedShaderResourceViewIndex();
+
+			cmd->SetGraphicsRoot32BitConstants(3, 1, &singleSidedIndex, 0);
+			cmd->SetPipelineState(modelShader_.GetPipelineStateFurShell());
+			cmd->ExecuteIndirect(modelCullingBuffer_.GetCommandSignature(), 1, modelCullingBuffer_.GetArgumentBuffer(), 0, nullptr, 0);
+			ProfilerStats::AddDrawCall();
+
+			cmd->SetGraphicsRoot32BitConstants(3, 1, &doubleSidedIndex, 0);
+			cmd->SetPipelineState(modelShader_.GetPipelineStateFurShellDoubleSided());
+			cmd->ExecuteIndirect(modelCullingBuffer_.GetCommandSignature(), 1, modelCullingBuffer_.GetArgumentBuffer(), sizeof(D3D12_DRAW_ARGUMENTS), nullptr, 0);
+			ProfilerStats::AddDrawCall();
+
+			modelCullingBuffer_.End(cmd);
+		}
 	}
 
-	void ModelRenderer::DrawSelectionMask(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
+	void ModelRenderer::DrawSilhouette(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
 	{
 		if (!hasSelectedInstance_)
 		{
@@ -1350,7 +1616,7 @@ namespace SeedCore
 		auto* cmd = cmdList->Get();
 
 		/// [JP] 深度なしで選択メッシュのシルエット全体を描く。手前の未選択オブジェクト
-		///      に遮蔽されても穴を開けない（理由は SelectionMask PSO のコメント参照）。
+		///      に遮蔽されても穴を開けない（理由は Silhouette PSO のコメント参照）。
 		///      マスクの Begin/Clear/End は呼び出し側（Renderer）が一括で行う
 		///      （Model/Sprite/Billboard/Font が同じ 1 枚のマスクを共有するため）。
 		ID3D12DescriptorHeap* heaps[] = { heap };
@@ -1358,15 +1624,61 @@ namespace SeedCore
 		cmd->SetGraphicsRootSignature(modelShader_.GetRootSignature());
 		RootSignature::BindGraphics(cmd, addresses);
 
-		cmd->SetPipelineState(modelShader_.GetPipelineStateSelectionMaskStatic());
-		cmd->DispatchMesh(static_cast<Uint>(opaqueInstances_.size() + transparentInstances_.size()), 1, 1);
-		ProfilerStats::AddDrawCall();
-
-		if (hasSelectedSkinned_)
+		if (D3D12Check::GetLevel() == D3D12Level::D12_2)
 		{
-			cmd->SetPipelineState(modelShader_.GetPipelineStateSelectionMaskSkeletal());
+			cmd->SetPipelineState(modelShader_.GetPipelineStateSilhouetteStatic());
 			cmd->DispatchMesh(static_cast<Uint>(opaqueInstances_.size() + transparentInstances_.size()), 1, 1);
 			ProfilerStats::AddDrawCall();
+
+			if (hasSelectedSkinned_)
+			{
+				cmd->SetPipelineState(modelShader_.GetPipelineStateSilhouetteSkeletal());
+				cmd->DispatchMesh(static_cast<Uint>(opaqueInstances_.size() + transparentInstances_.size()), 1, 1);
+				ProfilerStats::AddDrawCall();
+			}
+		}
+		else
+		{
+			modelCullingBuffer_.Begin(cmd);
+
+			cmd->SetComputeRootSignature(modelShader_.GetRootSignature());
+			RootSignature::BindCompute(cmd, addresses);
+			Uint cullingIndex = modelCullingBuffer_.GetConstantBufferIndex();
+			cmd->SetComputeRoot32BitConstants(3, 1, &cullingIndex, 0);
+			cmd->SetPipelineState(modelShader_.GetPipelineStateModelSilhouetteCulling());
+			cmd->Dispatch(static_cast<Uint>(opaqueInstances_.size() + transparentInstances_.size()), 1, 1);
+
+			modelCullingBuffer_.Barrier(cmd);
+
+			cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+			Uint singleSidedIndex = modelCullingBuffer_.GetSingleSidedShaderResourceViewIndex();
+			Uint doubleSidedIndex = modelCullingBuffer_.GetDoubleSidedShaderResourceViewIndex();
+
+			cmd->SetGraphicsRoot32BitConstants(3, 1, &singleSidedIndex, 0);
+			cmd->SetPipelineState(modelShader_.GetPipelineStateSilhouetteStatic());
+			cmd->ExecuteIndirect(modelCullingBuffer_.GetCommandSignature(), 1, modelCullingBuffer_.GetArgumentBuffer(), 0, nullptr, 0);
+			ProfilerStats::AddDrawCall();
+
+			cmd->SetGraphicsRoot32BitConstants(3, 1, &doubleSidedIndex, 0);
+			cmd->SetPipelineState(modelShader_.GetPipelineStateSilhouetteStaticDoubleSided());
+			cmd->ExecuteIndirect(modelCullingBuffer_.GetCommandSignature(), 1, modelCullingBuffer_.GetArgumentBuffer(), sizeof(D3D12_DRAW_ARGUMENTS), nullptr, 0);
+			ProfilerStats::AddDrawCall();
+
+			if (hasSelectedSkinned_)
+			{
+				cmd->SetGraphicsRoot32BitConstants(3, 1, &singleSidedIndex, 0);
+				cmd->SetPipelineState(modelShader_.GetPipelineStateSilhouetteSkeletal());
+				cmd->ExecuteIndirect(modelCullingBuffer_.GetCommandSignature(), 1, modelCullingBuffer_.GetArgumentBuffer(), 0, nullptr, 0);
+				ProfilerStats::AddDrawCall();
+
+				cmd->SetGraphicsRoot32BitConstants(3, 1, &doubleSidedIndex, 0);
+				cmd->SetPipelineState(modelShader_.GetPipelineStateSilhouetteSkeletalDoubleSided());
+				cmd->ExecuteIndirect(modelCullingBuffer_.GetCommandSignature(), 1, modelCullingBuffer_.GetArgumentBuffer(), sizeof(D3D12_DRAW_ARGUMENTS), nullptr, 0);
+				ProfilerStats::AddDrawCall();
+			}
+
+			modelCullingBuffer_.End(cmd);
 		}
 	}
 

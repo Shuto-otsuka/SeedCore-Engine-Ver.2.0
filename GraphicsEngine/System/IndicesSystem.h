@@ -585,7 +585,7 @@ namespace SeedCore
 
 		Uint previousMorphWeightIndex_ = 0;
 		Uint hiZIndex_ = 0;
-		Uint selectionMaskIndex_ = 0;
+		Uint silhouetteIndex_ = 0;
 		Uint modelShaderResourcePadding0_ = 0;
 	};
 	SC_STATIC_ASSERT_SIZE(ModelShaderResourceIndices, 32, "Model/Model.hlsli");
@@ -1029,7 +1029,7 @@ namespace SeedCore
 
 		void SetHiZIndex(Uint index);
 
-		void SetSelectionMaskIndex(Uint index);
+		void SetSilhouetteIndex(Uint index);
 
 		void SetGBuffer0Index(Uint index);
 

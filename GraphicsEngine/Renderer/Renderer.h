@@ -319,14 +319,14 @@ namespace SeedCore
 		///      BeginEditorFrame から毎フレーム1回呼ぶ。
 		GpuProfiler gpuProfiler_;
 
-		/// [EN] Selection outline mask: a single shared single-channel (R8_UNORM)
+		/// [EN] Silhouette: a single shared single-channel (R8_UNORM)
 		///      target that Model/Sprite/Billboard/Font renderers each draw their
 		///      selected instances into before one shared edge-detect composite.
-		/// [JP] 選択アウトラインマスク: Model/Sprite/Billboard/Font の各 Renderer が
+		/// [JP] シルエット: Model/Sprite/Billboard/Font の各 Renderer が
 		///      選択中インスタンスを描き込む、共有の単チャンネル(R8_UNORM)ターゲット
 		///      1 枚。最後に 1 回だけ共有のエッジ検出合成を行う。
-		DescriptorHeap selectionMaskRenderTargetViewHeap_;
-		ResourcePtr<FrameBuffer> selectionMaskFrameBuffer_;
+		DescriptorHeap silhouetteRenderTargetViewHeap_;
+		ResourcePtr<FrameBuffer> silhouetteFrameBuffer_;
 
 		DescriptorHeap editorRenderTargetViewHeap_;
 

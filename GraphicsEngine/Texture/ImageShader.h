@@ -25,9 +25,9 @@ namespace SeedCore
 
 		[[nodiscard]] ID3D12PipelineState* GetPipelineStateBillboard()const;
 
-		[[nodiscard]] ID3D12PipelineState* GetPipelineStateSelectionMaskSprite()const;
+		[[nodiscard]] ID3D12PipelineState* GetPipelineStateSilhouetteSprite()const;
 
-		[[nodiscard]] ID3D12PipelineState* GetPipelineStateSelectionMaskBillboard()const;
+		[[nodiscard]] ID3D12PipelineState* GetPipelineStateSilhouetteBillboard()const;
 
 		[[nodiscard]] ID3D12RootSignature* GetRootSignature()const;
 
@@ -46,14 +46,14 @@ namespace SeedCore
 
 		Handle<Microsoft::WRL::ComPtr<ID3D12PipelineState>> pipelineStateObjectBillboard_;
 
-		Handle<VertexShader> spriteSelectionVertexShader_;
-		Handle<VertexShader> billboardSelectionVertexShader_;
-		Handle<AmplificationShader> spriteSelectionAmplificationShader_;
-		Handle<AmplificationShader> billboardSelectionAmplificationShader_;
-		Handle<PixelShader> selectionMaskPixelShader_;
+		Handle<VertexShader> spriteSilhouetteVertexShader_;
+		Handle<VertexShader> billboardSilhouetteVertexShader_;
+		Handle<AmplificationShader> spriteSilhouetteAmplificationShader_;
+		Handle<AmplificationShader> billboardSilhouetteAmplificationShader_;
+		Handle<PixelShader> silhouettePixelShader_;
 
-		Handle<Microsoft::WRL::ComPtr<ID3D12PipelineState>> pipelineStateObjectSelectionMaskSprite_;
-		Handle<Microsoft::WRL::ComPtr<ID3D12PipelineState>> pipelineStateObjectSelectionMaskBillboard_;
+		Handle<Microsoft::WRL::ComPtr<ID3D12PipelineState>> pipelineStateObjectSilhouetteSprite_;
+		Handle<Microsoft::WRL::ComPtr<ID3D12PipelineState>> pipelineStateObjectSilhouetteBillboard_;
 
 		Handle<RootSignature> imageRootSignature_;
 

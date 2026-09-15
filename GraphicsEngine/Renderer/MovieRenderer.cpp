@@ -271,7 +271,7 @@ namespace SeedCore
 		ProfilerStats::AddDrawCall();
 	}
 
-	void MovieRenderer::DrawSelectionMaskSprite(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
+	void MovieRenderer::DrawSilhouetteSprite(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
 	{
 		if (!hasSelectedSpriteInstance_)
 		{
@@ -283,7 +283,7 @@ namespace SeedCore
 		cmdList->SetGraphicsRootSignature(movieShader_.GetRootSignature());
 		RootSignature::BindGraphics(cmdList, addresses);
 
-		cmdList->SetPipelineState(movieShader_.GetPipelineStateSelectionMaskSprite());
+		cmdList->SetPipelineState(movieShader_.GetPipelineStateSilhouetteSprite());
 
 		if (D3D12Check::GetLevel() == D3D12Level::D12_2)
 		{
@@ -298,7 +298,7 @@ namespace SeedCore
 		ProfilerStats::AddDrawCall();
 	}
 
-	void MovieRenderer::DrawSelectionMaskBillboard(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
+	void MovieRenderer::DrawSilhouetteBillboard(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
 	{
 		if (!hasSelectedBillboardInstance_)
 		{
@@ -310,7 +310,7 @@ namespace SeedCore
 		cmdList->SetGraphicsRootSignature(movieShader_.GetRootSignature());
 		RootSignature::BindGraphics(cmdList, addresses);
 
-		cmdList->SetPipelineState(movieShader_.GetPipelineStateSelectionMaskBillboard());
+		cmdList->SetPipelineState(movieShader_.GetPipelineStateSilhouetteBillboard());
 
 		if (D3D12Check::GetLevel() == D3D12Level::D12_2)
 		{

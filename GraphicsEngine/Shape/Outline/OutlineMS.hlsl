@@ -1,4 +1,4 @@
-struct SelectionOutlineOutput
+struct OutlineOutput
 {
 	float4 position : SV_Position;
 	float2 texcoord : TEXCOORD0;
@@ -6,7 +6,7 @@ struct SelectionOutlineOutput
 
 [NumThreads(3, 1, 1)]
 [OutputTopology("triangle")]
-void main(uint gtid : SV_GroupThreadID, out vertices SelectionOutlineOutput verts[3], out indices uint3 tris[1])
+void main(uint gtid : SV_GroupThreadID, out vertices OutlineOutput verts[3], out indices uint3 tris[1])
 {
 	SetMeshOutputCounts(3, 1);
 

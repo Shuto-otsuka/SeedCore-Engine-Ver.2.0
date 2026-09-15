@@ -889,6 +889,9 @@
     <ClInclude Include="D3D12\Context\D3D12Check.h">
       <Filter>D3D12\Context</Filter>
     </ClInclude>
+    <ClInclude Include="Model\ModelCullingBuffer.h">
+      <Filter>Model</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="D3D12\Context\D3D12Adapter.cpp">
@@ -1487,6 +1490,9 @@
     <ClCompile Include="D3D12\Context\D3D12Check.cpp">
       <Filter>D3D12\Context</Filter>
     </ClCompile>
+    <ClCompile Include="Model\ModelCullingBuffer.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="Shader\Sampler.hlsli">
@@ -1719,21 +1725,6 @@
     <Text Include="Raytracing\AmbientOcclusion\AmbientOcclusionRT.hlsl">
       <Filter>Raytracing\AmbientOcclusion</Filter>
     </Text>
-    <Text Include="Font\FontSelectionMaskPS.hlsl">
-      <Filter>Font</Filter>
-    </Text>
-    <Text Include="Font\FontBillboardSelectionAS.hlsl">
-      <Filter>Font</Filter>
-    </Text>
-    <Text Include="Font\FontSpriteSelectionAS.hlsl">
-      <Filter>Font</Filter>
-    </Text>
-    <Text Include="Shape\Outline\SelectionOutlineMS.hlsl">
-      <Filter>Shape\Outline</Filter>
-    </Text>
-    <Text Include="Shape\Outline\SelectionOutlinePS.hlsl">
-      <Filter>Shape\Outline</Filter>
-    </Text>
     <Text Include="Raytracing\Shadow\ShadowDenoiseCS.hlsl">
       <Filter>Raytracing\Shadow</Filter>
     </Text>
@@ -1788,9 +1779,6 @@
     <Text Include="Texture\ImageBillboardPS.hlsl">
       <Filter>Texture</Filter>
     </Text>
-    <Text Include="Texture\ImageBillboardSelectionAS.hlsl">
-      <Filter>Texture</Filter>
-    </Text>
     <Text Include="Texture\ImageSpriteAS.hlsl">
       <Filter>Texture</Filter>
     </Text>
@@ -1798,21 +1786,6 @@
       <Filter>Texture</Filter>
     </Text>
     <Text Include="Texture\ImageSpritePS.hlsl">
-      <Filter>Texture</Filter>
-    </Text>
-    <Text Include="Texture\ImageSpriteSelectionAS.hlsl">
-      <Filter>Texture</Filter>
-    </Text>
-    <Text Include="Movie\MovieSelectionMaskPS.hlsl">
-      <Filter>Movie</Filter>
-    </Text>
-    <Text Include="Movie\MovieBillboardSelectionAS.hlsl">
-      <Filter>Movie</Filter>
-    </Text>
-    <Text Include="Movie\MovieSpriteSelectionAS.hlsl">
-      <Filter>Movie</Filter>
-    </Text>
-    <Text Include="Texture\ImageSelectionMaskPS.hlsl">
       <Filter>Texture</Filter>
     </Text>
     <Text Include="Shape\Collider\ColliderLineMS.hlsl">
@@ -1932,9 +1905,6 @@
     <Text Include="Model\Opaque\ModelAS.hlsl">
       <Filter>Model\Opaque</Filter>
     </Text>
-    <Text Include="Model\Opaque\ModelGeometryBufferAS.hlsl">
-      <Filter>Model\Opaque</Filter>
-    </Text>
     <Text Include="Model\Opaque\SkeletalModelMS.hlsl">
       <Filter>Model\Opaque</Filter>
     </Text>
@@ -1960,12 +1930,6 @@
       <Filter>Model</Filter>
     </Text>
     <Text Include="Model\ModelPreviewPS.hlsl">
-      <Filter>Model</Filter>
-    </Text>
-    <Text Include="Model\ModelSelectionAS.hlsl">
-      <Filter>Model</Filter>
-    </Text>
-    <Text Include="Model\SelectionMaskPS.hlsl">
       <Filter>Model</Filter>
     </Text>
     <Text Include="Model\SkinnedPositionCS.hlsl">
@@ -2000,6 +1964,96 @@
     </Text>
     <Text Include="Model\Opaque\FurShellPS.hlsl">
       <Filter>Model\Opaque</Filter>
+    </Text>
+    <Text Include="Model\Transparent\ModelTransparentCullingCS.hlsl">
+      <Filter>Model\Transparent</Filter>
+    </Text>
+    <Text Include="Model\Opaque\ModelVS.hlsl">
+      <Filter>Model\Opaque</Filter>
+    </Text>
+    <Text Include="Model\Opaque\ModelCullingCS.hlsl">
+      <Filter>Model\Opaque</Filter>
+    </Text>
+    <Text Include="Model\Opaque\GeometryBufferCullingCS.hlsl">
+      <Filter>Model\Opaque</Filter>
+    </Text>
+    <Text Include="Model\Opaque\FurShellCullingCS.hlsl">
+      <Filter>Model\Opaque</Filter>
+    </Text>
+    <Text Include="Model\Opaque\FurShellVS.hlsl">
+      <Filter>Model\Opaque</Filter>
+    </Text>
+    <Text Include="Model\Opaque\DepthPrepassVS.hlsl">
+      <Filter>Model\Opaque</Filter>
+    </Text>
+    <Text Include="Model\Opaque\SkeletalModelVS.hlsl">
+      <Filter>Model\Opaque</Filter>
+    </Text>
+    <Text Include="Model\Opaque\StaticModelVS.hlsl">
+      <Filter>Model\Opaque</Filter>
+    </Text>
+    <Text Include="Font\FontBillboardSilhouetteAS.hlsl">
+      <Filter>Font</Filter>
+    </Text>
+    <Text Include="Font\FontBillboardSilhouetteVS.hlsl">
+      <Filter>Font</Filter>
+    </Text>
+    <Text Include="Font\FontSilhouettePS.hlsl">
+      <Filter>Font</Filter>
+    </Text>
+    <Text Include="Font\FontSpriteSilhouetteAS.hlsl">
+      <Filter>Font</Filter>
+    </Text>
+    <Text Include="Font\FontSpriteSilhouetteVS.hlsl">
+      <Filter>Font</Filter>
+    </Text>
+    <Text Include="Model\Opaque\GeometryBufferAS.hlsl">
+      <Filter>Model\Opaque</Filter>
+    </Text>
+    <Text Include="Model\ModelSilhouetteAS.hlsl">
+      <Filter>Model</Filter>
+    </Text>
+    <Text Include="Model\ModelSilhouetteCullingCS.hlsl">
+      <Filter>Model</Filter>
+    </Text>
+    <Text Include="Model\ModelSilhouettePS.hlsl">
+      <Filter>Model</Filter>
+    </Text>
+    <Text Include="Movie\MovieBillboardSilhouetteAS.hlsl">
+      <Filter>Movie</Filter>
+    </Text>
+    <Text Include="Movie\MovieBillboardSilhouetteVS.hlsl">
+      <Filter>Movie</Filter>
+    </Text>
+    <Text Include="Movie\MovieSilhouettePS.hlsl">
+      <Filter>Movie</Filter>
+    </Text>
+    <Text Include="Movie\MovieSpriteSilhouetteAS.hlsl">
+      <Filter>Movie</Filter>
+    </Text>
+    <Text Include="Movie\MovieSpriteSilhouetteVS.hlsl">
+      <Filter>Movie</Filter>
+    </Text>
+    <Text Include="Texture\ImageBillboardSilhouetteAS.hlsl">
+      <Filter>Texture</Filter>
+    </Text>
+    <Text Include="Texture\ImageBillboardSilhouetteVS.hlsl">
+      <Filter>Texture</Filter>
+    </Text>
+    <Text Include="Texture\ImageSilhouettePS.hlsl">
+      <Filter>Texture</Filter>
+    </Text>
+    <Text Include="Texture\ImageSpriteSilhouetteVS.hlsl">
+      <Filter>Texture</Filter>
+    </Text>
+    <Text Include="Texture\ImageSpriteSilhouetteAS.hlsl">
+      <Filter>Texture</Filter>
+    </Text>
+    <Text Include="Shape\Outline\OutlineMS.hlsl">
+      <Filter>Shape\Outline</Filter>
+    </Text>
+    <Text Include="Shape\Outline\OutlinePS.hlsl">
+      <Filter>Shape\Outline</Filter>
     </Text>
   </ItemGroup>
 </Project>

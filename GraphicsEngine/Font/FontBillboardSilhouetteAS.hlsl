@@ -8,7 +8,7 @@ groupshared FontASPayload payload;
 
 /**
 * [JP]
-* 選択アウトラインマスク用 Amplification Shader。FontBillboardAS.hlsl の
+* シルエット用 Amplification Shader。FontBillboardAS.hlsl の
 * コピー（編集時は同期を保つこと）に selected != 0 のインスタンスだけを通す
 * フィルタを追加したもの。
 */

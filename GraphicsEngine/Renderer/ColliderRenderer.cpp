@@ -241,7 +241,7 @@ namespace SeedCore
 		cmd->SetGraphicsRootSignature(colliderLineShader_.GetRootSignature());
 		RootSignature::BindGraphics(cmd, addresses);
 
-		cmd->SetPipelineState(colliderLineShader_.GetPipelineState());
+		cmd->SetPipelineState(colliderLineShader_.GetPipelineStateDebugOverlay());
 
 		if (D3D12Check::GetLevel() == D3D12Level::D12_2)
 		{

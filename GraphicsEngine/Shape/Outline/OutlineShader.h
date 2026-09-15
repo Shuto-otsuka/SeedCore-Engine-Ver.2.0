@@ -15,26 +15,26 @@ namespace SeedCore
 	* [EN]
 	* Manages PSO creation for the selection outline composite.
 	*
-	* Composite PSO (fullscreen, edge-detects the shared selection mask onto
+	* Composite PSO (fullscreen, edge-detects the shared silhouette onto
 	* whichever frame buffer the caller is targeting):
-	*   - SelectionOutlineMS + SelectionOutlinePS
+	*   - OutlineMS + OutlinePS
 	*
 	* Not tied to any one actor type — Model, Sprite, Billboard and Font all
 	* draw their selected instances into the same mask beforehand (see each
-	* renderer's DrawSelectionMask); this PSO only resolves that mask.
+	* renderer's DrawSilhouette); this PSO only resolves that mask.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
 	* 選択アウトライン合成用の PSO 管理。
 	*
-	* 合成 PSO（フルスクリーン、共有選択マスクを呼び出し側の対象フレーム
+	* 合成 PSO（フルスクリーン、共有シルエットを呼び出し側の対象フレーム
 	* バッファへエッジ検出合成する）:
-	*   - SelectionOutlineMS + SelectionOutlinePS
+	*   - OutlineMS + OutlinePS
 	*
 	* 特定のアクター種別には紐付かない — Model / Sprite / Billboard / Font は
 	* いずれも選択中インスタンスを事前に同じマスクへ描き込み（各 Renderer の
-	* DrawSelectionMask 参照）、この PSO はそのマスクを合成するだけ。
+	* DrawSilhouette 参照）、この PSO はそのマスクを合成するだけ。
 	*/
 	class OutlineShader
 	{
@@ -46,6 +46,8 @@ namespace SeedCore
 
 		[[nodiscard]] ID3D12PipelineState* GetPipelineStateComposite()const;
 
+		[[nodiscard]] ID3D12PipelineState* GetPipelineStateCompositeDebugOverlay()const;
+
 		[[nodiscard]] ID3D12RootSignature* GetRootSignature()const;
 
 	private:
@@ -53,6 +55,7 @@ namespace SeedCore
 		Handle<MeshShader> compositeMeshShader_;
 		Handle<PixelShader> compositePixelShader_;
 		Handle<Microsoft::WRL::ComPtr<ID3D12PipelineState>> pipelineStateObjectComposite_;
+		Handle<Microsoft::WRL::ComPtr<ID3D12PipelineState>> pipelineStateObjectCompositeDebugOverlay_;
 
 		Handle<RootSignature> outlineRootSignature_;
 

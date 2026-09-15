@@ -2040,8 +2040,10 @@ namespace SeedCore
 		*   - coneCutoff = minimum dot product between any face normal and
 		*     the cone axis. If coneCutoff > 0, all faces point roughly
 		*     the same direction, and the AS can do backface culling:
-		*     if dot(viewDir, coneAxis) < -coneCutoff, the entire meshlet
-		*     faces away from the camera.
+		*     the entire meshlet faces away from the camera when
+		*     dot(center - camera, coneAxis) >= sqrt(1 - coneCutoff^2) *
+		*     length(center - camera) + radius (coneCutoff is the cosine of
+		*     the cone's half-angle, the test needs its sine).
 		*
 		* ---------------------------------------------------------------------
 		*
@@ -2059,8 +2061,10 @@ namespace SeedCore
 		*   - coneCutoff = いずれかの面法線とコーン軸の最小内積。
 		*     coneCutoff > 0 なら全面がほぼ同じ方向を向いており、
 		*     AS がバックフェイスカリングを行える:
-		*     dot(viewDirection, coneAxis) < -coneCutoff ならメシュレット全体が
-		*     カメラに背を向けている。
+		*     dot(center - camera, coneAxis) >= sqrt(1 - coneCutoff^2) *
+		*     length(center - camera) + radius ならメシュレット全体が
+		*     カメラに背を向けている(coneCutoff はコーン半角の cos で、
+		*     判定にはその sin を使う)。
 		*/
 		auto computeBounds = [&](Uint32 meshletBegin, Uint32 meshletEnd)
 			{

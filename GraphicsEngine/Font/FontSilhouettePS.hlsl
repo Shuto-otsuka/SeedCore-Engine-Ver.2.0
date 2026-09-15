@@ -3,7 +3,7 @@
 
 /**
 * [JP]
-* 選択アウトラインマスク用ピクセルシェーダ。FontSpritePS/FontBillboardPS と
+* シルエット用ピクセルシェーダ。FontSpritePS/FontBillboardPS と
 * 同じ MTSDF 合成でアルファを求めてクリップ判定し、マスク値 1.0 を書く。
 * Sprite/Billboard 共通（FontMSOutput が同じ）。
 */

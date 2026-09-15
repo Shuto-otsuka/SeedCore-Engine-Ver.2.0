@@ -111,45 +111,45 @@ namespace SeedCore
 		}
 
 		{
-			selectionMaskPixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Movie/MovieSelectionMaskPS.hlsl"));
+			silhouettePixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Movie/MovieSilhouettePS.hlsl"));
 
 			PipelineStateKey psokey{};
 			memset(&psokey, 0, sizeof(psokey));
 			psokey.rootSignature_ = rootSignature_.Get(movieRootSignature_)->Get();
 			if (D3D12Check::GetLevel() == D3D12Level::D12_2)
 			{
-				spriteSelectionAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Movie/MovieSpriteSelectionAS.hlsl"));
-				psokey.amplificationShader_ = shaderCache.GetAmplificationShader(spriteSelectionAmplificationShader_)->Bytecode();
+				spriteSilhouetteAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Movie/MovieSpriteSilhouetteAS.hlsl"));
+				psokey.amplificationShader_ = shaderCache.GetAmplificationShader(spriteSilhouetteAmplificationShader_)->Bytecode();
 				psokey.meshShader_ = shaderCache.GetMeshShader(spriteMeshShader_)->Bytecode();
 				psokey.primitiveTopologyType_ = D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED;
 			}
 			else
 			{
-				spriteSelectionVertexShader_ = shaderCache.GetOrCreateVertexShader(String("../GraphicsEngine/Movie/MovieSpriteSelectionVS.hlsl"));
-				psokey.vertexShader_ = shaderCache.GetVertexShader(spriteSelectionVertexShader_)->Bytecode();
+				spriteSilhouetteVertexShader_ = shaderCache.GetOrCreateVertexShader(String("../GraphicsEngine/Movie/MovieSpriteSilhouetteVS.hlsl"));
+				psokey.vertexShader_ = shaderCache.GetVertexShader(spriteSilhouetteVertexShader_)->Bytecode();
 				psokey.primitiveTopologyType_ = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 			}
-			psokey.pixelShader_ = shaderCache.GetPixelShader(selectionMaskPixelShader_)->Bytecode();
+			psokey.pixelShader_ = shaderCache.GetPixelShader(silhouettePixelShader_)->Bytecode();
 			psokey.rasterizerDesc_ = RasterizerState::Get(RasterizerStateType::SolidNoneLHS);
 			psokey.blendDesc_ = BlendState::Get(BlendStateType::Opaque);
 			psokey.depthStencilDesc_ = DepthStencilState::Get(DepthStencilStateType::DepthOff);
 			psokey.renderTargetViewFormat_[0] = DXGI_FORMAT_R8_UNORM;
 			psokey.renderTargetViewCount_ = 1;
 			psokey.depthStencilViewFormat_ = DXGI_FORMAT_UNKNOWN;
-			pipelineStateObjectSelectionMaskSprite_ = pipelineStateObject_.GetOrCreate(device, psokey);
+			pipelineStateObjectSilhouetteSprite_ = pipelineStateObject_.GetOrCreate(device, psokey);
 
 			if (D3D12Check::GetLevel() == D3D12Level::D12_2)
 			{
-				billboardSelectionAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Movie/MovieBillboardSelectionAS.hlsl"));
-				psokey.amplificationShader_ = shaderCache.GetAmplificationShader(billboardSelectionAmplificationShader_)->Bytecode();
+				billboardSilhouetteAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Movie/MovieBillboardSilhouetteAS.hlsl"));
+				psokey.amplificationShader_ = shaderCache.GetAmplificationShader(billboardSilhouetteAmplificationShader_)->Bytecode();
 				psokey.meshShader_ = shaderCache.GetMeshShader(billboardMeshShader_)->Bytecode();
 			}
 			else
 			{
-				billboardSelectionVertexShader_ = shaderCache.GetOrCreateVertexShader(String("../GraphicsEngine/Movie/MovieBillboardSelectionVS.hlsl"));
-				psokey.vertexShader_ = shaderCache.GetVertexShader(billboardSelectionVertexShader_)->Bytecode();
+				billboardSilhouetteVertexShader_ = shaderCache.GetOrCreateVertexShader(String("../GraphicsEngine/Movie/MovieBillboardSilhouetteVS.hlsl"));
+				psokey.vertexShader_ = shaderCache.GetVertexShader(billboardSilhouetteVertexShader_)->Bytecode();
 			}
-			pipelineStateObjectSelectionMaskBillboard_ = pipelineStateObject_.GetOrCreate(device, psokey);
+			pipelineStateObjectSilhouetteBillboard_ = pipelineStateObject_.GetOrCreate(device, psokey);
 		}
 	}
 
@@ -168,14 +168,14 @@ namespace SeedCore
 		return pipelineStateObject_.Get(pipelineStateObjectFullscreen_);
 	}
 
-	ID3D12PipelineState* MovieShader::GetPipelineStateSelectionMaskSprite()const
+	ID3D12PipelineState* MovieShader::GetPipelineStateSilhouetteSprite()const
 	{
-		return pipelineStateObject_.Get(pipelineStateObjectSelectionMaskSprite_);
+		return pipelineStateObject_.Get(pipelineStateObjectSilhouetteSprite_);
 	}
 
-	ID3D12PipelineState* MovieShader::GetPipelineStateSelectionMaskBillboard()const
+	ID3D12PipelineState* MovieShader::GetPipelineStateSilhouetteBillboard()const
 	{
-		return pipelineStateObject_.Get(pipelineStateObjectSelectionMaskBillboard_);
+		return pipelineStateObject_.Get(pipelineStateObjectSilhouetteBillboard_);
 	}
 
 	ID3D12RootSignature* MovieShader::GetRootSignature()const

@@ -80,50 +80,50 @@ namespace SeedCore
 			pipelineStateObjectBillboard_ = pipelineStateObject_.GetOrCreate(device, psokey);
 		}
 
-		/// [EN] Selection outline mask PSOs: depth off, same as the model mask
+		/// [EN] Silhouette PSOs: depth off, same as the model mask
 		///      (see ModelShader.cpp for why occlusion is intentionally ignored).
-		/// [JP] 選択アウトラインマスク PSO: 深度オフ。モデル側マスクと同じ理由
+		/// [JP] シルエット PSO: 深度オフ。モデル側マスクと同じ理由
 		///      （遮蔽を意図的に無視する）は ModelShader.cpp のコメント参照。
 		{
-			selectionMaskPixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Texture/ImageSelectionMaskPS.hlsl"));
+			silhouettePixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Texture/ImageSilhouettePS.hlsl"));
 
 			PipelineStateKey psokey{};
 			memset(&psokey, 0, sizeof(psokey));
 			psokey.rootSignature_ = rootSignature_.Get(imageRootSignature_)->Get();
 			if (D3D12Check::GetLevel() == D3D12Level::D12_2)
 			{
-				spriteSelectionAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Texture/ImageSpriteSelectionAS.hlsl"));
-				psokey.amplificationShader_ = shaderCache.GetAmplificationShader(spriteSelectionAmplificationShader_)->Bytecode();
+				spriteSilhouetteAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Texture/ImageSpriteSilhouetteAS.hlsl"));
+				psokey.amplificationShader_ = shaderCache.GetAmplificationShader(spriteSilhouetteAmplificationShader_)->Bytecode();
 				psokey.meshShader_ = shaderCache.GetMeshShader(spriteMeshShader_)->Bytecode();
 				psokey.primitiveTopologyType_ = D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED;
 			}
 			else
 			{
-				spriteSelectionVertexShader_ = shaderCache.GetOrCreateVertexShader(String("../GraphicsEngine/Texture/ImageSpriteSelectionVS.hlsl"));
-				psokey.vertexShader_ = shaderCache.GetVertexShader(spriteSelectionVertexShader_)->Bytecode();
+				spriteSilhouetteVertexShader_ = shaderCache.GetOrCreateVertexShader(String("../GraphicsEngine/Texture/ImageSpriteSilhouetteVS.hlsl"));
+				psokey.vertexShader_ = shaderCache.GetVertexShader(spriteSilhouetteVertexShader_)->Bytecode();
 				psokey.primitiveTopologyType_ = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 			}
-			psokey.pixelShader_ = shaderCache.GetPixelShader(selectionMaskPixelShader_)->Bytecode();
+			psokey.pixelShader_ = shaderCache.GetPixelShader(silhouettePixelShader_)->Bytecode();
 			psokey.rasterizerDesc_ = RasterizerState::Get(RasterizerStateType::SolidNoneLHS);
 			psokey.blendDesc_ = BlendState::Get(BlendStateType::Opaque);
 			psokey.depthStencilDesc_ = DepthStencilState::Get(DepthStencilStateType::DepthOff);
 			psokey.renderTargetViewFormat_[0] = DXGI_FORMAT_R8_UNORM;
 			psokey.renderTargetViewCount_ = 1;
 			psokey.depthStencilViewFormat_ = DXGI_FORMAT_UNKNOWN;
-			pipelineStateObjectSelectionMaskSprite_ = pipelineStateObject_.GetOrCreate(device, psokey);
+			pipelineStateObjectSilhouetteSprite_ = pipelineStateObject_.GetOrCreate(device, psokey);
 
 			if (D3D12Check::GetLevel() == D3D12Level::D12_2)
 			{
-				billboardSelectionAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Texture/ImageBillboardSelectionAS.hlsl"));
-				psokey.amplificationShader_ = shaderCache.GetAmplificationShader(billboardSelectionAmplificationShader_)->Bytecode();
+				billboardSilhouetteAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Texture/ImageBillboardSilhouetteAS.hlsl"));
+				psokey.amplificationShader_ = shaderCache.GetAmplificationShader(billboardSilhouetteAmplificationShader_)->Bytecode();
 				psokey.meshShader_ = shaderCache.GetMeshShader(billboardMeshShader_)->Bytecode();
 			}
 			else
 			{
-				billboardSelectionVertexShader_ = shaderCache.GetOrCreateVertexShader(String("../GraphicsEngine/Texture/ImageBillboardSelectionVS.hlsl"));
-				psokey.vertexShader_ = shaderCache.GetVertexShader(billboardSelectionVertexShader_)->Bytecode();
+				billboardSilhouetteVertexShader_ = shaderCache.GetOrCreateVertexShader(String("../GraphicsEngine/Texture/ImageBillboardSilhouetteVS.hlsl"));
+				psokey.vertexShader_ = shaderCache.GetVertexShader(billboardSilhouetteVertexShader_)->Bytecode();
 			}
-			pipelineStateObjectSelectionMaskBillboard_ = pipelineStateObject_.GetOrCreate(device, psokey);
+			pipelineStateObjectSilhouetteBillboard_ = pipelineStateObject_.GetOrCreate(device, psokey);
 		}
 	}
 
@@ -137,14 +137,14 @@ namespace SeedCore
 		return pipelineStateObject_.Get(pipelineStateObjectBillboard_);
 	}
 
-	ID3D12PipelineState* ImageShader::GetPipelineStateSelectionMaskSprite()const
+	ID3D12PipelineState* ImageShader::GetPipelineStateSilhouetteSprite()const
 	{
-		return pipelineStateObject_.Get(pipelineStateObjectSelectionMaskSprite_);
+		return pipelineStateObject_.Get(pipelineStateObjectSilhouetteSprite_);
 	}
 
-	ID3D12PipelineState* ImageShader::GetPipelineStateSelectionMaskBillboard()const
+	ID3D12PipelineState* ImageShader::GetPipelineStateSilhouetteBillboard()const
 	{
-		return pipelineStateObject_.Get(pipelineStateObjectSelectionMaskBillboard_);
+		return pipelineStateObject_.Get(pipelineStateObjectSilhouetteBillboard_);
 	}
 
 	ID3D12RootSignature* ImageShader::GetRootSignature()const

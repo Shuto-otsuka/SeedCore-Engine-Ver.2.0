@@ -135,6 +135,7 @@
     <ClInclude Include="Model\Material\MaterialSortBuffer.h" />
     <ClInclude Include="Model\Material\MaterialState.h" />
     <ClInclude Include="Model\Mesh.h" />
+    <ClInclude Include="Model\ModelCullingBuffer.h" />
     <ClInclude Include="Model\ModelExporter.h" />
     <ClInclude Include="Model\ModelLoader.h" />
     <ClInclude Include="Model\ModelRecord.h" />
@@ -311,6 +312,7 @@
     <ClCompile Include="Model\Material\MaterialResource.cpp" />
     <ClCompile Include="Model\Material\MaterialSortBuffer.cpp" />
     <ClCompile Include="Model\ModelCommon.cpp" />
+    <ClCompile Include="Model\ModelCullingBuffer.cpp" />
     <ClCompile Include="Model\ModelExporter.cpp" />
     <ClCompile Include="Model\ModelLoader.cpp" />
     <ClCompile Include="Model\ModelResource.cpp" />
@@ -805,25 +807,6 @@
     </Text>
   </ItemGroup>
   <ItemGroup>
-    <Text Include="Font\FontBillboardSelectionAS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Font\FontSelectionMaskPS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Font\FontSpriteSelectionAS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="Shape\Outline\SelectionOutlineMS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Shape\Outline\SelectionOutlinePS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-  </ItemGroup>
-  <ItemGroup>
     <Text Include="Raytracing\Shadow\ShadowDenoiseCS.hlsl">
       <FileType>Document</FileType>
     </Text>
@@ -878,15 +861,6 @@
     </Text>
   </ItemGroup>
   <ItemGroup>
-    <Text Include="Movie\MovieBillboardSelectionAS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Movie\MovieSelectionMaskPS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Movie\MovieSpriteSelectionAS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
     <Text Include="Texture\ImageBillboardAS.hlsl">
       <FileType>Document</FileType>
     </Text>
@@ -896,12 +870,6 @@
     <Text Include="Texture\ImageBillboardPS.hlsl">
       <FileType>Document</FileType>
     </Text>
-    <Text Include="Texture\ImageBillboardSelectionAS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Texture\ImageSelectionMaskPS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
     <Text Include="Texture\ImageSpriteAS.hlsl">
       <FileType>Document</FileType>
     </Text>
@@ -909,9 +877,6 @@
       <FileType>Document</FileType>
     </Text>
     <Text Include="Texture\ImageSpritePS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Texture\ImageSpriteSelectionAS.hlsl">
       <FileType>Document</FileType>
     </Text>
   </ItemGroup>
@@ -1081,9 +1046,6 @@
     <Text Include="Model\Opaque\ModelAS.hlsl">
       <FileType>Document</FileType>
     </Text>
-    <Text Include="Model\Opaque\ModelGeometryBufferAS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
     <Text Include="Model\Opaque\SkeletalModelMS.hlsl">
       <FileType>Document</FileType>
     </Text>
@@ -1111,12 +1073,6 @@
       <FileType>Document</FileType>
     </Text>
     <Text Include="Model\ModelPreviewPS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Model\ModelSelectionAS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Model\SelectionMaskPS.hlsl">
       <FileType>Document</FileType>
     </Text>
     <Text Include="Model\SkinnedPositionCS.hlsl">
@@ -1164,6 +1120,108 @@
   </ItemGroup>
   <ItemGroup>
     <Text Include="Model\Opaque\FurShellPS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Model\Transparent\ModelTransparentCullingCS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Model\Opaque\FurShellCullingCS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Model\Opaque\GeometryBufferCullingCS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Model\Opaque\ModelCullingCS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Model\Opaque\ModelVS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Model\Opaque\DepthPrepassVS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Model\Opaque\FurShellVS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Model\Opaque\SkeletalModelVS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Model\Opaque\StaticModelVS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Texture\ImageBillboardSilhouetteAS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Texture\ImageBillboardSilhouetteVS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Texture\ImageSpriteSilhouetteAS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Texture\ImageSpriteSilhouetteVS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Movie\MovieBillboardSilhouetteAS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Movie\MovieBillboardSilhouetteVS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Movie\MovieSilhouettePS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Movie\MovieSpriteSilhouetteAS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Movie\MovieSpriteSilhouetteVS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Model\ModelSilhouettePS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Model\ModelSilhouetteAS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Model\ModelSilhouetteCullingCS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Model\Opaque\GeometryBufferAS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Font\FontBillboardSilhouetteAS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Font\FontBillboardSilhouetteVS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Font\FontSilhouettePS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Font\FontSpriteSilhouetteAS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Font\FontSpriteSilhouetteVS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Texture\ImageSilhouettePS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Shape\Outline\OutlineMS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Shape\Outline\OutlinePS.hlsl">
       <FileType>Document</FileType>
     </Text>
   </ItemGroup>

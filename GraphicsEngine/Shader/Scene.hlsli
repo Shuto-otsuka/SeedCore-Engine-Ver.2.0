@@ -29,7 +29,7 @@ struct SceneConstantBuffer
 	float total_time_;
 	float delta_time_;
 
-	// Resolution of whatever the post-tonemap debug overlay (collider wireframes, selection outline) actually draws onto - screen_size_ normally, or PostProcessRenderer's DLSS-RR-upscaled output resolution while DLSS-RR is active. SelectionOutlinePS.hlsl scales SV_Position by screen_size_/display_size_ before indexing the (native-resolution) selection mask.
+	// Resolution of whatever the post-tonemap debug overlay (collider wireframes, selection outline) actually draws onto - screen_size_ normally, or PostProcessRenderer's DLSS-RR-upscaled output resolution while DLSS-RR is active. OutlinePS.hlsl scales SV_Position by screen_size_/display_size_ before indexing the (native-resolution) silhouette.
 	float2 display_size_;
 
 	float2 screen_size_;

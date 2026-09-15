@@ -82,8 +82,9 @@ void main(uint3 gtid : SV_GroupThreadID, uint3 dtid : SV_DispatchThreadID, uint3
 		if (is_visible && instance.shading_.double_sided_ == 0 && bound.cone_cutoff_ > 0.0)
 		{
 			float3 world_cone_axis = normalize(mul(float4(bound.cone_axis_, 0.0), instance.transform_.world_).xyz);
-			float3 view_direction = normalize(scene.camera_position_.xyz - world_center);
-			if (dot(view_direction, world_cone_axis) < -bound.cone_cutoff_)
+			float3 camera_to_center = world_center - scene.camera_position_.xyz;
+			float cone_sine = sqrt(1.0 - bound.cone_cutoff_ * bound.cone_cutoff_);
+			if (dot(camera_to_center, world_cone_axis) >= cone_sine * length(camera_to_center) + world_radius)
 			{
 				is_visible = false;
 			}

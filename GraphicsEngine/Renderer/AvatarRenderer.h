@@ -5,6 +5,7 @@
 #include <GraphicsEngine/D3D12/Descriptor/DescriptorHeap.h>
 #include <GraphicsEngine/D3D12/Buffer/FrameBuffer.h>
 #include <GraphicsEngine/Model/ModelShader.h>
+#include <GraphicsEngine/Model/ModelCullingBuffer.h>
 #include <GraphicsEngine/Model/ModelRecord.h>
 #include <GraphicsEngine/System/SceneSystem.h>
 #include <GraphicsEngine/System/IndicesSystem.h>
@@ -48,6 +49,7 @@ namespace SeedCore
 		static constexpr Uint32 maxBoneCount_ = 2048;
 
 		ModelShader modelShader_;
+		ModelCullingBuffer modelCullingBuffer_;
 
 		DynamicArray<ModelStructuredBuffer> instances_;
 		DynamicArray<Matrix> boneMatrices_;

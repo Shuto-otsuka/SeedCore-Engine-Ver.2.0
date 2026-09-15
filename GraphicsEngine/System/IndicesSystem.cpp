@@ -394,11 +394,11 @@ namespace SeedCore
 		canvasIndices_.model_.hiZIndex_ = index;
 	}
 
-	void ShaderResourceIndicesSystem::SetSelectionMaskIndex(Uint index)
+	void ShaderResourceIndicesSystem::SetSilhouetteIndex(Uint index)
 	{
-		editorIndices_.model_.selectionMaskIndex_ = index;
-		gameIndices_.model_.selectionMaskIndex_ = index;
-		canvasIndices_.model_.selectionMaskIndex_ = index;
+		editorIndices_.model_.silhouetteIndex_ = index;
+		gameIndices_.model_.silhouetteIndex_ = index;
+		canvasIndices_.model_.silhouetteIndex_ = index;
 	}
 
 	void ShaderResourceIndicesSystem::SetGBuffer0Index(Uint index)

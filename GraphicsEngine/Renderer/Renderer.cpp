@@ -99,9 +99,9 @@ namespace SeedCore
 
 		/// [EN] Not a frame-ring resource — its SRV index is stable across frames.
 		/// [JP] フレームリングではないため SRV インデックスは毎フレーム固定。
-		selectionMaskRenderTargetViewHeap_.Create(device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 1);
-		selectionMaskFrameBuffer_ = MakePtr<FrameBuffer>(device, &selectionMaskRenderTargetViewHeap_, bindlessHeap, width, height, DXGI_FORMAT_R8_UNORM, nullptr, 0.0f, 0.0f, 0.0f, 0.0f);
-		shaderResourceIndicesSystem_->SetSelectionMaskIndex(selectionMaskFrameBuffer_->ColorShaderResourceViewIndex());
+		silhouetteRenderTargetViewHeap_.Create(device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 1);
+		silhouetteFrameBuffer_ = MakePtr<FrameBuffer>(device, &silhouetteRenderTargetViewHeap_, bindlessHeap, width, height, DXGI_FORMAT_R8_UNORM, nullptr, 0.0f, 0.0f, 0.0f, 0.0f);
+		shaderResourceIndicesSystem_->SetSilhouetteIndex(silhouetteFrameBuffer_->ColorShaderResourceViewIndex());
 
 		lightSystem_ = MakePtr<LightSystem>(device, bindlessHeap, shaderCache, rootSignature_, pipelineStateObject_, width, height);
 		constantIndicesSystem_->SetLightIndex(lightSystem_->GetIndex());
@@ -171,9 +171,9 @@ namespace SeedCore
 
 		debugDepthResizeBuffer_.Resize(device, bindlessHeap, shaderCache, rootSignature_, pipelineStateObject_, outputWidth, outputHeight);
 
-		selectionMaskRenderTargetViewHeap_.Create(device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 1);
-		selectionMaskFrameBuffer_->Resize(device, bindlessHeap, nativeWidth, nativeHeight);
-		shaderResourceIndicesSystem_->SetSelectionMaskIndex(selectionMaskFrameBuffer_->ColorShaderResourceViewIndex());
+		silhouetteRenderTargetViewHeap_.Create(device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 1);
+		silhouetteFrameBuffer_->Resize(device, bindlessHeap, nativeWidth, nativeHeight);
+		shaderResourceIndicesSystem_->SetSilhouetteIndex(silhouetteFrameBuffer_->ColorShaderResourceViewIndex());
 
 		lightSystem_->Resize(device, bindlessHeap, nativeWidth, nativeHeight);
 		constantIndicesSystem_->SetLightIndex(lightSystem_->GetIndex());
@@ -353,7 +353,7 @@ namespace SeedCore
 		colliderRenderer_->Draw(cmdList, debugRenderTargetView, debugDepthResizeBuffer_.DepthStencilViewHandle(), debugViewport, bindlessHeap_->Heap(), addresses);
 		geometryBuffer_.BeginDepth(cmdList);
 
-		outlineRenderer_->Draw(cmdList, debugRenderTargetView, debugViewport, bindlessHeap_->Heap(), addresses);
+		outlineRenderer_->DrawDebugOverlay(cmdList, debugRenderTargetView, debugViewport, bindlessHeap_->Heap(), addresses);
 
 		postProcessRenderer_->EndDebugOverlay(cmdList, RaytracingView::Editor);
 
@@ -783,7 +783,7 @@ namespace SeedCore
 		///      the rest of the lit scene. They are now drawn in
 		///      EndEditorFrame, after PostProcess, directly onto the final
 		///      display texture instead (see BeginDebugOverlay/EndDebugOverlay
-		///      there). Only the selection mask itself (what the outline pass
+		///      there). Only the silhouette itself (what the outline pass
 		///      reads) still needs to be built here, before Model/Billboard
 		///      finish drawing.
 		/// [JP] コライダー/コンストレイントのデバッグワイヤーフレームと選択
@@ -793,7 +793,7 @@ namespace SeedCore
 		///      シーンと全く同じようにこれらの色にも影響していた。現在は
 		///      EndEditorFrame内、PostProcessの後に、最終表示テクスチャへ
 		///      直接描画する(そちらのBeginDebugOverlay/EndDebugOverlay参照)。
-		///      ここで構築が必要なのは、アウトラインパスが読み取る選択マスク
+		///      ここで構築が必要なのは、アウトラインパスが読み取るシルエット
 		///      自体のみ(Model/Billboardの描画が終わる前に)。
 		/// [JP] 選択アウトライン用マスク: EditorFlush が実際に描画するのは Model と
 		///      Billboard（Image の Billboard と、Font の Billboard = 3D ワールド
@@ -801,13 +801,13 @@ namespace SeedCore
 		///      Canvas/Game 専用で EditorFlush では描かれないので、マスクへ
 		///      書き込むのもこの 2 種だけ。Sprite 系の選択アウトラインは
 		///      CanvasFlush 側で同じマスクを使い回して行う。
-		selectionMaskFrameBuffer_->Begin(cmdList);
-		selectionMaskFrameBuffer_->Clear(cmdList, 0.0f, 0.0f, 0.0f, 0.0f);
-		modelRenderer_->DrawSelectionMask(cmdList, heap, addresses);
-		imageRenderer_->DrawSelectionMaskBillboard(cmdList->Get(), heap, addresses);
-		fontRenderer_->DrawSelectionMaskBillboard(cmdList->Get(), heap, addresses);
-		movieRenderer_->DrawSelectionMaskBillboard(cmdList->Get(), heap, addresses);
-		selectionMaskFrameBuffer_->End(cmdList);
+		silhouetteFrameBuffer_->Begin(cmdList);
+		silhouetteFrameBuffer_->Clear(cmdList, 0.0f, 0.0f, 0.0f, 0.0f);
+		modelRenderer_->DrawSilhouette(cmdList, heap, addresses);
+		imageRenderer_->DrawSilhouetteBillboard(cmdList->Get(), heap, addresses);
+		fontRenderer_->DrawSilhouetteBillboard(cmdList->Get(), heap, addresses);
+		movieRenderer_->DrawSilhouetteBillboard(cmdList->Get(), heap, addresses);
+		silhouetteFrameBuffer_->End(cmdList);
 
 		imageRenderer_->DrawBillboard(cmdList->Get(), heap, addresses);
 
@@ -1008,12 +1008,12 @@ namespace SeedCore
 		movieRenderer_->DrawBillboard(cmdList->Get(), heap, addresses);
 		movieRenderer_->DrawFullscreen(cmdList->Get(), heap, addresses);
 
-		selectionMaskFrameBuffer_->Begin(cmdList);
-		selectionMaskFrameBuffer_->Clear(cmdList, 0.0f, 0.0f, 0.0f, 0.0f);
-		imageRenderer_->DrawSelectionMaskBillboard(cmdList->Get(), heap, addresses);
-		fontRenderer_->DrawSelectionMaskBillboard(cmdList->Get(), heap, addresses);
-		movieRenderer_->DrawSelectionMaskBillboard(cmdList->Get(), heap, addresses);
-		selectionMaskFrameBuffer_->End(cmdList);
+		silhouetteFrameBuffer_->Begin(cmdList);
+		silhouetteFrameBuffer_->Clear(cmdList, 0.0f, 0.0f, 0.0f, 0.0f);
+		imageRenderer_->DrawSilhouetteBillboard(cmdList->Get(), heap, addresses);
+		fontRenderer_->DrawSilhouetteBillboard(cmdList->Get(), heap, addresses);
+		movieRenderer_->DrawSilhouetteBillboard(cmdList->Get(), heap, addresses);
+		silhouetteFrameBuffer_->End(cmdList);
 
 		outlineRenderer_->Draw(cmdList, canvasFrameBuffer_->RenderTargetViewHandle(), canvasFrameBuffer_->GetViewport(), heap, addresses);
 	}

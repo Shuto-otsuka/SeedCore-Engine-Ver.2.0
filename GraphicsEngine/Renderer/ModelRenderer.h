@@ -7,6 +7,7 @@
 #include <FoundationEngine/Log/Assert.h>
 #include <GraphicsEngine/Model/ModelShader.h>
 #include <GraphicsEngine/Model/Transparent/OITBuffer.h>
+#include <GraphicsEngine/Model/ModelCullingBuffer.h>
 #include <GraphicsEngine/Model/ModelRecord.h>
 #include <GraphicsEngine/Model/SoftbodyMesh.h>
 #include <GraphicsEngine/System/SceneSystem.h>
@@ -93,19 +94,19 @@ namespace SeedCore
 
 		void DrawFurShell(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses);
 
-		/// [EN] Selection outline mask: draws the selected actor's instances as a
+		/// [EN] Silhouette: draws the selected actor's instances as a
 		///      solid mask (single R8_UNORM target, shared with Sprite/Billboard/
-		///      Font — see Renderer::DrawSelectionOutline for the shared fullscreen
+		///      Font — see OutlineRenderer::Draw for the shared fullscreen
 		///      edge-detect composite that reads it). Depth off: the mask covers
 		///      the full silhouette regardless of nearer, unselected occluders —
-		///      see the SelectionMask PSO comment in ModelShader.cpp for why.
-		/// [JP] 選択アウトラインマスク: 選択中アクターのインスタンスを単色マスク
+		///      see the Silhouette PSO comment in ModelShader.cpp for why.
+		/// [JP] シルエット: 選択中アクターのインスタンスを単色マスク
 		///      （単一 R8_UNORM ターゲット。Sprite/Billboard/Font と共有 — これを
-		///      読むフルスクリーンのエッジ検出合成は Renderer::DrawSelectionOutline
+		///      読むフルスクリーンのエッジ検出合成は OutlineRenderer::Draw
 		///      参照）へ描く。深度オフで、手前の未選択オブジェクトに関わらず
-		///      シルエット全体を描く（理由は ModelShader.cpp の SelectionMask PSO
+		///      シルエット全体を描く（理由は ModelShader.cpp の Silhouette PSO
 		///      コメント参照）。
-		void DrawSelectionMask(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses);
+		void DrawSilhouette(D3D12CommandList* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses);
 
 		[[nodiscard]] D3D12_GPU_VIRTUAL_ADDRESS BoneMatrixBufferGPUAddress()const;
 
@@ -248,6 +249,7 @@ namespace SeedCore
 
 		ModelShader modelShader_;
 		OITBuffer oitBuffer_;
+		ModelCullingBuffer modelCullingBuffer_;
 
 		ID3D12Device* device_ = nullptr;
 		BindlessHeap* bindlessHeap_ = nullptr;

@@ -41,6 +41,8 @@ namespace SeedCore
 
 		[[nodiscard]] ID3D12PipelineState* GetPipelineState()const;
 
+		[[nodiscard]] ID3D12PipelineState* GetPipelineStateDebugOverlay()const;
+
 		[[nodiscard]] ID3D12RootSignature* GetRootSignature()const;
 
 	private:
@@ -48,6 +50,7 @@ namespace SeedCore
 		Handle<MeshShader> lineMeshShader_;
 		Handle<PixelShader> linePixelShader_;
 		Handle<Microsoft::WRL::ComPtr<ID3D12PipelineState>> pipelineState_;
+		Handle<Microsoft::WRL::ComPtr<ID3D12PipelineState>> pipelineStateDebugOverlay_;
 
 		Handle<RootSignature> lineRootSignature_;
 

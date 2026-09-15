@@ -351,7 +351,7 @@ namespace SeedCore
 		ProfilerStats::AddDrawCall();
 	}
 
-	void FontRenderer::DrawSelectionMaskSprite(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
+	void FontRenderer::DrawSilhouetteSprite(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
 	{
 		if (spriteInstances_.empty())
 		{
@@ -363,7 +363,7 @@ namespace SeedCore
 		cmdList->SetGraphicsRootSignature(fontShader_.GetRootSignature());
 		RootSignature::BindGraphics(cmdList, addresses);
 
-		cmdList->SetPipelineState(fontShader_.GetPipelineStateSelectionMaskSprite());
+		cmdList->SetPipelineState(fontShader_.GetPipelineStateSilhouetteSprite());
 
 		if (D3D12Check::GetLevel() == D3D12Level::D12_2)
 		{
@@ -378,7 +378,7 @@ namespace SeedCore
 		ProfilerStats::AddDrawCall();
 	}
 
-	void FontRenderer::DrawSelectionMaskBillboard(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
+	void FontRenderer::DrawSilhouetteBillboard(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
 	{
 		if (billboardInstances_.empty())
 		{
@@ -390,7 +390,7 @@ namespace SeedCore
 		cmdList->SetGraphicsRootSignature(fontShader_.GetRootSignature());
 		RootSignature::BindGraphics(cmdList, addresses);
 
-		cmdList->SetPipelineState(fontShader_.GetPipelineStateSelectionMaskBillboard());
+		cmdList->SetPipelineState(fontShader_.GetPipelineStateSilhouetteBillboard());
 
 		if (D3D12Check::GetLevel() == D3D12Level::D12_2)
 		{

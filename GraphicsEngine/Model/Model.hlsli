@@ -3,12 +3,13 @@
 
 #include "../Shader/Normal.hlsli"
 #include "../Shader/Constants.hlsli"
+#include "../Shader/Dispatch.hlsli"
 
 /**
 * [EN]
 * Amplification Shader payload for the static/skeletal/depth-prepass/
 * material-sort AS->MS dispatches (ModelAS.hlsl/GeometryBufferAS.hlsl/
-* ModelTransparentAS.hlsl/ModelSelectionAS.hlsl) - one surviving meshlet per
+* ModelTransparentAS.hlsl/ModelSilhouetteAS.hlsl) - one surviving meshlet per
 * thread group.
 */
 struct ModelASPayload
@@ -43,6 +44,15 @@ struct ModelMSOutput
 */
 struct ModelMSPrimitiveOutput
 {
+	nointerpolation uint triangle_in_meshlet_index : BLENDINDICES2;
+};
+
+struct ModelVSOutput
+{
+	float4 position : SV_Position;
+	float2 texcoord : TEXCOORD0;
+	nointerpolation uint instance_index : BLENDINDICES0;
+	nointerpolation uint meshlet_index  : BLENDINDICES1;
 	nointerpolation uint triangle_in_meshlet_index : BLENDINDICES2;
 };
 
@@ -189,7 +199,7 @@ struct ModelMeshlet
 * Bounding sphere (center_/radius_) plus normal cone (cone_axis_/
 * cone_cutoff_, dot-product backface test) for one meshlet, used by the
 * per-meshlet culling in ModelAS.hlsl/GeometryBufferAS.hlsl/
-* ModelTransparentAS.hlsl/ModelSelectionAS.hlsl.
+* ModelTransparentAS.hlsl/ModelSilhouetteAS.hlsl.
 */
 struct ModelMeshletBound
 {
@@ -523,7 +533,7 @@ struct ModelShaderResourceIndices
 
 	uint previous_morph_weight_index_;
 	uint hi_z_index_;
-	uint selection_mask_index_;
+	uint silhouette_index_;
 	uint model_shader_resource_padding_0_;
 };
 
@@ -544,6 +554,32 @@ struct FurConstantBuffer
 ConstantBuffer<FurConstantBuffer> GetFurConstantBuffer()
 {
 	return ResourceDescriptorHeap[constant_indices.fur_index_];
+}
+
+struct ModelCullingStructuredBuffer
+{
+	uint instance_index_;
+	uint meshlet_index_;
+	uint shell_index_;
+	uint model_culling_structured_buffer_padding_0_;
+};
+
+StructuredBuffer<ModelCullingStructuredBuffer> GetModelCullingStructuredBuffer(uint index)
+{
+	return ResourceDescriptorHeap[index];
+}
+
+struct ModelCullingConstantBuffer
+{
+	uint single_sided_index_;
+	uint double_sided_index_;
+	uint arguments_index_;
+	uint model_culling_constant_buffer_padding_0_;
+};
+
+ConstantBuffer<ModelCullingConstantBuffer> GetModelCullingConstantBuffer()
+{
+	return ResourceDescriptorHeap[dispatch_buffer_index_];
 }
 
 /**

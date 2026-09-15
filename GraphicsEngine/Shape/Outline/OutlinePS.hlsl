@@ -1,7 +1,7 @@
 #include "../../Shader/ShaderResources.hlsli"
 #include "../../Shader/Scene.hlsli"
 
-struct SelectionOutlineOutput
+struct OutlineOutput
 {
 	float4 position : SV_Position;
 	float2 texcoord : TEXCOORD0;
@@ -13,7 +13,7 @@ static const int OUTLINE_THICKNESS = 2;
 /**
 * [EN]
 * Selection outline composite pixel shader. Against the mask
-* DrawSelectionMask wrote (selected mesh = 1, everything else = 0),
+* DrawSilhouette wrote (selected mesh = 1, everything else = 0),
 * paints pixels selection color only if they are outside the selected
 * mesh AND within OUTLINE_THICKNESS pixels of it; every other pixel is
 * discarded, leaving the render target's existing content untouched.
@@ -27,7 +27,7 @@ static const int OUTLINE_THICKNESS = 2;
 * ---------------------------------------------------------------------
 *
 * [JP]
-* 選択アウトライン合成用ピクセルシェーダ。DrawSelectionMask が書いたマスク
+* 選択アウトライン合成用ピクセルシェーダ。DrawSilhouette が書いたマスク
 * （選択メッシュ=1、それ以外=0）に対し、自身が選択メッシュの外側にあり、かつ
 * 周囲 OUTLINE_THICKNESS ピクセル以内に選択メッシュがあるピクセルだけを
 * 縁取り色で塗る。それ以外は discard してエディタフレームバッファの内容を
@@ -38,9 +38,9 @@ static const int OUTLINE_THICKNESS = 2;
 * SV_Position を screen_size_/display_size_ でスケールし直す - 両者が
 * 既に一致している場合は比率1.0の恒等変換になる。
 */
-float4 main(SelectionOutlineOutput input) : SV_Target0
+float4 main(OutlineOutput input) : SV_Target0
 {
-	Texture2D<float> mask = ResourceDescriptorHeap[shader_resource_indices.model_.selection_mask_index_];
+	Texture2D<float> mask = ResourceDescriptorHeap[shader_resource_indices.model_.silhouette_index_];
 	SceneConstantBuffer scene = GetSceneConstantBuffer();
 
 	int2 pixel = int2(input.position.xy * (scene.screen_size_ / scene.display_size_));

@@ -20,19 +20,19 @@ namespace SeedCore
 		outlineRootSignature_ = rootSignature_.GetOrCreate(device);
 
 		/// [EN] Selection outline composite PSO: fullscreen, edge-detects the
-		///      selection mask and writes the outline color onto the target frame
+		///      silhouette and writes the outline color onto the target frame
 		///      buffer (non-edge pixels discard in the PS, leaving it untouched).
-		/// [JP] 選択アウトライン合成 PSO: フルスクリーンで選択マスクをエッジ検出し、
+		/// [JP] 選択アウトライン合成 PSO: フルスクリーンでシルエットをエッジ検出し、
 		///      縁取り色を対象フレームバッファへ書く（エッジ以外は PS 内で discard
 		///      し、既存内容を残す）。
-		compositePixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Shape/Outline/SelectionOutlinePS.hlsl"));
+		compositePixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Shape/Outline/OutlinePS.hlsl"));
 
 		PipelineStateKey psokey{};
 		memset(&psokey, 0, sizeof(psokey));
 		psokey.rootSignature_ = rootSignature_.Get(outlineRootSignature_)->Get();
 		if (D3D12Check::GetLevel() == D3D12Level::D12_2)
 		{
-			compositeMeshShader_ = shaderCache.GetOrCreateMeshShader(String("../GraphicsEngine/Shape/Outline/SelectionOutlineMS.hlsl"));
+			compositeMeshShader_ = shaderCache.GetOrCreateMeshShader(String("../GraphicsEngine/Shape/Outline/OutlineMS.hlsl"));
 			psokey.meshShader_ = shaderCache.GetMeshShader(compositeMeshShader_)->Bytecode();
 			psokey.primitiveTopologyType_ = D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED;
 		}
@@ -50,11 +50,19 @@ namespace SeedCore
 		psokey.renderTargetViewCount_ = 1;
 		psokey.depthStencilViewFormat_ = DXGI_FORMAT_UNKNOWN;
 		pipelineStateObjectComposite_ = pipelineStateObject_.GetOrCreate(device, psokey);
+
+		psokey.renderTargetViewFormat_[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+		pipelineStateObjectCompositeDebugOverlay_ = pipelineStateObject_.GetOrCreate(device, psokey);
 	}
 
 	ID3D12PipelineState* OutlineShader::GetPipelineStateComposite()const
 	{
 		return pipelineStateObject_.Get(pipelineStateObjectComposite_);
+	}
+
+	ID3D12PipelineState* OutlineShader::GetPipelineStateCompositeDebugOverlay()const
+	{
+		return pipelineStateObject_.Get(pipelineStateObjectCompositeDebugOverlay_);
 	}
 
 	ID3D12RootSignature* OutlineShader::GetRootSignature()const

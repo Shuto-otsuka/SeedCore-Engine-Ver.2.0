@@ -5,6 +5,7 @@
 #include <GraphicsEngine/Model/Animation/AnimationResource.h>
 #include <GraphicsEngine/D3D12/Descriptor/BindlessHeap.h>
 #include <GraphicsEngine/D3D12/Context/D3D12CommandList.h>
+#include <GraphicsEngine/D3D12/Context/D3D12Check.h>
 
 namespace SeedCore
 {
@@ -44,6 +45,11 @@ namespace SeedCore
 
 		constantIndicesBuffer_ = MakePtr<ConstantBuffer<ConstantIndices>>(device, bindlessHeap);
 		shaderResourceIndicesBuffer_ = MakePtr<ConstantBuffer<ShaderResourceIndices>>(device, bindlessHeap);
+
+		if (D3D12Check::GetLevel() != D3D12Level::D12_2)
+		{
+			modelCullingBuffer_.Create(device, bindlessHeap);
+		}
 	}
 
 	void ModelTransformRenderer::Resize(ID3D12Device* device, BindlessHeap* bindlessHeap, Uint32 width, Uint32 height)
@@ -368,6 +374,11 @@ namespace SeedCore
 		{
 			boneBuffer_->Update(boneMatrices_.data(), static_cast<Uint>(boneMatrices_.size()));
 		}
+
+		if (D3D12Check::GetLevel() != D3D12Level::D12_2)
+		{
+			modelCullingBuffer_.Reserve(static_cast<Uint>(opaqueInstances_.size() + transparentInstances_.size()) * 32);
+		}
 	}
 
 	void ModelTransformRenderer::Begin(D3D12CommandList* cmdList)
@@ -404,15 +415,62 @@ namespace SeedCore
 		cmd->SetGraphicsRootConstantBufferView(2, constantAddr);
 		cmd->SetGraphicsRootConstantBufferView(0, shaderResourceAddr);
 
-		cmd->SetPipelineState(modelShader_.GetPipelineStatePreviewStatic());
-		cmd->DispatchMesh(static_cast<Uint>(opaqueInstances_.size() + transparentInstances_.size()), 1, 1);
-		ProfilerStats::AddDrawCall();
-
-		if (hasSkinnedOpaque_)
+		if (D3D12Check::GetLevel() == D3D12Level::D12_2)
 		{
-			cmd->SetPipelineState(modelShader_.GetPipelineStatePreviewSkeletal());
+			cmd->SetPipelineState(modelShader_.GetPipelineStatePreviewStatic());
 			cmd->DispatchMesh(static_cast<Uint>(opaqueInstances_.size() + transparentInstances_.size()), 1, 1);
 			ProfilerStats::AddDrawCall();
+
+			if (hasSkinnedOpaque_)
+			{
+				cmd->SetPipelineState(modelShader_.GetPipelineStatePreviewSkeletal());
+				cmd->DispatchMesh(static_cast<Uint>(opaqueInstances_.size() + transparentInstances_.size()), 1, 1);
+				ProfilerStats::AddDrawCall();
+			}
+		}
+		else
+		{
+			modelCullingBuffer_.Begin(cmd);
+
+			cmd->SetComputeRootSignature(modelShader_.GetRootSignature());
+			cmd->SetComputeRootConstantBufferView(2, constantAddr);
+			cmd->SetComputeRootConstantBufferView(0, shaderResourceAddr);
+			Uint cullingIndex = modelCullingBuffer_.GetConstantBufferIndex();
+			cmd->SetComputeRoot32BitConstants(3, 1, &cullingIndex, 0);
+			cmd->SetPipelineState(modelShader_.GetPipelineStateModelCulling());
+			cmd->Dispatch(static_cast<Uint>(opaqueInstances_.size() + transparentInstances_.size()), 1, 1);
+
+			modelCullingBuffer_.Barrier(cmd);
+
+			cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+			Uint singleSidedIndex = modelCullingBuffer_.GetSingleSidedShaderResourceViewIndex();
+			Uint doubleSidedIndex = modelCullingBuffer_.GetDoubleSidedShaderResourceViewIndex();
+
+			cmd->SetGraphicsRoot32BitConstants(3, 1, &singleSidedIndex, 0);
+			cmd->SetPipelineState(modelShader_.GetPipelineStatePreviewStatic());
+			cmd->ExecuteIndirect(modelCullingBuffer_.GetCommandSignature(), 1, modelCullingBuffer_.GetArgumentBuffer(), 0, nullptr, 0);
+			ProfilerStats::AddDrawCall();
+
+			cmd->SetGraphicsRoot32BitConstants(3, 1, &doubleSidedIndex, 0);
+			cmd->SetPipelineState(modelShader_.GetPipelineStatePreviewStaticDoubleSided());
+			cmd->ExecuteIndirect(modelCullingBuffer_.GetCommandSignature(), 1, modelCullingBuffer_.GetArgumentBuffer(), sizeof(D3D12_DRAW_ARGUMENTS), nullptr, 0);
+			ProfilerStats::AddDrawCall();
+
+			if (hasSkinnedOpaque_)
+			{
+				cmd->SetGraphicsRoot32BitConstants(3, 1, &singleSidedIndex, 0);
+				cmd->SetPipelineState(modelShader_.GetPipelineStatePreviewSkeletal());
+				cmd->ExecuteIndirect(modelCullingBuffer_.GetCommandSignature(), 1, modelCullingBuffer_.GetArgumentBuffer(), 0, nullptr, 0);
+				ProfilerStats::AddDrawCall();
+
+				cmd->SetGraphicsRoot32BitConstants(3, 1, &doubleSidedIndex, 0);
+				cmd->SetPipelineState(modelShader_.GetPipelineStatePreviewSkeletalDoubleSided());
+				cmd->ExecuteIndirect(modelCullingBuffer_.GetCommandSignature(), 1, modelCullingBuffer_.GetArgumentBuffer(), sizeof(D3D12_DRAW_ARGUMENTS), nullptr, 0);
+				ProfilerStats::AddDrawCall();
+			}
+
+			modelCullingBuffer_.End(cmd);
 		}
 	}
 
