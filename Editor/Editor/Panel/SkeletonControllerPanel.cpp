@@ -12,6 +12,7 @@
 #include <FoundationEngine/Resource/ResourceCache.h>
 #include <FoundationEngine/Resource/LoaderSystem.h>
 #include <FoundationEngine/ECS/Actor.h>
+#include <FoundationEngine/ECS/World.h>
 
 namespace SeedCore
 {
@@ -54,7 +55,7 @@ namespace SeedCore
 		isFocused_ = ImGui::Begin("スケルトンコントローラー", &show_);
 		if (isFocused_)
 		{
-			const Mesh* mesh = context_.selectionContext_.selectedActor_ ? context_.selectionContext_.selectedActor_.GetComponent<Mesh>() : nullptr;
+			const Mesh* mesh = context_.selectionContext_.selectedActor_ ? context_.worldContext_.world_->GetComponent<Mesh>(context_.selectionContext_.selectedActor_.GetEntity()) : nullptr;
 
 			if (!mesh || mesh->meshID_ == 0)
 			{
@@ -124,7 +125,7 @@ namespace SeedCore
 
 	void SkeletonControllerPanel::DrawPreview()
 	{
-		const Mesh* mesh = context_.selectionContext_.selectedActor_.GetComponent<Mesh>();
+		const Mesh* mesh = context_.worldContext_.world_->GetComponent<Mesh>(context_.selectionContext_.selectedActor_.GetEntity());
 
 		context_.skeletonControllerPreviewContext_.previewActive_ = true;
 		context_.skeletonControllerPreviewContext_.previewMeshAssetId_ = mesh->meshID_;

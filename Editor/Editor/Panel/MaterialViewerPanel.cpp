@@ -15,6 +15,7 @@
 #include <FoundationEngine/Resource/ResourceCache.h>
 #include <FoundationEngine/Resource/LoaderSystem.h>
 #include <FoundationEngine/ECS/Actor.h>
+#include <FoundationEngine/ECS/World.h>
 
 namespace SeedCore
 {
@@ -98,7 +99,7 @@ namespace SeedCore
 		}
 
 		Actor actor = context_.selectionContext_.selectedActor_;
-		target_ = actor ? actor.GetComponent<Material>() : nullptr;
+		target_ = actor ? context_.worldContext_.world_->GetComponent<Material>(actor.GetEntity()) : nullptr;
 
 		ImGui::DockBuilderDockWindow("マテリアルビューア", context_.graphicsContext_.imgui_->GetDockSpaceID());
 		ImGui::SetNextWindowSize(ImVec2(960, 720), ImGuiCond_FirstUseEver);
@@ -106,7 +107,7 @@ namespace SeedCore
 		isFocused_ = ImGui::Begin("マテリアルビューア", &show_);
 		if (isFocused_)
 		{
-			const Mesh* mesh = actor ? actor.GetComponent<Mesh>() : nullptr;
+			const Mesh* mesh = actor ? context_.worldContext_.world_->GetComponent<Mesh>(actor.GetEntity()) : nullptr;
 
 			if (!target_ || !mesh || mesh->meshID_ == 0)
 			{
