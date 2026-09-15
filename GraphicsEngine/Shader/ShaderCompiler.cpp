@@ -52,117 +52,95 @@ namespace SeedCore
 		return CompileInternal(String(filePath), String("main"), String("lib_6_6"));
 	}
 
-	ShaderCompileResult ShaderCompiler::LoadPrecompiled(String filePath)
+	ShaderCompileResult ShaderCompiler::CompileInternal(String filePath, String entryPoint, String targetProfile)
 	{
 		HRESULT hr{ S_OK };
-
-		DynamicArray<Uint8> binaryData;
-		BinaryInputArchive archive;
-		if (archive.Read(filePath))
-		{
-			archive.TryField("data", binaryData);
-		}
-
-		if (binaryData.empty())
-		{
-			binaryData = FileUtility::LoadFileBinary(filePath);
-		}
-
-		if (binaryData.empty())
-		{
-			return {};
-		}
 
 		Microsoft::WRL::ComPtr<IDxcUtils> dxcUtils;
 		hr = DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&dxcUtils));
 		SC_HR_CHECK(hr, "DxcUtilsインスタンスの生成に失敗しました");
 
-		Microsoft::WRL::ComPtr<IDxcBlobEncoding> blobEncoding;
-		hr = dxcUtils->CreateBlob(binaryData.data(), static_cast<Uint32>(binaryData.size()), DXC_CP_ACP, &blobEncoding);
-		if (FAILED(hr))
-		{
-			return {};
-		}
+		std::string path = filePath.str();
+		std::string filename = std::filesystem::path(path).filename().string();
+		Bool precompiledOnly = path.size() >= 4 && path.substr(path.size() - 4) == ".cso";
 
-		ShaderCompileResult result{};
-		result.objectBlob = blobEncoding;
-
-		Microsoft::WRL::ComPtr<IDxcContainerReflection> containerReflection;
-		hr = DxcCreateInstance(CLSID_DxcContainerReflection, IID_PPV_ARGS(&containerReflection));
-		if (SUCCEEDED(hr))
+		DynamicArray<Uint8> precompiledData;
+		if (precompiledOnly)
 		{
-			hr = containerReflection->Load(blobEncoding.Get());
-			if (SUCCEEDED(hr))
+			BinaryInputArchive precompiledArchive;
+			if (precompiledArchive.Read(filePath))
 			{
-				Uint32 partIndex = 0;
-				hr = containerReflection->FindFirstPartKind(DXC_PART_REFLECTION_DATA, &partIndex);
-				if (SUCCEEDED(hr))
-				{
-					Microsoft::WRL::ComPtr<IDxcBlob> partBlob;
-					containerReflection->GetPartContent(partIndex, &partBlob);
-					result.reflectionBlob = partBlob;
-				}
+				precompiledArchive.TryField("data", precompiledData);
+			}
+
+			if (precompiledData.empty())
+			{
+				precompiledData = FileUtility::LoadFileBinary(filePath);
 			}
 		}
 
-		return result;
-	}
-
-	String ShaderCompiler::HlslToCsoPath(const std::string& hlslPath)
-	{
-		auto pos = hlslPath.find_last_of("/\\");
-		std::string filename = (pos != std::string::npos) ? hlslPath.substr(pos + 1) : hlslPath;
-		filename = filename.substr(0, filename.size() - 5) + ".dx.cso";
-		return String("../CompiledShaderObject/Application/" + filename);
-	}
-
-	void ShaderCompiler::SaveCso(const String& csoPath, IDxcBlob* blob)
-	{
-		std::filesystem::path csoFs(csoPath.str());
-		if (csoFs.has_parent_path())
-		{
-			std::filesystem::create_directories(csoFs.parent_path());
-		}
-
-		std::ofstream ofs(csoPath.str(), std::ios::binary);
-		if (ofs)
-		{
-			ofs.write(static_cast<const Byte*>(blob->GetBufferPointer()), blob->GetBufferSize());
-		}
-	}
-
-	ShaderCompileResult ShaderCompiler::CompileInternal(String filePath, String entryPoint, String targetProfile)
-	{
-		std::string path = filePath.str();
-		if (path.size() >= 4 && path.substr(path.size() - 4) == ".cso")
-		{
-			return LoadPrecompiled(filePath);
-		}
-
 #ifndef _DEBUG
-		String csoPath = HlslToCsoPath(path);
+		String csoPath = String("../CompiledShaderObject/Application/" + filename.substr(0, filename.size() - 5) + ".dx.cso");
+		String cacheKey = String(targetProfile.str() + ":" + entryPoint.str());
 		std::filesystem::path hlslFs(path);
 		std::filesystem::path csoFs(csoPath.str());
-		if (std::filesystem::exists(csoFs) && std::filesystem::exists(hlslFs))
+		std::unordered_map<String, DynamicArray<Uint8>> cachedEntries;
+		if (!precompiledOnly && std::filesystem::exists(csoFs) && std::filesystem::exists(hlslFs))
 		{
 			auto csoTime = std::filesystem::last_write_time(csoFs);
 			auto hlslTime = std::filesystem::last_write_time(hlslFs);
 			if (csoTime >= hlslTime)
 			{
-				ShaderCompileResult cached = LoadPrecompiled(csoPath);
-				if (cached.objectBlob)
+				BinaryInputArchive cacheArchive;
+				if (cacheArchive.Read(csoPath))
 				{
-					return cached;
+					cacheArchive.TryField("entries", cachedEntries);
+				}
+
+				auto cachedEntry = cachedEntries.find(cacheKey);
+				if (cachedEntry != cachedEntries.end())
+				{
+					precompiledData = cachedEntry->second;
 				}
 			}
 		}
 #endif
 
-		HRESULT hr{ S_OK };
+		if (!precompiledData.empty())
+		{
+			Microsoft::WRL::ComPtr<IDxcBlobEncoding> blobEncoding;
+			hr = dxcUtils->CreateBlob(precompiledData.data(), static_cast<Uint32>(precompiledData.size()), DXC_CP_ACP, &blobEncoding);
+			if (SUCCEEDED(hr))
+			{
+				ShaderCompileResult precompiledResult{};
+				precompiledResult.objectBlob = blobEncoding;
 
-		Microsoft::WRL::ComPtr<IDxcUtils> dxcUtils;
-		hr = DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&dxcUtils));
-		SC_HR_CHECK(hr, "DxcUtilsインスタンスの生成に失敗しました");
+				Microsoft::WRL::ComPtr<IDxcContainerReflection> containerReflection;
+				hr = DxcCreateInstance(CLSID_DxcContainerReflection, IID_PPV_ARGS(&containerReflection));
+				if (SUCCEEDED(hr))
+				{
+					hr = containerReflection->Load(blobEncoding.Get());
+					if (SUCCEEDED(hr))
+					{
+						Uint32 partIndex = 0;
+						hr = containerReflection->FindFirstPartKind(DXC_PART_REFLECTION_DATA, &partIndex);
+						if (SUCCEEDED(hr))
+						{
+							Microsoft::WRL::ComPtr<IDxcBlob> partBlob;
+							containerReflection->GetPartContent(partIndex, &partBlob);
+							precompiledResult.reflectionBlob = partBlob;
+						}
+					}
+				}
+
+				return precompiledResult;
+			}
+		}
+
+		if (precompiledOnly)
+		{
+			return {};
+		}
 
 		Microsoft::WRL::ComPtr<IDxcCompiler3> dxcCompiler;
 		hr = DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&dxcCompiler));
@@ -242,21 +220,28 @@ namespace SeedCore
 		if (compileResult.objectBlob)
 		{
 #ifdef _DEBUG
-			std::string filename = std::filesystem::path(path).filename().string();
-			filename = filename.substr(0, filename.size() - 5) + ".dbg.cso";
-			SaveCso(String("../CompiledShaderObject/Develop/" + filename), compileResult.objectBlob.Get());
+			std::filesystem::path debugCsoFs("../CompiledShaderObject/Develop/" + filename.substr(0, filename.size() - 5) + ".dbg.cso");
+			if (debugCsoFs.has_parent_path())
+			{
+				std::filesystem::create_directories(debugCsoFs.parent_path());
+			}
+
+			std::ofstream debugCsoStream(debugCsoFs, std::ios::binary);
+			if (debugCsoStream)
+			{
+				debugCsoStream.write(static_cast<const Byte*>(compileResult.objectBlob->GetBufferPointer()), compileResult.objectBlob->GetBufferSize());
+			}
 #else
-			std::filesystem::path csoFs(csoPath.str());
 			if (csoFs.has_parent_path())
 			{
 				std::filesystem::create_directories(csoFs.parent_path());
 			}
 
 			const Uint8* objectBegin = static_cast<const Uint8*>(compileResult.objectBlob->GetBufferPointer());
-			DynamicArray<Uint8> objectBytes(objectBegin, objectBegin + compileResult.objectBlob->GetBufferSize());
+			cachedEntries[cacheKey] = DynamicArray<Uint8>(objectBegin, objectBegin + compileResult.objectBlob->GetBufferSize());
 
 			BinaryOutputArchive cacheArchive;
-			cacheArchive.Field("data", objectBytes);
+			cacheArchive.Field("entries", cachedEntries);
 			cacheArchive.Write(csoPath);
 #endif
 		}

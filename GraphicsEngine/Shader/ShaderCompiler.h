@@ -34,11 +34,5 @@ namespace SeedCore
 	private:
 		static ShaderCompileResult CompileInternal(String filePath, String entryPoint, String targetProfile);
 
-		static ShaderCompileResult LoadPrecompiled(String filePath);
-
-		static String HlslToCsoPath(const std::string& hlslPath);
-
-		static void SaveCso(const String& csoPath, IDxcBlob* blob);
-
 	};
 }
