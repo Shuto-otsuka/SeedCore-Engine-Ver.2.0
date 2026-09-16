@@ -55,7 +55,7 @@ namespace SeedCore
 
 	void BindlessHeap::FreeIndex(Uint index)
 	{
-		if (index == 0xFFFFFFFF)
+		if (index == SC_INVALID)
 		{
 			return;
 		}

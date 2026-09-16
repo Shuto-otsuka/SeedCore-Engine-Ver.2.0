@@ -13,13 +13,11 @@ namespace SeedCore
 		bindlessHeap_ = bindlessHeap;
 		cmdQueue_ = cmdQueue;
 
-		TextureLoader loader;
-
 		auto load = [&](const Char* name, const Char* tag, Uint& textureIndex, Microsoft::WRL::ComPtr<ID3D12Resource>& resource)
 		{
 			textureIndex = bindlessHeap->AllocateIndex();
 			String filePath = String(std::string("../Runtime/Logo/") + name + "." + tag);
-			loader.CreateTexture(device, cmdQueue, bindlessHeap->Heap(), filePath, resource, textureIndex);
+			TextureLoader::CreateTexture(device, cmdQueue, bindlessHeap->Heap(), filePath, resource, textureIndex);
 		};
 
 		load("Day",   "logo", dayTextureIndex_, dayResource_);

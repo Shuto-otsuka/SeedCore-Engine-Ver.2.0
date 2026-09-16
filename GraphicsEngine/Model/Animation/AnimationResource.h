@@ -2,6 +2,7 @@
 #include <FoundationEngine/Prelude.h>
 #include <FoundationEngine/Utility/Handle.h>
 #include <FoundationEngine/Utility/FlatMap.h>
+#include <FoundationEngine/Resource/Asset.h>
 #include <GraphicsEngine/Model/Animation/Animation.h>
 
 namespace SeedCore
@@ -9,11 +10,15 @@ namespace SeedCore
 	struct LoaderSystem;
 	class ResourceCache;
 
-	class SEEDCORE_API AnimationResource :public NonCopyable
+	class SEEDCORE_API AnimationResource :public Asset, public NonCopyable
 	{
 	public:
 		AnimationResource() = default;
 		~AnimationResource() = default;
+
+		void Load(const AssetContext& context, Uint32 assetId)override;
+
+		void Unload(const AssetContext& context, Uint32 assetId)override;
 
 		Handle<Animation> Load(LoaderSystem& loader, ResourceCache& cache, Uint32 assetId);
 

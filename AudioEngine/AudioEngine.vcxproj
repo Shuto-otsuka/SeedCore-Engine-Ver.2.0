@@ -25,17 +25,21 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Audio\Audio.h" />
+    <ClInclude Include="Audio\AudioByteStream.h" />
     <ClInclude Include="Audio\AudioListener.h" />
     <ClInclude Include="Audio\AudioLoader.h" />
     <ClInclude Include="Audio\AudioResource.h" />
     <ClInclude Include="Audio\AudioSource.h" />
+    <ClInclude Include="Audio\Sound.h" />
     <ClInclude Include="CRI\CriAllocator.h" />
     <ClInclude Include="CRI\CriManager.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Audio\Audio.cpp" />
+    <ClCompile Include="Audio\AudioByteStream.cpp" />
     <ClCompile Include="Audio\AudioLoader.cpp" />
     <ClCompile Include="Audio\AudioResource.cpp" />
+    <ClCompile Include="Audio\Sound.cpp" />
     <ClCompile Include="Prelude.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>

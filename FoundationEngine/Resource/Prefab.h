@@ -245,7 +245,7 @@ namespace SeedCore
 		/// [JP] サブツリー内の全取得済み actor ノードの、親インデックスで連結されたフラットな配列（インデックス0は常にルート）。
 		DynamicArray<PrefabNode> nodes_;
 
-		/// [EN] Asset ID of the prefab this one was originally derived from, if any (0 if none).
+		/// [EN] AssetRecord ID of the prefab this one was originally derived from, if any (0 if none).
 		/// [JP] このプレハブが元々派生した元プレハブのアセット ID（無ければ0）。
 		Uint32 basePrefabAssetID_ = 0;
 

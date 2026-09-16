@@ -6,6 +6,16 @@
 
 namespace SeedCore
 {
+	void SkymapResource::Load(const AssetContext& context, Uint32 assetId)
+	{
+		Load(context.loader_, context.device_, context.cmdQueue_, context.heap_, context.cache_, assetId);
+	}
+
+	void SkymapResource::Unload(const AssetContext& context, Uint32 assetId)
+	{
+		Unload(context.loader_, assetId, context.heap_);
+	}
+
 	Handle<Skymap> SkymapResource::Load(LoaderSystem& loader, ID3D12Device* device, D3D12CommandQueue* cmdQueue, BindlessHeap* heap, ResourceCache& cache, Uint32 assetId)
 	{
 		if (assetHandleMap_.contains(assetId))
@@ -13,7 +23,7 @@ namespace SeedCore
 			return assetHandleMap_.at(assetId);
 		}
 
-		Asset* asset = cache.GetAsset(assetId);
+		AssetRecord* asset = cache.GetAsset(assetId);
 		if (!asset)
 		{
 			return Handle<Skymap>::null();
@@ -59,4 +69,6 @@ namespace SeedCore
 		loader.skymapLoader_->Clear(handle, heap);
 		assetHandleMap_.erase(assetId);
 	}
+
+	REGISTER_ASSET(AssetType::Skymap, SkymapResource);
 }

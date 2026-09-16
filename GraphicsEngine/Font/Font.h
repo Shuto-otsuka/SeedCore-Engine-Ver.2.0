@@ -30,6 +30,8 @@ namespace SeedCore
 
 	class Font
 	{
+		friend class FontLoader;
+
 	public:
 		using AtlasStorage = msdf_atlas::BitmapAtlasStorage<msdf_atlas::byte, 4>;
 		using AtlasGenerator = msdf_atlas::ImmediateAtlasGenerator<Float, 4, msdf_atlas::mtsdfGenerator, AtlasStorage>;
@@ -38,9 +40,8 @@ namespace SeedCore
 		Font() = default;
 		~Font() = default;
 
-		Bool Initialize(FT_Library library, const std::string& filePath, Float fontSize);
-
-		void Finalize();
+		Font(Font&&)noexcept = default;
+		Font& operator=(Font&&)noexcept = default;
 
 		Bool Update();
 

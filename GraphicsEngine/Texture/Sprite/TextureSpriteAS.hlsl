@@ -1,15 +1,15 @@
-#include "../Image.hlsli"
+#include "../Texture.hlsli"
 #include "../../Shader/ShaderResources.hlsli"
 #include "../../Shader/Culling.hlsli"
 
 groupshared uint survived_count;
 groupshared uint local_indices[32];
-groupshared ImageASPayload payload;
+groupshared TextureASPayload payload;
 
 [numthreads(32, 1, 1)]
 void main(uint3 gtid : SV_GroupThreadID, uint3 dtid : SV_DispatchThreadID)
 {
-	StructuredBuffer<ImageSpriteStructuredBuffer> image_sprite = GetImageSpriteStructuredBuffer(shader_resource_indices.image_.sprite_index_);
+	StructuredBuffer<TextureSpriteStructuredBuffer> texture_sprite = GetTextureSpriteStructuredBuffer(shader_resource_indices.texture_.sprite_index_);
 	SceneConstantBuffer scene_constant = GetSceneConstantBuffer();
 
 	if (gtid.x == 0)
@@ -23,7 +23,7 @@ void main(uint3 gtid : SV_GroupThreadID, uint3 dtid : SV_DispatchThreadID)
 
 	if (sprite_id < 32768)
 	{
-		ImageSpriteStructuredBuffer sprite = image_sprite[sprite_id];
+		TextureSpriteStructuredBuffer sprite = texture_sprite[sprite_id];
 
 		if (sprite.scale_.x > 0.0 && sprite.scale_.y > 0.0)
 		{
@@ -44,7 +44,7 @@ void main(uint3 gtid : SV_GroupThreadID, uint3 dtid : SV_DispatchThreadID)
 	{
 		for (uint index = 0; index < survived_count; ++index)
 		{
-			payload.image_indices[index] = local_indices[index];
+			payload.texture_indices[index] = local_indices[index];
 		}
 	}
 

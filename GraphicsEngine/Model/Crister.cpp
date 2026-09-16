@@ -122,30 +122,30 @@ namespace SeedCore
 		///      これらのバッファから頂点属性を読む。ComPtr メンバにここで
 		///      同期的に解放させず、遅延回収リングへ渡し、bindless SRV
 		///      スロットを返す。
-		if (vertexBufferIndex_ != 0xFFFFFFFFu)
+		if (vertexBufferIndex_ != SC_INVALID)
 		{
 			bindlessHeap_->FreeIndex(vertexBufferIndex_);
-			vertexBufferIndex_ = 0xFFFFFFFFu;
+			vertexBufferIndex_ = SC_INVALID;
 		}
-		if (skinVertexBufferIndex_ != 0xFFFFFFFFu)
+		if (skinVertexBufferIndex_ != SC_INVALID)
 		{
 			bindlessHeap_->FreeIndex(skinVertexBufferIndex_);
-			skinVertexBufferIndex_ = 0xFFFFFFFFu;
+			skinVertexBufferIndex_ = SC_INVALID;
 		}
-		if (indexBufferIndex_ != 0xFFFFFFFFu)
+		if (indexBufferIndex_ != SC_INVALID)
 		{
 			bindlessHeap_->FreeIndex(indexBufferIndex_);
-			indexBufferIndex_ = 0xFFFFFFFFu;
+			indexBufferIndex_ = SC_INVALID;
 		}
-		if (morphDeltaBufferIndex_ != 0xFFFFFFFFu)
+		if (morphDeltaBufferIndex_ != SC_INVALID)
 		{
 			bindlessHeap_->FreeIndex(morphDeltaBufferIndex_);
-			morphDeltaBufferIndex_ = 0xFFFFFFFFu;
+			morphDeltaBufferIndex_ = SC_INVALID;
 		}
-		if (vertexMorphSourceBufferIndex_ != 0xFFFFFFFFu)
+		if (vertexMorphSourceBufferIndex_ != SC_INVALID)
 		{
 			bindlessHeap_->FreeIndex(vertexMorphSourceBufferIndex_);
-			vertexMorphSourceBufferIndex_ = 0xFFFFFFFFu;
+			vertexMorphSourceBufferIndex_ = SC_INVALID;
 		}
 
 		if (vertexResource_)
@@ -2289,12 +2289,12 @@ namespace SeedCore
 	{
 		if (textureIndex >= streamingTextures_.size())
 		{
-			return 0xFFFFFFFF;
+			return SC_INVALID;
 		}
 		const StreamingTexture& streamingTexture = streamingTextures_[textureIndex];
 		if (!streamingTexture.valid_ || streamingTexture.topResidentMip_ >= streamingTexture.mipCount_)
 		{
-			return 0xFFFFFFFF;
+			return SC_INVALID;
 		}
 		Bool isPinnedMip = streamingTexture.topResidentMip_ == streamingTexture.mipCount_ - 1;
 		return isPinnedMip ? streamingTexture.pinnedMip_.bindlessIndex_ : streamingTexture.currentMip_.bindlessIndex_;
@@ -2908,7 +2908,7 @@ namespace SeedCore
 		bindlessHeap_->FreeIndex(streamingTexture.currentMip_.bindlessIndex_);
 		bindlessHeap_->DeferRelease(streamingTexture.currentMip_.resource_);
 		streamingTexture.currentMip_.resource_.Reset();
-		streamingTexture.currentMip_.bindlessIndex_ = 0xFFFFFFFF;
+		streamingTexture.currentMip_.bindlessIndex_ = SC_INVALID;
 		totalResidentTextureBytes_ -= streamingTexture.currentMip_.sizeBytes_;
 		streamingTexture.currentMip_.sizeBytes_ = 0;
 		streamingTexture.topResidentMip_ = streamingTexture.mipCount_ - 1;

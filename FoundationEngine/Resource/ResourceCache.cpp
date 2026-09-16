@@ -7,47 +7,8 @@
 #include <GraphicsEngine/D3D12/Descriptor/BindlessHeap.h>
 #include <GraphicsEngine/D3D12/Context/D3D12CommandQueue.h>
 
-#include <GraphicsEngine/Texture/ImageResource.h>
-#include <GraphicsEngine/Model/ModelResource.h>
-#include <GraphicsEngine/Model/Animation/AnimationResource.h>
-#include <GraphicsEngine/Model/Collision/MeshCollisionResource.h>
-#include <GraphicsEngine/Model/Material/MaterialResource.h>
-#include <GraphicsEngine/Model/Skeleton/SkeletonResource.h>
-#include <GraphicsEngine/Font/FontResource.h>
-#include <GraphicsEngine/Sky/SkymapResource.h>
-#include <GraphicsEngine/Effect/Effekseer/EffekseerResource.h>
-#include <GraphicsEngine/Movie/MovieResource.h>
-
 namespace SeedCore
 {
-	namespace
-	{
-		/// [EN] Reads an AssetMeta from metaPath. Returns false if the file
-		///      couldn't be opened or parsed (see BinaryInputArchive::Read).
-		/// [JP] metaPath から AssetMeta を読み取る。ファイルを開けない、
-		///      または解析できなければ false を返す（BinaryInputArchive::Read 参照）。
-		Bool ReadAssetMeta(const std::filesystem::path& metaPath, AssetMeta& meta)
-		{
-			BinaryInputArchive archive;
-			if (!archive.Read(String(metaPath.string())))
-			{
-				return false;
-			}
-
-			meta.Serialize(archive);
-			return true;
-		}
-
-		/// [EN] Serialises meta to metaPath.
-		/// [JP] meta を metaPath へシリアライズする。
-		void WriteAssetMetaFile(const std::filesystem::path& metaPath, AssetMeta meta)
-		{
-			BinaryOutputArchive archive;
-			meta.Serialize(archive);
-			archive.Write(String(metaPath.string()));
-		}
-	}
-
 	/**
 	* [EN]
 	* Constructs the cache, creating each resource manager and resolving
@@ -65,16 +26,10 @@ namespace SeedCore
 		/// [JP] プロジェクトルートは、実行ファイルの作業ディレクトリの1つ上にある。
 		projectRootPath_ = std::filesystem::current_path().parent_path();
 
-		imageResource_ = MakePtr<ImageResource>();
-		modelResource_ = MakePtr<ModelResource>();
-		animationResource_ = MakePtr<AnimationResource>();
-		meshCollisionResource_ = MakePtr<MeshCollisionResource>();
-		materialResource_ = MakePtr<MaterialResource>();
-		skeletonResource_ = MakePtr<SkeletonResource>();
-		fontResource_ = MakePtr<FontResource>();
-		skymapResource_ = MakePtr<SkymapResource>();
-		effekseerResource_ = MakePtr<EffekseerResource>();
-		movieResource_ = MakePtr<MovieResource>();
+		for (const std::pair<AssetType, AssetRegistry::Factory>& entry : AssetRegistry::GetRegistry())
+		{
+			resourceMap_.insert({ entry.first, entry.second() });
+		}
 	}
 
 	/**
@@ -184,7 +139,7 @@ namespace SeedCore
 
 		Uint32 assetID = pendingAssetIDs_[pendingIndex_++];
 
-		Asset* asset = GetAsset(assetID);
+		AssetRecord* asset = GetAsset(assetID);
 		if (asset && !asset->isLoaded_)
 		{
 			/// [EN] Dispatch to the resource manager matching this asset's type; some types (Prefab/Scene) have no per-frame Step loader and are handled elsewhere.
@@ -195,44 +150,13 @@ namespace SeedCore
 			///      別の場所で処理される。Texture/Model/Skymap は共有の Direct キューへ提出する - これは StepAsync のバックグラウンドワーカースレッド上で
 			///      走り、メインスレッドが同時に同じキューへ提出しうる(Graphics::Begin/End/Resize)。各 Load() 内部で
 			///      D3D12CommandQueue::AcquireLock() を、このディスパッチ全体ではなく実際の ExecuteCommandLists/Signal の瞬間だけ狭くロックする。
-			switch (asset->type_)
+			Asset* resource = GetResource(asset->type_);
+			if (resource)
 			{
-			case AssetType::Texture:
-				imageResource_->Load(loader, device, cmdQueue, heap, *this, asset->assetID_);
-				break;
-			case AssetType::Model:
-				modelResource_->Load(loader, device, cmdQueue, heap, bc7Shader, *this, asset->assetID_);
-				loader.animationLoader_->SplitClips(asset->fullpath_);
-				break;
-			case AssetType::Animation:
-				animationResource_->Load(loader, *this, asset->assetID_);
-				break;
-			case AssetType::MeshCollision:
-				meshCollisionResource_->Load(loader, *this, asset->assetID_);
-				break;
-			case AssetType::Material:
-				materialResource_->Load(loader, *this, asset->assetID_);
-				break;
-			case AssetType::Skeleton:
-				skeletonResource_->Load(loader, *this, asset->assetID_);
-				break;
-			case AssetType::Effect:
-				effekseerResource_->Load(loader, *this, asset->assetID_);
-				break;
-			case AssetType::Audio:
-				break;
-			case AssetType::Font:
-				fontResource_->Load(asset->assetID_, asset->fullpath_.str(), 48.0f);
-				break;
-			case AssetType::Movie:
-				movieResource_->Load(asset->assetID_, asset->fullpath_.str());
-				break;
-			case AssetType::Skymap:
-				skymapResource_->Load(loader, device, cmdQueue, heap, *this, asset->assetID_);
-				break;
-			default:
-				break;
+				AssetContext context{ loader, *this, device, cmdQueue, heap, &bc7Shader };
+				resource->Load(context, asset->assetID_);
 			}
+
 			asset->isLoaded_ = true;
 		}
 
@@ -337,14 +261,14 @@ namespace SeedCore
 
 	/**
 	* [EN]
-	* Returns the Asset registered under id, or nullptr if unknown.
+	* Returns the AssetRecord registered under id, or nullptr if unknown.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* id に登録されている Asset を返す。不明であれば nullptr を返す。
+	* id に登録されている AssetRecord を返す。不明であれば nullptr を返す。
 	*/
-	Asset* ResourceCache::GetAsset(Uint32 id)
+	AssetRecord* ResourceCache::GetAsset(Uint32 id)
 	{
 		auto it = assetsMap_.find(id);
 		if (it != assetsMap_.end())
@@ -412,16 +336,16 @@ namespace SeedCore
 
 	/**
 	* [EN]
-	* Returns every Asset whose path contains key as a substring.
+	* Returns every AssetRecord whose path contains key as a substring.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* パスに key を部分文字列として含む、全ての Asset を返す。
+	* パスに key を部分文字列として含む、全ての AssetRecord を返す。
 	*/
-	DynamicArray<Asset*> ResourceCache::Search(String key)
+	DynamicArray<AssetRecord*> ResourceCache::Search(String key)
 	{
-		DynamicArray<Asset*> result;
+		DynamicArray<AssetRecord*> result;
 
 		for (auto& asset : assetsMap_ | std::ranges::views::values)
 		{
@@ -464,13 +388,58 @@ namespace SeedCore
 			return AxisConvention{};
 		}
 
-		AssetMeta meta;
-		if (!ReadAssetMeta(metaPath, meta))
+		BinaryInputArchive archive;
+		if (!archive.Read(String(metaPath.string())))
 		{
 			return AxisConvention{};
 		}
 
+		AssetMeta meta;
+		meta.Serialize(archive);
+
 		return meta.axisConvention_;
+	}
+
+	/**
+	* [EN]
+	* Reads the total transform baked into the Model asset behind id, as
+	* persisted in its .meta sidecar. Returns the identity matrix if the
+	* asset or its .meta file don't exist, or if the .meta predates this
+	* field.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* id の Model アセットに焼き込まれている合計トランスフォームを、その
+	* .meta サイドカーに永続化されている値として読み取る。アセットや .meta
+	* ファイルが存在しない場合、またはこのフィールドより前の .meta の場合は、
+	* 単位行列を返す。
+	*/
+	Matrix ResourceCache::ReadModelTransform(Uint32 assetId)const
+	{
+		auto it = assetsMap_.find(assetId);
+		if (it == assetsMap_.end())
+		{
+			return Matrix::Identity;
+		}
+
+		std::filesystem::path metaPath = std::filesystem::path(it->second.fullpath_.c_str());
+		metaPath += ".meta";
+		if (!std::filesystem::exists(metaPath))
+		{
+			return Matrix::Identity;
+		}
+
+		BinaryInputArchive archive;
+		if (!archive.Read(String(metaPath.string())))
+		{
+			return Matrix::Identity;
+		}
+
+		AssetMeta meta;
+		meta.Serialize(archive);
+
+		return meta.modelTransform_;
 	}
 
 	/**
@@ -500,7 +469,12 @@ namespace SeedCore
 
 		if (std::filesystem::exists(metaPath))
 		{
-			if (!ReadAssetMeta(metaPath, meta))
+			BinaryInputArchive inputArchive;
+			if (inputArchive.Read(String(metaPath.string())))
+			{
+				meta.Serialize(inputArchive);
+			}
+			else
 			{
 				meta = AssetMeta{};
 				meta.guid_ = assetId;
@@ -508,10 +482,28 @@ namespace SeedCore
 		}
 
 		meta.axisConvention_ = convention;
-		WriteAssetMetaFile(metaPath, meta);
+
+		BinaryOutputArchive outputArchive;
+		meta.Serialize(outputArchive);
+		outputArchive.Write(String(metaPath.string()));
 	}
 
-	void ResourceCache::AppendAssetModelTransform(Uint32 assetId, const Matrix& transform)
+	/**
+	* [EN]
+	* Persists transform into id's .meta sidecar as the total transform
+	* baked into that Model asset, preserving the existing guid_. Replaces
+	* the stored matrix rather than accumulating onto it. Creates the .meta
+	* file if it doesn't exist yet.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* id の .meta サイドカーへ、その Model アセットに焼き込まれた合計
+	* トランスフォームとして transform を永続化する。既存の guid_ は保持する。
+	* 保存済みの行列へ積み上げるのではなく置き換える。.meta ファイルがまだ
+	* 無ければ新規作成する。
+	*/
+	void ResourceCache::WriteAssetMeta(Uint32 assetId, const Matrix& transform)
 	{
 		auto it = assetsMap_.find(assetId);
 		if (it == assetsMap_.end())
@@ -527,16 +519,23 @@ namespace SeedCore
 
 		if (std::filesystem::exists(metaPath))
 		{
-			if (!ReadAssetMeta(metaPath, meta))
+			BinaryInputArchive inputArchive;
+			if (inputArchive.Read(String(metaPath.string())))
+			{
+				meta.Serialize(inputArchive);
+			}
+			else
 			{
 				meta = AssetMeta{};
 				meta.guid_ = assetId;
 			}
 		}
 
-		meta.version_ = 2;
-		meta.modelTransform_ = meta.modelTransform_ * transform;
-		WriteAssetMetaFile(metaPath, meta);
+		meta.modelTransform_ = transform;
+
+		BinaryOutputArchive outputArchive;
+		meta.Serialize(outputArchive);
+		outputArchive.Write(String(metaPath.string()));
 	}
 
 	/**
@@ -554,56 +553,19 @@ namespace SeedCore
 	{
 		Rescan();
 
+		AssetContext context{ loader, *this, device, cmdQueue, heap_, &bc7Shader };
+
 		for (auto& asset : assetsMap_ | std::ranges::views::values)
 		{
-			if (asset.isLoaded_)
+			if (asset.isLoaded_ || asset.type_ == AssetType::Unknown)
 			{
 				continue;
 			}
 
-			switch (asset.type_)
+			Asset* resource = GetResource(asset.type_);
+			if (resource)
 			{
-			case AssetType::Texture:
-				imageResource_->Load(loader, device, cmdQueue, heap_, *this, asset.assetID_);
-				break;
-			case AssetType::Model:
-				modelResource_->Load(loader, device, cmdQueue, heap_, bc7Shader, *this, asset.assetID_);
-				loader.animationLoader_->SplitClips(asset.fullpath_);
-				break;
-			case AssetType::Animation:
-				animationResource_->Load(loader, *this, asset.assetID_);
-				break;
-			case AssetType::MeshCollision:
-				meshCollisionResource_->Load(loader, *this, asset.assetID_);
-				break;
-			case AssetType::Material:
-				materialResource_->Load(loader, *this, asset.assetID_);
-				break;
-			case AssetType::Skeleton:
-				skeletonResource_->Load(loader, *this, asset.assetID_);
-				break;
-			case AssetType::Effect:
-				effekseerResource_->Load(loader, *this, asset.assetID_);
-				break;
-			case AssetType::Audio:
-				break;
-			case AssetType::Font:
-				fontResource_->Load(asset.assetID_, asset.fullpath_.str(), 48.0f);
-				break;
-			case AssetType::Movie:
-				movieResource_->Load(asset.assetID_, asset.fullpath_.str());
-				break;
-			case AssetType::Prefab:
-				break;
-			case AssetType::Scene:
-				break;
-			case AssetType::Skymap:
-				skymapResource_->Load(loader, device, cmdQueue, heap_, *this, asset.assetID_);
-				break;
-			case AssetType::Unknown:
-				[[fallthrough]];
-			default:
-				continue;
+				resource->Load(context, asset.assetID_);
 			}
 
 			asset.isLoaded_ = true;
@@ -623,58 +585,28 @@ namespace SeedCore
 	*/
 	void ResourceCache::Unload(LoaderSystem& loader, BindlessHeap* heap)
 	{
+		AssetContext context{ loader, *this, nullptr, nullptr, heap, nullptr };
+
 		for (auto& asset : assetsMap_ | std::ranges::views::values)
 		{
-			if (!asset.isLoaded_)
+			if (!asset.isLoaded_ || asset.type_ == AssetType::Unknown)
 			{
 				continue;
 			}
 
-			switch (asset.type_)
+			Asset* resource = GetResource(asset.type_);
+			if (resource)
 			{
-			case AssetType::Texture:
-				imageResource_->Unload(loader, asset.assetID_, heap);
-				break;
-			case AssetType::Model:
-				modelResource_->Unload(loader, asset.assetID_, heap);
-				break;
-			case AssetType::Animation:
-				animationResource_->Unload(loader, asset.assetID_);
-				break;
-			case AssetType::MeshCollision:
-				meshCollisionResource_->Unload(loader, asset.assetID_);
-				break;
-			case AssetType::Material:
-				materialResource_->Unload(loader, asset.assetID_);
-				break;
-			case AssetType::Skeleton:
-				skeletonResource_->Unload(loader, asset.assetID_);
-				break;
-			case AssetType::Effect:
-				effekseerResource_->Unload(loader, asset.assetID_);
-				break;
-			case AssetType::Audio:
-				break;
-			case AssetType::Font:
-				fontResource_->Unload(asset.assetID_);
-				break;
-			case AssetType::Movie:
-				movieResource_->Unload(asset.assetID_);
-				break;
-			case AssetType::Skymap:
-				skymapResource_->Unload(loader, asset.assetID_, heap);
-				break;
-			case AssetType::Unknown:
-				[[fallthrough]];
-			default:
-				continue;
+				resource->Unload(context, asset.assetID_);
 			}
 
 			asset.isLoaded_ = false;
 		}
 
-		fontResource_->Clear();
-		movieResource_->Clear();
+		for (const ResourcePtr<Asset>& resource : resourceMap_ | std::ranges::views::values)
+		{
+			resource->Clear(context);
+		}
 
 		assetsMap_.clear();
 		searchMap_.clear();
@@ -682,142 +614,23 @@ namespace SeedCore
 
 	/**
 	* [EN]
-	* Returns the sprite/texture resource manager.
+	* Returns the resource manager registered for type, or nullptr if no
+	* manager registered itself for it.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* スプライト/テクスチャリソースマネージャを返す。
+	* type に登録されているリソースマネージャを返す。登録が無ければ
+	* nullptr を返す。
 	*/
-	ImageResource* ResourceCache::GetImageResource()const
+	Asset* ResourceCache::GetResource(AssetType type)const
 	{
-		return imageResource_.get();
-	}
+		if (!resourceMap_.contains(type))
+		{
+			return nullptr;
+		}
 
-	/**
-	* [EN]
-	* Returns the model resource manager.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* モデルリソースマネージャを返す。
-	*/
-	ModelResource* ResourceCache::GetModelResource()const
-	{
-		return modelResource_.get();
-	}
-
-	/**
-	* [EN]
-	* Returns the animation resource manager.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* アニメーションリソースマネージャを返す。
-	*/
-	AnimationResource* ResourceCache::GetAnimationResource()const
-	{
-		return animationResource_.get();
-	}
-
-	/**
-	* [EN]
-	* Returns the mesh collision resource manager.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* 衝突ジオメトリリソースマネージャを返す。
-	*/
-	MeshCollisionResource* ResourceCache::GetMeshCollisionResource()const
-	{
-		return meshCollisionResource_.get();
-	}
-
-	/**
-	* [EN]
-	* Returns the material resource manager.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* マテリアルリソースマネージャを返す。
-	*/
-	MaterialResource* ResourceCache::GetMaterialResource()const
-	{
-		return materialResource_.get();
-	}
-
-	/**
-	* [EN]
-	* Returns the skeleton rig resource manager.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* スケルトンリグリソースマネージャを返す。
-	*/
-	SkeletonResource* ResourceCache::GetSkeletonResource()const
-	{
-		return skeletonResource_.get();
-	}
-
-	/**
-	* [EN]
-	* Returns the Effekseer effect resource manager.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* Effekseerエフェクトリソースマネージャを返す。
-	*/
-	EffekseerResource* ResourceCache::GetEffekseerResource()const
-	{
-		return effekseerResource_.get();
-	}
-
-	/**
-	* [EN]
-	* Returns the font resource manager.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* フォントリソースマネージャを返す。
-	*/
-	FontResource* ResourceCache::GetFontResource()const
-	{
-		return fontResource_.get();
-	}
-
-	/**
-	* [EN]
-	* Returns the movie resource manager.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* ムービーリソースマネージャを返す。
-	*/
-	MovieResource* ResourceCache::GetMovieResource()const
-	{
-		return movieResource_.get();
-	}
-
-	/**
-	* [EN]
-	* Returns the skymap resource manager.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* スカイマップリソースマネージャを返す。
-	*/
-	SkymapResource* ResourceCache::GetSkymapResource()const
-	{
-		return skymapResource_.get();
+		return resourceMap_.at(type).get();
 	}
 
 	/**
@@ -857,7 +670,7 @@ namespace SeedCore
 	* [JP]
 	* 発見済みの全アセットのマップを、アセット ID をキーとして返す。
 	*/
-	const FlatMap<Uint32, Asset>& ResourceCache::AssetList()const
+	const FlatMap<Uint32, AssetRecord>& ResourceCache::AssetList()const
 	{
 		return assetsMap_;
 	}
@@ -895,14 +708,14 @@ namespace SeedCore
 	* Walks targetPath's directory tree, discovering asset files by
 	* extension, reconciling/recovering their .meta-derived GUIDs
 	* (including orphaned .meta recovery after a rename), and
-	* registering new Asset entries.
+	* registering new AssetRecord entries.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
 	* targetPath のディレクトリツリーを走査し、拡張子でアセットファイルを
 	* 発見し、.meta 由来の GUID を整合・復旧（リネーム後の孤立した .meta
-	* ファイルの復旧を含む）し、新しい Asset エントリを登録する。
+	* ファイルの復旧を含む）し、新しい AssetRecord エントリを登録する。
 	*/
 	void ResourceCache::Scan(String targetPath)
 	{
@@ -1005,7 +818,7 @@ namespace SeedCore
 				continue;
 			}
 
-			Asset asset;
+			AssetRecord asset;
 
 			std::string fullPath = std::filesystem::absolute(entry.path()).string();
 			std::ranges::replace(fullPath, '\\', '/');
@@ -1044,7 +857,7 @@ namespace SeedCore
 				{
 					asset.type_ = AssetType::Effect;
 				}
-				else if (extention == ".mp3" || extention == ".wav" || extention == ".acb" || extention == ".awb" || extention == ".sound")
+				else if (extention == ".mp3" || extention == ".wav" || extention == ".acb" || extention == ".awb" || extention == ".audio")
 				{
 					asset.type_ = AssetType::Audio;
 				}
@@ -1099,7 +912,12 @@ namespace SeedCore
 					/// [JP] このアセットの隣に既に .meta ファイルが存在する: その GUID を直接読み取る。
 					///      読み込みに失敗し新規 GUID の発行が必要だった場合はファイルを
 					///      書き直し、次回スキャンで同じ修復を繰り返さないようにする。
-					if (!ReadAssetMeta(metaPath, meta))
+					BinaryInputArchive inputArchive;
+					if (inputArchive.Read(String(metaPath.string())))
+					{
+						meta.Serialize(inputArchive);
+					}
+					else
 					{
 						meta = AssetMeta{};
 						meta.guid_ = static_cast<Uint32>(std::hash<std::string>{}(asset.path_.c_str() + std::to_string(std::time(nullptr))));
@@ -1107,7 +925,10 @@ namespace SeedCore
 						{
 							meta.guid_++;
 						}
-						WriteAssetMetaFile(metaPath, meta);
+
+						BinaryOutputArchive outputArchive;
+						meta.Serialize(outputArchive);
+						outputArchive.Write(String(metaPath.string()));
 					}
 				}
 				else
@@ -1119,12 +940,15 @@ namespace SeedCore
 
 					if (orphanIt != orphanedMetas.end())
 					{
-						/// [EN] Uses the same read as the main .meta path so a renamed
-						///      asset's orphaned .meta still recovers its original GUID.
-						/// [JP] メインの .meta 読み取りと同じ経路を使い、リネームされた
-						///      アセットの孤立した .meta でも元の GUID を復旧できるようにする。
-						if (ReadAssetMeta(orphanIt->second, meta))
+						/// [EN] Reads the orphaned .meta so the renamed asset recovers
+						///      its original GUID instead of being minted a new one.
+						/// [JP] 孤立した .meta を読み取り、リネームされたアセットが新規
+						///      GUID を発行されるのではなく元の GUID を復旧するようにする。
+						BinaryInputArchive inputArchive;
+						if (inputArchive.Read(String(orphanIt->second.string())))
 						{
+							meta.Serialize(inputArchive);
+
 							/// [EN] Move the recovered .meta file to sit alongside the renamed asset; fall back to copy+delete if the rename fails (e.g. across volumes).
 							/// [JP] 復旧した .meta ファイルを、リネームされたアセットの隣へ移動する。リネームが失敗した場合（異なるボリューム間など）はコピー＋削除にフォールバックする。
 							std::error_code errorCode;
@@ -1151,7 +975,9 @@ namespace SeedCore
 							meta.guid_++;
 						}
 
-						WriteAssetMetaFile(metaPath, meta);
+						BinaryOutputArchive outputArchive;
+						meta.Serialize(outputArchive);
+						outputArchive.Write(String(metaPath.string()));
 					}
 				}
 			}
@@ -1168,14 +994,14 @@ namespace SeedCore
 
 	/**
 	* [EN]
-	* Removes Asset entries whose backing file no longer exists
+	* Removes AssetRecord entries whose backing file no longer exists
 	* (unloading them first if loaded), then re-runs Scan to pick up any
 	* new/changed files.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* 裏付けとなるファイルがもう存在しない Asset エントリを削除し
+	* 裏付けとなるファイルがもう存在しない AssetRecord エントリを削除し
 	* （読み込み済みであれば先に解放する）、その後 Scan を再実行して
 	* 新規/変更されたファイルを取り込む。
 	*/
@@ -1187,42 +1013,11 @@ namespace SeedCore
 			{
 				if (it->second.isLoaded_)
 				{
-					switch (it->second.type_)
+					Asset* resource = GetResource(it->second.type_);
+					if (resource)
 					{
-					case AssetType::Texture:
-						imageResource_->Unload(loader_, it->second.assetID_, heap_);
-						break;
-					case AssetType::Model:
-						modelResource_->Unload(loader_, it->second.assetID_, heap_);
-						break;
-					case AssetType::Animation:
-						animationResource_->Unload(loader_, it->second.assetID_);
-						break;
-					case AssetType::MeshCollision:
-						meshCollisionResource_->Unload(loader_, it->second.assetID_);
-						break;
-					case AssetType::Material:
-						materialResource_->Unload(loader_, it->second.assetID_);
-						break;
-					case AssetType::Skeleton:
-						skeletonResource_->Unload(loader_, it->second.assetID_);
-						break;
-					case AssetType::Effect:
-						effekseerResource_->Unload(loader_, it->second.assetID_);
-						break;
-					case AssetType::Audio:
-						break;
-					case AssetType::Font:
-						fontResource_->Unload(it->second.assetID_);
-						break;
-					case AssetType::Movie:
-						movieResource_->Unload(it->second.assetID_);
-						break;
-					case AssetType::Skymap:
-						skymapResource_->Unload(loader_, it->second.assetID_, heap_);
-						break;
-					default:
-						break;
+						AssetContext context{ loader_, *this, nullptr, nullptr, heap_, nullptr };
+						resource->Unload(context, it->second.assetID_);
 					}
 				}
 				it = assetsMap_.erase(it);

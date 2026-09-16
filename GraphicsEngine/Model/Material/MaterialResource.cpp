@@ -5,6 +5,16 @@
 
 namespace SeedCore
 {
+	void MaterialResource::Load(const AssetContext& context, Uint32 assetId)
+	{
+		Load(context.loader_, context.cache_, assetId);
+	}
+
+	void MaterialResource::Unload(const AssetContext& context, Uint32 assetId)
+	{
+		Unload(context.loader_, assetId);
+	}
+
 	Handle<Surface> MaterialResource::Load(LoaderSystem& loader, ResourceCache& cache, Uint32 assetId)
 	{
 		if (assetHandleMap_.contains(assetId))
@@ -12,7 +22,7 @@ namespace SeedCore
 			return assetHandleMap_.at(assetId);
 		}
 
-		Asset* asset = cache.GetAsset(assetId);
+		AssetRecord* asset = cache.GetAsset(assetId);
 		if (!asset)
 		{
 			return Handle<Surface>::null();
@@ -72,4 +82,6 @@ namespace SeedCore
 		const DynamicArray<Surface>& seed = crister.Surfaces();
 		return slot < seed.size() ? seed[slot] : Surface{};
 	}
+
+	REGISTER_ASSET(AssetType::Material, MaterialResource);
 }

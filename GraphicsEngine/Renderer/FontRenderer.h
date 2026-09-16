@@ -13,6 +13,7 @@ namespace SeedCore
 	class PipelineStateObject;
 	class ShaderResourceIndicesSystem;
 	class FontResource;
+	struct LoaderSystem;
 
 	class FontRenderer
 	{
@@ -70,7 +71,7 @@ namespace SeedCore
 
 		void Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, ShaderResourceIndicesSystem& shaderResourceIndicesSystem);
 
-		void Gather(FontResource& fontResource, World& world, Vector2 nativeScreenSize, Entity selectedEntity = Entity::Null());
+		void Gather(LoaderSystem& loader, FontResource& fontResource, World& world, Vector2 nativeScreenSize, Entity selectedEntity = Entity::Null());
 
 		void Upload();
 

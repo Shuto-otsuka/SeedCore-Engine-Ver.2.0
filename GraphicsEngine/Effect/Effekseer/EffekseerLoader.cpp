@@ -8,17 +8,6 @@
 
 namespace SeedCore
 {
-	EffekseerEffectHandle::EffekseerEffectHandle(EffekseerEffectHandle&& other)noexcept :effect_(std::move(other.effect_))
-	{
-		/// No Code
-	}
-
-	EffekseerEffectHandle& EffekseerEffectHandle::operator=(EffekseerEffectHandle&& other)noexcept
-	{
-		effect_ = std::move(other.effect_);
-		return *this;
-	}
-
 	namespace
 	{
 		/// [EN] Mirrors Effekseer's internal PathHelper::Combine exactly (append a
@@ -166,7 +155,7 @@ namespace SeedCore
 	* ソースファイルの親ディレクトリを materialPath として明示的に渡す —
 	* pathバージョンと違いバイトバッファ版は自動で解決してくれないため。
 	*/
-	Handle<EffekseerEffectHandle> EffekseerLoader::Load(String filePath)
+	Handle<EffekseerEffect> EffekseerLoader::Load(String filePath)
 	{
 		std::filesystem::path path(filePath.c_str());
 		std::filesystem::path cachePath = path;
@@ -215,12 +204,12 @@ namespace SeedCore
 			if (path.extension() != ".efkefc")
 			{
 				SC_LOG_ERROR("Effekseerエフェクトのロードに失敗しました。拡張子が.efkefc/.effekseerではありません: {}", filePath.c_str());
-				return Handle<EffekseerEffectHandle>::null();
+				return Handle<EffekseerEffect>::null();
 			}
 			if (!std::filesystem::exists(path))
 			{
 				SC_LOG_ERROR("Effekseerエフェクトのロードに失敗しました。ファイルが存在しません: {}", filePath.c_str());
-				return Handle<EffekseerEffectHandle>::null();
+				return Handle<EffekseerEffect>::null();
 			}
 
 			std::ifstream ifs(path, std::ios::binary);
@@ -228,14 +217,14 @@ namespace SeedCore
 			if (bytes.empty())
 			{
 				SC_LOG_ERROR("Effekseerエフェクトのロードに失敗しました。ファイルの読み込みに失敗、または空です: {}", filePath.c_str());
-				return Handle<EffekseerEffectHandle>::null();
+				return Handle<EffekseerEffect>::null();
 			}
 
 			effect = Effekseer::Effect::Create(manager.GetManager(), bytes.data(), static_cast<Int32>(bytes.size()), 1.0f, materialPath.c_str());
 			if (effect == nullptr)
 			{
 				SC_LOG_ERROR("Effekseer::Effect::Createに失敗しました: {} (materialPath: {})", filePath.c_str(), std::filesystem::path(materialPath).string());
-				return Handle<EffekseerEffectHandle>::null();
+				return Handle<EffekseerEffect>::null();
 			}
 
 			FlatMap<std::u16string, DynamicArray<Byte>> collected = CollectDependencies(effect, materialPath);
@@ -255,28 +244,23 @@ namespace SeedCore
 			archive.Write(String(cachePath.string()));
 		}
 
-		Handle<EffekseerEffectHandle> handle = pool_.Create();
-		EffekseerEffectHandle* slot = pool_.Get(handle);
+		Handle<EffekseerEffect> handle = pool_.Create();
+		EffekseerEffect* slot = pool_.Get(handle);
 		if (!slot)
 		{
-			return Handle<EffekseerEffectHandle>::null();
+			return Handle<EffekseerEffect>::null();
 		}
 
 		slot->effect_ = effect;
 		return handle;
 	}
 
-	Effekseer::EffectRef* EffekseerLoader::Get(const Handle<EffekseerEffectHandle>& handle)
+	EffekseerEffect* EffekseerLoader::Get(const Handle<EffekseerEffect>& handle)
 	{
-		EffekseerEffectHandle* slot = pool_.Get(handle);
-		if (!slot)
-		{
-			return nullptr;
-		}
-		return &slot->effect_;
+		return pool_.Get(handle);
 	}
 
-	void EffekseerLoader::Clear(Handle<EffekseerEffectHandle>& handle)noexcept
+	void EffekseerLoader::Clear(Handle<EffekseerEffect>& handle)noexcept
 	{
 		pool_.Destroy(handle);
 	}

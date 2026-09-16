@@ -142,7 +142,7 @@ namespace SeedCore
 			regionTextureIndices_[regionIndex] = bindlessHeap->AllocateIndex();
 		}
 		regionTextureResources_[regionIndex].Reset();
-		regionTextureLoader_.CreateTexture(d3d12Context->GetDevice(), d3d12Context->GetDirectQueue(), bindlessHeap->Heap(), filePath, regionTextureResources_[regionIndex], regionTextureIndices_[regionIndex]);
+		TextureLoader::CreateTexture(d3d12Context->GetDevice(), d3d12Context->GetDirectQueue(), bindlessHeap->Heap(), filePath, regionTextureResources_[regionIndex], regionTextureIndices_[regionIndex]);
 		regionTexturePaths_[regionIndex] = filePath;
 	}
 

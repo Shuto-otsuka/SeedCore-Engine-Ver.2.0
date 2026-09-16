@@ -9,6 +9,27 @@
 
 namespace SeedCore
 {
+	void ModelResource::Load(const AssetContext& context, Uint32 assetId)
+	{
+		if (!context.bc7Shader_)
+		{
+			return;
+		}
+
+		Load(context.loader_, context.device_, context.cmdQueue_, context.heap_, *context.bc7Shader_, context.cache_, assetId);
+
+		AssetRecord* asset = context.cache_.GetAsset(assetId);
+		if (asset)
+		{
+			context.loader_.animationLoader_->SplitClips(asset->fullpath_);
+		}
+	}
+
+	void ModelResource::Unload(const AssetContext& context, Uint32 assetId)
+	{
+		Unload(context.loader_, assetId, context.heap_);
+	}
+
 	Handle<Crister> ModelResource::Load(LoaderSystem& loader, ID3D12Device* device, D3D12CommandQueue* cmdQueue, BindlessHeap* heap, BC7CompressShader& bc7Shader, ResourceCache& cache, Uint32 assetId)
 	{
 		if (assetHandleMap_.contains(assetId))
@@ -16,7 +37,7 @@ namespace SeedCore
 			return assetHandleMap_.at(assetId);
 		}
 
-		Asset* asset = cache.GetAsset(assetId);
+		AssetRecord* asset = cache.GetAsset(assetId);
 		if (!asset)
 		{
 			return Handle<Crister>::null();
@@ -102,7 +123,7 @@ namespace SeedCore
 
 	Bool ModelResource::Export(LoaderSystem& loader, ID3D12Device* device, D3D12CommandQueue* cmdQueue, BindlessHeap* heap, BC7CompressShader& bc7Shader, ResourceCache& cache, Uint32 assetId, ExportPreset preset, String outputPath)
 	{
-		Asset* asset = cache.GetAsset(assetId);
+		AssetRecord* asset = cache.GetAsset(assetId);
 		if (!asset)
 		{
 			return false;
@@ -132,7 +153,7 @@ namespace SeedCore
 
 	Bool ModelResource::GenerateCollision(LoaderSystem& loader, ID3D12Device* device, D3D12CommandQueue* cmdQueue, BindlessHeap* heap, BC7CompressShader& bc7Shader, ResourceCache& cache, Uint32 assetId, MeshCollisionDetail detail)
 	{
-		Asset* asset = cache.GetAsset(assetId);
+		AssetRecord* asset = cache.GetAsset(assetId);
 		if (!asset)
 		{
 			return false;
@@ -155,7 +176,7 @@ namespace SeedCore
 
 	Bool ModelResource::GenerateMaterial(LoaderSystem& loader, ID3D12Device* device, D3D12CommandQueue* cmdQueue, BindlessHeap* heap, BC7CompressShader& bc7Shader, ResourceCache& cache, Uint32 assetId, Bool overwrite)
 	{
-		Asset* asset = cache.GetAsset(assetId);
+		AssetRecord* asset = cache.GetAsset(assetId);
 		if (!asset)
 		{
 			return false;
@@ -215,7 +236,7 @@ namespace SeedCore
 
 	Bool ModelResource::GenerateSkeleton(LoaderSystem& loader, ID3D12Device* device, D3D12CommandQueue* cmdQueue, BindlessHeap* heap, BC7CompressShader& bc7Shader, ResourceCache& cache, Uint32 assetId, Bool overwrite)
 	{
-		Asset* asset = cache.GetAsset(assetId);
+		AssetRecord* asset = cache.GetAsset(assetId);
 		if (!asset)
 		{
 			return false;
@@ -270,4 +291,6 @@ namespace SeedCore
 		loader.modelLoader_->Clear(handle, heap);
 		assetHandleMap_.erase(assetId);
 	}
+
+	REGISTER_ASSET(AssetType::Model, ModelResource);
 }

@@ -30,7 +30,7 @@ namespace SeedCore
 	*/
 	struct Spawner
 	{
-		/// [EN] Asset ID of the prefab to spawn.
+		/// [EN] AssetRecord ID of the prefab to spawn.
 		/// [JP] 生成するプレハブのアセット ID。
 		SC_PAYLOAD_FIELD_EX("プレハブID", Prefab)
 		Uint32 prefabID_ = 0;

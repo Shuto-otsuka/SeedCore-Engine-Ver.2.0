@@ -303,18 +303,18 @@ namespace SeedCore
 		canvasIndices_.hud_.uiColorAlphaIndex_ = index;
 	}
 
-	void ShaderResourceIndicesSystem::SetImageSpriteIndex(Uint index)
+	void ShaderResourceIndicesSystem::SetTextureSpriteIndex(Uint index)
 	{
-		editorIndices_.image_.spriteIndex_ = index;
-		gameIndices_.image_.spriteIndex_ = index;
-		canvasIndices_.image_.spriteIndex_ = index;
+		editorIndices_.texture_.spriteIndex_ = index;
+		gameIndices_.texture_.spriteIndex_ = index;
+		canvasIndices_.texture_.spriteIndex_ = index;
 	}
 
-	void ShaderResourceIndicesSystem::SetImageBillboardIndex(Uint index)
+	void ShaderResourceIndicesSystem::SetTextureBillboardIndex(Uint index)
 	{
-		editorIndices_.image_.billboardIndex_ = index;
-		gameIndices_.image_.billboardIndex_ = index;
-		canvasIndices_.image_.billboardIndex_ = index;
+		editorIndices_.texture_.billboardIndex_ = index;
+		gameIndices_.texture_.billboardIndex_ = index;
+		canvasIndices_.texture_.billboardIndex_ = index;
 	}
 
 	void ShaderResourceIndicesSystem::SetFontSpriteIndex(Uint index)

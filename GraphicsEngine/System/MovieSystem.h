@@ -5,10 +5,11 @@ namespace SeedCore
 {
 	class World;
 	class ResourceCache;
+	struct LoaderSystem;
 
 	class MovieSystem
 	{
 	public:
-		void Update(World& world, ResourceCache& resourceCache);
+		void Update(LoaderSystem& loader, World& world, ResourceCache& resourceCache);
 	};
 }

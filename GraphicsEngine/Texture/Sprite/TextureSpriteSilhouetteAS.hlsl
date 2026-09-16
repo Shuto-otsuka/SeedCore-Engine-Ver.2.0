@@ -1,15 +1,15 @@
-#include "../Image.hlsli"
+#include "../Texture.hlsli"
 #include "../../Shader/ShaderResources.hlsli"
 #include "../../Shader/Culling.hlsli"
 
 groupshared uint survived_count;
 groupshared uint local_indices[32];
-groupshared ImageASPayload payload;
+groupshared TextureASPayload payload;
 
 [numthreads(32, 1, 1)]
 void main(uint3 gtid : SV_GroupThreadID, uint3 dtid : SV_DispatchThreadID)
 {
-	StructuredBuffer<ImageBillboardStructuredBuffer> image_billboard = GetImageBillboardStructuredBuffer(shader_resource_indices.image_.billboard_index_);
+	StructuredBuffer<TextureSpriteStructuredBuffer> texture_sprite = GetTextureSpriteStructuredBuffer(shader_resource_indices.texture_.sprite_index_);
 	SceneConstantBuffer scene_constant = GetSceneConstantBuffer();
 
 	if (gtid.x == 0)
@@ -19,16 +19,15 @@ void main(uint3 gtid : SV_GroupThreadID, uint3 dtid : SV_DispatchThreadID)
 	GroupMemoryBarrierWithGroupSync();
 
 	bool is_visible = false;
-	uint billboard_id = dtid.x;
+	uint sprite_id = dtid.x;
 
-	if (billboard_id < 32768)
+	if (sprite_id < 32768)
 	{
-		ImageBillboardStructuredBuffer billboard = image_billboard[billboard_id];
+		TextureSpriteStructuredBuffer sprite = texture_sprite[sprite_id];
 
-		if (billboard.selected_ != 0 && billboard.scale_.x > 0.0 && billboard.scale_.y > 0.0)
+		if (sprite.selected_ != 0 && sprite.scale_.x > 0.0 && sprite.scale_.y > 0.0)
 		{
-			float radius = max(billboard.scale_.x, billboard.scale_.y) * 0.5f;
-			is_visible = IsVisibleInFrustum(billboard.position_, radius, scene_constant.current_view_projection_);
+			is_visible = IsVisibleInScreen(sprite.position_, sprite.texture_size_ * sprite.scale_, scene_constant.screen_size_);
 		}
 	}
 
@@ -36,7 +35,7 @@ void main(uint3 gtid : SV_GroupThreadID, uint3 dtid : SV_DispatchThreadID)
 	{
 		uint slot;
 		InterlockedAdd(survived_count, 1, slot);
-		local_indices[slot] = billboard_id;
+		local_indices[slot] = sprite_id;
 	}
 
 	GroupMemoryBarrierWithGroupSync();
@@ -45,7 +44,7 @@ void main(uint3 gtid : SV_GroupThreadID, uint3 dtid : SV_DispatchThreadID)
 	{
 		for (uint index = 0; index < survived_count; ++index)
 		{
-			payload.image_indices[index] = local_indices[index];
+			payload.texture_indices[index] = local_indices[index];
 		}
 	}
 

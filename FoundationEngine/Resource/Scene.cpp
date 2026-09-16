@@ -196,7 +196,7 @@ namespace SeedCore
 		Uint32 assetID = cache.GetAssetID(String(path.string()));
 		if (assetID != 0)
 		{
-			Asset* asset = cache.GetAsset(assetID);
+			AssetRecord* asset = cache.GetAsset(assetID);
 			if (asset)
 			{
 				resolvedPath = std::filesystem::path(asset->fullpath_.c_str());
@@ -243,7 +243,7 @@ namespace SeedCore
 	*/
 	Bool Scene::Load(World& world, ResourceCache& cache, Uint32 assetID, String* outRaytracingSettingsJson, String* outScreenSpaceSettingsJson, String* outRasterizationSettingsJson)
 	{
-		Asset* asset = cache.GetAsset(assetID);
+		AssetRecord* asset = cache.GetAsset(assetID);
 		if (!asset)
 		{
 			return false;
@@ -490,11 +490,11 @@ namespace SeedCore
 
 	/**
 	* [EN]
-	* Resolves path (project-root-relative, forward-slash) to its Asset
+	* Resolves path (project-root-relative, forward-slash) to its AssetRecord
 	* ID via the process-wide ResourceCache bound by Initialize(). Returns
 	* 0 if not initialized or path is unknown. This is the sanctioned
 	* entry point for gameplay code (SeedScript subclasses) to
-	* dynamically look up an Asset by path at runtime;
+	* dynamically look up an AssetRecord by path at runtime;
 	* Tools/Python/RuntimePackager.py statically scans source for calls
 	* to this function to determine which Assets must be included in a
 	* packaged build, so avoid calling it with anything other than a
@@ -504,12 +504,12 @@ namespace SeedCore
 	*
 	* [JP]
 	* path（プロジェクトルート相対、フォワードスラッシュ）を、
-	* Initialize() で束縛されたプロセス全体の ResourceCache 経由で Asset ID
+	* Initialize() で束縛されたプロセス全体の ResourceCache 経由で AssetRecord ID
 	* に解決する。未初期化または path が不明な場合は 0 を返す。ゲームプレイ
-	* コード（SeedScript のサブクラス）が実行時にパスから Asset を動的に
+	* コード（SeedScript のサブクラス）が実行時にパスから AssetRecord を動的に
 	* 引くための正規の入口である。Tools/Python/RuntimePackager.py が
 	* この関数への呼び出しをソースコードから静的にスキャンし、パッケージ
-	* ビルドに含めるべき Asset を判定するため、文字列リテラル以外を渡すのは
+	* ビルドに含めるべき AssetRecord を判定するため、文字列リテラル以外を渡すのは
 	* 避けること。
 	*/
 	Uint32 Scene::GetAsset(const String& path)

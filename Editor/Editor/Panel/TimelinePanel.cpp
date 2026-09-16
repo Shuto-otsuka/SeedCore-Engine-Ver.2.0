@@ -23,7 +23,7 @@ namespace SeedCore
 	{
 		std::string AnimationLabel(ResourceCache* resource, Uint32 assetId)
 		{
-			Asset* asset = resource->GetAsset(assetId);
+			AssetRecord* asset = resource->GetAsset(assetId);
 			if (!asset)
 			{
 				return "";
@@ -387,7 +387,7 @@ namespace SeedCore
 
 				if (selectedAnimationIndex_ != SIZE_MAX)
 				{
-					AnimationResource* animationResource = context_.worldContext_.resource_->GetAnimationResource();
+					AnimationResource* animationResource = context_.worldContext_.resource_->GetResource<AnimationResource>(AssetType::Animation);
 					Handle<Animation> handle = animationResource->Load(*context_.worldContext_.loader_, *context_.worldContext_.resource_, assetId);
 					animation = animationResource->Resolve(*context_.worldContext_.loader_, handle);
 
@@ -489,7 +489,7 @@ namespace SeedCore
 		}
 
 		Uint32 assetId = target_->animationIDs_[selectedAnimationIndex_];
-		AnimationResource* animationResource = context_.worldContext_.resource_->GetAnimationResource();
+		AnimationResource* animationResource = context_.worldContext_.resource_->GetResource<AnimationResource>(AssetType::Animation);
 		Handle<Animation> handle = animationResource->Load(*context_.worldContext_.loader_, *context_.worldContext_.resource_, assetId);
 		Animation* animation = animationResource->Resolve(*context_.worldContext_.loader_, handle);
 		if (!animation)
@@ -548,7 +548,7 @@ namespace SeedCore
 		ImGui::Separator();
 		ImGui::Spacing();
 
-		Asset* asset = context_.worldContext_.resource_->GetAsset(assetId);
+		AssetRecord* asset = context_.worldContext_.resource_->GetAsset(assetId);
 
 		if (ImGui::Button("上書き保存") && asset)
 		{

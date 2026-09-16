@@ -551,13 +551,13 @@ namespace SeedCore
 	};
 	SC_STATIC_ASSERT_ALIGNED16(HUDShaderResourceIndices);
 
-	struct ImageShaderResourceIndices
+	struct TextureShaderResourceIndices
 	{
 		Uint spriteIndex_ = 0;
 		Uint billboardIndex_ = 0;
-		Vector2 imageShaderResourcePadding0_;
+		Vector2 textureShaderResourcePadding0_;
 	};
-	SC_STATIC_ASSERT_SIZE(ImageShaderResourceIndices, 16, "Texture/Image.hlsli");
+	SC_STATIC_ASSERT_SIZE(TextureShaderResourceIndices, 16, "Texture/Texture.hlsli");
 
 	struct FontShaderResourceIndices
 	{
@@ -807,7 +807,7 @@ namespace SeedCore
 		ReflectionAccumulationShaderResourceIndices reflectionAccumulation_;
 		PostProcessShaderResourceIndices postProcess_;
 		HUDShaderResourceIndices hud_;
-		ImageShaderResourceIndices image_;
+		TextureShaderResourceIndices texture_;
 		FontShaderResourceIndices font_;
 		MovieShaderResourceIndices movie_;
 		ModelShaderResourceIndices model_;
@@ -1003,9 +1003,9 @@ namespace SeedCore
 
 		void SetUIColorAlphaIndex(Uint index);
 
-		void SetImageSpriteIndex(Uint index);
+		void SetTextureSpriteIndex(Uint index);
 
-		void SetImageBillboardIndex(Uint index);
+		void SetTextureBillboardIndex(Uint index);
 
 		void SetFontSpriteIndex(Uint index);
 

@@ -72,8 +72,8 @@ namespace SeedCore
 	*/
 	void SceneTransitionSystem::LoadScene(World& world, ResourceCache& cache, JobExecutor& executor, Uint32 targetScene, Uint32 loadingScene)
 	{
-		Asset* targetAsset = cache.GetAsset(targetScene);
-		Asset* loadingAsset = cache.GetAsset(loadingScene);
+		AssetRecord* targetAsset = cache.GetAsset(targetScene);
+		AssetRecord* loadingAsset = cache.GetAsset(loadingScene);
 		if (!targetAsset || !loadingAsset)
 		{
 			return;
@@ -122,7 +122,7 @@ namespace SeedCore
 	*/
 	void SceneTransitionSystem::LoadScene(World& world, ResourceCache& cache, JobExecutor& executor, Uint32 targetScene, Float fadeOutDuration, Float fadeInDuration)
 	{
-		Asset* targetAsset = cache.GetAsset(targetScene);
+		AssetRecord* targetAsset = cache.GetAsset(targetScene);
 		if (!targetAsset)
 		{
 			return;
@@ -160,7 +160,7 @@ namespace SeedCore
 		Uint32 loadingSceneAssetID = cache.GetAssetID(String(loadingScene.string()));
 		if (loadingSceneAssetID != 0)
 		{
-			Asset* loadingSceneAsset = cache.GetAsset(loadingSceneAssetID);
+			AssetRecord* loadingSceneAsset = cache.GetAsset(loadingSceneAssetID);
 			if (loadingSceneAsset)
 			{
 				resolvedLoadingScene = std::filesystem::path(loadingSceneAsset->fullpath_.c_str());
@@ -191,8 +191,8 @@ namespace SeedCore
 	*/
 	void SceneTransitionSystem::LoadScene(World& world, ResourceCache& cache, JobExecutor& executor, Uint32 targetScene, Uint32 loadingScene, Float coverDuration, Float revealDuration)
 	{
-		Asset* targetAsset = cache.GetAsset(targetScene);
-		Asset* loadingAsset = cache.GetAsset(loadingScene);
+		AssetRecord* targetAsset = cache.GetAsset(targetScene);
+		AssetRecord* loadingAsset = cache.GetAsset(loadingScene);
 		if (!targetAsset || !loadingAsset)
 		{
 			return;
@@ -374,7 +374,7 @@ namespace SeedCore
 		Uint32 assetID = cache.GetAssetID(String(path.string()));
 		if (assetID != 0)
 		{
-			Asset* asset = cache.GetAsset(assetID);
+			AssetRecord* asset = cache.GetAsset(assetID);
 			if (asset)
 			{
 				resolvedPath = std::filesystem::path(asset->fullpath_.c_str());

@@ -27,7 +27,7 @@ namespace SeedCore
 			{
 				return "[" + std::to_string(slot) + "] (未割り当て)";
 			}
-			Asset* asset = resource->GetAsset(assetId);
+			AssetRecord* asset = resource->GetAsset(assetId);
 			std::string name = asset ? std::filesystem::path(asset->path_.c_str()).stem().string() : std::to_string(assetId);
 			return "[" + std::to_string(slot) + "] " + name;
 		}
@@ -66,7 +66,7 @@ namespace SeedCore
 
 		LoaderSystem* loader = context_.worldContext_.loader_;
 		ResourceCache* cache = context_.worldContext_.resource_;
-		MaterialResource* materialResource = cache->GetMaterialResource();
+		MaterialResource* materialResource = cache->GetResource<MaterialResource>(AssetType::Material);
 
 		Handle<Surface> handle = materialResource->GetHandle(surfaceAssetId);
 		if (handle.empty())
@@ -82,7 +82,7 @@ namespace SeedCore
 		editingSurface_ = MakePtr<Surface>(*loaded);
 		editingSurfaceAssetId_ = surfaceAssetId;
 
-		Asset* asset = cache->GetAsset(surfaceAssetId);
+		AssetRecord* asset = cache->GetAsset(surfaceAssetId);
 		surfaceNewNameBuffer_ = asset ? std::filesystem::path(asset->fullpath_.c_str()).stem().string() : std::string();
 		surfaceNewNameBuffer_.resize(128);
 	}
@@ -198,12 +198,12 @@ namespace SeedCore
 
 		LoaderSystem* loader = context_.worldContext_.loader_;
 		ResourceCache* cache = context_.worldContext_.resource_;
-		MaterialResource* materialResource = cache->GetMaterialResource();
+		MaterialResource* materialResource = cache->GetResource<MaterialResource>(AssetType::Material);
 		Surface& surface = *editingSurface_;
 
 		if (ImGui::Button("上書き保存"))
 		{
-			if (Asset* asset = cache->GetAsset(surfaceAssetId))
+			if (AssetRecord* asset = cache->GetAsset(surfaceAssetId))
 			{
 				loader->materialLoader_->Save(surface, asset->fullpath_);
 				materialResource->Unload(*loader, surfaceAssetId);
@@ -217,7 +217,7 @@ namespace SeedCore
 		if (ImGui::Button("新規保存"))
 		{
 			std::string name(surfaceNewNameBuffer_.c_str());
-			Asset* asset = cache->GetAsset(surfaceAssetId);
+			AssetRecord* asset = cache->GetAsset(surfaceAssetId);
 			if (asset && !name.empty())
 			{
 				std::filesystem::path newPath = std::filesystem::path(asset->fullpath_.c_str()).parent_path() / (name + ".material");

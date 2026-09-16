@@ -180,10 +180,10 @@ namespace SeedCore
 	void SkyRenderer::Gather(LoaderSystem& loaderSystem, ResourceCache& resourceCache, World& world)
 	{
 		hasSkymap_ = false;
-		sourceEquirectShaderResourceViewIndex_ = invalidIndex_;
+		sourceShaderResourceViewIndex_ = SC_INVALID;
 		intensity_ = 1.0f;
 
-		SkymapResource* skymapResource = resourceCache.GetSkymapResource();
+		SkymapResource* skymapResource = resourceCache.GetResource<SkymapResource>(AssetType::Skymap);
 		if (!skymapResource)
 		{
 			return;
@@ -216,7 +216,7 @@ namespace SeedCore
 				}
 
 				hasSkymap_ = true;
-				sourceEquirectShaderResourceViewIndex_ = skymap->EquirectShaderResourceViewIndex();
+				sourceShaderResourceViewIndex_ = skymap->ShaderResourceViewIndex();
 				intensity_ = skyLight.intensity_;
 				found = true;
 			});
@@ -245,7 +245,7 @@ namespace SeedCore
 		shaderResourceIndicesSystem.SetSkyBrdfLutIndex(brdfLookupTableShaderResourceViewIndex_);
 
 		Float uploadIntensity;
-		Bool ready = hasSkymap_ && generatedSourceShaderResourceViewIndex_ != invalidIndex_;
+		Bool ready = hasSkymap_ && generatedSourceShaderResourceViewIndex_ != SC_INVALID;
 		if (ready)
 		{
 			shaderResourceIndicesSystem.SetSkyEnvironmentCubeIndex(environmentShaderResourceViewIndex_);
@@ -301,7 +301,7 @@ namespace SeedCore
 			brdfLookupTableGenerated_ = true;
 		}
 
-		if (!hasSkymap_ || sourceEquirectShaderResourceViewIndex_ == invalidIndex_)
+		if (!hasSkymap_ || sourceShaderResourceViewIndex_ == SC_INVALID)
 		{
 			/// [JP] スカイマップ無し: プロシージャル空の IBL 経路。設定ハッシュが
 			///      変わった時、または定期的(太陽の回転はハッシュに含まれない
@@ -323,18 +323,18 @@ namespace SeedCore
 					/// [JP] environment キューブをプロシージャル空で上書きした
 					///      ので、スカイマップ側の生成済み状態を無効化する
 					///      (スカイマップへ戻した時に必ず再生成させる)。
-					generatedSourceShaderResourceViewIndex_ = invalidIndex_;
+					generatedSourceShaderResourceViewIndex_ = SC_INVALID;
 				}
 			}
 			return;
 		}
-		if (sourceEquirectShaderResourceViewIndex_ == generatedSourceShaderResourceViewIndex_)
+		if (sourceShaderResourceViewIndex_ == generatedSourceShaderResourceViewIndex_)
 		{
 			return;
 		}
 
 		GenerateStaticEnvironment(cmdList, heap, addresses);
-		generatedSourceShaderResourceViewIndex_ = sourceEquirectShaderResourceViewIndex_;
+		generatedSourceShaderResourceViewIndex_ = sourceShaderResourceViewIndex_;
 
 		/// [JP] スカイマップで environment/畳み込みを上書きしたので、
 		///      プロシージャル空側の生成済み状態を無効化する。
@@ -375,7 +375,7 @@ namespace SeedCore
 		Transition(cmdList, environmentResource_.Get(), readState, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 		{
 			SkyDispatchBuffer data{};
-			data.sourceIndex_ = sourceEquirectShaderResourceViewIndex_;
+			data.sourceIndex_ = sourceShaderResourceViewIndex_;
 			data.destIndex_ = environmentUnorderedAccessViewIndices_[0];
 			data.faceSize_ = environmentSize_;
 			Dispatch(cmdList, heap, equirectCubemapPipeline_.Get(), data, (environmentSize_ + 7) / 8, (environmentSize_ + 7) / 8, 6, addresses);

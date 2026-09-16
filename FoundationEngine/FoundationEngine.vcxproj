@@ -153,6 +153,7 @@
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">FoundationEngine/Prelude.h</PrecompiledHeaderFile>
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release|x64'">FoundationEngine/Prelude.h</PrecompiledHeaderFile>
     </ClCompile>
+    <ClCompile Include="Resource\Asset.cpp" />
     <ClCompile Include="Resource\AxisConvention.cpp" />
     <ClCompile Include="Resource\Gateway.cpp" />
     <ClCompile Include="Resource\LoaderSystem.cpp">
@@ -249,6 +250,7 @@
     <ClInclude Include="Pool\ObjectPool.h" />
     <ClInclude Include="Pool\StablePool.h" />
     <ClInclude Include="Prelude.h" />
+    <ClInclude Include="Resource\Asset.h" />
     <ClInclude Include="Resource\AxisConvention.h" />
     <ClInclude Include="Resource\Gateway.h" />
     <ClInclude Include="Resource\LoaderSystem.h" />

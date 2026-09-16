@@ -2,6 +2,8 @@
 #include <GraphicsEngine/Profiler/ProfilerStats.h>
 #include <GraphicsEngine/Movie/Movie.h>
 #include <GraphicsEngine/Movie/MovieResource.h>
+#include <GraphicsEngine/Movie/Video.h>
+#include <FoundationEngine/Resource/LoaderSystem.h>
 #include <GraphicsEngine/D3D12/Descriptor/BindlessHeap.h>
 #include <GraphicsEngine/D3D12/PipelineState/PipelineStateObject.h>
 #include <GraphicsEngine/D3D12/Context/D3D12Check.h>
@@ -37,7 +39,7 @@ namespace SeedCore
 		shaderResourceIndicesSystem.SetMovieFullscreenIndex(fullscreenBuffer_->Index());
 	}
 
-	void MovieRenderer::Gather(MovieResource& movieResource, World& world, Vector2 nativeScreenSize, Entity selectedEntity)
+	void MovieRenderer::Gather(LoaderSystem& loader, MovieResource& movieResource, World& world, Vector2 nativeScreenSize, Entity selectedEntity)
 	{
 		spriteInstances_.clear();
 		billboardInstances_.clear();
@@ -47,8 +49,8 @@ namespace SeedCore
 
 		Float spriteReferenceScale = (ScResolution::SC_HD.Height > 0.0f) ? (nativeScreenSize.y / ScResolution::SC_HD.Height) : 1.0f;
 
-		/// [EN] Cached once so each Sprite-mode Movie actor's Bounds can be synced to its canvas rect below (mirrors ImageRenderer's Image -> Bounds sync), giving canvas movies a pickable box in CanvasViewPanel.
-		/// [JP] 各スプライトモード Movie アクターの Bounds を下でキャンバス矩形へ同期できるよう一度だけキャッシュする(ImageRenderer の Image -> Bounds 同期と同じ)。これでキャンバス動画が CanvasViewPanel でピック可能なボックスを持つ。
+		/// [EN] Cached once so each Sprite-mode Movie actor's Bounds can be synced to its canvas rect below (mirrors TextureRenderer's Image -> Bounds sync), giving canvas movies a pickable box in CanvasViewPanel.
+		/// [JP] 各スプライトモード Movie アクターの Bounds を下でキャンバス矩形へ同期できるよう一度だけキャッシュする(TextureRenderer の Image -> Bounds 同期と同じ)。これでキャンバス動画が CanvasViewPanel でピック可能なボックスを持つ。
 		ComponentID boundsComponentID = ComponentRegistry::GetComponentID<Bounds>();
 
 		Query<Read<Active>, Read<Movie>> query(world);
@@ -59,14 +61,15 @@ namespace SeedCore
 					return;
 				}
 
-				if (movie.movieID_ == 0 || !movieResource.Contains(movie.movieID_) || !movieResource.HasTexture(movie.movieID_))
+				Video* video = movieResource.Resolve(loader, movieResource.GetHandle(movie.movieID_));
+				if (movie.movieID_ == 0 || !video || !video->HasTexture())
 				{
 					return;
 				}
 
-				Uint textureIndex = movieResource.GetTextureIndex(movie.movieID_);
-				Int nativeWidth = movieResource.GetWidth(movie.movieID_);
-				Int nativeHeight = movieResource.GetHeight(movie.movieID_);
+				Uint textureIndex = video->GetTextureIndex();
+				Int nativeWidth = video->GetWidth();
+				Int nativeHeight = video->GetHeight();
 
 				if (movie.displayMode_ == Movie::DisplayMode::Fullscreen)
 				{

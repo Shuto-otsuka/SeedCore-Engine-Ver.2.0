@@ -227,7 +227,7 @@ namespace SeedCore
 
 		/// [EN] All four queries below read the parent-composed world
 		///      transform from TransformSystem (Actor::GetWorldMatrix()),
-		///      same as ModelRenderer/ImageRenderer/FontRenderer,
+		///      same as ModelRenderer/TextureRenderer/FontRenderer,
 		///      instead of the actor's own local
 		///      Position/direction fields - so parented lights (position,
 		///      and for spot/rect/directional, orientation too) follow
@@ -236,7 +236,7 @@ namespace SeedCore
 		/// [JP] 以下の4クエリはすべて、アクター自身のローカル
 		///      Position/方向フィールドではなく、TransformSystem
 		///      (Actor::GetWorldMatrix())が計算した親合成済みのワールド変換を
-		///      読む（ModelRenderer/ImageRenderer/FontRenderer と同様）。
+		///      読む（ModelRenderer/TextureRenderer/FontRenderer と同様）。
 		///      これで親付けされたライトの位置、
 		///      および spot/rect/directional では向きも親に追従する。
 		///      TransformNormal はローカルの方向/up ベクトルを平行移動なしで

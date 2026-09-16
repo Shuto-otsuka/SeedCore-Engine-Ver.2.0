@@ -29,6 +29,10 @@
 
 #define SC_RENDER_DOC_USAGE 0
 
+#ifndef SC_INVALID
+#define SC_INVALID 0xFFFFFFFF
+#endif
+
 #ifndef _CRT_SECURE_NO_WARNINGS
 #define _CRT_SECURE_NO_WARNINGS
 #endif

@@ -2,6 +2,7 @@
 #include <FoundationEngine/Prelude.h>
 #include <FoundationEngine/Utility/Handle.h>
 #include <FoundationEngine/Utility/FlatMap.h>
+#include <FoundationEngine/Resource/Asset.h>
 #include <GraphicsEngine/Model/Skeleton/Skeleton.h>
 
 namespace SeedCore
@@ -22,11 +23,15 @@ namespace SeedCore
 	* MaterialResource と同型: アセット ID でロード、ハンドル取得、
 	* SkeletonRig ポインタへの解決、不要時のアンロード。
 	*/
-	class SEEDCORE_API SkeletonResource :public NonCopyable
+	class SEEDCORE_API SkeletonResource :public Asset, public NonCopyable
 	{
 	public:
 		SkeletonResource() = default;
 		~SkeletonResource() = default;
+
+		void Load(const AssetContext& context, Uint32 assetId)override;
+
+		void Unload(const AssetContext& context, Uint32 assetId)override;
 
 		Handle<SkeletonRig> Load(LoaderSystem& loader, ResourceCache& cache, Uint32 assetId);
 

@@ -4,182 +4,18 @@
 #include <FoundationEngine/Utility/FlatMap.h>
 #include <FoundationEngine/Resource/PrefabPool.h>
 #include <FoundationEngine/Resource/ScenePool.h>
+#include <FoundationEngine/Resource/Asset.h>
 #include <FoundationEngine/Resource/AxisConvention.h>
 #include <FoundationEngine/JobSystem/JobTaskflow.h>
 
 namespace SeedCore
 {
 	struct LoaderSystem;
-	class ImageResource;
-	class ModelResource;
-	class AnimationResource;
-	class MeshCollisionResource;
-	class MaterialResource;
-	class SkeletonResource;
 	class BindlessHeap;
 	class D3D12CommandQueue;
 	class BC7CompressShader;
 	class FontManager;
 	class JobExecutor;
-
-	class FontResource;
-	class SkymapResource;
-	class EffekseerResource;
-	class MovieResource;
-
-	/// [EN] Identifies which kind of asset a given Asset entry represents, driving both file-extension classification during Scan and which resource manager handles loading/unloading it.
-	/// [JP] 各 Asset エントリがどの種類のアセットを表すかを識別する。Scan 時のファイル拡張子分類と、読み込み/解放を担当するリソースマネージャの両方を決定する。
-	enum class AssetType
-	{
-		/// [EN] Image texture (.png/.jpg/.dds/...).
-		/// [JP] 画像テクスチャ（.png/.jpg/.dds/...）。
-		Texture,
-
-		/// [EN] 3D model (.gltf/.glb/.fbx/.crister).
-		/// [JP] 3Dモデル（.gltf/.glb/.fbx/.crister）。
-		Model,
-
-		/// [EN] Particle/visual effect (.efkefc/.effekseer/.zephyr).
-		/// [JP] パーティクル/ビジュアルエフェクト（.efkefc/.effekseer/.zephyr）。
-		Effect,
-
-		/// [EN] Audio (.acb/.awb/.sound).
-		/// [JP] オーディオ（.acb/.awb/.sound）。
-		Audio,
-
-		/// [EN] Font (.ttf/.otf/.ttc).
-		/// [JP] フォント（.ttf/.otf/.ttc）。
-		Font,
-
-		/// [EN] Movie (.mp4/.movie).
-		/// [JP] ムービー（.mp4/.movie）。
-		Movie,
-
-		/// [EN] Animation clip (.animation).
-		/// [JP] アニメーションクリップ（.animation）。
-		Animation,
-
-		/// [EN] Actor prefab (.prefab).
-		/// [JP] Actor プレハブ（.prefab）。
-		Prefab,
-
-		/// [EN] Scene (.scene).
-		/// [JP] シーン（.scene）。
-		Scene,
-
-		/// [EN] Skybox/environment map (.hdr/.skymap).
-		/// [JP] スカイボックス/環境マップ（.hdr/.skymap）。
-		Skymap,
-
-		/// [EN] Baked mesh collision geometry (.collision).
-		/// [JP] 焼き込み済みの衝突ジオメトリ（.collision）。
-		MeshCollision,
-
-		/// [EN] Standalone material (.material).
-		/// [JP] 単体マテリアル（.material）。
-		Material,
-
-		/// [EN] Standalone skeleton rig (.skeleton): sockets + root bone.
-		/// [JP] 単体スケルトンリグ（.skeleton）: ソケット + ルートボーン。
-		Skeleton,
-
-		/// [EN] Extension not recognized by Scan.
-		/// [JP] Scan が認識しない拡張子。
-		Unknown,
-	};
-
-	/**
-	* [EN]
-	* A single discovered project asset: its project-relative and
-	* absolute filesystem paths, classified type, stable GUID-derived
-	* ID, and whether it is currently loaded into a resource manager.
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* 発見された単一のプロジェクトアセット: プロジェクト相対パスと
-	* 絶対ファイルシステムパス、分類された種類、GUID から導出された
-	* 安定的な ID、および現在リソースマネージャへ読み込まれているか。
-	*/
-	struct Asset
-	{
-		/// [EN] Path relative to the project root, with forward slashes.
-		/// [JP] プロジェクトルートからの相対パス（スラッシュ区切り）。
-		String path_;
-
-		/// [EN] Absolute filesystem path, with forward slashes.
-		/// [JP] 絶対ファイルシステムパス（スラッシュ区切り）。
-		String fullpath_;
-
-		/// [EN] The classified asset type.
-		/// [JP] 分類済みのアセット種別。
-		AssetType type_ = AssetType::Unknown;
-
-		/// [EN] Stable ID derived from the asset's .meta GUID (or a path hash for extensions that skip .meta files).
-		/// [JP] アセットの .meta GUID から導出される安定的な ID（.meta ファイルを持たない拡張子の場合はパスハッシュ）。
-		Uint32 assetID_ = 0;
-
-		/// [EN] Whether this asset is currently loaded into its resource manager.
-		/// [JP] このアセットが現在、対応するリソースマネージャへ読み込まれているかどうか。
-		Bool isLoaded_ = false;
-	};
-
-	/**
-	* [EN]
-	* Serializable sidecar metadata stored in an asset's .meta file:
-	* primarily its stable GUID, which survives file moves/renames
-	* (unlike a path-derived hash).
-	*
-	* ---------------------------------------------------------------------
-	*
-	* [JP]
-	* アセットの .meta ファイルに格納される、シリアライズ可能な
-	* サイドカーメタデータ。主にその安定的な GUID を保持し、これは
-	* （パス由来のハッシュとは異なり）ファイルの移動/リネームを経ても
-	* 変化しない。
-	*/
-	struct AssetMeta
-	{
-		/// [EN] Meta file format version, for future migration.
-		/// [JP] メタファイルフォーマットのバージョン。将来のマイグレーション用。
-		Uint32 version_ = 2;
-
-		/// [EN] Stable identifier for this asset, persisted across file moves/renames.
-		/// [JP] このアセットの安定的な識別子。ファイルの移動/リネームを跨いで永続化される。
-		Uint32 guid_ = 0;
-
-		/// [EN] Axis convention applied to this Model asset. For a .gltf/.glb source,
-		///      this is the convention to apply on (re-)import. For a .crister-only
-		///      asset, this records the convention currently baked into the file.
-		///      Unused/ignored for non-Model asset types.
-		/// [JP] この Model アセットに適用する軸コンベンション。.gltf/.glb ソースの
-		///      場合は(再)インポート時に適用する規約。.crister のみのアセットの
-		///      場合はファイルに現在焼き込まれている規約を記録する。Model 以外の
-		///      アセット種別では未使用。
-		AxisConvention axisConvention_;
-
-		Matrix modelTransform_ = Matrix::Identity;
-
-		/**
-		* [EN]
-		* Serialization hook: reads/writes version_, guid_, axisConvention_,
-		* and modelTransform_.
-		*
-		* ---------------------------------------------------------------------
-		*
-		* [JP]
-		* シリアライズ用フック: version_、guid_、axisConvention_、
-		* modelTransform_ を読み書きする。
-		*/
-		template<class Archive>
-		void Serialize(Archive& archive)
-		{
-			archive.Field("version", version_);
-			archive.Field("guid", guid_);
-			archive.Field("axis_convention", axisConvention_);
-			archive.TryField("model_transform", modelTransform_);
-		}
-	};
 
 	/**
 	* [EN]
@@ -323,14 +159,14 @@ namespace SeedCore
 
 		/**
 		* [EN]
-		* Returns the Asset registered under id, or nullptr if unknown.
+		* Returns the AssetRecord registered under id, or nullptr if unknown.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* id に登録されている Asset を返す。不明であれば nullptr を返す。
+		* id に登録されている AssetRecord を返す。不明であれば nullptr を返す。
 		*/
-		Asset* GetAsset(Uint32 id);
+		AssetRecord* GetAsset(Uint32 id);
 
 		/**
 		* [EN]
@@ -359,14 +195,14 @@ namespace SeedCore
 
 		/**
 		* [EN]
-		* Returns every Asset whose path contains key as a substring.
+		* Returns every AssetRecord whose path contains key as a substring.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* パスに key を部分文字列として含む、全ての Asset を返す。
+		* パスに key を部分文字列として含む、全ての AssetRecord を返す。
 		*/
-		DynamicArray<Asset*> Search(String key);
+		DynamicArray<AssetRecord*> Search(String key);
 
 		/**
 		* [EN]
@@ -387,6 +223,23 @@ namespace SeedCore
 
 		/**
 		* [EN]
+		* Reads the total transform baked into the Model asset behind id,
+		* as persisted in its .meta sidecar. Returns the identity matrix
+		* if the asset or its .meta file don't exist, or if the .meta
+		* predates this field.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* id の Model アセットに焼き込まれている合計トランスフォームを、
+		* その .meta サイドカーに永続化されている値として読み取る。アセットや
+		* .meta ファイルが存在しない場合、またはこのフィールドより前の .meta
+		* の場合は、単位行列を返す。
+		*/
+		Matrix ReadModelTransform(Uint32 assetId)const;
+
+		/**
+		* [EN]
 		* Persists convention into id's .meta sidecar, preserving the
 		* existing guid_. Creates the .meta file if it doesn't exist yet.
 		*
@@ -398,117 +251,59 @@ namespace SeedCore
 		*/
 		void WriteAssetMeta(Uint32 assetId, const AxisConvention& convention);
 
-		void AppendAssetModelTransform(Uint32 assetId, const Matrix& transform);
-
 		/**
 		* [EN]
-		* Returns the sprite/texture resource manager.
+		* Persists transform into id's .meta sidecar as the total transform
+		* baked into that Model asset, preserving the existing guid_.
+		* Replaces the stored matrix rather than accumulating onto it, so a
+		* caller applying a further transform multiplies it onto
+		* ReadModelTransform's result itself. Creates the .meta file if it
+		* doesn't exist yet.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* スプライト/テクスチャリソースマネージャを返す。
+		* id の .meta サイドカーへ、その Model アセットに焼き込まれた合計
+		* トランスフォームとして transform を永続化する。既存の guid_ は
+		* 保持する。保存済みの行列へ積み上げるのではなく置き換えるため、
+		* さらにトランスフォームを適用する呼び出し側は、自分で
+		* ReadModelTransform の結果へ掛けてから渡す。.meta ファイルがまだ
+		* 無ければ新規作成する。
 		*/
-		ImageResource* GetImageResource()const;
+		void WriteAssetMeta(Uint32 assetId, const Matrix& transform);
 
 		/**
 		* [EN]
-		* Returns the model resource manager.
+		* Returns the resource manager registered for type, or nullptr if
+		* no manager registered itself for it (e.g. Prefab/Scene, which the
+		* pools handle instead).
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* モデルリソースマネージャを返す。
+		* type に登録されているリソースマネージャを返す。登録が無ければ
+		* nullptr を返す（例: Prefab/Scene は代わりにプールが扱う）。
 		*/
-		ModelResource* GetModelResource()const;
+		Asset* GetResource(AssetType type)const;
 
 		/**
 		* [EN]
-		* Returns the animation resource manager.
+		* Returns the resource manager registered for type, downcast to its
+		* concrete manager class. The caller states which class it expects
+		* for that type; passing a mismatched pair is undefined.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* アニメーションリソースマネージャを返す。
+		* type に登録されているリソースマネージャを、その具体クラスへ
+		* ダウンキャストして返す。その type に対してどのクラスを期待するかは
+		* 呼び出し側が指定する。対応しない組み合わせを渡した場合は未定義。
 		*/
-		AnimationResource* GetAnimationResource()const;
-
-		/**
-		* [EN]
-		* Returns the mesh collision resource manager.
-		*
-		* ---------------------------------------------------------------------
-		*
-		* [JP]
-		* 衝突ジオメトリリソースマネージャを返す。
-		*/
-		MeshCollisionResource* GetMeshCollisionResource()const;
-
-		/**
-		* [EN]
-		* Returns the material resource manager.
-		*
-		* ---------------------------------------------------------------------
-		*
-		* [JP]
-		* マテリアルリソースマネージャを返す。
-		*/
-		MaterialResource* GetMaterialResource()const;
-
-		/**
-		* [EN]
-		* Returns the skeleton rig resource manager.
-		*
-		* ---------------------------------------------------------------------
-		*
-		* [JP]
-		* スケルトンリグリソースマネージャを返す。
-		*/
-		SkeletonResource* GetSkeletonResource()const;
-
-		/**
-		* [EN]
-		* Returns the Effekseer effect resource manager.
-		*
-		* ---------------------------------------------------------------------
-		*
-		* [JP]
-		* Effekseerエフェクトリソースマネージャを返す。
-		*/
-		EffekseerResource* GetEffekseerResource()const;
-
-		/**
-		* [EN]
-		* Returns the font resource manager.
-		*
-		* ---------------------------------------------------------------------
-		*
-		* [JP]
-		* フォントリソースマネージャを返す。
-		*/
-		FontResource* GetFontResource()const;
-
-		/**
-		* [EN]
-		* Returns the movie resource manager.
-		*
-		* ---------------------------------------------------------------------
-		*
-		* [JP]
-		* ムービーリソースマネージャを返す。
-		*/
-		MovieResource* GetMovieResource()const;
-
-		/**
-		* [EN]
-		* Returns the skymap resource manager.
-		*
-		* ---------------------------------------------------------------------
-		*
-		* [JP]
-		* スカイマップリソースマネージャを返す。
-		*/
-		SkymapResource* GetSkymapResource()const;
+		template<typename T>
+		T* GetResource(AssetType type)const
+		{
+			return static_cast<T*>(GetResource(type));
+		}
 
 		/**
 		* [EN]
@@ -541,7 +336,7 @@ namespace SeedCore
 		* [JP]
 		* 発見済みの全アセットのマップを、アセット ID をキーとして返す。
 		*/
-		const FlatMap<Uint32, Asset>& AssetList()const;
+		const FlatMap<Uint32, AssetRecord>& AssetList()const;
 
 		/**
 		* [EN]
@@ -584,28 +379,28 @@ namespace SeedCore
 		* Walks targetPath's directory tree, discovering asset files by
 		* extension, reconciling/recovering their .meta-derived GUIDs
 		* (including orphaned .meta recovery after a rename), and
-		* registering new Asset entries.
+		* registering new AssetRecord entries.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
 		* targetPath のディレクトリツリーを走査し、拡張子でアセット
 		* ファイルを発見し、.meta 由来の GUID を整合・復旧（リネーム後の
-		* 孤立した .meta ファイルの復旧を含む）し、新しい Asset エントリを
+		* 孤立した .meta ファイルの復旧を含む）し、新しい AssetRecord エントリを
 		* 登録する。
 		*/
 		void Scan(String targetPath);
 
 		/**
 		* [EN]
-		* Removes Asset entries whose backing file no longer exists
+		* Removes AssetRecord entries whose backing file no longer exists
 		* (unloading them first if loaded), then re-runs Scan to pick up
 		* any new/changed files.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* 裏付けとなるファイルがもう存在しない Asset エントリを削除し
+		* 裏付けとなるファイルがもう存在しない AssetRecord エントリを削除し
 		* （読み込み済みであれば先に解放する）、その後 Scan を再実行して
 		* 新規/変更されたファイルを取り込む。
 		*/
@@ -614,7 +409,7 @@ namespace SeedCore
 	private:
 		/// [EN] Every discovered asset, keyed by asset ID.
 		/// [JP] 発見済みの全アセット。アセット ID をキーとする。
-		FlatMap<Uint32, Asset> assetsMap_;
+		FlatMap<Uint32, AssetRecord> assetsMap_;
 
 		/// [EN] Adaptive radix tree mapping an asset's path to its asset ID, for fast prefix/substring lookups.
 		/// [JP] アセットのパスをそのアセット ID へ対応付ける、高速な前方一致/部分一致検索のためのアダプティブ基数木。
@@ -632,45 +427,9 @@ namespace SeedCore
 		/// [JP] GPU から参照可能なリソースを読み込む際に使用される、バインドレスディスクリプタヒープ。
 		BindlessHeap* heap_ = nullptr;
 
-		/// [EN] Manager owning loaded sprite/texture resources.
-		/// [JP] 読み込み済みのスプライト/テクスチャリソースを所有するマネージャ。
-		ResourcePtr<ImageResource> imageResource_;
-
-		/// [EN] Manager owning loaded model resources.
-		/// [JP] 読み込み済みのモデルリソースを所有するマネージャ。
-		ResourcePtr<ModelResource> modelResource_;
-
-		/// [EN] Manager owning loaded animation resources.
-		/// [JP] 読み込み済みのアニメーションリソースを所有するマネージャ。
-		ResourcePtr<AnimationResource> animationResource_;
-
-		/// [EN] Manager owning loaded mesh collision resources.
-		/// [JP] 読み込み済みの衝突ジオメトリリソースを所有するマネージャ。
-		ResourcePtr<MeshCollisionResource> meshCollisionResource_;
-
-		/// [EN] Manager owning loaded standalone material (.material) resources.
-		/// [JP] 読み込み済みの単体マテリアル(.material)リソースを所有するマネージャ。
-		ResourcePtr<MaterialResource> materialResource_;
-
-		/// [EN] Manager owning loaded standalone skeleton rig (.skeleton) resources.
-		/// [JP] 読み込み済みの単体スケルトンリグ(.skeleton)リソースを所有するマネージャ。
-		ResourcePtr<SkeletonResource> skeletonResource_;
-
-		/// [EN] Manager owning loaded Effekseer effect resources.
-		/// [JP] 読み込み済みのEffekseerエフェクトリソースを所有するマネージャ。
-		ResourcePtr<EffekseerResource> effekseerResource_;
-
-		/// [EN] Manager owning loaded font resources.
-		/// [JP] 読み込み済みのフォントリソースを所有するマネージャ。
-		ResourcePtr<FontResource> fontResource_;
-
-		/// [EN] Manager owning loaded movie resources.
-		/// [JP] 読み込み済みのムービーリソースを所有するマネージャ。
-		ResourcePtr<MovieResource> movieResource_;
-
-		/// [EN] Manager owning loaded skymap resources.
-		/// [JP] 読み込み済みのスカイマップリソースを所有するマネージャ。
-		ResourcePtr<SkymapResource> skymapResource_;
+		/// [EN] Resource manager per asset type, built from AssetRegistry's self-registered factories, so a new asset type needs no change here.
+		/// [JP] アセット種別ごとのリソースマネージャ。AssetRegistry へ自己登録されたファクトリから構築されるため、新しいアセット種別を追加してもここには変更が要らない。
+		FlatMap<AssetType, ResourcePtr<Asset>> resourceMap_;
 
 		/// [EN] Pool of loaded Prefab assets.
 		/// [JP] 読み込み済みの Prefab アセットのプール。
@@ -680,7 +439,7 @@ namespace SeedCore
 		/// [JP] 読み込み済みの Scene アセットのプール。
 		ScenePool scenePool_;
 
-		/// [EN] Asset IDs awaiting load in the current Async() pass, ordered by AssetType.
+		/// [EN] AssetRecord IDs awaiting load in the current Async() pass, ordered by AssetType.
 		/// [JP] 現在の Async() パスで読み込みを待っている、AssetType 順に並んだアセット ID 群。
 		DynamicArray<Uint32> pendingAssetIDs_;
 

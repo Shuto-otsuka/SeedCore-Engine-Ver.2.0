@@ -339,7 +339,7 @@ namespace SeedCore
 
 	void PhysicsSystem::ResolveMeshColliders(LoaderSystem& loader, ResourceCache& cache, World& world)
 	{
-		MeshCollisionResource* meshCollisionResource = cache.GetMeshCollisionResource();
+		MeshCollisionResource* meshCollisionResource = cache.GetResource<MeshCollisionResource>(AssetType::MeshCollision);
 		if (!meshCollisionResource)
 		{
 			return;
@@ -377,7 +377,7 @@ namespace SeedCore
 
 	void PhysicsSystem::ResolveSoftbodies(LoaderSystem& loader, ResourceCache& cache, World& world)
 	{
-		ModelResource* modelResource = cache.GetModelResource();
+		ModelResource* modelResource = cache.GetResource<ModelResource>(AssetType::Model);
 		if (!modelResource)
 		{
 			return;

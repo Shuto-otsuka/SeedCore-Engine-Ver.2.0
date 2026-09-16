@@ -433,7 +433,7 @@ namespace SeedCore
 			return;
 		}
 
-		Asset* asset = context_.worldContext_.resource_->GetAsset(assetID);
+		AssetRecord* asset = context_.worldContext_.resource_->GetAsset(assetID);
 		if (!asset)
 		{
 			return;
@@ -578,9 +578,9 @@ namespace SeedCore
 			Skeleton* skeletonComponent = actor.GetComponent<Skeleton>();
 			if (!skeletonComponent || skeletonComponent->skeletonID_ == 0)
 			{
-				ModelResource* modelResource = context_.worldContext_.resource_->GetModelResource();
+				ModelResource* modelResource = context_.worldContext_.resource_->GetResource<ModelResource>(AssetType::Model);
 				Crister* crister = modelResource->Resolve(*context_.worldContext_.loader_, modelResource->GetHandle(mesh->meshID_));
-				Asset* modelAsset = context_.worldContext_.resource_->GetAsset(mesh->meshID_);
+				AssetRecord* modelAsset = context_.worldContext_.resource_->GetAsset(mesh->meshID_);
 				if (crister && modelAsset && !crister->Skins().empty())
 				{
 					std::string target = (std::filesystem::path(modelAsset->fullpath_.c_str()).parent_path() / (std::filesystem::path(modelAsset->fullpath_.c_str()).stem().string() + ".skeleton")).string();
@@ -607,9 +607,9 @@ namespace SeedCore
 		if (const Mesh* mesh = actor.GetComponent<Mesh>(); mesh && mesh->meshID_ != 0 && !actor.GetComponent<Material>())
 		{
 			Material* materialComponent = actor.AddComponent<Material>();
-			ModelResource* modelResource = context_.worldContext_.resource_->GetModelResource();
+			ModelResource* modelResource = context_.worldContext_.resource_->GetResource<ModelResource>(AssetType::Model);
 			Crister* crister = modelResource->Resolve(*context_.worldContext_.loader_, modelResource->GetHandle(mesh->meshID_));
-			Asset* modelAsset = context_.worldContext_.resource_->GetAsset(mesh->meshID_);
+			AssetRecord* modelAsset = context_.worldContext_.resource_->GetAsset(mesh->meshID_);
 			if (materialComponent && crister && modelAsset)
 			{
 				std::filesystem::path modelPath(modelAsset->fullpath_.c_str());
@@ -1642,7 +1642,7 @@ namespace SeedCore
 		}
 
 		Uint32 assetId = static_cast<Uint32>(*value);
-		Asset* asset = (assetId != 0) ? context_.worldContext_.resource_->GetAsset(assetId) : nullptr;
+		AssetRecord* asset = (assetId != 0) ? context_.worldContext_.resource_->GetAsset(assetId) : nullptr;
 
 		std::string buttonLabel = asset ? std::filesystem::path(asset->path_.c_str()).filename().string() : "ここにドロップ";
 
@@ -1672,7 +1672,7 @@ namespace SeedCore
 	{
 		Int* value = static_cast<Int*>(pointer);
 		Uint32 assetId = static_cast<Uint32>(*value);
-		Asset* asset = (assetId != 0) ? context_.worldContext_.resource_->GetAsset(assetId) : nullptr;
+		AssetRecord* asset = (assetId != 0) ? context_.worldContext_.resource_->GetAsset(assetId) : nullptr;
 
 		std::string label = asset ? std::filesystem::path(asset->path_.c_str()).filename().string() : "(空)";
 		ImGui::Selectable(label.c_str());

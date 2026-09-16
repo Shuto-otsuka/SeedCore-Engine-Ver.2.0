@@ -356,7 +356,7 @@ namespace SeedCore
 		///      ターゲットごとに raytracingVertexCount_ 個、morphs_.size() ターゲット分)
 		///      が始まるオフセット(float3 単位)。morphs_ が空なら
 		///      0xFFFFFFFF。実行時のみで、シリアライズしない。
-		Uint32 raytracingMorphDeltaOffset_ = 0xFFFFFFFFu;
+		Uint32 raytracingMorphDeltaOffset_ = SC_INVALID;
 
 		/// [EN] Offset (in units of float3) into Crister::morphDeltaResource_
 		///      where this SubMesh's target-major delta block starts
@@ -381,7 +381,7 @@ namespace SeedCore
 		///      Crister::vertexMorphSource_ の頂点ごとの逆引きを介して読む
 		///      (ラスタは全 LOD をストリームするため、vertexMorphSource_
 		///      のコメント参照)。実行時のみで、シリアライズしない。
-		Uint32 morphDeltaOffset_ = 0xFFFFFFFFu;
+		Uint32 morphDeltaOffset_ = SC_INVALID;
 
 		template<class Archive>
 		void Serialize(Archive& archive)
@@ -500,8 +500,8 @@ namespace SeedCore
 			Float specularFactor_ = 1.0f;
 			Float specularColorFactor_[3] = { 1,1,1 };
 
-			Uint32 specularTextureIndex_ = 0xFFFFFFFF;
-			Uint32 specularColorTextureIndex_ = 0xFFFFFFFF;
+			Uint32 specularTextureIndex_ = SC_INVALID;
+			Uint32 specularColorTextureIndex_ = SC_INVALID;
 
 			template<class Archive>
 			void Serialize(Archive& archive)
@@ -529,9 +529,9 @@ namespace SeedCore
 			Float clearCoatFactor_ = 0.0f;
 			Float clearCoatRoughnessFactor_ = 0.0f;
 
-			Uint32 clearCoatTextureIndex_ = 0xFFFFFFFF;
-			Uint32 clearCoatRoughnessTextureIndex_ = 0xFFFFFFFF;
-			Uint32 clearCoatNormalTextureIndex_ = 0xFFFFFFFF;
+			Uint32 clearCoatTextureIndex_ = SC_INVALID;
+			Uint32 clearCoatRoughnessTextureIndex_ = SC_INVALID;
+			Uint32 clearCoatNormalTextureIndex_ = SC_INVALID;
 
 			template<class Archive>
 			void Serialize(Archive& archive)
@@ -559,7 +559,7 @@ namespace SeedCore
 		{
 			Float transmissionFactor_ = 0.0f;
 
-			Uint32 transmissionTextureIndex_ = 0xFFFFFFFF;
+			Uint32 transmissionTextureIndex_ = SC_INVALID;
 
 			template<class Archive>
 			void Serialize(Archive& archive)
@@ -589,7 +589,7 @@ namespace SeedCore
 			Float attenuationDistance_ = FLT_MAX;
 			Float attenuationColor_[3] = { 1,1,1 };
 
-			Uint32 thicknessTextureIndex_ = 0xFFFFFFFF;
+			Uint32 thicknessTextureIndex_ = SC_INVALID;
 
 			template<class Archive>
 			void Serialize(Archive& archive)
@@ -617,8 +617,8 @@ namespace SeedCore
 			Float sheenColorFactor_[3] = { 0,0,0 };
 			Float sheenRoughnessFactor_ = 0.0f;
 
-			Uint32 sheenColorTextureIndex_ = 0xFFFFFFFF;
-			Uint32 sheenRoughnessTextureIndex_ = 0xFFFFFFFF;
+			Uint32 sheenColorTextureIndex_ = SC_INVALID;
+			Uint32 sheenRoughnessTextureIndex_ = SC_INVALID;
 
 			template<class Archive>
 			void Serialize(Archive& archive)
@@ -650,8 +650,8 @@ namespace SeedCore
 			Float iridescenceThicknessMinimum_ = 100.0f;
 			Float iridescenceThicknessMaximum_ = 400.0f;
 
-			Uint32 iridescenceTextureIndex_ = 0xFFFFFFFF;
-			Uint32 iridescenceThicknessTextureIndex_ = 0xFFFFFFFF;
+			Uint32 iridescenceTextureIndex_ = SC_INVALID;
+			Uint32 iridescenceThicknessTextureIndex_ = SC_INVALID;
 
 			template<class Archive>
 			void Serialize(Archive& archive)
@@ -683,7 +683,7 @@ namespace SeedCore
 			Float anisotropyStrength_ = 0.0f;
 			Float anisotropyRotation_ = 0.0f;
 
-			Uint32 anisotropyTextureIndex_ = 0xFFFFFFFF;
+			Uint32 anisotropyTextureIndex_ = SC_INVALID;
 
 			template<class Archive>
 			void Serialize(Archive& archive)
@@ -812,11 +812,11 @@ namespace SeedCore
 		Float furDensity_ = 1.0f;
 		Int furShellCount_ = 16;
 
-		Uint32 baseColorTextureIndex_ = 0xFFFFFFFF;
-		Uint32 normalTextureIndex_ = 0xFFFFFFFF;
-		Uint32 metallicRoughnessTextureIndex_ = 0xFFFFFFFF;
-		Uint32 occlusionTextureIndex_ = 0xFFFFFFFF;
-		Uint32 emissiveTextureIndex_ = 0xFFFFFFFF;
+		Uint32 baseColorTextureIndex_ = SC_INVALID;
+		Uint32 normalTextureIndex_ = SC_INVALID;
+		Uint32 metallicRoughnessTextureIndex_ = SC_INVALID;
+		Uint32 occlusionTextureIndex_ = SC_INVALID;
+		Uint32 emissiveTextureIndex_ = SC_INVALID;
 
 		template<class Archive>
 		/// [EN] Material fields (Surface + KHR extensions) all use TryField: the
@@ -2603,11 +2603,11 @@ namespace SeedCore
 			Microsoft::WRL::ComPtr<ID3D12Resource> primitiveIndicesResource_;
 			Microsoft::WRL::ComPtr<ID3D12Resource> vertexResource_;
 
-			Uint meshletBufferIndex_ = 0xFFFFFFFF;
-			Uint meshletBoundBufferIndex_ = 0xFFFFFFFF;
-			Uint vertexIndicesBufferIndex_ = 0xFFFFFFFF;
-			Uint primitiveIndicesBufferIndex_ = 0xFFFFFFFF;
-			Uint vertexBufferIndex_ = 0xFFFFFFFF;
+			Uint meshletBufferIndex_ = SC_INVALID;
+			Uint meshletBoundBufferIndex_ = SC_INVALID;
+			Uint vertexIndicesBufferIndex_ = SC_INVALID;
+			Uint primitiveIndicesBufferIndex_ = SC_INVALID;
+			Uint vertexBufferIndex_ = SC_INVALID;
 
 			Bool resident_ = false;
 			Uint64 sizeBytes_ = 0;
@@ -2632,7 +2632,7 @@ namespace SeedCore
 		struct TextureMipLevel
 		{
 			Microsoft::WRL::ComPtr<ID3D12Resource> resource_;
-			Uint bindlessIndex_ = 0xFFFFFFFF;
+			Uint bindlessIndex_ = SC_INVALID;
 			Uint64 sizeBytes_ = 0;
 		};
 
@@ -2736,12 +2736,12 @@ namespace SeedCore
 		///      SubMesh が morphs_ を持つ場合のみ確保される。
 		Microsoft::WRL::ComPtr<ID3D12Resource> morphDeltaResource_;
 		Microsoft::WRL::ComPtr<ID3D12Resource> vertexMorphSourceResource_;
-		Uint morphDeltaBufferIndex_ = 0xFFFFFFFF;
-		Uint vertexMorphSourceBufferIndex_ = 0xFFFFFFFF;
+		Uint morphDeltaBufferIndex_ = SC_INVALID;
+		Uint vertexMorphSourceBufferIndex_ = SC_INVALID;
 
-		Uint vertexBufferIndex_ = 0xFFFFFFFF;
-		Uint skinVertexBufferIndex_ = 0xFFFFFFFF;
-		Uint indexBufferIndex_ = 0xFFFFFFFF;
+		Uint vertexBufferIndex_ = SC_INVALID;
+		Uint skinVertexBufferIndex_ = SC_INVALID;
+		Uint indexBufferIndex_ = SC_INVALID;
 		Uint32 triangleIndexCount_ = 0;
 		Uint32 proxyVertexCount_ = 0;
 
@@ -2756,7 +2756,7 @@ namespace SeedCore
 		/// [EN] Shared LOD 0 vertex pool page (referenced by LOD 0 cluster pages).
 		/// [JP] 共有 LOD 0 頂点プールページ（LOD 0 クラスタページが参照する）。
 		Microsoft::WRL::ComPtr<ID3D12Resource> poolResource_;
-		Uint poolBufferIndex_ = 0xFFFFFFFF;
+		Uint poolBufferIndex_ = SC_INVALID;
 		Uint32 poolVertexEnd_ = 0;
 		Uint32 poolResidentReferences_ = 0;
 		Bool poolResident_ = false;

@@ -1,18 +1,18 @@
-#include "../Image.hlsli"
+#include "../Texture.hlsli"
 #include "../../Shader/ShaderResources.hlsli"
 #include "../../Shader/Scene.hlsli"
 
 [NumThreads(32, 1, 1)]
 [OutputTopology("triangle")]
-void main(in payload ImageASPayload payload, uint gtid : SV_GroupThreadID, uint gid : SV_GroupID, out vertices ImageMSOutput output[4], out indices uint3 triangles[2])
+void main(in payload TextureASPayload payload, uint gtid : SV_GroupThreadID, uint gid : SV_GroupID, out vertices TextureMSOutput output[4], out indices uint3 triangles[2])
 {
-	StructuredBuffer<ImageSpriteStructuredBuffer> image_sprite = GetImageSpriteStructuredBuffer(shader_resource_indices.image_.sprite_index_);
+	StructuredBuffer<TextureSpriteStructuredBuffer> texture_sprite = GetTextureSpriteStructuredBuffer(shader_resource_indices.texture_.sprite_index_);
 
 	SetMeshOutputCounts(4u, 2u);
 
-	uint sprite_id = payload.image_indices[gid];
+	uint sprite_id = payload.texture_indices[gid];
 	SceneConstantBuffer scene_constant = GetSceneConstantBuffer();
-	ImageSpriteStructuredBuffer sprite = image_sprite[sprite_id];
+	TextureSpriteStructuredBuffer sprite = texture_sprite[sprite_id];
 
 	float2 corners[4] =
 	{

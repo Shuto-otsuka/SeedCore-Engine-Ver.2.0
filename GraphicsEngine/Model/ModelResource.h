@@ -2,6 +2,7 @@
 #include <FoundationEngine/Prelude.h>
 #include <FoundationEngine/Utility/Handle.h>
 #include <FoundationEngine/Utility/FlatMap.h>
+#include <FoundationEngine/Resource/Asset.h>
 
 namespace SeedCore
 {
@@ -18,21 +19,25 @@ namespace SeedCore
 	/**
 	* [EN]
 	* Manages the mapping between asset IDs and loaded Crister handles.
-	* Mirrors the ImageResource pattern: Load by asset ID, retrieve
+	* Mirrors the TextureResource pattern: Load by asset ID, retrieve
 	* handles, resolve to Crister pointers, and unload when no longer needed.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
 	* アセット ID とロード済み Crister ハンドル間のマッピングを管理する。
-	* ImageResource パターンと同じ: アセット ID でロード、ハンドル取得、
+	* TextureResource パターンと同じ: アセット ID でロード、ハンドル取得、
 	* Crister ポインタへの解決、不要時のアンロード。
 	*/
-	class SEEDCORE_API ModelResource :public NonCopyable
+	class SEEDCORE_API ModelResource :public Asset, public NonCopyable
 	{
 	public:
 		ModelResource() = default;
 		~ModelResource() = default;
+
+		void Load(const AssetContext& context, Uint32 assetId)override;
+
+		void Unload(const AssetContext& context, Uint32 assetId)override;
 
 		/**
 		* [EN]

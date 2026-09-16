@@ -2,6 +2,7 @@
 #include <FoundationEngine/Prelude.h>
 #include <FoundationEngine/Utility/Handle.h>
 #include <FoundationEngine/Utility/FlatMap.h>
+#include <FoundationEngine/Resource/Asset.h>
 
 namespace SeedCore
 {
@@ -24,11 +25,15 @@ namespace SeedCore
 	* ModelResource パターンと同じ: アセット ID でロード、ハンドル取得、
 	* Skymap ポインタへの解決、不要時のアンロード。
 	*/
-	class SkymapResource :public NonCopyable
+	class SkymapResource :public Asset, public NonCopyable
 	{
 	public:
 		SkymapResource() = default;
 		~SkymapResource() = default;
+
+		void Load(const AssetContext& context, Uint32 assetId)override;
+
+		void Unload(const AssetContext& context, Uint32 assetId)override;
 
 		Handle<Skymap> Load(LoaderSystem& loader, ID3D12Device* device, D3D12CommandQueue* cmdQueue, BindlessHeap* heap, ResourceCache& cache, Uint32 assetId);
 

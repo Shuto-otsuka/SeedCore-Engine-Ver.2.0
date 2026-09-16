@@ -289,6 +289,9 @@
     <ClCompile Include="ECS\System\SystemGraph.cpp">
       <Filter>ESC\System</Filter>
     </ClCompile>
+    <ClCompile Include="Resource\Asset.cpp">
+      <Filter>Resource</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Log\DxFail.h">
@@ -706,6 +709,9 @@
     </ClInclude>
     <ClInclude Include="ECS\System\SystemGraph.h">
       <Filter>ESC\System</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource\Asset.h">
+      <Filter>Resource</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

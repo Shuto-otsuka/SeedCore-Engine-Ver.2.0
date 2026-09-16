@@ -19,7 +19,7 @@
 #include <GraphicsEngine/D3D12/Buffer/DepthResizeBuffer.h>
 #include <GraphicsEngine/Model/Material/MaterialResolveShader.h>
 #include <GraphicsEngine/Model/Material/MaterialSortBuffer.h>
-#include <GraphicsEngine/Renderer/ImageRenderer.h>
+#include <GraphicsEngine/Renderer/TextureRenderer.h>
 #include <GraphicsEngine/Renderer/FontRenderer.h>
 #include <GraphicsEngine/Renderer/MovieRenderer.h>
 #include <GraphicsEngine/Renderer/ModelRenderer.h>
@@ -188,7 +188,7 @@ namespace SeedCore
 		ConstraintSystem constraintSystem_;
 
 	private:
-		ResourcePtr<ImageRenderer> imageRenderer_;
+		ResourcePtr<TextureRenderer> textureRenderer_;
 
 		ResourcePtr<FontRenderer> fontRenderer_;
 

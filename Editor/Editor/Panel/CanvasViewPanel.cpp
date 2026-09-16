@@ -245,8 +245,8 @@ namespace SeedCore
 					}
 				});
 
-			/// [EN] Sprite-view Text draws on the canvas with no rotation (FontRenderer sets the canvas instance rotation to zero), so its box is axis-aligned: centre ± half-extent, scaled by the actor's world scale. Bounds is synced by FontRenderer the same way ImageRenderer syncs Image.
-			/// [JP] スプライトビューの Text はキャンバスに回転なしで描かれる(FontRenderer がキャンバスインスタンスの回転を 0 にする)ので、そのボックスは軸平行: 中心 ± 半径、アクターのワールドスケール倍。Bounds は ImageRenderer が Image を同期するのと同じ形で FontRenderer が同期する。
+			/// [EN] Sprite-view Text draws on the canvas with no rotation (FontRenderer sets the canvas instance rotation to zero), so its box is axis-aligned: centre ± half-extent, scaled by the actor's world scale. Bounds is synced by FontRenderer the same way TextureRenderer syncs Image.
+			/// [JP] スプライトビューの Text はキャンバスに回転なしで描かれる(FontRenderer がキャンバスインスタンスの回転を 0 にする)ので、そのボックスは軸平行: 中心 ± 半径、アクターのワールドスケール倍。Bounds は TextureRenderer が Image を同期するのと同じ形で FontRenderer が同期する。
 			Query<Read<Active>, Read<Text>, Read<Bounds>> textQuery(world);
 			textQuery.ForEach([&](EntityID entityID, const Active& active, const Text& text, const Bounds& bounds)
 				{
@@ -325,8 +325,8 @@ namespace SeedCore
 		}
 		else if (mouseInImage)
 		{
-			/// [EN] Click pick: mouse point against each Image's canvas-space quad, rebuilt exactly as ImageRenderer/ImageBillboardMS.hlsl draws it. Bounds (synced by ImageRenderer) supplies textureSize/2 in extent_ and the pivot shift in center_. The last hit in query order wins - that is the sprite drawn on top.
-			/// [JP] クリックピック: マウス点を各 Image のキャンバス空間クアッドに対して判定する。クアッドは ImageRenderer/ImageBillboardMS.hlsl の描画と全く同じに再構成する。Bounds(ImageRenderer が同期)が extent_ に textureSize/2、center_ に pivot ずれを供給する。クエリ順で最後に当たったものが勝つ = 最前面に描かれたスプライト。
+			/// [EN] Click pick: mouse point against each Image's canvas-space quad, rebuilt exactly as TextureRenderer/TextureBillboardMS.hlsl draws it. Bounds (synced by TextureRenderer) supplies textureSize/2 in extent_ and the pivot shift in center_. The last hit in query order wins - that is the sprite drawn on top.
+			/// [JP] クリックピック: マウス点を各 Image のキャンバス空間クアッドに対して判定する。クアッドは TextureRenderer/TextureBillboardMS.hlsl の描画と全く同じに再構成する。Bounds(TextureRenderer が同期)が extent_ に textureSize/2、center_ に pivot ずれを供給する。クエリ順で最後に当たったものが勝つ = 最前面に描かれたスプライト。
 			Float mouseWorldX = focus.x + (mouse.x - centerScreenX) * worldPerPixel;
 			Float mouseWorldY = focus.y - (mouse.y - centerScreenY) * worldPerPixel;
 

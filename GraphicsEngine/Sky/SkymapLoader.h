@@ -11,24 +11,18 @@ namespace SeedCore
 
 	/**
 	* [EN]
-	* Loads skymap assets (".hdr" equirectangular or ".dds" cube) into pooled
-	* Skymap resource bundles. Mirrors the ImageLoader / ModelLoader pattern:
-	* Load returns a handle, Get resolves it, Clear releases it.
-	*
-	* The loader only fills the GPU resources; the IBL convolution passes that
-	* turn the environment into irradiance / prefiltered cubes run later in the
-	* SkyRenderer (which owns a command list).
+	* Loads ".hdr" equirectangular sources and prebuilt ".skymap" caches into
+	* pooled Skymap objects. Mirrors the TextureLoader / ModelLoader pattern:
+	* the pool owns every Skymap, handles identify them, and Clear releases
+	* both the GPU texture and the slot.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* スカイマップアセット（".hdr" パノラマ or ".dds" キューブ）をプールされた
-	* Skymap リソース束へ読み込む。ImageLoader / ModelLoader と同じ流儀:
-	* Load がハンドルを返し、Get で解決、Clear で解放。
-	*
-	* ローダーは GPU リソースを用意するだけ。environment を irradiance /
-	* prefilter キューブへ変換する IBL 畳み込みパスは、コマンドリストを持つ
-	* SkyRenderer 側で後から実行する。
+	* ".hdr" の equirect ソースと、ビルド済みの ".skymap" キャッシュを、
+	* プールされた Skymap へ読み込む。TextureLoader / ModelLoader と同じ流儀:
+	* 全ての Skymap をプールが所有し、ハンドルで識別し、Clear が GPU
+	* テクスチャとスロットの両方を解放する。
 	*/
 	class SkymapLoader :public NonCopyable
 	{

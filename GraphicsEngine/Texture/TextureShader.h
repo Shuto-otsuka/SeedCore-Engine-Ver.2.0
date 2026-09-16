@@ -13,11 +13,11 @@ namespace SeedCore
 	class MeshShader;
 	class PixelShader;
 
-	class ImageShader
+	class TextureShader
 	{
 	public:
-		ImageShader(RootSignature& rootSignature, PipelineStateObject& pipelineStateObject);
-		~ImageShader() = default;
+		TextureShader(RootSignature& rootSignature, PipelineStateObject& pipelineStateObject);
+		~TextureShader() = default;
 
 		void Create(ShaderCache& shaderCache, ID3D12Device* device);
 

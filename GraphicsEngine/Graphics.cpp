@@ -639,10 +639,10 @@ namespace SeedCore
 		}
 		preparedFrame_ = frameCount_;
 
-		resourceCache.GetFontResource()->Update(context_->GetDevice(), context_->GetDirectQueue()->GetCommandQueue(), bindlessHeap_.get());
+		resourceCache.GetResource<FontResource>(AssetType::Font)->Update(loaderSystem, context_->GetDevice(), context_->GetDirectQueue()->GetCommandQueue(), bindlessHeap_.get());
 
-		movieSystem_.Update(world, resourceCache);
-		resourceCache.GetMovieResource()->Update(context_->GetDevice(), context_->GetDirectList()->Get(), bindlessHeap_.get());
+		movieSystem_.Update(loaderSystem, world, resourceCache);
+		resourceCache.GetResource<MovieResource>(AssetType::Movie)->Update(loaderSystem, context_->GetDevice(), context_->GetDirectList()->Get(), bindlessHeap_.get());
 
 		/// [JP] ストリーミングの LOD 要求判定用に前フレームのカメラを渡す
 		///      （カメラ更新は Gather の後 — 1 フレーム遅れで十分）。

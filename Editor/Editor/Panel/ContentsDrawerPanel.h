@@ -37,7 +37,7 @@ namespace SeedCore
 			std::string name;
 			std::string fullPath;
 			ArtMap<std::string, DirectoryNode> children;
-			DynamicArray<const Asset*> assets;
+			DynamicArray<const AssetRecord*> assets;
 		};
 
 		void BuildDirectoryTree();
@@ -52,27 +52,27 @@ namespace SeedCore
 
 		ImTextureID GetAssetTypeIcon(AssetType type)const;
 
-		ImTextureID GetAssetIcon(const Asset& asset)const;
+		ImTextureID GetAssetIcon(const AssetRecord& asset)const;
 
 		const Char* GetDragDropType(AssetType type)const;
 
 		ImTextureID GetFolderIcon(const DirectoryNode& node)const;
 
-		void OpenAssetExternal(const Asset& asset);
+		void OpenAssetExternal(const AssetRecord& asset);
 
-		void DrawAssetTooltip(const Asset& asset);
+		void DrawAssetTooltip(const AssetRecord& asset);
 
 		void DrawFolderContextMenu(const std::string& relativePath, const std::string& folderName);
 
-		void DrawAssetContextMenu(const Asset& asset);
+		void DrawAssetContextMenu(const AssetRecord& asset);
 
-		void GenerateMeshCollision(const Asset& asset, MeshCollisionDetail detail);
+		void GenerateMeshCollision(const AssetRecord& asset, MeshCollisionDetail detail);
 
-		void GenerateMaterial(const Asset& asset);
+		void GenerateMaterial(const AssetRecord& asset);
 
-		void GenerateSkeleton(const Asset& asset);
+		void GenerateSkeleton(const AssetRecord& asset);
 
-		void ExportModel(const Asset& asset, ExportPreset preset, const Wchar* extension);
+		void ExportModel(const AssetRecord& asset, ExportPreset preset, const Wchar* extension);
 
 		void DrawBackgroundContextMenu();
 

@@ -1,8 +1,8 @@
-#include <GraphicsEngine/Renderer/ImageRenderer.h>
+#include <GraphicsEngine/Renderer/TextureRenderer.h>
 #include <GraphicsEngine/Profiler/ProfilerStats.h>
 #include <GraphicsEngine/Texture/Image.h>
 #include <GraphicsEngine/Texture/Texture.h>
-#include <GraphicsEngine/Texture/ImageResource.h>
+#include <GraphicsEngine/Texture/TextureResource.h>
 #include <GraphicsEngine/D3D12/Descriptor/BindlessHeap.h>
 #include <GraphicsEngine/D3D12/PipelineState/PipelineStateObject.h>
 #include <GraphicsEngine/D3D12/Context/D3D12Check.h>
@@ -15,12 +15,12 @@
 
 namespace SeedCore
 {
-	ImageRenderer::ImageRenderer(RootSignature& rootSignature, PipelineStateObject& pipelineStateObject) : imageShader_(rootSignature, pipelineStateObject)
+	TextureRenderer::TextureRenderer(RootSignature& rootSignature, PipelineStateObject& pipelineStateObject) : imageShader_(rootSignature, pipelineStateObject)
 	{
 		/// No Code
 	}
 
-	void ImageRenderer::Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, ShaderResourceIndicesSystem& shaderResourceIndicesSystem)
+	void TextureRenderer::Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, ShaderResourceIndicesSystem& shaderResourceIndicesSystem)
 	{
 		bindlessHeap_ = bindlessHeap;
 		maxCount_ = 65536;
@@ -29,14 +29,14 @@ namespace SeedCore
 
 		shaderResourceIndicesSystem_ = &shaderResourceIndicesSystem;
 
-		spriteBuffer_ = MakePtr<ReadOnlyStructuredBuffer<ImageSpriteStructuredBuffer>>(device, bindlessHeap, maxCount_);
-		billboardBuffer_ = MakePtr<ReadOnlyStructuredBuffer<ImageBillboardStructuredBuffer>>(device, bindlessHeap, maxCount_);
+		spriteBuffer_ = MakePtr<ReadOnlyStructuredBuffer<TextureSpriteStructuredBuffer>>(device, bindlessHeap, maxCount_);
+		billboardBuffer_ = MakePtr<ReadOnlyStructuredBuffer<TextureBillboardStructuredBuffer>>(device, bindlessHeap, maxCount_);
 
-		shaderResourceIndicesSystem.SetImageSpriteIndex(spriteBuffer_->Index());
-		shaderResourceIndicesSystem.SetImageBillboardIndex(billboardBuffer_->Index());
+		shaderResourceIndicesSystem.SetTextureSpriteIndex(spriteBuffer_->Index());
+		shaderResourceIndicesSystem.SetTextureBillboardIndex(billboardBuffer_->Index());
 	}
 
-	void ImageRenderer::Gather(LoaderSystem& loader, ImageResource& resource, World& world, Vector2 nativeScreenSize, Entity selectedEntity)
+	void TextureRenderer::Gather(LoaderSystem& loader, TextureResource& resource, World& world, Vector2 nativeScreenSize, Entity selectedEntity)
 	{
 		spriteInstances_.clear();
 		billboardInstances_.clear();
@@ -88,17 +88,17 @@ namespace SeedCore
 					return;
 				}
 
-				Uint32 textureIndex = texture->textureIndex_;
+				Uint32 textureIndex = texture->ShaderResourceViewIndex();
 
 				Vector2 textureSize = image.textureSize_;
-				if (textureSize.x == 0.0f && textureSize.y == 0.0f && texture->resource_)
+				if (textureSize.x == 0.0f && textureSize.y == 0.0f && texture->Resource())
 				{
-					D3D12_RESOURCE_DESC desc = texture->resource_->GetDesc();
+					D3D12_RESOURCE_DESC desc = texture->Resource()->GetDesc();
 					textureSize = Vector2(static_cast<Float>(desc.Width), static_cast<Float>(desc.Height));
 				}
 
-				/// [EN] Sync this actor's Bounds (every actor has one) to the sprite's local-space rect: half-extents = textureSize/2, centre shifted by the pivot the same way ImageBillboardMS.hlsl shifts the quad (0.5 - pivotNorm on X, pivotNorm - 0.5 on Y). The actor's world matrix then rotates/scales it, so ViewportPicking gets a correct OBB for the drawn sprite.
-				/// [JP] このアクターの Bounds(全アクターが持つ)をスプライトのローカル空間矩形へ同期する: 半径 = textureSize/2、中心は ImageBillboardMS.hlsl がクアッドをずらすのと同じ形(X は 0.5 - pivotNorm、Y は pivotNorm - 0.5)で pivot ぶんずらす。アクターのワールド行列がこれを回転/スケールするので、ViewportPicking は描画済みスプライトの正しい OBB を得る。
+				/// [EN] Sync this actor's Bounds (every actor has one) to the sprite's local-space rect: half-extents = textureSize/2, centre shifted by the pivot the same way TextureBillboardMS.hlsl shifts the quad (0.5 - pivotNorm on X, pivotNorm - 0.5 on Y). The actor's world matrix then rotates/scales it, so ViewportPicking gets a correct OBB for the drawn sprite.
+				/// [JP] このアクターの Bounds(全アクターが持つ)をスプライトのローカル空間矩形へ同期する: 半径 = textureSize/2、中心は TextureBillboardMS.hlsl がクアッドをずらすのと同じ形(X は 0.5 - pivotNorm、Y は pivotNorm - 0.5)で pivot ぶんずらす。アクターのワールド行列がこれを回転/スケールするので、ViewportPicking は描画済みスプライトの正しい OBB を得る。
 				if (boundsComponentID)
 				{
 					void* boundsRaw = world.GetComponent(entityID, boundsComponentID);
@@ -122,7 +122,7 @@ namespace SeedCore
 					Float rotationAngle = worldRotation.ToEuler().x;
 					Vector2 scale = Vector2(worldScale.x, worldScale.y);
 
-					ImageSpriteStructuredBuffer instance{};
+					TextureSpriteStructuredBuffer instance{};
 					instance.position_ = position * spriteReferenceScale;
 					instance.rotation_ = rotationAngle;
 					instance.scale_ = scale;
@@ -139,7 +139,7 @@ namespace SeedCore
 
 					hasSelectedBillboardInstance_ = hasSelectedBillboardInstance_ || selected != 0;
 
-					ImageBillboardStructuredBuffer canvasInstance{};
+					TextureBillboardStructuredBuffer canvasInstance{};
 					canvasInstance.position_ = Vector3(100000.0f + position.x, 100000.0f + (ScResolution::SC_HD.Height - position.y), 100000.0f);
 					canvasInstance.rotation_ = Vector3(0.0f, 0.0f, rotationAngle);
 					canvasInstance.scale_ = Vector2(scale.x * textureSize.x, scale.y * textureSize.y);
@@ -159,7 +159,7 @@ namespace SeedCore
 				{
 					hasSelectedBillboardInstance_ = hasSelectedBillboardInstance_ || selected != 0;
 
-					ImageBillboardStructuredBuffer instance{};
+					TextureBillboardStructuredBuffer instance{};
 					instance.position_ = worldTranslation;
 					instance.rotation_ = worldRotation.ToEuler();
 					instance.scale_ = Vector2(worldScale.x, worldScale.y);
@@ -181,10 +181,10 @@ namespace SeedCore
 		streamingFrame_++;
 	}
 
-	void ImageRenderer::Upload()
+	void TextureRenderer::Upload()
 	{
-		shaderResourceIndicesSystem_->SetImageSpriteIndex(spriteBuffer_->Index());
-		shaderResourceIndicesSystem_->SetImageBillboardIndex(billboardBuffer_->Index());
+		shaderResourceIndicesSystem_->SetTextureSpriteIndex(spriteBuffer_->Index());
+		shaderResourceIndicesSystem_->SetTextureBillboardIndex(billboardBuffer_->Index());
 
 		if (!spriteInstances_.empty())
 		{
@@ -197,7 +197,7 @@ namespace SeedCore
 		}
 	}
 
-	void ImageRenderer::DrawSprite(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
+	void TextureRenderer::DrawSprite(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
 	{
 		if (spriteInstances_.empty())
 		{
@@ -225,7 +225,7 @@ namespace SeedCore
 		ProfilerStats::AddDrawCall();
 	}
 
-	void ImageRenderer::DrawBillboard(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
+	void TextureRenderer::DrawBillboard(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
 	{
 		if (billboardInstances_.empty())
 		{
@@ -253,7 +253,7 @@ namespace SeedCore
 		ProfilerStats::AddDrawCall();
 	}
 
-	void ImageRenderer::DrawSilhouetteSprite(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
+	void TextureRenderer::DrawSilhouetteSprite(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
 	{
 		if (!hasSelectedSpriteInstance_)
 		{
@@ -280,7 +280,7 @@ namespace SeedCore
 		ProfilerStats::AddDrawCall();
 	}
 
-	void ImageRenderer::DrawSilhouetteBillboard(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
+	void TextureRenderer::DrawSilhouetteBillboard(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
 	{
 		if (!hasSelectedBillboardInstance_)
 		{

@@ -2,20 +2,25 @@
 #include <FoundationEngine/Prelude.h>
 #include <FoundationEngine/Utility/Handle.h>
 #include <FoundationEngine/Utility/FlatMap.h>
+#include <FoundationEngine/Resource/Asset.h>
 
 namespace SeedCore
 {
-	struct Texture;
+	class Texture;
 	struct LoaderSystem;
 	class ResourceCache;
 	class BindlessHeap;
 	class D3D12CommandQueue;
 
-	class SEEDCORE_API ImageResource :public NonCopyable
+	class SEEDCORE_API TextureResource :public Asset, public NonCopyable
 	{
 	public:
-		ImageResource() = default;
-		~ImageResource() = default;
+		TextureResource() = default;
+		~TextureResource() = default;
+
+		void Load(const AssetContext& context, Uint32 assetId)override;
+
+		void Unload(const AssetContext& context, Uint32 assetId)override;
 
 		Handle<Texture> Load(LoaderSystem& loader, ID3D12Device* device, D3D12CommandQueue* cmdQueue, BindlessHeap* heap, ResourceCache& cache, Uint32 assetId);
 

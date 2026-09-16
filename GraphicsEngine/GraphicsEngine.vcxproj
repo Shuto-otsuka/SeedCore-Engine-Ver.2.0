@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" DefaultTargets="Build">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -89,6 +89,7 @@
     <ClInclude Include="DLSS\DlssManager.h" />
     <ClInclude Include="DLSS\DlssNormalRoughnessShader.h" />
     <ClInclude Include="Effect\Effekseer\EffekseerCache.h" />
+    <ClInclude Include="Effect\Effekseer\EffekseerEffect.h" />
     <ClInclude Include="Effect\Effekseer\EffekseerFileInterface.h" />
     <ClInclude Include="Effect\Effekseer\EffekseerLoader.h" />
     <ClInclude Include="Effect\Effekseer\EffekseerManager.h" />
@@ -103,6 +104,7 @@
     <ClInclude Include="Environment\WeatherParticleShader.h" />
     <ClInclude Include="Font\Font.h" />
     <ClInclude Include="Font\FontManager.h" />
+    <ClInclude Include="Font\FontLoader.h" />
     <ClInclude Include="Font\FontResource.h" />
     <ClInclude Include="Font\FontShader.h" />
     <ClInclude Include="Font\ShapedText.h" />
@@ -151,9 +153,11 @@
     <ClInclude Include="Model\Transparent\OITBuffer.h" />
     <ClInclude Include="Movie\Movie.h" />
     <ClInclude Include="Movie\MovieByteStream.h" />
+    <ClInclude Include="Movie\MovieDecoder.h" />
     <ClInclude Include="Movie\MovieLoader.h" />
     <ClInclude Include="Movie\MovieResource.h" />
     <ClInclude Include="Movie\MovieShader.h" />
+    <ClInclude Include="Movie\Video.h" />
     <ClInclude Include="PostProcess\PostEffect\AnamorphicFlare.h" />
     <ClInclude Include="PostProcess\PostEffect\AutoExposure.h" />
     <ClInclude Include="PostProcess\PostEffect\Bokeh.h" />
@@ -203,7 +207,6 @@
     <ClInclude Include="Renderer\FontRenderer.h" />
     <ClInclude Include="Renderer\GlobalIlluminationRenderer.h" />
     <ClInclude Include="Renderer\HUDComposeRenderer.h" />
-    <ClInclude Include="Renderer\ImageRenderer.h" />
     <ClInclude Include="Renderer\MaterialRenderer.h" />
     <ClInclude Include="Renderer\ModelRenderer.h" />
     <ClInclude Include="Renderer\ModelTransformRenderer.h" />
@@ -220,6 +223,7 @@
     <ClInclude Include="Renderer\SkyRenderer.h" />
     <ClInclude Include="Renderer\SubsurfaceScatteringRenderer.h" />
     <ClInclude Include="Renderer\TaauUpsamplingRenderer.h" />
+    <ClInclude Include="Renderer\TextureRenderer.h" />
     <ClInclude Include="Renderer\TimelineRenderer.h" />
     <ClInclude Include="Renderer\ViewMode.h" />
     <ClInclude Include="Renderer\VolumetricCloudScapesRenderer.h" />
@@ -251,11 +255,10 @@
     <ClInclude Include="TAAU\TaauResolveShader.h" />
     <ClInclude Include="Texture\Compression\BC7CompressShader.h" />
     <ClInclude Include="Texture\Image.h" />
-    <ClInclude Include="Texture\ImageLoader.h" />
-    <ClInclude Include="Texture\ImageResource.h" />
-    <ClInclude Include="Texture\ImageShader.h" />
     <ClInclude Include="Texture\Texture.h" />
     <ClInclude Include="Texture\TextureLoader.h" />
+    <ClInclude Include="Texture\TextureResource.h" />
+    <ClInclude Include="Texture\TextureShader.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Avatar\Animal\AnimalCharacterConverter.cpp" />
@@ -278,6 +281,7 @@
     <ClCompile Include="D3D12\Context\D3D12Check.cpp" />
     <ClCompile Include="DLSS\DlssBackgroundVelocityShader.cpp" />
     <ClCompile Include="DLSS\DlssNormalRoughnessShader.cpp" />
+    <ClCompile Include="Effect\Effekseer\EffekseerEffect.cpp" />
     <ClCompile Include="Effect\Effekseer\EffekseerFileInterface.cpp" />
     <ClCompile Include="Effect\Effekseer\EffekseerLoader.cpp" />
     <ClCompile Include="Effect\Effekseer\EffekseerManager.cpp" />
@@ -289,6 +293,7 @@
     <ClCompile Include="Environment\WeatherParticleShader.cpp" />
     <ClCompile Include="Font\Font.cpp" />
     <ClCompile Include="Font\FontManager.cpp" />
+    <ClCompile Include="Font\FontLoader.cpp" />
     <ClCompile Include="Font\FontResource.cpp" />
     <ClCompile Include="Font\FontShader.cpp" />
     <ClCompile Include="Font\ShapedText.cpp" />
@@ -325,9 +330,11 @@
     <ClCompile Include="Model\SoftbodyMesh.cpp" />
     <ClCompile Include="Model\Transparent\OITBuffer.cpp" />
     <ClCompile Include="Movie\MovieByteStream.cpp" />
+    <ClCompile Include="Movie\MovieDecoder.cpp" />
     <ClCompile Include="Movie\MovieLoader.cpp" />
     <ClCompile Include="Movie\MovieResource.cpp" />
     <ClCompile Include="Movie\MovieShader.cpp" />
+    <ClCompile Include="Movie\Video.cpp" />
     <ClCompile Include="PostProcess\PostEffect\AnamorphicFlare.cpp" />
     <ClCompile Include="PostProcess\PostEffect\AutoExposure.cpp" />
     <ClCompile Include="PostProcess\PostEffect\Bokeh.cpp" />
@@ -452,7 +459,6 @@
     <ClCompile Include="Renderer\FontRenderer.cpp" />
     <ClCompile Include="Renderer\GlobalIlluminationRenderer.cpp" />
     <ClCompile Include="Renderer\HUDComposeRenderer.cpp" />
-    <ClCompile Include="Renderer\ImageRenderer.cpp" />
     <ClCompile Include="Renderer\MaterialRenderer.cpp" />
     <ClCompile Include="Renderer\ModelRenderer.cpp" />
     <ClCompile Include="Renderer\ModelTransformRenderer.cpp" />
@@ -469,6 +475,7 @@
     <ClCompile Include="Renderer\SkyRenderer.cpp" />
     <ClCompile Include="Renderer\SubsurfaceScatteringRenderer.cpp" />
     <ClCompile Include="Renderer\TaauUpsamplingRenderer.cpp" />
+    <ClCompile Include="Renderer\TextureRenderer.cpp" />
     <ClCompile Include="Renderer\TimelineRenderer.cpp" />
     <ClCompile Include="Renderer\VolumetricCloudScapesRenderer.cpp" />
     <ClCompile Include="Renderer\VolumetricLightRenderer.cpp" />
@@ -502,10 +509,10 @@
     <ClCompile Include="System\WeatherSystem.cpp" />
     <ClCompile Include="TAAU\TaauResolveShader.cpp" />
     <ClCompile Include="Texture\Compression\BC7CompressShader.cpp" />
-    <ClCompile Include="Texture\ImageLoader.cpp" />
-    <ClCompile Include="Texture\ImageResource.cpp" />
-    <ClCompile Include="Texture\ImageShader.cpp" />
+    <ClCompile Include="Texture\Texture.cpp" />
     <ClCompile Include="Texture\TextureLoader.cpp" />
+    <ClCompile Include="Texture\TextureResource.cpp" />
+    <ClCompile Include="Texture\TextureShader.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\FoundationEngine\FoundationEngine.vcxproj">
@@ -716,7 +723,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </None>
-    <None Include="Texture\Image.hlsli">
+    <None Include="Texture\Texture.hlsli">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </None>
@@ -1033,9 +1040,6 @@
     <Text Include="Font\FontSilhouettePS.hlsl">
       <FileType>Document</FileType>
     </Text>
-    <Text Include="Texture\ImageSilhouettePS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
   </ItemGroup>
   <ItemGroup>
     <Text Include="Shape\Outline\OutlineMS.hlsl">
@@ -1104,46 +1108,6 @@
   </ItemGroup>
   <ItemGroup>
     <Text Include="Texture\Compression\BC7CompressCS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="Texture\Billboard\ImageBillboardAS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Texture\Billboard\ImageBillboardMS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Texture\Billboard\ImageBillboardPS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Texture\Billboard\ImageBillboardSilhouetteAS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Texture\Billboard\ImageBillboardSilhouetteVS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Texture\Billboard\ImageBillboardVS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="Texture\Sprite\ImageSpriteAS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Texture\Sprite\ImageSpriteMS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Texture\Sprite\ImageSpritePS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Texture\Sprite\ImageSpriteSilhouetteAS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Texture\Sprite\ImageSpriteSilhouetteVS.hlsl">
-      <FileType>Document</FileType>
-    </Text>
-    <Text Include="Texture\Sprite\ImageSpriteVS.hlsl">
       <FileType>Document</FileType>
     </Text>
   </ItemGroup>
@@ -1268,6 +1232,51 @@
       <FileType>Document</FileType>
     </Text>
     <Text Include="Shape\Screen\SplashScreenVS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Texture\TextureSilhouettePS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Texture\Sprite\TextureSpriteAS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Texture\Sprite\TextureSpriteMS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Texture\Sprite\TextureSpritePS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Texture\Sprite\TextureSpriteSilhouetteAS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Texture\Sprite\TextureSpriteSilhouetteVS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Texture\Sprite\TextureSpriteVS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Texture\Billboard\TextureBillboardAS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Texture\Billboard\TextureBillboardMS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Texture\Billboard\TextureBillboardPS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Texture\Billboard\TextureBillboardSilhouetteAS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Texture\Billboard\TextureBillboardSilhouetteVS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Texture\Billboard\TextureBillboardVS.hlsl">
       <FileType>Document</FileType>
     </Text>
   </ItemGroup>

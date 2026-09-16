@@ -135,7 +135,7 @@ namespace SeedCore
 			}
 			else
 			{
-				ModelResource* modelResource = context_.worldContext_.resource_->GetModelResource();
+				ModelResource* modelResource = context_.worldContext_.resource_->GetResource<ModelResource>(AssetType::Model);
 				Handle<Crister> handle = modelResource->GetHandle(targetMeshAssetId_);
 				Crister* crister = handle.empty() ? nullptr : modelResource->Resolve(*context_.worldContext_.loader_, handle);
 
@@ -350,7 +350,7 @@ namespace SeedCore
 
 	void ModelTransformPanel::ApplyConversion(Uint32 assetId)
 	{
-		Asset* asset = context_.worldContext_.resource_->GetAsset(assetId);
+		AssetRecord* asset = context_.worldContext_.resource_->GetAsset(assetId);
 		if (!asset)
 		{
 			return;
@@ -359,7 +359,7 @@ namespace SeedCore
 		std::filesystem::path path(asset->fullpath_.c_str());
 		Bool isSourceAsset = (path.extension() == ".gltf" || path.extension() == ".glb");
 
-		ModelResource* modelResource = context_.worldContext_.resource_->GetModelResource();
+		ModelResource* modelResource = context_.worldContext_.resource_->GetResource<ModelResource>(AssetType::Model);
 		BindlessHeap* heap = context_.worldContext_.resource_->Heap();
 
 		D3D12Context* d3d12Context = context_.graphicsContext_.graphics_->GetContext();
@@ -421,7 +421,7 @@ namespace SeedCore
 		ImGui::Separator();
 		ImGui::Spacing();
 
-		Asset* asset = context_.worldContext_.resource_->GetAsset(assetId);
+		AssetRecord* asset = context_.worldContext_.resource_->GetAsset(assetId);
 		std::filesystem::path path = asset ? std::filesystem::path(asset->fullpath_.c_str()) : std::filesystem::path();
 		Bool isSourceAsset = (path.extension() == ".gltf" || path.extension() == ".glb");
 
@@ -440,7 +440,7 @@ namespace SeedCore
 
 	void ModelTransformPanel::ApplyTransformConversion(Uint32 assetId)
 	{
-		Asset* asset = context_.worldContext_.resource_->GetAsset(assetId);
+		AssetRecord* asset = context_.worldContext_.resource_->GetAsset(assetId);
 		if (!asset)
 		{
 			return;
@@ -452,7 +452,7 @@ namespace SeedCore
 			return;
 		}
 
-		ModelResource* modelResource = context_.worldContext_.resource_->GetModelResource();
+		ModelResource* modelResource = context_.worldContext_.resource_->GetResource<ModelResource>(AssetType::Model);
 		Handle<Crister> handle = modelResource->GetHandle(assetId);
 		Crister* crister = handle.empty() ? nullptr : modelResource->Resolve(*context_.worldContext_.loader_, handle);
 		if (!crister || !crister->ApplyTransformConversion(baseTransformPosition_, baseTransformRotation_, baseTransformScale_, baseTransformPivot_, path))
@@ -461,7 +461,8 @@ namespace SeedCore
 		}
 
 		Matrix baseTransformLinearBasis = Matrix::CreateScale(baseTransformScale_.x, baseTransformScale_.y, baseTransformScale_.z) * Matrix::CreateFromYawPitchRoll(ToRadians(baseTransformRotation_.y), ToRadians(baseTransformRotation_.x), ToRadians(baseTransformRotation_.z));
-		context_.worldContext_.resource_->AppendAssetModelTransform(assetId, Matrix::CreateTranslation(-baseTransformPivot_) * baseTransformLinearBasis * Matrix::CreateTranslation(baseTransformPivot_ + baseTransformPosition_));
+		Matrix appliedTransform = Matrix::CreateTranslation(-baseTransformPivot_) * baseTransformLinearBasis * Matrix::CreateTranslation(baseTransformPivot_ + baseTransformPosition_);
+		context_.worldContext_.resource_->WriteAssetMeta(assetId, context_.worldContext_.resource_->ReadModelTransform(assetId) * appliedTransform);
 
 		baseTransformPosition_ = Vector3(0.0f, 0.0f, 0.0f);
 		baseTransformRotation_ = Vector3(0.0f, 0.0f, 0.0f);

@@ -1,12 +1,12 @@
-#ifndef __IMAGE_HLSL__
-#define __IMAGE_HLSL__
+#ifndef __TEXTURE_HLSL__
+#define __TEXTURE_HLSL__
 
-struct ImageASPayload
+struct TextureASPayload
 {
-	uint image_indices[32];
+	uint texture_indices[32];
 };
 
-struct ImageMSOutput
+struct TextureMSOutput
 {
 	float4 position : SV_Position;
 	float2 uv       : TEXCOORD0;
@@ -14,31 +14,31 @@ struct ImageMSOutput
 	nointerpolation uint texture_index : BLENDINDICES;
 };
 
-struct ImageSpriteStructuredBuffer
+struct TextureSpriteStructuredBuffer
 {
 	float2 position_;
 	float rotation_;
 	float2 scale_;
-	float image_sprite_structured_buffer_padding_0_;
+	float texture_sprite_structured_buffer_padding_0_;
 	float2 texture_size_;
 	float2 texture_position_;
 	float2 pivot_;
-	float2 image_sprite_structured_buffer_padding_1_;
+	float2 texture_sprite_structured_buffer_padding_1_;
 	float4 color_;
 	uint texture_index_;
 	float scroll_speed_;
 	float2 scroll_direction_;
 	uint motion_type_;
 	uint selected_;
-	float3 image_sprite_structured_buffer_padding_2_;
+	float3 texture_sprite_structured_buffer_padding_2_;
 };
 
-StructuredBuffer<ImageSpriteStructuredBuffer> GetImageSpriteStructuredBuffer(uint index)
+StructuredBuffer<TextureSpriteStructuredBuffer> GetTextureSpriteStructuredBuffer(uint index)
 {
 	return ResourceDescriptorHeap[index];
 }
 
-struct ImageBillboardStructuredBuffer
+struct TextureBillboardStructuredBuffer
 {
 	float3 position_;
 	float3 rotation_;
@@ -46,7 +46,7 @@ struct ImageBillboardStructuredBuffer
 	float2 texture_size_;
 	float2 texture_position_;
 	float2 pivot_;
-	float2 image_billboard_structured_buffer_padding_0_;
+	float2 texture_billboard_structured_buffer_padding_0_;
 	float4 color_;
 	uint texture_index_;
 	float scroll_speed_;
@@ -54,19 +54,19 @@ struct ImageBillboardStructuredBuffer
 	uint motion_type_;
 	uint face_camera_;
 	uint selected_;
-	float2 image_billboard_structured_buffer_padding_1_;
+	float2 texture_billboard_structured_buffer_padding_1_;
 };
 
-StructuredBuffer<ImageBillboardStructuredBuffer> GetImageBillboardStructuredBuffer(uint index)
+StructuredBuffer<TextureBillboardStructuredBuffer> GetTextureBillboardStructuredBuffer(uint index)
 {
 	return ResourceDescriptorHeap[index];
 }
 
-struct ImageShaderResourceIndices
+struct TextureShaderResourceIndices
 {
 	uint sprite_index_;
 	uint billboard_index_;
-	uint2 image_shader_resource_padding_0_;
+	uint2 texture_shader_resource_padding_0_;
 };
 
-#endif // __IMAGE_HLSL__
+#endif // __TEXTURE_HLSL__

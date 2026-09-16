@@ -279,7 +279,7 @@ namespace SeedCore
 		/// [EN] Unreal-style "frame selected": double-clicking an actor row
 		///      slides a viewport camera to it. An Image/Text/Movie whose
 		///      view type is Sprite is drawn only in the 2D canvas
-		///      (ImageRenderer/FontRenderer/MovieRenderer offset it by
+		///      (TextureRenderer/FontRenderer/MovieRenderer offset it by
 		///      +100000 into canvas space), so framing it with the 3D editor
 		///      camera would just fly that off to the canvas origin - those
 		///      animate the CanvasView camera and pull the canvas panel
@@ -294,7 +294,7 @@ namespace SeedCore
 		/// [JP] Unreal 風の「選択対象にフレーム」: アクター行をダブルクリック
 		///      するとビューポートのカメラがそこへスライドする。表示形式が
 		///      Sprite の Image/Text/Movie は 2D キャンバスにしか描かれない
-		///      （ImageRenderer/FontRenderer/MovieRenderer が +100000 で
+		///      （TextureRenderer/FontRenderer/MovieRenderer が +100000 で
 		///      キャンバス空間へずらす）ので、3D エディタカメラでフレーム
 		///      するとキャンバス原点へ飛んでいくだけ - これらは CanvasView の
 		///      カメラをアニメーションで寄せ、キャンバスパネルを前面に出す。

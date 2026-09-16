@@ -1,14 +1,14 @@
-#include "../Image.hlsli"
+#include "../Texture.hlsli"
 #include "../../Shader/ShaderResources.hlsli"
 #include "../../Shader/Culling.hlsli"
 
-ImageMSOutput main(uint vertex_id : SV_VertexID, uint instance_id : SV_InstanceID)
+TextureMSOutput main(uint vertex_id : SV_VertexID, uint instance_id : SV_InstanceID)
 {
-	StructuredBuffer<ImageBillboardStructuredBuffer> image_billboard = GetImageBillboardStructuredBuffer(shader_resource_indices.image_.billboard_index_);
+	StructuredBuffer<TextureBillboardStructuredBuffer> texture_billboard = GetTextureBillboardStructuredBuffer(shader_resource_indices.texture_.billboard_index_);
 	SceneConstantBuffer scene_constant = GetSceneConstantBuffer();
-	ImageBillboardStructuredBuffer billboard = image_billboard[instance_id];
+	TextureBillboardStructuredBuffer billboard = texture_billboard[instance_id];
 
-	ImageMSOutput output = (ImageMSOutput)0;
+	TextureMSOutput output = (TextureMSOutput)0;
 	output.position = float4(2.0f, 2.0f, 2.0f, 1.0f);
 
 	bool is_visible = false;

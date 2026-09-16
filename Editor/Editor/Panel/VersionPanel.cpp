@@ -12,8 +12,6 @@ namespace SeedCore
 {
 	VersionPanel::VersionPanel(EditorContext& context)
 	{
-		TextureLoader* loader = context.worldContext_.loader_->textureLoader_.get();
-
 		std::time_t t = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
 		std::tm local{};
 		localtime_s(&local, &t);
@@ -26,7 +24,7 @@ namespace SeedCore
 		IDXGIAdapter4* adapter = d3d12Context->GetAdapter()->Get();
 
 		Uint index = descHeap->AllocateIndex();
-		loader->CreateTexture(d3d12Context->GetDevice(), d3d12Context->GetDirectQueue(), descHeap->Get(), logoPath, logoResource_, index);
+		TextureLoader::CreateTexture(d3d12Context->GetDevice(), d3d12Context->GetDirectQueue(), descHeap->Get(), logoPath, logoResource_, index);
 		logoTextureId_ = static_cast<ImTextureID>(descHeap->GPUHandle(index).ptr);
 
 		if (logoResource_)

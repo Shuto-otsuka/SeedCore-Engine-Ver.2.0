@@ -76,7 +76,6 @@ namespace SeedCore
 		ResourcePtr<AvatarMesh> humanMesh_;
 		ResourcePtr<AvatarMesh> animalMesh_;
 
-		TextureLoader regionTextureLoader_;
 		Microsoft::WRL::ComPtr<ID3D12Resource> regionTextureResources_[regionSlotCount_];
 		Uint32 regionTextureIndices_[regionSlotCount_] = { 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF };
 		String regionTexturePaths_[regionSlotCount_];

@@ -2,6 +2,7 @@
 #include <FoundationEngine/Prelude.h>
 #include <FoundationEngine/Utility/Handle.h>
 #include <FoundationEngine/Utility/FlatMap.h>
+#include <FoundationEngine/Resource/Asset.h>
 #include <GraphicsEngine/Model/Collision/MeshCollision.h>
 
 namespace SeedCore
@@ -9,11 +10,15 @@ namespace SeedCore
 	struct LoaderSystem;
 	class ResourceCache;
 
-	class SEEDCORE_API MeshCollisionResource :public NonCopyable
+	class SEEDCORE_API MeshCollisionResource :public Asset, public NonCopyable
 	{
 	public:
 		MeshCollisionResource() = default;
 		~MeshCollisionResource() = default;
+
+		void Load(const AssetContext& context, Uint32 assetId)override;
+
+		void Unload(const AssetContext& context, Uint32 assetId)override;
 
 		Handle<MeshCollision> Load(LoaderSystem& loader, ResourceCache& cache, Uint32 assetId);
 

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <Filter Include="D3D12">
@@ -421,9 +421,6 @@
     <ClInclude Include="Renderer\MovieRenderer.h">
       <Filter>Renderer</Filter>
     </ClInclude>
-    <ClInclude Include="Movie\Movie.h">
-      <Filter>Movie</Filter>
-    </ClInclude>
     <ClInclude Include="Camera\CanvasCamera.h">
       <Filter>Camera</Filter>
     </ClInclude>
@@ -568,19 +565,25 @@
     <ClInclude Include="Texture\Image.h">
       <Filter>Texture</Filter>
     </ClInclude>
-    <ClInclude Include="Texture\ImageLoader.h">
+    <ClInclude Include="Texture\TextureLoader.h">
       <Filter>Texture</Filter>
     </ClInclude>
-    <ClInclude Include="Texture\ImageResource.h">
+    <ClInclude Include="Texture\TextureResource.h">
       <Filter>Texture</Filter>
     </ClInclude>
-    <ClInclude Include="Texture\ImageShader.h">
+    <ClInclude Include="Texture\TextureShader.h">
       <Filter>Texture</Filter>
+    </ClInclude>
+    <ClInclude Include="Effect\Effekseer\EffekseerEffect.h">
+      <Filter>Effect\Effekseer</Filter>
+    </ClInclude>
+    <ClInclude Include="Font\FontLoader.h">
+      <Filter>Font</Filter>
     </ClInclude>
     <ClInclude Include="Texture\Texture.h">
       <Filter>Texture</Filter>
     </ClInclude>
-    <ClInclude Include="Renderer\ImageRenderer.h">
+    <ClInclude Include="Renderer\TextureRenderer.h">
       <Filter>Renderer</Filter>
     </ClInclude>
     <ClInclude Include="Effect\Zephyr\Zephyr.h">
@@ -934,6 +937,15 @@
     <ClInclude Include="Texture\TextureLoader.h">
       <Filter>Texture</Filter>
     </ClInclude>
+    <ClInclude Include="Movie\Video.h">
+      <Filter>Movie</Filter>
+    </ClInclude>
+    <ClInclude Include="Movie\Movie.h">
+      <Filter>Movie</Filter>
+    </ClInclude>
+    <ClInclude Include="Movie\MovieDecoder.h">
+      <Filter>Movie</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="D3D12\Context\D3D12Adapter.cpp">
@@ -1214,16 +1226,25 @@
     <ClCompile Include="System\MovieSystem.cpp">
       <Filter>System</Filter>
     </ClCompile>
-    <ClCompile Include="Texture\ImageLoader.cpp">
+    <ClCompile Include="Texture\TextureLoader.cpp">
       <Filter>Texture</Filter>
     </ClCompile>
-    <ClCompile Include="Texture\ImageResource.cpp">
+    <ClCompile Include="Effect\Effekseer\EffekseerEffect.cpp">
+      <Filter>Effect\Effekseer</Filter>
+    </ClCompile>
+    <ClCompile Include="Font\FontLoader.cpp">
+      <Filter>Font</Filter>
+    </ClCompile>
+    <ClCompile Include="Texture\Texture.cpp">
       <Filter>Texture</Filter>
     </ClCompile>
-    <ClCompile Include="Texture\ImageShader.cpp">
+    <ClCompile Include="Texture\TextureResource.cpp">
       <Filter>Texture</Filter>
     </ClCompile>
-    <ClCompile Include="Renderer\ImageRenderer.cpp">
+    <ClCompile Include="Texture\TextureShader.cpp">
+      <Filter>Texture</Filter>
+    </ClCompile>
+    <ClCompile Include="Renderer\TextureRenderer.cpp">
       <Filter>Renderer</Filter>
     </ClCompile>
     <ClCompile Include="Effect\Zephyr\EffectResource.cpp">
@@ -1535,6 +1556,12 @@
     <ClCompile Include="Texture\TextureLoader.cpp">
       <Filter>Texture</Filter>
     </ClCompile>
+    <ClCompile Include="Movie\MovieDecoder.cpp">
+      <Filter>Movie</Filter>
+    </ClCompile>
+    <ClCompile Include="Movie\Video.cpp">
+      <Filter>Movie</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="Shader\Sampler.hlsli">
@@ -1591,7 +1618,7 @@
     <None Include="Movie\Movie.hlsli">
       <Filter>Movie</Filter>
     </None>
-    <None Include="Texture\Image.hlsli">
+    <None Include="Texture\Texture.hlsli">
       <Filter>Texture</Filter>
     </None>
     <None Include="Shape\Collider\ColliderLine.hlsli">
@@ -1926,7 +1953,7 @@
     <Text Include="Movie\MovieSilhouettePS.hlsl">
       <Filter>Movie</Filter>
     </Text>
-    <Text Include="Texture\ImageSilhouettePS.hlsl">
+    <Text Include="Texture\TextureSilhouettePS.hlsl">
       <Filter>Texture</Filter>
     </Text>
     <Text Include="Shape\Outline\OutlineMS.hlsl">
@@ -1983,40 +2010,40 @@
     <Text Include="Texture\Compression\BC7CompressCS.hlsl">
       <Filter>Texture\Compression</Filter>
     </Text>
-    <Text Include="Texture\Billboard\ImageBillboardAS.hlsl">
+    <Text Include="Texture\Billboard\TextureBillboardAS.hlsl">
       <Filter>Texture\Billboard</Filter>
     </Text>
-    <Text Include="Texture\Billboard\ImageBillboardMS.hlsl">
+    <Text Include="Texture\Billboard\TextureBillboardMS.hlsl">
       <Filter>Texture\Billboard</Filter>
     </Text>
-    <Text Include="Texture\Billboard\ImageBillboardPS.hlsl">
+    <Text Include="Texture\Billboard\TextureBillboardPS.hlsl">
       <Filter>Texture\Billboard</Filter>
     </Text>
-    <Text Include="Texture\Billboard\ImageBillboardSilhouetteAS.hlsl">
+    <Text Include="Texture\Billboard\TextureBillboardSilhouetteAS.hlsl">
       <Filter>Texture\Billboard</Filter>
     </Text>
-    <Text Include="Texture\Billboard\ImageBillboardSilhouetteVS.hlsl">
+    <Text Include="Texture\Billboard\TextureBillboardSilhouetteVS.hlsl">
       <Filter>Texture\Billboard</Filter>
     </Text>
-    <Text Include="Texture\Billboard\ImageBillboardVS.hlsl">
+    <Text Include="Texture\Billboard\TextureBillboardVS.hlsl">
       <Filter>Texture\Billboard</Filter>
     </Text>
-    <Text Include="Texture\Sprite\ImageSpriteAS.hlsl">
+    <Text Include="Texture\Sprite\TextureSpriteAS.hlsl">
       <Filter>Texture\Sprite</Filter>
     </Text>
-    <Text Include="Texture\Sprite\ImageSpriteMS.hlsl">
+    <Text Include="Texture\Sprite\TextureSpriteMS.hlsl">
       <Filter>Texture\Sprite</Filter>
     </Text>
-    <Text Include="Texture\Sprite\ImageSpritePS.hlsl">
+    <Text Include="Texture\Sprite\TextureSpritePS.hlsl">
       <Filter>Texture\Sprite</Filter>
     </Text>
-    <Text Include="Texture\Sprite\ImageSpriteSilhouetteAS.hlsl">
+    <Text Include="Texture\Sprite\TextureSpriteSilhouetteAS.hlsl">
       <Filter>Texture\Sprite</Filter>
     </Text>
-    <Text Include="Texture\Sprite\ImageSpriteSilhouetteVS.hlsl">
+    <Text Include="Texture\Sprite\TextureSpriteSilhouetteVS.hlsl">
       <Filter>Texture\Sprite</Filter>
     </Text>
-    <Text Include="Texture\Sprite\ImageSpriteVS.hlsl">
+    <Text Include="Texture\Sprite\TextureSpriteVS.hlsl">
       <Filter>Texture\Sprite</Filter>
     </Text>
     <Text Include="Font\Billboard\FontBillboardAS.hlsl">

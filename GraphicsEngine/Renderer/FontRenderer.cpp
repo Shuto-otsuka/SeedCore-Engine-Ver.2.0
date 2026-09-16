@@ -41,15 +41,15 @@ namespace SeedCore
 
 	}
 
-	void FontRenderer::Gather(FontResource& fontResource, World& world, Vector2 nativeScreenSize, Entity selectedEntity)
+	void FontRenderer::Gather(LoaderSystem& loader, FontResource& fontResource, World& world, Vector2 nativeScreenSize, Entity selectedEntity)
 	{
 		spriteInstances_.clear();
 		billboardInstances_.clear();
 
 		Float spriteReferenceScale = (ScResolution::SC_HD.Height > 0.0f) ? (nativeScreenSize.y / ScResolution::SC_HD.Height) : 1.0f;
 
-		/// [EN] Cached once so each sprite-view Text actor's Bounds can be synced to its measured text box below (mirrors ImageRenderer's Image -> Bounds sync), giving canvas text a pickable box in CanvasViewPanel.
-		/// [JP] 各スプライトビュー Text アクターの Bounds を下で計測したテキストボックスへ同期できるよう一度だけキャッシュする(ImageRenderer の Image -> Bounds 同期と同じ)。これでキャンバステキストが CanvasViewPanel でピック可能なボックスを持つ。
+		/// [EN] Cached once so each sprite-view Text actor's Bounds can be synced to its measured text box below (mirrors TextureRenderer's Image -> Bounds sync), giving canvas text a pickable box in CanvasViewPanel.
+		/// [JP] 各スプライトビュー Text アクターの Bounds を下で計測したテキストボックスへ同期できるよう一度だけキャッシュする(TextureRenderer の Image -> Bounds 同期と同じ)。これでキャンバステキストが CanvasViewPanel でピック可能なボックスを持つ。
 		ComponentID boundsComponentID = ComponentRegistry::GetComponentID<Bounds>();
 
 		Query<Read<Active>, Read<Text>> query(world);
@@ -67,11 +67,11 @@ namespace SeedCore
 
 				/// [EN] Read the parent-composed world transform from
 				///      TransformSystem (Actor::GetWorldMatrix()), same as
-				///      ImageRenderer, so parented text follows its parent.
+				///      TextureRenderer, so parented text follows its parent.
 				///      rotationEuler here is TransformSystem's own
 				///      yaw/pitch/roll decomposition of the composed
 				///      rotation, matching CreateFromYawPitchRoll's axes.
-				/// [JP] ImageRenderer と同様、アクター自身のローカル値ではなく
+				/// [JP] TextureRenderer と同様、アクター自身のローカル値ではなく
 				///      TransformSystem(Actor::GetWorldMatrix())の親合成済み
 				///      ワールド変換を読む。rotationEuler は合成後回転を
 				///      CreateFromYawPitchRoll と同じ軸(yaw/pitch/roll)で
@@ -94,7 +94,7 @@ namespace SeedCore
 
 				Uint selected = (selectedEntity.Exists() && actor.GetEntity() == selectedEntity) ? 1 : 0;
 
-				Font* font = fontResource.Find(text.fontID_);
+				Font* font = fontResource.Resolve(loader, fontResource.GetHandle(text.fontID_));
 				if (!font)
 				{
 					return;
@@ -121,8 +121,8 @@ namespace SeedCore
 
 				const Bool isSprite = (text.viewType_ == Text::ViewType::Sprite);
 
-				/// [EN] Canvas text box in unscaled glyph space, relative to the pivot, accumulated over every drawn glyph (same convention as ImageRenderer's Bounds: the actor's world scale is applied by the picker, not stored). Stays inverted (min > max) when the text draws nothing.
-				/// [JP] pivot 基準・未スケールのグリフ空間でのキャンバステキストボックス。描画される全グリフにわたって蓄積する(ImageRenderer の Bounds と同じ規約: アクターのワールドスケールはピッカー側で掛ける、保存しない)。何も描画しないときは反転(min > max)のまま。
+				/// [EN] Canvas text box in unscaled glyph space, relative to the pivot, accumulated over every drawn glyph (same convention as TextureRenderer's Bounds: the actor's world scale is applied by the picker, not stored). Stays inverted (min > max) when the text draws nothing.
+				/// [JP] pivot 基準・未スケールのグリフ空間でのキャンバステキストボックス。描画される全グリフにわたって蓄積する(TextureRenderer の Bounds と同じ規約: アクターのワールドスケールはピッカー側で掛ける、保存しない)。何も描画しないときは反転(min > max)のまま。
 				Float textBoxMinX = FLT_MAX;
 				Float textBoxMaxX = -FLT_MAX;
 				Float textBoxMinY = FLT_MAX;

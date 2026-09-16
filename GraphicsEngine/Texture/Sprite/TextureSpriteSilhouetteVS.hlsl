@@ -1,18 +1,18 @@
-#include "../Image.hlsli"
+#include "../Texture.hlsli"
 #include "../../Shader/ShaderResources.hlsli"
 #include "../../Shader/Culling.hlsli"
 
-ImageMSOutput main(uint vertex_id : SV_VertexID, uint instance_id : SV_InstanceID)
+TextureMSOutput main(uint vertex_id : SV_VertexID, uint instance_id : SV_InstanceID)
 {
-	StructuredBuffer<ImageSpriteStructuredBuffer> image_sprite = GetImageSpriteStructuredBuffer(shader_resource_indices.image_.sprite_index_);
+	StructuredBuffer<TextureSpriteStructuredBuffer> texture_sprite = GetTextureSpriteStructuredBuffer(shader_resource_indices.texture_.sprite_index_);
 	SceneConstantBuffer scene_constant = GetSceneConstantBuffer();
-	ImageSpriteStructuredBuffer sprite = image_sprite[instance_id];
+	TextureSpriteStructuredBuffer sprite = texture_sprite[instance_id];
 
-	ImageMSOutput output = (ImageMSOutput)0;
+	TextureMSOutput output = (TextureMSOutput)0;
 	output.position = float4(2.0f, 2.0f, 2.0f, 1.0f);
 
 	bool is_visible = false;
-	if (sprite.scale_.x > 0.0 && sprite.scale_.y > 0.0)
+	if (sprite.selected_ != 0 && sprite.scale_.x > 0.0 && sprite.scale_.y > 0.0)
 	{
 		is_visible = IsVisibleInScreen(sprite.position_, sprite.texture_size_ * sprite.scale_, scene_constant.screen_size_);
 	}

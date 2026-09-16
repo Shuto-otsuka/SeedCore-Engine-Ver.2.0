@@ -10,8 +10,6 @@ namespace SeedCore
 {
 	ImGuiTexture::ImGuiTexture(EditorContext& context)
 	{
-		TextureLoader* loader = context.worldContext_.loader_->textureLoader_.get();
-
 		D3D12Context* d3d12Context = context.graphicsContext_.graphics_->GetContext();
 		DescriptorHeap* descHeap = context.graphicsContext_.imgui_->GetDescriptorHeap();
 
@@ -21,7 +19,7 @@ namespace SeedCore
 
 			Microsoft::WRL::ComPtr<ID3D12Resource> resource;
 			String filePath = String(std::string("Icon/") + folder + "/" + name + ".icon");
-			loader->CreateTexture(d3d12Context->GetDevice(), d3d12Context->GetDirectQueue(), descHeap->Get(), filePath, resource, index);
+			TextureLoader::CreateTexture(d3d12Context->GetDevice(), d3d12Context->GetDirectQueue(), descHeap->Get(), filePath, resource, index);
 
 			icons_[static_cast<Uint>(type)] = static_cast<ImTextureID>(descHeap->GPUHandle(index).ptr);
 			resources_.push_back(std::move(resource));

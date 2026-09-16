@@ -11,8 +11,11 @@
 #include <FoundationEngine/Resource/ResourceCache.h>
 #include <FoundationEngine/Resource/LoaderSystem.h>
 #include <GraphicsEngine/Movie/MovieResource.h>
-#include <GraphicsEngine/Texture/ImageResource.h>
+#include <GraphicsEngine/Texture/TextureResource.h>
+#include <GraphicsEngine/Model/ModelResource.h>
+#include <GraphicsEngine/Model/Animation/AnimationResource.h>
 #include <GraphicsEngine/Model/Material/MaterialResource.h>
+#include <GraphicsEngine/Font/FontResource.h>
 #include <GraphicsEngine/D3D12/SwapChain/GraphicsResolution.h>
 
 namespace SeedCore
@@ -22,7 +25,7 @@ namespace SeedCore
 		effekseerManager_ = MakePtr<EffekseerManager>();
 
 		modelRenderer_ = MakePtr<ModelRenderer>(rootSignature_, pipelineStateObject_);
-		imageRenderer_ = MakePtr<ImageRenderer>(rootSignature_, pipelineStateObject_);
+		textureRenderer_ = MakePtr<TextureRenderer>(rootSignature_, pipelineStateObject_);
 		fontRenderer_ = MakePtr<FontRenderer>(rootSignature_, pipelineStateObject_);
 		movieRenderer_ = MakePtr<MovieRenderer>(rootSignature_, pipelineStateObject_);
 		outlineRenderer_ = MakePtr<OutlineRenderer>(rootSignature_, pipelineStateObject_);
@@ -108,7 +111,7 @@ namespace SeedCore
 		constantIndicesSystem_->SetClusterAssignIndex(lightSystem_->GetClusterAssignIndex());
 
 		modelRenderer_->Create(device, bindlessHeap, shaderCache, *constantIndicesSystem_, *shaderResourceIndicesSystem_, *unorderedAccessIndicesSystem_, width, height);
-		imageRenderer_->Create(device, bindlessHeap, shaderCache, *shaderResourceIndicesSystem_);
+		textureRenderer_->Create(device, bindlessHeap, shaderCache, *shaderResourceIndicesSystem_);
 		fontRenderer_->Create(device, bindlessHeap, shaderCache, *shaderResourceIndicesSystem_);
 		movieRenderer_->Create(device, bindlessHeap, shaderCache, *shaderResourceIndicesSystem_);
 		outlineRenderer_->Create(device, bindlessHeap, shaderCache);
@@ -210,9 +213,9 @@ namespace SeedCore
 		///      resolve を積む場所になる。
 		gpuProfiler_.Advance(cmdList);
 
-		ModelResource* modelResource = resourceCache.GetModelResource();
-		MaterialResource* materialResource = resourceCache.GetMaterialResource();
-		AnimationResource* animationResource = resourceCache.GetAnimationResource();
+		ModelResource* modelResource = resourceCache.GetResource<ModelResource>(AssetType::Model);
+		MaterialResource* materialResource = resourceCache.GetResource<MaterialResource>(AssetType::Material);
+		AnimationResource* animationResource = resourceCache.GetResource<AnimationResource>(AssetType::Animation);
 
 		constraintSystem_.Execute(world);
 		animationSystem_.Execute(world, loaderSystem, *animationResource, *modelResource);
@@ -221,15 +224,15 @@ namespace SeedCore
 		modelRenderer_->Gather(loaderSystem, *modelResource, *materialResource, *animationResource, world, scene, selectedEntity);
 		raytracingRenderer_->Gather(loaderSystem, *modelResource, world, *modelRenderer_);
 
-		ImageResource* imageResource = resourceCache.GetImageResource();
+		TextureResource* textureResource = resourceCache.GetResource<TextureResource>(AssetType::Texture);
 		Vector2 gameDisplaySize = PostProcessOutputSize();
-		imageRenderer_->Gather(loaderSystem, *imageResource, world, gameDisplaySize, selectedEntity);
+		textureRenderer_->Gather(loaderSystem, *textureResource, world, gameDisplaySize, selectedEntity);
 
-		FontResource* fontResource = resourceCache.GetFontResource();
-		fontRenderer_->Gather(*fontResource, world, gameDisplaySize, selectedEntity);
+		FontResource* fontResource = resourceCache.GetResource<FontResource>(AssetType::Font);
+		fontRenderer_->Gather(loaderSystem, *fontResource, world, gameDisplaySize, selectedEntity);
 
-		MovieResource* movieResource = resourceCache.GetMovieResource();
-		movieRenderer_->Gather(*movieResource, world, gameDisplaySize, selectedEntity);
+		MovieResource* movieResource = resourceCache.GetResource<MovieResource>(AssetType::Movie);
+		movieRenderer_->Gather(loaderSystem, *movieResource, world, gameDisplaySize, selectedEntity);
 
 		celestialResult_ = CelestialSystem::Compute(daySystem_, sunLight_, moonLight_);
 		Bool sunOverride = daySystemEnabled_ && sunLightEnabled_;
@@ -264,7 +267,7 @@ namespace SeedCore
 
 		lightSystem_->Upload();
 		modelRenderer_->Upload();
-		imageRenderer_->Upload();
+		textureRenderer_->Upload();
 		fontRenderer_->Upload();
 		movieRenderer_->Upload();
 
@@ -420,8 +423,8 @@ namespace SeedCore
 		D3D12_RECT uiColorAlphaScissorRect = { 0, 0, static_cast<LONG>(uiColorAlphaViewport.Width), static_cast<LONG>(uiColorAlphaViewport.Height) };
 		cmdList->Get()->RSSetScissorRects(1, &uiColorAlphaScissorRect);
 
-		imageRenderer_->DrawSprite(cmdList->Get(), spriteHeap, addresses);
-		imageRenderer_->DrawBillboard(cmdList->Get(), spriteHeap, addresses);
+		textureRenderer_->DrawSprite(cmdList->Get(), spriteHeap, addresses);
+		textureRenderer_->DrawBillboard(cmdList->Get(), spriteHeap, addresses);
 
 		fontRenderer_->DrawSprite(cmdList->Get(), spriteHeap, addresses);
 		fontRenderer_->DrawBillboard(cmdList->Get(), spriteHeap, addresses);
@@ -523,29 +526,29 @@ namespace SeedCore
 
 	void Renderer::GatherTimelinePreview(LoaderSystem& loaderSystem, ResourceCache& resourceCache, Uint32 meshAssetId, Uint32 animationAssetId, Float time, const Matrix& worldMatrix)
 	{
-		ModelResource* modelResource = resourceCache.GetModelResource();
-		AnimationResource* animationResource = resourceCache.GetAnimationResource();
+		ModelResource* modelResource = resourceCache.GetResource<ModelResource>(AssetType::Model);
+		AnimationResource* animationResource = resourceCache.GetResource<AnimationResource>(AssetType::Animation);
 		timelineRenderer_->Gather(loaderSystem, *modelResource, *animationResource, meshAssetId, animationAssetId, time, worldMatrix);
 	}
 
 	void Renderer::GatherModelTransformPreview(LoaderSystem& loaderSystem, ResourceCache& resourceCache, Uint32 meshAssetId, Uint32 animationAssetId, Float time, const Matrix& worldMatrix)
 	{
-		ModelResource* modelResource = resourceCache.GetModelResource();
-		AnimationResource* animationResource = resourceCache.GetAnimationResource();
+		ModelResource* modelResource = resourceCache.GetResource<ModelResource>(AssetType::Model);
+		AnimationResource* animationResource = resourceCache.GetResource<AnimationResource>(AssetType::Animation);
 		modelTransformRenderer_->Gather(loaderSystem, *modelResource, *animationResource, meshAssetId, animationAssetId, time, worldMatrix);
 	}
 
 	void Renderer::GatherMaterialPreview(LoaderSystem& loaderSystem, ResourceCache& resourceCache, Uint32 meshAssetId, Uint32 surfaceAssetId, const Matrix& worldMatrix)
 	{
-		ModelResource* modelResource = resourceCache.GetModelResource();
-		MaterialResource* materialResource = resourceCache.GetMaterialResource();
+		ModelResource* modelResource = resourceCache.GetResource<ModelResource>(AssetType::Model);
+		MaterialResource* materialResource = resourceCache.GetResource<MaterialResource>(AssetType::Material);
 		materialRenderer_->Gather(loaderSystem, *modelResource, *materialResource, meshAssetId, surfaceAssetId, worldMatrix);
 	}
 
 	void Renderer::GatherSkeletonControllerPreview(LoaderSystem& loaderSystem, ResourceCache& resourceCache, Uint32 meshAssetId, Uint32 animationAssetId, Float time, const Matrix& worldMatrix, Int selectedNodeIndex)
 	{
-		ModelResource* modelResource = resourceCache.GetModelResource();
-		AnimationResource* animationResource = resourceCache.GetAnimationResource();
+		ModelResource* modelResource = resourceCache.GetResource<ModelResource>(AssetType::Model);
+		AnimationResource* animationResource = resourceCache.GetResource<AnimationResource>(AssetType::Animation);
 		skeletonControllerRenderer_->Gather(loaderSystem, *modelResource, *animationResource, meshAssetId, animationAssetId, time, worldMatrix, selectedNodeIndex);
 	}
 
@@ -804,12 +807,12 @@ namespace SeedCore
 		silhouetteFrameBuffer_->Begin(cmdList);
 		silhouetteFrameBuffer_->Clear(cmdList, 0.0f, 0.0f, 0.0f, 0.0f);
 		modelRenderer_->DrawSilhouette(cmdList, heap, addresses);
-		imageRenderer_->DrawSilhouetteBillboard(cmdList->Get(), heap, addresses);
+		textureRenderer_->DrawSilhouetteBillboard(cmdList->Get(), heap, addresses);
 		fontRenderer_->DrawSilhouetteBillboard(cmdList->Get(), heap, addresses);
 		movieRenderer_->DrawSilhouetteBillboard(cmdList->Get(), heap, addresses);
 		silhouetteFrameBuffer_->End(cmdList);
 
-		imageRenderer_->DrawBillboard(cmdList->Get(), heap, addresses);
+		textureRenderer_->DrawBillboard(cmdList->Get(), heap, addresses);
 
 		/// [JP] Font の Billboard（3D ワールドテキスト）のみ。Sprite（2D UI テキスト）は
 		///      Canvas/Game 専用なのでここでは描かない。
@@ -1001,7 +1004,7 @@ namespace SeedCore
 		shaderResourceIndicesSystem_->UploadCanvas();
 		unorderedAccessIndicesSystem_->UploadCanvas();
 
-		imageRenderer_->DrawBillboard(cmdList->Get(), heap, addresses);
+		textureRenderer_->DrawBillboard(cmdList->Get(), heap, addresses);
 
 		fontRenderer_->DrawBillboard(cmdList->Get(), heap, addresses);
 
@@ -1010,7 +1013,7 @@ namespace SeedCore
 
 		silhouetteFrameBuffer_->Begin(cmdList);
 		silhouetteFrameBuffer_->Clear(cmdList, 0.0f, 0.0f, 0.0f, 0.0f);
-		imageRenderer_->DrawSilhouetteBillboard(cmdList->Get(), heap, addresses);
+		textureRenderer_->DrawSilhouetteBillboard(cmdList->Get(), heap, addresses);
 		fontRenderer_->DrawSilhouetteBillboard(cmdList->Get(), heap, addresses);
 		movieRenderer_->DrawSilhouetteBillboard(cmdList->Get(), heap, addresses);
 		silhouetteFrameBuffer_->End(cmdList);

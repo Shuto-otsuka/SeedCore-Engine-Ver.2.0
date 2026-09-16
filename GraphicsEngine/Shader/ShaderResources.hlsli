@@ -6,7 +6,7 @@
 #include "../PostProcess/PostProcess.hlsli"
 #include "../Light/Cluster.hlsli"
 #include "../Shape/HUD/HUD.hlsli"
-#include "../Texture/Image.hlsli"
+#include "../Texture/Texture.hlsli"
 #include "../Font/Font.hlsli"
 #include "../Movie/Movie.hlsli"
 #include "../Model/Model.hlsli"
@@ -35,7 +35,7 @@ struct ShaderResourceIndices
 	PostProcessShaderResourceIndices post_process_;
 	HUDShaderResourceIndices hud_;
 
-	ImageShaderResourceIndices image_;
+	TextureShaderResourceIndices texture_;
 	FontShaderResourceIndices font_;
 	MovieShaderResourceIndices movie_;
 	ModelShaderResourceIndices model_;

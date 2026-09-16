@@ -164,8 +164,6 @@ namespace SeedCore
 		void UnorderedAccessBarrier(D3D12CommandList* cmdList, ID3D12Resource* resource);
 
 	private:
-		static constexpr Uint invalidIndex_ = 0xFFFFFFFF;
-
 		static constexpr Uint environmentSize_ = 512;
 		static constexpr Uint environmentMipLevels_ = 10;
 		static constexpr Uint irradianceSize_ = 32;
@@ -198,29 +196,29 @@ namespace SeedCore
 		ResourcePtr<ConstantBuffer<SkyConstantBuffer>> skyConstantBuffer_;
 
 		Microsoft::WRL::ComPtr<ID3D12Resource> brdfLookupTableResource_;
-		Uint brdfLookupTableShaderResourceViewIndex_ = invalidIndex_;
-		Uint brdfLookupTableUnorderedAccessViewIndex_ = invalidIndex_;
+		Uint brdfLookupTableShaderResourceViewIndex_ = SC_INVALID;
+		Uint brdfLookupTableUnorderedAccessViewIndex_ = SC_INVALID;
 		Bool brdfLookupTableGenerated_ = false;
 
 		/// [EN] Sky-only cube: skybox background + IBL source.
 		/// [JP] 空だけのキューブ: スカイボックス背景 + IBL ソース。
 		Microsoft::WRL::ComPtr<ID3D12Resource> environmentResource_;
-		Uint environmentShaderResourceViewIndex_ = invalidIndex_;
+		Uint environmentShaderResourceViewIndex_ = SC_INVALID;
 		Uint environmentUnorderedAccessViewIndices_[environmentMipLevels_] = {};
 
 		Microsoft::WRL::ComPtr<ID3D12Resource> irradianceResource_;
-		Uint irradianceShaderResourceViewIndex_ = invalidIndex_;
-		Uint irradianceUnorderedAccessViewIndex_ = invalidIndex_;
+		Uint irradianceShaderResourceViewIndex_ = SC_INVALID;
+		Uint irradianceUnorderedAccessViewIndex_ = SC_INVALID;
 
 		Microsoft::WRL::ComPtr<ID3D12Resource> prefilterResource_;
-		Uint prefilterShaderResourceViewIndex_ = invalidIndex_;
+		Uint prefilterShaderResourceViewIndex_ = SC_INVALID;
 		Uint prefilterUnorderedAccessViewIndices_[prefilterMipLevels_] = {};
 
 		/// [EN] Current sky source state (resolved each Gather).
 		/// [JP] 現在の空ソース状態（Gather 毎に解決）。
 		Bool hasSkymap_ = false;
-		Uint sourceEquirectShaderResourceViewIndex_ = invalidIndex_;
-		Uint generatedSourceShaderResourceViewIndex_ = invalidIndex_;
+		Uint sourceShaderResourceViewIndex_ = SC_INVALID;
+		Uint generatedSourceShaderResourceViewIndex_ = SC_INVALID;
 		Float intensity_ = 1.0f;
 
 		/// [EN] Procedural-sky IBL state (SetProceduralSky). Regenerates when

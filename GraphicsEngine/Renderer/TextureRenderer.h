@@ -2,23 +2,23 @@
 #include <FoundationEngine/Prelude.h>
 #include <FoundationEngine/ECS/Entity.h>
 #include <GraphicsEngine/D3D12/Buffer/StructuredBuffer.h>
-#include <GraphicsEngine/Texture/ImageShader.h>
+#include <GraphicsEngine/Texture/TextureShader.h>
 
 namespace SeedCore
 {
 	struct RootAddresses;
 	struct LoaderSystem;
-	class ImageResource;
+	class TextureResource;
 	class World;
 	class BindlessHeap;
 	class ShaderCache;
 	class PipelineStateObject;
 	class ShaderResourceIndicesSystem;
 
-	class ImageRenderer
+	class TextureRenderer
 	{
 	private:
-		struct ImageSpriteStructuredBuffer
+		struct TextureSpriteStructuredBuffer
 		{
 			Vector2 position_;
 			Float rotation_;
@@ -37,7 +37,7 @@ namespace SeedCore
 			Vector3 padding2_;
 		};
 
-		struct ImageBillboardStructuredBuffer
+		struct TextureBillboardStructuredBuffer
 		{
 			Vector3 position_;
 			Vector3 rotation_;
@@ -57,12 +57,12 @@ namespace SeedCore
 		};
 
 	public:
-		ImageRenderer(RootSignature& rootSignature, PipelineStateObject& pipelineStateObject);
-		~ImageRenderer() = default;
+		TextureRenderer(RootSignature& rootSignature, PipelineStateObject& pipelineStateObject);
+		~TextureRenderer() = default;
 
 		void Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, ShaderResourceIndicesSystem& shaderResourceIndicesSystem);
 
-		void Gather(LoaderSystem& loader, ImageResource& resource, World& world, Vector2 nativeScreenSize, Entity selectedEntity = Entity::Null());
+		void Gather(LoaderSystem& loader, TextureResource& resource, World& world, Vector2 nativeScreenSize, Entity selectedEntity = Entity::Null());
 
 		void Upload();
 
@@ -75,16 +75,16 @@ namespace SeedCore
 		void DrawSilhouetteBillboard(ID3D12GraphicsCommandList6* cmdList, ID3D12DescriptorHeap* heap, const RootAddresses& addresses);
 
 	private:
-		DynamicArray<ImageSpriteStructuredBuffer> spriteInstances_;
-		DynamicArray<ImageBillboardStructuredBuffer> billboardInstances_;
+		DynamicArray<TextureSpriteStructuredBuffer> spriteInstances_;
+		DynamicArray<TextureBillboardStructuredBuffer> billboardInstances_;
 
-		ResourcePtr<ReadOnlyStructuredBuffer<ImageSpriteStructuredBuffer>> spriteBuffer_;
-		ResourcePtr<ReadOnlyStructuredBuffer<ImageBillboardStructuredBuffer>> billboardBuffer_;
+		ResourcePtr<ReadOnlyStructuredBuffer<TextureSpriteStructuredBuffer>> spriteBuffer_;
+		ResourcePtr<ReadOnlyStructuredBuffer<TextureBillboardStructuredBuffer>> billboardBuffer_;
 
 		Bool hasSelectedSpriteInstance_ = false;
 		Bool hasSelectedBillboardInstance_ = false;
 
-		ImageShader imageShader_;
+		TextureShader imageShader_;
 
 		BindlessHeap* bindlessHeap_ = nullptr;
 		ShaderResourceIndicesSystem* shaderResourceIndicesSystem_ = nullptr;

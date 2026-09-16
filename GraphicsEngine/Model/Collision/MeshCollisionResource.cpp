@@ -5,6 +5,16 @@
 
 namespace SeedCore
 {
+	void MeshCollisionResource::Load(const AssetContext& context, Uint32 assetId)
+	{
+		Load(context.loader_, context.cache_, assetId);
+	}
+
+	void MeshCollisionResource::Unload(const AssetContext& context, Uint32 assetId)
+	{
+		Unload(context.loader_, assetId);
+	}
+
 	Handle<MeshCollision> MeshCollisionResource::Load(LoaderSystem& loader, ResourceCache& cache, Uint32 assetId)
 	{
 		if (assetHandleMap_.contains(assetId))
@@ -12,7 +22,7 @@ namespace SeedCore
 			return assetHandleMap_.at(assetId);
 		}
 
-		Asset* asset = cache.GetAsset(assetId);
+		AssetRecord* asset = cache.GetAsset(assetId);
 		if (!asset)
 		{
 			return Handle<MeshCollision>::null();
@@ -58,4 +68,6 @@ namespace SeedCore
 		loader.meshCollisionLoader_->Clear(handle);
 		assetHandleMap_.erase(assetId);
 	}
+
+	REGISTER_ASSET(AssetType::MeshCollision, MeshCollisionResource);
 }

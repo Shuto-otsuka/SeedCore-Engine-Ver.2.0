@@ -30,6 +30,12 @@
     <ClInclude Include="Audio\Audio.h">
       <Filter>Audio</Filter>
     </ClInclude>
+    <ClInclude Include="Audio\AudioByteStream.h">
+      <Filter>Audio</Filter>
+    </ClInclude>
+    <ClInclude Include="Audio\Sound.h">
+      <Filter>Audio</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="CRI\CriManager.cpp">
@@ -43,6 +49,12 @@
       <Filter>Audio</Filter>
     </ClCompile>
     <ClCompile Include="Audio\Audio.cpp">
+      <Filter>Audio</Filter>
+    </ClCompile>
+    <ClCompile Include="Audio\AudioByteStream.cpp">
+      <Filter>Audio</Filter>
+    </ClCompile>
+    <ClCompile Include="Audio\Sound.cpp">
       <Filter>Audio</Filter>
     </ClCompile>
   </ItemGroup>

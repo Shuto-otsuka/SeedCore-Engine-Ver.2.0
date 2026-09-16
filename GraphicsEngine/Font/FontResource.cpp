@@ -1,68 +1,104 @@
 #include <GraphicsEngine/Font/FontResource.h>
-#include <GraphicsEngine/Font/FontManager.h>
-#include <FoundationEngine/Resource/Gateway.h>
+#include <GraphicsEngine/Font/FontLoader.h>
+#include <FoundationEngine/Resource/ResourceCache.h>
+#include <FoundationEngine/Resource/LoaderSystem.h>
 
 namespace SeedCore
 {
-	Font* FontResource::Load(Uint32 assetID, const std::string& filePath, Float fontSize)
+	void FontResource::Load(const AssetContext& context, Uint32 assetId)
 	{
-		if (Font* found = Find(assetID))
-		{
-			return found;
-		}
-
-		ResourcePtr<Font> font = MakePtr<Font>();
-		if (!font->Initialize(Gateway::GetFontManager().GetLibrary(), filePath, fontSize))
-		{
-			font->Finalize();
-			return nullptr;
-		}
-
-		Font* result = font.get();
-		fonts_.insert({ assetID, std::move(font) });
-		return result;
+		Load(context.loader_, context.cache_, assetId, 48.0f);
 	}
 
-	Font* FontResource::Find(Uint32 assetID)const
+	void FontResource::Unload(const AssetContext& context, Uint32 assetId)
 	{
-		if (!fonts_.contains(assetID))
+		Unload(context.loader_, assetId);
+	}
+
+	void FontResource::Clear(const AssetContext& context)
+	{
+		Clear(context.loader_);
+	}
+
+	Handle<Font> FontResource::Load(LoaderSystem& loader, ResourceCache& cache, Uint32 assetId, Float fontSize)
+	{
+		if (assetHandleMap_.contains(assetId))
 		{
-			return nullptr;
+			return assetHandleMap_.at(assetId);
 		}
-		return fonts_.at(assetID).get();
+
+		AssetRecord* asset = cache.GetAsset(assetId);
+		if (!asset)
+		{
+			return Handle<Font>::null();
+		}
+
+		Handle<Font> handle = loader.fontLoader_->Load(asset->fullpath_, fontSize);
+		if (handle.empty())
+		{
+			return Handle<Font>::null();
+		}
+
+		assetHandleMap_.insert({ assetId, handle });
+		return handle;
 	}
 
-	Bool FontResource::Contains(Uint32 assetID)const
+	Handle<Font> FontResource::GetHandle(Uint32 assetId)const
 	{
-		return fonts_.contains(assetID);
+		if (!assetHandleMap_.contains(assetId))
+		{
+			return Handle<Font>::null();
+		}
+
+		return assetHandleMap_.at(assetId);
 	}
 
-	void FontResource::Unload(Uint32 assetID)
+	Font* FontResource::Resolve(LoaderSystem& loader, const Handle<Font>& handle)
 	{
-		if (!fonts_.contains(assetID))
+		return loader.fontLoader_->Get(handle);
+	}
+
+	Bool FontResource::Contains(Uint32 assetId)const
+	{
+		return assetHandleMap_.contains(assetId);
+	}
+
+	void FontResource::Unload(LoaderSystem& loader, Uint32 assetId)
+	{
+		if (!assetHandleMap_.contains(assetId))
 		{
 			return;
 		}
 
-		fonts_.at(assetID)->Finalize();
-		fonts_.erase(assetID);
+		Handle<Font> handle = assetHandleMap_.at(assetId);
+		loader.fontLoader_->Clear(handle);
+		assetHandleMap_.erase(assetId);
 	}
 
-	void FontResource::Update(ID3D12Device* device, ID3D12CommandQueue* cmdQueue, BindlessHeap* bindlessHeap)
+	void FontResource::Update(LoaderSystem& loader, ID3D12Device* device, ID3D12CommandQueue* cmdQueue, BindlessHeap* bindlessHeap)
 	{
-		for (auto& font : fonts_ | std::ranges::views::values)
+		for (const Handle<Font>& handle : assetHandleMap_ | std::ranges::views::values)
 		{
+			Font* font = loader.fontLoader_->Get(handle);
+			if (!font)
+			{
+				continue;
+			}
+
 			font->Update();
 			font->UploadAtlas(device, cmdQueue, bindlessHeap);
 		}
 	}
 
-	void FontResource::Clear()
+	void FontResource::Clear(LoaderSystem& loader)
 	{
-		for (auto& font : fonts_ | std::ranges::views::values)
+		for (Handle<Font>& handle : assetHandleMap_ | std::ranges::views::values)
 		{
-			font->Finalize();
+			loader.fontLoader_->Clear(handle);
 		}
-		fonts_.clear();
+
+		assetHandleMap_.clear();
 	}
+
+	REGISTER_ASSET(AssetType::Font, FontResource);
 }

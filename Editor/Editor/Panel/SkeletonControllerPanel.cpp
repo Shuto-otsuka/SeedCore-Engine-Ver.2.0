@@ -63,7 +63,7 @@ namespace SeedCore
 			}
 			else
 			{
-				ModelResource* modelResource = context_.worldContext_.resource_->GetModelResource();
+				ModelResource* modelResource = context_.worldContext_.resource_->GetResource<ModelResource>(AssetType::Model);
 				Handle<Crister> handle = modelResource->GetHandle(mesh->meshID_);
 				currentCrister_ = handle.empty() ? nullptr : modelResource->Resolve(*context_.worldContext_.loader_, handle);
 

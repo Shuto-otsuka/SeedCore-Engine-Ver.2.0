@@ -16,7 +16,7 @@ namespace SeedCore
 	* both the rain and snow buffers) and one AS+MS+PS graphics PSO
 	* (WeatherParticleAS/MS/PS.hlsl - frustum-culls then expands each particle
 	* into a camera-facing quad, stretched along velocity for rain). The
-	* graphics PSO mirrors ImageShader's billboard PSO (same AS+MS+PS shape),
+	* graphics PSO mirrors TextureShader's billboard PSO (same AS+MS+PS shape),
 	* but with additive blending and depth TEST-only (no write) so particles
 	* are correctly occluded by the existing G-buffer depth - that per-pixel
 	* hardware depth test is what makes particles "collide" with models.
@@ -29,7 +29,7 @@ namespace SeedCore
 	* 両バッファ共有)と、AS+MS+PS のグラフィックス PSO
 	* (WeatherParticleAS/MS/PS.hlsl - フラスタムカリング後、各パーティクルを
 	* カメラ向きクアッドへ展開、雨は速度方向へストレッチ)。グラフィックス
-	* PSO は ImageShader のビルボード PSO と同じ形(AS+MS+PS)だが、加算合成 +
+	* PSO は TextureShader のビルボード PSO と同じ形(AS+MS+PS)だが、加算合成 +
 	* 深度テストのみ(書込み無し)にしている点が異なる - この画素単位の
 	* ハードウェア深度テストが、パーティクルとモデルの「衝突」を実現する。
 	*/

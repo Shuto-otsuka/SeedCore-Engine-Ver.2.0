@@ -1,4 +1,4 @@
-#include <GraphicsEngine/Texture/ImageShader.h>
+#include <GraphicsEngine/Texture/TextureShader.h>
 #include <GraphicsEngine/Shader/ShaderCache.h>
 #include <GraphicsEngine/D3D12/Context/D3D12Check.h>
 #include <GraphicsEngine/D3D12/PipelineState/VertexShader.h>
@@ -11,32 +11,32 @@
 
 namespace SeedCore
 {
-	ImageShader::ImageShader(RootSignature& rootSignature, PipelineStateObject& pipelineStateObject) : rootSignature_(rootSignature), pipelineStateObject_(pipelineStateObject)
+	TextureShader::TextureShader(RootSignature& rootSignature, PipelineStateObject& pipelineStateObject) : rootSignature_(rootSignature), pipelineStateObject_(pipelineStateObject)
 	{
 		/// No Code
 	}
 
-	void ImageShader::Create(ShaderCache& shaderCache, ID3D12Device* device)
+	void TextureShader::Create(ShaderCache& shaderCache, ID3D12Device* device)
 	{
 		imageRootSignature_ = rootSignature_.GetOrCreate(device);
 
 		{
-			spritePixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Texture/Sprite/ImageSpritePS.hlsl"));
+			spritePixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Texture/Sprite/TextureSpritePS.hlsl"));
 
 			PipelineStateKey psokey{};
 			memset(&psokey, 0, sizeof(psokey));
 			psokey.rootSignature_ = rootSignature_.Get(imageRootSignature_)->Get();
 			if (D3D12Check::GetLevel() == D3D12Level::D12_2)
 			{
-				spriteAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Texture/Sprite/ImageSpriteAS.hlsl"));
-				spriteMeshShader_ = shaderCache.GetOrCreateMeshShader(String("../GraphicsEngine/Texture/Sprite/ImageSpriteMS.hlsl"));
+				spriteAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Texture/Sprite/TextureSpriteAS.hlsl"));
+				spriteMeshShader_ = shaderCache.GetOrCreateMeshShader(String("../GraphicsEngine/Texture/Sprite/TextureSpriteMS.hlsl"));
 				psokey.amplificationShader_ = shaderCache.GetAmplificationShader(spriteAmplificationShader_)->Bytecode();
 				psokey.meshShader_ = shaderCache.GetMeshShader(spriteMeshShader_)->Bytecode();
 				psokey.primitiveTopologyType_ = D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED;
 			}
 			else
 			{
-				spriteVertexShader_ = shaderCache.GetOrCreateVertexShader(String("../GraphicsEngine/Texture/Sprite/ImageSpriteVS.hlsl"));
+				spriteVertexShader_ = shaderCache.GetOrCreateVertexShader(String("../GraphicsEngine/Texture/Sprite/TextureSpriteVS.hlsl"));
 				psokey.vertexShader_ = shaderCache.GetVertexShader(spriteVertexShader_)->Bytecode();
 				psokey.primitiveTopologyType_ = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 			}
@@ -51,22 +51,22 @@ namespace SeedCore
 		}
 
 		{
-			billboardPixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Texture/Billboard/ImageBillboardPS.hlsl"));
+			billboardPixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Texture/Billboard/TextureBillboardPS.hlsl"));
 
 			PipelineStateKey psokey{};
 			memset(&psokey, 0, sizeof(psokey));
 			psokey.rootSignature_ = rootSignature_.Get(imageRootSignature_)->Get();
 			if (D3D12Check::GetLevel() == D3D12Level::D12_2)
 			{
-				billboardAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Texture/Billboard/ImageBillboardAS.hlsl"));
-				billboardMeshShader_ = shaderCache.GetOrCreateMeshShader(String("../GraphicsEngine/Texture/Billboard/ImageBillboardMS.hlsl"));
+				billboardAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Texture/Billboard/TextureBillboardAS.hlsl"));
+				billboardMeshShader_ = shaderCache.GetOrCreateMeshShader(String("../GraphicsEngine/Texture/Billboard/TextureBillboardMS.hlsl"));
 				psokey.amplificationShader_ = shaderCache.GetAmplificationShader(billboardAmplificationShader_)->Bytecode();
 				psokey.meshShader_ = shaderCache.GetMeshShader(billboardMeshShader_)->Bytecode();
 				psokey.primitiveTopologyType_ = D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED;
 			}
 			else
 			{
-				billboardVertexShader_ = shaderCache.GetOrCreateVertexShader(String("../GraphicsEngine/Texture/Billboard/ImageBillboardVS.hlsl"));
+				billboardVertexShader_ = shaderCache.GetOrCreateVertexShader(String("../GraphicsEngine/Texture/Billboard/TextureBillboardVS.hlsl"));
 				psokey.vertexShader_ = shaderCache.GetVertexShader(billboardVertexShader_)->Bytecode();
 				psokey.primitiveTopologyType_ = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 			}
@@ -85,21 +85,21 @@ namespace SeedCore
 		/// [JP] シルエット PSO: 深度オフ。モデル側マスクと同じ理由
 		///      （遮蔽を意図的に無視する）は ModelShader.cpp のコメント参照。
 		{
-			silhouettePixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Texture/ImageSilhouettePS.hlsl"));
+			silhouettePixelShader_ = shaderCache.GetOrCreatePixelShader(String("../GraphicsEngine/Texture/TextureSilhouettePS.hlsl"));
 
 			PipelineStateKey psokey{};
 			memset(&psokey, 0, sizeof(psokey));
 			psokey.rootSignature_ = rootSignature_.Get(imageRootSignature_)->Get();
 			if (D3D12Check::GetLevel() == D3D12Level::D12_2)
 			{
-				spriteSilhouetteAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Texture/Sprite/ImageSpriteSilhouetteAS.hlsl"));
+				spriteSilhouetteAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Texture/Sprite/TextureSpriteSilhouetteAS.hlsl"));
 				psokey.amplificationShader_ = shaderCache.GetAmplificationShader(spriteSilhouetteAmplificationShader_)->Bytecode();
 				psokey.meshShader_ = shaderCache.GetMeshShader(spriteMeshShader_)->Bytecode();
 				psokey.primitiveTopologyType_ = D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED;
 			}
 			else
 			{
-				spriteSilhouetteVertexShader_ = shaderCache.GetOrCreateVertexShader(String("../GraphicsEngine/Texture/Sprite/ImageSpriteSilhouetteVS.hlsl"));
+				spriteSilhouetteVertexShader_ = shaderCache.GetOrCreateVertexShader(String("../GraphicsEngine/Texture/Sprite/TextureSpriteSilhouetteVS.hlsl"));
 				psokey.vertexShader_ = shaderCache.GetVertexShader(spriteSilhouetteVertexShader_)->Bytecode();
 				psokey.primitiveTopologyType_ = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 			}
@@ -114,40 +114,40 @@ namespace SeedCore
 
 			if (D3D12Check::GetLevel() == D3D12Level::D12_2)
 			{
-				billboardSilhouetteAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Texture/Billboard/ImageBillboardSilhouetteAS.hlsl"));
+				billboardSilhouetteAmplificationShader_ = shaderCache.GetOrCreateAmplificationShader(String("../GraphicsEngine/Texture/Billboard/TextureBillboardSilhouetteAS.hlsl"));
 				psokey.amplificationShader_ = shaderCache.GetAmplificationShader(billboardSilhouetteAmplificationShader_)->Bytecode();
 				psokey.meshShader_ = shaderCache.GetMeshShader(billboardMeshShader_)->Bytecode();
 			}
 			else
 			{
-				billboardSilhouetteVertexShader_ = shaderCache.GetOrCreateVertexShader(String("../GraphicsEngine/Texture/Billboard/ImageBillboardSilhouetteVS.hlsl"));
+				billboardSilhouetteVertexShader_ = shaderCache.GetOrCreateVertexShader(String("../GraphicsEngine/Texture/Billboard/TextureBillboardSilhouetteVS.hlsl"));
 				psokey.vertexShader_ = shaderCache.GetVertexShader(billboardSilhouetteVertexShader_)->Bytecode();
 			}
 			pipelineStateObjectSilhouetteBillboard_ = pipelineStateObject_.GetOrCreate(device, psokey);
 		}
 	}
 
-	ID3D12PipelineState* ImageShader::GetPipelineStateSprite()const
+	ID3D12PipelineState* TextureShader::GetPipelineStateSprite()const
 	{
 		return pipelineStateObject_.Get(pipelineStateObjectSprite_);
 	}
 
-	ID3D12PipelineState* ImageShader::GetPipelineStateBillboard()const
+	ID3D12PipelineState* TextureShader::GetPipelineStateBillboard()const
 	{
 		return pipelineStateObject_.Get(pipelineStateObjectBillboard_);
 	}
 
-	ID3D12PipelineState* ImageShader::GetPipelineStateSilhouetteSprite()const
+	ID3D12PipelineState* TextureShader::GetPipelineStateSilhouetteSprite()const
 	{
 		return pipelineStateObject_.Get(pipelineStateObjectSilhouetteSprite_);
 	}
 
-	ID3D12PipelineState* ImageShader::GetPipelineStateSilhouetteBillboard()const
+	ID3D12PipelineState* TextureShader::GetPipelineStateSilhouetteBillboard()const
 	{
 		return pipelineStateObject_.Get(pipelineStateObjectSilhouetteBillboard_);
 	}
 
-	ID3D12RootSignature* ImageShader::GetRootSignature()const
+	ID3D12RootSignature* TextureShader::GetRootSignature()const
 	{
 		return rootSignature_.Get(imageRootSignature_)->Get();
 	}

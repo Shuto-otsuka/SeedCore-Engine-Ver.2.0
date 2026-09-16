@@ -313,10 +313,10 @@ namespace SeedCore
 		/**
 		* [EN]
 		* Resolves path (project-root-relative, forward-slash) to its
-		* Asset ID via the process-wide ResourceCache bound by
+		* AssetRecord ID via the process-wide ResourceCache bound by
 		* Initialize(). Returns 0 if not initialized or path is unknown.
 		* This is the sanctioned entry point for gameplay code (SeedScript
-		* subclasses) to dynamically look up an Asset by path at runtime;
+		* subclasses) to dynamically look up an AssetRecord by path at runtime;
 		* Tools/Python/RuntimePackager.py statically scans source for
 		* calls to this function to determine which Assets must be
 		* included in a packaged build, so avoid calling it with anything
@@ -327,11 +327,11 @@ namespace SeedCore
 		* [JP]
 		* path（プロジェクトルート相対、フォワードスラッシュ）を、
 		* Initialize() で束縛されたプロセス全体の ResourceCache 経由で
-		* Asset ID に解決する。未初期化または path が不明な場合は 0 を返す。
+		* AssetRecord ID に解決する。未初期化または path が不明な場合は 0 を返す。
 		* ゲームプレイコード（SeedScript のサブクラス）が実行時にパスから
-		* Asset を動的に引くための正規の入口である。
+		* AssetRecord を動的に引くための正規の入口である。
 		* Tools/Python/RuntimePackager.py がこの関数への呼び出しをソース
-		* コードから静的にスキャンし、パッケージビルドに含めるべき Asset を
+		* コードから静的にスキャンし、パッケージビルドに含めるべき AssetRecord を
 		* 判定するため、文字列リテラル以外を渡すのは避けること。
 		*/
 		static Uint32 GetAsset(const String& path);

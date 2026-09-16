@@ -6,7 +6,7 @@
 #include <FoundationEngine/Resource/ResourceCache.h>
 #include <FoundationEngine/Resource/Prefab.h>
 #include <FoundationEngine/ECS/Actor.h>
-#include <GraphicsEngine/Texture/ImageResource.h>
+#include <GraphicsEngine/Texture/TextureResource.h>
 #include <GraphicsEngine/Texture/Texture.h>
 #include <GraphicsEngine/Model/ModelResource.h>
 #include <GraphicsEngine/Model/ModelLoader.h>
@@ -116,7 +116,7 @@ namespace SeedCore
 			if (!searchKey.empty())
 			{
 				auto results = context_.worldContext_.resource_->Search(String(searchKey));
-				for (Asset* asset : results)
+				for (AssetRecord* asset : results)
 				{
 					ImGui::PushID(asset->assetID_);
 
@@ -493,7 +493,7 @@ namespace SeedCore
 			}
 		}
 
-		for (const Asset* asset : target->assets)
+		for (const AssetRecord* asset : target->assets)
 		{
 			Bool isCut = clipboardAction_ == ClipboardAction::Cut && !clipboardIsDirectory_ && clipboardPath_ == std::filesystem::path(asset->fullpath_.str());
 			if (isCut)
@@ -615,7 +615,7 @@ namespace SeedCore
 			++index;
 		}
 
-		for (const Asset* asset : target->assets)
+		for (const AssetRecord* asset : target->assets)
 		{
 			if (index > 0 && index % columns != 0)
 			{
@@ -723,7 +723,7 @@ namespace SeedCore
 		}
 	}
 
-	ImTextureID ContentsDrawerPanel::GetAssetIcon(const Asset& asset)const
+	ImTextureID ContentsDrawerPanel::GetAssetIcon(const AssetRecord& asset)const
 	{
 		if (asset.type_ == AssetType::Texture && asset.isLoaded_)
 		{
@@ -732,12 +732,12 @@ namespace SeedCore
 				return thumbnailCache_.at(asset.assetID_);
 			}
 
-			ImageResource* imageResource = context_.worldContext_.resource_->GetImageResource();
-			Handle<Texture> handle = imageResource->GetHandle(asset.assetID_);
-			Texture* texture = imageResource->Resolve(*context_.worldContext_.loader_, context_.graphicsContext_.graphics_->GetBindlessHeap(), handle, context_.uiFrame_);
-			if (texture && texture->resource_)
+			TextureResource* textureResource = context_.worldContext_.resource_->GetResource<TextureResource>(AssetType::Texture);
+			Handle<Texture> handle = textureResource->GetHandle(asset.assetID_);
+			Texture* texture = textureResource->Resolve(*context_.worldContext_.loader_, context_.graphicsContext_.graphics_->GetBindlessHeap(), handle, context_.uiFrame_);
+			if (texture && texture->Resource())
 			{
-				texture->pinned_ = true;
+				texture->Pin();
 
 				/// [EN] Shader-visible heaps are CPU write-only, so they cannot be a
 				///      CopyDescriptorsSimple source. Create the SRV directly into the
@@ -749,7 +749,7 @@ namespace SeedCore
 				DescriptorHeap* descHeap = context_.graphicsContext_.imgui_->GetDescriptorHeap();
 				Uint descIndex = descHeap->AllocateIndex();
 				D3D12_CPU_DESCRIPTOR_HANDLE dest = descHeap->CPUHandle(descIndex);
-				context_.graphicsContext_.graphics_->GetContext()->GetDevice()->CreateShaderResourceView(texture->resource_.Get(), nullptr, dest);
+				context_.graphicsContext_.graphics_->GetContext()->GetDevice()->CreateShaderResourceView(texture->Resource(), nullptr, dest);
 				ImTextureID textureID = static_cast<ImTextureID>(descHeap->GPUHandle(descIndex).ptr);
 				thumbnailCache_.insert({ asset.assetID_, textureID });
 				return textureID;
@@ -773,7 +773,7 @@ namespace SeedCore
 		return GetAssetTypeIcon(asset.type_);
 	}
 
-	void ContentsDrawerPanel::DrawAssetTooltip(const Asset& asset)
+	void ContentsDrawerPanel::DrawAssetTooltip(const AssetRecord& asset)
 	{
 		ImGui::BeginTooltip();
 
@@ -814,12 +814,12 @@ namespace SeedCore
 
 		if (asset.type_ == AssetType::Texture && asset.isLoaded_)
 		{
-			ImageResource* imageResource = context_.worldContext_.resource_->GetImageResource();
-			Handle<Texture> handle = imageResource->GetHandle(asset.assetID_);
-			Texture* texture = imageResource->Resolve(*context_.worldContext_.loader_, context_.graphicsContext_.graphics_->GetBindlessHeap(), handle, context_.uiFrame_);
-			if (texture && texture->resource_)
+			TextureResource* textureResource = context_.worldContext_.resource_->GetResource<TextureResource>(AssetType::Texture);
+			Handle<Texture> handle = textureResource->GetHandle(asset.assetID_);
+			Texture* texture = textureResource->Resolve(*context_.worldContext_.loader_, context_.graphicsContext_.graphics_->GetBindlessHeap(), handle, context_.uiFrame_);
+			if (texture && texture->Resource())
 			{
-				D3D12_RESOURCE_DESC desc = texture->resource_->GetDesc();
+				D3D12_RESOURCE_DESC desc = texture->Resource()->GetDesc();
 				ImGui::Text("%llu x %u", desc.Width, desc.Height);
 			}
 		}
@@ -827,7 +827,7 @@ namespace SeedCore
 		ImGui::EndTooltip();
 	}
 
-	void ContentsDrawerPanel::OpenAssetExternal(const Asset& asset)
+	void ContentsDrawerPanel::OpenAssetExternal(const AssetRecord& asset)
 	{
 		if (asset.type_ == AssetType::Scene)
 		{
@@ -967,7 +967,7 @@ namespace SeedCore
 		}
 	}
 
-	void ContentsDrawerPanel::DrawAssetContextMenu(const Asset& asset)
+	void ContentsDrawerPanel::DrawAssetContextMenu(const AssetRecord& asset)
 	{
 		if (ImGui::BeginPopupContextItem("##AssetContext"))
 		{
@@ -1107,11 +1107,11 @@ namespace SeedCore
 		}
 	}
 
-	void ContentsDrawerPanel::GenerateMeshCollision(const Asset& asset, MeshCollisionDetail detail)
+	void ContentsDrawerPanel::GenerateMeshCollision(const AssetRecord& asset, MeshCollisionDetail detail)
 	{
 		D3D12Context* d3d12Context = context_.graphicsContext_.graphics_->GetContext();
 
-		Bool baked = context_.worldContext_.resource_->GetModelResource()->GenerateCollision(*context_.worldContext_.loader_, d3d12Context->GetDevice(), d3d12Context->GetDirectQueue(), context_.graphicsContext_.graphics_->GetBindlessHeap(), context_.graphicsContext_.graphics_->GetBC7CompressShader(), *context_.worldContext_.resource_, asset.assetID_, detail);
+		Bool baked = context_.worldContext_.resource_->GetResource<ModelResource>(AssetType::Model)->GenerateCollision(*context_.worldContext_.loader_, d3d12Context->GetDevice(), d3d12Context->GetDirectQueue(), context_.graphicsContext_.graphics_->GetBindlessHeap(), context_.graphicsContext_.graphics_->GetBC7CompressShader(), *context_.worldContext_.resource_, asset.assetID_, detail);
 		if (!baked)
 		{
 			SC_LOG_WARNING("ContentsDrawerPanel: コリジョン生成に失敗しました: {}", asset.path_.c_str());
@@ -1126,11 +1126,11 @@ namespace SeedCore
 		SC_LOG_NOTICE("ContentsDrawerPanel: コリジョンを生成しました: {}", asset.path_.c_str());
 	}
 
-	void ContentsDrawerPanel::GenerateMaterial(const Asset& asset)
+	void ContentsDrawerPanel::GenerateMaterial(const AssetRecord& asset)
 	{
 		D3D12Context* d3d12Context = context_.graphicsContext_.graphics_->GetContext();
 
-		Bool written = context_.worldContext_.resource_->GetModelResource()->GenerateMaterial(*context_.worldContext_.loader_, d3d12Context->GetDevice(), d3d12Context->GetDirectQueue(), context_.graphicsContext_.graphics_->GetBindlessHeap(), context_.graphicsContext_.graphics_->GetBC7CompressShader(), *context_.worldContext_.resource_, asset.assetID_, true);
+		Bool written = context_.worldContext_.resource_->GetResource<ModelResource>(AssetType::Model)->GenerateMaterial(*context_.worldContext_.loader_, d3d12Context->GetDevice(), d3d12Context->GetDirectQueue(), context_.graphicsContext_.graphics_->GetBindlessHeap(), context_.graphicsContext_.graphics_->GetBC7CompressShader(), *context_.worldContext_.resource_, asset.assetID_, true);
 		if (!written)
 		{
 			SC_LOG_WARNING("ContentsDrawerPanel: マテリアル生成に失敗しました: {}", asset.path_.c_str());
@@ -1145,11 +1145,11 @@ namespace SeedCore
 		SC_LOG_NOTICE("ContentsDrawerPanel: マテリアルを生成しました: {}", asset.path_.c_str());
 	}
 
-	void ContentsDrawerPanel::GenerateSkeleton(const Asset& asset)
+	void ContentsDrawerPanel::GenerateSkeleton(const AssetRecord& asset)
 	{
 		D3D12Context* d3d12Context = context_.graphicsContext_.graphics_->GetContext();
 
-		Bool written = context_.worldContext_.resource_->GetModelResource()->GenerateSkeleton(*context_.worldContext_.loader_, d3d12Context->GetDevice(), d3d12Context->GetDirectQueue(), context_.graphicsContext_.graphics_->GetBindlessHeap(), context_.graphicsContext_.graphics_->GetBC7CompressShader(), *context_.worldContext_.resource_, asset.assetID_, false);
+		Bool written = context_.worldContext_.resource_->GetResource<ModelResource>(AssetType::Model)->GenerateSkeleton(*context_.worldContext_.loader_, d3d12Context->GetDevice(), d3d12Context->GetDirectQueue(), context_.graphicsContext_.graphics_->GetBindlessHeap(), context_.graphicsContext_.graphics_->GetBC7CompressShader(), *context_.worldContext_.resource_, asset.assetID_, false);
 		if (!written)
 		{
 			SC_LOG_WARNING("ContentsDrawerPanel: スケルトン生成に失敗しました（スキン無し？）: {}", asset.path_.c_str());
@@ -1164,7 +1164,7 @@ namespace SeedCore
 		SC_LOG_NOTICE("ContentsDrawerPanel: スケルトンを生成しました: {}", asset.path_.c_str());
 	}
 
-	void ContentsDrawerPanel::ExportModel(const Asset& asset, ExportPreset preset, const Wchar* extension)
+	void ContentsDrawerPanel::ExportModel(const AssetRecord& asset, ExportPreset preset, const Wchar* extension)
 	{
 		std::filesystem::path sourcePath(asset.fullpath_.str());
 
@@ -1183,7 +1183,7 @@ namespace SeedCore
 
 		D3D12Context* d3d12Context = context_.graphicsContext_.graphics_->GetContext();
 
-		Bool exported = context_.worldContext_.resource_->GetModelResource()->Export(*context_.worldContext_.loader_, d3d12Context->GetDevice(), d3d12Context->GetDirectQueue(), context_.graphicsContext_.graphics_->GetBindlessHeap(), context_.graphicsContext_.graphics_->GetBC7CompressShader(), *context_.worldContext_.resource_, asset.assetID_, preset, String(outputPath.string()));
+		Bool exported = context_.worldContext_.resource_->GetResource<ModelResource>(AssetType::Model)->Export(*context_.worldContext_.loader_, d3d12Context->GetDevice(), d3d12Context->GetDirectQueue(), context_.graphicsContext_.graphics_->GetBindlessHeap(), context_.graphicsContext_.graphics_->GetBC7CompressShader(), *context_.worldContext_.resource_, asset.assetID_, preset, String(outputPath.string()));
 		if (!exported)
 		{
 			SC_LOG_WARNING("ContentsDrawerPanel: モデルのエクスポートに失敗しました: {}", asset.path_.c_str());

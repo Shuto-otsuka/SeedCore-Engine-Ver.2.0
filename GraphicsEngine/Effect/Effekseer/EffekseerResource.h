@@ -2,6 +2,7 @@
 #include <FoundationEngine/Prelude.h>
 #include <FoundationEngine/Utility/Handle.h>
 #include <FoundationEngine/Utility/FlatMap.h>
+#include <FoundationEngine/Resource/Asset.h>
 #include <GraphicsEngine/Effect/Effekseer/EffekseerLoader.h>
 
 namespace SeedCore
@@ -9,23 +10,27 @@ namespace SeedCore
 	struct LoaderSystem;
 	class ResourceCache;
 
-	class EffekseerResource :public NonCopyable
+	class EffekseerResource :public Asset, public NonCopyable
 	{
 	public:
 		EffekseerResource() = default;
 		~EffekseerResource() = default;
 
-		Handle<EffekseerEffectHandle> Load(LoaderSystem& loader, ResourceCache& cache, Uint32 assetId);
+		void Load(const AssetContext& context, Uint32 assetId)override;
 
-		Handle<EffekseerEffectHandle> GetHandle(Uint32 assetId)const;
+		void Unload(const AssetContext& context, Uint32 assetId)override;
 
-		Effekseer::EffectRef* Resolve(LoaderSystem& loader, const Handle<EffekseerEffectHandle>& handle);
+		Handle<EffekseerEffect> Load(LoaderSystem& loader, ResourceCache& cache, Uint32 assetId);
+
+		Handle<EffekseerEffect> GetHandle(Uint32 assetId)const;
+
+		EffekseerEffect* Resolve(LoaderSystem& loader, const Handle<EffekseerEffect>& handle);
 
 		Bool Contains(Uint32 assetId)const;
 
 		void Unload(LoaderSystem& loader, Uint32 assetId);
 
 	private:
-		FlatMap<Uint32, Handle<EffekseerEffectHandle>> assetHandleMap_;
+		FlatMap<Uint32, Handle<EffekseerEffect>> assetHandleMap_;
 	};
 }

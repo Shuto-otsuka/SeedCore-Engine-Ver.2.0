@@ -2,6 +2,7 @@
 #include <FoundationEngine/Prelude.h>
 #include <FoundationEngine/Utility/Handle.h>
 #include <FoundationEngine/Utility/FlatMap.h>
+#include <FoundationEngine/Resource/Asset.h>
 #include <GraphicsEngine/Model/Crister.h>
 
 namespace SeedCore
@@ -26,11 +27,15 @@ namespace SeedCore
 	* (Resolve) も持ち、Material コンポーネントのスロット割り当てと Crister
 	* 内蔵のシード Surface のどちらを使うかを選ぶ。
 	*/
-	class SEEDCORE_API MaterialResource :public NonCopyable
+	class SEEDCORE_API MaterialResource :public Asset, public NonCopyable
 	{
 	public:
 		MaterialResource() = default;
 		~MaterialResource() = default;
+
+		void Load(const AssetContext& context, Uint32 assetId)override;
+
+		void Unload(const AssetContext& context, Uint32 assetId)override;
 
 		Handle<Surface> Load(LoaderSystem& loader, ResourceCache& cache, Uint32 assetId);
 

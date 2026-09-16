@@ -6,7 +6,7 @@
 // Frustum-culls rain+snow particles (combined dispatch range: [0,
 // rain_active_count_) is rain, [rain_active_count_, rain_active_count_ +
 // snow_active_count_) is snow - see WeatherParticle.hlsli) and dispatches a
-// mesh-shader group per surviving particle, mirroring ImageBillboardAS.hlsl's
+// mesh-shader group per surviving particle, mirroring TextureBillboardAS.hlsl's
 // pattern. The payload packs which buffer a survivor came from into its top
 // bit (0 = rain, 1 = snow) since both share one dispatch.
 

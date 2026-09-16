@@ -1,18 +1,18 @@
-#include "../Image.hlsli"
+#include "../Texture.hlsli"
 #include "../../Shader/ShaderResources.hlsli"
 #include "../../Shader/Scene.hlsli"
 
 [NumThreads(32, 1, 1)]
 [OutputTopology("triangle")]
-void main(in payload ImageASPayload payload, uint gtid : SV_GroupThreadID, uint gid : SV_GroupID, out vertices ImageMSOutput output[4], out indices uint3 triangles[2])
+void main(in payload TextureASPayload payload, uint gtid : SV_GroupThreadID, uint gid : SV_GroupID, out vertices TextureMSOutput output[4], out indices uint3 triangles[2])
 {
-	StructuredBuffer<ImageBillboardStructuredBuffer> image_billboard = GetImageBillboardStructuredBuffer(shader_resource_indices.image_.billboard_index_);
+	StructuredBuffer<TextureBillboardStructuredBuffer> texture_billboard = GetTextureBillboardStructuredBuffer(shader_resource_indices.texture_.billboard_index_);
 
 	SetMeshOutputCounts(4u, 2u);
 
-	uint billboard_id = payload.image_indices[gid];
+	uint billboard_id = payload.texture_indices[gid];
 	SceneConstantBuffer scene_constant = GetSceneConstantBuffer();
-	ImageBillboardStructuredBuffer billboard = image_billboard[billboard_id];
+	TextureBillboardStructuredBuffer billboard = texture_billboard[billboard_id];
 
 	float2 offsets[4] =
 	{

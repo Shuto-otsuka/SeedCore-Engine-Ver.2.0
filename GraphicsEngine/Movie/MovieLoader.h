@@ -1,52 +1,46 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
+#include <FoundationEngine/Utility/Handle.h>
+#include <FoundationEngine/Pool/StablePool.h>
+#include <GraphicsEngine/Movie/Video.h>
 
 namespace SeedCore
 {
-	class MovieLoader
+	/**
+	* [EN]
+	* Loads ".mp4"/".movie" assets into pooled Video objects: starts up
+	* Media Foundation once, opens the decoder per asset and reads the
+	* native frame size. Mirrors the TextureLoader / ModelLoader pattern:
+	* the pool owns every Video, handles identify them, and Clear tears the
+	* decoder and its GPU resources down before freeing the slot.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* ".mp4"/".movie" アセットを、プールされた Video へ読み込む。Media
+	* Foundation を一度だけ起動し、アセットごとにデコーダを開いて元の
+	* フレームサイズを読む。TextureLoader / ModelLoader と同じ流儀:
+	* 全ての Video をプールが所有し、ハンドルで識別し、Clear がスロット解放前に
+	* デコーダと GPU リソースを破棄する。
+	*/
+	class MovieLoader :public NonCopyable
 	{
 	public:
-		MovieLoader() = default;
+		MovieLoader();
 
 		~MovieLoader();
 
-		Bool Initialize(const std::string& filePath);
+		Handle<Video> Load(String filePath);
 
-		void Finalize();
+		Video* Get(const Handle<Video>& handle);
 
-		Bool ReadNextSample(Double& outTimestampSeconds);
-
-		Bool Seek(Double timeSeconds);
-
-		[[nodiscard]] const Byte* GetPixelData()const;
-
-		[[nodiscard]] Int GetWidth()const;
-
-		[[nodiscard]] Int GetHeight()const;
-
-		[[nodiscard]] Longlong GetRowPitch()const;
-
-		[[nodiscard]] Double GetDuration()const;
-
-		[[nodiscard]] Bool IsEndOfStream()const;
+		void Clear(Handle<Video>& handle)noexcept;
 
 	private:
-		Microsoft::WRL::ComPtr<IMFSourceReader> sourceReader_;
+		StablePool<Video> pool_;
 
-		Microsoft::WRL::ComPtr<IMFByteStream> byteStream_;
+		Bool ownsComInitialize_ = false;
 
-		DynamicArray<Byte> pixelBuffer_;
-
-		Int width_ = 0;
-
-		Int height_ = 0;
-
-		Longlong rowPitch_ = 0;
-
-		Double duration_ = 0.0;
-
-		Bool endOfStream_ = false;
-
-		Bool initialized_ = false;
+		Bool mfStarted_ = false;
 	};
 }
