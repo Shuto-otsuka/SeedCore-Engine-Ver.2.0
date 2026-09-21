@@ -10,21 +10,21 @@
 #include <GraphicsEngine/D3D12/Buffer/FrameBuffer.h>
 #include <GraphicsEngine/D3D12/Buffer/GeometryBuffer.h>
 #include <GraphicsEngine/System/IndicesSystem.h>
-#include <FoundationEngine/ECS/Query.h>
-#include <FoundationEngine/ECS/Component/Active.h>
-#include <FoundationEngine/ECS/Actor.h>
-#include <FoundationEngine/ECS/World.h>
+#include <FoundationEngine/World/ECS/Query/Query.h>
+#include <FoundationEngine/World/ECS/Component/Active.h>
+#include <FoundationEngine/World/Actor/Actor.h>
+#include <FoundationEngine/World/World.h>
 #include <GraphicsEngine/Model/Mesh.h>
 #include <GraphicsEngine/Model/Material/Material.h>
-#include <FoundationEngine/ECS/Component/Bounds.h>
+#include <FoundationEngine/World/ECS/Component/Bounds.h>
 #include <GraphicsEngine/Model/Animation/Animator.h>
 #include <GraphicsEngine/Model/Skeleton/Skeleton.h>
 #include <GraphicsEngine/Model/Animation/AnimationResource.h>
 #include <PhysicsEngine/Softbody/Softbody.h>
-#include <FoundationEngine/ECS/Component/Position.h>
-#include <FoundationEngine/ECS/Component/Rotation.h>
-#include <FoundationEngine/ECS/Component/Scale.h>
-#include <FoundationEngine/ECS/ComponentRegistry.h>
+#include <FoundationEngine/World/ECS/Component/Position.h>
+#include <FoundationEngine/World/ECS/Component/Rotation.h>
+#include <FoundationEngine/World/ECS/Component/Scale.h>
+#include <FoundationEngine/World/ECS/Component/ComponentRegistry.h>
 #include <cfloat>
 
 namespace SeedCore
@@ -201,7 +201,7 @@ namespace SeedCore
 					return;
 				}
 
-				Matrix worldMatrix = actor.GetWorldMatrix();
+				Matrix worldMatrix = actor.WorldMatrix();
 
 				/// [JP] 前フレームのワールド行列(速度計算用、StaticModelMS.hlsl/
 				///      SkeletalModelMS.hlsl 参照)。今フレームの値で上書きする前に
@@ -869,7 +869,7 @@ namespace SeedCore
 
 			softbodyMesh->Update(softbody->VertexPositionList());
 
-			Matrix worldMatrix = actor.GetWorldMatrix();
+			Matrix worldMatrix = actor.WorldMatrix();
 			Matrix inverseTransposeWorld = worldMatrix.Invert().Transpose();
 
 			auto previousWorldIt = previousWorldMatrices_.find(entityID);

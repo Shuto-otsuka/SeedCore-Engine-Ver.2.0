@@ -1,6 +1,6 @@
 #include <AudioEngine/Audio/AudioListener.h>
 #include <AudioEngine/Audio/Audio.h>
-#include <FoundationEngine/ECS/World.h>
+#include <FoundationEngine/World/World.h>
 
 namespace SeedCore
 {
@@ -19,7 +19,7 @@ namespace SeedCore
 	{
 		/// [EN] Build the listener position and orientation from the actor's resolved world transform.
 		/// [JP] アクターの解決済みワールド変換から、リスナーの位置と向きを構成する。
-		const Matrix& worldMatrix = GetActor().GetWorldMatrix();
+		const Matrix& worldMatrix = GetActor().WorldMatrix();
 
 		Vector3 position = worldMatrix.Translation();
 

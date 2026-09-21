@@ -8,13 +8,13 @@
 #include <GraphicsEngine/Model/IK/IKPose.h>
 #include <GraphicsEngine/Constraint/IKConstraint.h>
 #include <FoundationEngine/Resource/LoaderSystem.h>
-#include <FoundationEngine/ECS/Query.h>
-#include <FoundationEngine/ECS/World.h>
-#include <FoundationEngine/ECS/Actor.h>
-#include <FoundationEngine/ECS/Component/Active.h>
-#include <FoundationEngine/ECS/Component/Position.h>
-#include <FoundationEngine/ECS/Component/Rotation.h>
-#include <FoundationEngine/ECS/Component/Scale.h>
+#include <FoundationEngine/World/ECS/Query/Query.h>
+#include <FoundationEngine/World/World.h>
+#include <FoundationEngine/World/Actor/Actor.h>
+#include <FoundationEngine/World/ECS/Component/Active.h>
+#include <FoundationEngine/World/ECS/Component/Position.h>
+#include <FoundationEngine/World/ECS/Component/Rotation.h>
+#include <FoundationEngine/World/ECS/Component/Scale.h>
 #include <GraphicsEngine/Model/Mesh.h>
 
 namespace SeedCore
@@ -86,7 +86,7 @@ namespace SeedCore
 					IKConstraint* ik = actor.GetComponent<IKConstraint>();
 					if (ik)
 					{
-						Matrix worldToModel = actor.GetWorldMatrix().Invert();
+						Matrix worldToModel = actor.WorldMatrix().Invert();
 
 						for (const Effector& entry : ik->entries_)
 						{
@@ -99,13 +99,13 @@ namespace SeedCore
 							Actor targetActor = (ik->enabled_ && entry.target_ != 0 && entry.weight_ > 0.0f) ? world.FindActor(entry.target_) : Actor();
 							if (targetActor)
 							{
-								Vector3 targetModelPosition = Vector3::Transform(targetActor.GetWorldMatrix().Translation(), worldToModel);
+								Vector3 targetModelPosition = Vector3::Transform(targetActor.WorldMatrix().Translation(), worldToModel);
 								animator->SetIKTarget(entry.effectorBoneName_.str(), targetModelPosition, entry.weight_);
 
 								Actor poleActor = (entry.pole_ != 0) ? world.FindActor(entry.pole_) : Actor();
 								if (poleActor)
 								{
-									Vector3 poleModelPosition = Vector3::Transform(poleActor.GetWorldMatrix().Translation(), worldToModel);
+									Vector3 poleModelPosition = Vector3::Transform(poleActor.WorldMatrix().Translation(), worldToModel);
 									animator->SetIKPole(entry.effectorBoneName_.str(), poleModelPosition);
 								}
 							}

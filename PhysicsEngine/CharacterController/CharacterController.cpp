@@ -1,10 +1,10 @@
 #include <PhysicsEngine/CharacterController/CharacterController.h>
 #include <PhysicsEngine/Physics/Physics.h>
 #include <PhysicsEngine/JoltPhysics/JoltLayerdef.h>
-#include <FoundationEngine/ECS/Actor.h>
-#include <FoundationEngine/ECS/World.h>
-#include <FoundationEngine/ECS/Component/Position.h>
-#include <FoundationEngine/ECS/Component/Rotation.h>
+#include <FoundationEngine/World/Actor/Actor.h>
+#include <FoundationEngine/World/World.h>
+#include <FoundationEngine/World/ECS/Component/Position.h>
+#include <FoundationEngine/World/ECS/Component/Rotation.h>
 
 namespace SeedCore
 {
@@ -34,7 +34,7 @@ namespace SeedCore
 		desc.maxSlopeAngle_ = ToRadians(maxSlopeAngle_);
 		desc.mass_ = mass_;
 		desc.maxStrength_ = pushForce_;
-		desc.layer_ = Layers::Pack(Layers::DYNAMIC, actor.GetLayer());
+		desc.layer_ = Layers::Pack(Layers::DYNAMIC, actor.Layer());
 		desc.userData_ = actor.GetEntity().GetID();
 
 		character_ = actor.GetPhysics().CreateCharacter(desc);

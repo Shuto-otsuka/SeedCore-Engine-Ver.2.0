@@ -35,22 +35,10 @@ namespace SeedCore
 
 	void AftermathCrashTracker::Create(ID3D12Device* device)
 	{
-		/// [EN] GenerateShaderDebugInfo is always on (not gated behind
-		///      DEEP_D3D12_DEBUG_MODE like the flags below) - without it, a
-		///      crash dump's faulting shader has no source file/line at all
-		///      (Shader Location stays "N/A" in Nsight Graphics), even though
-		///      ShaderCompiler already embeds DXC debug info via -Qembed_debug
-		///      in every _DEBUG build. The DXC-side embedding alone doesn't
-		///      feed Nsight - Aftermath itself must also be told to capture
-		///      and report it, which only this flag does.
-		/// [JP] GenerateShaderDebugInfo は(下のフラグ群と違って)
-		///      DEEP_D3D12_DEBUG_MODE の裏に隠さず常時有効にする - これが無いと
-		///      クラッシュダンプの落ちたシェーダにソースファイル/行番号が
-		///      一切付かない(Nsight Graphics の Shader Location が "N/A" の
-		///      まま)。ShaderCompiler は _DEBUG ビルドで既に -Qembed_debug 付き
-		///      で DXC デバッグ情報を埋め込んでいるが、それだけでは Nsight 側に
-		///      は伝わらない - Aftermath 自身にも収集/報告するよう指示する
-		///      必要があり、それを行うのがこのフラグ。
+		/// [EN] GenerateShaderDebugInfo is always on, unlike the flags below: the debug info DXC embeds (-Qembed_debug)
+		///      only reaches a crash dump's shader location when Aftermath is told to capture it as well.
+		/// [JP] GenerateShaderDebugInfo は下のフラグと違って常に有効にする。DXC が埋め込むデバッグ情報(-Qembed_debug)は、
+		///      Aftermath にも収集させないとクラッシュダンプのシェーダ位置に出ない。
 		Uint32 flags = GFSDK_Aftermath_FeatureFlags_EnableResourceTracking | GFSDK_Aftermath_FeatureFlags_GenerateShaderDebugInfo;
 
 #if DEEP_D3D12_DEBUG_MODE
@@ -77,15 +65,8 @@ namespace SeedCore
 		GFSDK_Aftermath_Result deviceStatusResult = GFSDK_Aftermath_GetDeviceStatus(&deviceStatus);
 		if (GFSDK_Aftermath_SUCCEED(deviceStatusResult))
 		{
-			/// [EN] Finer-grained than DXGI's GetDeviceRemovedReason: separates
-			///      a genuine shader/traversal timeout from a page fault, OOM,
-			///      or a device removal with no GPU fault at all (e.g. a driver
-			///      crash or external reset) - each points the investigation in
-			///      a different direction.
-			/// [JP] DXGI の GetDeviceRemovedReason より細かい: 本当のシェーダ/
-			///      走査タイムアウトと、ページフォルト、メモリ不足、GPU 側の
-			///      障害を伴わないデバイス削除(ドライバクラッシュや外部リセット
-			///      等)とを区別する — それぞれ調査の方向性が変わる。
+			/// [EN] Finer than DXGI's GetDeviceRemovedReason: tells a shader/traversal timeout apart from a page fault, OOM, or a removal with no GPU fault (driver crash, external reset).
+			/// [JP] DXGI の GetDeviceRemovedReason より細かく、シェーダ/走査のタイムアウトを、ページフォルト・メモリ不足・GPU 障害の無いデバイス削除(ドライバクラッシュ、外部リセット)と区別する。
 			const Char* statusText = "Unknown";
 			switch (deviceStatus)
 			{
@@ -106,14 +87,8 @@ namespace SeedCore
 			output += std::format("\n\nNsight Aftermath デバイスステータス: 取得できません({:#010x})。Aftermath が有効化されていない、または未対応の GPU/ドライバの可能性があります。", static_cast<Uint32>(deviceStatusResult));
 		}
 
-		/// [EN] Crash dump generation happens asynchronously on an NVIDIA
-		///      driver thread; poll with a bound timeout rather than forever
-		///      so a driver that never finishes (or an Aftermath-incompatible
-		///      driver) cannot hang this message box indefinitely.
-		/// [JP] クラッシュダンプ生成は NVIDIA ドライバスレッド上で非同期に
-		///      行われる。ドライバが完了しない場合(または Aftermath 非対応の
-		///      ドライバ)にこのメッセージボックス自体が無期限にハングしない
-		///      よう、無限待ちではなく上限付きでポーリングする。
+		/// [EN] The dump is written asynchronously on an NVIDIA driver thread; poll with a time limit so a driver that never finishes cannot hang this message box.
+		/// [JP] ダンプは NVIDIA ドライバのスレッドで非同期に書かれる。終わらないドライバでこのメッセージボックスが止まらないよう、上限付きでポーリングする。
 		GFSDK_Aftermath_CrashDump_Status crashDumpStatus = GFSDK_Aftermath_CrashDump_Status_Unknown;
 		GFSDK_Aftermath_GetCrashDumpStatus(&crashDumpStatus);
 

@@ -1,14 +1,14 @@
 #include <FoundationEngine/Prelude.h>
-#include <FoundationEngine/ECS/ReflectionRegistry.h>
+#include <FoundationEngine/Reflection/ReflectionRegistry.h>
 #include <AudioEngine/Audio/AudioListener.h>
 #include <AudioEngine/Audio/AudioSource.h>
-#include <FoundationEngine/ECS/Component/Lifetime.h>
-#include <FoundationEngine/ECS/Component/Name.h>
-#include <FoundationEngine/ECS/Component/Position.h>
-#include <FoundationEngine/ECS/Component/Rotation.h>
-#include <FoundationEngine/ECS/Component/Scale.h>
-#include <FoundationEngine/ECS/Component/Spawner.h>
-#include <FoundationEngine/ECS/Component/Velocity.h>
+#include <FoundationEngine/World/ECS/Component/Lifetime.h>
+#include <FoundationEngine/World/ECS/Component/Name.h>
+#include <FoundationEngine/World/ECS/Component/Position.h>
+#include <FoundationEngine/World/ECS/Component/Rotation.h>
+#include <FoundationEngine/World/ECS/Component/Scale.h>
+#include <FoundationEngine/World/ECS/Component/Spawner.h>
+#include <FoundationEngine/World/ECS/Component/Velocity.h>
 #include <GraphicsEngine/Camera/Camera.h>
 #include <GraphicsEngine/Camera/CameraBrain.h>
 #include <GraphicsEngine/Constraint/AttachmentConstraint.h>
@@ -193,7 +193,7 @@ namespace SeedCore
 		};
 		static Register_AudioSource global_AudioSource_register;
 
-		// ---- FoundationEngine/ECS/Component/Lifetime.h ----
+		// ---- FoundationEngine/World/ECS/Component/Lifetime.h ----
 		struct Register_Lifetime
 		{
 			Register_Lifetime()
@@ -214,7 +214,7 @@ namespace SeedCore
 		};
 		static Register_Lifetime global_Lifetime_register;
 
-		// ---- FoundationEngine/ECS/Component/Name.h ----
+		// ---- FoundationEngine/World/ECS/Component/Name.h ----
 		struct Register_Name
 		{
 			Register_Name()
@@ -234,7 +234,7 @@ namespace SeedCore
 		};
 		static Register_Name global_Name_register;
 
-		// ---- FoundationEngine/ECS/Component/Position.h ----
+		// ---- FoundationEngine/World/ECS/Component/Position.h ----
 		struct Register_Position
 		{
 			Register_Position()
@@ -270,7 +270,7 @@ namespace SeedCore
 		};
 		static Register_Position global_Position_register;
 
-		// ---- FoundationEngine/ECS/Component/Rotation.h ----
+		// ---- FoundationEngine/World/ECS/Component/Rotation.h ----
 		struct Register_Rotation
 		{
 			Register_Rotation()
@@ -306,7 +306,7 @@ namespace SeedCore
 		};
 		static Register_Rotation global_Rotation_register;
 
-		// ---- FoundationEngine/ECS/Component/Scale.h ----
+		// ---- FoundationEngine/World/ECS/Component/Scale.h ----
 		struct Register_Scale
 		{
 			Register_Scale()
@@ -342,7 +342,7 @@ namespace SeedCore
 		};
 		static Register_Scale global_Scale_register;
 
-		// ---- FoundationEngine/ECS/Component/Spawner.h ----
+		// ---- FoundationEngine/World/ECS/Component/Spawner.h ----
 		struct Register_Spawner
 		{
 			Register_Spawner()
@@ -393,7 +393,7 @@ namespace SeedCore
 		};
 		static Register_Spawner global_Spawner_register;
 
-		// ---- FoundationEngine/ECS/Component/Velocity.h ----
+		// ---- FoundationEngine/World/ECS/Component/Velocity.h ----
 		struct Register_Velocity
 		{
 			Register_Velocity()
@@ -3144,7 +3144,7 @@ namespace SeedCore
 					}
 					{
 						FieldInfo fi;
-						fi.name_ = String("反転回数");
+						fi.name_ = String("反復回数");
 						fi.offset_ = offsetof(Softbody, iterationCount_);
 						fi.type_ = AttributeType::Int;
 						fi.clampMin_ = 1;

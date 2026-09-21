@@ -1,11 +1,11 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
-#include <FoundationEngine/ECS/World.h>
-#include <FoundationEngine/ECS/System/SystemScheduler.h>
+#include <FoundationEngine/World/World.h>
+#include <FoundationEngine/World/ECS/System/SystemScheduler.h>
 #include <FoundationEngine/JobSystem/JobExecutor.h>
 #include <FoundationEngine/Resource/ResourceCache.h>
 #include <FoundationEngine/Resource/LoaderSystem.h>
-#include <FoundationEngine/Resource/GameConfig.h>
+#include <FoundationEngine/Resource/Config/GameConfig.h>
 #include <FoundationEngine/Time/WorldTimer.h>
 #include <FoundationEngine/Time/GameTimer.h>
 #include <FoundationEngine/Plugin/PluginHost.h>

@@ -1,10 +1,10 @@
 #include <PhysicsEngine/Softbody/Softbody.h>
 #include <PhysicsEngine/Physics/Physics.h>
 #include <PhysicsEngine/JoltPhysics/JoltLayerdef.h>
-#include <FoundationEngine/ECS/World.h>
-#include <FoundationEngine/ECS/Actor.h>
-#include <FoundationEngine/ECS/Component/Position.h>
-#include <FoundationEngine/ECS/Component/Rotation.h>
+#include <FoundationEngine/World/World.h>
+#include <FoundationEngine/World/Actor/Actor.h>
+#include <FoundationEngine/World/ECS/Component/Position.h>
+#include <FoundationEngine/World/ECS/Component/Rotation.h>
 #include <GraphicsEngine/Model/Crister.h>
 #include <GraphicsEngine/Model/Mesh.h>
 
@@ -51,7 +51,7 @@ namespace SeedCore
 
 		/// [EN] The render mesh is drawn with the actor's world matrix, so the positions are taken back to local space.
 		/// [JP] 描画メッシュは Actor のワールド行列で描かれるので、位置をローカル空間へ戻す。
-		Matrix inverseWorld = GetActor().GetWorldMatrix().Invert();
+		Matrix inverseWorld = GetActor().WorldMatrix().Invert();
 		for (Vector3& position : vertexPositions_)
 		{
 			position = Vector3::Transform(position, inverseWorld);
@@ -156,7 +156,7 @@ namespace SeedCore
 
 		/// [EN] A soft body always moves, so it sits on the DYNAMIC layer of the actor's layer.
 		/// [JP] ソフトボディは常に動くので、Actor のレイヤーの DYNAMIC に置く。
-		desc.layer_ = Layers::Pack(Layers::DYNAMIC, actor.GetLayer());
+		desc.layer_ = Layers::Pack(Layers::DYNAMIC, actor.Layer());
 
 		/// [EN] Stiffness 1 becomes compliance 0 (rigid) and stiffness 0 becomes 1e-4 (soft).
 		/// [JP] 硬さ 1 はコンプライアンス 0(硬い)に、硬さ 0 は 1e-4(柔らかい)になる。

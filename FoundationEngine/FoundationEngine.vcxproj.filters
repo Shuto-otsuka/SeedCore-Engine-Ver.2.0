@@ -1,9 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
   <ItemGroup>
-    <Filter Include="ESC">
-      <UniqueIdentifier>{f529b68a-9c76-453b-92f3-09c51c91602f}</UniqueIdentifier>
-    </Filter>
     <Filter Include="JobSystem">
       <UniqueIdentifier>{9dbabcc7-87ed-4e09-8974-6decad331374}</UniqueIdentifier>
     </Filter>
@@ -30,12 +27,6 @@
     </Filter>
     <Filter Include="File">
       <UniqueIdentifier>{f22d5a97-1f12-429d-b5e7-f07cb3e88102}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="ESC\Component">
-      <UniqueIdentifier>{14ad8944-8cc1-47e7-a405-c97f0babffa2}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="ESC\System">
-      <UniqueIdentifier>{093ff7d7-94b9-4170-8086-5c988c2b27cd}</UniqueIdentifier>
     </Filter>
     <Filter Include="Resource">
       <UniqueIdentifier>{ecf535db-1b40-4dca-ab80-da0d3c3b5791}</UniqueIdentifier>
@@ -66,6 +57,54 @@
     </Filter>
     <Filter Include="Plugin">
       <UniqueIdentifier>{5ba222e3-10a6-4eef-8556-a8e10ac414a7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="World">
+      <UniqueIdentifier>{f529b68a-9c76-453b-92f3-09c51c91602f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="World\ECS">
+      <UniqueIdentifier>{397d2a74-c036-4fae-b1b7-87cab259842e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="World\ECS\System">
+      <UniqueIdentifier>{42634442-0c2b-4613-ace7-da0a614d1f84}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="World\ECS\Component">
+      <UniqueIdentifier>{c7cfad59-a446-4010-9b24-2a79d3181ff0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="World\ECS\Entity">
+      <UniqueIdentifier>{ae0405e8-d838-4c58-88fa-aa63e8cc8007}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="World\Tag">
+      <UniqueIdentifier>{6375662b-84fb-46b1-8fb6-9bd90bd098cb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="World\Layer">
+      <UniqueIdentifier>{d6740f15-2fab-425a-bb0d-7996b871434d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="World\Actor">
+      <UniqueIdentifier>{ad874af1-ba26-4464-b286-2a056c623872}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="World\Command">
+      <UniqueIdentifier>{5444748f-b751-40f6-9c11-849da114cdc7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="World\ECS\Archetype">
+      <UniqueIdentifier>{ad5e2cf1-008d-4121-b631-06f2895f5f7e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="World\ECS\SparseSet">
+      <UniqueIdentifier>{0a0ad03d-e447-46cc-9e0e-16fcdb34dda7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="World\ECS\Query">
+      <UniqueIdentifier>{09b5e78c-817e-42de-8e69-65b122707cca}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource\Scene">
+      <UniqueIdentifier>{087b4382-43d3-4481-8b13-43708247f333}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource\Prefab">
+      <UniqueIdentifier>{b5b4ec39-9368-4bf2-85e2-9f98a5a5c196}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource\Config">
+      <UniqueIdentifier>{06820f08-9189-4c7e-b81e-e095f39d8ade}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource\Asset">
+      <UniqueIdentifier>{3208c952-c199-44be-8f66-c2884195048f}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -121,56 +160,14 @@
     <ClCompile Include="Utility\Bitset.cpp">
       <Filter>Utility</Filter>
     </ClCompile>
-    <ClCompile Include="ECS\Chunk.cpp">
-      <Filter>ESC</Filter>
-    </ClCompile>
-    <ClCompile Include="ECS\ComponentRegistry.cpp">
-      <Filter>ESC</Filter>
-    </ClCompile>
-    <ClCompile Include="ECS\Archetype.cpp">
-      <Filter>ESC</Filter>
-    </ClCompile>
-    <ClCompile Include="ECS\ArchetypeRegistry.cpp">
-      <Filter>ESC</Filter>
-    </ClCompile>
-    <ClCompile Include="ECS\Entity.cpp">
-      <Filter>ESC</Filter>
-    </ClCompile>
-    <ClCompile Include="ECS\ReflectionRegistry.cpp">
-      <Filter>ESC</Filter>
-    </ClCompile>
-    <ClCompile Include="ECS\Actor.cpp">
-      <Filter>ESC</Filter>
-    </ClCompile>
-    <ClCompile Include="ECS\World.cpp">
-      <Filter>ESC</Filter>
-    </ClCompile>
-    <ClCompile Include="ECS\EntityRecord.cpp">
-      <Filter>ESC</Filter>
-    </ClCompile>
-    <ClCompile Include="ECS\System\SystemScheduler.cpp">
-      <Filter>ESC\System</Filter>
-    </ClCompile>
-    <ClCompile Include="ECS\System\SceneTransitionSystem.cpp">
-      <Filter>ESC\System</Filter>
-    </ClCompile>
     <ClCompile Include="Resource\ResourceCache.cpp">
       <Filter>Resource</Filter>
-    </ClCompile>
-    <ClCompile Include="ECS\Component\ComponentBase.cpp">
-      <Filter>ESC\Component</Filter>
     </ClCompile>
     <ClCompile Include="File\FileDirectory.cpp">
       <Filter>File</Filter>
     </ClCompile>
     <ClCompile Include="JobSystem\Semaphore.cpp">
       <Filter>JobSystem</Filter>
-    </ClCompile>
-    <ClCompile Include="ECS\PayloadRegistry.cpp">
-      <Filter>ESC</Filter>
-    </ClCompile>
-    <ClCompile Include="ECS\System\TransformSystem.cpp">
-      <Filter>ESC\System</Filter>
     </ClCompile>
     <ClCompile Include="Time\Timer.cpp">
       <Filter>Time</Filter>
@@ -193,34 +190,7 @@
     <ClCompile Include="Log\LogSystem.cpp">
       <Filter>Log</Filter>
     </ClCompile>
-    <ClCompile Include="ECS\WorldSnapshot.cpp">
-      <Filter>ESC</Filter>
-    </ClCompile>
     <ClCompile Include="Resource\Gateway.cpp">
-      <Filter>Resource</Filter>
-    </ClCompile>
-    <ClCompile Include="ECS\TagRegistry.cpp">
-      <Filter>ESC</Filter>
-    </ClCompile>
-    <ClCompile Include="Resource\ActorSerialization.cpp">
-      <Filter>Resource</Filter>
-    </ClCompile>
-    <ClCompile Include="Resource\Prefab.cpp">
-      <Filter>Resource</Filter>
-    </ClCompile>
-    <ClCompile Include="Resource\PrefabPool.cpp">
-      <Filter>Resource</Filter>
-    </ClCompile>
-    <ClCompile Include="Resource\Scene.cpp">
-      <Filter>Resource</Filter>
-    </ClCompile>
-    <ClCompile Include="Resource\ScenePool.cpp">
-      <Filter>Resource</Filter>
-    </ClCompile>
-    <ClCompile Include="ECS\System\MoveSystem.cpp">
-      <Filter>ESC\System</Filter>
-    </ClCompile>
-    <ClCompile Include="Resource\AxisConvention.cpp">
       <Filter>Resource</Filter>
     </ClCompile>
     <ClCompile Include="Reflection\Reflection.generated.cpp">
@@ -231,18 +201,6 @@
     </ClCompile>
     <ClCompile Include="Math\Random\Hash.cpp">
       <Filter>Math\Random</Filter>
-    </ClCompile>
-    <ClCompile Include="ECS\ActorCommand.cpp">
-      <Filter>ESC</Filter>
-    </ClCompile>
-    <ClCompile Include="ECS\ArrayFieldCommand.cpp">
-      <Filter>ESC</Filter>
-    </ClCompile>
-    <ClCompile Include="ECS\ComponentLifecycleCommand.cpp">
-      <Filter>ESC</Filter>
-    </ClCompile>
-    <ClCompile Include="ECS\History.cpp">
-      <Filter>ESC</Filter>
     </ClCompile>
     <ClCompile Include="Utility\Delegate.cpp">
       <Filter>Utility</Filter>
@@ -256,15 +214,6 @@
     <ClCompile Include="Log\AftermathCrashTracker.cpp">
       <Filter>Log</Filter>
     </ClCompile>
-    <ClCompile Include="ECS\System\SpawnerSystem.cpp">
-      <Filter>ESC\System</Filter>
-    </ClCompile>
-    <ClCompile Include="ECS\LayerRegistry.cpp">
-      <Filter>ESC</Filter>
-    </ClCompile>
-    <ClCompile Include="ECS\LayerCollisionMatrix.cpp">
-      <Filter>ESC</Filter>
-    </ClCompile>
     <ClCompile Include="Serialization\Encryption\Sha256.cpp">
       <Filter>Serialization\Encryption</Filter>
     </ClCompile>
@@ -277,32 +226,122 @@
     <ClCompile Include="Plugin\PluginHost.cpp">
       <Filter>Plugin</Filter>
     </ClCompile>
-    <ClCompile Include="ECS\CompoundCommand.cpp">
-      <Filter>ESC</Filter>
+    <ClCompile Include="Payload\PayloadRegistry.cpp">
+      <Filter>Payload</Filter>
     </ClCompile>
-    <ClCompile Include="ECS\System\LifetimeSystem.cpp">
-      <Filter>ESC\System</Filter>
+    <ClCompile Include="Reflection\ReflectionRegistry.cpp">
+      <Filter>Reflection</Filter>
     </ClCompile>
-    <ClCompile Include="ECS\CommandBuffer.cpp">
-      <Filter>ESC</Filter>
+    <ClCompile Include="World\ECS\Component\ComponentRegistry.cpp">
+      <Filter>World\ECS\Component</Filter>
     </ClCompile>
-    <ClCompile Include="ECS\System\SystemGraph.cpp">
-      <Filter>ESC\System</Filter>
+    <ClCompile Include="World\ECS\Entity\Entity.cpp">
+      <Filter>World\ECS\Entity</Filter>
     </ClCompile>
-    <ClCompile Include="Resource\Asset.cpp">
-      <Filter>Resource</Filter>
+    <ClCompile Include="World\ECS\Entity\EntityRecord.cpp">
+      <Filter>World\ECS\Entity</Filter>
     </ClCompile>
-    <ClCompile Include="Resource\GameConfig.cpp">
-      <Filter>Resource</Filter>
+    <ClCompile Include="World\ECS\Archetype\Archetype.cpp">
+      <Filter>World\ECS\Archetype</Filter>
     </ClCompile>
-    <ClCompile Include="Resource\EditorConfig.cpp">
-      <Filter>Resource</Filter>
+    <ClCompile Include="World\ECS\Archetype\ArchetypeRegistry.cpp">
+      <Filter>World\ECS\Archetype</Filter>
     </ClCompile>
-    <ClCompile Include="Resource\IconConfig.cpp">
-      <Filter>Resource</Filter>
+    <ClCompile Include="World\ECS\Archetype\Chunk.cpp">
+      <Filter>World\ECS\Archetype</Filter>
     </ClCompile>
-    <ClCompile Include="Resource\BootConfig.cpp">
-      <Filter>Resource</Filter>
+    <ClCompile Include="World\ECS\System\LifetimeSystem.cpp">
+      <Filter>World\ECS\System</Filter>
+    </ClCompile>
+    <ClCompile Include="World\ECS\System\MoveSystem.cpp">
+      <Filter>World\ECS\System</Filter>
+    </ClCompile>
+    <ClCompile Include="World\ECS\System\SpawnerSystem.cpp">
+      <Filter>World\ECS\System</Filter>
+    </ClCompile>
+    <ClCompile Include="World\ECS\System\SystemGraph.cpp">
+      <Filter>World\ECS\System</Filter>
+    </ClCompile>
+    <ClCompile Include="World\ECS\System\SystemScheduler.cpp">
+      <Filter>World\ECS\System</Filter>
+    </ClCompile>
+    <ClCompile Include="World\ECS\System\TransformSystem.cpp">
+      <Filter>World\ECS\System</Filter>
+    </ClCompile>
+    <ClCompile Include="World\Layer\LayerCollisionMatrix.cpp">
+      <Filter>World\Layer</Filter>
+    </ClCompile>
+    <ClCompile Include="World\Layer\LayerRegistry.cpp">
+      <Filter>World\Layer</Filter>
+    </ClCompile>
+    <ClCompile Include="World\Actor\Actor.cpp">
+      <Filter>World\Actor</Filter>
+    </ClCompile>
+    <ClCompile Include="World\Command\ActorCommand.cpp">
+      <Filter>World\Command</Filter>
+    </ClCompile>
+    <ClCompile Include="World\Command\ArrayFieldCommand.cpp">
+      <Filter>World\Command</Filter>
+    </ClCompile>
+    <ClCompile Include="World\Command\CommandBuffer.cpp">
+      <Filter>World\Command</Filter>
+    </ClCompile>
+    <ClCompile Include="World\Command\ComponentLifecycleCommand.cpp">
+      <Filter>World\Command</Filter>
+    </ClCompile>
+    <ClCompile Include="World\Command\CompoundCommand.cpp">
+      <Filter>World\Command</Filter>
+    </ClCompile>
+    <ClCompile Include="World\Command\History.cpp">
+      <Filter>World\Command</Filter>
+    </ClCompile>
+    <ClCompile Include="World\Tag\TagRegistry.cpp">
+      <Filter>World\Tag</Filter>
+    </ClCompile>
+    <ClCompile Include="Resource\Scene\Scene.cpp">
+      <Filter>Resource\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="Resource\Scene\ScenePool.cpp">
+      <Filter>Resource\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="Resource\Scene\SceneTransitionSystem.cpp">
+      <Filter>Resource\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="World\Actor\Blueprint.cpp">
+      <Filter>World\Actor</Filter>
+    </ClCompile>
+    <ClCompile Include="Resource\Config\BootConfig.cpp">
+      <Filter>Resource\Config</Filter>
+    </ClCompile>
+    <ClCompile Include="Resource\Config\EditorConfig.cpp">
+      <Filter>Resource\Config</Filter>
+    </ClCompile>
+    <ClCompile Include="Resource\Config\GameConfig.cpp">
+      <Filter>Resource\Config</Filter>
+    </ClCompile>
+    <ClCompile Include="Resource\Config\IconConfig.cpp">
+      <Filter>Resource\Config</Filter>
+    </ClCompile>
+    <ClCompile Include="Resource\Prefab\Prefab.cpp">
+      <Filter>Resource\Prefab</Filter>
+    </ClCompile>
+    <ClCompile Include="Resource\Prefab\PrefabPool.cpp">
+      <Filter>Resource\Prefab</Filter>
+    </ClCompile>
+    <ClCompile Include="Resource\Asset\Asset.cpp">
+      <Filter>Resource\Asset</Filter>
+    </ClCompile>
+    <ClCompile Include="Resource\Asset\AxisConvention.cpp">
+      <Filter>Resource\Asset</Filter>
+    </ClCompile>
+    <ClCompile Include="World\ECS\Component\ComponentBehaviour.cpp">
+      <Filter>World\ECS\Component</Filter>
+    </ClCompile>
+    <ClCompile Include="World\World.cpp">
+      <Filter>World</Filter>
+    </ClCompile>
+    <ClCompile Include="World\WorldSnapshot.cpp">
+      <Filter>World</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -439,71 +478,11 @@
     <ClInclude Include="Math\MathCommon.h">
       <Filter>Math</Filter>
     </ClInclude>
-    <ClInclude Include="ECS\ComponentRegistry.h">
-      <Filter>ESC</Filter>
-    </ClInclude>
-    <ClInclude Include="ECS\ArchetypeRegistry.h">
-      <Filter>ESC</Filter>
-    </ClInclude>
-    <ClInclude Include="ECS\ReflectionRegistry.h">
-      <Filter>ESC</Filter>
-    </ClInclude>
-    <ClInclude Include="ECS\Actor.h">
-      <Filter>ESC</Filter>
-    </ClInclude>
-    <ClInclude Include="ECS\Query.h">
-      <Filter>ESC</Filter>
-    </ClInclude>
-    <ClInclude Include="ECS\EntityRecord.h">
-      <Filter>ESC</Filter>
-    </ClInclude>
     <ClInclude Include="Utility\FlatMap.h">
       <Filter>Utility</Filter>
     </ClInclude>
-    <ClInclude Include="ECS\Component\Position.h">
-      <Filter>ESC\Component</Filter>
-    </ClInclude>
-    <ClInclude Include="ECS\Component\Rotation.h">
-      <Filter>ESC\Component</Filter>
-    </ClInclude>
-    <ClInclude Include="ECS\Component\Scale.h">
-      <Filter>ESC\Component</Filter>
-    </ClInclude>
-    <ClInclude Include="ECS\Component\Velocity.h">
-      <Filter>ESC\Component</Filter>
-    </ClInclude>
-    <ClInclude Include="ECS\Component\Tickable.h">
-      <Filter>ESC\Component</Filter>
-    </ClInclude>
-    <ClInclude Include="ECS\Component\Awakeable.h">
-      <Filter>ESC\Component</Filter>
-    </ClInclude>
-    <ClInclude Include="ECS\Component\Startable.h">
-      <Filter>ESC\Component</Filter>
-    </ClInclude>
-    <ClInclude Include="ECS\Component\LateTickable.h">
-      <Filter>ESC\Component</Filter>
-    </ClInclude>
-    <ClInclude Include="ECS\Component\FixedTick.h">
-      <Filter>ESC\Component</Filter>
-    </ClInclude>
-    <ClInclude Include="ECS\Component\Destroyable.h">
-      <Filter>ESC\Component</Filter>
-    </ClInclude>
-    <ClInclude Include="ECS\Component\Collisionable.h">
-      <Filter>ESC\Component</Filter>
-    </ClInclude>
-    <ClInclude Include="ECS\Component\Triggerable.h">
-      <Filter>ESC\Component</Filter>
-    </ClInclude>
     <ClInclude Include="Utility\ReadWrite.h">
       <Filter>Utility</Filter>
-    </ClInclude>
-    <ClInclude Include="ECS\System\SystemScheduler.h">
-      <Filter>ESC\System</Filter>
-    </ClInclude>
-    <ClInclude Include="ECS\System\SceneTransitionSystem.h">
-      <Filter>ESC\System</Filter>
     </ClInclude>
     <ClInclude Include="Math\Matrix.h">
       <Filter>Math</Filter>
@@ -511,41 +490,11 @@
     <ClInclude Include="Math\Quaternion.h">
       <Filter>Math</Filter>
     </ClInclude>
-    <ClInclude Include="ECS\Component\Name.h">
-      <Filter>ESC\Component</Filter>
-    </ClInclude>
     <ClInclude Include="Resource\ResourceCache.h">
       <Filter>Resource</Filter>
     </ClInclude>
-    <ClInclude Include="ECS\Component.h">
-      <Filter>ESC</Filter>
-    </ClInclude>
-    <ClInclude Include="ECS\SparseSet.h">
-      <Filter>ESC</Filter>
-    </ClInclude>
-    <ClInclude Include="ECS\EcsConcept.h">
-      <Filter>ESC</Filter>
-    </ClInclude>
-    <ClInclude Include="ECS\EcsID.h">
-      <Filter>ESC</Filter>
-    </ClInclude>
-    <ClInclude Include="ECS\World.h">
-      <Filter>ESC</Filter>
-    </ClInclude>
-    <ClInclude Include="ECS\Entity.h">
-      <Filter>ESC</Filter>
-    </ClInclude>
-    <ClInclude Include="ECS\Chunk.h">
-      <Filter>ESC</Filter>
-    </ClInclude>
-    <ClInclude Include="ECS\Archetype.h">
-      <Filter>ESC</Filter>
-    </ClInclude>
     <ClInclude Include="Math\Random\Xorshift.h">
       <Filter>Math\Random</Filter>
-    </ClInclude>
-    <ClInclude Include="ECS\Component\ComponentBase.h">
-      <Filter>ESC\Component</Filter>
     </ClInclude>
     <ClInclude Include="Log\SlFail.h">
       <Filter>Log</Filter>
@@ -554,12 +503,6 @@
       <Filter>File</Filter>
     </ClInclude>
     <ClInclude Include="SeedScript.h" />
-    <ClInclude Include="ECS\PayloadRegistry.h">
-      <Filter>ESC</Filter>
-    </ClInclude>
-    <ClInclude Include="ECS\System\TransformSystem.h">
-      <Filter>ESC\System</Filter>
-    </ClInclude>
     <ClInclude Include="Time\Timer.h">
       <Filter>Time</Filter>
     </ClInclude>
@@ -590,71 +533,17 @@
     <ClInclude Include="Log\LogSystem.h">
       <Filter>Log</Filter>
     </ClInclude>
-    <ClInclude Include="ECS\Component\Active.h">
-      <Filter>ESC\Component</Filter>
-    </ClInclude>
-    <ClInclude Include="ECS\WorldSnapshot.h">
-      <Filter>ESC</Filter>
-    </ClInclude>
     <ClInclude Include="Resource\Gateway.h">
-      <Filter>Resource</Filter>
-    </ClInclude>
-    <ClInclude Include="ECS\TagRegistry.h">
-      <Filter>ESC</Filter>
-    </ClInclude>
-    <ClInclude Include="ECS\Component\InspectorDrawable.h">
-      <Filter>ESC\Component</Filter>
-    </ClInclude>
-    <ClInclude Include="Resource\ActorSerialization.h">
-      <Filter>Resource</Filter>
-    </ClInclude>
-    <ClInclude Include="Resource\Prefab.h">
-      <Filter>Resource</Filter>
-    </ClInclude>
-    <ClInclude Include="Resource\PrefabPool.h">
-      <Filter>Resource</Filter>
-    </ClInclude>
-    <ClInclude Include="Resource\Scene.h">
-      <Filter>Resource</Filter>
-    </ClInclude>
-    <ClInclude Include="Resource\ScenePool.h">
       <Filter>Resource</Filter>
     </ClInclude>
     <ClInclude Include="Utility\ResourceRef.h">
       <Filter>Utility</Filter>
     </ClInclude>
-    <ClInclude Include="ECS\System\MoveSystem.h">
-      <Filter>ESC\System</Filter>
-    </ClInclude>
-    <ClInclude Include="Resource\AxisConvention.h">
-      <Filter>Resource</Filter>
-    </ClInclude>
     <ClInclude Include="Math\Random\Hash.h">
       <Filter>Math\Random</Filter>
     </ClInclude>
-    <ClInclude Include="ECS\ActorCommand.h">
-      <Filter>ESC</Filter>
-    </ClInclude>
-    <ClInclude Include="ECS\ArrayFieldCommand.h">
-      <Filter>ESC</Filter>
-    </ClInclude>
-    <ClInclude Include="ECS\Command.h">
-      <Filter>ESC</Filter>
-    </ClInclude>
-    <ClInclude Include="ECS\ComponentCommand.h">
-      <Filter>ESC</Filter>
-    </ClInclude>
-    <ClInclude Include="ECS\ComponentLifecycleCommand.h">
-      <Filter>ESC</Filter>
-    </ClInclude>
-    <ClInclude Include="ECS\History.h">
-      <Filter>ESC</Filter>
-    </ClInclude>
     <ClInclude Include="Interop\ColliderInstance.h">
       <Filter>Interop</Filter>
-    </ClInclude>
-    <ClInclude Include="ECS\Component\Bounds.h">
-      <Filter>ESC\Component</Filter>
     </ClInclude>
     <ClInclude Include="Math\Halton.h">
       <Filter>Math</Filter>
@@ -674,18 +563,6 @@
     <ClInclude Include="Log\AftermathCrashTracker.h">
       <Filter>Log</Filter>
     </ClInclude>
-    <ClInclude Include="ECS\Component\Spawner.h">
-      <Filter>ESC\Component</Filter>
-    </ClInclude>
-    <ClInclude Include="ECS\System\SpawnerSystem.h">
-      <Filter>ESC\System</Filter>
-    </ClInclude>
-    <ClInclude Include="ECS\LayerRegistry.h">
-      <Filter>ESC</Filter>
-    </ClInclude>
-    <ClInclude Include="ECS\LayerCollisionMatrix.h">
-      <Filter>ESC</Filter>
-    </ClInclude>
     <ClInclude Include="Math\Ray.h">
       <Filter>Math</Filter>
     </ClInclude>
@@ -701,41 +578,200 @@
     <ClInclude Include="Plugin\PluginHost.h">
       <Filter>Plugin</Filter>
     </ClInclude>
-    <ClInclude Include="ECS\CompoundCommand.h">
-      <Filter>ESC</Filter>
-    </ClInclude>
-    <ClInclude Include="ECS\Component\Lifetime.h">
-      <Filter>ESC\Component</Filter>
-    </ClInclude>
-    <ClInclude Include="ECS\System\LifetimeSystem.h">
-      <Filter>ESC\System</Filter>
-    </ClInclude>
     <ClInclude Include="Utility\DynamicArray.h">
       <Filter>Utility</Filter>
     </ClInclude>
     <ClInclude Include="Utility\StaticArray.h">
       <Filter>Utility</Filter>
     </ClInclude>
-    <ClInclude Include="ECS\CommandBuffer.h">
-      <Filter>ESC</Filter>
+    <ClInclude Include="Payload\PayloadRegistry.h">
+      <Filter>Payload</Filter>
     </ClInclude>
-    <ClInclude Include="ECS\System\SystemGraph.h">
-      <Filter>ESC\System</Filter>
+    <ClInclude Include="Reflection\ReflectionRegistry.h">
+      <Filter>Reflection</Filter>
     </ClInclude>
-    <ClInclude Include="Resource\Asset.h">
-      <Filter>Resource</Filter>
+    <ClInclude Include="World\ECS\Component\Active.h">
+      <Filter>World\ECS\Component</Filter>
     </ClInclude>
-    <ClInclude Include="Resource\GameConfig.h">
-      <Filter>Resource</Filter>
+    <ClInclude Include="World\ECS\Component\Awakeable.h">
+      <Filter>World\ECS\Component</Filter>
     </ClInclude>
-    <ClInclude Include="Resource\EditorConfig.h">
-      <Filter>Resource</Filter>
+    <ClInclude Include="World\ECS\Component\Bounds.h">
+      <Filter>World\ECS\Component</Filter>
     </ClInclude>
-    <ClInclude Include="Resource\IconConfig.h">
-      <Filter>Resource</Filter>
+    <ClInclude Include="World\ECS\Component\Collisionable.h">
+      <Filter>World\ECS\Component</Filter>
     </ClInclude>
-    <ClInclude Include="Resource\BootConfig.h">
-      <Filter>Resource</Filter>
+    <ClInclude Include="World\ECS\Component\Component.h">
+      <Filter>World\ECS\Component</Filter>
+    </ClInclude>
+    <ClInclude Include="World\ECS\Component\ComponentRegistry.h">
+      <Filter>World\ECS\Component</Filter>
+    </ClInclude>
+    <ClInclude Include="World\ECS\Component\Destroyable.h">
+      <Filter>World\ECS\Component</Filter>
+    </ClInclude>
+    <ClInclude Include="World\ECS\Component\FixedTick.h">
+      <Filter>World\ECS\Component</Filter>
+    </ClInclude>
+    <ClInclude Include="World\ECS\Component\InspectorDrawable.h">
+      <Filter>World\ECS\Component</Filter>
+    </ClInclude>
+    <ClInclude Include="World\ECS\Component\LateTickable.h">
+      <Filter>World\ECS\Component</Filter>
+    </ClInclude>
+    <ClInclude Include="World\ECS\Component\Lifetime.h">
+      <Filter>World\ECS\Component</Filter>
+    </ClInclude>
+    <ClInclude Include="World\ECS\Component\Name.h">
+      <Filter>World\ECS\Component</Filter>
+    </ClInclude>
+    <ClInclude Include="World\ECS\Component\Position.h">
+      <Filter>World\ECS\Component</Filter>
+    </ClInclude>
+    <ClInclude Include="World\ECS\Component\Rotation.h">
+      <Filter>World\ECS\Component</Filter>
+    </ClInclude>
+    <ClInclude Include="World\ECS\Component\Scale.h">
+      <Filter>World\ECS\Component</Filter>
+    </ClInclude>
+    <ClInclude Include="World\ECS\Component\Spawner.h">
+      <Filter>World\ECS\Component</Filter>
+    </ClInclude>
+    <ClInclude Include="World\ECS\Component\Startable.h">
+      <Filter>World\ECS\Component</Filter>
+    </ClInclude>
+    <ClInclude Include="World\ECS\Component\Tickable.h">
+      <Filter>World\ECS\Component</Filter>
+    </ClInclude>
+    <ClInclude Include="World\ECS\Component\Triggerable.h">
+      <Filter>World\ECS\Component</Filter>
+    </ClInclude>
+    <ClInclude Include="World\ECS\Component\Velocity.h">
+      <Filter>World\ECS\Component</Filter>
+    </ClInclude>
+    <ClInclude Include="World\ECS\Entity\Entity.h">
+      <Filter>World\ECS\Entity</Filter>
+    </ClInclude>
+    <ClInclude Include="World\ECS\Entity\EntityRecord.h">
+      <Filter>World\ECS\Entity</Filter>
+    </ClInclude>
+    <ClInclude Include="World\ECS\Archetype\Archetype.h">
+      <Filter>World\ECS\Archetype</Filter>
+    </ClInclude>
+    <ClInclude Include="World\ECS\Archetype\ArchetypeRegistry.h">
+      <Filter>World\ECS\Archetype</Filter>
+    </ClInclude>
+    <ClInclude Include="World\ECS\Archetype\Chunk.h">
+      <Filter>World\ECS\Archetype</Filter>
+    </ClInclude>
+    <ClInclude Include="World\ECS\Query\Query.h">
+      <Filter>World\ECS\Query</Filter>
+    </ClInclude>
+    <ClInclude Include="World\ECS\SparseSet\SparseSet.h">
+      <Filter>World\ECS\SparseSet</Filter>
+    </ClInclude>
+    <ClInclude Include="World\ECS\System\LifetimeSystem.h">
+      <Filter>World\ECS\System</Filter>
+    </ClInclude>
+    <ClInclude Include="World\ECS\System\MoveSystem.h">
+      <Filter>World\ECS\System</Filter>
+    </ClInclude>
+    <ClInclude Include="World\ECS\System\SpawnerSystem.h">
+      <Filter>World\ECS\System</Filter>
+    </ClInclude>
+    <ClInclude Include="World\ECS\System\SystemGraph.h">
+      <Filter>World\ECS\System</Filter>
+    </ClInclude>
+    <ClInclude Include="World\ECS\System\SystemScheduler.h">
+      <Filter>World\ECS\System</Filter>
+    </ClInclude>
+    <ClInclude Include="World\ECS\System\TransformSystem.h">
+      <Filter>World\ECS\System</Filter>
+    </ClInclude>
+    <ClInclude Include="World\Layer\LayerCollisionMatrix.h">
+      <Filter>World\Layer</Filter>
+    </ClInclude>
+    <ClInclude Include="World\Layer\LayerRegistry.h">
+      <Filter>World\Layer</Filter>
+    </ClInclude>
+    <ClInclude Include="World\Actor\Actor.h">
+      <Filter>World\Actor</Filter>
+    </ClInclude>
+    <ClInclude Include="World\Command\ActorCommand.h">
+      <Filter>World\Command</Filter>
+    </ClInclude>
+    <ClInclude Include="World\Command\ArrayFieldCommand.h">
+      <Filter>World\Command</Filter>
+    </ClInclude>
+    <ClInclude Include="World\Command\Command.h">
+      <Filter>World\Command</Filter>
+    </ClInclude>
+    <ClInclude Include="World\Command\CommandBuffer.h">
+      <Filter>World\Command</Filter>
+    </ClInclude>
+    <ClInclude Include="World\Command\ComponentCommand.h">
+      <Filter>World\Command</Filter>
+    </ClInclude>
+    <ClInclude Include="World\Command\ComponentLifecycleCommand.h">
+      <Filter>World\Command</Filter>
+    </ClInclude>
+    <ClInclude Include="World\Command\CompoundCommand.h">
+      <Filter>World\Command</Filter>
+    </ClInclude>
+    <ClInclude Include="World\Command\History.h">
+      <Filter>World\Command</Filter>
+    </ClInclude>
+    <ClInclude Include="World\Tag\TagRegistry.h">
+      <Filter>World\Tag</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource\Scene\Scene.h">
+      <Filter>Resource\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource\Scene\ScenePool.h">
+      <Filter>Resource\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource\Scene\SceneTransitionSystem.h">
+      <Filter>Resource\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="World\Actor\Blueprint.h">
+      <Filter>World\Actor</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource\Config\BootConfig.h">
+      <Filter>Resource\Config</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource\Config\EditorConfig.h">
+      <Filter>Resource\Config</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource\Config\GameConfig.h">
+      <Filter>Resource\Config</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource\Config\IconConfig.h">
+      <Filter>Resource\Config</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource\Prefab\Prefab.h">
+      <Filter>Resource\Prefab</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource\Prefab\PrefabPool.h">
+      <Filter>Resource\Prefab</Filter>
+    </ClInclude>
+    <ClInclude Include="World\ECS\Component\ComponentConcept.h">
+      <Filter>World\ECS\Component</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource\Asset\Asset.h">
+      <Filter>Resource\Asset</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource\Asset\AxisConvention.h">
+      <Filter>Resource\Asset</Filter>
+    </ClInclude>
+    <ClInclude Include="World\ECS\Component\ComponentBehaviour.h">
+      <Filter>World\ECS\Component</Filter>
+    </ClInclude>
+    <ClInclude Include="World\World.h">
+      <Filter>World</Filter>
+    </ClInclude>
+    <ClInclude Include="World\WorldSnapshot.h">
+      <Filter>World</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

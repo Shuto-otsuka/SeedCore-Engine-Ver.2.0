@@ -2,9 +2,9 @@
 #include <Editor/Editor/Build/AtomCraft.h>
 #include <FoundationEngine/Log/Notice.h>
 #include <FoundationEngine/File/FileDialog.h>
-#include <FoundationEngine/Resource/EditorConfig.h>
-#include <FoundationEngine/ECS/Actor.h>
-#include <FoundationEngine/ECS/World.h>
+#include <FoundationEngine/Resource/Config/EditorConfig.h>
+#include <FoundationEngine/World/Actor/Actor.h>
+#include <FoundationEngine/World/World.h>
 #include <FoundationEngine/Time/GameTimer.h>
 #include <GraphicsEngine/Model/Animation/Animator.h>
 #include <GraphicsEngine/Model/Animation/AnimatorControllerState.h>
@@ -16,7 +16,7 @@
 #include <GraphicsEngine/Font/Text.h>
 #include <GraphicsEngine/Movie/Movie.h>
 #include <GraphicsEngine/D3D12/SwapChain/GraphicsResolution.h>
-#include <FoundationEngine/ECS/Component/Bounds.h>
+#include <FoundationEngine/World/ECS/Component/Bounds.h>
 
 namespace SeedCore
 {
@@ -286,7 +286,7 @@ namespace SeedCore
 			if (ctrlPressed && ImGui::IsKeyPressed(ImGuiKey_F) && context_.selectionContext_.selectedActor_)
 			{
 				Actor selectedActor = context_.selectionContext_.selectedActor_;
-				const Matrix& worldMatrix = selectedActor.GetWorldMatrix();
+				const Matrix& worldMatrix = selectedActor.WorldMatrix();
 
 				const Image* image = selectedActor.GetComponent<Image>();
 				const Text* text = selectedActor.GetComponent<Text>();

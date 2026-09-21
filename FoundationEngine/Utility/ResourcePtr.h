@@ -315,12 +315,8 @@ namespace SeedCore
 		}
 
 	private:
-		/// [EN] Grants every ResourcePtr<U> instantiation access to this
-		///      instantiation's private members, needed by the converting
-		///      constructor/assignment above.
-		/// [JP] あらゆる ResourcePtr<U> のインスタンス化に対して、この
-		///      インスタンス化の private メンバへのアクセスを許可する。
-		///      上記の変換コンストラクタ/代入に必要。
+		/// [EN] Lets every ResourcePtr<U> reach this instantiation's private members, as the converting constructor/assignment above requires.
+		/// [JP] 上の変換コンストラクタ/代入のため、あらゆる ResourcePtr<U> からこのインスタンスの private メンバに触れられるようにする。
 		template <typename U>
 		friend class ResourcePtr;
 

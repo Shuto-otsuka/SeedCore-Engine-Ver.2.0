@@ -2,10 +2,10 @@
 #include <FoundationEngine/Prelude.h>
 #include <FoundationEngine/Utility/ArtMap.h>
 #include <FoundationEngine/Utility/FlatMap.h>
-#include <FoundationEngine/Resource/PrefabPool.h>
-#include <FoundationEngine/Resource/ScenePool.h>
-#include <FoundationEngine/Resource/Asset.h>
-#include <FoundationEngine/Resource/AxisConvention.h>
+#include <FoundationEngine/Resource/Prefab/PrefabPool.h>
+#include <FoundationEngine/Resource/Scene/ScenePool.h>
+#include <FoundationEngine/Resource/Asset/Asset.h>
+#include <FoundationEngine/Resource/Asset/AxisConvention.h>
 #include <FoundationEngine/JobSystem/JobTaskflow.h>
 
 namespace SeedCore
@@ -443,12 +443,8 @@ namespace SeedCore
 		/// [JP] 現在の Async() パスで読み込みを待っている、AssetType 順に並んだアセット ID 群。
 		DynamicArray<Uint32> pendingAssetIDs_;
 
-		/// [EN] Index of the next pending asset Step() will process. Atomic
-		///      since StepAsync() reads/writes it from a background worker
-		///      while Complete() may be read concurrently from the main thread.
-		/// [JP] 次に Step() が処理する、保留アセットのインデックス。
-		///      StepAsync() がバックグラウンドワーカーから読み書きする一方、
-		///      Complete() がメインスレッドから同時に読まれうるため atomic。
+		/// [EN] Index of the next pending asset for Step(); atomic because StepAsync() updates it on a worker while Complete() reads it on the main thread.
+		/// [JP] Step() が次に処理する保留アセットの番号。StepAsync() がワーカーで更新し、Complete() がメインスレッドで読むので atomic。
 		std::atomic<Size> pendingIndex_{ 0 };
 
 		/// [EN] Total number of assets queued in the current Async() pass.
@@ -463,26 +459,14 @@ namespace SeedCore
 		/// [JP] 現在の Async() パスにおけるディレクトリスキャンが完了しているかどうか。
 		std::atomic<Bool> scanComplete_{ false };
 
-		/// [EN] Backing JobTaskflow for StepAsync()'s background job. Must be a
-		///      member (not a StepAsync()-local variable) because JobTopology
-		///      only ever holds a reference to the JobTaskflow it runs
-		///      (JobTopology::taskflow_) - a local would be destroyed the
-		///      moment StepAsync() returns, while the job is still running on
-		///      loadExecutor_'s worker thread, leaving that reference dangling.
-		/// [JP] StepAsync() のバックグラウンドジョブを支える JobTaskflow。
-		///      StepAsync() のローカル変数にしてはいけない - JobTopology は
-		///      実行対象の JobTaskflow への参照(JobTopology::taskflow_)しか
-		///      持たないため、ローカル変数だと StepAsync() が return した瞬間に
-		///      破棄されてしまい、loadExecutor_ のワーカースレッド上ではまだ
-		///      ジョブが実行中なのに、その参照がダングリングになる。
+		/// [EN] Taskflow for StepAsync()'s background job. A member, not a local, because JobTopology only references it
+		///      and the job keeps running after StepAsync() returns.
+		/// [JP] StepAsync() のバックグラウンドジョブ用の taskflow。JobTopology は参照しか持たず、
+		///      ジョブは StepAsync() が戻った後も動き続けるので、ローカル変数ではなくメンバーにする。
 		JobTaskflow loadTaskflow_;
 
-		/// [EN] Dedicated single-worker executor backing StepAsync() - lazily
-		///      created on first use, destroyed (waiting for outstanding work)
-		///      at the start of ~ResourceCache() before anything is unloaded.
-		/// [JP] StepAsync() を支える専用のシングルワーカーエグゼキュータ -
-		///      初回使用時に遅延生成され、~ResourceCache() の先頭で（未完了の
-		///      作業を待ってから）何かを解放するより前に破棄される。
+		/// [EN] Single-worker executor for StepAsync(), created on first use and destroyed first in ~ResourceCache() (waiting for running work) before anything is unloaded.
+		/// [JP] StepAsync() 専用の1ワーカーの実行器。初回使用時に作り、~ResourceCache() の最初で(実行中の作業を待って)何かを解放する前に破棄する。
 		ResourcePtr<JobExecutor> loadExecutor_;
 
 		/// [EN] Guards against StepAsync() starting a second background job while one from the current Async() pass is still running.

@@ -1,15 +1,15 @@
 #pragma once
 
 // FoundationEngine
-#include <FoundationEngine/ECS/Component/Active.h>
-#include <FoundationEngine/ECS/Component/Bounds.h>
-#include <FoundationEngine/ECS/Component/Lifetime.h>
-#include <FoundationEngine/ECS/Component/Name.h>
-#include <FoundationEngine/ECS/Component/Position.h>
-#include <FoundationEngine/ECS/Component/Rotation.h>
-#include <FoundationEngine/ECS/Component/Scale.h>
-#include <FoundationEngine/ECS/Component/Spawner.h>
-#include <FoundationEngine/ECS/Component/Velocity.h>
+#include <FoundationEngine/World/ECS/Component/Active.h>
+#include <FoundationEngine/World/ECS/Component/Bounds.h>
+#include <FoundationEngine/World/ECS/Component/Lifetime.h>
+#include <FoundationEngine/World/ECS/Component/Name.h>
+#include <FoundationEngine/World/ECS/Component/Position.h>
+#include <FoundationEngine/World/ECS/Component/Rotation.h>
+#include <FoundationEngine/World/ECS/Component/Scale.h>
+#include <FoundationEngine/World/ECS/Component/Spawner.h>
+#include <FoundationEngine/World/ECS/Component/Velocity.h>
 
 // GraphicsEngine
 #include <GraphicsEngine/Camera/Camera.h>
@@ -57,6 +57,6 @@
 #include <AudioEngine/Audio/AudioSource.h>
 
 // Actor
-#include <FoundationEngine/ECS/Actor.h>
-#include <FoundationEngine/ECS/Query.h>
-#include <FoundationEngine/ECS/World.h>
+#include <FoundationEngine/World/Actor/Actor.h>
+#include <FoundationEngine/World/ECS/Query/Query.h>
+#include <FoundationEngine/World/World.h>

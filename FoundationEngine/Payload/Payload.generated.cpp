@@ -1,7 +1,7 @@
 #include <FoundationEngine/Prelude.h>
-#include <FoundationEngine/ECS/PayloadRegistry.h>
+#include <FoundationEngine/Payload/PayloadRegistry.h>
 #include <AudioEngine/Audio/AudioSource.h>
-#include <FoundationEngine/ECS/Component/Spawner.h>
+#include <FoundationEngine/World/ECS/Component/Spawner.h>
 #include <GraphicsEngine/Camera/CameraBrain.h>
 #include <GraphicsEngine/Constraint/AttachmentConstraint.h>
 #include <GraphicsEngine/Constraint/IKConstraint.h>
@@ -63,7 +63,7 @@ namespace SeedCore
 		};
 		static Register_AudioSource global_AudioSource_register;
 
-		// ---- FoundationEngine/ECS/Component/Spawner.h ----
+		// ---- FoundationEngine/World/ECS/Component/Spawner.h ----
 		struct Register_Spawner
 		{
 			Register_Spawner()

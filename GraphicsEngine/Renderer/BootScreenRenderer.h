@@ -1,6 +1,6 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
-#include <FoundationEngine/Resource/BootConfig.h>
+#include <FoundationEngine/Resource/Config/BootConfig.h>
 #include <GraphicsEngine/D3D12/Descriptor/DescriptorHeap.h>
 #include <GraphicsEngine/D3D12/Buffer/FrameBuffer.h>
 #include <GraphicsEngine/Shape/Screen/BootScreen.h>

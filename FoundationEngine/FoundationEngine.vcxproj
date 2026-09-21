@@ -19,75 +19,6 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="ECS\Actor.cpp">
-    </ClCompile>
-    <ClCompile Include="ECS\ActorCommand.cpp" />
-    <ClCompile Include="ECS\Archetype.cpp">
-    </ClCompile>
-    <ClInclude Include="ECS\ActorCommand.h" />
-    <ClInclude Include="ECS\Archetype.h" />
-    <ClCompile Include="ECS\ArchetypeRegistry.cpp">
-    </ClCompile>
-    <ClCompile Include="ECS\ArrayFieldCommand.cpp" />
-    <ClCompile Include="ECS\Chunk.cpp">
-    </ClCompile>
-    <ClInclude Include="ECS\ArrayFieldCommand.h" />
-    <ClInclude Include="ECS\Chunk.h" />
-    <ClInclude Include="ECS\Command.h" />
-    <ClInclude Include="ECS\CommandBuffer.h" />
-    <ClInclude Include="ECS\Component.h" />
-    <ClCompile Include="ECS\CommandBuffer.cpp" />
-    <ClCompile Include="ECS\ComponentLifecycleCommand.cpp" />
-    <ClCompile Include="ECS\ComponentRegistry.cpp">
-    </ClCompile>
-    <ClCompile Include="ECS\Component\ComponentBase.cpp">
-    </ClCompile>
-    <ClCompile Include="ECS\CompoundCommand.cpp" />
-    <ClCompile Include="ECS\Entity.cpp">
-    </ClCompile>
-    <ClInclude Include="ECS\ComponentCommand.h" />
-    <ClInclude Include="ECS\ComponentLifecycleCommand.h" />
-    <ClInclude Include="ECS\Component\Active.h" />
-    <ClInclude Include="ECS\Component\Bounds.h" />
-    <ClInclude Include="ECS\Component\ComponentBase.h" />
-    <ClInclude Include="ECS\Component\InspectorDrawable.h" />
-    <ClInclude Include="ECS\Component\Lifetime.h" />
-    <ClInclude Include="ECS\Component\Spawner.h" />
-    <ClInclude Include="ECS\CompoundCommand.h" />
-    <ClInclude Include="ECS\Entity.h" />
-    <ClCompile Include="ECS\EntityRecord.cpp">
-    </ClCompile>
-    <ClCompile Include="ECS\History.cpp" />
-    <ClCompile Include="ECS\LayerCollisionMatrix.cpp" />
-    <ClCompile Include="ECS\LayerRegistry.cpp" />
-    <ClCompile Include="ECS\PayloadRegistry.cpp">
-    </ClCompile>
-    <ClCompile Include="ECS\ReflectionRegistry.cpp">
-    </ClCompile>
-    <ClCompile Include="ECS\System\LifetimeSystem.cpp" />
-    <ClCompile Include="ECS\System\MoveSystem.cpp" />
-    <ClCompile Include="ECS\System\SpawnerSystem.cpp" />
-    <ClCompile Include="ECS\System\SystemGraph.cpp" />
-    <ClCompile Include="ECS\System\SystemScheduler.cpp">
-    </ClCompile>
-    <ClCompile Include="ECS\System\SceneTransitionSystem.cpp" />
-    <ClCompile Include="ECS\System\TransformSystem.cpp">
-    </ClCompile>
-    <ClCompile Include="ECS\TagRegistry.cpp" />
-    <ClCompile Include="ECS\World.cpp">
-    </ClCompile>
-    <ClInclude Include="ECS\History.h" />
-    <ClInclude Include="ECS\LayerCollisionMatrix.h" />
-    <ClInclude Include="ECS\LayerRegistry.h" />
-    <ClInclude Include="ECS\PayloadRegistry.h" />
-    <ClInclude Include="ECS\System\LifetimeSystem.h" />
-    <ClInclude Include="ECS\System\MoveSystem.h" />
-    <ClInclude Include="ECS\System\SpawnerSystem.h" />
-    <ClInclude Include="ECS\System\SystemGraph.h" />
-    <ClInclude Include="ECS\System\TransformSystem.h" />
-    <ClInclude Include="ECS\TagRegistry.h" />
-    <ClInclude Include="ECS\World.h" />
-    <ClCompile Include="ECS\WorldSnapshot.cpp" />
     <ClCompile Include="File\FileDialog.cpp">
     </ClCompile>
     <ClCompile Include="File\FileDirectory.cpp">
@@ -120,7 +51,43 @@
     </ClCompile>
     <ClCompile Include="JobSystem\JobWorker.cpp">
     </ClCompile>
-    <ClInclude Include="ECS\WorldSnapshot.h" />
+    <ClCompile Include="Resource\Asset\Asset.cpp" />
+    <ClCompile Include="Resource\Asset\AxisConvention.cpp" />
+    <ClCompile Include="Resource\Config\BootConfig.cpp" />
+    <ClCompile Include="Resource\Config\EditorConfig.cpp" />
+    <ClCompile Include="Resource\Config\GameConfig.cpp" />
+    <ClCompile Include="Resource\Config\IconConfig.cpp" />
+    <ClCompile Include="Resource\Prefab\Prefab.cpp" />
+    <ClCompile Include="Resource\Prefab\PrefabPool.cpp" />
+    <ClCompile Include="Resource\Scene\Scene.cpp" />
+    <ClCompile Include="Resource\Scene\ScenePool.cpp" />
+    <ClCompile Include="Resource\Scene\SceneTransitionSystem.cpp" />
+    <ClCompile Include="World\Actor\Actor.cpp" />
+    <ClCompile Include="World\Actor\Blueprint.cpp" />
+    <ClCompile Include="World\Command\ActorCommand.cpp" />
+    <ClCompile Include="World\Command\ArrayFieldCommand.cpp" />
+    <ClCompile Include="World\Command\CommandBuffer.cpp" />
+    <ClCompile Include="World\Command\ComponentLifecycleCommand.cpp" />
+    <ClCompile Include="World\Command\CompoundCommand.cpp" />
+    <ClCompile Include="World\Command\History.cpp" />
+    <ClCompile Include="World\ECS\Archetype\Archetype.cpp" />
+    <ClCompile Include="World\ECS\Archetype\ArchetypeRegistry.cpp" />
+    <ClCompile Include="World\ECS\Archetype\Chunk.cpp" />
+    <ClCompile Include="World\ECS\Component\ComponentBehaviour.cpp" />
+    <ClCompile Include="World\ECS\Component\ComponentRegistry.cpp" />
+    <ClCompile Include="World\ECS\Entity\Entity.cpp" />
+    <ClCompile Include="World\ECS\Entity\EntityRecord.cpp" />
+    <ClCompile Include="World\ECS\System\LifetimeSystem.cpp" />
+    <ClCompile Include="World\ECS\System\MoveSystem.cpp" />
+    <ClCompile Include="World\ECS\System\SpawnerSystem.cpp" />
+    <ClCompile Include="World\ECS\System\SystemGraph.cpp" />
+    <ClCompile Include="World\ECS\System\SystemScheduler.cpp" />
+    <ClCompile Include="World\ECS\System\TransformSystem.cpp" />
+    <ClCompile Include="World\Layer\LayerCollisionMatrix.cpp" />
+    <ClCompile Include="World\Layer\LayerRegistry.cpp" />
+    <ClCompile Include="World\Tag\TagRegistry.cpp" />
+    <ClCompile Include="World\World.cpp" />
+    <ClCompile Include="World\WorldSnapshot.cpp" />
     <ClInclude Include="File\FileDialog.h" />
     <ClInclude Include="File\FileDirectory.h" />
     <ClInclude Include="Input\Input.h" />
@@ -141,6 +108,7 @@
     <ClCompile Include="Log\LogSystem.cpp">
     </ClCompile>
     <ClCompile Include="Math\Random\Hash.cpp" />
+    <ClCompile Include="Payload\PayloadRegistry.cpp" />
     <ClCompile Include="Plugin\PluginHost.cpp" />
     <ClCompile Include="Plugin\PluginModule.cpp" />
     <ClCompile Include="Pool\InternPool.cpp">
@@ -153,20 +121,10 @@
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">FoundationEngine/Prelude.h</PrecompiledHeaderFile>
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release|x64'">FoundationEngine/Prelude.h</PrecompiledHeaderFile>
     </ClCompile>
-    <ClCompile Include="Resource\Asset.cpp" />
-    <ClCompile Include="Resource\AxisConvention.cpp" />
-    <ClCompile Include="Resource\BootConfig.cpp" />
-    <ClCompile Include="Resource\EditorConfig.cpp" />
-    <ClCompile Include="Resource\GameConfig.cpp" />
+    <ClCompile Include="Reflection\ReflectionRegistry.cpp" />
     <ClCompile Include="Resource\Gateway.cpp" />
-    <ClCompile Include="Resource\IconConfig.cpp" />
     <ClCompile Include="Resource\LoaderSystem.cpp">
     </ClCompile>
-    <ClCompile Include="Resource\ActorSerialization.cpp" />
-    <ClCompile Include="Resource\Prefab.cpp" />
-    <ClCompile Include="Resource\PrefabPool.cpp" />
-    <ClCompile Include="Resource\Scene.cpp" />
-    <ClCompile Include="Resource\ScenePool.cpp" />
     <ClCompile Include="Resource\ResourceCache.cpp">
     </ClCompile>
     <ClCompile Include="Serialization\Binary\BinaryArchive.cpp" />
@@ -192,32 +150,69 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
+    <ClInclude Include="Resource\Asset\Asset.h" />
+    <ClInclude Include="Resource\Asset\AxisConvention.h" />
+    <ClInclude Include="Resource\Config\BootConfig.h" />
+    <ClInclude Include="Resource\Config\EditorConfig.h" />
+    <ClInclude Include="Resource\Config\GameConfig.h" />
+    <ClInclude Include="Resource\Config\IconConfig.h" />
+    <ClInclude Include="Resource\Prefab\Prefab.h" />
+    <ClInclude Include="Resource\Prefab\PrefabPool.h" />
+    <ClInclude Include="Resource\Scene\Scene.h" />
+    <ClInclude Include="Resource\Scene\ScenePool.h" />
+    <ClInclude Include="Resource\Scene\SceneTransitionSystem.h" />
+    <ClInclude Include="World\Actor\Actor.h" />
+    <ClInclude Include="World\Actor\Blueprint.h" />
+    <ClInclude Include="World\Command\ActorCommand.h" />
+    <ClInclude Include="World\Command\ArrayFieldCommand.h" />
+    <ClInclude Include="World\Command\Command.h" />
+    <ClInclude Include="World\Command\CommandBuffer.h" />
+    <ClInclude Include="World\Command\ComponentCommand.h" />
+    <ClInclude Include="World\Command\ComponentLifecycleCommand.h" />
+    <ClInclude Include="World\Command\CompoundCommand.h" />
+    <ClInclude Include="World\Command\History.h" />
+    <ClInclude Include="World\ECS\Archetype\Archetype.h" />
+    <ClInclude Include="World\ECS\Archetype\ArchetypeRegistry.h" />
+    <ClInclude Include="World\ECS\Archetype\Chunk.h" />
+    <ClInclude Include="World\ECS\Component\Active.h" />
+    <ClInclude Include="World\ECS\Component\Awakeable.h" />
+    <ClInclude Include="World\ECS\Component\Bounds.h" />
+    <ClInclude Include="World\ECS\Component\Collisionable.h" />
+    <ClInclude Include="World\ECS\Component\Component.h" />
+    <ClInclude Include="World\ECS\Component\ComponentBehaviour.h" />
+    <ClInclude Include="World\ECS\Component\ComponentConcept.h" />
+    <ClInclude Include="World\ECS\Component\ComponentRegistry.h" />
+    <ClInclude Include="World\ECS\Component\Destroyable.h" />
+    <ClInclude Include="World\ECS\Component\FixedTick.h" />
+    <ClInclude Include="World\ECS\Component\InspectorDrawable.h" />
+    <ClInclude Include="World\ECS\Component\LateTickable.h" />
+    <ClInclude Include="World\ECS\Component\Lifetime.h" />
+    <ClInclude Include="World\ECS\Component\Name.h" />
+    <ClInclude Include="World\ECS\Component\Position.h" />
+    <ClInclude Include="World\ECS\Component\Rotation.h" />
+    <ClInclude Include="World\ECS\Component\Scale.h" />
+    <ClInclude Include="World\ECS\Component\Spawner.h" />
+    <ClInclude Include="World\ECS\Component\Startable.h" />
+    <ClInclude Include="World\ECS\Component\Tickable.h" />
+    <ClInclude Include="World\ECS\Component\Triggerable.h" />
+    <ClInclude Include="World\ECS\Component\Velocity.h" />
+    <ClInclude Include="World\ECS\Entity\Entity.h" />
+    <ClInclude Include="World\ECS\Entity\EntityRecord.h" />
+    <ClInclude Include="World\ECS\Query\Query.h" />
+    <ClInclude Include="World\ECS\SparseSet\SparseSet.h" />
+    <ClInclude Include="World\ECS\System\LifetimeSystem.h" />
+    <ClInclude Include="World\ECS\System\MoveSystem.h" />
+    <ClInclude Include="World\ECS\System\SpawnerSystem.h" />
+    <ClInclude Include="World\ECS\System\SystemGraph.h" />
+    <ClInclude Include="World\ECS\System\SystemScheduler.h" />
+    <ClInclude Include="World\ECS\System\TransformSystem.h" />
+    <ClInclude Include="World\Layer\LayerCollisionMatrix.h" />
+    <ClInclude Include="World\Layer\LayerRegistry.h" />
+    <ClInclude Include="World\Tag\TagRegistry.h" />
+    <ClInclude Include="World\World.h" />
+    <ClInclude Include="World\WorldSnapshot.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="ECS\Actor.h" />
-    <ClInclude Include="ECS\ArchetypeRegistry.h" />
-    <ClInclude Include="ECS\ComponentRegistry.h" />
-    <ClInclude Include="ECS\Component\Awakeable.h" />
-    <ClInclude Include="ECS\Component\Collisionable.h" />
-    <ClInclude Include="ECS\Component\Destroyable.h" />
-    <ClInclude Include="ECS\Component\FixedTick.h" />
-    <ClInclude Include="ECS\Component\LateTickable.h" />
-    <ClInclude Include="ECS\Component\Name.h" />
-    <ClInclude Include="ECS\Component\Position.h" />
-    <ClInclude Include="ECS\Component\Rotation.h" />
-    <ClInclude Include="ECS\Component\Scale.h" />
-    <ClInclude Include="ECS\Component\Startable.h" />
-    <ClInclude Include="ECS\Component\Tickable.h" />
-    <ClInclude Include="ECS\Component\Triggerable.h" />
-    <ClInclude Include="ECS\Component\Velocity.h" />
-    <ClInclude Include="ECS\EcsConcept.h" />
-    <ClInclude Include="ECS\EcsID.h" />
-    <ClInclude Include="ECS\EntityRecord.h" />
-    <ClInclude Include="ECS\Query.h" />
-    <ClInclude Include="ECS\ReflectionRegistry.h" />
-    <ClInclude Include="ECS\SparseSet.h" />
-    <ClInclude Include="ECS\System\SystemScheduler.h" />
-    <ClInclude Include="ECS\System\SceneTransitionSystem.h" />
     <ClInclude Include="File\FileUtility.h" />
     <ClInclude Include="JobSystem\AtomicNotifier.h" />
     <ClInclude Include="JobSystem\FlowBuilder.h" />
@@ -248,26 +243,17 @@
     <ClInclude Include="Math\Ray.h" />
     <ClInclude Include="Math\Vector.h" />
     <ClInclude Include="Memory\ChunkAllocator.h" />
+    <ClInclude Include="Payload\PayloadRegistry.h" />
     <ClInclude Include="Plugin\PluginHost.h" />
     <ClInclude Include="Plugin\PluginModule.h" />
     <ClInclude Include="Pool\InternPool.h" />
     <ClInclude Include="Pool\ObjectPool.h" />
     <ClInclude Include="Pool\StablePool.h" />
     <ClInclude Include="Prelude.h" />
-    <ClInclude Include="Resource\Asset.h" />
-    <ClInclude Include="Resource\AxisConvention.h" />
-    <ClInclude Include="Resource\BootConfig.h" />
-    <ClInclude Include="Resource\EditorConfig.h" />
-    <ClInclude Include="Resource\GameConfig.h" />
+    <ClInclude Include="Reflection\ReflectionRegistry.h" />
     <ClInclude Include="Resource\Gateway.h" />
-    <ClInclude Include="Resource\IconConfig.h" />
     <ClInclude Include="Resource\LoaderSystem.h" />
-    <ClInclude Include="Resource\ActorSerialization.h" />
-    <ClInclude Include="Resource\Prefab.h" />
-    <ClInclude Include="Resource\PrefabPool.h" />
-    <ClInclude Include="Resource\Scene.h" />
     <ClInclude Include="Resource\ResourceCache.h" />
-    <ClInclude Include="Resource\ScenePool.h" />
     <ClInclude Include="SeedScript.h" />
     <ClInclude Include="Serialization\Binary\BinaryArchive.h" />
     <ClInclude Include="Serialization\Encryption\Aes256.h" />

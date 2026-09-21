@@ -1,8 +1,8 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
-#include <FoundationEngine/Resource/GameConfig.h>
-#include <FoundationEngine/Resource/EditorConfig.h>
-#include <FoundationEngine/Resource/IconConfig.h>
+#include <FoundationEngine/Resource/Config/GameConfig.h>
+#include <FoundationEngine/Resource/Config/EditorConfig.h>
+#include <FoundationEngine/Resource/Config/IconConfig.h>
 
 namespace SeedCore
 {

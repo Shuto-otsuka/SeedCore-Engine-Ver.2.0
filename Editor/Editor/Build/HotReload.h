@@ -51,14 +51,14 @@ namespace SeedCore
 		* Binds the PluginHost this class drives and caches its
 		* already-loaded UserProject plugin (nullptr if UserProject.dll was
 		* not among the loaded plugins). Call once after
-		* PluginHost::LoadAll.
+		* PluginHost::Load.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
 		* このクラスが駆動する PluginHost を束縛し、そこでロード済みの
 		* UserProject プラグインをキャッシュする（UserProject.dll が
-		* ロード済みプラグインに無ければ nullptr）。PluginHost::LoadAll の
+		* ロード済みプラグインに無ければ nullptr）。PluginHost::Load の
 		* 後に一度呼ぶこと。
 		*/
 		void Initialize(PluginHost& pluginHost);

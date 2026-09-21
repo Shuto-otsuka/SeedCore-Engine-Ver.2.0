@@ -143,12 +143,17 @@ namespace SeedCore
 		///      書き出し先ディレクトリ。初回使用時に作成する。
 		static const Char* DumpDirectory();
 
-		/// [EN] Callback trampolines matching Aftermath's C function pointer
-		///      signatures (GFSDK_Aftermath_EnableGpuCrashDumps requires
-		///      these, not member functions).
-		/// [JP] Aftermath の C 関数ポインタ型に合わせたコールバック本体
-		///      (GFSDK_Aftermath_EnableGpuCrashDumps はメンバ関数ではなく
-		///      これらを要求する)。
+		/**
+		* [EN]
+		* Static trampolines matching Aftermath's C callback signatures;
+		* GFSDK_Aftermath_EnableGpuCrashDumps cannot take member functions.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* Aftermath の C コールバックの型に合わせた static 関数。
+		* GFSDK_Aftermath_EnableGpuCrashDumps はメンバ関数を受け取れない。
+		*/
 		static void OnCrashDump(const void* gpuCrashDump, Uint32 gpuCrashDumpSize, void* userData);
 		static void OnShaderDebugInfo(const void* shaderDebugInfo, Uint32 shaderDebugInfoSize, void* userData);
 		static void OnDescription(PFN_GFSDK_Aftermath_AddGpuCrashDumpDescription addValue, void* userData);

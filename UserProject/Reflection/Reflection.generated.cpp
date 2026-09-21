@@ -1,5 +1,5 @@
 #include <FoundationEngine/Prelude.h>
-#include <FoundationEngine/ECS/ReflectionRegistry.h>
+#include <FoundationEngine/Reflection/ReflectionRegistry.h>
 
 
 namespace SeedCore

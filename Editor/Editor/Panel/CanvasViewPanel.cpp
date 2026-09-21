@@ -7,11 +7,11 @@
 #include <GraphicsEngine/Font/Text.h>
 #include <GraphicsEngine/Movie/Movie.h>
 #include <FoundationEngine/Input/InputSystem.h>
-#include <FoundationEngine/ECS/World.h>
-#include <FoundationEngine/ECS/Actor.h>
-#include <FoundationEngine/ECS/Query.h>
-#include <FoundationEngine/ECS/Component/Active.h>
-#include <FoundationEngine/ECS/Component/Bounds.h>
+#include <FoundationEngine/World/World.h>
+#include <FoundationEngine/World/Actor/Actor.h>
+#include <FoundationEngine/World/ECS/Query/Query.h>
+#include <FoundationEngine/World/ECS/Component/Active.h>
+#include <FoundationEngine/World/ECS/Component/Bounds.h>
 
 namespace SeedCore
 {
@@ -218,7 +218,7 @@ namespace SeedCore
 					Vector3 worldScale;
 					Quaternion worldRotation;
 					Vector3 worldTranslation;
-					Matrix worldMatrix = actor.GetWorldMatrix();
+					Matrix worldMatrix = actor.WorldMatrix();
 					worldMatrix.Decompose(worldScale, worldRotation, worldTranslation);
 
 					Float rotation = worldRotation.ToEuler().x;
@@ -278,7 +278,7 @@ namespace SeedCore
 					Vector3 worldScale;
 					Quaternion worldRotation;
 					Vector3 worldTranslation;
-					Matrix worldMatrix = actor.GetWorldMatrix();
+					Matrix worldMatrix = actor.WorldMatrix();
 					worldMatrix.Decompose(worldScale, worldRotation, worldTranslation);
 
 					Float centerX = 100000.0f + worldTranslation.x + bounds.center_.x * worldScale.x;
@@ -311,7 +311,7 @@ namespace SeedCore
 					Vector3 worldScale;
 					Quaternion worldRotation;
 					Vector3 worldTranslation;
-					Matrix worldMatrix = actor.GetWorldMatrix();
+					Matrix worldMatrix = actor.WorldMatrix();
 					worldMatrix.Decompose(worldScale, worldRotation, worldTranslation);
 
 					Float centerX = 100000.0f + worldTranslation.x + bounds.center_.x * worldScale.x;
@@ -362,7 +362,7 @@ namespace SeedCore
 					Vector3 worldScale;
 					Quaternion worldRotation;
 					Vector3 worldTranslation;
-					Matrix worldMatrix = actor.GetWorldMatrix();
+					Matrix worldMatrix = actor.WorldMatrix();
 					worldMatrix.Decompose(worldScale, worldRotation, worldTranslation);
 
 					Float rotation = worldRotation.ToEuler().x;
@@ -406,7 +406,7 @@ namespace SeedCore
 					Vector3 worldScale;
 					Quaternion worldRotation;
 					Vector3 worldTranslation;
-					Matrix worldMatrix = actor.GetWorldMatrix();
+					Matrix worldMatrix = actor.WorldMatrix();
 					worldMatrix.Decompose(worldScale, worldRotation, worldTranslation);
 
 					Float localX = mouseWorldX - (100000.0f + worldTranslation.x) - bounds.center_.x * worldScale.x;
@@ -437,7 +437,7 @@ namespace SeedCore
 					Vector3 worldScale;
 					Quaternion worldRotation;
 					Vector3 worldTranslation;
-					Matrix worldMatrix = actor.GetWorldMatrix();
+					Matrix worldMatrix = actor.WorldMatrix();
 					worldMatrix.Decompose(worldScale, worldRotation, worldTranslation);
 
 					Float localX = mouseWorldX - (100000.0f + worldTranslation.x) - bounds.center_.x * worldScale.x;

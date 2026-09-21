@@ -4,8 +4,8 @@
 #include <Editor/Editor/ImGui/ImGuiRenderer.h>
 #include <Editor/Editor/Panel/MaterialViewerPanel.h>
 #include <FoundationEngine/Resource/ResourceCache.h>
-#include <FoundationEngine/Resource/Prefab.h>
-#include <FoundationEngine/ECS/Actor.h>
+#include <FoundationEngine/Resource/Prefab/Prefab.h>
+#include <FoundationEngine/World/Actor/Actor.h>
 #include <GraphicsEngine/Texture/TextureResource.h>
 #include <GraphicsEngine/Texture/Texture.h>
 #include <GraphicsEngine/Model/ModelResource.h>
@@ -210,7 +210,7 @@ namespace SeedCore
 							Uint32 newAssetID = context_.worldContext_.resource_->GetAssetID(String(relative));
 							if (newAssetID != 0)
 							{
-								dropped.SetSourcePrefabAssetID(newAssetID);
+								dropped.PrefabID(newAssetID);
 							}
 						}
 					}

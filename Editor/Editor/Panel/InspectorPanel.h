@@ -1,10 +1,10 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
-#include <FoundationEngine/ECS/EcsID.h>
-#include <FoundationEngine/ECS/Entity.h>
-#include <FoundationEngine/ECS/Actor.h>
-#include <FoundationEngine/ECS/ReflectionRegistry.h>
-#include <FoundationEngine/ECS/PayloadRegistry.h>
+#include <FoundationEngine/World/ECS/Component/Component.h>
+#include <FoundationEngine/World/ECS/Entity/Entity.h>
+#include <FoundationEngine/World/Actor/Actor.h>
+#include <FoundationEngine/Reflection/ReflectionRegistry.h>
+#include <FoundationEngine/Payload/PayloadRegistry.h>
 #include <Editor/Editor/Panel/AddComponentPanel.h>
 
 namespace SeedCore

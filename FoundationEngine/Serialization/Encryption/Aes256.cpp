@@ -6,11 +6,8 @@ namespace SeedCore
 {
 	namespace
 	{
-		/// [EN] Rijndael's fixed S-box: the multiplicative inverse over
-		///      GF(2^8) followed by a fixed affine transform, used by
-		///      SubBytes/ExpandKey.
-		/// [JP] Rijndael固定のS-box: GF(2^8)上の乗法逆元に固定のアフィン
-		///      変換を施したもの。SubBytes/ExpandKeyで使う。
+		/// [EN] Rijndael's fixed S-box (GF(2^8) multiplicative inverse followed by an affine transform), used by SubBytes and ExpandKey.
+		/// [JP] Rijndael の固定 S-box(GF(2^8) の乗法逆元にアフィン変換を施したもの)。SubBytes と ExpandKey で使う。
 		constexpr Uint8 sbox[256] =
 		{
 			0x63,0x7c,0x77,0x7b,0xf2,0x6b,0x6f,0xc5,0x30,0x01,0x67,0x2b,0xfe,0xd7,0xab,0x76,
@@ -53,12 +50,8 @@ namespace SeedCore
 			0x17,0x2b,0x04,0x7e,0xba,0x77,0xd6,0x26,0xe1,0x69,0x14,0x63,0x55,0x21,0x0c,0x7d,
 		};
 
-		/// [EN] Round constants for ExpandKey's key schedule (rcon[0] is
-		///      unused padding; only indices 1..7 are needed since AES-256's
-		///      60-word schedule only crosses an 8-word boundary 7 times).
-		/// [JP] ExpandKeyの鍵スケジュール用ラウンド定数(rcon[0]は未使用の
-		///      パディング。AES-256の60ワードのスケジュールは8ワード境界を
-		///      7回しか跨がないため、インデックス1..7しか使わない)。
+		/// [EN] Round constants for ExpandKey; rcon[0] is padding, and only 1..7 are used since AES-256's 60-word schedule crosses an 8-word boundary 7 times.
+		/// [JP] ExpandKey のラウンド定数。rcon[0] は詰め物で、AES-256 の60ワードの鍵スケジュールは8ワード境界を7回しか跨がないので1..7だけ使う。
 		constexpr Uint8 rcon[8] = { 0x00,0x01,0x02,0x04,0x08,0x10,0x20,0x40 };
 	}
 
@@ -90,18 +83,10 @@ namespace SeedCore
 			}
 		}
 
-		/// [EN] Words 8..59: each new word XORs the word 8 back with a
-		///      transform of the previous word. Every 8th word (wordIndex%8
-		///      ==0) gets RotWord+SubWord+Rcon; AES-256's extra step (absent
-		///      in AES-128) is that the word 4 positions later also gets a
-		///      lone SubWord, since Nk=8 means SubWord alone is needed midway
-		///      through each 8-word group to keep diffusion strong.
-		/// [JP] ワード8..59: 新しい各ワードは、8つ前のワードと直前のワードの
-		///      変換結果をXORして作る。8ワードごと(wordIndex%8==0)には
-		///      RotWord+SubWord+Rconを適用。AES-256特有の追加ステップ
-		///      (AES-128にはない)として、その4ワード後にも単独のSubWordが
-		///      入る - Nk=8では各8ワードグループの中間でもSubWordだけを
-		///      挟まないと拡散が弱くなるため。
+		/// [EN] Words 8..59 XOR the word 8 back with a transform of the previous word: RotWord+SubWord+Rcon every 8th word,
+		///      plus, in AES-256 only, a lone SubWord 4 words later to keep diffusion strong with Nk=8.
+		/// [JP] ワード8..59は、8つ前のワードと直前のワードの変換結果の XOR。8ワードごとに RotWord+SubWord+Rcon を施し、
+		///      AES-256 だけはその4ワード後にも SubWord を挟む(Nk=8 で拡散を保つため)。
 		Uint8 rconIndex = 1;
 		for (Uint32 wordIndex = 8; wordIndex < 60; ++wordIndex)
 		{
@@ -110,12 +95,8 @@ namespace SeedCore
 
 			if (wordIndex % 8 == 0)
 			{
-				/// [EN] RotWord (rotate left by one byte) fused with SubWord
-				///      (S-box each byte), then XOR the round constant into
-				///      the first byte only.
-				/// [JP] RotWord(1バイト左ローテート)とSubWord(各バイトに
-				///      S-boxを適用)を同時に行い、最初のバイトにだけラウンド
-				///      定数をXORする。
+				/// [EN] RotWord (rotate left one byte) fused with SubWord (S-box per byte), then the round constant is XORed into the first byte only.
+				/// [JP] RotWord(1バイト左回転)と SubWord(各バイトに S-box)をまとめて行い、ラウンド定数は先頭バイトにだけ XOR する。
 				Uint8 rotated0 = sbox[temp[1]];
 				Uint8 rotated1 = sbox[temp[2]];
 				Uint8 rotated2 = sbox[temp[3]];
@@ -140,12 +121,8 @@ namespace SeedCore
 			}
 		}
 
-		/// [EN] Regroups the 60 key-schedule words into 15 round keys of 16
-		///      bytes each (4 words per round key), in the same column-major
-		///      byte layout EncryptBlock/DecryptBlock use for their state.
-		/// [JP] 60個の鍵スケジュールワードを、EncryptBlock/DecryptBlockの
-		///      state と同じ列優先のバイト配置で、各16バイトの15ラウンド鍵
-		///      (1ラウンド鍵あたり4ワード)へ再編成する。
+		/// [EN] Regroup the 60 schedule words into 15 round keys of 16 bytes, in the same column-major layout as the EncryptBlock/DecryptBlock state.
+		/// [JP] 60ワードの鍵スケジュールを、EncryptBlock/DecryptBlock の state と同じ列優先の並びで、16バイトのラウンド鍵15個にまとめ直す。
 		for (Uint32 roundIndex = 0; roundIndex < 15; ++roundIndex)
 		{
 			for (Uint32 columnIndex = 0; columnIndex < 4; ++columnIndex)
@@ -211,14 +188,10 @@ namespace SeedCore
 				}
 			}
 
-			/// [EN] MixColumns: each column is multiplied by the fixed GF(2^8)
-			///      matrix [[2,3,1,1],[1,2,3,1],[1,1,2,3],[3,1,1,2]]. d0..d3
-			///      are each byte doubled in GF(2^8) (xtime); multiplying by
-			///      3 is xtime(x)^x, so no general multiply routine is needed.
-			/// [JP] MixColumns: 各列を固定のGF(2^8)行列
-			///      [[2,3,1,1],[1,2,3,1],[1,1,2,3],[3,1,1,2]]で乗算する。
-			///      d0..d3は各バイトをGF(2^8)で2倍(xtime)した値 - 3倍は
-			///      xtime(x)^xで表せるため、汎用の乗算処理は不要。
+			/// [EN] MixColumns: each column times the GF(2^8) matrix [[2,3,1,1],[1,2,3,1],[1,1,2,3],[3,1,1,2]];
+			///      d0..d3 are the bytes doubled (xtime), and x3 is xtime(x)^x, so no general multiply is needed.
+			/// [JP] MixColumns: 各列に GF(2^8) の行列 [[2,3,1,1],[1,2,3,1],[1,1,2,3],[3,1,1,2]] を掛ける。
+			///      d0..d3 は各バイトの2倍(xtime)で、3倍は xtime(x)^x で表せるので汎用の乗算は要らない。
 			for (Uint32 columnIndex = 0; columnIndex < 4; ++columnIndex)
 			{
 				Uint8 a0 = state[4 * columnIndex + 0];
@@ -331,19 +304,10 @@ namespace SeedCore
 				state[byteIndex] = static_cast<Uint8>(state[byteIndex] ^ roundKeys[roundIndex][byteIndex]);
 			}
 
-			/// [EN] InvMixColumns: each column is multiplied by the inverse
-			///      GF(2^8) matrix [[14,11,13,9],[9,14,11,13],[13,9,14,11],
-			///      [11,13,9,14]]. Since 9/11/13/14 are all sums of powers of
-			///      two (8+1, 8+2+1, 8+4+1, 8+4+2), each is built from three
-			///      successive GF(2^8) doublings (aXd1/aXd2/aXd3 = *2/*4/*8)
-			///      XORed together per the binary decomposition of the
-			///      multiplier, rather than a general multiply routine.
-			/// [JP] InvMixColumns: 各列を逆行列GF(2^8)
-			///      [[14,11,13,9],[9,14,11,13],[13,9,14,11],[11,13,9,14]]で
-			///      乗算する。9/11/13/14はいずれも2の累乗の和(8+1, 8+2+1,
-			///      8+4+1, 8+4+2)で表せるため、汎用の乗算処理ではなく、
-			///      3回連続のGF(2^8)倍算(aXd1/aXd2/aXd3 = *2/*4/*8)を
-			///      乗数の2進分解通りにXORして組み立てている。
+			/// [EN] InvMixColumns: each column times the inverse matrix [[14,11,13,9],[9,14,11,13],[13,9,14,11],[11,13,9,14]];
+			///      9/11/13/14 are sums of x2/x4/x8 (aXd1/aXd2/aXd3), XORed per the multiplier's bits instead of a general multiply.
+			/// [JP] InvMixColumns: 各列に逆行列 [[14,11,13,9],[9,14,11,13],[13,9,14,11],[11,13,9,14]] を掛ける。
+			///      9/11/13/14 は 2倍/4倍/8倍(aXd1/aXd2/aXd3)の和なので、汎用の乗算ではなく乗数のビットに従って XOR で組み立てる。
 			for (Uint32 columnIndex = 0; columnIndex < 4; ++columnIndex)
 			{
 				Uint8 a0 = state[4 * columnIndex + 0];
@@ -374,12 +338,8 @@ namespace SeedCore
 			}
 		}
 
-		/// [EN] Final round (round 0's key): InvShiftRows + InvSubBytes +
-		///      AddRoundKey, with no InvMixColumns - the mirror image of
-		///      EncryptBlock's initial round.
-		/// [JP] 最終ラウンド(ラウンド0の鍵): InvShiftRows + InvSubBytes +
-		///      AddRoundKeyのみで、InvMixColumnsは行わない -
-		///      EncryptBlockの最初のラウンドと対になる構造。
+		/// [EN] Final round with round 0's key: InvShiftRows + InvSubBytes + AddRoundKey, without InvMixColumns, mirroring EncryptBlock's first round.
+		/// [JP] ラウンド0の鍵による最終ラウンド。InvShiftRows + InvSubBytes + AddRoundKey のみで InvMixColumns は無く、EncryptBlock の最初のラウンドと対になる。
 		Uint8 shifted[16];
 		std::memcpy(shifted, state, 16);
 		for (Uint32 rowIndex = 0; rowIndex < 4; ++rowIndex)
@@ -423,16 +383,10 @@ namespace SeedCore
 	*/
 	DynamicArray<Byte> Aes256::Encrypt(const DynamicArray<Byte>& key, const DynamicArray<Byte>& iv, const DynamicArray<Byte>& plaintext)
 	{
-		/// [EN] PKCS7: pad with N bytes each holding the value N, where N is
-		///      chosen so the total becomes a multiple of 16 (1..16, never 0
-		///      - hence the "+1" instead of rounding down when already
-		///      block-sized). Padding happens once here regardless of which
-		///      path (software/hardware) does the actual block cipher below.
-		/// [JP] PKCS7: 全体が16の倍数になるよう、値Nを持つバイトをN個
-		///      (1..16、0にはならない - すでにブロックサイズの倍数でも
-		///      切り捨てず"+1"する理由)追加する。パディングは、この後どちらの
-		///      経路(ソフトウェア/ハードウェア)が実際のブロック暗号を行うかに
-		///      関わらず、ここで一度だけ行う。
+		/// [EN] PKCS7: append N bytes of value N so the size becomes a multiple of 16; N is 1..16, never 0, hence the "+1" even when already aligned.
+		///      Padding happens once here, whichever path (software/hardware) encrypts below.
+		/// [JP] PKCS7: 値 N のバイトを N 個足して16の倍数にする。N は1..16で0にならないので、既に揃っていても "+1" する。
+		///      下でソフトウェアとハードウェアのどちらが暗号化しても、パディングはここで一度だけ行う。
 		Size paddedSize = (plaintext.size() / 16 + 1) * 16;
 		Uint8 padValue = static_cast<Uint8>(paddedSize - plaintext.size());
 
@@ -466,11 +420,8 @@ namespace SeedCore
 		Uint8 roundKeys[15][16];
 		ExpandKey(key.data(), roundKeys);
 
-		/// [EN] CBC chaining: each block is XORed with the previous
-		///      ciphertext block (the IV for the first block) before being
-		///      AES-encrypted.
-		/// [JP] CBC連鎖: 各ブロックは、AES暗号化する前に直前の暗号文ブロック
-		///      (最初のブロックはIV)とXORされる。
+		/// [EN] CBC chaining: each block is XORed with the previous ciphertext block (the IV for the first) before AES encryption.
+		/// [JP] CBC 連鎖: 各ブロックは AES で暗号化する前に、直前の暗号文ブロック(最初は IV)と XOR する。
 		DynamicArray<Byte> ciphertext(paddedPlaintext.size());
 		Byte previousBlock[16];
 		std::memcpy(previousBlock, iv.data(), 16);
@@ -573,14 +524,8 @@ namespace SeedCore
 			return {};
 		}
 
-		/// [EN] Validate the PKCS7 padding before trusting it: the last byte
-		///      must be in [1,16] and no larger than the whole plaintext -
-		///      anything else means the key/iv was wrong or the data is
-		///      corrupted, not a real padding value.
-		/// [JP] 信用する前にPKCS7パディングを検証する: 最後のバイトは
-		///      [1,16]の範囲かつplaintext全体のサイズ以下でなければならない
-		///      - それ以外は鍵/IVが違うかデータが破損しているだけで、
-		///      本物のパディング値ではない。
+		/// [EN] Validate the padding first: the last byte must be 1..16 and not exceed the plaintext size; anything else means a wrong key/IV or corrupted data.
+		/// [JP] 先にパディングを検証する。最後のバイトは1..16かつ平文のサイズ以下でなければならず、それ以外は鍵/IV の誤りかデータの破損。
 		Uint8 padValue = static_cast<Uint8>(plaintext.back());
 		if (padValue == 0 || padValue > 16 || static_cast<Size>(padValue) > plaintext.size())
 		{
@@ -636,17 +581,10 @@ namespace SeedCore
 		Uint8 roundKeys[15][16];
 		ExpandKey(key.data(), roundKeys);
 
-		/// [EN] CBC decrypt only needs the previous ciphertext block (not the
-		///      previous plaintext) to XOR against each decrypted block, so
-		///      any block range can be decrypted independently as long as
-		///      the caller supplies the correct chain-input block as iv -
-		///      the true stream IV for the first block, or the raw
-		///      ciphertext bytes immediately preceding the range otherwise.
-		/// [JP] CBC復号は各復号ブロックとXORする直前の暗号文ブロック(直前の
-		///      平文ではない)さえあれば成立するため、呼び出し側が正しい
-		///      連鎖入力ブロックをivとして渡す限り、任意のブロック範囲を
-		///      独立に復号できる - 最初のブロックならストリーム本来のIV、
-		///      それ以外ならその範囲の直前にある生の暗号文バイト。
+		/// [EN] CBC decryption only needs the previous ciphertext block, so any block range decrypts independently given the right iv:
+		///      the stream IV for the first block, otherwise the ciphertext block just before the range.
+		/// [JP] CBC の復号には直前の暗号文ブロックしか要らないので、正しい iv を渡せば任意のブロック範囲を単独で復号できる。
+		///      iv は、先頭ブロックならストリームの IV、それ以外なら範囲の直前の暗号文ブロック。
 		DynamicArray<Byte> plaintext(ciphertext.size());
 		Byte previousBlock[16];
 		std::memcpy(previousBlock, iv.data(), 16);

@@ -3,7 +3,7 @@
 #include <AudioEngine/Audio/AudioListener.h>
 #include <AudioEngine/Audio/AudioResource.h>
 #include <AudioEngine/Audio/Sound.h>
-#include <FoundationEngine/ECS/World.h>
+#include <FoundationEngine/World/World.h>
 #include <FoundationEngine/Resource/ResourceCache.h>
 #include <FoundationEngine/Resource/LoaderSystem.h>
 
@@ -80,7 +80,7 @@ namespace SeedCore
 		for (EntityID id : world.GetComponents<AudioListener>())
 		{
 			Actor actor = world.GetActor(id);
-			if (!actor || !actor.GetActive())
+			if (!actor || !actor.Active())
 			{
 				continue;
 			}
@@ -110,7 +110,7 @@ namespace SeedCore
 				continue;
 			}
 
-			if (!actor.GetActive())
+			if (!actor.Active())
 			{
 				if (audioSource->Playing())
 				{

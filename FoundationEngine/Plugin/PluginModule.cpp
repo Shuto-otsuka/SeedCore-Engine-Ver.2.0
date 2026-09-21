@@ -1,11 +1,11 @@
 #include <FoundationEngine/Plugin/PluginModule.h>
 #include <FoundationEngine/Log/Warning.h>
 #include <FoundationEngine/Log/Notice.h>
-#include <FoundationEngine/ECS/Actor.h>
-#include <FoundationEngine/ECS/World.h>
-#include <FoundationEngine/ECS/ComponentRegistry.h>
-#include <FoundationEngine/ECS/ReflectionRegistry.h>
-#include <FoundationEngine/ECS/PayloadRegistry.h>
+#include <FoundationEngine/World/Actor/Actor.h>
+#include <FoundationEngine/World/World.h>
+#include <FoundationEngine/World/ECS/Component/ComponentRegistry.h>
+#include <FoundationEngine/Reflection/ReflectionRegistry.h>
+#include <FoundationEngine/Payload/PayloadRegistry.h>
 #include <Windows.h>
 #include <psapi.h>
 
@@ -388,14 +388,14 @@ namespace SeedCore
 		for (Actor actor : world.GetActors())
 		{
 			DynamicArray<ComponentID> ownedIDs;
-			std::ranges::copy_if(actor.ComponentBaseIDList(), std::back_inserter(ownedIDs), isOwnedByLoadedModule);
+			std::ranges::copy_if(actor.ComponentIDList(), std::back_inserter(ownedIDs), isOwnedByLoadedModule);
 
 			for (ComponentID id : ownedIDs)
 			{
 				void* data = world.GetComponent(actor.GetEntity(), id);
 				if (data)
 				{
-					String name = ComponentRegistry::GetName(id);
+					String name = ComponentRegistry::Name(id);
 					capturedComponents_.emplace_back(actor, CaptureComponent(name, data));
 				}
 
@@ -406,7 +406,7 @@ namespace SeedCore
 		/// [EN] Collected during a read-only pass over GetRegistry() and unregistered afterwards - ComponentRegistry::Unregister() erases from the very map GetRegistry() returns a reference to, so mutating it mid-iteration would be unsafe.
 		/// [JP] GetRegistry() を読み取り専用で走査する間に集めておき、走査後にまとめて登録解除する - ComponentRegistry::Unregister() は GetRegistry() が参照を返しているまさにそのマップから削除するため、走査中に変更するのは安全ではない。
 		DynamicArray<ComponentID> ownedComponentIDs;
-		for (const auto& [id, metadata] : ComponentRegistry::GetRegistry())
+		for (const auto& [id, metadata] : ComponentRegistry::Registry())
 		{
 			if (!isOwnedByLoadedModule(id))
 			{

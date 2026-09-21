@@ -5,8 +5,8 @@
 #include <GraphicsEngine/Camera/EditorCamera.h>
 #include <GraphicsEngine/Camera/EditorCameraController.h>
 #include <FoundationEngine/Input/InputSystem.h>
-#include <FoundationEngine/ECS/World.h>
-#include <FoundationEngine/ECS/Actor.h>
+#include <FoundationEngine/World/World.h>
+#include <FoundationEngine/World/Actor/Actor.h>
 
 namespace SeedCore
 {

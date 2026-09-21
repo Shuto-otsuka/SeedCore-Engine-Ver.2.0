@@ -43,12 +43,8 @@ namespace SeedCore
 	*/
 	ResourceCache::~ResourceCache()
 	{
-		/// [EN] Waits (via ~JobExecutor) for any outstanding StepAsync() job to
-		///      finish before touching a single resource manager, so it's
-		///      always safe to destroy this cache mid-load.
-		/// [JP] 1つでもリソースマネージャに触れる前に、未完了の StepAsync()
-		///      ジョブが終わるのを（~JobExecutor 経由で）待つ。これにより、
-		///      読み込み中にこのキャッシュを破棄しても常に安全になる。
+		/// [EN] Destroying the executor first waits (in ~JobExecutor) for any running StepAsync() job, so the cache can be destroyed mid-load.
+		/// [JP] 先に実行器を破棄し、動いている StepAsync() のジョブの終了を(~JobExecutor で)待つ。これで読み込み中でもキャッシュを破棄できる。
 		loadExecutor_ = nullptr;
 
 		Unload(loader_, heap_);
@@ -142,14 +138,10 @@ namespace SeedCore
 		AssetRecord* asset = GetAsset(assetID);
 		if (asset && !asset->isLoaded_)
 		{
-			/// [EN] Dispatch to the resource manager matching this asset's type; some types (Prefab/Scene) have no per-frame Step loader and are handled elsewhere.
-			///      Texture/Model/Skymap submit to the shared Direct queue - this runs on StepAsync's background worker thread while the main thread may
-			///      be submitting to the same queue at the same time (Graphics::Begin/End/Resize); each Load() call locks D3D12CommandQueue::AcquireLock()
-			///      internally, narrowly around the actual ExecuteCommandLists/Signal, not around this whole dispatch.
-			/// [JP] このアセットの種別に対応するリソースマネージャへディスパッチする。一部の種別（Prefab/Scene）はフレームごとの Step ローダーを持たず、
-			///      別の場所で処理される。Texture/Model/Skymap は共有の Direct キューへ提出する - これは StepAsync のバックグラウンドワーカースレッド上で
-			///      走り、メインスレッドが同時に同じキューへ提出しうる(Graphics::Begin/End/Resize)。各 Load() 内部で
-			///      D3D12CommandQueue::AcquireLock() を、このディスパッチ全体ではなく実際の ExecuteCommandLists/Signal の瞬間だけ狭くロックする。
+			/// [EN] Dispatch to the manager for this asset type (Prefab/Scene have no Step loader). This runs on StepAsync's worker while the main thread may use the same Direct queue,
+			///      so each Load() locks D3D12CommandQueue::AcquireLock() only around ExecuteCommandLists/Signal.
+			/// [JP] アセット種別に対応する管理クラスへ渡す(Prefab/Scene は Step の読み込みを持たない)。これは StepAsync のワーカーで動き、メインスレッドも同じ Direct キューを使うので、
+			///      各 Load() は ExecuteCommandLists/Signal の間だけ D3D12CommandQueue::AcquireLock() でロックする。
 			Asset* resource = GetResource(asset->type_);
 			if (resource)
 			{
@@ -190,14 +182,8 @@ namespace SeedCore
 			loadExecutor_ = MakePtr<JobExecutor>(1);
 		}
 
-		/// [EN] loadTaskflow_ is a member (see its header doc comment for why)
-		///      - Clear() it first since a rescan (Unload() resetting
-		///      loadStarted_) could otherwise re-run this on a taskflow that
-		///      still has the previous pass's already-finished task in it.
-		/// [JP] loadTaskflow_ はメンバー（理由はヘッダのドキュメントコメント
-		///      参照）- 再スキャン(Unload() が loadStarted_ をリセットした場合)
-		///      で、前回パスの完了済みタスクが残ったままの taskflow に対して
-		///      これを再実行してしまわないよう、先に Clear() する。
+		/// [EN] Clear the member taskflow first, since a rescan (Unload() resetting loadStarted_) would otherwise re-run it with the previous pass's finished task still inside.
+		/// [JP] 先にメンバーの taskflow を空にする。再スキャン(Unload() が loadStarted_ を戻した場合)で、前回の完了済みタスクが残ったまま再実行しないため。
 		loadTaskflow_.Clear();
 		loadTaskflow_.emplace([this, &loader, device, cmdQueue, heap, &bc7Shader]()
 		{
@@ -207,12 +193,8 @@ namespace SeedCore
 			}
 		});
 
-		/// [EN] Passed by lvalue reference (not moved) since loadExecutor_'s
-		///      JobTopology only stores a reference to this taskflow, which
-		///      must stay alive as long as loadTaskflow_ - a member - already does.
-		/// [JP] （ムーブではなく）左辺値参照で渡す - loadExecutor_ の
-		///      JobTopology はこの taskflow への参照しか持たないため、
-		///      メンバーである loadTaskflow_ と同じだけ生存させる必要がある。
+		/// [EN] Passed by reference, not moved: the JobTopology only keeps a reference to the taskflow, which the member loadTaskflow_ keeps alive.
+		/// [JP] ムーブせず参照で渡す。JobTopology は taskflow への参照しか持たず、その寿命はメンバーの loadTaskflow_ が保つ。
 		loadExecutor_->Run(loadTaskflow_);
 	}
 
@@ -906,12 +888,8 @@ namespace SeedCore
 				metaPath += ".meta";
 				if (std::filesystem::exists(metaPath))
 				{
-					/// [EN] A .meta file already sits next to this asset: read its GUID directly.
-					///      Rewrite the file if it couldn't be read and a fresh GUID had to
-					///      be minted, so the repair doesn't repeat next scan.
-					/// [JP] このアセットの隣に既に .meta ファイルが存在する: その GUID を直接読み取る。
-					///      読み込みに失敗し新規 GUID の発行が必要だった場合はファイルを
-					///      書き直し、次回スキャンで同じ修復を繰り返さないようにする。
+					/// [EN] A .meta already exists: read its GUID; if that fails and a new GUID is minted, rewrite the file so the next scan does not repeat the repair.
+					/// [JP] .meta が既にあるのでその GUID を読む。読めずに新しい GUID を発行した場合は、次のスキャンで同じ修復を繰り返さないよう書き直す。
 					BinaryInputArchive inputArchive;
 					if (inputArchive.Read(String(metaPath.string())))
 					{

@@ -1,0 +1,81 @@
+#include <FoundationEngine/Resource/Asset/AxisConvention.h>
+
+namespace SeedCore
+{
+	namespace
+	{
+		Vector3 SignedAxisToVector(SignedAxis axis)
+		{
+			switch (axis)
+			{
+			case SignedAxis::PositiveX:
+				return Vector3(1.0f, 0.0f, 0.0f);
+			case SignedAxis::NegativeX:
+				return Vector3(-1.0f, 0.0f, 0.0f);
+			case SignedAxis::PositiveY:
+				return Vector3(0.0f, 1.0f, 0.0f);
+			case SignedAxis::NegativeY:
+				return Vector3(0.0f, -1.0f, 0.0f);
+			case SignedAxis::PositiveZ:
+				return Vector3(0.0f, 0.0f, 1.0f);
+			case SignedAxis::NegativeZ:
+			default:
+				return Vector3(0.0f, 0.0f, -1.0f);
+			}
+		}
+
+		/// [EN] Two picks are collinear (invalid combination) when they name the same underlying axis, regardless of sign.
+		/// [JP] 符号に関わらず同じ軸を指している場合、2つの選択は共線（無効な組み合わせ）とみなす。
+		Bool Collinear(const Vector3& a, const Vector3& b)
+		{
+			return (a == b) || (a == -b);
+		}
+	}
+
+	ResolvedAxisConvention ResolvedAxisConvention::Resolve(const AxisConvention& convention)
+	{
+		Vector3 up = SignedAxisToVector(convention.up_);
+		Vector3 right = SignedAxisToVector(convention.right_);
+		Vector3 forward = SignedAxisToVector(convention.forward_);
+
+		ResolvedAxisConvention resolved{};
+		resolved.valid_ = !Collinear(up, right) && !Collinear(up, forward) && !Collinear(right, forward);
+		if (!resolved.valid_)
+		{
+			return resolved;
+		}
+
+		/// [EN] Row-vector basis like the rest of the engine's Matrix use: row 0 Right, 1 Up, 2 Forward, 3 zero translation; v' = Vector3::Transform(v, basis_).
+		/// [JP] エンジンの他の Matrix と同じ行ベクトルの基底。行0が Right、1が Up、2が Forward、3は平行移動無し。v' = Vector3::Transform(v, basis_)。
+		resolved.basis_ = Matrix::Identity;
+		resolved.basis_._11 = right.x; 
+		resolved.basis_._12 = right.y; 
+		resolved.basis_._13 = right.z;
+		resolved.basis_._21 = up.x;   
+		resolved.basis_._22 = up.y;    
+		resolved.basis_._23 = up.z;
+		resolved.basis_._31 = forward.x;
+		resolved.basis_._32 = forward.y; 
+		resolved.basis_._33 = forward.z;
+
+		Float determinant = resolved.basis_.Determinant();
+		resolved.isMirror_ = (determinant < 0.0f);
+		resolved.isRightHanded_ = resolved.isMirror_;
+
+		switch (convention.windingOverride_)
+		{
+		case WindingOverride::AsIs:
+			resolved.flipWinding_ = false;
+			break;
+		case WindingOverride::Flip:
+			resolved.flipWinding_ = true;
+			break;
+		case WindingOverride::Auto:
+		default:
+			resolved.flipWinding_ = false;
+			break;
+		}
+
+		return resolved;
+	}
+}

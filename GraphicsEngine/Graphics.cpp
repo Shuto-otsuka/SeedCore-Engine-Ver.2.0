@@ -1,7 +1,7 @@
 #include <GraphicsEngine/Graphics.h>
 #include <FoundationEngine/Resource/Gateway.h>
 #include <FoundationEngine/Resource/ResourceCache.h>
-#include <FoundationEngine/Resource/Scene.h>
+#include <FoundationEngine/Resource/Scene/Scene.h>
 #include <GraphicsEngine/D3D12/Context/D3D12CommandQueue.h>
 #include <GraphicsEngine/D3D12/Context/D3D12CommandList.h>
 #include <GraphicsEngine/D3D12/Context/D3D12DebugLayer.h>

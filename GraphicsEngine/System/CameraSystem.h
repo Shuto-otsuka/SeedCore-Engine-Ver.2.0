@@ -1,7 +1,7 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
 #include <FoundationEngine/Math/Halton.h>
-#include <FoundationEngine/ECS/Entity.h>
+#include <FoundationEngine/World/ECS/Entity/Entity.h>
 #include <GraphicsEngine/System/SceneSystem.h>
 #include <GraphicsEngine/Camera/EditorCamera.h>
 #include <GraphicsEngine/Camera/EditorCameraController.h>

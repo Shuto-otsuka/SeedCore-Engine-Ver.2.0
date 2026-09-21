@@ -192,12 +192,8 @@ namespace SeedCore
 				}
 				else
 				{
-					/// [EN] Walk every node, not just the head: the list holds one
-					///      node per command list, and the one that hung is the
-					///      node whose completed count never reached its total.
-					/// [JP] 先頭だけでなく全ノードを辿る: リストはコマンドリスト
-					///      ごとに1ノードを持ち、ハングしたのは完了数が総数へ
-					///      到達しなかったノード。
+					/// [EN] Walk every node, not just the head: there is one node per command list, and the hung one is where the completed count never reached the total.
+					/// [JP] 先頭だけでなく全ノードを辿る。ノードはコマンドリストごとに1つあり、ハングしたのは完了数が総数に届かなかったノード。
 					Uint32 nodeCount = 0;
 					Uint32 incompleteCount = 0;
 					for (const D3D12_AUTO_BREADCRUMB_NODE1* node = breadcrumbs.pHeadAutoBreadcrumbNode; node != nullptr; node = node->pNext)
@@ -247,14 +243,8 @@ namespace SeedCore
 			}
 		}
 
-		/// [EN] Aftermath's report blocks for up to a few seconds while the
-		///      NVIDIA driver thread finishes writing the crash dump - do
-		///      this last, right before the message box, so the DRED report
-		///      above is not delayed by it.
-		/// [JP] Aftermath のレポートは、NVIDIA ドライバスレッドがクラッシュ
-		///      ダンプの書き込みを終えるまで最大数秒ブロックする - 上の DRED
-		///      レポートがそれで遅延しないよう、メッセージボックス直前の
-		///      最後に行う。
+		/// [EN] Aftermath's report can block for seconds while the driver finishes the dump, so it goes last to keep the DRED report above from being delayed.
+		/// [JP] Aftermath のレポートはドライバがダンプを書き終えるまで数秒止まることがあるので、上の DRED レポートを遅らせないよう最後に行う。
 		output += AftermathCrashTracker::Report().str();
 
 		std::wstring wideOutput = ConvertToWideString(output);

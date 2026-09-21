@@ -638,14 +638,10 @@ namespace SeedCore
 		/// [JP] 直近に完了したフレーム中に累積されたマウスホイールのデルタ（MouseWheelDelta() が返す値）。
 		static Float mouseWheelDeltaFrame_;
 
-		/// [EN] While the right mouse button is held (camera-look drag), the
-		///      cursor is warped back to mouseCaptureAnchor every frame so it
-		///      can never reach a monitor edge (see Input::Update). mouseCaptureReturn
-		///      is where the cursor was when the drag started, restored on release.
-		/// [JP] 右クリック押下中（カメラ視点ドラッグ）は、カーソルを毎フレーム
-		///      mouseCaptureAnchor へ戻すことでモニタ端に到達しないようにする
-		///      (Input::Update 参照)。mouseCaptureReturn はドラッグ開始時の
-		///      カーソル位置で、離した時にそこへ復帰する。
+		/// [EN] During a right-drag camera look the cursor is warped to mouseCaptureAnchor every frame so it never hits a monitor edge (see Input::Update).
+		///      mouseCaptureReturn is where the drag started; the cursor goes back there on release.
+		/// [JP] 右ドラッグでカメラを回す間は、カーソルを毎フレーム mouseCaptureAnchor へ戻してモニタ端に届かないようにする(Input::Update 参照)。
+		///      mouseCaptureReturn はドラッグ開始位置で、離したときにそこへ戻す。
 		static Bool mouseCaptured_;
 		static Float mouseCaptureAnchorX_;
 		static Float mouseCaptureAnchorY_;

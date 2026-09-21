@@ -1,9 +1,9 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
-#include <FoundationEngine/ECS/Entity.h>
-#include <FoundationEngine/ECS/Actor.h>
-#include <FoundationEngine/ECS/History.h>
-#include <FoundationEngine/Resource/Scene.h>
+#include <FoundationEngine/World/ECS/Entity/Entity.h>
+#include <FoundationEngine/World/Actor/Actor.h>
+#include <FoundationEngine/World/Command/History.h>
+#include <FoundationEngine/Resource/Scene/Scene.h>
 #include <Editor/Editor/GizmoContext.h>
 #include <GraphicsEngine/Renderer/ViewMode.h>
 #include <GraphicsEngine/Raytracing/RaytracingContext.h>

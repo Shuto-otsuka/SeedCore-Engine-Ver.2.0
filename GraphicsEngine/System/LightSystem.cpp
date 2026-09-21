@@ -14,8 +14,8 @@
 #include <GraphicsEngine/Model/ModelResource.h>
 #include <GraphicsEngine/Model/Crister.h>
 #include <GraphicsEngine/Model/Mesh.h>
-#include <FoundationEngine/ECS/Query.h>
-#include <FoundationEngine/ECS/Component/Active.h>
+#include <FoundationEngine/World/ECS/Query/Query.h>
+#include <FoundationEngine/World/ECS/Component/Active.h>
 #include <FoundationEngine/Log/DxFail.h>
 
 namespace SeedCore
@@ -226,7 +226,7 @@ namespace SeedCore
 		Bool hasDirectional = false;
 
 		/// [EN] All four queries below read the parent-composed world
-		///      transform from TransformSystem (Actor::GetWorldMatrix()),
+		///      transform from TransformSystem (Actor::WorldMatrix()),
 		///      same as ModelRenderer/TextureRenderer/FontRenderer,
 		///      instead of the actor's own local
 		///      Position/direction fields - so parented lights (position,
@@ -235,7 +235,7 @@ namespace SeedCore
 		///      vector by the world matrix without translation.
 		/// [JP] 以下の4クエリはすべて、アクター自身のローカル
 		///      Position/方向フィールドではなく、TransformSystem
-		///      (Actor::GetWorldMatrix())が計算した親合成済みのワールド変換を
+		///      (Actor::WorldMatrix())が計算した親合成済みのワールド変換を
 		///      読む（ModelRenderer/TextureRenderer/FontRenderer と同様）。
 		///      これで親付けされたライトの位置、
 		///      および spot/rect/directional では向きも親に追従する。
@@ -255,7 +255,7 @@ namespace SeedCore
 				Actor actor = world.GetActor(entityID);
 				if (actor && !celestial)
 				{
-					direction = Vector3::TransformNormal(direction, actor.GetWorldMatrix());
+					direction = Vector3::TransformNormal(direction, actor.WorldMatrix());
 				}
 				direction.Normalize();
 
@@ -279,7 +279,7 @@ namespace SeedCore
 				}
 
 				PointLightStructuredBuffer pointLightData{};
-				pointLightData.position_ = actor.GetWorldMatrix().Translation();
+				pointLightData.position_ = actor.WorldMatrix().Translation();
 				pointLightData.range_ = light.range_;
 				pointLightData.color_ = light.color_;
 				pointLightData.intensity_ = light.intensity_;
@@ -300,7 +300,7 @@ namespace SeedCore
 					return;
 				}
 
-				Matrix worldMatrix = actor.GetWorldMatrix();
+				Matrix worldMatrix = actor.WorldMatrix();
 				Vector3 direction = Vector3::TransformNormal(light.direction_, worldMatrix);
 				direction.Normalize();
 
@@ -329,7 +329,7 @@ namespace SeedCore
 					return;
 				}
 
-				Matrix worldMatrix = actor.GetWorldMatrix();
+				Matrix worldMatrix = actor.WorldMatrix();
 
 				/// [JP] 向きベクトルから正規直交基底を作る。normal=正面、right/up は
 				///      矩形の辺方向。up_ が normal_ とほぼ平行だと right が縮退するので
@@ -364,14 +364,14 @@ namespace SeedCore
 
 		/// [EN] Pull KHR_lights_punctual point/spot lights embedded in loaded
 		///      glTF models, transformed by the owning Actor's world matrix
-		///      (TransformSystem's Actor::GetWorldMatrix(), same source of
+		///      (TransformSystem's Actor::WorldMatrix(), same source of
 		///      truth as ModelRenderer). Directional KHR lights are never
 		///      stored in Crister::lights_ (see ModelLoader::FetchLights),
 		///      so only point/spot show up here - matching the cluster-only
 		///      scope; this engine's directional light stays scene-authored.
 		/// [JP] ロード済み glTF モデルに埋め込まれた KHR_lights_punctual の
 		///      ポイント/スポットライトを、所有 Actor のワールド行列
-		///      （TransformSystem の Actor::GetWorldMatrix()、ModelRenderer と
+		///      （TransformSystem の Actor::WorldMatrix()、ModelRenderer と
 		///      同じ情報源）で変換して取り込む。ディレクショナルの KHR ライトは
 		///      Crister::lights_ に格納されない（ModelLoader::FetchLights 参照）
 		///      ため、ここに出てくるのはポイント/スポットのみ＝クラスター限定の
@@ -403,7 +403,7 @@ namespace SeedCore
 					return;
 				}
 
-				Matrix worldMatrix = actor.GetWorldMatrix();
+				Matrix worldMatrix = actor.WorldMatrix();
 
 				for (const PunctualLight& light : crister->Lights())
 				{

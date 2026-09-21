@@ -1,6 +1,6 @@
 #include <GraphicsEngine/Model/Skeleton/Skeleton.h>
 #include <GraphicsEngine/Model/Skeleton/SkeletonState.h>
-#include <FoundationEngine/ECS/Actor.h>
+#include <FoundationEngine/World/Actor/Actor.h>
 
 namespace SeedCore
 {
@@ -114,6 +114,6 @@ namespace SeedCore
 
 	Matrix Skeleton::BoneWorldMatrix(const String& boneName)const
 	{
-		return BoneLocalMatrix(boneName) * GetActor().GetWorldMatrix();
+		return BoneLocalMatrix(boneName) * GetActor().WorldMatrix();
 	}
 }

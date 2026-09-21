@@ -1,13 +1,13 @@
 #include <Editor/Editor/Panel/HierarchyPanel.h>
 #include <Editor/Editor/EditorContext.h>
 #include <Editor/Editor/ImGui/ImGuiTexture.h>
-#include <FoundationEngine/ECS/World.h>
-#include <FoundationEngine/ECS/Actor.h>
-#include <FoundationEngine/ECS/Component/Name.h>
-#include <FoundationEngine/ECS/ActorCommand.h>
-#include <FoundationEngine/ECS/CompoundCommand.h>
-#include <FoundationEngine/Resource/ActorSerialization.h>
-#include <FoundationEngine/Resource/Prefab.h>
+#include <FoundationEngine/World/World.h>
+#include <FoundationEngine/World/Actor/Actor.h>
+#include <FoundationEngine/World/ECS/Component/Name.h>
+#include <FoundationEngine/World/Command/ActorCommand.h>
+#include <FoundationEngine/World/Command/CompoundCommand.h>
+#include <FoundationEngine/World/Actor/Blueprint.h>
+#include <FoundationEngine/Resource/Prefab/Prefab.h>
 #include <FoundationEngine/Resource/ResourceCache.h>
 #include <FoundationEngine/File/FileDialog.h>
 #include <GraphicsEngine/Camera/EditorCamera.h>
@@ -18,7 +18,7 @@
 #include <GraphicsEngine/Movie/Movie.h>
 #include <GraphicsEngine/Model/Animation/Animator.h>
 #include <GraphicsEngine/D3D12/SwapChain/GraphicsResolution.h>
-#include <FoundationEngine/ECS/Component/Bounds.h>
+#include <FoundationEngine/World/ECS/Component/Bounds.h>
 
 namespace SeedCore
 {
@@ -40,7 +40,7 @@ namespace SeedCore
 			const auto& actors = context_.worldContext_.world_->GetActors();
 			for (Size index = 0; index < actors.size(); ++index)
 			{
-				if (!actors[index].GetParent())
+				if (!actors[index].Parent())
 				{
 					DrawActorNode(actors[index]);
 				}
@@ -75,11 +75,11 @@ namespace SeedCore
 					if (preview->IsDelivery())
 					{
 						Actor dropped = *static_cast<const Actor*>(preview->Data);
-						Actor oldParent = dropped.GetParent();
-						Uint32 oldParentId = oldParent ? oldParent.GetPersistentID() : 0;
+						Actor oldParent = dropped.Parent();
+						Uint32 oldParentId = oldParent ? oldParent.PersistentID() : 0;
 						Uint32 oldPrevSiblingId = PrevSiblingPersistentId(dropped);
-						dropped.SetParent(Actor());
-						context_.sceneContext_.history_.Push(MakePtr<ActorReparentCommand>(*context_.worldContext_.world_, dropped.GetPersistentID(), oldParentId, oldPrevSiblingId, 0));
+						dropped.Parent(Actor());
+						context_.sceneContext_.history_.Push(MakePtr<ActorReparentCommand>(*context_.worldContext_.world_, dropped.PersistentID(), oldParentId, oldPrevSiblingId, 0));
 					}
 				}
 
@@ -195,7 +195,7 @@ namespace SeedCore
 				{
 					String uniqueName = GetUniqueName();
 					Actor actor = context_.worldContext_.world_->CreateActor(uniqueName);
-					DynamicArray<SerializedActorNode> nodes;
+					DynamicArray<BlueprintNode> nodes;
 					CaptureActorNode(actor, -1, nodes);
 					context_.sceneContext_.history_.Push(MakePtr<ActorCreateCommand>(*context_.worldContext_.world_, *context_.worldContext_.resource_, nodes));
 				}
@@ -227,7 +227,7 @@ namespace SeedCore
 			{
 				String uniqueName = GetUniqueName();
 				Actor actor = context_.worldContext_.world_->CreateActor(uniqueName);
-				DynamicArray<SerializedActorNode> nodes;
+				DynamicArray<BlueprintNode> nodes;
 				CaptureActorNode(actor, -1, nodes);
 				context_.sceneContext_.history_.Push(MakePtr<ActorCreateCommand>(*context_.worldContext_.world_, *context_.worldContext_.resource_, nodes));
 			}
@@ -247,8 +247,8 @@ namespace SeedCore
 		}
 
 		Bool selected = Selected(actor);
-		Bool hasChildren = !actor.GetChildren().empty();
-		Bool isChild = static_cast<Bool>(actor.GetParent());
+		Bool hasChildren = !actor.ChildList().empty();
+		Bool isChild = static_cast<Bool>(actor.Parent());
 
 		ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_AllowOverlap;
 		if (selected)
@@ -263,7 +263,7 @@ namespace SeedCore
 		ImGui::PushID(static_cast<Int>(actor.GetEntity().GetID().index_));
 
 		ImTextureID icon;
-		if (actor.GetPrefabInstance())
+		if (actor.FromPrefab())
 		{
 			icon = isChild ? imguiTexture_.Icon(IconType::PrefabChild) : imguiTexture_.Icon(IconType::Prefab);
 		}
@@ -307,7 +307,7 @@ namespace SeedCore
 		///      ピボットへフレームするとキャラが画面外になる。
 		if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
 		{
-			const Matrix& worldMatrix = actor.GetWorldMatrix();
+			const Matrix& worldMatrix = actor.WorldMatrix();
 
 			const Image* image = actor.GetComponent<Image>();
 			const Text* text = actor.GetComponent<Text>();
@@ -397,11 +397,11 @@ namespace SeedCore
 
 					if (preview->IsDelivery())
 					{
-						Actor oldParent = dropped.GetParent();
-						Uint32 oldParentId = oldParent ? oldParent.GetPersistentID() : 0;
+						Actor oldParent = dropped.Parent();
+						Uint32 oldParentId = oldParent ? oldParent.PersistentID() : 0;
 						Uint32 oldPrevSiblingId = PrevSiblingPersistentId(dropped);
-						dropped.SetParent(actor);
-						context_.sceneContext_.history_.Push(MakePtr<ActorReparentCommand>(*context_.worldContext_.world_, dropped.GetPersistentID(), oldParentId, oldPrevSiblingId, actor.GetPersistentID()));
+						dropped.Parent(actor);
+						context_.sceneContext_.history_.Push(MakePtr<ActorReparentCommand>(*context_.worldContext_.world_, dropped.PersistentID(), oldParentId, oldPrevSiblingId, actor.PersistentID()));
 					}
 				}
 			}
@@ -458,12 +458,12 @@ namespace SeedCore
 		ImGui::SameLine();
 		ImGui::Image(icon, ImVec2(iconSize, iconSize));
 		ImGui::SameLine();
-		if (!actor.GetActive())
+		if (!actor.Active())
 		{
 			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
 		}
 		ImGui::Text("%s", label);
-		if (!actor.GetActive())
+		if (!actor.Active())
 		{
 			ImGui::PopStyleColor();
 		}
@@ -476,20 +476,20 @@ namespace SeedCore
 		}
 
 		ImGui::SameLine(ImGui::GetContentRegionAvail().x + ImGui::GetCursorPosX() - iconSize);
-		ImTextureID activeIcon = actor.GetActive() ? imguiTexture_.Icon(IconType::ActorActive) : imguiTexture_.Icon(IconType::ActorNonActive);
+		ImTextureID activeIcon = actor.Active() ? imguiTexture_.Icon(IconType::ActorActive) : imguiTexture_.Icon(IconType::ActorNonActive);
 		ImVec2 activePosition = ImGui::GetCursorScreenPos();
-		Float activeYOffset = actor.GetActive() ? 2.0f : 0.0f;
+		Float activeYOffset = actor.Active() ? 2.0f : 0.0f;
 		Float activeY = activePosition.y + (ImGui::GetTextLineHeight() - iconSize) * 0.5f + activeYOffset;
 		if (ImGui::InvisibleButton("##Active", ImVec2(iconSize, ImGui::GetTextLineHeight())))
 		{
-			context_.sceneContext_.history_.Push(MakePtr<ActorActiveCommand>(*context_.worldContext_.world_, actor, !actor.GetActive()));
-			actor.SetActive(!actor.GetActive());
+			context_.sceneContext_.history_.Push(MakePtr<ActorActiveCommand>(*context_.worldContext_.world_, actor, !actor.Active()));
+			actor.Active(!actor.Active());
 		}
 		ImGui::GetWindowDrawList()->AddImage(activeIcon, ImVec2(activePosition.x, activeY), ImVec2(activePosition.x + iconSize, activeY + iconSize));
 
 		if (opened)
 		{
-			for (Actor child : actor.GetChildren())
+			for (Actor child : actor.ChildList())
 			{
 				DrawActorNode(child);
 			}
@@ -529,7 +529,7 @@ namespace SeedCore
 		Uint32 newAssetID = context_.worldContext_.resource_->GetAssetID(String(relative));
 		if (newAssetID != 0)
 		{
-			actor.SetSourcePrefabAssetID(newAssetID);
+			actor.PrefabID(newAssetID);
 		}
 	}
 
@@ -691,16 +691,16 @@ namespace SeedCore
 			Prefab prefab;
 			prefab.Capture(actor);
 
-			Actor duplicate = prefab.Instantiate(*context_.worldContext_.world_, *context_.worldContext_.resource_, actor.GetParent(), actor.GetSourcePrefabAssetID());
+			Actor duplicate = prefab.Instantiate(*context_.worldContext_.world_, *context_.worldContext_.resource_, actor.Parent(), actor.PrefabID());
 			if (!duplicate)
 			{
 				continue;
 			}
 
-			DynamicArray<SerializedActorNode> nodes;
+			DynamicArray<BlueprintNode> nodes;
 			CaptureActorNode(duplicate, -1, nodes);
-			Actor duplicateParent = duplicate.GetParent();
-			group->Add(MakePtr<ActorCreateCommand>(*context_.worldContext_.world_, *context_.worldContext_.resource_, nodes, duplicateParent ? duplicateParent.GetPersistentID() : 0, actor.GetPersistentID()));
+			Actor duplicateParent = duplicate.Parent();
+			group->Add(MakePtr<ActorCreateCommand>(*context_.worldContext_.world_, *context_.worldContext_.resource_, nodes, duplicateParent ? duplicateParent.PersistentID() : 0, actor.PersistentID()));
 
 			MoveAfter(duplicate, actor);
 			newSelection.push_back(duplicate);
@@ -719,7 +719,7 @@ namespace SeedCore
 
 	void HierarchyPanel::MoveAfter(Actor actor, Actor after)
 	{
-		Actor parent = actor.GetParent();
+		Actor parent = actor.Parent();
 		if (parent)
 		{
 			parent.MoveChild(actor, after);
@@ -731,19 +731,19 @@ namespace SeedCore
 
 	Uint32 HierarchyPanel::PrevSiblingPersistentId(Actor actor)const
 	{
-		Actor parent = actor.GetParent();
+		Actor parent = actor.Parent();
 		if (!parent)
 		{
 			return 0;
 		}
 
-		const DynamicArray<Actor>& siblings = parent.GetChildren();
+		const DynamicArray<Actor>& siblings = parent.ChildList();
 		auto it = std::ranges::find(siblings, actor);
 		if (it == siblings.end() || it == siblings.begin())
 		{
 			return 0;
 		}
 
-		return (*(it - 1)).GetPersistentID();
+		return (*(it - 1)).PersistentID();
 	}
 }

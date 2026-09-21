@@ -8,10 +8,10 @@
 #include <GraphicsEngine/D3D12/Context/D3D12Check.h>
 #include <GraphicsEngine/System/IndicesSystem.h>
 #include <GraphicsEngine/D3D12/SwapChain/GraphicsResolution.h>
-#include <FoundationEngine/ECS/Query.h>
-#include <FoundationEngine/ECS/Component/Active.h>
-#include <FoundationEngine/ECS/Component/Bounds.h>
-#include <FoundationEngine/ECS/ComponentRegistry.h>
+#include <FoundationEngine/World/ECS/Query/Query.h>
+#include <FoundationEngine/World/ECS/Component/Active.h>
+#include <FoundationEngine/World/ECS/Component/Bounds.h>
+#include <FoundationEngine/World/ECS/Component/ComponentRegistry.h>
 
 namespace SeedCore
 {
@@ -66,13 +66,13 @@ namespace SeedCore
 				}
 
 				/// [EN] Read the parent-composed world transform from
-				///      TransformSystem (Actor::GetWorldMatrix()), same as
+				///      TransformSystem (Actor::WorldMatrix()), same as
 				///      TextureRenderer, so parented text follows its parent.
 				///      rotationEuler here is TransformSystem's own
 				///      yaw/pitch/roll decomposition of the composed
 				///      rotation, matching CreateFromYawPitchRoll's axes.
 				/// [JP] TextureRenderer と同様、アクター自身のローカル値ではなく
-				///      TransformSystem(Actor::GetWorldMatrix())の親合成済み
+				///      TransformSystem(Actor::WorldMatrix())の親合成済み
 				///      ワールド変換を読む。rotationEuler は合成後回転を
 				///      CreateFromYawPitchRoll と同じ軸(yaw/pitch/roll)で
 				///      分解したもの。
@@ -82,7 +82,7 @@ namespace SeedCore
 					return;
 				}
 
-				Matrix worldMatrix = actor.GetWorldMatrix();
+				Matrix worldMatrix = actor.WorldMatrix();
 				Vector3 worldScale;
 				Quaternion worldRotation;
 				Vector3 worldTranslation;

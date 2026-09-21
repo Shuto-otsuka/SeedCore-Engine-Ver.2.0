@@ -1,7 +1,6 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
-#include <FoundationEngine/ECS/Entity.h>
-#include <FoundationEngine/ECS/EcsID.h>
+#include <FoundationEngine/World/ECS/Entity/Entity.h>
 #include <GraphicsEngine/Raytracing/BottomLevelAccelerationStructure.h>
 #include <GraphicsEngine/Raytracing/TopLevelAccelerationStructure.h>
 #include <GraphicsEngine/D3D12/FrameRing.h>

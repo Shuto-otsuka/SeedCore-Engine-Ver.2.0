@@ -1,6 +1,6 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
-#include <FoundationEngine/ECS/Entity.h>
+#include <FoundationEngine/World/ECS/Entity/Entity.h>
 
 namespace SeedCore
 {

@@ -1,8 +1,8 @@
 #include <GraphicsEngine/System/WeatherSystem.h>
 #include <GraphicsEngine/Environment/Weather.h>
-#include <FoundationEngine/ECS/Query.h>
-#include <FoundationEngine/ECS/World.h>
-#include <FoundationEngine/ECS/Component/Active.h>
+#include <FoundationEngine/World/ECS/Query/Query.h>
+#include <FoundationEngine/World/World.h>
+#include <FoundationEngine/World/ECS/Component/Active.h>
 
 namespace SeedCore
 {

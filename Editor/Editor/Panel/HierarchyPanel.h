@@ -1,6 +1,6 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
-#include <FoundationEngine/ECS/Actor.h>
+#include <FoundationEngine/World/Actor/Actor.h>
 
 namespace SeedCore
 {

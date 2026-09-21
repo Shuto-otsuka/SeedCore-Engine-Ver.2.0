@@ -1,0 +1,531 @@
+#pragma once
+#include <FoundationEngine/Prelude.h>
+#include <FoundationEngine/World/Actor/Blueprint.h>
+
+namespace SeedCore
+{
+	class World;
+	class ResourceCache;
+	class JobExecutor;
+	class Actor;
+	class SceneTransitionSystem;
+
+	/**
+	* [EN]
+	* Serializable snapshot of every root Actor (and its descendants) in
+	* a World, stored as a flat, parent-index-linked array of
+	* BlueprintNode so it round-trips through JSON.
+	* Capture()/Instantiate() handle a single scene's data; the static
+	* Change()/Update()/Initialize() surface additionally drives the
+	* process-wide SceneTransitionSystem, so callers can trigger
+	* scene switches (with optional fade/loading-scene effects) from
+	* anywhere without holding their own World/ResourceCache/JobExecutor references.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* World 内の全ルート Actor（とその子孫）のシリアライズ可能な
+	* スナップショット。JSON で往復できるよう、親インデックスで
+	* 連結された BlueprintNode のフラットな配列として保存される。
+	* Capture()/Instantiate() は単一シーンのデータを扱う。静的な
+	* Change()/Update()/Initialize() のインターフェースは、加えて
+	* プロセス全体の SceneTransitionSystem を駆動するため、呼び出し側は
+	* 自前の World/ResourceCache/JobExecutor 参照を持たずとも、どこからでも
+	* シーン切り替え（任意でフェード/ローディングシーンエフェクト付き）を
+	* トリガーできる。
+	*/
+	class SEEDCORE_API Scene
+	{
+	public:
+		/**
+		* [EN]
+		* Records every root actor (and its descendants) in world into
+		* nodes_, replacing any previously captured data.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* world 内の全ルート actor（とその子孫）を nodes_ へ記録し、以前に
+		* 取得していたデータを置き換える。
+		*/
+		void Capture(World& world);
+
+		/**
+		* [EN]
+		* Discards any captured actor data, releasing the memory it held.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* 取得済みの actor データを破棄し、それが保持していたメモリを解放する。
+		*/
+		void Clear();
+
+		/**
+		* [EN]
+		* Recreates the captured scene as new actors in world, returning
+		* every instantiated actor (roots and descendants alike).
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* 取得済みのシーンを world 内に新しい actor 群として再生成し、
+		* インスタンス化された全 actor（ルート・子孫問わず）を返す。
+		*/
+		DynamicArray<Actor> Instantiate(World& world, ResourceCache& cache)const;
+
+		/**
+		* [EN]
+		* Writes this scene's captured data to path as JSON. Returns
+		* whether the file was written successfully.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* このシーンの取得済みデータを、JSON として path へ書き込む。
+		* ファイルが正常に書き込まれたかどうかを返す。
+		*/
+		Bool Write(const std::filesystem::path& path);
+
+		/**
+		* [EN]
+		* Reads captured data from path (JSON), replacing this scene's
+		* current data. Returns whether reading succeeded.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* path（JSON）から取得済みデータを読み込み、このシーンの現在の
+		* データを置き換える。読み込みに成功したかどうかを返す。
+		*/
+		Bool Read(const std::filesystem::path& path);
+
+		/**
+		* [EN]
+		* Captures world's current state into a scratch Scene and writes
+		* it to path, along with the three opaque graphics-settings blobs
+		* (raytracing / screen-space / rasterization; pass an empty String
+		* for any the caller has nothing to persist for). Returns whether
+		* saving succeeded.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* world の現在の状態を作業用 Scene へ取得し、3 つの不透明なグラフィックス
+		* 設定 blob(レイトレーシング / スクリーンスペース / ラスタライゼーション。
+		* 永続化するものが無い blob には空の String を渡す)と共に path へ書き込む。
+		* 保存に成功したかどうかを返す。
+		*/
+		static Bool Save(World& world, ResourceCache& cache, const std::filesystem::path& path, const String& raytracingSettingsJson = String(), const String& screenSpaceSettingsJson = String(), const String& rasterizationSettingsJson = String());
+
+		/**
+		* [EN]
+		* Reads a scene from path into a scratch Scene, destroys every
+		* actor currently in world, and instantiates the loaded scene. For
+		* each of outRaytracingSettingsJson / outScreenSpaceSettingsJson /
+		* outRasterizationSettingsJson that is non-null, the matching
+		* graphics-settings blob (possibly empty, for scenes saved before
+		* that field existed) is written to it. Returns whether loading
+		* succeeded.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* path からシーンを作業用 Scene へ読み込み、world 内の現在の全
+		* actor を破棄した上で、読み込んだシーンをインスタンス化する。
+		* outRaytracingSettingsJson / outScreenSpaceSettingsJson /
+		* outRasterizationSettingsJson のうち非null のものへ、対応する
+		* グラフィックス設定 blob(そのフィールドが存在する前に保存された
+		* シーンでは空になりうる)をそれぞれ書き込む。読み込みに成功したか
+		* どうかを返す。
+		*/
+		static Bool Load(World& world, ResourceCache& cache, const std::filesystem::path& path, String* outRaytracingSettingsJson = nullptr, String* outScreenSpaceSettingsJson = nullptr, String* outRasterizationSettingsJson = nullptr);
+
+		/**
+		* [EN]
+		* Overload of Load resolving the scene's path from an asset ID via cache.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* cache 経由でアセット ID からシーンのパスを解決する Load の
+		* オーバーロード。
+		*/
+		static Bool Load(World& world, ResourceCache& cache, Uint32 assetID, String* outRaytracingSettingsJson = nullptr, String* outScreenSpaceSettingsJson = nullptr, String* outRasterizationSettingsJson = nullptr);
+
+		/**
+		* [EN]
+		* Binds the process-wide world/cache/executor references used by
+		* the static Change()/Update() overloads. Must be called once
+		* before using them.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* 静的な Change()/Update() オーバーロードが使用する、プロセス
+		* 全体の world/cache/executor 参照を束縛する。それらを使用する前に
+		* 一度呼び出す必要がある。
+		*/
+		static void Initialize(World& world, ResourceCache& cache, JobExecutor& executor);
+
+		/**
+		* [EN]
+		* Advances the process-wide scene transition state machine by deltaTime.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* プロセス全体のシーン遷移状態機械を deltaTime だけ進める。
+		*/
+		static void Update(Float deltaTime);
+
+		/**
+		* [EN]
+		* Aborts any in-progress process-wide scene transition and returns
+		* it to Idle (see SceneTransitionSystem::Reset). Call when leaving
+		* editor Play mode so a transition started during Play does not
+		* resume afterward against stale actors.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* 進行中のプロセス全体のシーン遷移を中断し、Idle へ戻す
+		* （SceneTransitionSystem::Reset を参照）。エディタの Play モードを
+		* 抜ける際に呼び、Play 中に開始された遷移がその後に古くなった
+		* actor に対して再開しないようにする。
+		*/
+		static void Reset();
+
+		/**
+		* [EN]
+		* Synchronously switches to targetScene. Returns false if not
+		* initialized or a transition is already in progress.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* targetScene へ同期的に切り替える。未初期化であるか、既に遷移が
+		* 進行中であれば false を返す。
+		*/
+		static Bool Change(const std::filesystem::path& targetScene);
+
+		/**
+		* [EN]
+		* Overload of Change resolving targetScene from an asset ID.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* アセット ID から targetScene を解決する Change のオーバーロード。
+		*/
+		static Bool Change(Uint32 targetScene);
+
+		/**
+		* [EN]
+		* Begins an asynchronous switch to targetScene, immediately
+		* showing loadingScene while targetScene loads in the background.
+		* No-op if not initialized or a transition is already in progress.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* targetScene への非同期切り替えを開始する。targetScene が
+		* バックグラウンドで読み込まれている間、loadingScene を即座に
+		* 表示する。未初期化であるか、既に遷移が進行中であれば何もしない。
+		*/
+		static void Change(const std::filesystem::path& targetScene, const std::filesystem::path& loadingScene);
+
+		/**
+		* [EN]
+		* Overload of the loading-scene Change resolving both scenes from asset IDs.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* アセット ID から両方のシーンを解決する、ローディングシーン版
+		* Change のオーバーロード。
+		*/
+		static void Change(Uint32 targetScene, Uint32 loadingScene);
+
+		/**
+		* [EN]
+		* Begins an asynchronous switch to targetScene using a
+		* fade-out/fade-in effect with the given durations.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* 指定された長さのフェードアウト/フェードインエフェクトを使用して、
+		* targetScene への非同期切り替えを開始する。
+		*/
+		static void Change(const std::filesystem::path& targetScene, Float fadeOutDuration, Float fadeInDuration);
+
+		/**
+		* [EN]
+		* Overload of the fade-effect Change resolving targetScene from an asset ID.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* アセット ID から targetScene を解決する、フェードエフェクト版
+		* Change のオーバーロード。
+		*/
+		static void Change(Uint32 targetScene, Float fadeOutDuration, Float fadeInDuration);
+
+		/**
+		* [EN]
+		* Begins an asynchronous switch to targetScene using a
+		* loading-scene cover/reveal effect with the given durations.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* 指定された長さのローディングシーンによる覆い隠し/表出
+		* エフェクトを使用して、targetScene への非同期切り替えを開始する。
+		*/
+		static void Change(const std::filesystem::path& targetScene, const std::filesystem::path& loadingScene, Float coverDuration, Float revealDuration);
+
+		/**
+		* [EN]
+		* Overload of the loading-scene cover/reveal Change resolving
+		* both scenes from asset IDs.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* アセット ID から両方のシーンを解決する、ローディングシーン
+		* 覆い隠し/表出版 Change のオーバーロード。
+		*/
+		static void Change(Uint32 targetScene, Uint32 loadingScene, Float coverDuration, Float revealDuration);
+
+		/**
+		* [EN]
+		* Returns the current fade overlay alpha of the process-wide scene transition.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* プロセス全体のシーン遷移における、現在のフェードオーバーレイの
+		* アルファ値を返す。
+		*/
+		static Float GetFadeAlpha();
+
+		/**
+		* [EN]
+		* Returns the scene the process-wide transition has switched to
+		* since the last call, or nullptr if none, clearing that state in
+		* the same step (see SceneTransitionSystem::ConsumeSwitchedScene).
+		* Lets the host that owns the main loop pick up whatever it keeps
+		* per scene - the scene's own contents are already instantiated
+		* into the world. Loading scenes shown during a transition are never
+		* returned. The returned scene stays valid until the next transition
+		* begins.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* 前回の呼び出し以降にプロセス全体の遷移が切り替えた先のシーンを
+		* 返す。無ければ nullptr。同時にその状態を取り下げる
+		* (SceneTransitionSystem::ConsumeSwitchedScene 参照)。メインループを
+		* 所有するホストが、シーンごとに持つものを受け取るために使う -
+		* シーン自体の中身は既に world へインスタンス化済み。遷移中に表示
+		* されるローディングシーンは返さない。返したシーンは次の遷移が
+		* 始まるまで有効。
+		*/
+		[[nodiscard]] static const Scene* ConsumeSwitchedScene();
+
+		/**
+		* [EN]
+		* Resolves path (project-root-relative, forward-slash) to its
+		* AssetRecord ID via the process-wide ResourceCache bound by
+		* Initialize(). Returns 0 if not initialized or path is unknown.
+		* This is the sanctioned entry point for gameplay code (SeedScript
+		* subclasses) to dynamically look up an AssetRecord by path at runtime;
+		* Tools/Python/RuntimePackager.py statically scans source for
+		* calls to this function to determine which Assets must be
+		* included in a packaged build, so avoid calling it with anything
+		* other than a string literal.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* path（プロジェクトルート相対、フォワードスラッシュ）を、
+		* Initialize() で束縛されたプロセス全体の ResourceCache 経由で
+		* AssetRecord ID に解決する。未初期化または path が不明な場合は 0 を返す。
+		* ゲームプレイコード（SeedScript のサブクラス）が実行時にパスから
+		* AssetRecord を動的に引くための正規の入口である。
+		* Tools/Python/RuntimePackager.py がこの関数への呼び出しをソース
+		* コードから静的にスキャンし、パッケージビルドに含めるべき AssetRecord を
+		* 判定するため、文字列リテラル以外を渡すのは避けること。
+		*/
+		static Uint32 GetAsset(const String& path);
+
+		/**
+		* [EN]
+		* Sets the raytracing settings blob written out alongside this
+		* scene's actor data on the next Write(). Scene itself has no
+		* concept of raytracing settings (FoundationEngine cannot depend
+		* on GraphicsEngine), so callers in higher layers pass it in as an
+		* opaque JSON string -- see GraphicsEngine's
+		* SerializeRaytracingContext/DeserializeRaytracingContext.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* 次回の Write() でこのシーンの actor データと一緒に書き出される
+		* レイトレーシング設定の blob を設定する。Scene 自体はレイトレーシング
+		* 設定について何も知らない（FoundationEngine は GraphicsEngine に
+		* 依存できない）ため、上位レイヤーの呼び出し側が不透明な JSON
+		* 文字列として渡す -- GraphicsEngine の
+		* SerializeRaytracingContext/DeserializeRaytracingContext を参照。
+		*/
+		void SetRaytracingSettingsJson(const String& json);
+
+		/**
+		* [EN]
+		* Sets the screen-space effect settings blob (SSAO/SSGI/SSR/GTAO),
+		* round-tripped exactly like raytracingSettingsJson_ and just as
+		* opaque to Scene.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* スクリーンスペース系エフェクト設定(SSAO/SSGI/SSR/GTAO)の blob を
+		* 設定する。raytracingSettingsJson_ と全く同じように往復し、Scene
+		* からは同様に不透明。
+		*/
+		void SetScreenSpaceSettingsJson(const String& json);
+
+		/**
+		* [EN]
+		* Sets the rasterization / SDF fallback effect settings blob
+		* (VSM/CSM shadows, SDF reflection, DDGI), round-tripped exactly
+		* like raytracingSettingsJson_ and just as opaque to Scene.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* ラスタライゼーション / SDF フォールバック系エフェクト設定
+		* (VSM/CSM 影、SDF 反射、DDGI)の blob を設定する。
+		* raytracingSettingsJson_ と全く同じように往復し、Scene からは
+		* 同様に不透明。
+		*/
+		void SetRasterizationSettingsJson(const String& json);
+
+		/**
+		* [EN]
+		* Returns the raytracing settings blob captured by the last Read()/Load().
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* 直近の Read()/Load() で取得したレイトレーシング設定の blob を返す。
+		*/
+		[[nodiscard]] const String& GetRaytracingSettingsJson()const;
+
+		/**
+		* [EN]
+		* Returns the screen-space effect settings blob captured by the last
+		* Read()/Load(). Empty for scenes saved before this field existed.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* 直近の Read()/Load() で取得したスクリーンスペース系エフェクト設定の
+		* blob を返す。このフィールドが存在する前に保存されたシーンでは空。
+		*/
+		[[nodiscard]] const String& GetScreenSpaceSettingsJson()const;
+
+		/**
+		* [EN]
+		* Returns the rasterization / SDF fallback effect settings blob
+		* captured by the last Read()/Load(). Empty for scenes saved before
+		* this field existed.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* 直近の Read()/Load() で取得したラスタライゼーション / SDF フォール
+		* バック系エフェクト設定の blob を返す。このフィールドが存在する前に
+		* 保存されたシーンでは空。
+		*/
+		[[nodiscard]] const String& GetRasterizationSettingsJson()const;
+
+		/**
+		* [EN]
+		* Serialization hook (save side): writes nodes_ and the three
+		* graphics-settings blobs (raytracing / screen-space / rasterization).
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* シリアライズ用フック(保存側): nodes_ と 3 つのグラフィックス設定 blob
+		* (レイトレーシング / スクリーンスペース / ラスタライゼーション)を書き込む。
+		*/
+		template<class Archive>
+		void Save(Archive& archive)const
+		{
+			archive.Field("nodes", nodes_);
+			archive.Field("raytracingSettings", raytracingSettingsJson_);
+			archive.Field("screenSpaceSettings", screenSpaceSettingsJson_);
+			archive.Field("rasterizationSettings", rasterizationSettingsJson_);
+		}
+
+		/**
+		* [EN]
+		* Serialization hook (load side): reads nodes_ and the three
+		* graphics-settings blobs. Each blob is optional -- scenes saved
+		* before a given field existed simply leave it empty -- so a
+		* missing key is swallowed rather than failing the whole load.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* シリアライズ用フック(読み込み側): nodes_ と 3 つのグラフィックス設定
+		* blob を読み込む。各 blob は任意項目 -- そのフィールドが存在する前に
+		* 保存されたシーンでは単に空になる -- なので、キーが無くても読み込み
+		* 全体を失敗させず読み飛ばす。
+		*/
+		template<class Archive>
+		void Load(Archive& archive)
+		{
+			archive.TryField("nodes", nodes_);
+			archive.TryField("raytracingSettings", raytracingSettingsJson_);
+			archive.TryField("screenSpaceSettings", screenSpaceSettingsJson_);
+			archive.TryField("rasterizationSettings", rasterizationSettingsJson_);
+		}
+
+	private:
+		/// [EN] Process-wide World reference bound by Initialize, used by the static Change()/Update() overloads.
+		/// [JP] Initialize によって束縛される、プロセス全体の World 参照。静的な Change()/Update() オーバーロードが使用する。
+		static World* world_;
+
+		/// [EN] Process-wide ResourceCache reference bound by Initialize.
+		/// [JP] Initialize によって束縛される、プロセス全体の ResourceCache 参照。
+		static ResourceCache* resource_;
+
+		/// [EN] Process-wide JobExecutor reference bound by Initialize, used for background-loaded transitions.
+		/// [JP] Initialize によって束縛される、プロセス全体の JobExecutor 参照。バックグラウンド読み込みを伴う遷移に使われる。
+		static JobExecutor* executor_;
+
+		/// [EN] Process-wide scene transition state machine driving the static Change()/Update() overloads.
+		/// [JP] 静的な Change()/Update() オーバーロードを駆動する、プロセス全体のシーン遷移状態機械。
+		static SceneTransitionSystem transitionSystem_;
+
+		/// [EN] Flat, parent-index-linked array of every captured root actor and its descendants.
+		/// [JP] 取得済みの全ルート actor とその子孫の、親インデックスで連結されたフラットな配列。
+		DynamicArray<BlueprintNode> nodes_;
+
+		/// [EN] Opaque JSON blob holding raytracing settings, set by SetRaytracingSettingsJson and round-tripped by save()/load(). Empty if never set.
+		/// [JP] レイトレーシング設定を保持する不透明な JSON blob。SetRaytracingSettingsJson で設定され、save()/load() で往復する。未設定なら空。
+		String raytracingSettingsJson_;
+
+		/// [EN] Opaque JSON blob holding screen-space effect settings, set by SetScreenSpaceSettingsJson and round-tripped by save()/load(). Empty if never set.
+		/// [JP] スクリーンスペース系エフェクト設定を保持する不透明な JSON blob。SetScreenSpaceSettingsJson で設定され、save()/load() で往復する。未設定なら空。
+		String screenSpaceSettingsJson_;
+
+		/// [EN] Opaque JSON blob holding rasterization / SDF fallback effect settings, set by SetRasterizationSettingsJson and round-tripped by save()/load(). Empty if never set.
+		/// [JP] ラスタライゼーション / SDF フォールバック系エフェクト設定を保持する不透明な JSON blob。SetRasterizationSettingsJson で設定され、save()/load() で往復する。未設定なら空。
+		String rasterizationSettingsJson_;
+	};
+}

@@ -5,7 +5,7 @@
 #include <GraphicsEngine/Graphics.h>
 #include <GraphicsEngine/D3D12/Context/D3D12Context.h>
 #include <GraphicsEngine/Shape/Screen/BootScreen.h>
-#include <FoundationEngine/Resource/GameConfig.h>
+#include <FoundationEngine/Resource/Config/GameConfig.h>
 #include <FoundationEngine/File/FileDialog.h>
 
 namespace SeedCore

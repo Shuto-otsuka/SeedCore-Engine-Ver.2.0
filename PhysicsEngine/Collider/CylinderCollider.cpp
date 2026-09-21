@@ -1,7 +1,7 @@
 #include <PhysicsEngine/Collider/CylinderCollider.h>
 #include <PhysicsEngine/Physics/Physics.h>
 #include <PhysicsEngine/Physics/PhysicsSystem.h>
-#include <FoundationEngine/ECS/Actor.h>
+#include <FoundationEngine/World/Actor/Actor.h>
 
 namespace SeedCore
 {

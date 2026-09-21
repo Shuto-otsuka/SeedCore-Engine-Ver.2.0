@@ -14,11 +14,7 @@ namespace SeedCore
 	///      NonblockingNotifier ではなく AtomicNotifier を使う。
 #define SC_ENABLE_ATOMIC_NOTIFIER 0
 
-	/// [EN] When non-zero, the job system skips try/catch around task
-	///      execution (lower overhead, but an exception escaping a task
-	///      becomes std::terminate instead of being caught/reported).
-	/// [JP] 非ゼロの場合、ジョブシステムはタスク実行時の try/catch を
-	///      省略する（オーバーヘッドは下がるが、タスクから漏れた例外は
-	///      捕捉/報告されず std::terminate になる）。
+	/// [EN] Non-zero skips the try/catch around task execution: less overhead, but an exception escaping a task calls std::terminate.
+	/// [JP] 非ゼロならタスク実行時の try/catch を省く。負荷は下がるが、タスクから漏れた例外は std::terminate になる。
 #define SC_DISABLE_EXCEPTION_HANDLING 0
 }

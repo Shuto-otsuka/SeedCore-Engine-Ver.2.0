@@ -3,8 +3,8 @@
 #include <GraphicsEngine/D3D12/Descriptor/BindlessHeap.h>
 #include <GraphicsEngine/D3D12/Context/D3D12CommandList.h>
 #include <GraphicsEngine/System/IndicesSystem.h>
-#include <FoundationEngine/ECS/Query.h>
-#include <FoundationEngine/ECS/Component/Active.h>
+#include <FoundationEngine/World/ECS/Query/Query.h>
+#include <FoundationEngine/World/ECS/Component/Active.h>
 #include <FoundationEngine/Log/DxFail.h>
 #include <FoundationEngine/Log/Warning.h>
 

@@ -11,8 +11,8 @@
 #include <FoundationEngine/Input/InputSystem.h>
 #include <FoundationEngine/Resource/ResourceCache.h>
 #include <FoundationEngine/Resource/LoaderSystem.h>
-#include <FoundationEngine/ECS/Actor.h>
-#include <FoundationEngine/ECS/World.h>
+#include <FoundationEngine/World/Actor/Actor.h>
+#include <FoundationEngine/World/World.h>
 
 namespace SeedCore
 {

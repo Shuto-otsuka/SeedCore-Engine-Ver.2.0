@@ -1,15 +1,15 @@
 #include <Editor/Editor/Panel/GuizmoPanel2D.h>
 #include <Editor/Editor/EditorContext.h>
-#include <FoundationEngine/ECS/Actor.h>
-#include <FoundationEngine/ECS/World.h>
-#include <FoundationEngine/ECS/ComponentCommand.h>
-#include <FoundationEngine/ECS/CompoundCommand.h>
+#include <FoundationEngine/World/Actor/Actor.h>
+#include <FoundationEngine/World/World.h>
+#include <FoundationEngine/World/Command/ComponentCommand.h>
+#include <FoundationEngine/World/Command/CompoundCommand.h>
 #include <GraphicsEngine/D3D12/SwapChain/GraphicsResolution.h>
 #include <GraphicsEngine/Camera/CanvasCamera.h>
 #include <GraphicsEngine/Texture/Image.h>
 #include <GraphicsEngine/Font/Text.h>
 #include <GraphicsEngine/Movie/Movie.h>
-#include <FoundationEngine/ECS/Component/Bounds.h>
+#include <FoundationEngine/World/ECS/Component/Bounds.h>
 
 namespace SeedCore
 {
@@ -123,7 +123,7 @@ namespace SeedCore
 						Vector3 worldScale;
 						Quaternion worldRotation;
 						Vector3 worldTranslation;
-						Matrix worldMatrix = actor.GetWorldMatrix();
+						Matrix worldMatrix = actor.WorldMatrix();
 						worldMatrix.Decompose(worldScale, worldRotation, worldTranslation);
 
 						Float rotation = isImage ? worldRotation.ToEuler().x : 0.0f;
@@ -227,8 +227,8 @@ namespace SeedCore
 						Vector2 newCanvas = origin + axisU * newFrame.x + axisV * newFrame.y;
 						Vector3 newTranslation = Vector3(newCanvas.x - 100000.0f, 100000.0f + canvasHeight - newCanvas.y, startTranslation.z);
 
-						Actor parentActor = actor ? actor.GetParent() : Actor();
-						Vector3 localTranslation = parentActor ? Vector3::Transform(newTranslation, parentActor.GetWorldMatrix().Invert()) : newTranslation;
+						Actor parentActor = actor ? actor.Parent() : Actor();
+						Vector3 localTranslation = parentActor ? Vector3::Transform(newTranslation, parentActor.WorldMatrix().Invert()) : newTranslation;
 
 						Float* positionData = static_cast<Float*>(world.GetComponent(entity, positionID));
 						Float* scaleData = static_cast<Float*>(world.GetComponent(entity, scaleID));
@@ -347,7 +347,7 @@ namespace SeedCore
 						{
 							Entity entity = actor.GetEntity();
 							dragEntities_.push_back(entity);
-							dragStartWorldMatrices_.push_back(actor.GetWorldMatrix());
+							dragStartWorldMatrices_.push_back(actor.WorldMatrix());
 
 							Float* positionData = static_cast<Float*>(world.GetComponent(entity, positionID));
 							Float* scaleData = static_cast<Float*>(world.GetComponent(entity, scaleID));
@@ -433,14 +433,14 @@ namespace SeedCore
 			{
 				if (selectedActors.size() == 1)
 				{
-					pivotMatrix_ = selectedActors[0].GetWorldMatrix();
+					pivotMatrix_ = selectedActors[0].WorldMatrix();
 				}
 				else
 				{
 					Vector3 averagePosition = Vector3::Zero;
 					for (Actor actor : selectedActors)
 					{
-						averagePosition += actor.GetWorldMatrix().Translation();
+						averagePosition += actor.WorldMatrix().Translation();
 					}
 					averagePosition /= static_cast<Float>(selectedActors.size());
 					pivotMatrix_ = Matrix::CreateTranslation(averagePosition);
@@ -462,7 +462,7 @@ namespace SeedCore
 				{
 					Entity entity = actor.GetEntity();
 					dragEntities_.push_back(entity);
-					dragStartWorldMatrices_.push_back(actor.GetWorldMatrix());
+					dragStartWorldMatrices_.push_back(actor.WorldMatrix());
 
 					Float* positionData = static_cast<Float*>(context_.worldContext_.world_->GetComponent(entity, positionID));
 					Float* rotationData = static_cast<Float*>(context_.worldContext_.world_->GetComponent(entity, rotationID));
@@ -609,8 +609,8 @@ namespace SeedCore
 
 				Matrix newWorldMatrix = dragStartWorldMatrices_[index] * pivotDelta;
 
-				Actor parentActor = actor ? actor.GetParent() : Actor();
-				Matrix localMatrix = (parentActor) ? newWorldMatrix * parentActor.GetWorldMatrix().Invert() : newWorldMatrix;
+				Actor parentActor = actor ? actor.Parent() : Actor();
+				Matrix localMatrix = (parentActor) ? newWorldMatrix * parentActor.WorldMatrix().Invert() : newWorldMatrix;
 
 				Vector3 position, scale;
 				Quaternion rotation;

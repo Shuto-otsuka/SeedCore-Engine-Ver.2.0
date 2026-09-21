@@ -3,10 +3,10 @@
 #include <GraphicsEngine/Camera/CameraBrain.h>
 #include <GraphicsEngine/Camera/ScreenSpace.h>
 #include <GraphicsEngine/D3D12/SwapChain/GraphicsResolution.h>
-#include <FoundationEngine/ECS/Query.h>
-#include <FoundationEngine/ECS/Component/Position.h>
-#include <FoundationEngine/ECS/Component/Rotation.h>
-#include <FoundationEngine/ECS/Component/Active.h>
+#include <FoundationEngine/World/ECS/Query/Query.h>
+#include <FoundationEngine/World/ECS/Component/Position.h>
+#include <FoundationEngine/World/ECS/Component/Rotation.h>
+#include <FoundationEngine/World/ECS/Component/Active.h>
 #include <FoundationEngine/Time/GameTimer.h>
 
 namespace SeedCore

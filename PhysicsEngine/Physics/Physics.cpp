@@ -3,8 +3,8 @@
 #include <PhysicsEngine/JoltPhysics/JoltLayerdef.h>
 #include <FoundationEngine/Resource/Gateway.h>
 #include <FoundationEngine/Log/Warning.h>
-#include <FoundationEngine/ECS/World.h>
-#include <FoundationEngine/ECS/Actor.h>
+#include <FoundationEngine/World/World.h>
+#include <FoundationEngine/World/Actor/Actor.h>
 
 namespace SeedCore
 {
@@ -1024,7 +1024,7 @@ namespace SeedCore
 				if (world)
 				{
 					Actor actor = world->GetActor(BodyEntityID(hit.mBodyID));
-					if (actor && (layerMask & (1u << actor.GetLayer())) == 0)
+					if (actor && (layerMask & (1u << actor.Layer())) == 0)
 					{
 						continue;
 					}
@@ -1117,7 +1117,7 @@ namespace SeedCore
 				if (world)
 				{
 					Actor actor = world->GetActor(BodyEntityID(hit.mBodyID2));
-					if (actor && (layerMask & (1u << actor.GetLayer())) == 0)
+					if (actor && (layerMask & (1u << actor.Layer())) == 0)
 					{
 						continue;
 					}
@@ -1189,7 +1189,7 @@ namespace SeedCore
 				if (world)
 				{
 					Actor actor = world->GetActor(BodyEntityID(hit.mBodyID2));
-					if (actor && (layerMask & (1u << actor.GetLayer())) == 0)
+					if (actor && (layerMask & (1u << actor.Layer())) == 0)
 					{
 						continue;
 					}
@@ -1258,7 +1258,7 @@ namespace SeedCore
 				if (world)
 				{
 					Actor actor = world->GetActor(BodyEntityID(hit.mBodyID));
-					if (actor && (layerMask & (1u << actor.GetLayer())) == 0)
+					if (actor && (layerMask & (1u << actor.Layer())) == 0)
 					{
 						continue;
 					}
@@ -1350,7 +1350,7 @@ namespace SeedCore
 				if (world)
 				{
 					Actor actor = world->GetActor(BodyEntityID(hit.mBodyID2));
-					if (actor && (layerMask & (1u << actor.GetLayer())) == 0)
+					if (actor && (layerMask & (1u << actor.Layer())) == 0)
 					{
 						continue;
 					}
@@ -1422,7 +1422,7 @@ namespace SeedCore
 				if (world)
 				{
 					Actor actor = world->GetActor(BodyEntityID(hit.mBodyID2));
-					if (actor && (layerMask & (1u << actor.GetLayer())) == 0)
+					if (actor && (layerMask & (1u << actor.Layer())) == 0)
 					{
 						continue;
 					}

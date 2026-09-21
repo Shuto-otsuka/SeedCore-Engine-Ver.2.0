@@ -23,10 +23,10 @@
 #include <PhysicsEngine/Collider/CylinderCollider.h>
 #include <PhysicsEngine/Collider/RectCollider.h>
 #include <PhysicsEngine/Collider/CircleCollider.h>
-#include <FoundationEngine/ECS/World.h>
-#include <FoundationEngine/ECS/Actor.h>
-#include <FoundationEngine/ECS/Component/Position.h>
-#include <FoundationEngine/ECS/Component/Rotation.h>
+#include <FoundationEngine/World/World.h>
+#include <FoundationEngine/World/Actor/Actor.h>
+#include <FoundationEngine/World/ECS/Component/Position.h>
+#include <FoundationEngine/World/ECS/Component/Rotation.h>
 
 namespace SeedCore
 {
@@ -533,7 +533,7 @@ namespace SeedCore
 		for (EntityID id : world.GetComponents<BoxCollider>())
 		{
 			Actor actor = world.GetActor(id);
-			if (!actor || !actor.GetActive())
+			if (!actor || !actor.Active())
 			{
 				continue;
 			}
@@ -551,7 +551,7 @@ namespace SeedCore
 		for (EntityID id : world.GetComponents<SphereCollider>())
 		{
 			Actor actor = world.GetActor(id);
-			if (!actor || !actor.GetActive())
+			if (!actor || !actor.Active())
 			{
 				continue;
 			}
@@ -569,7 +569,7 @@ namespace SeedCore
 		for (EntityID id : world.GetComponents<CapsuleCollider>())
 		{
 			Actor actor = world.GetActor(id);
-			if (!actor || !actor.GetActive())
+			if (!actor || !actor.Active())
 			{
 				continue;
 			}
@@ -587,7 +587,7 @@ namespace SeedCore
 		for (EntityID id : world.GetComponents<CylinderCollider>())
 		{
 			Actor actor = world.GetActor(id);
-			if (!actor || !actor.GetActive())
+			if (!actor || !actor.Active())
 			{
 				continue;
 			}
@@ -605,7 +605,7 @@ namespace SeedCore
 		for (EntityID id : world.GetComponents<RectCollider>())
 		{
 			Actor actor = world.GetActor(id);
-			if (!actor || !actor.GetActive())
+			if (!actor || !actor.Active())
 			{
 				continue;
 			}
@@ -627,7 +627,7 @@ namespace SeedCore
 		for (EntityID id : world.GetComponents<CircleCollider>())
 		{
 			Actor actor = world.GetActor(id);
-			if (!actor || !actor.GetActive())
+			if (!actor || !actor.Active())
 			{
 				continue;
 			}

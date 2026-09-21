@@ -1,8 +1,8 @@
 #include <Editor/Editor/ViewportPicking.h>
-#include <FoundationEngine/ECS/World.h>
-#include <FoundationEngine/ECS/Actor.h>
-#include <FoundationEngine/ECS/ComponentRegistry.h>
-#include <FoundationEngine/ECS/Component/Bounds.h>
+#include <FoundationEngine/World/World.h>
+#include <FoundationEngine/World/Actor/Actor.h>
+#include <FoundationEngine/World/ECS/Component/ComponentRegistry.h>
+#include <FoundationEngine/World/ECS/Component/Bounds.h>
 
 namespace SeedCore
 {
@@ -39,7 +39,7 @@ namespace SeedCore
 		for (EntityID entityID : world.GetComponents<Bounds>())
 		{
 			Actor actor = world.GetActor(entityID);
-			if (!actor || !actor.GetActive())
+			if (!actor || !actor.Active())
 			{
 				continue;
 			}
@@ -50,7 +50,7 @@ namespace SeedCore
 				continue;
 			}
 
-			Matrix worldMatrix = actor.GetWorldMatrix();
+			Matrix worldMatrix = actor.WorldMatrix();
 			Matrix inverseWorld = worldMatrix.Invert();
 
 			Vector3 localOrigin = Vector3::Transform(rayOrigin, inverseWorld);

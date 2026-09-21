@@ -2,10 +2,10 @@
 #include <Editor/Editor/EditorContext.h>
 #include <Editor/Editor/ImGui/ImGuiTexture.h>
 #include <FoundationEngine/Time/GameTimer.h>
-#include <FoundationEngine/ECS/System/SystemScheduler.h>
-#include <FoundationEngine/ECS/World.h>
-#include <FoundationEngine/ECS/Entity.h>
-#include <FoundationEngine/Resource/Scene.h>
+#include <FoundationEngine/World/ECS/System/SystemScheduler.h>
+#include <FoundationEngine/World/World.h>
+#include <FoundationEngine/World/ECS/Entity/Entity.h>
+#include <FoundationEngine/Resource/Scene/Scene.h>
 #include <FoundationEngine/Input/InputSystem.h>
 #include <AudioEngine/Audio/MixerSystem.h>
 

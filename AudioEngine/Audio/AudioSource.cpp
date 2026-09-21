@@ -1,7 +1,7 @@
 #include <AudioEngine/Audio/AudioSource.h>
 #include <AudioEngine/Audio/Audio.h>
 #include <AudioEngine/Audio/Sound.h>
-#include <FoundationEngine/ECS/World.h>
+#include <FoundationEngine/World/World.h>
 
 namespace SeedCore
 {
@@ -33,7 +33,7 @@ namespace SeedCore
 			audio.AttenuationDistance(source_, minDistance_, maxDistance_);
 		}
 
-		previousPosition_ = GetActor().GetWorldMatrix().Translation();
+		previousPosition_ = GetActor().WorldMatrix().Translation();
 	}
 
 	/**
@@ -269,7 +269,7 @@ namespace SeedCore
 
 		/// [EN] Calculate the source position and velocity from the actor's world transform.
 		/// [JP] アクターのワールド変換から、音源の位置と速度を求める。
-		Vector3 position = GetActor().GetWorldMatrix().Translation();
+		Vector3 position = GetActor().WorldMatrix().Translation();
 		Vector3 velocity = { 0.0f, 0.0f, 0.0f };
 		if (deltaTime > 0.0f)
 		{

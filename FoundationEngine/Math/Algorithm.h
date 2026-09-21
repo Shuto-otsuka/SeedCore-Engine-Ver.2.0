@@ -89,16 +89,10 @@ namespace SeedCore
 		requires std::totally_ordered<T>
 	[[nodiscard]] constexpr std::common_type_t<T, Args...> Max(T first, Args... args)noexcept
 	{
-		/// [EN] Everything is folded through one common type and handed to the
-		///      two-argument overload with an explicit template argument. Passing
-		///      mixed types straight through instead would make that overload fail
-		///      deduction (T cannot be two different types at once), leaving this
-		///      variadic as the only candidate - it would re-form the identical
-		///      mixed-type call and recurse forever.
-		/// [JP] すべてを 1 つの共通型へ畳み込み、明示的テンプレート引数付きで
-		///      2 引数版へ渡す。型が混在したまま渡すと 2 引数版は T を 1 つに
-		///      決められず推論に失敗し、候補がこの可変長版だけになる —
-		///      同じ混在型の呼び出しを再構成して無限に再帰してしまう。
+		/// [EN] Fold every argument into one common type and call the two-argument overload with it explicitly;
+		///      with mixed types its deduction would fail and the call would recurse into this overload forever.
+		/// [JP] 全引数を共通の型にそろえ、2引数版を明示的な型で呼ぶ。
+		///      型が混ざったままだと2引数版の推論が失敗し、この可変長版へ無限に再帰する。
 		using ReturnType = std::common_type_t<T, Args...>;
 
 		if constexpr (sizeof...(args) == 0)
@@ -141,16 +135,10 @@ namespace SeedCore
 		requires std::totally_ordered<T>
 	[[nodiscard]] constexpr std::common_type_t<T, Args...> Min(T first, Args... args) noexcept
 	{
-		/// [EN] Everything is folded through one common type and handed to the
-		///      two-argument overload with an explicit template argument. Passing
-		///      mixed types straight through instead would make that overload fail
-		///      deduction (T cannot be two different types at once), leaving this
-		///      variadic as the only candidate - it would re-form the identical
-		///      mixed-type call and recurse forever.
-		/// [JP] すべてを 1 つの共通型へ畳み込み、明示的テンプレート引数付きで
-		///      2 引数版へ渡す。型が混在したまま渡すと 2 引数版は T を 1 つに
-		///      決められず推論に失敗し、候補がこの可変長版だけになる —
-		///      同じ混在型の呼び出しを再構成して無限に再帰してしまう。
+		/// [EN] Fold every argument into one common type and call the two-argument overload with it explicitly;
+		///      with mixed types its deduction would fail and the call would recurse into this overload forever.
+		/// [JP] 全引数を共通の型にそろえ、2引数版を明示的な型で呼ぶ。
+		///      型が混ざったままだと2引数版の推論が失敗し、この可変長版へ無限に再帰する。
 		using ReturnType = std::common_type_t<T, Args...>;
 
 		if constexpr (sizeof...(args) == 0)

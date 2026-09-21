@@ -1,10 +1,10 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
-#include <FoundationEngine/ECS/World.h>
-#include <FoundationEngine/ECS/System/SystemScheduler.h>
+#include <FoundationEngine/World/World.h>
+#include <FoundationEngine/World/ECS/System/SystemScheduler.h>
 #include <FoundationEngine/JobSystem/JobExecutor.h>
 #include <FoundationEngine/Resource/ResourceCache.h>
-#include <FoundationEngine/Resource/Scene.h>
+#include <FoundationEngine/Resource/Scene/Scene.h>
 #include <FoundationEngine/Resource/LoaderSystem.h>
 #include <FoundationEngine/Time/WorldTimer.h>
 #include <FoundationEngine/Time/GameTimer.h>
@@ -24,8 +24,8 @@
 #include <Editor/Editor/Editor.h>
 #include <Editor/Editor/ImGui/ImGuiRenderer.h>
 #include <Editor/Editor/Build/HotReload.h>
-#include <FoundationEngine/Resource/GameConfig.h>
-#include <FoundationEngine/Resource/EditorConfig.h>
+#include <FoundationEngine/Resource/Config/GameConfig.h>
+#include <FoundationEngine/Resource/Config/EditorConfig.h>
 #include <FoundationEngine/Plugin/PluginHost.h>
 
 namespace SeedCore

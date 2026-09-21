@@ -1,8 +1,8 @@
 #include <PhysicsEngine/Joint/SpringJoint.h>
 #include <PhysicsEngine/Physics/Physics.h>
 #include <PhysicsEngine/Rigidbody/Rigidbody.h>
-#include <FoundationEngine/ECS/Actor.h>
-#include <FoundationEngine/ECS/World.h>
+#include <FoundationEngine/World/Actor/Actor.h>
+#include <FoundationEngine/World/World.h>
 #include <FoundationEngine/Log/Warning.h>
 
 namespace SeedCore

@@ -1,5 +1,5 @@
 #include "UserProject/EntryPoint/EntryGame.h"
-#include <FoundationEngine/ECS/World.h>
+#include <FoundationEngine/World/World.h>
 
 void SC_SetImGuiContext(ImGuiContext* context)
 {

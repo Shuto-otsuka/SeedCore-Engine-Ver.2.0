@@ -10,8 +10,8 @@
 #include <GraphicsEngine/Light/SkyLight.h>
 #include <FoundationEngine/Resource/ResourceCache.h>
 #include <FoundationEngine/Resource/LoaderSystem.h>
-#include <FoundationEngine/ECS/Query.h>
-#include <FoundationEngine/ECS/Component/Active.h>
+#include <FoundationEngine/World/ECS/Query/Query.h>
+#include <FoundationEngine/World/ECS/Component/Active.h>
 #include <FoundationEngine/Log/DxFail.h>
 
 namespace SeedCore

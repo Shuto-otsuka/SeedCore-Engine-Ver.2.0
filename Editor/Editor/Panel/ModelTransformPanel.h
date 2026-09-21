@@ -1,6 +1,6 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
-#include <FoundationEngine/Resource/AxisConvention.h>
+#include <FoundationEngine/Resource/Asset/AxisConvention.h>
 
 namespace SeedCore
 {

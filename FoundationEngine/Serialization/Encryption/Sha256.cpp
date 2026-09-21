@@ -4,13 +4,8 @@ namespace SeedCore
 {
 	namespace
 	{
-		/// [EN] FIPS 180-4's fixed SHA-256 round constants (the first 32
-		///      bits of the fractional parts of the cube roots of the first
-		///      64 primes), used one per round in ProcessBlock's compression
-		///      loop.
-		/// [JP] FIPS 180-4で定められたSHA-256の固定ラウンド定数(最初の64個の
-		///      素数の立方根の小数部分、先頭32bit)。ProcessBlockの圧縮
-		///      ループで1ラウンドにつき1つ使う。
+		/// [EN] FIPS 180-4 round constants: first 32 bits of the fractional parts of the cube roots of the first 64 primes, one per round of ProcessBlock.
+		/// [JP] FIPS 180-4 のラウンド定数。最初の64個の素数の立方根の小数部の先頭32ビットで、ProcessBlock の1ラウンドに1つ使う。
 		constexpr Uint32 roundConstants[64] =
 		{
 			0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
@@ -51,12 +46,8 @@ namespace SeedCore
 			schedule[index] = (static_cast<Uint32>(static_cast<Uint8>(block[byteOffset])) << 24) | (static_cast<Uint32>(static_cast<Uint8>(block[byteOffset + 1])) << 16) | (static_cast<Uint32>(static_cast<Uint8>(block[byteOffset + 2])) << 8) | static_cast<Uint32>(static_cast<Uint8>(block[byteOffset + 3]));
 		}
 
-		/// [EN] Words 16..63 extend the schedule: each new word mixes two
-		///      earlier words (16 and 7 back) with two rotate-based sigma
-		///      functions applied to the words 15 and 2 back.
-		/// [JP] ワード16..63でスケジュールを拡張する: 新しい各ワードは、
-		///      16個前と7個前の2ワードを、15個前と2個前のワードに
-		///      ローテートベースのsigma関数を適用した値と合成して作る。
+		/// [EN] Words 16..63 extend the schedule by mixing the words 16 and 7 back with sigma functions of the words 15 and 2 back.
+		/// [JP] ワード16..63でスケジュールを伸ばす。16個前と7個前のワードに、15個前と2個前のワードの sigma 関数の値を合わせる。
 		for (Uint32 index = 16; index < 64; ++index)
 		{
 			Uint32 sigma0 = ((schedule[index - 15] >> 7) | (schedule[index - 15] << 25)) ^ ((schedule[index - 15] >> 18) | (schedule[index - 15] << 14)) ^ (schedule[index - 15] >> 3);
@@ -73,14 +64,8 @@ namespace SeedCore
 		Uint32 g = state[6];
 		Uint32 h = state[7];
 
-		/// [EN] The 64-round compression loop: sum1/choice form the "Ch"
-		///      path from e/f/g, sum0/majority form the "Maj" path from
-		///      a/b/c, and the eight working variables shift down by one
-		///      each round (the classic SHA-2 round function).
-		/// [JP] 64ラウンドの圧縮ループ: sum1/choiceがe/f/gから"Ch"パスを、
-		///      sum0/majorityがa/b/cから"Maj"パスを作り、8つの作業変数が
-		///      毎ラウンド1つずつ下にシフトする(SHA-2の標準的なラウンド
-		///      関数)。
+		/// [EN] The 64-round compression: sum1/choice form the Ch path from e/f/g, sum0/majority the Maj path from a/b/c, and the eight working variables shift down each round.
+		/// [JP] 64ラウンドの圧縮。sum1/choice が e/f/g から Ch を、sum0/majority が a/b/c から Maj を作り、8つの作業変数を毎ラウンド1つずつずらす。
 		for (Uint32 index = 0; index < 64; ++index)
 		{
 			Uint32 sum1 = ((e >> 6) | (e << 26)) ^ ((e >> 11) | (e << 21)) ^ ((e >> 25) | (e << 7));
@@ -126,11 +111,8 @@ namespace SeedCore
 	*/
 	DynamicArray<Byte> Sha256::Hash(const Byte* data, Size size)
 	{
-		/// [EN] FIPS 180-4's fixed SHA-256 initial hash value (the first 32
-		///      bits of the fractional parts of the square roots of the
-		///      first 8 primes).
-		/// [JP] FIPS 180-4で定められたSHA-256の初期ハッシュ値(最初の8個の
-		///      素数の平方根の小数部分、先頭32bit)。
+		/// [EN] FIPS 180-4 initial hash: first 32 bits of the fractional parts of the square roots of the first 8 primes.
+		/// [JP] FIPS 180-4 の初期ハッシュ値。最初の8個の素数の平方根の小数部の先頭32ビット。
 		Uint32 state[8] = { 0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19 };
 
 		Size fullBlockCount = size / 64;
@@ -139,16 +121,8 @@ namespace SeedCore
 			ProcessBlock(state, data + blockIndex * 64);
 		}
 
-		/// [EN] Merkle-Damgard padding: append a single 0x80 byte, then
-		///      zero-fill, leaving the final 8 bytes for the original
-		///      message's bit length. If the remaining data plus that
-		///      terminator doesn't leave room for the 8-byte length (i.e.
-		///      remainder >= 56), padding spills into a second block.
-		/// [JP] Merkle-Damgardパディング: 0x80を1バイト追加し、ゼロ埋めし、
-		///      末尾8バイトを元メッセージのビット長用に空けておく。残り
-		///      データ+終端バイトが8バイトの長さフィールド分の余地を
-		///      残さない場合(remainder >= 56)、パディングは2ブロック目に
-		///      またがる。
+		/// [EN] Merkle-Damgard padding: 0x80, zeros, then the message bit length in the last 8 bytes; a remainder of 56 or more spills the padding into a second block.
+		/// [JP] Merkle-Damgard パディング。0x80、ゼロ埋め、最後の8バイトにメッセージのビット長。残りが56バイト以上なら2ブロック目にまたがる。
 		Size remainder = size - fullBlockCount * 64;
 		Byte tail[128]{};
 		std::memcpy(tail, data + fullBlockCount * 64, remainder);

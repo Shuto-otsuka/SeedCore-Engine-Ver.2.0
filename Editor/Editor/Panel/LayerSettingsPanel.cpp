@@ -1,7 +1,7 @@
 #include <Editor/Editor/Panel/LayerSettingsPanel.h>
 #include <Editor/Editor/EditorContext.h>
-#include <FoundationEngine/ECS/LayerRegistry.h>
-#include <FoundationEngine/ECS/LayerCollisionMatrix.h>
+#include <FoundationEngine/World/Layer/LayerRegistry.h>
+#include <FoundationEngine/World/Layer/LayerCollisionMatrix.h>
 
 namespace SeedCore
 {

@@ -2,9 +2,9 @@
 #include <FoundationEngine/Utility/Bootstrap.h>
 #include <FoundationEngine/Input/InputSystem.h>
 #include <FoundationEngine/Resource/Gateway.h>
-#include <FoundationEngine/Resource/Scene.h>
-#include <FoundationEngine/Resource/Prefab.h>
-#include <FoundationEngine/ECS/LayerRegistry.h>
+#include <FoundationEngine/Resource/Scene/Scene.h>
+#include <FoundationEngine/Resource/Prefab/Prefab.h>
+#include <FoundationEngine/World/Layer/LayerRegistry.h>
 #include <FoundationEngine/Log/Error.h>
 
 #include <GraphicsEngine/D3D12/Context/D3D12CommandList.h>

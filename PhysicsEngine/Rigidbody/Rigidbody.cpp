@@ -8,10 +8,10 @@
 #include <PhysicsEngine/Collider/CylinderCollider.h>
 #include <PhysicsEngine/Collider/RectCollider.h>
 #include <PhysicsEngine/Collider/CircleCollider.h>
-#include <FoundationEngine/ECS/Actor.h>
-#include <FoundationEngine/ECS/World.h>
-#include <FoundationEngine/ECS/Component/Position.h>
-#include <FoundationEngine/ECS/Component/Rotation.h>
+#include <FoundationEngine/World/Actor/Actor.h>
+#include <FoundationEngine/World/World.h>
+#include <FoundationEngine/World/ECS/Component/Position.h>
+#include <FoundationEngine/World/ECS/Component/Rotation.h>
 
 namespace SeedCore
 {
@@ -106,7 +106,7 @@ namespace SeedCore
 		PhysicsSystem::ApplyTransform(actor, desc);
 		desc.motionType_ = ToMotionType(bodyType_);
 		desc.continuousCollision_ = continuousCollision_;
-		desc.layer_ = ToObjectLayer(bodyType_, actor.GetLayer());
+		desc.layer_ = ToObjectLayer(bodyType_, actor.Layer());
 
 		/// [EN] Material and motion settings; gravity off is a gravity factor of 0.
 		/// [JP] 材質と運動の設定。重力を切るのは、重力の倍率を 0 にすることと同じ。

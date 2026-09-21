@@ -3,18 +3,8 @@
 
 namespace SeedCore
 {
-	/// [EN] Which primitive wireframe a GPU-side collider debug renderer
-	///      should expand a ColliderStructuredBuffer into. Shared between
-	///      PhysicsEngine (produces instances from Collider components) and
-	///      GraphicsEngine (consumes them for wireframe rendering) — lives in
-	///      FoundationEngine, the common base of both, so neither module ever
-	///      depends on the other.
-	/// [JP] GPU側のコライダーデバッグレンダラーが ColliderStructuredBuffer を
-	///      どのプリミティブのワイヤーフレームへ展開するか。PhysicsEngine
-	///      （Collider コンポーネントからインスタンスを生成する側）と
-	///      GraphicsEngine（それをワイヤーフレーム描画に使う側）の間で共有
-	///      される — 両者の共通基盤である FoundationEngine に置くことで、
-	///      どちらのモジュールも互いに依存しない。
+	/// [EN] Wireframe primitive the collider debug renderer expands a ColliderStructuredBuffer entry into.
+	/// [JP] コライダーのデバッグ描画が、ColliderStructuredBuffer の1要素を展開するワイヤーフレームの形。
 	enum class ColliderShapeKind :Uint32
 	{
 		Box = 0,
@@ -26,12 +16,8 @@ namespace SeedCore
 		Cone = 6,
 	};
 
-	/// [EN] One collider's worth of GPU-facing debug-draw data: shape kind,
-	///      world position/rotation, and shape dimensions (meaning depends on
-	///      shapeKind_ — see PhysicsSystem::GatherColliderInstances).
-	/// [JP] コライダー1つぶんの、GPU向けデバッグ描画データ: 形状種別、
-	///      ワールド位置/回転、形状の寸法（意味は shapeKind_ による —
-	///      PhysicsSystem::GatherColliderInstances 参照）。
+	/// [EN] One collider's debug-draw data for the GPU; what dimensions_ holds depends on shapeKind_ (see Renderer::GatherColliders).
+	/// [JP] コライダー1つ分の、GPU 向けデバッグ描画データ。dimensions_ の中身は shapeKind_ で決まる(Renderer::GatherColliders 参照)。
 	struct ColliderStructuredBuffer
 	{
 		Vector3 position_;

@@ -5,11 +5,11 @@
 #include <GraphicsEngine/Constraint/LookAtConstraint.h>
 #include <GraphicsEngine/Constraint/AttachmentConstraint.h>
 #include <GraphicsEngine/Model/Skeleton/Skeleton.h>
-#include <FoundationEngine/ECS/World.h>
-#include <FoundationEngine/ECS/Actor.h>
-#include <FoundationEngine/ECS/Component/Position.h>
-#include <FoundationEngine/ECS/Component/Rotation.h>
-#include <FoundationEngine/ECS/Component/Scale.h>
+#include <FoundationEngine/World/World.h>
+#include <FoundationEngine/World/Actor/Actor.h>
+#include <FoundationEngine/World/ECS/Component/Position.h>
+#include <FoundationEngine/World/ECS/Component/Rotation.h>
+#include <FoundationEngine/World/ECS/Component/Scale.h>
 
 namespace SeedCore
 {
@@ -49,7 +49,7 @@ namespace SeedCore
 		for (EntityID id : constrainedEntities)
 		{
 			Actor actor = world.GetActor(id);
-			if (actor && actor.GetActive())
+			if (actor && actor.Active())
 			{
 				MarkDirtySubtree(actor, dirty);
 			}
@@ -60,10 +60,10 @@ namespace SeedCore
 		for (EntityID id : dirty)
 		{
 			Actor actor = world.GetActor(id);
-			Actor parent = actor.GetParent();
+			Actor parent = actor.Parent();
 			if (!parent || !dirty.contains(parent.GetEntity().GetID()))
 			{
-				Matrix parentMatrix = parent ? parent.GetWorldMatrix() : Matrix::Identity;
+				Matrix parentMatrix = parent ? parent.WorldMatrix() : Matrix::Identity;
 				UpdateActor(actor, parentMatrix, world, dirty);
 			}
 		}
@@ -76,7 +76,7 @@ namespace SeedCore
 			return;
 		}
 
-		for (Actor child : actor.GetChildren())
+		for (Actor child : actor.ChildList())
 		{
 			MarkDirtySubtree(child, dirty);
 		}
@@ -154,7 +154,7 @@ namespace SeedCore
 			{
 				Matrix offsetRotationMatrix = Matrix::CreateFromYawPitchRoll(ToRadians(parentConstraint->rotationOffset_.y), ToRadians(parentConstraint->rotationOffset_.x), ToRadians(parentConstraint->rotationOffset_.z));
 				Matrix offsetMatrix = offsetRotationMatrix * Matrix::CreateTranslation(parentConstraint->positionOffset_);
-				Matrix constrainedMatrix = offsetMatrix * target.GetWorldMatrix();
+				Matrix constrainedMatrix = offsetMatrix * target.WorldMatrix();
 
 				Vector3 constrainedScale;
 				Quaternion constrainedRotation;
@@ -173,7 +173,7 @@ namespace SeedCore
 				Actor target = (positionConstraint->target_ != 0) ? world.FindActor(positionConstraint->target_) : Actor();
 				if (target)
 				{
-					Matrix targetWorldMatrix = target.GetWorldMatrix();
+					Matrix targetWorldMatrix = target.WorldMatrix();
 					Vector3 targetScale;
 					Quaternion targetRotation;
 					Vector3 targetTranslation;
@@ -189,7 +189,7 @@ namespace SeedCore
 				Actor target = (rotationConstraint->target_ != 0) ? world.FindActor(rotationConstraint->target_) : Actor();
 				if (target)
 				{
-					Matrix targetWorldMatrix = target.GetWorldMatrix();
+					Matrix targetWorldMatrix = target.WorldMatrix();
 					Vector3 targetScale;
 					Quaternion targetRotation;
 					Vector3 targetTranslation;
@@ -208,7 +208,7 @@ namespace SeedCore
 			Actor target = (lookAtConstraint->target_ != 0) ? world.FindActor(lookAtConstraint->target_) : Actor();
 			if (target)
 			{
-				Matrix targetWorldMatrix = target.GetWorldMatrix();
+				Matrix targetWorldMatrix = target.WorldMatrix();
 				Vector3 targetScale;
 				Quaternion targetRotation;
 				Vector3 targetTranslation;
@@ -227,9 +227,9 @@ namespace SeedCore
 		}
 
 		worldMatrix = Matrix::CreateScale(finalScale) * Matrix::CreateFromQuaternion(finalRotation) * Matrix::CreateTranslation(finalTranslation);
-		actor.SetWorldMatrix(worldMatrix);
+		actor.WorldMatrix(worldMatrix);
 
-		for (Actor child : actor.GetChildren())
+		for (Actor child : actor.ChildList())
 		{
 			if (dirty.contains(child.GetEntity().GetID()))
 			{

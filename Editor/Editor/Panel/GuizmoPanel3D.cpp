@@ -1,11 +1,11 @@
 #include <Editor/Editor/Panel/GuizmoPanel3D.h>
 #include <Editor/Editor/EditorContext.h>
-#include <FoundationEngine/ECS/Actor.h>
-#include <FoundationEngine/ECS/World.h>
-#include <FoundationEngine/ECS/ComponentCommand.h>
-#include <FoundationEngine/ECS/CompoundCommand.h>
+#include <FoundationEngine/World/Actor/Actor.h>
+#include <FoundationEngine/World/World.h>
+#include <FoundationEngine/World/Command/ComponentCommand.h>
+#include <FoundationEngine/World/Command/CompoundCommand.h>
 #include <GraphicsEngine/Camera/EditorCamera.h>
-#include <FoundationEngine/ECS/Component/Bounds.h>
+#include <FoundationEngine/World/ECS/Component/Bounds.h>
 
 namespace SeedCore
 {
@@ -115,7 +115,7 @@ namespace SeedCore
 							continue;
 						}
 
-						Matrix worldMatrix = actor.GetWorldMatrix();
+						Matrix worldMatrix = actor.WorldMatrix();
 						Vector3 worldScale;
 						Quaternion worldRotation;
 						Vector3 worldTranslation;
@@ -266,8 +266,8 @@ namespace SeedCore
 						Vector2 newFrame = fixedPoint + (startFrame - fixedPoint) * rectScale + rectMove;
 						Vector3 newTranslation = startTranslation + axisU * (newFrame.x - startFrame.x) + axisV * (newFrame.y - startFrame.y);
 
-						Actor parentActor = actor ? actor.GetParent() : Actor();
-						Vector3 localTranslation = parentActor ? Vector3::Transform(newTranslation, parentActor.GetWorldMatrix().Invert()) : newTranslation;
+						Actor parentActor = actor ? actor.Parent() : Actor();
+						Vector3 localTranslation = parentActor ? Vector3::Transform(newTranslation, parentActor.WorldMatrix().Invert()) : newTranslation;
 
 						Vector3 actorAxes[3] = { Vector3(startWorldMatrix._11, startWorldMatrix._12, startWorldMatrix._13), Vector3(startWorldMatrix._21, startWorldMatrix._22, startWorldMatrix._23), Vector3(startWorldMatrix._31, startWorldMatrix._32, startWorldMatrix._33) };
 						Int32 uScaleIndex = 0;
@@ -420,7 +420,7 @@ namespace SeedCore
 						{
 							Entity entity = actor.GetEntity();
 							dragEntities_.push_back(entity);
-							dragStartWorldMatrices_.push_back(actor.GetWorldMatrix());
+							dragStartWorldMatrices_.push_back(actor.WorldMatrix());
 
 							Float* positionData = static_cast<Float*>(world.GetComponent(entity, positionID));
 							Float* scaleData = static_cast<Float*>(world.GetComponent(entity, scaleID));
@@ -504,14 +504,14 @@ namespace SeedCore
 			{
 				if (selectedActors.size() == 1)
 				{
-					pivotMatrix_ = selectedActors[0].GetWorldMatrix();
+					pivotMatrix_ = selectedActors[0].WorldMatrix();
 				}
 				else
 				{
 					Vector3 averagePosition = Vector3::Zero;
 					for (Actor actor : selectedActors)
 					{
-						averagePosition += actor.GetWorldMatrix().Translation();
+						averagePosition += actor.WorldMatrix().Translation();
 					}
 					averagePosition /= static_cast<Float>(selectedActors.size());
 					pivotMatrix_ = Matrix::CreateTranslation(averagePosition);
@@ -558,7 +558,7 @@ namespace SeedCore
 				{
 					Entity entity = actor.GetEntity();
 					dragEntities_.push_back(entity);
-					dragStartWorldMatrices_.push_back(actor.GetWorldMatrix());
+					dragStartWorldMatrices_.push_back(actor.WorldMatrix());
 
 					Float* positionData = static_cast<Float*>(context_.worldContext_.world_->GetComponent(entity, positionID));
 					Float* rotationData = static_cast<Float*>(context_.worldContext_.world_->GetComponent(entity, rotationID));
@@ -690,8 +690,8 @@ namespace SeedCore
 
 				Matrix newWorldMatrix = dragStartWorldMatrices_[index] * pivotDelta;
 
-				Actor parentActor = actor ? actor.GetParent() : Actor();
-				Matrix localMatrix = (parentActor) ? newWorldMatrix * parentActor.GetWorldMatrix().Invert() : newWorldMatrix;
+				Actor parentActor = actor ? actor.Parent() : Actor();
+				Matrix localMatrix = (parentActor) ? newWorldMatrix * parentActor.WorldMatrix().Invert() : newWorldMatrix;
 
 				Vector3 position, scale;
 				Quaternion rotation;

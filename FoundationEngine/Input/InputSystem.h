@@ -123,12 +123,17 @@ namespace SeedCore
 			Right
 		};
 
-		/// [EN] One WASD/arrow-key-style directional composite: four digital
-		///      keys combined into a Vector2 by ActionAxis2D(). An action can
-		///      have more than one of these bound (e.g. both WASD and arrow keys).
-		/// [JP] WASD/矢印キー的な方向キー1組: 4つのデジタルキーを ActionAxis2D()
-		///      が Vector2 に合成する。1つのアクションに複数組バインドできる
-		///      （例: WASD と矢印キーの両方）。
+		/**
+		* [EN]
+		* One WASD/arrow-key style directional composite: four digital keys combined into a Vector2 by ActionAxis2D().
+		* An action can have several of these bound (e.g. both WASD and the arrow keys).
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* WASD/矢印キー型の方向キー1組。4つのデジタルキーを ActionAxis2D() が Vector2 に合成する。
+		* 1つのアクションに複数組を割り当てられる(例: WASD と矢印キーの両方)。
+		*/
 		struct DirectionalKeys
 		{
 			Key up_ = Key::Up;

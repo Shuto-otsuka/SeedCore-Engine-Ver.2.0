@@ -1,2 +1,2 @@
 #pragma once
-#include <FoundationEngine/Resource/Scene.h>
+#include <FoundationEngine/Resource/Scene/Scene.h>

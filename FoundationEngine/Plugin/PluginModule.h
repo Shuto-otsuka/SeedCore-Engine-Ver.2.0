@@ -1,7 +1,6 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
-#include <FoundationEngine/Resource/ActorSerialization.h>
-#include <FoundationEngine/ECS/EcsID.h>
+#include <FoundationEngine/World/Actor/Blueprint.h>
 
 namespace SeedCore
 {
@@ -16,7 +15,7 @@ namespace SeedCore
 	* writable for a rebuild, and can be reloaded in place while the editor
 	* runs.
 	*
-	* Across a reload, every ComponentBase-derived component whose code
+	* Across a reload, every ComponentBehaviour-derived component whose code
 	* lives in this module has its reflected field values captured, its
 	* instance destroyed on its Actor, and - once no instance of that type
 	* remains - its sparse-set storage container destroyed, so no vtable
@@ -36,7 +35,7 @@ namespace SeedCore
 	* その場でリロードできる。
 	*
 	* リロードをまたいで、このモジュール内にコードがある全ての
-	* ComponentBase 派生コンポーネントは: リフレクションフィールド値を
+	* ComponentBehaviour 派生コンポーネントは: リフレクションフィールド値を
 	* 取得し、その Actor 上のインスタンスを破棄し、その型のインスタンスが
 	* 無くなった時点でスパースセットストレージコンテナも破棄する
 	* — アンロードされる DLL 内へのポインタが一切残らないようにする。
@@ -290,7 +289,7 @@ namespace SeedCore
 
 		/// [EN] Component field snapshots captured from the previously loaded module, awaiting restoration once the new module re-registers the type.
 		/// [JP] 直前にロードされていたモジュールから取得したコンポーネントのフィールドスナップショット。新しいモジュールが型を再登録した後に復元されるのを待っている。
-		DynamicArray<std::pair<Actor, SerializedComponent>> capturedComponents_;
+		DynamicArray<std::pair<Actor, BlueprintComponent>> capturedComponents_;
 
 		/// [EN] Type names this module added to ReflectionRegistry, determined by diffing the registry across LoadLibrary. Erased again before the module is freed.
 		/// [JP] このモジュールが ReflectionRegistry へ追加した型名。LoadLibrary の前後でレジストリを差分比較して求める。モジュールを解放する前に再び削除される。

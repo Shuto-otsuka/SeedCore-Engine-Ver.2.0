@@ -1,6 +1,6 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
-#include <FoundationEngine/ECS/Entity.h>
+#include <FoundationEngine/World/ECS/Entity/Entity.h>
 #include <GraphicsEngine/D3D12/Context/D3D12Context.h>
 #include <GraphicsEngine/D3D12/SwapChain/SwapChain.h>
 #include <GraphicsEngine/D3D12/SwapChain/GraphicsResolution.h>

@@ -6,8 +6,8 @@
 #include <External/ImGui/Include/imgui_internal.h>
 #include <GraphicsEngine/Model/Animation/Animator.h>
 #include <FoundationEngine/Resource/ResourceCache.h>
-#include <FoundationEngine/ECS/Actor.h>
-#include <FoundationEngine/ECS/World.h>
+#include <FoundationEngine/World/Actor/Actor.h>
+#include <FoundationEngine/World/World.h>
 
 namespace SeedCore
 {

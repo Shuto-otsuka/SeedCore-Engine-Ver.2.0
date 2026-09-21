@@ -1,2 +1,2 @@
 #pragma once
-#include <FoundationEngine/Resource/Prefab.h>
+#include <FoundationEngine/Resource/Prefab/Prefab.h>

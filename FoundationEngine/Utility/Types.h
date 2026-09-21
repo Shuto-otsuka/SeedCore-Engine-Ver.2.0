@@ -67,11 +67,7 @@ namespace SeedCore
 	/// [JP] std::size_t のエイリアス。サイズ・個数・インデックスに使う。
 	using Size = std::size_t;
 
-	/// [EN] Alias for raw memory bytes, distinct from Char (text) even
-	///      though both are char underneath — use Byte for
-	///      memcpy/binary-I/O-style code, Char for text.
-	/// [JP] 生メモリのバイトを表すエイリアス。内部的には Char（テキスト）
-	///      と同じ char だが用途で使い分ける — memcpy やバイナリI/Oには
-	///      Byte、テキストには Char を使う。
+	/// [EN] Raw memory bytes; the same char as Char underneath, but Byte is for memcpy/binary I/O and Char for text.
+	/// [JP] 生メモリのバイト。中身は Char と同じ char だが、Byte は memcpy やバイナリ I/O に、Char は文字列に使う。
 	using Byte = char;
 }

@@ -1,8 +1,8 @@
 #include <GraphicsEngine/Camera/CameraBrain.h>
-#include <FoundationEngine/ECS/Actor.h>
-#include <FoundationEngine/ECS/World.h>
-#include <FoundationEngine/ECS/Component/Position.h>
-#include <FoundationEngine/ECS/Component/Bounds.h>
+#include <FoundationEngine/World/Actor/Actor.h>
+#include <FoundationEngine/World/World.h>
+#include <FoundationEngine/World/ECS/Component/Position.h>
+#include <FoundationEngine/World/ECS/Component/Bounds.h>
 
 namespace SeedCore
 {
@@ -42,7 +42,7 @@ namespace SeedCore
 		Float mainRadius = 0.0f;
 		if (mainTarget)
 		{
-			const Matrix& worldMatrix = mainTarget.GetWorldMatrix();
+			const Matrix& worldMatrix = mainTarget.WorldMatrix();
 			const Bounds* bounds = mainTarget.GetComponent<Bounds>();
 			mainCenter = bounds ? Vector3::Transform(bounds->center_, worldMatrix) : worldMatrix.Translation();
 			mainRadius = bounds ? Vector3::TransformNormal(bounds->extent_, worldMatrix).Length() : 0.0f;
@@ -53,7 +53,7 @@ namespace SeedCore
 		Float subRadius = 0.0f;
 		if (subTarget)
 		{
-			const Matrix& worldMatrix = subTarget.GetWorldMatrix();
+			const Matrix& worldMatrix = subTarget.WorldMatrix();
 			const Bounds* bounds = subTarget.GetComponent<Bounds>();
 			subCenter = bounds ? Vector3::Transform(bounds->center_, worldMatrix) : worldMatrix.Translation();
 			subRadius = bounds ? Vector3::TransformNormal(bounds->extent_, worldMatrix).Length() : 0.0f;

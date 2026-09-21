@@ -9,10 +9,10 @@
 #include <GraphicsEngine/D3D12/Context/D3D12Check.h>
 #include <GraphicsEngine/System/IndicesSystem.h>
 #include <GraphicsEngine/D3D12/SwapChain/GraphicsResolution.h>
-#include <FoundationEngine/ECS/Query.h>
-#include <FoundationEngine/ECS/Component/Active.h>
-#include <FoundationEngine/ECS/Component/Bounds.h>
-#include <FoundationEngine/ECS/ComponentRegistry.h>
+#include <FoundationEngine/World/ECS/Query/Query.h>
+#include <FoundationEngine/World/ECS/Component/Active.h>
+#include <FoundationEngine/World/ECS/Component/Bounds.h>
+#include <FoundationEngine/World/ECS/Component/ComponentRegistry.h>
 
 namespace SeedCore
 {
@@ -92,7 +92,7 @@ namespace SeedCore
 					return;
 				}
 
-				Matrix worldMatrix = actor.GetWorldMatrix();
+				Matrix worldMatrix = actor.WorldMatrix();
 				Vector3 worldScale;
 				Quaternion worldRotation;
 				Vector3 worldTranslation;

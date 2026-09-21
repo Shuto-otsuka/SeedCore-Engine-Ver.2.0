@@ -88,14 +88,8 @@ namespace SeedCore
 		static DynamicArray<Byte> DecryptUnpadded(const DynamicArray<Byte>& key, const DynamicArray<Byte>& iv, const DynamicArray<Byte>& ciphertext);
 
 	private:
-		/// [EN] Buffers at or above this size use BCrypt (EncryptHardware/
-		///      DecryptUnpaddedHardware) instead of the from-scratch software
-		///      path, since AES-NI throughput matters far more than
-		///      dependency-freedom once an asset is this large.
-		/// [JP] このサイズ以上のバッファは、自前のソフトウェア経路ではなく
-		///      BCrypt(EncryptHardware/DecryptUnpaddedHardware)を使う -
-		///      アセットがこの大きさになると、依存ゼロであることよりAES-NIの
-		///      スループットの方が重要になるため。
+		/// [EN] Buffers at or above this size use BCrypt (EncryptHardware/DecryptUnpaddedHardware), where AES-NI throughput matters more than having no dependency.
+		/// [JP] この大きさ以上のバッファは BCrypt(EncryptHardware/DecryptUnpaddedHardware)を使う。この規模では依存が無いことより AES-NI の速さが重要になる。
 		static constexpr Size hardwareThreshold_ = 1024 * 1024;
 
 		/**

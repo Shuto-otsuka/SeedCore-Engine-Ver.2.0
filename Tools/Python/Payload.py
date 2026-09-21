@@ -493,7 +493,7 @@ def is_userproject_file(full_path, project_root):
 def build_payload_source(includes, force_lines, body_lines):
     lines = []
     lines.append('#include <FoundationEngine/Prelude.h>')
-    lines.append('#include <FoundationEngine/ECS/PayloadRegistry.h>')
+    lines.append('#include <FoundationEngine/Payload/PayloadRegistry.h>')
     for include in sorted(set(includes)):
         lines.append(f'#include <{include}>')
     lines.append('')

@@ -1,12 +1,22 @@
 #pragma once
-#include <FoundationEngine/ECS/Component/ComponentBase.h>
-#include <FoundationEngine/ECS/ComponentRegistry.h>
+#include <FoundationEngine/World/ECS/Component/ComponentBehaviour.h>
+#include <FoundationEngine/World/ECS/Component/ComponentRegistry.h>
 
 namespace SeedCore
 {
-	class SeedScript :public ComponentBase
+	class SeedScript :public ComponentBehaviour
 	{
 	public:
 		virtual ~SeedScript() = default;
+
+	private:
+		using ComponentBehaviour::DispatchDestroy;
+		using ComponentBehaviour::DispatchInspectorGUI;
+		using ComponentBehaviour::DispatchCollisionEnter;
+		using ComponentBehaviour::DispatchCollisionStay;
+		using ComponentBehaviour::DispatchCollisionExit;
+		using ComponentBehaviour::DispatchTriggerEnter;
+		using ComponentBehaviour::DispatchTriggerStay;
+		using ComponentBehaviour::DispatchTriggerExit;
 	};
 }

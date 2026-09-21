@@ -3,8 +3,8 @@
 #include <PhysicsEngine/Physics/PhysicsSystem.h>
 #include <PhysicsEngine/Rigidbody/Rigidbody.h>
 #include <GraphicsEngine/Model/Collision/MeshCollision.h>
-#include <FoundationEngine/ECS/World.h>
-#include <FoundationEngine/ECS/Actor.h>
+#include <FoundationEngine/World/World.h>
+#include <FoundationEngine/World/Actor/Actor.h>
 #include <FoundationEngine/Log/Warning.h>
 
 namespace SeedCore

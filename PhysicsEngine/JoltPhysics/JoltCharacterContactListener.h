@@ -1,6 +1,6 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
-#include <FoundationEngine/ECS/EcsID.h>
+#include <FoundationEngine/World/ECS/Entity/Entity.h>
 #include <External/JoltPhysics/Jolt/Physics/Character/CharacterVirtual.h>
 
 namespace SeedCore

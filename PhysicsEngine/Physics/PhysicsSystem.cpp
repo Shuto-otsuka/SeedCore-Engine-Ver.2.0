@@ -5,10 +5,10 @@
 #include <PhysicsEngine/Collider/CircleCollider.h>
 #include <PhysicsEngine/Collider/MeshCollider.h>
 #include <PhysicsEngine/Softbody/Softbody.h>
-#include <FoundationEngine/ECS/World.h>
-#include <FoundationEngine/ECS/Actor.h>
-#include <FoundationEngine/ECS/Component/Position.h>
-#include <FoundationEngine/ECS/Component/Rotation.h>
+#include <FoundationEngine/World/World.h>
+#include <FoundationEngine/World/Actor/Actor.h>
+#include <FoundationEngine/World/ECS/Component/Position.h>
+#include <FoundationEngine/World/ECS/Component/Rotation.h>
 #include <FoundationEngine/Resource/ResourceCache.h>
 #include <GraphicsEngine/Model/Collision/MeshCollisionResource.h>
 #include <GraphicsEngine/Model/ModelResource.h>
@@ -99,7 +99,7 @@ namespace SeedCore
 
 			/// [EN] Both calls do nothing when the body is already in the wanted state.
 			/// [JP] ボディが既に望む状態なら、どちらの呼び出しも何もしない。
-			if (actor.GetActive())
+			if (actor.Active())
 			{
 				physics.ResumeBody(bodyID);
 			}
@@ -141,7 +141,7 @@ namespace SeedCore
 		RigidbodyDesc desc;
 		desc.shape_ = shape;
 		desc.motionType_ = JPH::EMotionType::Static;
-		desc.layer_ = Layers::Pack(Layers::STATIC, actor.GetLayer());
+		desc.layer_ = Layers::Pack(Layers::STATIC, actor.Layer());
 
 		/// [EN] Canvas colliders only collide with other canvas bodies.
 		/// [JP] Canvas のコライダーは、他の Canvas のボディとだけ衝突する。
@@ -204,12 +204,12 @@ namespace SeedCore
 			return;
 		}
 
-		/// [EN] Every ComponentBase-derived component on the entity receives the event with the other entity.
-		/// [JP] エンティティの、ComponentBase を継承した全コンポーネントが、相手のエンティティと一緒にイベントを受け取る。
+		/// [EN] Every ComponentBehaviour-derived component on the entity receives the event with the other entity.
+		/// [JP] エンティティの、ComponentBehaviour を継承した全コンポーネントが、相手のエンティティと一緒にイベントを受け取る。
 		Entity otherEntity = otherActor.GetEntity();
-		for (ComponentID id : actor.ComponentBaseIDList())
+		for (ComponentID id : actor.ComponentIDList())
 		{
-			if (ComponentBase* component = reinterpret_cast<ComponentBase*>(world.GetComponent(entityID, id)))
+			if (ComponentBehaviour* component = reinterpret_cast<ComponentBehaviour*>(world.GetComponent(entityID, id)))
 			{
 				component->DispatchCollisionEnter(otherEntity);
 			}
@@ -237,12 +237,12 @@ namespace SeedCore
 			return;
 		}
 
-		/// [EN] Every ComponentBase-derived component on the entity receives the event with the other entity.
-		/// [JP] エンティティの、ComponentBase を継承した全コンポーネントが、相手のエンティティと一緒にイベントを受け取る。
+		/// [EN] Every ComponentBehaviour-derived component on the entity receives the event with the other entity.
+		/// [JP] エンティティの、ComponentBehaviour を継承した全コンポーネントが、相手のエンティティと一緒にイベントを受け取る。
 		Entity otherEntity = otherActor.GetEntity();
-		for (ComponentID id : actor.ComponentBaseIDList())
+		for (ComponentID id : actor.ComponentIDList())
 		{
-			if (ComponentBase* component = reinterpret_cast<ComponentBase*>(world.GetComponent(entityID, id)))
+			if (ComponentBehaviour* component = reinterpret_cast<ComponentBehaviour*>(world.GetComponent(entityID, id)))
 			{
 				component->DispatchCollisionStay(otherEntity);
 			}
@@ -270,12 +270,12 @@ namespace SeedCore
 			return;
 		}
 
-		/// [EN] Every ComponentBase-derived component on the entity receives the event with the other entity.
-		/// [JP] エンティティの、ComponentBase を継承した全コンポーネントが、相手のエンティティと一緒にイベントを受け取る。
+		/// [EN] Every ComponentBehaviour-derived component on the entity receives the event with the other entity.
+		/// [JP] エンティティの、ComponentBehaviour を継承した全コンポーネントが、相手のエンティティと一緒にイベントを受け取る。
 		Entity otherEntity = otherActor.GetEntity();
-		for (ComponentID id : actor.ComponentBaseIDList())
+		for (ComponentID id : actor.ComponentIDList())
 		{
-			if (ComponentBase* component = reinterpret_cast<ComponentBase*>(world.GetComponent(entityID, id)))
+			if (ComponentBehaviour* component = reinterpret_cast<ComponentBehaviour*>(world.GetComponent(entityID, id)))
 			{
 				component->DispatchCollisionExit(otherEntity);
 			}
@@ -303,12 +303,12 @@ namespace SeedCore
 			return;
 		}
 
-		/// [EN] Every ComponentBase-derived component on the entity receives the event with the other entity.
-		/// [JP] エンティティの、ComponentBase を継承した全コンポーネントが、相手のエンティティと一緒にイベントを受け取る。
+		/// [EN] Every ComponentBehaviour-derived component on the entity receives the event with the other entity.
+		/// [JP] エンティティの、ComponentBehaviour を継承した全コンポーネントが、相手のエンティティと一緒にイベントを受け取る。
 		Entity otherEntity = otherActor.GetEntity();
-		for (ComponentID id : actor.ComponentBaseIDList())
+		for (ComponentID id : actor.ComponentIDList())
 		{
-			if (ComponentBase* component = reinterpret_cast<ComponentBase*>(world.GetComponent(entityID, id)))
+			if (ComponentBehaviour* component = reinterpret_cast<ComponentBehaviour*>(world.GetComponent(entityID, id)))
 			{
 				component->DispatchTriggerEnter(otherEntity);
 			}
@@ -336,12 +336,12 @@ namespace SeedCore
 			return;
 		}
 
-		/// [EN] Every ComponentBase-derived component on the entity receives the event with the other entity.
-		/// [JP] エンティティの、ComponentBase を継承した全コンポーネントが、相手のエンティティと一緒にイベントを受け取る。
+		/// [EN] Every ComponentBehaviour-derived component on the entity receives the event with the other entity.
+		/// [JP] エンティティの、ComponentBehaviour を継承した全コンポーネントが、相手のエンティティと一緒にイベントを受け取る。
 		Entity otherEntity = otherActor.GetEntity();
-		for (ComponentID id : actor.ComponentBaseIDList())
+		for (ComponentID id : actor.ComponentIDList())
 		{
-			if (ComponentBase* component = reinterpret_cast<ComponentBase*>(world.GetComponent(entityID, id)))
+			if (ComponentBehaviour* component = reinterpret_cast<ComponentBehaviour*>(world.GetComponent(entityID, id)))
 			{
 				component->DispatchTriggerStay(otherEntity);
 			}
@@ -369,12 +369,12 @@ namespace SeedCore
 			return;
 		}
 
-		/// [EN] Every ComponentBase-derived component on the entity receives the event with the other entity.
-		/// [JP] エンティティの、ComponentBase を継承した全コンポーネントが、相手のエンティティと一緒にイベントを受け取る。
+		/// [EN] Every ComponentBehaviour-derived component on the entity receives the event with the other entity.
+		/// [JP] エンティティの、ComponentBehaviour を継承した全コンポーネントが、相手のエンティティと一緒にイベントを受け取る。
 		Entity otherEntity = otherActor.GetEntity();
-		for (ComponentID id : actor.ComponentBaseIDList())
+		for (ComponentID id : actor.ComponentIDList())
 		{
-			if (ComponentBase* component = reinterpret_cast<ComponentBase*>(world.GetComponent(entityID, id)))
+			if (ComponentBehaviour* component = reinterpret_cast<ComponentBehaviour*>(world.GetComponent(entityID, id)))
 			{
 				component->DispatchTriggerExit(otherEntity);
 			}

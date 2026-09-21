@@ -2,7 +2,7 @@
 #include <FoundationEngine/Prelude.h>
 #include <FoundationEngine/Utility/Handle.h>
 #include <FoundationEngine/Pool/StablePool.h>
-#include <FoundationEngine/Resource/AxisConvention.h>
+#include <FoundationEngine/Resource/Asset/AxisConvention.h>
 #include <GraphicsEngine/Model/Crister.h>
 
 namespace SeedCore

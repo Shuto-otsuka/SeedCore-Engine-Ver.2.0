@@ -1,7 +1,7 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
-#include <FoundationEngine/ECS/LayerRegistry.h>
-#include <FoundationEngine/ECS/LayerCollisionMatrix.h>
+#include <FoundationEngine/World/Layer/LayerRegistry.h>
+#include <FoundationEngine/World/Layer/LayerCollisionMatrix.h>
 #include <PhysicsEngine/Rigidbody/Rigidbody.h>
 
 namespace SeedCore

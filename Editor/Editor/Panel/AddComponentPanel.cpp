@@ -1,9 +1,9 @@
 #include <Editor/Editor/Panel/AddComponentPanel.h>
 #include <Editor/Editor/EditorContext.h>
 #include <Editor/Editor/ImGui/ImGuiTexture.h>
-#include <FoundationEngine/ECS/Actor.h>
-#include <FoundationEngine/ECS/ComponentRegistry.h>
-#include <FoundationEngine/ECS/ComponentLifecycleCommand.h>
+#include <FoundationEngine/World/Actor/Actor.h>
+#include <FoundationEngine/World/ECS/Component/ComponentRegistry.h>
+#include <FoundationEngine/World/Command/ComponentLifecycleCommand.h>
 
 namespace SeedCore
 {
@@ -108,7 +108,7 @@ namespace SeedCore
 
 	void AddComponentPanel::DrawComponentList(Actor actor, ImGuiTexture& imguiTexture)
 	{
-		auto& componentList = ComponentRegistry::GetComponentList();
+		auto& componentList = ComponentRegistry::ComponentList();
 		std::string filterText = state_.searchBuffer.str();
 
 		/// [EN] Group by ComponentMetadata::category_ (e.g. "Light"). std::map
@@ -221,7 +221,7 @@ namespace SeedCore
 			state_.selectedName = componentName;
 			if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
 			{
-				context_.sceneContext_.history_.Push(MakePtr<ComponentAddCommand>(*context_.worldContext_.world_, actor.GetPersistentID(), componentID));
+				context_.sceneContext_.history_.Push(MakePtr<ComponentAddCommand>(*context_.worldContext_.world_, actor.PersistentID(), componentID));
 				actor.AddComponent(componentID);
 				ImGui::CloseCurrentPopup();
 			}

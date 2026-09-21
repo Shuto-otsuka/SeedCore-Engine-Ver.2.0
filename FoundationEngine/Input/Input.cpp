@@ -5,14 +5,17 @@ namespace SeedCore
 {
 	namespace
 	{
-		/// [EN] On-disk shape of one action's bindings (see Input::LoadBindings/SaveBindings).
-		///      Key/SDL_GamepadButton round-trip as Int32 since the archive has no
-		///      built-in support for raw enums (same convention as GameConfig's
-		///      upscaleMode_/resolution_, see FoundationEngine/Resource/GameConfig.cpp).
-		/// [JP] 1アクション分のバインド情報のディスク上の形（Input::LoadBindings/
-		///      SaveBindings 参照）。Key/SDL_GamepadButton はアーカイブが生の enum を
-		///      直接扱えないため Int32 として往復させる（GameConfig の
-		///      upscaleMode_/resolution_ と同じ規約、FoundationEngine/Resource/GameConfig.cpp 参照）。
+		/**
+		* [EN]
+		* On-disk form of one action's bindings (see Input::LoadBindings/SaveBindings).
+		* Key and SDL_GamepadButton are stored as Int32 because the archive has no support for raw enums.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* 1アクション分のバインドのディスク上の形(Input::LoadBindings/SaveBindings 参照)。
+		* アーカイブは生の enum を扱えないので、Key と SDL_GamepadButton は Int32 で保存する。
+		*/
 		struct AxisKeysRecord
 		{
 			Int32 up_ = 0;
@@ -161,16 +164,10 @@ namespace SeedCore
 		mouseX_ = newX;
 		mouseY_ = newY;
 
-		/// [EN] While captured (see BeginMouseCapture), re-anchor the cursor
-		///      every frame so it never reaches a monitor edge - GetCursorPos()
-		///      clamps there, which would otherwise silently zero out further
-		///      delta. This is pure mechanism; deciding when to capture is the
-		///      caller's job (e.g. the Editor viewport panel).
-		/// [JP] キャプチャ中(BeginMouseCapture 参照)は、毎フレームカーソルを
-		///      再アンカーしてモニタ端に到達しないようにする。モニタ端では
-		///      GetCursorPos() がクランプされ、それ以上のデルタが暗黙に 0 に
-		///      なってしまうため。これは純粋な機構であり、いつキャプチャするか
-		///      （例: エディタビューポートパネル）は呼び出し側の判断。
+		/// [EN] While captured (see BeginMouseCapture) the cursor is re-anchored every frame so it never reaches a monitor edge,
+		///      where GetCursorPos() clamps and the delta would drop to 0. When to capture is up to the caller.
+		/// [JP] キャプチャ中(BeginMouseCapture 参照)は毎フレームカーソルを戻し、モニタ端に届かないようにする。
+		///      端では GetCursorPos() が止まり、移動量が 0 になるため。いつキャプチャするかは呼び出し側が決める。
 		if (mouseCaptured_)
 		{
 			SetCursorPos(static_cast<Int>(mouseCaptureAnchorX_), static_cast<Int>(mouseCaptureAnchorY_));
@@ -941,11 +938,8 @@ namespace SeedCore
 
 		for (StickSide side : iterator->second.sticks_)
 		{
-			/// [EN] SDL reports stick-down as positive Y; flip so "up" on the
-			///      stick matches +Y here, same as the keyboard composite above.
-			/// [JP] SDL はスティック下方向を正のYとして報告するため、符号を
-			///      反転し、上記のキーボード合成と同じく「上」が +Y になる
-			///      ようにする。
+			/// [EN] SDL reports stick-down as +Y; flip it so up is +Y, as with the keyboard composite above.
+			/// [JP] SDL はスティックの下方向を +Y で返すので反転し、上のキーボード合成と同じく上を +Y にする。
 			Float x = (side == StickSide::Left) ? GamepadAxisLX() : GamepadAxisRX();
 			Float y = (side == StickSide::Left) ? -GamepadAxisLY() : -GamepadAxisRY();
 			if (x != 0.0f || y != 0.0f)

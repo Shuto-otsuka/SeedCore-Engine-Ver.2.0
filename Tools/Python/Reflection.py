@@ -706,7 +706,7 @@ def build_reflection_source(includes, force_lines, body_lines, generated_enums, 
 
     lines = []
     lines.append('#include <FoundationEngine/Prelude.h>')
-    lines.append('#include <FoundationEngine/ECS/ReflectionRegistry.h>')
+    lines.append('#include <FoundationEngine/Reflection/ReflectionRegistry.h>')
     for include in sorted(set(includes)):
         lines.append(f'#include <{include}>')
     lines.append('')

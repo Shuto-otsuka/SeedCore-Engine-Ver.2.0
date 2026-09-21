@@ -3,9 +3,9 @@
 #include <FoundationEngine/File/FileDialog.h>
 #include <FoundationEngine/Log/Notice.h>
 #include <FoundationEngine/Log/Warning.h>
-#include <FoundationEngine/Resource/Scene.h>
+#include <FoundationEngine/Resource/Scene/Scene.h>
 #include <FoundationEngine/Resource/ResourceCache.h>
-#include <FoundationEngine/ECS/World.h>
+#include <FoundationEngine/World/World.h>
 #include <FoundationEngine/Time/GameTimer.h>
 
 namespace SeedCore

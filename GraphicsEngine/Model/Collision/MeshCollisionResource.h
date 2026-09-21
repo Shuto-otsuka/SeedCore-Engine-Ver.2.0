@@ -2,7 +2,7 @@
 #include <FoundationEngine/Prelude.h>
 #include <FoundationEngine/Utility/Handle.h>
 #include <FoundationEngine/Utility/FlatMap.h>
-#include <FoundationEngine/Resource/Asset.h>
+#include <FoundationEngine/Resource/Asset/Asset.h>
 #include <GraphicsEngine/Model/Collision/MeshCollision.h>
 
 namespace SeedCore

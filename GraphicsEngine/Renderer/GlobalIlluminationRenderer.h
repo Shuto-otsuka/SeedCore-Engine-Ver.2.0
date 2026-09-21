@@ -212,15 +212,12 @@ namespace SeedCore
 		///      accumulatedRadianceResource_ above, these are NOT frame-ring
 		///      double-buffered - they are pure intermediate scratch, fully
 		///      overwritten by every A-Trous pass every frame (their bindless
-		///      indices are registered once in Create()/Resize(), see
-		///      IndicesSystem::SetEditor/GameGlobalIlluminationAtrousScratchIndices).
+		///      indices are registered once in Create()/Resize()).
 		/// [JP] A-Trous ピンポンスクラッチ、ビューごとに1ペア。上の
 		///      accumulatedRadianceResource_ と違い、こちらはフレームリング
 		///      二重化しない - 純粋な中間スクラッチで、毎フレーム全ての
 		///      A-Trous パスが全画素を上書きする(bindless インデックスは
-		///      Create()/Resize() で一度だけ登録する。
-		///      IndicesSystem::SetEditor/GameGlobalIlluminationAtrousScratchIndices
-		///      参照)。
+		///      Create()/Resize() で一度だけ登録する)。
 		Microsoft::WRL::ComPtr<ID3D12Resource> atrousScratchResource_[viewCount][2];
 		D3D12_RESOURCE_STATES atrousScratchState_[viewCount][2] = {};
 		Uint32 atrousScratchUnorderedAccessViewIndex_[viewCount][2] = {};

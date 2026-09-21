@@ -5,8 +5,8 @@
 #include <GraphicsEngine/Model/ModelResource.h>
 #include <GraphicsEngine/D3D12/Descriptor/BindlessHeap.h>
 #include <GraphicsEngine/D3D12/Context/D3D12CommandList.h>
-#include <FoundationEngine/ECS/Query.h>
-#include <FoundationEngine/ECS/Component/Active.h>
+#include <FoundationEngine/World/ECS/Query/Query.h>
+#include <FoundationEngine/World/ECS/Component/Active.h>
 #include <GraphicsEngine/Model/Mesh.h>
 #include <GraphicsEngine/System/IndicesSystem.h>
 #include <FoundationEngine/Log/Warning.h>
@@ -14,8 +14,8 @@
 #include <FoundationEngine/Log/DxFail.h>
 #include <GraphicsEngine/Model/Animation/Animator.h>
 #include <GraphicsEngine/Renderer/ModelRenderer.h>
-#include <FoundationEngine/ECS/Actor.h>
-#include <FoundationEngine/ECS/World.h>
+#include <FoundationEngine/World/Actor/Actor.h>
+#include <FoundationEngine/World/World.h>
 
 namespace SeedCore
 {
@@ -121,7 +121,7 @@ namespace SeedCore
 
 				PendingInstance instance{};
 				instance.crister_ = crister;
-				instance.worldMatrix_ = actor.GetWorldMatrix();
+				instance.worldMatrix_ = actor.WorldMatrix();
 				instance.entityID_ = entityID;
 
 				const Animator* animator = actor.GetComponent<Animator>();
