@@ -81,7 +81,7 @@ namespace SeedCore
 		Size n = 0;
 		for (Size index = numberSuccessors_;index < edges_.size();index++)
 		{
-			n += edges_[index]->IsConditioner();
+			n += edges_[index]->Conditioner();
 		}
 		return n;
 	}
@@ -104,7 +104,7 @@ namespace SeedCore
 		Size n = 0;
 		for (Size index = numberSuccessors_;index < edges_.size();index++)
 		{
-			n += !edges_[index]->IsConditioner();
+			n += !edges_[index]->Conditioner();
 		}
 		return n;
 	}
@@ -134,7 +134,7 @@ namespace SeedCore
 	* このノードの親がキャンセルされているかどうかを返す。
 	* キャンセルされている場合、このノードは実行を進めるべきではない。
 	*/
-	Bool JobNode::IsParentCancelled()const
+	Bool JobNode::ParentCancelled()const
 	{
 		/// [EN] Cancelled if this node's topology is flagged CANCELLED/EXCEPTION, or if its parent node is flagged CANCELLED/EXCEPTION.
 		/// [JP] このノードが属するトポロジーが CANCELLED/EXCEPTION フラグを持つ場合、または親ノードが CANCELLED/EXCEPTION フラグを持つ場合にキャンセル済みとなる。
@@ -152,7 +152,7 @@ namespace SeedCore
 	* このノードが条件分岐を表すかどうか（すなわちハンドルが
 	* SingleCondition または MultiCondition であるか）を返す。
 	*/
-	Bool JobNode::IsConditioner()const
+	Bool JobNode::Conditioner()const
 	{
 		return handle_.index() == JobNode::SINGLE_CONDITION || handle_.index() == JobNode::MULTI_CONDITION;
 	}
@@ -249,7 +249,7 @@ namespace SeedCore
 		/// [JP] 無条件（非 conditioner）の先行ノードの数を数え、その数を nstate_ に組み込む。
 		for (Size index = numberSuccessors_;index < edges_.size();index++)
 		{
-			nstate_ += !edges_[index]->IsConditioner();
+			nstate_ += !edges_[index]->Conditioner();
 		}
 
 		/// [EN] Initialize the join counter from the strong-dependency bits of nstate_, so the node becomes runnable once that many strong predecessors have completed.

@@ -154,7 +154,7 @@ namespace SeedCore
 		fontConfig.PixelSnapH = false;
 
 		const ImWchar* japaneseFullRange = io.Fonts->GetGlyphRangesChineseFull();
-		io.Fonts->AddFontFromFileTTF("../External/ImGui/Font/NotoSansJP-Regular.ttf", 22.0f, &fontConfig, japaneseFullRange);
+		io.Fonts->AddFontFromFileTTF("../External/ImGui/Font/NotoSansJP-Regular.ttf", 17.6f, &fontConfig, japaneseFullRange);
 		return io.Fonts->Build();
 	}
 

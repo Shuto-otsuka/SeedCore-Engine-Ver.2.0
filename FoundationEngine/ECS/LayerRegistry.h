@@ -106,7 +106,7 @@ namespace SeedCore
 		* のは index が範囲外の場合、または SetName(index, "") で名前を
 		* 明示的に空にした場合のみ）。
 		*/
-		static Bool IsUsed(Size index);
+		static Bool Used(Size index);
 
 		/**
 		* [EN]

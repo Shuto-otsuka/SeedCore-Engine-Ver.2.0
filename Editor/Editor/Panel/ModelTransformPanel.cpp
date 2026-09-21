@@ -206,7 +206,7 @@ namespace SeedCore
 
 		if (!ImGuizmo::IsUsing() && !ImGuizmo::IsOver() && ImGui::IsItemHovered() && context_.cameraContext_.modelTransformCamera_ && context_.cameraContext_.modelTransformCameraController_)
 		{
-			if ((orbitHeld || panHeld) && !InputSystem::IsMouseCaptured())
+			if ((orbitHeld || panHeld) && !InputSystem::MouseCaptured())
 			{
 				InputSystem::BeginMouseCapture();
 			}
@@ -214,7 +214,7 @@ namespace SeedCore
 			context_.cameraContext_.modelTransformCameraController_->Update(*context_.cameraContext_.modelTransformCamera_, ImGui::GetIO().DeltaTime);
 		}
 
-		if (!orbitHeld && !panHeld && InputSystem::IsMouseCaptured())
+		if (!orbitHeld && !panHeld && InputSystem::MouseCaptured())
 		{
 			InputSystem::EndMouseCapture();
 		}

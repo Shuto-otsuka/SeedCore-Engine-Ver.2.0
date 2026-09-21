@@ -7,6 +7,7 @@
 #include <Editor/Editor/Panel/MaterialViewerPanel.h>
 #include <Editor/Editor/Panel/SkeletonControllerPanel.h>
 #include <Editor/Editor/Panel/AvatarPanel.h>
+#include <Editor/Editor/Panel/BootScreenPanel.h>
 #include <FoundationEngine/ECS/World.h>
 #include <FoundationEngine/ECS/Actor.h>
 #include <FoundationEngine/ECS/Component.h>
@@ -50,37 +51,44 @@ namespace SeedCore
 
 		if (ImGui::Begin("インスペクター"))
 		{
-			if (context_.panelContext_.animatorControllerPanel_ && context_.panelContext_.animatorControllerPanel_->IsFocused())
+			if (context_.panelContext_.animatorControllerPanel_ && context_.panelContext_.animatorControllerPanel_->Focused())
 			{
 				context_.panelContext_.animatorControllerPanel_->DrawDetails();
 				ImGui::End();
 				return;
 			}
 
-			if (context_.panelContext_.timelinePanel_ && context_.panelContext_.timelinePanel_->IsFocused())
+			if (context_.panelContext_.timelinePanel_ && context_.panelContext_.timelinePanel_->Focused())
 			{
 				context_.panelContext_.timelinePanel_->DrawDetails();
 				ImGui::End();
 				return;
 			}
 
-			if (context_.panelContext_.materialViewerPanel_ && context_.panelContext_.materialViewerPanel_->IsFocused())
+			if (context_.panelContext_.materialViewerPanel_ && context_.panelContext_.materialViewerPanel_->Focused())
 			{
 				context_.panelContext_.materialViewerPanel_->DrawDetails();
 				ImGui::End();
 				return;
 			}
 
-			if (context_.panelContext_.skeletonControllerPanel_ && context_.panelContext_.skeletonControllerPanel_->IsFocused())
+			if (context_.panelContext_.skeletonControllerPanel_ && context_.panelContext_.skeletonControllerPanel_->Focused())
 			{
 				context_.panelContext_.skeletonControllerPanel_->DrawDetails();
 				ImGui::End();
 				return;
 			}
 
-			if (context_.panelContext_.avatarPanel_ && context_.panelContext_.avatarPanel_->IsFocused())
+			if (context_.panelContext_.avatarPanel_ && context_.panelContext_.avatarPanel_->Focused())
 			{
 				context_.panelContext_.avatarPanel_->DrawDetails();
+				ImGui::End();
+				return;
+			}
+
+			if (context_.panelContext_.bootScreenPanel_ && context_.panelContext_.bootScreenPanel_->Focused())
+			{
+				context_.panelContext_.bootScreenPanel_->DrawDetails();
 				ImGui::End();
 				return;
 			}
@@ -294,7 +302,7 @@ namespace SeedCore
 
 		const DynamicArray<String>& allNames = TagRegistry::GetNames();
 
-		Bool hasActiveTag = std::ranges::any_of(std::views::iota(Size{ 0 }, allNames.size()), [](Size index) { return !TagRegistry::IsRemoved(index); });
+		Bool hasActiveTag = std::ranges::any_of(std::views::iota(Size{ 0 }, allNames.size()), [](Size index) { return !TagRegistry::Removed(index); });
 
 		if (hasActiveTag)
 		{
@@ -304,7 +312,7 @@ namespace SeedCore
 
 			for (Size index = 0; index < allNames.size(); ++index)
 			{
-				if (TagRegistry::IsRemoved(index))
+				if (TagRegistry::Removed(index))
 				{
 					continue;
 				}
@@ -441,7 +449,7 @@ namespace SeedCore
 
 		ImGui::Text("Prefab: %s", asset->path_.c_str());
 
-		Bool isPlaying = context_.worldContext_.gameTimer_->IsPlaying();
+		Bool isPlaying = context_.worldContext_.gameTimer_->Playing();
 		if (isPlaying)
 		{
 			ImGui::BeginDisabled();

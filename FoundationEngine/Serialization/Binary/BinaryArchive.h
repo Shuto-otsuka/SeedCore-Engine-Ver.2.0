@@ -96,7 +96,7 @@ namespace SeedCore
 			{
 				using ElementType = typename T::value_type;
 
-				if constexpr (std::is_trivially_copyable_v<ElementType> && !std::same_as<ElementType, Bool> && requires { value.data(); })
+				if constexpr (std::is_trivially_copyable_v<ElementType> && !std::same_as<ElementType, Bool> && !std::same_as<ElementType, String> && requires { value.data(); })
 				{
 					WriteUint32(payload, static_cast<Uint32>(value.size()));
 					Size byteSize = value.size() * sizeof(ElementType);
@@ -239,7 +239,7 @@ namespace SeedCore
 
 				Uint32 elementCount = ReadUint32(payload, 0);
 
-				if constexpr (std::is_trivially_copyable_v<ElementType> && !std::same_as<ElementType, Bool> && requires { value.data(); value.resize(Size(0)); })
+				if constexpr (std::is_trivially_copyable_v<ElementType> && !std::same_as<ElementType, Bool> && !std::same_as<ElementType, String> && requires { value.data(); value.resize(Size(0)); })
 				{
 					Size expectedBytes = static_cast<Size>(elementCount) * sizeof(ElementType);
 					if (payload.size() != sizeof(Uint32) + expectedBytes)

@@ -9,6 +9,7 @@ namespace SeedCore
 {
 	class World;
 	class Physics;
+	class Audio;
 
 	/**
 	* [EN]
@@ -225,6 +226,17 @@ namespace SeedCore
 		* この actor の Physics リソースを返す。
 		*/
 		SEEDCORE_API Physics& GetPhysics()const;
+
+		/**
+		* [EN]
+		* Returns this actor's Audio resource.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* この actor の Audio リソースを返す。
+		*/
+		SEEDCORE_API Audio& GetAudio()const;
 
 		/**
 		* [EN]

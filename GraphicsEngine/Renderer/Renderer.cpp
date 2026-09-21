@@ -17,6 +17,16 @@
 #include <GraphicsEngine/Model/Material/MaterialResource.h>
 #include <GraphicsEngine/Font/FontResource.h>
 #include <GraphicsEngine/D3D12/SwapChain/GraphicsResolution.h>
+#include <PhysicsEngine/Collider/BoxCollider.h>
+#include <PhysicsEngine/Collider/SphereCollider.h>
+#include <PhysicsEngine/Collider/CapsuleCollider.h>
+#include <PhysicsEngine/Collider/CylinderCollider.h>
+#include <PhysicsEngine/Collider/RectCollider.h>
+#include <PhysicsEngine/Collider/CircleCollider.h>
+#include <FoundationEngine/ECS/World.h>
+#include <FoundationEngine/ECS/Actor.h>
+#include <FoundationEngine/ECS/Component/Position.h>
+#include <FoundationEngine/ECS/Component/Rotation.h>
 
 namespace SeedCore
 {
@@ -204,7 +214,7 @@ namespace SeedCore
 		return gpuProfiler_;
 	}
 
-	void Renderer::PrepareFrame(D3D12CommandList* cmdList, LoaderSystem& loaderSystem, ResourceCache& resourceCache, World& world, const SceneConstantBuffer& scene, Float deltaTime, Entity selectedEntity)
+	void Renderer::PrepareFrame(D3D12CommandList* cmdList, LoaderSystem& loaderSystem, ResourceCache& resourceCache, World& world, const SceneConstantBuffer& scene, Float deltaTime, std::span<const Entity> selectedEntities)
 	{
 		ProfilerStats::Reset();
 
@@ -221,18 +231,18 @@ namespace SeedCore
 		animationSystem_.Execute(world, loaderSystem, *animationResource, *modelResource);
 		constraintSystem_.Execute(world);
 
-		modelRenderer_->Gather(loaderSystem, *modelResource, *materialResource, *animationResource, world, scene, selectedEntity);
+		modelRenderer_->Gather(loaderSystem, *modelResource, *materialResource, *animationResource, world, scene, selectedEntities);
 		raytracingRenderer_->Gather(loaderSystem, *modelResource, world, *modelRenderer_);
 
 		TextureResource* textureResource = resourceCache.GetResource<TextureResource>(AssetType::Texture);
 		Vector2 gameDisplaySize = PostProcessOutputSize();
-		textureRenderer_->Gather(loaderSystem, *textureResource, world, gameDisplaySize, selectedEntity);
+		textureRenderer_->Gather(loaderSystem, *textureResource, world, gameDisplaySize, selectedEntities);
 
 		FontResource* fontResource = resourceCache.GetResource<FontResource>(AssetType::Font);
-		fontRenderer_->Gather(loaderSystem, *fontResource, world, gameDisplaySize, selectedEntity);
+		fontRenderer_->Gather(loaderSystem, *fontResource, world, gameDisplaySize, selectedEntities);
 
 		MovieResource* movieResource = resourceCache.GetResource<MovieResource>(AssetType::Movie);
-		movieRenderer_->Gather(loaderSystem, *movieResource, world, gameDisplaySize, selectedEntity);
+		movieRenderer_->Gather(loaderSystem, *movieResource, world, gameDisplaySize, selectedEntities);
 
 		celestialResult_ = CelestialSystem::Compute(daySystem_, sunLight_, moonLight_);
 		Bool sunOverride = daySystemEnabled_ && sunLightEnabled_;
@@ -353,7 +363,7 @@ namespace SeedCore
 		D3D12_VIEWPORT debugViewport = postProcessRenderer_->Viewport(RaytracingView::Editor);
 
 		debugDepthResizeBuffer_.Dispatch(cmdList, bindlessHeap_->Heap(), geometryBuffer_, nativeWidth_, nativeHeight_, addresses);
-		colliderRenderer_->Draw(cmdList, debugRenderTargetView, debugDepthResizeBuffer_.DepthStencilViewHandle(), debugViewport, bindlessHeap_->Heap(), addresses);
+		colliderRenderer_->Draw3D(cmdList, debugRenderTargetView, debugDepthResizeBuffer_.DepthStencilViewHandle(), debugViewport, bindlessHeap_->Heap(), addresses);
 		geometryBuffer_.BeginDepth(cmdList);
 
 		outlineRenderer_->DrawDebugOverlay(cmdList, debugRenderTargetView, debugViewport, bindlessHeap_->Heap(), addresses);
@@ -514,13 +524,128 @@ namespace SeedCore
 		avatarRenderer_->End(cmdList);
 	}
 
-	void Renderer::GatherColliders(const DynamicArray<ColliderStructuredBuffer>& colliderInstances)
+	void Renderer::GatherColliders(World& world)
 	{
 		colliderRenderer_->Clear();
-		for (const ColliderStructuredBuffer& instance : colliderInstances)
+
+		const Color colliderDebugColor(0.0f, 1.0f, 0.0f, 1.0f);
+
+		for (EntityID id : world.GetComponents<BoxCollider>())
 		{
-			colliderRenderer_->AddInstance(static_cast<ColliderShapeKind>(instance.shapeKind_), instance.position_, instance.rotation_, instance.dimensions_, instance.color_);
+			Actor actor = world.GetActor(id);
+			if (!actor || !actor.GetActive())
+			{
+				continue;
+			}
+
+			BoxCollider* collider = actor.GetComponent<BoxCollider>();
+			const Position* position = actor.GetComponent<Position>();
+			const Rotation* rotation = actor.GetComponent<Rotation>();
+
+			Vector3 actorPosition = position ? Vector3(position->x_, position->y_, position->z_) : Vector3(0.0f, 0.0f, 0.0f);
+			Quaternion actorRotation = rotation ? Quaternion::CreateFromYawPitchRoll(ToRadians(rotation->y_), ToRadians(rotation->x_), ToRadians(rotation->z_)) : Quaternion::Identity;
+
+			colliderRenderer_->AddInstance(ColliderShapeKind::Box, actorPosition + Vector3::Transform(collider->center_, actorRotation), actorRotation, collider->size_ * 0.5f, colliderDebugColor);
 		}
+
+		for (EntityID id : world.GetComponents<SphereCollider>())
+		{
+			Actor actor = world.GetActor(id);
+			if (!actor || !actor.GetActive())
+			{
+				continue;
+			}
+
+			SphereCollider* collider = actor.GetComponent<SphereCollider>();
+			const Position* position = actor.GetComponent<Position>();
+			const Rotation* rotation = actor.GetComponent<Rotation>();
+
+			Vector3 actorPosition = position ? Vector3(position->x_, position->y_, position->z_) : Vector3(0.0f, 0.0f, 0.0f);
+			Quaternion actorRotation = rotation ? Quaternion::CreateFromYawPitchRoll(ToRadians(rotation->y_), ToRadians(rotation->x_), ToRadians(rotation->z_)) : Quaternion::Identity;
+
+			colliderRenderer_->AddInstance(ColliderShapeKind::Sphere, actorPosition, actorRotation, Vector3(collider->radius_, 0.0f, 0.0f), colliderDebugColor);
+		}
+
+		for (EntityID id : world.GetComponents<CapsuleCollider>())
+		{
+			Actor actor = world.GetActor(id);
+			if (!actor || !actor.GetActive())
+			{
+				continue;
+			}
+
+			CapsuleCollider* collider = actor.GetComponent<CapsuleCollider>();
+			const Position* position = actor.GetComponent<Position>();
+			const Rotation* rotation = actor.GetComponent<Rotation>();
+
+			Vector3 actorPosition = position ? Vector3(position->x_, position->y_, position->z_) : Vector3(0.0f, 0.0f, 0.0f);
+			Quaternion actorRotation = rotation ? Quaternion::CreateFromYawPitchRoll(ToRadians(rotation->y_), ToRadians(rotation->x_), ToRadians(rotation->z_)) : Quaternion::Identity;
+
+			colliderRenderer_->AddInstance(ColliderShapeKind::Capsule, actorPosition, actorRotation, Vector3(collider->radius_, collider->height_ * 0.5f, 0.0f), colliderDebugColor);
+		}
+
+		for (EntityID id : world.GetComponents<CylinderCollider>())
+		{
+			Actor actor = world.GetActor(id);
+			if (!actor || !actor.GetActive())
+			{
+				continue;
+			}
+
+			CylinderCollider* collider = actor.GetComponent<CylinderCollider>();
+			const Position* position = actor.GetComponent<Position>();
+			const Rotation* rotation = actor.GetComponent<Rotation>();
+
+			Vector3 actorPosition = position ? Vector3(position->x_, position->y_, position->z_) : Vector3(0.0f, 0.0f, 0.0f);
+			Quaternion actorRotation = rotation ? Quaternion::CreateFromYawPitchRoll(ToRadians(rotation->y_), ToRadians(rotation->x_), ToRadians(rotation->z_)) : Quaternion::Identity;
+
+			colliderRenderer_->AddInstance(ColliderShapeKind::Cylinder, actorPosition, actorRotation, Vector3(collider->radius_, collider->height_ * 0.5f, 0.0f), colliderDebugColor);
+		}
+
+		for (EntityID id : world.GetComponents<RectCollider>())
+		{
+			Actor actor = world.GetActor(id);
+			if (!actor || !actor.GetActive())
+			{
+				continue;
+			}
+
+			RectCollider* collider = actor.GetComponent<RectCollider>();
+			const Position* position = actor.GetComponent<Position>();
+			const Rotation* rotation = actor.GetComponent<Rotation>();
+
+			Float pixelX = position ? position->x_ : 0.0f;
+			Float pixelY = position ? position->y_ : 0.0f;
+			Float angle = rotation ? ToRadians(rotation->x_) : 0.0f;
+			Float cosAngle = std::cos(angle);
+			Float sinAngle = std::sin(angle);
+
+			Vector3 instancePosition(100000.0f + pixelX + collider->center_.x * cosAngle - collider->center_.y * sinAngle, 100000.0f + (ScResolution::SC_CANVAS.Height - pixelY) - collider->center_.x * sinAngle - collider->center_.y * cosAngle, 100000.0f);
+			colliderRenderer_->AddInstance(ColliderShapeKind::Rect, instancePosition, Quaternion::CreateFromAxisAngle(Vector3::UnitZ, -angle), Vector3(collider->size_.x * 0.5f, collider->size_.y * 0.5f, 0.0f), colliderDebugColor);
+		}
+
+		for (EntityID id : world.GetComponents<CircleCollider>())
+		{
+			Actor actor = world.GetActor(id);
+			if (!actor || !actor.GetActive())
+			{
+				continue;
+			}
+
+			CircleCollider* collider = actor.GetComponent<CircleCollider>();
+			const Position* position = actor.GetComponent<Position>();
+			const Rotation* rotation = actor.GetComponent<Rotation>();
+
+			Float pixelX = position ? position->x_ : 0.0f;
+			Float pixelY = position ? position->y_ : 0.0f;
+			Float angle = rotation ? ToRadians(rotation->x_) : 0.0f;
+			Float cosAngle = std::cos(angle);
+			Float sinAngle = std::sin(angle);
+
+			Vector3 instancePosition(100000.0f + pixelX + collider->center_.x * cosAngle - collider->center_.y * sinAngle, 100000.0f + (ScResolution::SC_CANVAS.Height - pixelY) - collider->center_.x * sinAngle - collider->center_.y * cosAngle, 100000.0f);
+			colliderRenderer_->AddInstance(ColliderShapeKind::Circle, instancePosition, Quaternion::Identity, Vector3(collider->radius_, 0.0f, 0.0f), colliderDebugColor);
+		}
+
 		colliderRenderer_->Upload();
 	}
 
@@ -559,9 +684,7 @@ namespace SeedCore
 
 	void Renderer::Raytracing(const RaytracingContext& settings)
 	{
-		Gateway::GetDlssManager().RayReconstructionEnable(settings.dlssRayReconstructionEnabled_);
 		raytracingRenderer_->SetRaytracingSettings(settings);
-		upscaleMode_ = settings.upscaleMode_;
 
 		daySystemEnabled_ = settings.daySystemEnabled_;
 		daySystem_ = settings.daySystem_;
@@ -586,6 +709,12 @@ namespace SeedCore
 		/// [JP] 時刻(風スクロール)は PrepareFrame で蓄積した skyTotalTime_ を渡す
 		///      (1フレーム遅れだが定期リフレッシュ間隔からすれば誤差)。
 		skyRenderer_->SetProceduralSky(settings.volumetricCloudScapesEnabled_, hash, lightSystem_ ? lightSystem_->GetIndex() : 0, skyTotalTime_);
+	}
+
+	void Renderer::Upscale(Bool dlssRayReconstructionEnabled, UpscaleMode upscaleMode)
+	{
+		Gateway::GetDlssManager().RayReconstructionEnable(dlssRayReconstructionEnabled);
+		upscaleMode_ = upscaleMode;
 	}
 
 	void Renderer::EditorFlush(D3D12CommandList* cmdList, SceneSystem* sceneSystem, ViewMode viewMode)
@@ -1019,6 +1148,8 @@ namespace SeedCore
 		silhouetteFrameBuffer_->End(cmdList);
 
 		outlineRenderer_->Draw(cmdList, canvasFrameBuffer_->RenderTargetViewHandle(), canvasFrameBuffer_->GetViewport(), heap, addresses);
+
+		colliderRenderer_->Draw2D(cmdList, canvasFrameBuffer_->RenderTargetViewHandle(), canvasFrameBuffer_->GetViewport(), heap, addresses);
 	}
 
 	void Renderer::TimelineFlush(D3D12CommandList* cmdList, const SceneConstantBuffer& scene)
@@ -1085,6 +1216,11 @@ namespace SeedCore
 	D3D12_GPU_DESCRIPTOR_HANDLE Renderer::GameFrameBufferGPUHandle()const
 	{
 		return bindlessHeap_->GPUHandle(gameFrameBuffer_->ColorShaderResourceViewIndex());
+	}
+
+	ID3D12Resource* Renderer::GameDisplayResource()const
+	{
+		return postProcessRenderer_->OutputResource(RaytracingView::Game);
 	}
 
 	D3D12_GPU_DESCRIPTOR_HANDLE Renderer::CanvasFrameBufferGPUHandle()const

@@ -155,7 +155,11 @@
     </ClCompile>
     <ClCompile Include="Resource\Asset.cpp" />
     <ClCompile Include="Resource\AxisConvention.cpp" />
+    <ClCompile Include="Resource\BootConfig.cpp" />
+    <ClCompile Include="Resource\EditorConfig.cpp" />
+    <ClCompile Include="Resource\GameConfig.cpp" />
     <ClCompile Include="Resource\Gateway.cpp" />
+    <ClCompile Include="Resource\IconConfig.cpp" />
     <ClCompile Include="Resource\LoaderSystem.cpp">
     </ClCompile>
     <ClCompile Include="Resource\ActorSerialization.cpp" />
@@ -252,7 +256,11 @@
     <ClInclude Include="Prelude.h" />
     <ClInclude Include="Resource\Asset.h" />
     <ClInclude Include="Resource\AxisConvention.h" />
+    <ClInclude Include="Resource\BootConfig.h" />
+    <ClInclude Include="Resource\EditorConfig.h" />
+    <ClInclude Include="Resource\GameConfig.h" />
     <ClInclude Include="Resource\Gateway.h" />
+    <ClInclude Include="Resource\IconConfig.h" />
     <ClInclude Include="Resource\LoaderSystem.h" />
     <ClInclude Include="Resource\ActorSerialization.h" />
     <ClInclude Include="Resource\Prefab.h" />

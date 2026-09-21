@@ -292,6 +292,18 @@
     <ClCompile Include="Resource\Asset.cpp">
       <Filter>Resource</Filter>
     </ClCompile>
+    <ClCompile Include="Resource\GameConfig.cpp">
+      <Filter>Resource</Filter>
+    </ClCompile>
+    <ClCompile Include="Resource\EditorConfig.cpp">
+      <Filter>Resource</Filter>
+    </ClCompile>
+    <ClCompile Include="Resource\IconConfig.cpp">
+      <Filter>Resource</Filter>
+    </ClCompile>
+    <ClCompile Include="Resource\BootConfig.cpp">
+      <Filter>Resource</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Log\DxFail.h">
@@ -711,6 +723,18 @@
       <Filter>ESC\System</Filter>
     </ClInclude>
     <ClInclude Include="Resource\Asset.h">
+      <Filter>Resource</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource\GameConfig.h">
+      <Filter>Resource</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource\EditorConfig.h">
+      <Filter>Resource</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource\IconConfig.h">
+      <Filter>Resource</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource\BootConfig.h">
       <Filter>Resource</Filter>
     </ClInclude>
   </ItemGroup>

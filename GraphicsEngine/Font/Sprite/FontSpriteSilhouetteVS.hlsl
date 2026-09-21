@@ -14,7 +14,7 @@ FontMSOutput main(uint vertex_id : SV_VertexID, uint instance_id : SV_InstanceID
 	bool is_visible = false;
 	if (glyph.selected_ != 0 && glyph.size_.x > 0.0 && glyph.size_.y > 0.0)
 	{
-		is_visible = IsVisibleInScreen(glyph.position_, glyph.size_, scene_constant.screen_size_);
+		is_visible = IsVisibleInScreen(glyph.position_, glyph.size_, scene_constant.display_size_);
 	}
 	if (!is_visible)
 	{

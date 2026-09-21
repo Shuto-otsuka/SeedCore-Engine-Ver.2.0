@@ -33,7 +33,7 @@ void main(uint3 gtid : SV_GroupThreadID, uint3 dtid : SV_DispatchThreadID)
 
 		if (glyph.selected_ != 0 && glyph.size_.x > 0.0 && glyph.size_.y > 0.0)
 		{
-			is_visible = IsVisibleInScreen(glyph.position_, glyph.size_, scene_constant.screen_size_);
+			is_visible = IsVisibleInScreen(glyph.position_, glyph.size_, scene_constant.display_size_);
 		}
 	}
 

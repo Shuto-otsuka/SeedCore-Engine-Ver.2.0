@@ -83,9 +83,9 @@ namespace SeedCore
 		Matrix NonJitterViewProjection()const;
 
 	private:
-		Vector3 eye_ = { 100640,100360,99990 };
+		Vector3 eye_ = { 100960,100540,99990 };
 
-		Vector3 focus_ = { 100640,100360,100000 };
+		Vector3 focus_ = { 100960,100540,100000 };
 
 		/// [EN] FocusOn's in-flight animation state — see FocusOn's comment.
 		/// [JP] FocusOn の進行中アニメーション状態 — FocusOn のコメント参照。
@@ -111,7 +111,7 @@ namespace SeedCore
 
 		Float zoom_ = 1.0f;
 
-		Float baseViewHeight_ = 720.0f;
+		Float baseViewHeight_ = 1080.0f;
 
 		Float aspectRatio_ = 16.0f / 9.0f;
 

@@ -992,7 +992,7 @@ namespace SeedCore
 		///      connected vertices produces a zero-length edge, which
 		///      corrupts SoftBodySharedSettings::CreateConstraints's
 		///      Dijkstra-based CalculateClosestKinematic (crashes there —
-		///      see PhysicsSystem::ResolveSoftbodies history). Quantised to
+		///      see PhysicsSystem::ResolveSoftbody history). Quantised to
 		///      a 1e-4 world-unit grid: fine enough that legitimately
 		///      distinct vertices never collide, coarse enough to catch
 		///      float round-trip noise between originally-identical
@@ -1007,7 +1007,7 @@ namespace SeedCore
 		///      として Jolt に渡すと長さ0の辺ができ、
 		///      SoftBodySharedSettings::CreateConstraints の Dijkstra ベース
 		///      CalculateClosestKinematic を壊す（そこでクラッシュする —
-		///      PhysicsSystem::ResolveSoftbodies の経緯参照）。1e-4
+		///      PhysicsSystem::ResolveSoftbody の経緯参照）。1e-4
 		///      ワールド単位グリッドへ量子化: 正当に別々の頂点が衝突しない
 		///      程度に細かく、元々同一だった位置間の浮動小数往復誤差を
 		///      拾える程度に粗い。
@@ -2313,19 +2313,19 @@ namespace SeedCore
 	* バインドレスインデックスが(MakeTextureMipResident/EvictTextureMip
 	* 経由で)変わったか。
 	*/
-	Bool Crister::IsMaterialsDirty()const
+	Bool Crister::MaterialsDirty()const
 	{
 		return materialsDirty_;
 	}
 
 	/**
 	* [EN]
-	* Clears the flag IsMaterialsDirty() reports.
+	* Clears the flag MaterialsDirty() reports.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* IsMaterialsDirty() が報告するフラグをクリアする。
+	* MaterialsDirty() が報告するフラグをクリアする。
 	*/
 	void Crister::ClearMaterialsDirty()const
 	{
@@ -2438,7 +2438,7 @@ namespace SeedCore
 	* skins_ が空でなく、RT プロキシ構築時にスキンド SubMesh を
 	* 1つ以上見つけた場合に true。
 	*/
-	Bool Crister::IsProxySkinned()const
+	Bool Crister::ProxySkinned()const
 	{
 		return raytracingSkinVertexResource_ != nullptr;
 	}
@@ -2446,13 +2446,13 @@ namespace SeedCore
 	/**
 	* [EN]
 	* GPU address of the RT proxy's skin vertex pool
-	* (raytracingSkinVertexResource_), or 0 when IsProxySkinned is false.
+	* (raytracingSkinVertexResource_), or 0 when ProxySkinned is false.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
 	* RT プロキシのスキン頂点プール (raytracingSkinVertexResource_) の
-	* GPU アドレス。IsProxySkinned が false なら 0。
+	* GPU アドレス。ProxySkinned が false なら 0。
 	*/
 	D3D12_GPU_VIRTUAL_ADDRESS Crister::ProxySkinVertexBufferAddress()const
 	{
@@ -2994,7 +2994,7 @@ namespace SeedCore
 	* [JP]
 	* クラスタのページが現在 GPU に常駐しているか。
 	*/
-	Bool Crister::IsClusterResident(Uint32 clusterIndex)const
+	Bool Crister::ClusterResident(Uint32 clusterIndex)const
 	{
 		return streamingGeometry_[clusterIndex].resident_;
 	}
@@ -3008,7 +3008,7 @@ namespace SeedCore
 	* [JP]
 	* テクスチャがミップ 0（最も細かい）まで完全にストリームインしているか。
 	*/
-	Bool Crister::IsTextureResident(Uint32 textureIndex)const
+	Bool Crister::TextureResident(Uint32 textureIndex)const
 	{
 		if (textureIndex >= streamingTextures_.size())
 		{

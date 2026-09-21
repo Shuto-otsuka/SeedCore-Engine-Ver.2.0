@@ -26,7 +26,7 @@ namespace SeedCore
 
 		/// [EN] Two picks are collinear (invalid combination) when they name the same underlying axis, regardless of sign.
 		/// [JP] 符号に関わらず同じ軸を指している場合、2つの選択は共線（無効な組み合わせ）とみなす。
-		Bool IsCollinear(const Vector3& a, const Vector3& b)
+		Bool Collinear(const Vector3& a, const Vector3& b)
 		{
 			return (a == b) || (a == -b);
 		}
@@ -39,7 +39,7 @@ namespace SeedCore
 		Vector3 forward = SignedAxisToVector(convention.forward_);
 
 		ResolvedAxisConvention resolved{};
-		resolved.valid_ = !IsCollinear(up, right) && !IsCollinear(up, forward) && !IsCollinear(right, forward);
+		resolved.valid_ = !Collinear(up, right) && !Collinear(up, forward) && !Collinear(right, forward);
 		if (!resolved.valid_)
 		{
 			return resolved;

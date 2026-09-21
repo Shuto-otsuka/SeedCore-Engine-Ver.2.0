@@ -213,7 +213,7 @@ namespace SeedCore
 		return std::span<const Char* const>(labels, std::size(labels));
 	}
 
-	Bool HumanCharacterModel::IsLoaded()const
+	Bool HumanCharacterModel::Loaded()const
 	{
 		return !blob_.empty();
 	}

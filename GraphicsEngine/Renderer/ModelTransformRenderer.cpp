@@ -204,14 +204,14 @@ namespace SeedCore
 			else
 			{
 				Uint32 desired = subMesh.clusterCount_ - 1;
-				if (!crister->IsClusterResident(subMesh.clusterOffset_ + desired))
+				if (!crister->ClusterResident(subMesh.clusterOffset_ + desired))
 				{
 					streamingRequests_.push_back({ crister, subMesh.clusterOffset_ + desired });
 				}
 
 				for (Uint32 c = 0; c < subMesh.clusterCount_; ++c)
 				{
-					if (crister->IsClusterResident(subMesh.clusterOffset_ + c))
+					if (crister->ClusterResident(subMesh.clusterOffset_ + c))
 					{
 						residentClusters.push_back(subMesh.clusterOffset_ + c);
 					}

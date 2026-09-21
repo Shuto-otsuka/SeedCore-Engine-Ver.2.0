@@ -11,10 +11,15 @@ namespace SeedCore
 	 * Defines the object layers used for collision filtering. A Jolt
 	 * ObjectLayer here is a packed value: the low MOTION_TYPE_BITS bits
 	 * hold the body's motion-type classification (STATIC/KINEMATIC/
-	 * DYNAMIC, below), and the remaining high bits hold the owning
-	 * Actor's LayerRegistry slot index (see Pack/UnpackMotionType/
-	 * UnpackUserLayer) - so both axes are encoded into the single
-	 * value Jolt's broad/narrow phase actually filters on.
+	 * DYNAMIC, below), the bits above them hold the owning Actor's
+	 * LayerRegistry slot index (see Pack/UnpackMotionType/
+	 * UnpackUserLayer), and the topmost bit (PLANAR) marks a 2D canvas
+	 * body - so all three axes are encoded into the single value Jolt's
+	 * broad/narrow phase actually filters on.
+	 *
+	 * 2D and 3D bodies share one Jolt world but never interact: a body
+	 * only collides with bodies on the same side of the PLANAR bit,
+	 * regardless of motion type or LayerCollisionMatrix.
 	 *
 	 * STATIC    : Non-moving geometry (terrain, walls, floors, etc.)
 	 * KINEMATIC : Script/animation-driven bodies (moving platforms, doors, etc.)
@@ -33,11 +38,16 @@ namespace SeedCore
 	 * [JP]
 	 * 衝突フィルタリングに使うオブジェクトレイヤーの定義。ここでの Jolt
 	 * ObjectLayer はパックされた値: 下位 MOTION_TYPE_BITS ビットがボディの
-	 * 運動タイプ分類（STATIC/KINEMATIC/DYNAMIC、下記）を保持し、残りの
-	 * 上位ビットが所有 Actor の LayerRegistry スロットインデックスを保持
-	 * する（Pack/UnpackMotionType/UnpackUserLayer 参照）- こうして両方の軸を、
+	 * 運動タイプ分類（STATIC/KINEMATIC/DYNAMIC、下記）を保持し、その上の
+	 * ビットが所有 Actor の LayerRegistry スロットインデックスを保持し
+	 * （Pack/UnpackMotionType/UnpackUserLayer 参照）、最上位ビット（PLANAR）が
+	 * Canvas の 2D ボディであることを示す - こうして3つの軸すべてを、
 	 * Jolt の Broad/Narrow Phase が実際にフィルタリングに使う単一の値へ
 	 * エンコードしている。
+	 *
+	 * 2D と 3D のボディは1つの Jolt ワールドを共有するが、互いに干渉しない:
+	 * ボディは PLANAR ビットが同じ側のボディとしか衝突しない。これは
+	 * 運動タイプや LayerCollisionMatrix に関係なく常に適用される。
 	 *
 	 * STATIC    : 動かないジオメトリ（地形・壁・床など）
 	 * KINEMATIC : スクリプト/アニメーション制御のボディ（動く床・扉など）
@@ -61,8 +71,12 @@ namespace SeedCore
 		/// [JP] パックされた ObjectLayer が運動タイプ用に確保する下位ビット数。残りの上位ビットは Actor の LayerRegistry スロットインデックスを保持する。
 		static constexpr JPH::uint MOTION_TYPE_BITS = 2;
 
-		/// [EN] Total distinct packed ObjectLayer values Jolt must reserve room for: one motion-type slot per LayerRegistry slot.
-		/// [JP] Jolt が確保すべき、パック済み ObjectLayer の総数: LayerRegistry の各スロットにつき1つの運動タイプスロット。
+		/// [EN] Topmost ObjectLayer bit, set on bodies simulated on the 2D canvas (Rect/CircleCollider). OR'd onto a Pack result; bodies with and without it never collide.
+		/// [JP] ObjectLayer の最上位ビット。2D Canvas 上でシミュレートされるボディ（Rect/CircleCollider）に立てる。Pack の結果に OR して使い、このビットの有無が異なるボディ同士は衝突しない。
+		static constexpr JPH::ObjectLayer PLANAR = static_cast<JPH::ObjectLayer>(1u << 15);
+
+		/// [EN] Distinct packed ObjectLayer values below the PLANAR bit: one motion-type slot per LayerRegistry slot. A 2D body's layer is one of these with PLANAR added.
+		/// [JP] PLANAR ビットより下の、パック済み ObjectLayer の総数: LayerRegistry の各スロットにつき1つの運動タイプスロット。2D ボディのレイヤーは、このいずれかに PLANAR を加えたもの。
 		static constexpr JPH::uint COUNT = static_cast<JPH::uint>(LayerRegistry::LayerCount) << MOTION_TYPE_BITS;
 
 		/**
@@ -76,10 +90,7 @@ namespace SeedCore
 		* motionType（STATIC/KINEMATIC/DYNAMIC）と userLayer（LayerRegistry
 		* のスロットインデックス）を、単一の Jolt ObjectLayer 値へパックする。
 		*/
-		constexpr JPH::ObjectLayer Pack(JPH::ObjectLayer motionType, Size userLayer)
-		{
-			return static_cast<JPH::ObjectLayer>((static_cast<JPH::uint>(userLayer) << MOTION_TYPE_BITS) | motionType);
-		}
+		JPH::ObjectLayer Pack(JPH::ObjectLayer motionType, Size userLayer);
 
 		/**
 		* [EN]
@@ -92,25 +103,20 @@ namespace SeedCore
 		* Pack によって objectLayer へパックされた運動タイプ
 		* （STATIC/KINEMATIC/DYNAMIC）を取り出す。
 		*/
-		constexpr JPH::ObjectLayer UnpackMotionType(JPH::ObjectLayer objectLayer)
-		{
-			return static_cast<JPH::ObjectLayer>(objectLayer & ((1u << MOTION_TYPE_BITS) - 1u));
-		}
+		JPH::ObjectLayer UnpackMotionType(JPH::ObjectLayer objectLayer);
 
 		/**
 		* [EN]
-		* Extracts the LayerRegistry slot index packed into objectLayer by Pack.
+		* Extracts the LayerRegistry slot index packed into objectLayer by
+		* Pack, ignoring the PLANAR bit.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
 		* Pack によって objectLayer へパックされた LayerRegistry
-		* スロットインデックスを取り出す。
+		* スロットインデックスを取り出す。PLANAR ビットは無視する。
 		*/
-		constexpr Size UnpackUserLayer(JPH::ObjectLayer objectLayer)
-		{
-			return static_cast<Size>(objectLayer >> MOTION_TYPE_BITS);
-		}
+		Size UnpackUserLayer(JPH::ObjectLayer objectLayer);
 	}
 
 	/**
@@ -149,40 +155,39 @@ namespace SeedCore
 	class BPLayerInterfaceImplementation final : public JPH::BroadPhaseLayerInterface
 	{
 	public:
-		JPH::uint GetNumBroadPhaseLayers()const override
-		{
-			return BPLayers::COUNT;
-		}
+		/**
+		* [EN]
+		* Returns the number of broad-phase layers exposed to Jolt.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* Jolt へ公開するブロードフェーズレイヤー数を返す。
+		*/
+		JPH::uint GetNumBroadPhaseLayers()const override;
 
-		JPH::BroadPhaseLayer GetBroadPhaseLayer(JPH::ObjectLayer inLayer)const override
-		{
-			switch (Layers::UnpackMotionType(inLayer))
-			{
-			case Layers::STATIC:
-				[[fallthrough]];
-			case Layers::KINEMATIC:
-				return BPLayers::STATIC;
-			case Layers::DYNAMIC:
-				return BPLayers::DYNAMIC;
-			default:
-				JPH_ASSERT(false);
-				return BPLayers::STATIC;
-			}
-		}
+		/**
+		* [EN]
+		* Maps an object layer's motion type to its broad-phase layer.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* オブジェクトレイヤーの運動タイプをブロードフェーズレイヤーへ対応付ける。
+		*/
+		JPH::BroadPhaseLayer GetBroadPhaseLayer(JPH::ObjectLayer inLayer)const override;
 
 #if defined(JPH_EXTERNAL_PROFILE) || defined(JPH_PROFILE_ENABLED)
-		const Char* GetBroadPhaseLayerName(JPH::BroadPhaseLayer inLayer)const override
-		{
-			switch (static_cast<JPH::uint8>(inLayer))
-			{
-			case static_cast<JPH::uint8>(BPLayers::STATIC):
-				return "STATIC";
-			case static_cast<JPH::uint8>(BPLayers::DYNAMIC):
-				return "DYNAMIC";
-			default:
-				return "UNKNOWN";
-			}
-		}
+		/**
+		* [EN]
+		* Returns the profiling name of a broad-phase layer.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* ブロードフェーズレイヤーのプロファイル表示名を返す。
+		*/
+		const Char* GetBroadPhaseLayerName(JPH::BroadPhaseLayer inLayer)const override;
 #endif
 	};
 
@@ -206,27 +211,24 @@ namespace SeedCore
 	class ObjVsBPFilterImplementation final : public JPH::ObjectVsBroadPhaseLayerFilter
 	{
 	public:
-		Bool ShouldCollide(JPH::ObjectLayer inLayer, JPH::BroadPhaseLayer inBPLayer)const override
-		{
-			switch (Layers::UnpackMotionType(inLayer))
-			{
-			case Layers::STATIC:
-				[[fallthrough]];
-			case Layers::KINEMATIC:
-				return inBPLayer == BPLayers::DYNAMIC;
-			case Layers::DYNAMIC:
-				return true;
-			default:
-				return false;
-			}
-		}
+		/**
+		* [EN]
+		* Determines whether an object layer can collide with a broad-phase layer.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* オブジェクトレイヤーがブロードフェーズレイヤーと衝突可能かを返す。
+		*/
+		Bool ShouldCollide(JPH::ObjectLayer inLayer, JPH::BroadPhaseLayer inBPLayer)const override;
 	};
 
 	/**
 	* [EN]
-	* Determines whether two object layers can collide with each other:
-	* both the fixed motion-type rules below AND LayerCollisionMatrix's
-	* per-Actor-Layer matrix must allow it.
+	* Determines whether two object layers can collide with each other.
+	* Layers on different sides of the PLANAR bit (2D vs 3D) never
+	* collide, checked first. Otherwise both the fixed motion-type rules
+	* below AND LayerCollisionMatrix's per-Actor-Layer matrix must allow it.
 	*
 	* STATIC    vs STATIC    : no  (both immovable)
 	* STATIC    vs KINEMATIC : no  (Kinematic pushes Dynamic, not Static)
@@ -238,9 +240,10 @@ namespace SeedCore
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* 2つのオブジェクトレイヤーが互いに衝突するかを返す: 下記の固定された
-	* 運動タイプルールと、LayerCollisionMatrix の Actor レイヤーごとの
-	* マトリクスの両方が許可している必要がある。
+	* 2つのオブジェクトレイヤーが互いに衝突するかを返す。PLANAR ビットが
+	* 異なるレイヤー同士（2D と 3D）は決して衝突せず、これを最初に判定する。
+	* それ以外は、下記の固定された運動タイプルールと、LayerCollisionMatrix の
+	* Actor レイヤーごとのマトリクスの両方が許可している必要がある。
 	*
 	* STATIC    vs STATIC    : しない（どちらも動かない）
 	* STATIC    vs KINEMATIC : しない（Kinematic は Dynamic を押すが Static は押さない）
@@ -252,37 +255,27 @@ namespace SeedCore
 	class ObjLayerPairFilterImplementation final : public JPH::ObjectLayerPairFilter
 	{
 	public:
-		Bool ShouldCollide(JPH::ObjectLayer inLayerA, JPH::ObjectLayer inLayerB)const override
-		{
-			JPH::ObjectLayer motionTypeA = Layers::UnpackMotionType(inLayerA);
-			JPH::ObjectLayer motionTypeB = Layers::UnpackMotionType(inLayerB);
-
-			Bool motionTypeCollides;
-			switch (motionTypeA)
-			{
-			case Layers::STATIC:
-				motionTypeCollides = motionTypeB == Layers::DYNAMIC;
-				break;
-			case Layers::KINEMATIC:
-				motionTypeCollides = motionTypeB == Layers::DYNAMIC;
-				break;
-			case Layers::DYNAMIC:
-				motionTypeCollides = true;
-				break;
-			default:
-				motionTypeCollides = false;
-				break;
-			}
-
-			if (!motionTypeCollides)
-			{
-				return false;
-			}
-
-			return LayerCollisionMatrix::GetCollide(Layers::UnpackUserLayer(inLayerA), Layers::UnpackUserLayer(inLayerB));
-		}
+		/**
+		* [EN]
+		* Determines whether two packed object layers can collide.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* パックされた2つのオブジェクトレイヤーが衝突可能かを返す。
+		*/
+		Bool ShouldCollide(JPH::ObjectLayer inLayerA, JPH::ObjectLayer inLayerB)const override;
 	};
 
+	/**
+	* [EN]
+	* Converts a rigid-body type to the corresponding Jolt motion type.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* Rigidbody の種類を対応する Jolt 運動タイプへ変換する。
+	*/
 	JPH::EMotionType ToMotionType(Rigidbody::BodyType bodyType);
 
 	/**

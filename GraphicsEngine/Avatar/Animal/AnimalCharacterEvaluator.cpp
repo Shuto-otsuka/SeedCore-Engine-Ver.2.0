@@ -42,7 +42,7 @@ namespace SeedCore
 
 	void AnimalCharacterEvaluator::Evaluate()
 	{
-		if (!model_ || !model_->IsLoaded())
+		if (!model_ || !model_->Loaded())
 		{
 			return;
 		}

@@ -18,15 +18,16 @@ namespace SeedCore
 
 	/// [EN] 0 = own temporal (reprojected) accumulation, 1 = DLSS Ray
 	///      Reconstruction (RaytracingRenderer drives this field from the
-	///      single global RaytracingContext::dlssRayReconstructionEnabled_
-	///      toggle before calling PrepareFrame — see
+	///      single global DlssManager::RayReconstructionEnable() toggle, set
+	///      through Graphics::Upscale, before calling PrepareFrame — see
 	///      RaytracingRenderer::Build). When DlssRR, ShadowRenderer skips its
 	///      own ShadowDenoiseCS.hlsl dispatch entirely and exposes the raw
 	///      traced visibility directly, since DLSS-RR denoises the whole
 	///      composited frame itself (double-denoising would fight it).
 	/// [JP] 0=自前の時間積分(リプロジェクションあり)、1=DLSS Ray
-	///      Reconstruction(RaytracingRenderer が単一のグローバルトグル
-	///      RaytracingContext::dlssRayReconstructionEnabled_ からこの
+	///      Reconstruction(RaytracingRenderer が Graphics::Upscale 経由で
+	///      設定される単一のグローバルトグル
+	///      DlssManager::RayReconstructionEnable() からこの
 	///      フィールドを駆動してから PrepareFrame を呼ぶ —
 	///      RaytracingRenderer::Build 参照)。DlssRR の間は
 	///      ShadowDenoiseCS.hlsl 自体のディスパッチを丸ごと止め、生のトレース

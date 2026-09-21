@@ -27,7 +27,7 @@ void main(uint3 gtid : SV_GroupThreadID, uint3 dtid : SV_DispatchThreadID)
 
 		if (instance.size_.x > 0.0 && instance.size_.y > 0.0)
 		{
-			is_visible = IsVisibleInScreen(instance.position_, instance.size_, scene_constant.screen_size_);
+			is_visible = IsVisibleInScreen(instance.position_, instance.size_ * instance.scale_, scene_constant.display_size_);
 		}
 	}
 

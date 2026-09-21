@@ -90,7 +90,13 @@ namespace SeedCore
 
 		splashScreen_.Initialize(context_->GetDevice(), context_->GetDirectQueue(), bindlessHeap_.get());
 
+		bootConfig_.Load();
+		bootScreen_.Initialize(context_->GetDevice(), context_->GetDirectQueue(), bindlessHeap_.get(), DXGI_FORMAT_R8G8B8A8_UNORM);
+		bootScreen_.LoadImages(bootConfig_);
+
 		fadeScreen_.Initialize(context_->GetDevice());
+
+		letterScreen_.Initialize(context_->GetDevice(), bindlessHeap_.get());
 
 		SC_LOG_NOTICE("グラフィックスエンジンの初期化が完了しました");
 		return true;
@@ -125,6 +131,20 @@ namespace SeedCore
 		{
 			RegisterImGuiShaderResourceViews(context_->GetDevice(), imguiHeap);
 		}
+
+		dlssManager_->FrameGenerationSuppress(false);
+	}
+
+	void Graphics::ResizeSwapChain(Uint32 width, Uint32 height)
+	{
+		dlssManager_->FrameGenerationSuppress(true);
+
+		WaitForGpuIdle();
+
+		width_ = static_cast<Float>(width);
+		height_ = static_cast<Float>(height);
+
+		swapChain_->Resize(context_->GetDevice(), width_, height_);
 
 		dlssManager_->FrameGenerationSuppress(false);
 	}
@@ -172,6 +192,10 @@ namespace SeedCore
 			swapChain_ = nullptr;
 		}
 
+		letterScreen_.Finalize();
+
+		bootScreen_.Finalize();
+
 		if (bindlessHeap_)
 		{
 			bindlessHeap_.reset();
@@ -206,10 +230,10 @@ namespace SeedCore
 #endif
 	}
 
-	void Graphics::EditorRender(WorldTimer& timer, const EditorCamera& editorCamera, LoaderSystem& loaderSystem, ResourceCache& resourceCache, World& world, ViewMode viewMode, const DynamicArray<ColliderStructuredBuffer>& colliderInstances, Entity selectedEntity)
+	void Graphics::EditorRender(WorldTimer& timer, const EditorCamera& editorCamera, LoaderSystem& loaderSystem, ResourceCache& resourceCache, World& world, ViewMode viewMode, std::span<const Entity> selectedEntities)
 	{
-		PrepareFrame(timer.DeltaTime(), loaderSystem, resourceCache, world, selectedEntity);
-		renderer_->GatherColliders(colliderInstances);
+		PrepareFrame(timer.DeltaTime(), loaderSystem, resourceCache, world, selectedEntities);
+		renderer_->GatherColliders(world);
 
 		SceneConstantBuffer editorSceneConstantBuffer{};
 		editorSceneConstantBuffer.view_ = editorCamera.View();
@@ -242,7 +266,7 @@ namespace SeedCore
 
 	void Graphics::GameRender(GameTimer& timer, LoaderSystem& loaderSystem, ResourceCache& resourceCache, World& world)
 	{
-		PrepareFrame(timer.DeltaTime(), loaderSystem, resourceCache, world, Entity::Null());
+		PrepareFrame(timer.DeltaTime(), loaderSystem, resourceCache, world, {});
 
 		cameraSystem_.Update(world, timer, static_cast<Float>(nativeWidth_), static_cast<Float>(nativeHeight_));
 
@@ -272,7 +296,7 @@ namespace SeedCore
 
 	void Graphics::CanvasRender(WorldTimer& timer, const CanvasCamera& canvasCamera, LoaderSystem& loaderSystem, ResourceCache& resourceCache, World& world)
 	{
-		PrepareFrame(timer.DeltaTime(), loaderSystem, resourceCache, world, Entity::Null());
+		PrepareFrame(timer.DeltaTime(), loaderSystem, resourceCache, world, {});
 
 		SceneConstantBuffer canvasSceneConstantBuffer{};
 		canvasSceneConstantBuffer.view_ = canvasCamera.View();
@@ -516,6 +540,11 @@ namespace SeedCore
 		renderer_->Raytracing(settings);
 	}
 
+	void Graphics::Upscale(Bool dlssRayReconstructionEnabled, UpscaleMode upscaleMode)
+	{
+		renderer_->Upscale(dlssRayReconstructionEnabled, upscaleMode);
+	}
+
 	void Graphics::Reflex(Bool enable, Bool useBoost)
 	{
 		dlssManager_->ReflexEnable(enable);
@@ -631,7 +660,7 @@ namespace SeedCore
 		return renderer_->AvatarImGuiGPUHandle();
 	}
 
-	void Graphics::PrepareFrame(Float deltaTime, LoaderSystem& loaderSystem, ResourceCache& resourceCache, World& world, Entity selectedEntity)
+	void Graphics::PrepareFrame(Float deltaTime, LoaderSystem& loaderSystem, ResourceCache& resourceCache, World& world, std::span<const Entity> selectedEntities)
 	{
 		if (preparedFrame_ == frameCount_)
 		{
@@ -646,7 +675,7 @@ namespace SeedCore
 
 		/// [JP] ストリーミングの LOD 要求判定用に前フレームのカメラを渡す
 		///      （カメラ更新は Gather の後 — 1 フレーム遅れで十分）。
-		renderer_->PrepareFrame(context_->GetDirectList(), loaderSystem, resourceCache, world, cameraSystem_.GetSceneConstantBuffer(), deltaTime, selectedEntity);
+		renderer_->PrepareFrame(context_->GetDirectList(), loaderSystem, resourceCache, world, cameraSystem_.GetSceneConstantBuffer(), deltaTime, selectedEntities);
 	}
 
 	CameraSystem& Graphics::GetCameraSystem()
@@ -656,19 +685,50 @@ namespace SeedCore
 
 	void Graphics::DrawSplashScreen(Bool loadComplete, Float progress, Bool showWarning, Bool showFiction)
 	{
-		if (splashScreen_.IsFinished())
+		if (bootFinished_)
 		{
 			return;
 		}
 
 		auto cmdList = context_->GetDirectList()->Get();
-		auto rtvHandle = swapChain_->Handle();
-		splashScreen_.Draw(cmdList, swapChain_->BackBuffer(), rtvHandle, width_, height_, loadComplete, progress, showWarning, showFiction);
+		D3D12_CPU_DESCRIPTOR_HANDLE renderTargetViewHandle = swapChain_->Handle();
+
+		if (!splashScreen_.Finished())
+		{
+			splashScreen_.Draw(cmdList, renderTargetViewHandle, width_, height_, showWarning, showFiction);
+			if (!splashScreen_.Finished())
+			{
+				return;
+			}
+		}
+
+		if (loadComplete)
+		{
+			bootFinished_ = true;
+
+			WaitForGpuIdle();
+			bootScreen_.Finalize();
+			return;
+		}
+
+		if (!bootStarted_)
+		{
+			bootStartTime_ = std::chrono::steady_clock::now();
+			bootStarted_ = true;
+		}
+
+		Float time = std::chrono::duration<Float>(std::chrono::steady_clock::now() - bootStartTime_).count();
+		bootScreen_.Draw(cmdList, renderTargetViewHandle, bootConfig_, width_, height_, progress, time, 1.0f);
 	}
 
-	Bool Graphics::IsSplashFinished()const
+	Bool Graphics::SplashFinished()const
 	{
-		return splashScreen_.IsFinished();
+		return bootFinished_;
+	}
+
+	void Graphics::DrawLetterScreen()
+	{
+		letterScreen_.Draw(context_->GetDirectList()->Get(), renderer_->GameDisplayResource(), swapChain_->Handle(), width_, height_);
 	}
 
 	void Graphics::SetImGuiContext(ImGuiContext* context)

@@ -56,6 +56,8 @@ namespace SeedCore
 		* scheduler after all systems have run, so newly spawned
 		* instances are tracked by the provisional EntityID cmd hands
 		* back and re-resolved to their real EntityID on the next Execute.
+		* A Spawner on an inactive actor is skipped, so its timers pause
+		* until the actor becomes active again.
 		*
 		* ---------------------------------------------------------------------
 		*
@@ -67,6 +69,8 @@ namespace SeedCore
 		* 生成を記録する。cmd は全システム実行後にスケジューラが flush
 		* するため、新しく生成されたインスタンスは cmd が返す暫定
 		* EntityID で追跡し、次の Execute で実際の EntityID へ再解決する。
+		* 非アクティブな actor の Spawner は飛ばすので、actor が再び
+		* アクティブになるまでタイマーは止まる。
 		*/
 		void Execute(CommandBuffer& cmd, World& world, Float deltaTime);
 

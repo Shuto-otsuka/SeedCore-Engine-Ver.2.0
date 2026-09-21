@@ -14,7 +14,7 @@ TextureMSOutput main(uint vertex_id : SV_VertexID, uint instance_id : SV_Instanc
 	bool is_visible = false;
 	if (sprite.selected_ != 0 && sprite.scale_.x > 0.0 && sprite.scale_.y > 0.0)
 	{
-		is_visible = IsVisibleInScreen(sprite.position_, sprite.texture_size_ * sprite.scale_, scene_constant.screen_size_);
+		is_visible = IsVisibleInScreen(sprite.position_, sprite.texture_size_ * sprite.scale_, scene_constant.display_size_);
 	}
 	if (!is_visible)
 	{

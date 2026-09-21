@@ -136,8 +136,10 @@ namespace SeedCore
 		bindlessHeap_ = bindlessHeap;
 		constantIndicesSystem_ = &constantIndicesSystem;
 
-		instanceBuffer_ = MakePtr<ReadOnlyStructuredBuffer<ColliderStructuredBuffer>>(device, bindlessHeap, maxInstanceCount_);
-		instanceConstantsBuffer_ = MakePtr<ConstantBuffer<ColliderConstantBuffer>>(device, bindlessHeap);
+		spatialInstanceBuffer_ = MakePtr<ReadOnlyStructuredBuffer<ColliderStructuredBuffer>>(device, bindlessHeap, maxInstanceCount_);
+		planarInstanceBuffer_ = MakePtr<ReadOnlyStructuredBuffer<ColliderStructuredBuffer>>(device, bindlessHeap, maxInstanceCount_);
+		spatialInstanceConstantsBuffer_ = MakePtr<ConstantBuffer<ColliderConstantBuffer>>(device, bindlessHeap);
+		planarInstanceConstantsBuffer_ = MakePtr<ConstantBuffer<ColliderConstantBuffer>>(device, bindlessHeap);
 
 		BuildIcosphereEdges(icosphereSubdivisionLevel_, sphereEdgeData_, hemisphereEdgeData_);
 		sphereEdgeCount_ = static_cast<Uint>(sphereEdgeData_.size() / 2);
@@ -156,12 +158,14 @@ namespace SeedCore
 
 	void ColliderRenderer::Clear()
 	{
-		instances_.clear();
+		spatialInstances_.clear();
+		planarInstances_.clear();
 	}
 
 	void ColliderRenderer::AddInstance(ColliderShapeKind shapeKind, const Vector3& position, const Quaternion& rotation, const Vector3& dimensions, const Color& color)
 	{
-		if (instances_.size() >= maxInstanceCount_)
+		DynamicArray<ColliderStructuredBuffer>& instances = (shapeKind == ColliderShapeKind::Rect || shapeKind == ColliderShapeKind::Circle) ? planarInstances_ : spatialInstances_;
+		if (instances.size() >= maxInstanceCount_)
 		{
 			return;
 		}
@@ -173,23 +177,15 @@ namespace SeedCore
 		instance.dimensions_ = dimensions;
 		instance.color_ = color;
 
-		instances_.push_back(instance);
+		instances.push_back(instance);
 	}
 
 	void ColliderRenderer::Upload()
 	{
-		if (instances_.empty())
+		if (spatialInstances_.empty() && planarInstances_.empty())
 		{
 			return;
 		}
-
-		Uint instanceCount = static_cast<Uint>(instances_.size());
-		if (instanceCount > maxInstanceCount_)
-		{
-			instanceCount = maxInstanceCount_;
-		}
-
-		instanceBuffer_->Update(instances_.data(), instanceCount);
 
 		/// [JP] トポロジテーブルは Create() 以降不変だが、
 		///      ReadOnlyStructuredBuffer はフレームリング式アップロード
@@ -198,27 +194,61 @@ namespace SeedCore
 		sphereEdgeBuffer_->Update(sphereEdgeData_.data(), static_cast<Uint>(sphereEdgeData_.size()));
 		hemisphereEdgeBuffer_->Update(hemisphereEdgeData_.data(), static_cast<Uint>(hemisphereEdgeData_.size()));
 
-		ColliderConstantBuffer constants{};
-		constants.instanceBufferIndex_ = instanceBuffer_->Index();
-		constants.instanceCount_ = instanceCount;
-		constants.groupsPerInstance_ = groupsPerInstance_;
-		constants.sphereEdgeBufferIndex_ = sphereEdgeBuffer_->Index();
-		constants.sphereEdgeCount_ = sphereEdgeCount_;
-		constants.hemisphereEdgeBufferIndex_ = hemisphereEdgeBuffer_->Index();
-		constants.hemisphereEdgeCount_ = hemisphereEdgeCount_;
-		instanceConstantsBuffer_->Update(constants);
+		if (!spatialInstances_.empty())
+		{
+			Uint spatialInstanceCount = static_cast<Uint>(spatialInstances_.size());
+			if (spatialInstanceCount > maxInstanceCount_)
+			{
+				spatialInstanceCount = maxInstanceCount_;
+			}
 
-		constantIndicesSystem_->SetColliderIndex(instanceConstantsBuffer_->GetIndex());
+			spatialInstanceBuffer_->Update(spatialInstances_.data(), spatialInstanceCount);
+
+			ColliderConstantBuffer constants{};
+			constants.instanceBufferIndex_ = spatialInstanceBuffer_->Index();
+			constants.instanceCount_ = spatialInstanceCount;
+			constants.groupsPerInstance_ = groupsPerInstance_;
+			constants.sphereEdgeBufferIndex_ = sphereEdgeBuffer_->Index();
+			constants.sphereEdgeCount_ = sphereEdgeCount_;
+			constants.hemisphereEdgeBufferIndex_ = hemisphereEdgeBuffer_->Index();
+			constants.hemisphereEdgeCount_ = hemisphereEdgeCount_;
+			spatialInstanceConstantsBuffer_->Update(constants);
+
+			constantIndicesSystem_->SetEditorColliderIndex(spatialInstanceConstantsBuffer_->GetIndex());
+		}
+
+		if (!planarInstances_.empty())
+		{
+			Uint planarInstanceCount = static_cast<Uint>(planarInstances_.size());
+			if (planarInstanceCount > maxInstanceCount_)
+			{
+				planarInstanceCount = maxInstanceCount_;
+			}
+
+			planarInstanceBuffer_->Update(planarInstances_.data(), planarInstanceCount);
+
+			ColliderConstantBuffer constants{};
+			constants.instanceBufferIndex_ = planarInstanceBuffer_->Index();
+			constants.instanceCount_ = planarInstanceCount;
+			constants.groupsPerInstance_ = groupsPerInstance_;
+			constants.sphereEdgeBufferIndex_ = sphereEdgeBuffer_->Index();
+			constants.sphereEdgeCount_ = sphereEdgeCount_;
+			constants.hemisphereEdgeBufferIndex_ = hemisphereEdgeBuffer_->Index();
+			constants.hemisphereEdgeCount_ = hemisphereEdgeCount_;
+			planarInstanceConstantsBuffer_->Update(constants);
+
+			constantIndicesSystem_->SetCanvasColliderIndex(planarInstanceConstantsBuffer_->GetIndex());
+		}
 	}
 
-	void ColliderRenderer::Draw(D3D12CommandList* cmdList, D3D12_CPU_DESCRIPTOR_HANDLE renderTargetView, D3D12_CPU_DESCRIPTOR_HANDLE depthStencilView, D3D12_VIEWPORT viewport, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
+	void ColliderRenderer::Draw3D(D3D12CommandList* cmdList, D3D12_CPU_DESCRIPTOR_HANDLE renderTargetView, D3D12_CPU_DESCRIPTOR_HANDLE depthStencilView, D3D12_VIEWPORT viewport, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
 	{
-		if (instances_.empty())
+		if (spatialInstances_.empty())
 		{
 			return;
 		}
 
-		Uint instanceCount = static_cast<Uint>(instances_.size());
+		Uint instanceCount = static_cast<Uint>(spatialInstances_.size());
 		if (instanceCount > maxInstanceCount_)
 		{
 			instanceCount = maxInstanceCount_;
@@ -249,6 +279,46 @@ namespace SeedCore
 			///      割り当てる — Jolt本家相当密度の球/カプセルはもはや1グループ
 			///      (threadsPerGroup_ スレッド)には収まらないため（ColliderLineMS.hlsl
 			///      参照）。
+			cmd->DispatchMesh(instanceCount * groupsPerInstance_, 1, 1);
+		}
+		else
+		{
+			cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
+			cmd->DrawInstanced(groupsPerInstance_ * threadsPerGroup_ * 2, instanceCount, 0, 0);
+		}
+		ProfilerStats::AddDrawCall();
+	}
+
+	void ColliderRenderer::Draw2D(D3D12CommandList* cmdList, D3D12_CPU_DESCRIPTOR_HANDLE renderTargetView, D3D12_VIEWPORT viewport, ID3D12DescriptorHeap* heap, const RootAddresses& addresses)
+	{
+		if (planarInstances_.empty())
+		{
+			return;
+		}
+
+		Uint instanceCount = static_cast<Uint>(planarInstances_.size());
+		if (instanceCount > maxInstanceCount_)
+		{
+			instanceCount = maxInstanceCount_;
+		}
+
+		auto* cmd = cmdList->Get();
+
+		cmd->OMSetRenderTargets(1, &renderTargetView, FALSE, nullptr);
+
+		cmd->RSSetViewports(1, &viewport);
+		D3D12_RECT scissorRect = { 0, 0, static_cast<LONG>(viewport.Width), static_cast<LONG>(viewport.Height) };
+		cmd->RSSetScissorRects(1, &scissorRect);
+
+		ID3D12DescriptorHeap* heaps[] = { heap };
+		cmd->SetDescriptorHeaps(_countof(heaps), heaps);
+		cmd->SetGraphicsRootSignature(colliderLineShader_.GetRootSignature());
+		RootSignature::BindGraphics(cmd, addresses);
+
+		cmd->SetPipelineState(colliderLineShader_.GetPipelineStateCanvas());
+
+		if (D3D12Check::GetLevel() == D3D12Level::D12_2)
+		{
 			cmd->DispatchMesh(instanceCount * groupsPerInstance_, 1, 1);
 		}
 		else

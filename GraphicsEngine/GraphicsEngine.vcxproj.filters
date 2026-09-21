@@ -946,6 +946,15 @@
     <ClInclude Include="Movie\MovieDecoder.h">
       <Filter>Movie</Filter>
     </ClInclude>
+    <ClInclude Include="Shape\Screen\LetterScreen.h">
+      <Filter>Shape\Screen</Filter>
+    </ClInclude>
+    <ClInclude Include="Shape\Screen\BootScreen.h">
+      <Filter>Shape\Screen</Filter>
+    </ClInclude>
+    <ClInclude Include="Renderer\BootScreenRenderer.h">
+      <Filter>Renderer</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="D3D12\Context\D3D12Adapter.cpp">
@@ -1562,6 +1571,15 @@
     <ClCompile Include="Movie\Video.cpp">
       <Filter>Movie</Filter>
     </ClCompile>
+    <ClCompile Include="Shape\Screen\LetterScreen.cpp">
+      <Filter>Shape\Screen</Filter>
+    </ClCompile>
+    <ClCompile Include="Shape\Screen\BootScreen.cpp">
+      <Filter>Shape\Screen</Filter>
+    </ClCompile>
+    <ClCompile Include="Renderer\BootScreenRenderer.cpp">
+      <Filter>Renderer</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="Shader\Sampler.hlsli">
@@ -2152,6 +2170,12 @@
       <Filter>Shape\Screen</Filter>
     </Text>
     <Text Include="Shape\Screen\SplashScreenVS.hlsl">
+      <Filter>Shape\Screen</Filter>
+    </Text>
+    <Text Include="Shape\Screen\LetterScreenPS.hlsl">
+      <Filter>Shape\Screen</Filter>
+    </Text>
+    <Text Include="Shape\Screen\BootScreenPS.hlsl">
       <Filter>Shape\Screen</Filter>
     </Text>
   </ItemGroup>

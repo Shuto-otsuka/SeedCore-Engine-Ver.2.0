@@ -144,7 +144,7 @@ namespace SeedCore
 		* [JP]
 		* モジュールが現在ロードされているか。
 		*/
-		[[nodiscard]] Bool IsLoaded()const;
+		[[nodiscard]] Bool Loaded()const;
 
 		/**
 		* [EN]

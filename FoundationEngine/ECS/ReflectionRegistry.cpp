@@ -1,6 +1,8 @@
 #include <FoundationEngine/ECS/ReflectionRegistry.h>
 
 // [REFLECTION_AUTO_BEGIN]
+#pragma comment(linker, "/include:_force_reflection_AudioListener")
+#pragma comment(linker, "/include:_force_reflection_AudioSource")
 #pragma comment(linker, "/include:_force_reflection_Lifetime")
 #pragma comment(linker, "/include:_force_reflection_Name")
 #pragma comment(linker, "/include:_force_reflection_Position")

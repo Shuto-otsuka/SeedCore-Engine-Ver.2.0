@@ -246,7 +246,7 @@ namespace SeedCore
 			label = name->name_.c_str();
 		}
 
-		Bool selected = IsSelected(actor);
+		Bool selected = Selected(actor);
 		Bool hasChildren = !actor.GetChildren().empty();
 		Bool isChild = static_cast<Bool>(actor.GetParent());
 
@@ -318,7 +318,7 @@ namespace SeedCore
 			{
 				/// [EN] The canvas-space point this actor is drawn at - the same +100000 / Y-flip the renderers apply. CanvasCamera::FocusOn animates the slide (see its comment).
 				/// [JP] このアクターが描かれるキャンバス空間の点 - レンダラーが掛けるのと同じ +100000 / Y 反転。スライドのアニメーションは CanvasCamera::FocusOn が行う（同コメント参照）。
-				Vector3 canvasTarget = Vector3(100000.0f + worldMatrix._41, 100000.0f + (ScResolution::SC_HD.Height - worldMatrix._42), 100000.0f);
+				Vector3 canvasTarget = Vector3(100000.0f + worldMatrix._41, 100000.0f + (ScResolution::SC_CANVAS.Height - worldMatrix._42), 100000.0f);
 				context_.cameraContext_.canvasCamera_->FocusOn(canvasTarget);
 
 				ImGui::SetWindowFocus("キャンバスビュー");
@@ -428,7 +428,7 @@ namespace SeedCore
 			}
 			if (ImGui::MenuItem("複製"))
 			{
-				if (!IsSelected(actor))
+				if (!Selected(actor))
 				{
 					HandleNodeSelection(actor, false, false);
 				}
@@ -436,7 +436,7 @@ namespace SeedCore
 			}
 			if (ImGui::MenuItem("Actorを削除"))
 			{
-				if (IsSelected(actor))
+				if (Selected(actor))
 				{
 					DeleteSelection();
 				}
@@ -559,7 +559,7 @@ namespace SeedCore
 		return uniqueName;
 	}
 
-	Bool HierarchyPanel::IsSelected(Actor actor)const
+	Bool HierarchyPanel::Selected(Actor actor)const
 	{
 		return std::ranges::contains(context_.selectionContext_.selectedActors_, actor);
 	}

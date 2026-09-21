@@ -47,9 +47,9 @@ namespace SeedCore
 		void MarkAutoPlayStarted();
 
 	public:
-		[[nodiscard]] Bool IsLoop()const;
+		[[nodiscard]] Bool Loop()const;
 
-		[[nodiscard]] Bool IsPlaying()const;
+		[[nodiscard]] Bool Playing()const;
 
 		[[nodiscard]] Bool HasAutoPlayStarted()const;
 

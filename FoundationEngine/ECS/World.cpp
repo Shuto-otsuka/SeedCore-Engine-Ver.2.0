@@ -12,6 +12,54 @@
 namespace SeedCore
 {
 	// ============================================================
+	// Lifecycle
+	// ============================================================
+
+	/**
+	* [EN]
+	* Records a request to quit the game. The world only holds the
+	* request; what quitting means is decided by the host that owns the
+	* main loop - the runtime ends the application, while the editor stops
+	* Play mode instead.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* ゲーム終了の要求を記録する。ワールドは要求を保持するだけで、終了が
+	* 何を意味するかはメインループを所有するホストが決める - ランタイム
+	* ではアプリケーションを終了し、エディタでは代わりに Play モードを
+	* 停止する。
+	*/
+	void World::RequestQuit()
+	{
+		quitRequested_ = true;
+	}
+
+	/**
+	* [EN]
+	* Returns whether a quit has been requested since the last call,
+	* clearing the request in the same step so each request is observed
+	* exactly once.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 前回の呼び出し以降に終了が要求されたかどうかを返し、同時に要求を
+	* 取り下げる。これにより各要求はちょうど1回だけ観測される。
+	*/
+	Bool World::ConsumeQuit()
+	{
+		/// [EN] Report and clear together, so the host never sees the same request on two frames.
+		/// [JP] 報告と取り下げを同時に行い、ホストが同じ要求を2フレームにわたって観測しないようにする。
+		if (quitRequested_)
+		{
+			quitRequested_ = false;
+			return true;
+		}
+		return false;
+	}
+
+	// ============================================================
 	// Entity
 	// ============================================================
 
@@ -856,6 +904,53 @@ namespace SeedCore
 	const ResourcePtr<Physics>& World::GetPhysics()const
 	{
 		return physics_;
+	}
+
+	/**
+	* [EN]
+	* Creates and returns a new Audio resource owned by this world.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* このワールドが所有する新しい Audio リソースを生成して返す。
+	*/
+	Audio* World::CreateAudio()
+	{
+		if (!audio_)
+		{
+			audio_ = MakePtr<Audio>();
+		}
+
+		return audio_.get();
+	}
+
+	/**
+	* [EN]
+	* Returns a mutable reference to this world's Audio resource.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* このワールドの Audio リソースへの変更可能な参照を返す。
+	*/
+	ResourcePtr<Audio>& World::GetAudio()
+	{
+		return audio_;
+	}
+
+	/**
+	* [EN]
+	* Const overload of GetAudio().
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* GetAudio() の const オーバーロード。
+	*/
+	const ResourcePtr<Audio>& World::GetAudio()const
+	{
+		return audio_;
 	}
 
 	// ============================================================

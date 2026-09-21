@@ -26,7 +26,7 @@ namespace SeedCore
 
 		void HandleNodeSelection(Actor actor, Bool ctrl, Bool shift);
 
-		Bool IsSelected(Actor actor)const;
+		Bool Selected(Actor actor)const;
 
 		void DeleteActor(Actor actor, CompoundCommand* group = nullptr);
 

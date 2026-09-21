@@ -24,7 +24,8 @@
 #include <Editor/Editor/Editor.h>
 #include <Editor/Editor/ImGui/ImGuiRenderer.h>
 #include <Editor/Editor/Build/HotReload.h>
-#include <Editor/Editor/Build/Config.h>
+#include <FoundationEngine/Resource/GameConfig.h>
+#include <FoundationEngine/Resource/EditorConfig.h>
 #include <FoundationEngine/Plugin/PluginHost.h>
 
 namespace SeedCore

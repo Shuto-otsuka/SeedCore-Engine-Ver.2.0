@@ -28,6 +28,8 @@ namespace SeedCore
 
 		Bool ConsumeVersionRequest();
 
+		Bool ConsumeAtomCraftRequest();
+
 		Bool ConsumeConfigRequest();
 
 		Bool ConsumeLayerSettingsRequest();
@@ -43,6 +45,8 @@ namespace SeedCore
 		Bool ConsumeModelTransformRequest();
 
 		Bool ConsumeAvatarRequest();
+
+		Bool ConsumeBootScreenRequest();
 
 		[[nodiscard]] ViewMode GetViewMode()const;
 
@@ -79,6 +83,8 @@ namespace SeedCore
 		Bool profilerRequested_ = false;
 		Bool todoListRequested_ = false;
 		Bool versionRequested_ = false;
+		Bool atomCraftRequested_ = false;
+
 		Bool configRequested_ = false;
 		Bool layerSettingsRequested_ = false;
 		Bool animatorControllerRequested_ = false;
@@ -87,6 +93,7 @@ namespace SeedCore
 		Bool materialViewerRequested_ = false;
 		Bool modelTransformRequested_ = false;
 		Bool avatarRequested_ = false;
+		Bool bootScreenRequested_ = false;
 
 		GraphicsMenuPanel graphicsMenuPanel_;
 		RuntimeBuilder runtimeBuilder_;

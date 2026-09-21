@@ -1,5 +1,6 @@
 #include <FoundationEngine/Prelude.h>
 #include <FoundationEngine/ECS/PayloadRegistry.h>
+#include <AudioEngine/Audio/AudioSource.h>
 #include <FoundationEngine/ECS/Component/Spawner.h>
 #include <GraphicsEngine/Camera/CameraBrain.h>
 #include <GraphicsEngine/Constraint/AttachmentConstraint.h>
@@ -22,6 +23,7 @@
 #include <PhysicsEngine/Joint/SliderJoint.h>
 #include <PhysicsEngine/Joint/SpringJoint.h>
 
+extern "C" int _force_payload_AudioSource = 0;
 extern "C" int _force_payload_Spawner = 0;
 extern "C" int _force_payload_CameraBrain = 0;
 extern "C" int _force_payload_AttachmentConstraint = 0;
@@ -48,6 +50,19 @@ namespace SeedCore
 {
 	 namespace ScPayload
 	 {
+		// ---- AudioEngine/Audio/AudioSource.h ----
+		struct Register_AudioSource
+		{
+			Register_AudioSource()
+			{
+				PayloadRegistry::Register(String("AudioSource"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
+					AudioSource& obj = *static_cast<AudioSource*>(ptr);
+					outInfo.push_back({ String("サウンド"), offsetof(AudioSource, soundID_), AttributeType::Int, PayloadAssetType::Audio });
+				});
+			}
+		};
+		static Register_AudioSource global_AudioSource_register;
+
 		// ---- FoundationEngine/ECS/Component/Spawner.h ----
 		struct Register_Spawner
 		{

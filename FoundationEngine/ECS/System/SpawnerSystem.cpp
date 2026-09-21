@@ -12,7 +12,8 @@ namespace SeedCore
 	* cmd, the destruction of any spawned instance whose lifeTime_ has
 	* elapsed (freeing its slot), then records a deferred prefab spawn
 	* whenever spawnInterval_ elapses and the live instance count hasn't
-	* yet reached maxCount_.
+	* yet reached maxCount_. A Spawner on an inactive actor is skipped, so
+	* its timers pause.
 	*
 	* ---------------------------------------------------------------------
 	*
@@ -21,13 +22,14 @@ namespace SeedCore
 	* lifeTime_ が経過した生成済みインスタンスの破棄を cmd へ記録し(その
 	* 枠を空け)、その上で spawnInterval_ が経過し生存中インスタンス数が
 	* maxCount_ に達していない度に、プレハブの遅延生成を記録する。
+	* 非アクティブな actor の Spawner は飛ばすので、タイマーは止まる。
 	*/
 	void SpawnerSystem::Execute(CommandBuffer& cmd, World& world, Float deltaTime)
 	{
 		for (EntityID entityID : world.GetComponents<Spawner>())
 		{
 			Actor actor = world.GetActor(entityID);
-			if (!actor)
+			if (!actor || !actor.GetActive())
 			{
 				continue;
 			}
@@ -44,7 +46,7 @@ namespace SeedCore
 			/// [JP] 前フレームに生成したインスタンスは cmd が返した暫定 EntityID で追跡していた。その後の flush で実際の EntityID へ解決済み。
 			for (SpawnedInstance& instance : state.instances_)
 			{
-				if (CommandBuffer::IsProvisional(instance.entityID_))
+				if (CommandBuffer::Provisional(instance.entityID_))
 				{
 					EntityID resolved = cmd.Resolved(instance.entityID_);
 					if (resolved != EntityID{})
@@ -59,7 +61,7 @@ namespace SeedCore
 				SpawnedInstance& instance = state.instances_[instanceIndex];
 				instance.remainingLifeTime_ -= deltaTime;
 
-				Bool stillProvisional = CommandBuffer::IsProvisional(instance.entityID_);
+				Bool stillProvisional = CommandBuffer::Provisional(instance.entityID_);
 				Bool destroyedElsewhere = !stillProvisional && !world.GetActor(instance.entityID_);
 
 				if (instance.remainingLifeTime_ > 0.0f && !destroyedElsewhere)
@@ -100,8 +102,8 @@ namespace SeedCore
 				continue;
 			}
 
-			/// [EN] Spawn as a root-level actor (no parent): PhysicsSystem places a Rigidbody's JPH body from the actor's local Position directly (PhysicsSystem::ApplyActorTransform), ignoring any parent transform, so a parented spawn would render correctly via TransformSystem but get its collider placed as if the local offset were a world position.
-			/// [JP] ルートレベルの actor(親無し)として生成する: PhysicsSystem は Rigidbody の JPH ボディを actor のローカル Position からそのまま配置し(PhysicsSystem::ApplyActorTransform)、親の変換を考慮しないため、親付きで生成すると見た目は TransformSystem 経由で正しくてもコライダーがローカルオフセットをワールド位置と誤認して配置される。
+			/// [EN] Spawn as a root-level actor (no parent): PhysicsSystem places a Rigidbody's JPH body from the actor's local Position directly (PhysicsSystem::ApplyTransform), ignoring any parent transform, so a parented spawn would render correctly via TransformSystem but get its collider placed as if the local offset were a world position.
+			/// [JP] ルートレベルの actor(親無し)として生成する: PhysicsSystem は Rigidbody の JPH ボディを actor のローカル Position からそのまま配置し(PhysicsSystem::ApplyTransform)、親の変換を考慮しないため、親付きで生成すると見た目は TransformSystem 経由で正しくてもコライダーがローカルオフセットをワールド位置と誤認して配置される。
 			Vector3 spawnPosition = actor.GetWorldMatrix().Translation();
 			if (spawner->randomSpawn_)
 			{

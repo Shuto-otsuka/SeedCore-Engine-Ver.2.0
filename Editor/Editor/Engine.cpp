@@ -8,9 +8,13 @@
 #include <GraphicsEngine/D3D12/Context/D3D12CommandList.h>
 #include <GraphicsEngine/D3D12/Context/D3D12CommandQueue.h>
 #include <GraphicsEngine/Avatar/AvatarMesh.h>
+#include <GraphicsEngine/Renderer/BootScreenRenderer.h>
 #include <GraphicsEngine/D3D12/Context/D3D12Adapter.h>
 
+#include <Editor/Editor/Build/AtomCraft.h>
+
 #include <PhysicsEngine/Physics/PhysicsSystem.h>
+#include <AudioEngine/Audio/AudioSystem.h>
 
 namespace SeedCore
 {
@@ -43,7 +47,10 @@ namespace SeedCore
 
 		ID3D12Device* device = graphics_->GetContext()->GetDevice();
 
+		editorConfig_.Load();
+
 		criManager_ = MakePtr<CriManager>();
+		criManager_->MasterPath(editorConfig_.acfPath_);
 		if (!criManager_->Initialize())
 		{
 			return;
@@ -104,13 +111,38 @@ namespace SeedCore
 		pluginHost_.Load(*world_);
 		hotReload_.Initialize(pluginHost_);
 
-		editorConfig_.Load();
-		editorConfig_.Apply(editorCamera_, editorCameraController_, *imgui_);
+		editorCamera_.Eye(editorConfig_.cameraEye_);
+		editorCamera_.Focus(editorConfig_.cameraFocus_);
+		editorCamera_.Up(editorConfig_.cameraUp_);
+		editorCamera_.Fov(editorConfig_.cameraFov_);
+
+		editorCameraController_.MoveSpeed(editorConfig_.cameraMoveSpeed_);
+		editorCameraController_.RotateSpeed(editorConfig_.cameraRotateSpeed_);
+		editorCameraController_.ScrollSpeed(editorConfig_.cameraScrollSpeed_);
+		editorCameraController_.PanSpeed(editorConfig_.cameraPanSpeed_);
+		editorCameraController_.ShiftSpeedMultiplier(editorConfig_.cameraShiftSpeedMultiplier_);
+
+		imgui_->FontScale(editorConfig_.fontScale_);
+
+		std::error_code atomCraftErrorCode;
+		if (editorConfig_.atomCraftPath_.view().empty() || !std::filesystem::exists(editorConfig_.atomCraftPath_.c_str(), atomCraftErrorCode))
+		{
+			editorConfig_.atomCraftPath_ = AtomCraft::Detect();
+
+			if (editorConfig_.atomCraftPath_.view().empty())
+			{
+				SC_LOG_WARNING("CRI Atom Craft が見つかりませんでした。オーディオのビルドには ADX LE ツールが必要です: https://game.criware.jp/products/adx-le/");
+			}
+			else
+			{
+				editorConfig_.Save();
+			}
+		}
 
 		gameConfig_.Load();
 		editorContext_.viewportContext_.outputResolution_ = gameConfig_.resolution_;
-		editorContext_.viewportContext_.raytracing_.dlssRayReconstructionEnabled_ = gameConfig_.useDlss_;
-		editorContext_.viewportContext_.raytracing_.upscaleMode_ = gameConfig_.upscaleMode_;
+		editorContext_.viewportContext_.upscale_.dlssRayReconstructionEnabled_ = gameConfig_.useDlss_;
+		editorContext_.viewportContext_.upscale_.upscaleMode_ = gameConfig_.upscaleMode_;
 		editorContext_.viewportContext_.frameGeneration_.enabled_ = gameConfig_.useFrameGeneration_;
 		editorContext_.viewportContext_.vsync_ = gameConfig_.vsync_;
 		editorContext_.viewportContext_.resizeRequested_ = true;
@@ -148,7 +180,20 @@ namespace SeedCore
 
 		if (imgui_)
 		{
-			editorConfig_.Capture(editorCamera_, editorCameraController_, *imgui_, editorContext_.sceneContext_.currentScenePath_);
+			editorConfig_.cameraEye_ = editorCamera_.Eye();
+			editorConfig_.cameraFocus_ = editorCamera_.Focus();
+			editorConfig_.cameraUp_ = editorCamera_.Up();
+			editorConfig_.cameraFov_ = editorCamera_.Fov();
+
+			editorConfig_.cameraMoveSpeed_ = editorCameraController_.MoveSpeed();
+			editorConfig_.cameraRotateSpeed_ = editorCameraController_.RotateSpeed();
+			editorConfig_.cameraScrollSpeed_ = editorCameraController_.ScrollSpeed();
+			editorConfig_.cameraPanSpeed_ = editorCameraController_.PanSpeed();
+			editorConfig_.cameraShiftSpeedMultiplier_ = editorCameraController_.ShiftSpeedMultiplier();
+
+			editorConfig_.fontScale_ = imgui_->FontScale();
+			editorConfig_.lastScenePath_ = String(editorContext_.sceneContext_.currentScenePath_.string());
+
 			editorConfig_.Save();
 		}
 
@@ -203,6 +248,11 @@ namespace SeedCore
 			joltManager_ = nullptr;
 		}
 
+		if (world_)
+		{
+			world_->GetAudio() = nullptr;
+		}
+
 		if (criManager_)
 		{
 			criManager_->Finalize();
@@ -255,7 +305,7 @@ namespace SeedCore
 					Uint32 outputWidth = static_cast<Uint32>(outputSize.Width);
 					Uint32 outputHeight = static_cast<Uint32>(outputSize.Height);
 
-					Float scale = UpscaleRenderScale(editorContext_.viewportContext_.raytracing_.upscaleMode_);
+					Float scale = UpscaleRenderScale(editorContext_.viewportContext_.upscale_.upscaleMode_);
 					Uint32 nativeWidth = Max<Uint32>(64, static_cast<Uint32>(outputWidth * scale + 0.5f));
 					Uint32 nativeHeight = Max<Uint32>(64, static_cast<Uint32>(outputHeight * scale + 0.5f));
 
@@ -271,7 +321,7 @@ namespace SeedCore
 
 				graphics_->Begin();
 
-				if (!graphics_->IsSplashFinished())
+				if (!graphics_->SplashFinished())
 				{
 					/// [EN] Loading now runs on its own background worker (see
 					///      ResourceCache::StepAsync) instead of blocking this thread, so it
@@ -289,20 +339,23 @@ namespace SeedCore
 
 					graphics_->Clear();
 					/// [JP] showWarning/showFiction は仮でtrue固定。Runtime書き出し時のチェックボックスから設定できるようにするのはこれから。
-					graphics_->DrawSplashScreen(resource_->Complete(), resource_->Progress(), true, true);
+					graphics_->DrawSplashScreen(resource_->Complete(), resource_->Progress(), false, false);
 					graphics_->End();
 					graphics_->GetSwapChain()->Present(graphics_->GetContext()->GetDevice());
 					continue;
 				}
 
-				InputSystem::SetInputEnabled(editor_->IsGameViewImageHovered());
+				InputSystem::SetInputEnabled(editor_->GameViewImageHovered());
 
-				if (gameTimer_.IsPlaying())
+				AudioSystem::ResolveSound(*loaderSystem_, *resource_, *world_);
+
+				if (gameTimer_.Playing())
 				{
-					PhysicsSystem::ResolveMeshColliders(*loaderSystem_, *resource_, *world_);
-					PhysicsSystem::ResolveSoftbodies(*loaderSystem_, *resource_, *world_);
+					PhysicsSystem::ResolveMeshCollider(*loaderSystem_, *resource_, *world_);
+					PhysicsSystem::ResolveSoftbody(*loaderSystem_, *resource_, *world_);
+					PhysicsSystem::ApplyActive(*world_);
 
-					joltManager_->SetActiveWorld(world_.get());
+					joltManager_->ActiveWorld(world_.get());
 
 					while (worldTimer_.Step())
 					{
@@ -311,14 +364,26 @@ namespace SeedCore
 					}
 				}
 
-				system_->Run(*world_, *resource_, *executor_, gameTimer_.DeltaTime(), gameTimer_.IsPlaying());
+				system_->Run(*world_, *resource_, *executor_, gameTimer_.DeltaTime(), gameTimer_.Playing());
 
-				if (gameTimer_.IsPlaying())
+				if (gameTimer_.Playing())
 				{
 					Scene::Update(gameTimer_.DeltaTime());
+
+					if (const Scene* switchedScene = Scene::ConsumeSwitchedScene())
+					{
+						editorContext_.viewportContext_.raytracing_ = DeserializeRaytracingContext(switchedScene->GetRaytracingSettingsJson());
+						editorContext_.viewportContext_.screenSpace_ = DeserializeScreenSpaceContext(switchedScene->GetScreenSpaceSettingsJson());
+						editorContext_.viewportContext_.rasterization_ = DeserializeRasterizationContext(switchedScene->GetRasterizationSettingsJson());
+					}
 				}
 
 				InputSystem::SetInputEnabled(true);
+
+				if (gameTimer_.Playing())
+				{
+					AudioSystem::Update(*world_, gameTimer_.DeltaTime());
+				}
 
 				criManager_->Execute();
 
@@ -326,7 +391,7 @@ namespace SeedCore
 
 				editorCamera_.Tick(window_->GetTimer().Delta());
 
-				canvasCamera_.Resize(ScResolution::SC_HD.Width, ScResolution::SC_HD.Height);
+				canvasCamera_.Resize(ScResolution::SC_CANVAS.Width, ScResolution::SC_CANVAS.Height);
 				canvasCamera_.Tick(window_->GetTimer().Delta());
 				timelineCamera_.Tick(window_->GetTimer().Delta());
 				modelTransformCamera_.Tick(window_->GetTimer().Delta());
@@ -351,9 +416,10 @@ namespace SeedCore
 				weatherSystem_.Execute(*world_, gameTimer_.DeltaTime(), editorContext_.viewportContext_.raytracing_.daySystem_.monthOfYear_, editorContext_.viewportContext_.raytracing_.volumetricCloudScapes_);
 
 				graphics_->Raytracing(editor_->GetRaytracingSettings());
+				graphics_->Upscale(editorContext_.viewportContext_.upscale_.dlssRayReconstructionEnabled_, editorContext_.viewportContext_.upscale_.upscaleMode_);
 				graphics_->VerticalSync(editorContext_.viewportContext_.vsync_);
 
-				graphics_->EditorRender(worldTimer_, editorCamera_, *loaderSystem_, *resource_, *world_, editor_->GetViewMode(), PhysicsSystem::GatherColliderInstances(*world_), editor_->GetSelectedEntity());
+				graphics_->EditorRender(worldTimer_, editorCamera_, *loaderSystem_, *resource_, *world_, editor_->GetViewMode(), editor_->GetSelectedEntities());
 				graphics_->GameRender(gameTimer_, *loaderSystem_, *resource_, *world_);
 				graphics_->CanvasRender(worldTimer_, canvasCamera_, *loaderSystem_, *resource_, *world_);
 
@@ -382,6 +448,12 @@ namespace SeedCore
 					const AvatarPreviewContext& avatarPreview = editorContext_.avatarPreviewContext_;
 					avatarPreview.mesh_->Update(avatarPreview.positions_, avatarPreview.normals_);
 					graphics_->AvatarRender(worldTimer_, avatarCamera_, *avatarPreview.mesh_, avatarPreview.boneCount_, avatarPreview.previewWorldMatrix_, std::span<const Uint32>(avatarPreview.regionTextureIndices_, avatarPreview.regionCount_));
+				}
+
+				if (editorContext_.bootScreenPreviewContext_.previewActive_ && editorContext_.bootScreenPreviewContext_.renderer_ && editorContext_.bootScreenPreviewContext_.config_)
+				{
+					const BootScreenPreviewContext& bootScreenPreview = editorContext_.bootScreenPreviewContext_;
+					bootScreenPreview.renderer_->Render(graphics_->GetContext()->GetDirectList(), *bootScreenPreview.config_, bootScreenPreview.progress_, worldTimer_.TotalTime());
 				}
 
 				graphics_->Clear();

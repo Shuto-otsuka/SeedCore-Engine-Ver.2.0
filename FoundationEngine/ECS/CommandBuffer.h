@@ -212,7 +212,7 @@ namespace SeedCore
 		* id が（実際の World の EntityID ではなく）CommandBuffer が発行した
 		* 暫定 ID かどうかを返す。
 		*/
-		static Bool IsProvisional(EntityID id);
+		static Bool Provisional(EntityID id);
 
 	private:
 		/// [EN] Generation value that marks an EntityID as a CommandBuffer provisional handle; no live entity ever reaches it.

@@ -19,7 +19,7 @@ namespace SeedCore
 
 			Microsoft::WRL::ComPtr<ID3D12Resource> resource;
 			String filePath = String(std::string("Icon/") + folder + "/" + name + ".icon");
-			TextureLoader::CreateTexture(d3d12Context->GetDevice(), d3d12Context->GetDirectQueue(), descHeap->Get(), filePath, resource, index);
+			TextureLoader::CreateTexturePath(d3d12Context->GetDevice(), d3d12Context->GetDirectQueue(), descHeap->Get(), filePath, resource, index);
 
 			icons_[static_cast<Uint>(type)] = static_cast<ImTextureID>(descHeap->GPUHandle(index).ptr);
 			resources_.push_back(std::move(resource));
@@ -67,6 +67,7 @@ namespace SeedCore
 		load(IconType::Translate,   "Viewport", "Translate");
 		load(IconType::Rotate,      "Viewport", "Rotate");
 		load(IconType::Scale,       "Viewport", "Scale");
+		load(IconType::Rect,        "Viewport", "Rect");
 		load(IconType::Camera,      "Viewport", "Camera");
 		load(IconType::ViewMode,    "Viewport", "ViewMode");
 

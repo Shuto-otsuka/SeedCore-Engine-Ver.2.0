@@ -1,6 +1,7 @@
 #include <FoundationEngine/ECS/PayloadRegistry.h>
 
 // [PAYLOAD_AUTO_BEGIN]
+#pragma comment(linker, "/include:_force_payload_AudioSource")
 #pragma comment(linker, "/include:_force_payload_Spawner")
 #pragma comment(linker, "/include:_force_payload_CameraBrain")
 #pragma comment(linker, "/include:_force_payload_AttachmentConstraint")

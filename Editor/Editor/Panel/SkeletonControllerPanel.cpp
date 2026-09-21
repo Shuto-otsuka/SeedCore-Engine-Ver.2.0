@@ -32,7 +32,7 @@ namespace SeedCore
 		previewHandle_ = previewHandle;
 	}
 
-	Bool SkeletonControllerPanel::IsFocused()const
+	Bool SkeletonControllerPanel::Focused()const
 	{
 		return isFocused_;
 	}
@@ -153,7 +153,7 @@ namespace SeedCore
 
 		if (ImGui::IsItemHovered() && context_.cameraContext_.skeletonControllerCamera_ && context_.cameraContext_.skeletonControllerCameraController_)
 		{
-			if ((orbitHeld || panHeld) && !InputSystem::IsMouseCaptured())
+			if ((orbitHeld || panHeld) && !InputSystem::MouseCaptured())
 			{
 				InputSystem::BeginMouseCapture();
 			}
@@ -161,7 +161,7 @@ namespace SeedCore
 			context_.cameraContext_.skeletonControllerCameraController_->Update(*context_.cameraContext_.skeletonControllerCamera_, ImGui::GetIO().DeltaTime);
 		}
 
-		if (!orbitHeld && !panHeld && InputSystem::IsMouseCaptured())
+		if (!orbitHeld && !panHeld && InputSystem::MouseCaptured())
 		{
 			InputSystem::EndMouseCapture();
 		}

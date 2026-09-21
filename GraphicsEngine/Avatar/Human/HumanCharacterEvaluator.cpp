@@ -42,7 +42,7 @@ namespace SeedCore
 
 	void HumanCharacterEvaluator::Evaluate()
 	{
-		if (!model_ || !model_->IsLoaded())
+		if (!model_ || !model_->Loaded())
 		{
 			return;
 		}

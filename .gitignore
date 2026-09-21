@@ -82,6 +82,15 @@ imgui.ini
 *.nvdbg
 *.nv-gpudmp
 
+## CRIWARE/AtomCraft
+*.acf
+*.atmcuser
+*.user_settings
+**/AtomCraft/Build/
+**/AtomCraft/*/Session
+**/AtomCraft/*/*_Cache/
+**/AtomCraft/*/*_Backup/
+
 ## ソリューション関連
 .vs/
 *.userosscache

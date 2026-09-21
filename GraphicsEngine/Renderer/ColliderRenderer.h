@@ -12,18 +12,18 @@ namespace SeedCore
 	class D3D12CommandList;
 	class ConstantIndicesSystem;
 
-	/// [EN] Per-frame constants for the collider instance shader: which
-	///      bindless structured-buffer index holds this frame's collider
-	///      instances and how many there are, how many mesh-shader groups
+	/// [EN] Per-frame constants for the collider instance shader, one per
+	///      batch (3D or 2D): which bindless structured-buffer index holds
+	///      that batch's collider instances and how many there are, how many mesh-shader groups
 	///      each instance spans (groupsPerInstance_ — needed since a single
 	///      64/128-thread group can no longer cover a Jolt-density sphere's
 	///      worth of edges), and the bindless index/edge-count of the two
 	///      persistent unit-sphere edge tables (full sphere + single
 	///      hemisphere, for capsule caps) built once in Create(). Mirrors
 	///      ColliderLine.hlsli's ColliderConstantBuffer byte-for-byte.
-	/// [JP] コライダーインスタンスシェーダ用の毎フレーム定数: このフレームの
-	///      コライダーインスタンスを保持する bindless 構造化バッファの
-	///      インデックスと個数、各インスタンスが何個のメッシュシェーダ
+	/// [JP] コライダーインスタンスシェーダ用の毎フレーム定数で、バッチ（3D か 2D）
+	///      ごとに1つずつ持つ: そのバッチのコライダーインスタンスを保持する
+	///      bindless 構造化バッファのインデックスと個数、各インスタンスが何個のメッシュシェーダ
 	///      グループにまたがるか(groupsPerInstance_ — Jolt本家相当の密度の
 	///      球は、もはや1グループ(64/128スレッド)には収まらないため必要)、
 	///      Create() で一度だけ構築する単位球エッジテーブル2種（球全体 +
@@ -53,8 +53,15 @@ namespace SeedCore
 	* collider's own shape/transform data. The mesh shader (or, below D12_2,
 	* the vertex shader) then expands each instance's wireframe geometry on
 	* the GPU (see ColliderLineMS.hlsl / ColliderLineVS.hlsl) — this class
-	* only uploads the small per-instance descriptor batch and issues one
-	* draw per frame.
+	* only uploads the small per-instance descriptor batches and issues the
+	* draws.
+	*
+	* Instances are kept in two independent batches: spatial (3D colliders,
+	* drawn into the editor's 3D view by Draw3D) and planar (Rect/Circle,
+	* drawn onto the canvas by Draw2D). Each batch has its own instance and
+	* constant buffer, and its constant index is registered only in the
+	* index table of the view that draws it, so each draw reads nothing but
+	* its own batch with no shader-side filtering.
 	*
 	* ---------------------------------------------------------------------
 	*
@@ -67,7 +74,14 @@ namespace SeedCore
 	* AddInstance を呼ぶ。ワイヤーフレーム形状の展開はメッシュシェーダ
 	* （D12_2 未満では頂点シェーダ）が GPU上で行う（ColliderLineMS.hlsl /
 	* ColliderLineVS.hlsl 参照）— このクラスは小さなインスタンス記述子
-	* バッチをアップロードし、1フレームにつき1回だけ描画を発行するだけ。
+	* バッチをアップロードし、描画を発行するだけ。
+	*
+	* インスタンスは独立した2つのバッチに分けて持つ: spatial（3D コライダー。
+	* Draw3D がエディタの 3D ビューへ描く）と planar（Rect/Circle。Draw2D が
+	* Canvas へ描く）。各バッチは専用のインスタンスバッファと定数バッファを持ち、
+	* その定数インデックスは、それを描くビューのインデックステーブルにだけ
+	* 登録する。そのため各描画は自分のバッチだけを読み、シェーダ側での
+	* 振り分けは要らない。
 	*/
 	class ColliderRenderer
 	{
@@ -77,45 +91,73 @@ namespace SeedCore
 
 		void Create(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, ConstantIndicesSystem& constantIndicesSystem);
 
-		/// [EN] Resets the CPU-side instance batch for a new frame. Called by
-		///      Renderer::Gather before it repopulates it from the World's
-		///      collider components.
-		/// [JP] 新しいフレームに向けて CPU 側のインスタンスバッチをリセットする。
-		///      Renderer::Gather が World のコライダーコンポーネントから
-		///      再び積み込む前に呼ぶ。
+		/// [EN] Resets both CPU-side instance batches (spatial and planar) for
+		///      a new frame. Called by Renderer::Gather before it repopulates
+		///      them from the World's collider components.
+		/// [JP] 新しいフレームに向けて、CPU 側の2つのインスタンスバッチ
+		///      （spatial と planar）をリセットする。Renderer::Gather が World の
+		///      コライダーコンポーネントから再び積み込む前に呼ぶ。
 		void Clear();
 
+		/// [EN] Appends one collider instance to the batch its shape belongs
+		///      to: Rect/Circle go to the planar batch, every other shape to
+		///      the spatial batch. Instances past maxInstanceCount_ in that
+		///      batch are dropped.
+		/// [JP] コライダーインスタンスを1つ、その形状が属するバッチへ追加する:
+		///      Rect/Circle は planar バッチ、それ以外の形状はすべて spatial
+		///      バッチ。そのバッチで maxInstanceCount_ を超えた分は破棄する。
 		void AddInstance(ColliderShapeKind shapeKind, const Vector3& position, const Quaternion& rotation, const Vector3& dimensions, const Color& color);
 
+		/// [EN] Uploads each non-empty batch to its own instance and constant
+		///      buffer, then registers the spatial constants in the editor's
+		///      index table and the planar constants in the canvas's.
+		/// [JP] 空でない各バッチを専用のインスタンスバッファ/定数バッファへ
+		///      アップロードし、spatial の定数をエディタのインデックステーブルへ、
+		///      planar の定数を Canvas のインデックステーブルへ登録する。
 		void Upload();
 
-		/// [EN] Issues the draw call for the instance batch Upload() sent this
-		///      frame against the given render target/depth views. Does
-		///      nothing if no instances were accumulated this frame. Takes
-		///      raw views/viewport rather than FrameBuffer*/
-		///      GeometryBuffer* so it can draw onto any target - the editor
-		///      frame buffer's color + geometry buffer's depth (as today), or
-		///      PostProcessRenderer's post-tonemap output + a matching depth
-		///      view (see Renderer::EndEditorFrame). Caller owns every
-		///      resource's state transitions.
-		/// [JP] このフレームに Upload() が送ったインスタンスバッチについて、
-		///      指定されたレンダーターゲット/深度ビューへ描画コマンドを
-		///      発行する。このフレームに1つも蓄積されて
-		///      いなければ何もしない。FrameBuffer*/GeometryBuffer* ではなく
-		///      生のビュー/ビューポートを受け取ることで、どんなターゲットへも
-		///      描画できる - エディタフレームバッファの色+ジオメトリバッファの
-		///      深度(現状通り)、あるいは PostProcessRenderer のトーンマップ後
-		///      出力+対応する深度ビュー(Renderer::EndEditorFrame参照)。
+		/// [EN] Draws the spatial (3D) batch Upload() sent this frame into the
+		///      editor's 3D view, depth-tested against the given depth view.
+		///      Must be called with the editor's root addresses, since the
+		///      spatial constants are registered only in the editor's index
+		///      table. Does nothing if the spatial batch is empty. Takes raw
+		///      views/viewport rather than FrameBuffer*/GeometryBuffer* so the
+		///      caller picks the target - PostProcessRenderer's post-tonemap
+		///      output + a matching depth view (see Renderer::EndEditorFrame).
+		///      Caller owns every resource's state transitions.
+		/// [JP] このフレームに Upload() が送った spatial（3D）バッチを、エディタの
+		///      3D ビューへ、指定された深度ビューで深度テストしながら描く。
+		///      spatial の定数はエディタのインデックステーブルにだけ登録されるので、
+		///      エディタのルートアドレスで呼ぶこと。spatial バッチが空なら何もしない。
+		///      FrameBuffer*/GeometryBuffer* ではなく生のビュー/ビューポートを
+		///      受け取るので、描画先は呼び出し側が決める - PostProcessRenderer の
+		///      トーンマップ後出力 + 対応する深度ビュー(Renderer::EndEditorFrame参照)。
 		///      各リソースの状態遷移は呼び出し側の責任。
-		void Draw(D3D12CommandList* cmdList, D3D12_CPU_DESCRIPTOR_HANDLE renderTargetView, D3D12_CPU_DESCRIPTOR_HANDLE depthStencilView, D3D12_VIEWPORT viewport, ID3D12DescriptorHeap* heap, const RootAddresses& addresses);
+		void Draw3D(D3D12CommandList* cmdList, D3D12_CPU_DESCRIPTOR_HANDLE renderTargetView, D3D12_CPU_DESCRIPTOR_HANDLE depthStencilView, D3D12_VIEWPORT viewport, ID3D12DescriptorHeap* heap, const RootAddresses& addresses);
+
+		/// [EN] Draws the planar (2D) batch Upload() sent this frame onto the
+		///      canvas. Must be called with the canvas's root addresses, since
+		///      the planar constants are registered only in the canvas's index
+		///      table. Binds no depth view and draws with depth testing off:
+		///      canvas sprites lie on the same plane as the collider outlines,
+		///      so a depth test would hide the outlines wherever a sprite is.
+		///      Does nothing if the planar batch is empty.
+		/// [JP] このフレームに Upload() が送った planar（2D）バッチを Canvas へ描く。
+		///      planar の定数は Canvas のインデックステーブルにだけ登録されるので、
+		///      Canvas のルートアドレスで呼ぶこと。深度ビューは bind せず、
+		///      深度テストなしで描く: Canvas のスプライトはコライダーの輪郭と
+		///      同じ平面にあるため、深度テストをするとスプライトのある場所で
+		///      輪郭が隠れてしまう。planar バッチが空なら何もしない。
+		void Draw2D(D3D12CommandList* cmdList, D3D12_CPU_DESCRIPTOR_HANDLE renderTargetView, D3D12_VIEWPORT viewport, ID3D12DescriptorHeap* heap, const RootAddresses& addresses);
 
 	private:
-		/// [EN] Capacity of the collider-instance structured buffer. Instances
-		///      beyond this cap within a single frame are silently dropped
-		///      rather than reallocating mid-frame.
-		/// [JP] コライダーインスタンス構造化バッファの容量。1フレーム内で
-		///      これを超えたインスタンスは、フレーム途中の再確保を避けるため
-		///      黙って破棄される。
+		/// [EN] Capacity of each batch's collider-instance structured buffer
+		///      (spatial and planar each get this many). Instances beyond this
+		///      cap within a single frame are silently dropped rather than
+		///      reallocating mid-frame.
+		/// [JP] 各バッチのコライダーインスタンス構造化バッファの容量（spatial と
+		///      planar がそれぞれこの数を持つ）。1フレーム内でこれを超えた
+		///      インスタンスは、フレーム途中の再確保を避けるため黙って破棄される。
 		static constexpr Uint maxInstanceCount_ = 8192;
 
 		/// [EN] Icosahedron subdivision level for the sphere/capsule-cap edge
@@ -141,10 +183,20 @@ namespace SeedCore
 
 		ColliderLineShader colliderLineShader_;
 
-		DynamicArray<ColliderStructuredBuffer> instances_;
+		/// [EN] CPU-side instance batches for the current frame: spatial holds the 3D colliders, planar holds Rect/Circle.
+		/// [JP] 現フレームの CPU 側インスタンスバッチ: spatial は 3D コライダー、planar は Rect/Circle を保持する。
+		DynamicArray<ColliderStructuredBuffer> spatialInstances_;
+		DynamicArray<ColliderStructuredBuffer> planarInstances_;
 
-		ResourcePtr<ReadOnlyStructuredBuffer<ColliderStructuredBuffer>> instanceBuffer_;
-		ResourcePtr<ConstantBuffer<ColliderConstantBuffer>> instanceConstantsBuffer_;
+		/// [EN] GPU copies of the two batches, read by the shader through the constant buffer of the same batch.
+		/// [JP] 2つのバッチの GPU 側コピー。シェーダは同じバッチの定数バッファを経由して読む。
+		ResourcePtr<ReadOnlyStructuredBuffer<ColliderStructuredBuffer>> spatialInstanceBuffer_;
+		ResourcePtr<ReadOnlyStructuredBuffer<ColliderStructuredBuffer>> planarInstanceBuffer_;
+
+		/// [EN] Per-batch constants. The spatial one is registered in the editor's index table, the planar one in the canvas's.
+		/// [JP] バッチごとの定数。spatial はエディタの、planar は Canvas のインデックステーブルに登録する。
+		ResourcePtr<ConstantBuffer<ColliderConstantBuffer>> spatialInstanceConstantsBuffer_;
+		ResourcePtr<ConstantBuffer<ColliderConstantBuffer>> planarInstanceConstantsBuffer_;
 
 		/// [EN] Persistent (never change after Create()) unit-sphere edge
 		///      tables, built once from a subdivided icosahedron. Re-uploaded

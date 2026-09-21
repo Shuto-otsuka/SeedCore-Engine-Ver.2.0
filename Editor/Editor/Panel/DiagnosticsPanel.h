@@ -8,21 +8,18 @@ namespace SeedCore
 	struct EditorContext;
 	class ImGuiTexture;
 
-	enum class ToolTab 
+	enum class DiagnosticsTab 
 	{
 		Console,
 		Profiler
 	};
 
-	class ToolPanel
+	class DiagnosticsPanel
 	{
 	public:
-		ToolPanel(EditorContext& context, ImGuiTexture& imguiTexture);
-		~ToolPanel() = default;
+		DiagnosticsPanel(EditorContext& context, ImGuiTexture& imguiTexture);
+		~DiagnosticsPanel() = default;
 
-		/// [EN] gpuProfiler is only forwarded to ProfilerPanel — ToolPanel itself
-		///      does not read it.
-		/// [JP] gpuProfiler は ProfilerPanel へ渡すだけで、ToolPanel 自身は読まない。
 		void Draw(const GpuProfiler& gpuProfiler);
 
 		void ShowConsoleTab();
@@ -30,7 +27,7 @@ namespace SeedCore
 		void ShowProfilerTab();
 
 	private:
-		ToolTab currentTab_ = ToolTab::Console;
+		DiagnosticsTab currentTab_ = DiagnosticsTab::Console;
 
 		Bool requestChange_ = false;
 

@@ -24,7 +24,7 @@ namespace SeedCore
 		DynamicArray<Size> usedLayers;
 		for (Size index = 0; index < LayerRegistry::LayerCount; ++index)
 		{
-			if (LayerRegistry::IsUsed(index))
+			if (LayerRegistry::Used(index))
 			{
 				usedLayers.push_back(index);
 			}

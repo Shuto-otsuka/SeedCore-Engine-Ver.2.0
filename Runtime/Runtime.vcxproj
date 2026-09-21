@@ -152,6 +152,9 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalOptions>/NODEFAULTLIB:FoundationEngine.lib /NODEFAULTLIB:GraphicsEngine.lib /NODEFAULTLIB:PhysicsEngine.lib /NODEFAULTLIB:AIEngine.lib /NODEFAULTLIB:AudioEngine.lib %(AdditionalOptions)</AdditionalOptions>
     </Link>
+    <PostBuildEvent>
+      <Command>xcopy /Y /D "$(SolutionDir)..\External\DXC\*.dll" "$(OutDir)"</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ProjectReference Include="..\SeedCore\SeedCore.vcxproj">
@@ -166,6 +169,8 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Application\Engine.cpp" />
+    <ClCompile Include="Application\Window.cpp" />
     <ClCompile Include="Prelude.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
@@ -178,14 +183,16 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Application\Engine.h" />
     <ClInclude Include="Application\Framework.h" />
+    <ClInclude Include="Application\Window.h" />
   </ItemGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <PostBuildEvent>
-      <Command>xcopy /Y /D "$(SolutionDir)..\External\MTSDF\Lib\Debug\*.pdb" "$(OutDir)"</Command>
+      <Command>xcopy /Y /D "$(SolutionDir)..\External\DXC\*.dll" "$(OutDir)"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
-<Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
 </Project>

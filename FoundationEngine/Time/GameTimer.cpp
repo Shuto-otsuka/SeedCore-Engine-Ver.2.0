@@ -22,12 +22,14 @@ namespace SeedCore
 
 	/**
 	* [EN]
-	* Stops playback entirely, resetting both total-time accumulators.
+	* Stops playback entirely, resetting both total-time accumulators and
+	* the time scale back to 1.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* 再生を完全に停止し、2つの合計時間の累積値をリセットする。
+	* 再生を完全に停止し、2つの合計時間の累積値とタイムスケール（1 に
+	* 戻す）をリセットする。
 	*/
 	void GameTimer::Stop()
 	{
@@ -37,6 +39,7 @@ namespace SeedCore
 			paused_ = false;
 			scaledTotal_ = 0.0;
 			unscaledTotal_ = 0.0;
+			timeScale_ = 1.0f;
 		}
 	}
 
@@ -198,7 +201,7 @@ namespace SeedCore
 	* [JP]
 	* タイマーが現在再生中かどうかを返す（一時停止状態は問わない）。
 	*/
-	Bool GameTimer::IsPlaying()const
+	Bool GameTimer::Playing()const
 	{
 		return playing_;
 	}
@@ -212,7 +215,7 @@ namespace SeedCore
 	* [JP]
 	* タイマーが現在一時停止中かどうかを返す。
 	*/
-	Bool GameTimer::IsPaused()const
+	Bool GameTimer::Paused()const
 	{
 		return paused_;
 	}

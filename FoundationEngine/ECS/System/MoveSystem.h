@@ -21,14 +21,16 @@ namespace SeedCore
 	public:
 		/**
 		* [EN]
-		* Advances every actor with both Position and Velocity by
-		* deltaTime, adding Velocity's components onto Position's.
+		* Advances every active actor with both Position and Velocity by
+		* deltaTime, adding Velocity's components onto Position's. Inactive
+		* actors keep their Position unchanged.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* Position と Velocity の両方を持つ全 actor を deltaTime 分だけ
-		* 進める。Velocity の各成分を Position へ加算する。
+		* Position と Velocity の両方を持つアクティブな全 actor を deltaTime
+		* 分だけ進める。Velocity の各成分を Position へ加算する。非アクティブ
+		* な actor の Position は変えない。
 		*/
 		void Execute(World& world, Float deltaTime);
 	};

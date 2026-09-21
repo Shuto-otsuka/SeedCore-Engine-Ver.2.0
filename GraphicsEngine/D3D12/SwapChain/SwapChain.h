@@ -14,6 +14,8 @@ namespace SeedCore
 
 		void Destroy();
 
+		Bool Resize(ID3D12Device* device, Float width, Float height);
+
 		void Present(ID3D12Device* device);
 
 		void VerticalSync(Bool vsync);

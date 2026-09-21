@@ -38,7 +38,7 @@ namespace SeedCore
 
 		Bool Load(String filePath);
 
-		[[nodiscard]] Bool IsLoaded()const;
+		[[nodiscard]] Bool Loaded()const;
 
 		[[nodiscard]] Uint32 VertexCount()const;
 

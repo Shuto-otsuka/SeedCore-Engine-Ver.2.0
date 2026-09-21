@@ -118,7 +118,7 @@ namespace SeedCore
 	{
 		ImGui::SeparatorText("GPU（パス別）");
 
-		if (!gpuProfiler.IsAvailable())
+		if (!gpuProfiler.Available())
 		{
 			ImGui::TextDisabled("GPU タイムスタンプが利用できません");
 			return;

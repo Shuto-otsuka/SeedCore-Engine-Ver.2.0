@@ -222,7 +222,7 @@ namespace SeedCore
 		return blendAxisCount_;
 	}
 
-	Bool AnimalCharacterModel::IsLoaded()const
+	Bool AnimalCharacterModel::Loaded()const
 	{
 		return !blob_.empty();
 	}

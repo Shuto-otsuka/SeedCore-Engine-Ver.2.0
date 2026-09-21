@@ -24,7 +24,7 @@ namespace SeedCore
 		IDXGIAdapter4* adapter = d3d12Context->GetAdapter()->Get();
 
 		Uint index = descHeap->AllocateIndex();
-		TextureLoader::CreateTexture(d3d12Context->GetDevice(), d3d12Context->GetDirectQueue(), descHeap->Get(), logoPath, logoResource_, index);
+		TextureLoader::CreateTexturePath(d3d12Context->GetDevice(), d3d12Context->GetDirectQueue(), descHeap->Get(), logoPath, logoResource_, index);
 		logoTextureId_ = static_cast<ImTextureID>(descHeap->GPUHandle(index).ptr);
 
 		if (logoResource_)

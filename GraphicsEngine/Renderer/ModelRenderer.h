@@ -68,7 +68,7 @@ namespace SeedCore
 		///      screen-space error metric as the AS) driving geometry streaming.
 		/// [JP] scene は CPU 側 LOD 要求判定（AS と同じスクリーン誤差式）用の
 		///      カメラを供給し、ジオメトリストリーミングを駆動する。
-		void Gather(LoaderSystem& loaderSystem, ModelResource& modelResource, MaterialResource& materialResource, AnimationResource& animationResource, World& world, const SceneConstantBuffer& scene, Entity selectedEntity = Entity::Null());
+		void Gather(LoaderSystem& loaderSystem, ModelResource& modelResource, MaterialResource& materialResource, AnimationResource& animationResource, World& world, const SceneConstantBuffer& scene, std::span<const Entity> selectedEntities = {});
 
 		void Upload();
 

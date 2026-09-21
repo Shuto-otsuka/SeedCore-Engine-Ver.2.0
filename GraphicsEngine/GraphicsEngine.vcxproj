@@ -200,6 +200,7 @@
     <ClInclude Include="Raytracing\VolumetricStar\VolumetricStarShader.h" />
     <ClInclude Include="Renderer\AmbientOcclusionRenderer.h" />
     <ClInclude Include="Renderer\AvatarRenderer.h" />
+    <ClInclude Include="Renderer\BootScreenRenderer.h" />
     <ClInclude Include="Renderer\ColliderRenderer.h" />
     <ClInclude Include="Renderer\DecalRenderer.h" />
     <ClInclude Include="Renderer\DlssRayReconstructionRenderer.h" />
@@ -237,7 +238,9 @@
     <ClInclude Include="Shape\Collider\ColliderLineShader.h" />
     <ClInclude Include="Shape\HUD\HUDComposeShader.h" />
     <ClInclude Include="Shape\Outline\OutlineShader.h" />
+    <ClInclude Include="Shape\Screen\BootScreen.h" />
     <ClInclude Include="Shape\Screen\FadeScreen.h" />
+    <ClInclude Include="Shape\Screen\LetterScreen.h" />
     <ClInclude Include="Shape\Screen\SplashScreen.h" />
     <ClInclude Include="Sky\Skymap.h" />
     <ClInclude Include="Sky\SkymapCache.h" />
@@ -452,6 +455,7 @@
     <ClCompile Include="Raytracing\VolumetricStar\VolumetricStarShader.cpp" />
     <ClCompile Include="Renderer\AmbientOcclusionRenderer.cpp" />
     <ClCompile Include="Renderer\AvatarRenderer.cpp" />
+    <ClCompile Include="Renderer\BootScreenRenderer.cpp" />
     <ClCompile Include="Renderer\ColliderRenderer.cpp" />
     <ClCompile Include="Renderer\DecalRenderer.cpp" />
     <ClCompile Include="Renderer\DlssRayReconstructionRenderer.cpp" />
@@ -489,7 +493,9 @@
     <ClCompile Include="Shape\Collider\ColliderLineShader.cpp" />
     <ClCompile Include="Shape\HUD\HUDComposeShader.cpp" />
     <ClCompile Include="Shape\Outline\OutlineShader.cpp" />
+    <ClCompile Include="Shape\Screen\BootScreen.cpp" />
     <ClCompile Include="Shape\Screen\FadeScreen.cpp" />
+    <ClCompile Include="Shape\Screen\LetterScreen.cpp" />
     <ClCompile Include="Shape\Screen\SplashScreen.cpp" />
     <ClCompile Include="Sky\Skymap.cpp" />
     <ClCompile Include="Sky\SkymapCache.cpp" />
@@ -1277,6 +1283,16 @@
       <FileType>Document</FileType>
     </Text>
     <Text Include="Texture\Billboard\TextureBillboardVS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Shape\Screen\LetterScreenPS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Shape\Screen\BootScreenPS.hlsl">
       <FileType>Document</FileType>
     </Text>
   </ItemGroup>

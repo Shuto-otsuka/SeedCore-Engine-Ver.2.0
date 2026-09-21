@@ -6,6 +6,8 @@
 #include <FoundationEngine/ECS/World.h>
 #include <FoundationEngine/ECS/Entity.h>
 #include <FoundationEngine/Resource/Scene.h>
+#include <FoundationEngine/Input/InputSystem.h>
+#include <AudioEngine/Audio/MixerSystem.h>
 
 namespace SeedCore
 {
@@ -58,18 +60,28 @@ namespace SeedCore
 
 		if (ImGui::Begin("##ControlPanel", nullptr, flags))
 		{
-			Bool isPlaying = context_.worldContext_.gameTimer_->IsPlaying();
-			Bool isPaused = context_.worldContext_.gameTimer_->IsPaused();
+			Bool isPlaying = context_.worldContext_.gameTimer_->Playing();
+			Bool isPaused = context_.worldContext_.gameTimer_->Paused();
+			Bool quitRequested = context_.worldContext_.world_->ConsumeQuit();
 
 			if (!isPlaying && ImGui::IsKeyPressed(ImGuiKey_F5))
 			{
 				context_.sceneContext_.playModeScene_.Capture(*context_.worldContext_.world_);
+				context_.sceneContext_.playModeRaytracing_ = context_.viewportContext_.raytracing_;
+				context_.sceneContext_.playModeScreenSpace_ = context_.viewportContext_.screenSpace_;
+				context_.sceneContext_.playModeRasterization_ = context_.viewportContext_.rasterization_;
+				context_.sceneContext_.playModeMasterVolume_ = MixerSystem::MasterVolume();
+				context_.sceneContext_.playModeCategoryVolumes_.clear();
+				for (const String& category : MixerSystem::CategoryNameList())
+				{
+					context_.sceneContext_.playModeCategoryVolumes_.push_back(MixerSystem::CategoryVolume(category));
+				}
 				BeginPlayMemCheck();
 				context_.worldContext_.gameTimer_->Play();
 				isPlaying = true;
 				ImGui::SetWindowFocus("ゲームビュー");
 			}
-			if (isPlaying && ImGui::IsKeyPressed(ImGuiKey_F7))
+			if (isPlaying && (ImGui::IsKeyPressed(ImGuiKey_F7) || quitRequested))
 			{
 				context_.worldContext_.gameTimer_->Stop();
 				Scene::Reset();
@@ -80,6 +92,20 @@ namespace SeedCore
 				context_.selectionContext_.selectedActor_ = Actor();
 				context_.selectionContext_.selectedActors_.clear();
 				context_.selectionContext_.selectedEntity_ = Entity::Null();
+				context_.viewportContext_.raytracing_ = context_.sceneContext_.playModeRaytracing_;
+				context_.viewportContext_.screenSpace_ = context_.sceneContext_.playModeScreenSpace_;
+				context_.viewportContext_.rasterization_ = context_.sceneContext_.playModeRasterization_;
+				MixerSystem::MasterVolume(context_.sceneContext_.playModeMasterVolume_);
+				const DynamicArray<String>& categoryNames = MixerSystem::CategoryNameList();
+				for (Size categoryIndex = 0; categoryIndex < categoryNames.size() && categoryIndex < context_.sceneContext_.playModeCategoryVolumes_.size(); ++categoryIndex)
+				{
+					MixerSystem::CategoryVolume(categoryNames[categoryIndex], context_.sceneContext_.playModeCategoryVolumes_[categoryIndex]);
+				}
+				if (InputSystem::MouseCaptured())
+				{
+					InputSystem::EndMouseCapture();
+				}
+				InputSystem::Rumble(0, 0, 0);
 				isPlaying = false;
 				EndPlayMemCheck();
 				ImGui::SetWindowFocus("エディタービュー");
@@ -117,6 +143,15 @@ namespace SeedCore
 				if (ImGui::ImageButton("##Play", imguiTexture_.Icon(IconType::Play), buttonSize))
 				{
 					context_.sceneContext_.playModeScene_.Capture(*context_.worldContext_.world_);
+					context_.sceneContext_.playModeRaytracing_ = context_.viewportContext_.raytracing_;
+					context_.sceneContext_.playModeScreenSpace_ = context_.viewportContext_.screenSpace_;
+					context_.sceneContext_.playModeRasterization_ = context_.viewportContext_.rasterization_;
+					context_.sceneContext_.playModeMasterVolume_ = MixerSystem::MasterVolume();
+					context_.sceneContext_.playModeCategoryVolumes_.clear();
+					for (const String& category : MixerSystem::CategoryNameList())
+					{
+						context_.sceneContext_.playModeCategoryVolumes_.push_back(MixerSystem::CategoryVolume(category));
+					}
 					BeginPlayMemCheck();
 					context_.worldContext_.gameTimer_->Play();
 					ImGui::SetWindowFocus("ゲームビュー");
@@ -169,6 +204,20 @@ namespace SeedCore
 					context_.selectionContext_.selectedActor_ = Actor();
 					context_.selectionContext_.selectedActors_.clear();
 					context_.selectionContext_.selectedEntity_ = Entity::Null();
+					context_.viewportContext_.raytracing_ = context_.sceneContext_.playModeRaytracing_;
+					context_.viewportContext_.screenSpace_ = context_.sceneContext_.playModeScreenSpace_;
+					context_.viewportContext_.rasterization_ = context_.sceneContext_.playModeRasterization_;
+					MixerSystem::MasterVolume(context_.sceneContext_.playModeMasterVolume_);
+					const DynamicArray<String>& categoryNames = MixerSystem::CategoryNameList();
+					for (Size categoryIndex = 0; categoryIndex < categoryNames.size() && categoryIndex < context_.sceneContext_.playModeCategoryVolumes_.size(); ++categoryIndex)
+					{
+						MixerSystem::CategoryVolume(categoryNames[categoryIndex], context_.sceneContext_.playModeCategoryVolumes_[categoryIndex]);
+					}
+					if (InputSystem::MouseCaptured())
+					{
+						InputSystem::EndMouseCapture();
+					}
+					InputSystem::Rumble(0, 0, 0);
 					EndPlayMemCheck();
 					ImGui::SetWindowFocus("エディタービュー");
 				}

@@ -98,7 +98,7 @@ namespace SeedCore
 	* [JP]
 	* 指定されたビットインデックスのタグが削除済みかどうかを返す。
 	*/
-	Bool TagRegistry::IsRemoved(Size index)
+	Bool TagRegistry::Removed(Size index)
 	{
 		if (index >= removed_.size())
 		{

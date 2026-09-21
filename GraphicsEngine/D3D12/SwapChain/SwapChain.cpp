@@ -69,6 +69,36 @@ namespace SeedCore
 		swapChain_.Reset();
 	}
 
+	Bool SwapChain::Resize(ID3D12Device* device, Float width, Float height)
+	{
+		width_ = width;
+		height_ = height;
+
+		backBuffers_.clear();
+
+		HRESULT hr{ S_OK };
+
+		DXGI_SWAP_CHAIN_DESC1 swapChainDesc{};
+		swapChain_->GetDesc1(&swapChainDesc);
+
+		hr = swapChain_->ResizeBuffers(static_cast<Uint>(bufferCount_), static_cast<Uint>(width_), static_cast<Uint>(height_), swapChainDesc.Format, swapChainDesc.Flags);
+		SC_HR_CHECK(hr, "スワップチェーンのリサイズに失敗しました");
+
+		for (Size index = 0;index < bufferCount_;++index)
+		{
+			Uint temporaryIndex = static_cast<Uint>(index);
+			Microsoft::WRL::ComPtr<ID3D12Resource> buffer;
+			swapChain_->GetBuffer(temporaryIndex, IID_PPV_ARGS(&buffer));
+			backBuffers_.push_back(buffer);
+
+			D3D12_CPU_DESCRIPTOR_HANDLE renderTargetViewHandle = descHeap_->CPUHandle(temporaryIndex);
+
+			device->CreateRenderTargetView(backBuffers_[index].Get(), nullptr, renderTargetViewHandle);
+		}
+
+		return SUCCEEDED(hr);
+	}
+
 	void SwapChain::Present(ID3D12Device* device)
 	{
 		HRESULT hr{ S_OK };

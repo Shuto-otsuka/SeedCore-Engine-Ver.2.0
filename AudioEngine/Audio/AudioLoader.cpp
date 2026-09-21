@@ -7,8 +7,19 @@
 
 namespace SeedCore
 {
+	/**
+	* [EN]
+	* Initializes COM and Media Foundation for MP3 decoding.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* MP3 のデコードに使う COM と Media Foundation を初期化する。
+	*/
 	AudioLoader::AudioLoader()
 	{
+		/// [EN] Track successful initialization so this instance balances only the calls it owns.
+		/// [JP] このインスタンスが所有する初期化呼び出しだけを終了できるよう、成功状態を保持する。
 		HRESULT comResult = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
 		ownsComInitialize_ = (comResult == S_OK || comResult == S_FALSE);
 
@@ -21,6 +32,15 @@ namespace SeedCore
 		}
 	}
 
+	/**
+	* [EN]
+	* Shuts down the facilities initialized by this loader.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* このローダーが初期化した機能を終了する。
+	*/
 	AudioLoader::~AudioLoader()
 	{
 		if (mfStarted_)
@@ -34,8 +54,21 @@ namespace SeedCore
 		}
 	}
 
+	/**
+	* [EN]
+	* Loads a Sound from an up-to-date .audio cache, baking one from the
+	* source file when needed. Returns a null handle on failure.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 最新の .audio キャッシュから Sound を読み込み、必要なら素材ファイル
+	* からキャッシュを作成する。失敗時は null ハンドルを返す。
+	*/
 	Handle<Sound> AudioLoader::Load(LoaderSystem& loader, String filePath)
 	{
+		/// [EN] Resolve the source and cache paths, rebuilding stale caches before loading.
+		/// [JP] 素材とキャッシュのパスを解決し、古いキャッシュは読み込み前に再作成する。
 		std::filesystem::path sourceFsPath(filePath.c_str());
 		std::string extension = sourceFsPath.extension().string();
 		std::ranges::transform(extension, extension.begin(), [](Uchar c) { return static_cast<Char>(std::tolower(c)); });
@@ -58,6 +91,8 @@ namespace SeedCore
 			}
 		}
 
+		/// [EN] Read and validate the fixed header of the encrypted audio container.
+		/// [JP] 暗号化音声コンテナの固定ヘッダーを読み込み、妥当性を検証する。
 		std::ifstream ifs(cacheFsPath, std::ios::binary);
 		if (!ifs)
 		{
@@ -82,6 +117,8 @@ namespace SeedCore
 			return Handle<Sound>::null();
 		}
 
+		/// [EN] Locate the in-memory body and record whether a streamed AWB blob is present.
+		/// [JP] メモリへ読む本体の位置を取得し、ストリーミング用 AWB ブロブの有無を記録する。
 		Uint64 mainOffset = 0;
 		Uint64 mainEncryptedSize = 0;
 		Bool hasStreamBlob = false;
@@ -115,6 +152,8 @@ namespace SeedCore
 			return Handle<Sound>::null();
 		}
 
+		/// [EN] Read the initialization vector and ciphertext, then decrypt the main body.
+		/// [JP] 初期化ベクトルと暗号文を読み込み、本体データを復号する。
 		DynamicArray<Byte> iv(16);
 		DynamicArray<Byte> ciphertext(static_cast<Size>(mainEncryptedSize - 16));
 		ifs.seekg(static_cast<std::streamoff>(mainOffset));
@@ -134,6 +173,8 @@ namespace SeedCore
 			return Handle<Sound>::null();
 		}
 
+		/// [EN] Store the decoded body in a stable Sound slot addressed by the returned handle.
+		/// [JP] 復号した本体を、返却ハンドルで参照する安定した Sound スロットへ格納する。
 		Handle<Sound> handle = pool_.Create();
 		Sound* sound = pool_.Get(handle);
 		if (!sound)
@@ -149,27 +190,57 @@ namespace SeedCore
 			sound->awbPath_ = String("seedcore_audio://" + std::filesystem::absolute(cacheFsPath).generic_string());
 		}
 
+		/// [EN] Register cue-sheet data with CRI when the global ACF is available.
+		/// [JP] グローバル ACF を利用できる場合は、キューシートデータを CRI へ登録する。
 		if (sound->type_ == SoundType::CueSheet)
 		{
-			sound->acbHandle_ = criAtomExAcb_LoadAcbData(sound->data_.data(), static_cast<CriSint32>(sound->data_.size()), nullptr, sound->awbPath_.str().empty() ? nullptr : sound->awbPath_.c_str(), nullptr, 0);
-			if (!sound->acbHandle_)
+			CriAtomExAcfInfo acfInfo{};
+			if (criAtomExAcf_GetAcfInfo(&acfInfo) != CRI_TRUE)
 			{
-				SC_LOG_ERROR("AudioLoader: ACBの読み込みに失敗しました ({})", cacheFsPath.string());
-				pool_.Destroy(handle);
-				return Handle<Sound>::null();
+				SC_LOG_WARNING("AudioLoader: ACFが登録されていないため、キューシートをCRIへ登録できません ({})", cacheFsPath.string());
+			}
+			else
+			{
+				sound->acbHandle_ = criAtomExAcb_LoadAcbData(sound->data_.data(), static_cast<CriSint32>(sound->data_.size()), nullptr, sound->awbPath_.str().empty() ? nullptr : sound->awbPath_.c_str(), nullptr, 0);
+				if (!sound->acbHandle_)
+				{
+					SC_LOG_ERROR("AudioLoader: ACBの読み込みに失敗しました ({})", cacheFsPath.string());
+					pool_.Destroy(handle);
+					return Handle<Sound>::null();
+				}
 			}
 		}
 
 		return handle;
 	}
 
+	/**
+	* [EN]
+	* Resolves a Sound handle to its pooled object.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* Sound ハンドルからプール内のオブジェクトを取得する。
+	*/
 	Sound* AudioLoader::Get(const Handle<Sound>& handle)
 	{
 		return pool_.Get(handle);
 	}
 
+	/**
+	* [EN]
+	* Releases CRI data associated with a Sound and destroys its handle.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* Sound に関連する CRI データを解放し、ハンドルを破棄する。
+	*/
 	void AudioLoader::Clear(Handle<Sound>& handle)noexcept
 	{
+		/// [EN] Release the ACB before returning its backing Sound slot to the pool.
+		/// [JP] Sound の格納スロットをプールへ返す前に、ACB を解放する。
 		if (Sound* sound = pool_.Get(handle))
 		{
 			if (sound->acbHandle_)
@@ -182,8 +253,19 @@ namespace SeedCore
 		pool_.Destroy(handle);
 	}
 
+	/**
+	* [EN]
+	* Converts a supported audio source into an encrypted .audio cache.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 対応する音声素材を暗号化された .audio キャッシュへ変換する。
+	*/
 	Bool AudioLoader::Bake(String sourcePath, String cachePath)
 	{
+		/// [EN] Select the conversion path from the source extension.
+		/// [JP] 素材の拡張子に応じて変換経路を選択する。
 		std::filesystem::path sourceFsPath(sourcePath.c_str());
 		std::string extension = sourceFsPath.extension().string();
 		std::ranges::transform(extension, extension.begin(), [](Uchar c) { return static_cast<Char>(std::tolower(c)); });
@@ -194,6 +276,8 @@ namespace SeedCore
 
 		if (extension == ".acb" || extension == ".wav")
 		{
+			/// [EN] Preserve ACB and wave bytes directly as the main body.
+			/// [JP] ACB と wave のバイト列は、そのまま本体データとして保持する。
 			type = (extension == ".acb") ? SoundType::CueSheet : SoundType::Wave;
 
 			DynamicArray<Uint8> sourceBytes = FileUtility::LoadFileBinary(String(sourceFsPath.string()));
@@ -206,6 +290,8 @@ namespace SeedCore
 
 			if (extension == ".acb")
 			{
+				/// [EN] Package a sibling AWB as the optional streamed-data blob when present.
+				/// [JP] 同階層の AWB が存在する場合は、任意のストリームデータブロブとして格納する。
 				std::filesystem::path awbFsPath = sourceFsPath;
 				awbFsPath.replace_extension(".awb");
 				if (std::filesystem::exists(awbFsPath))
@@ -218,6 +304,8 @@ namespace SeedCore
 		}
 		else if (extension == ".mp3")
 		{
+			/// [EN] Decode MP3 input to PCM through Media Foundation.
+			/// [JP] Media Foundation を通じて MP3 入力を PCM へデコードする。
 			if (!mfStarted_)
 			{
 				return false;
@@ -312,6 +400,8 @@ namespace SeedCore
 				return false;
 			}
 
+			/// [EN] Wrap decoded PCM samples in a standard wave container.
+			/// [JP] デコードした PCM サンプルを標準的な wave コンテナへ格納する。
 			Uint16 blockAlign = static_cast<Uint16>(channels * (bitsPerSample / 8));
 			Uint32 bytesPerSecond = samplesPerSecond * blockAlign;
 			Uint32 dataSize = static_cast<Uint32>(pcmData.size());
@@ -341,6 +431,8 @@ namespace SeedCore
 			return false;
 		}
 
+		/// [EN] Encrypt each populated blob with an independent initialization vector.
+		/// [JP] 格納する各ブロブを、それぞれ独立した初期化ベクトルで暗号化する。
 		static const DynamicArray<Byte> key = Sha256::Hash(reinterpret_cast<const Byte*>(SC_ENCRYPTION_KEY_SEED), std::strlen(SC_ENCRYPTION_KEY_SEED));
 		std::random_device randomDevice;
 
@@ -362,6 +454,8 @@ namespace SeedCore
 			streamCiphertext = Aes256::Encrypt(key, streamIv, streamData);
 		}
 
+		/// [EN] Calculate the container header and aligned blob layout.
+		/// [JP] コンテナのヘッダーと、境界調整したブロブ配置を算出する。
 		Uint32 version = 1;
 		Uint32 typeValue = static_cast<Uint32>(type);
 		Uint32 blobCount = streamData.empty() ? 1 : 2;
@@ -375,6 +469,8 @@ namespace SeedCore
 		Uint64 streamEncryptedSize = streamCiphertext.empty() ? 0 : 16 + streamCiphertext.size();
 		Uint64 streamPlainSize = streamData.size();
 
+		/// [EN] Write metadata followed by the encrypted main and optional stream blobs.
+		/// [JP] メタデータに続けて、暗号化した本体と任意のストリームブロブを書き込む。
 		std::ofstream ofs(cachePath.c_str(), std::ios::binary);
 		if (!ofs)
 		{

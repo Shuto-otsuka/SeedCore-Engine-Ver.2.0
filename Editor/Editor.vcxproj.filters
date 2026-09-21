@@ -73,9 +73,6 @@
     <ClCompile Include="Editor\Panel\ProfilerPanel.cpp">
       <Filter>Editor\Panel</Filter>
     </ClCompile>
-    <ClCompile Include="Editor\Panel\ToolPanel.cpp">
-      <Filter>Editor\Panel</Filter>
-    </ClCompile>
     <ClCompile Include="Editor\Panel\VersionPanel.cpp">
       <Filter>Editor\Panel</Filter>
     </ClCompile>
@@ -105,9 +102,6 @@
     </ClCompile>
     <ClCompile Include="Editor\Panel\TimelinePanel.cpp">
       <Filter>Editor\Panel</Filter>
-    </ClCompile>
-    <ClCompile Include="Editor\Build\Config.cpp">
-      <Filter>Editor\Build</Filter>
     </ClCompile>
     <ClCompile Include="Editor\Panel\ModelTransformPanel.cpp">
       <Filter>Editor\Panel</Filter>
@@ -143,6 +137,15 @@
       <Filter>Editor\Panel</Filter>
     </ClCompile>
     <ClCompile Include="Editor\Panel\AvatarPanel.cpp">
+      <Filter>Editor\Panel</Filter>
+    </ClCompile>
+    <ClCompile Include="Editor\Build\AtomCraft.cpp">
+      <Filter>Editor\Build</Filter>
+    </ClCompile>
+    <ClCompile Include="Editor\Panel\DiagnosticsPanel.cpp">
+      <Filter>Editor\Panel</Filter>
+    </ClCompile>
+    <ClCompile Include="Editor\Panel\BootScreenPanel.cpp">
       <Filter>Editor\Panel</Filter>
     </ClCompile>
   </ItemGroup>
@@ -210,9 +213,6 @@
     <ClInclude Include="Editor\Panel\ProfilerPanel.h">
       <Filter>Editor\Panel</Filter>
     </ClInclude>
-    <ClInclude Include="Editor\Panel\ToolPanel.h">
-      <Filter>Editor\Panel</Filter>
-    </ClInclude>
     <ClInclude Include="Editor\Panel\VersionPanel.h">
       <Filter>Editor\Panel</Filter>
     </ClInclude>
@@ -242,9 +242,6 @@
     </ClInclude>
     <ClInclude Include="Editor\Panel\TimelinePanel.h">
       <Filter>Editor\Panel</Filter>
-    </ClInclude>
-    <ClInclude Include="Editor\Build\Config.h">
-      <Filter>Editor\Build</Filter>
     </ClInclude>
     <ClInclude Include="Editor\Panel\ModelTransformPanel.h">
       <Filter>Editor\Panel</Filter>
@@ -280,6 +277,15 @@
       <Filter>Editor\Panel</Filter>
     </ClInclude>
     <ClInclude Include="Editor\Panel\AvatarPanel.h">
+      <Filter>Editor\Panel</Filter>
+    </ClInclude>
+    <ClInclude Include="Editor\Build\AtomCraft.h">
+      <Filter>Editor\Build</Filter>
+    </ClInclude>
+    <ClInclude Include="Editor\Panel\DiagnosticsPanel.h">
+      <Filter>Editor\Panel</Filter>
+    </ClInclude>
+    <ClInclude Include="Editor\Panel\BootScreenPanel.h">
       <Filter>Editor\Panel</Filter>
     </ClInclude>
   </ItemGroup>

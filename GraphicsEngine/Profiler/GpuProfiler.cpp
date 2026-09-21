@@ -251,7 +251,7 @@ namespace SeedCore
 		return total;
 	}
 
-	Bool GpuProfiler::IsAvailable()const
+	Bool GpuProfiler::Available()const
 	{
 		return available_;
 	}

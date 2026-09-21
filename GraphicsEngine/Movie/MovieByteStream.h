@@ -26,7 +26,7 @@ namespace SeedCore
 
 		HRESULT __stdcall SetCurrentPosition(QWORD position)override;
 
-		HRESULT __stdcall IsEndOfStream(BOOL* endOfStream)override;
+		HRESULT __stdcall EndOfStream(BOOL* endOfStream)override;
 
 		HRESULT __stdcall Read(BYTE* buffer, ULONG bufferSize, ULONG* bytesRead)override;
 

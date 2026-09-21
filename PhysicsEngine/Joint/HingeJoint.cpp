@@ -7,6 +7,15 @@
 
 namespace SeedCore
 {
+	/**
+	* [EN]
+	* Creates the configured hinge constraint.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 設定されたヒンジ拘束を生成する。
+	*/
 	void HingeJoint::OnStart()
 	{
 		if (!enabled_)
@@ -16,6 +25,8 @@ namespace SeedCore
 
 		Actor actor = GetActor();
 
+		/// [EN] Resolve the owning body and optional connected body before creating the constraint.
+		/// [JP] 拘束の生成前に、所有ボディと任意の接続先ボディを解決する。
 		Rigidbody* selfBody = actor.GetComponent<Rigidbody>();
 		if (!selfBody)
 		{
@@ -30,7 +41,7 @@ namespace SeedCore
 			Rigidbody* connectedBody = connected ? connected.GetComponent<Rigidbody>() : nullptr;
 			if (connectedBody)
 			{
-				connectedBodyID = connectedBody->GetBodyID();
+				connectedBodyID = connectedBody->BodyID();
 			}
 		}
 
@@ -41,15 +52,24 @@ namespace SeedCore
 		desc.minAngle_ = minAngle_;
 		desc.maxAngle_ = maxAngle_;
 
-		handle_ = actor.GetPhysics().CreateHingeJoint(selfBody->GetBodyID(), connectedBodyID, desc);
+		handle_ = actor.GetPhysics().CreateHingeJoint(selfBody->BodyID(), connectedBodyID, desc);
 	}
 
+	/**
+	* [EN]
+	* Destroys the created constraint.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 生成した拘束を破棄する。
+	*/
 	void HingeJoint::OnDestroy()
 	{
 		if (handle_.exists())
 		{
 			GetActor().GetPhysics().DestroyJoint(handle_);
-			handle_ = ConstraintHandle::null();
+			handle_ = Handle<JPH::Constraint>::null();
 		}
 	}
 }

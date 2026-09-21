@@ -234,7 +234,7 @@ namespace SeedCore
 	* [JP]
 	* モジュールが現在ロードされているか。
 	*/
-	Bool PluginModule::IsLoaded()const
+	Bool PluginModule::Loaded()const
 	{
 		return handle_ != nullptr;
 	}

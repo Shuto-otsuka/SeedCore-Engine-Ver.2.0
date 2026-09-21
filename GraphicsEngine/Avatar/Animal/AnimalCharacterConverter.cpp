@@ -7,7 +7,7 @@ namespace SeedCore
 {
 	void AnimalCharacterConverter::Convert(const AnimalCharacterModel& model, const AnimalCharacterEvaluator& evaluator, tinygltf::Model& outModel)
 	{
-		if (!model.IsLoaded() || evaluator.Positions().empty())
+		if (!model.Loaded() || evaluator.Positions().empty())
 		{
 			return;
 		}

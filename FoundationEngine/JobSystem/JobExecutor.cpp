@@ -712,7 +712,7 @@ namespace SeedCore
 			goto invokeTask;
 		}
 
-		if (node->IsParentCancelled())
+		if (node->ParentCancelled())
 		{
 			TearDownInvoke(worker, node, cache);
 			SC_INVOKE_CONTINUATION();

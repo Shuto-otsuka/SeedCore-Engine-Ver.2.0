@@ -94,7 +94,7 @@ namespace SeedCore
 		* このタスクの実行がキャンセル済みとしてフラグ付けされているか
 		* どうかを返す。
 		*/
-		Bool IsCancelled();
+		Bool Cancelled();
 
 	private:
 		/**

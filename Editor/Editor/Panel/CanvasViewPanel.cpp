@@ -36,37 +36,51 @@ namespace SeedCore
 		if (ImGui::ImageButton("##NonSelected", imguiTexture_.Icon(IconType::NonSelected), iconSize))
 		{
 			context_.viewportContext_.guizmo_.showGuizmo_ = !context_.viewportContext_.guizmo_.showGuizmo_;
+			context_.viewportContext_.guizmo_.rectTool_ = false;
 			op = (ImGuizmo::OPERATION)0;
 		}
 		ImGui::PopStyleColor();
 
 		ImGui::SameLine();
 
-		ImGui::PushStyleColor(ImGuiCol_Button, (op == ImGuizmo::TRANSLATE) ? activeColor : transparent);
+		ImGui::PushStyleColor(ImGuiCol_Button, (!context_.viewportContext_.guizmo_.rectTool_ && op == ImGuizmo::TRANSLATE) ? activeColor : transparent);
 		if (ImGui::ImageButton("##Translate", imguiTexture_.Icon(IconType::Translate), iconSize))
 		{
 			context_.viewportContext_.guizmo_.showGuizmo_ = true;
+			context_.viewportContext_.guizmo_.rectTool_ = false;
 			op = ImGuizmo::TRANSLATE;
 		}
 		ImGui::PopStyleColor();
 
 		ImGui::SameLine();
 
-		ImGui::PushStyleColor(ImGuiCol_Button, (op == ImGuizmo::ROTATE) ? activeColor : transparent);
+		ImGui::PushStyleColor(ImGuiCol_Button, (!context_.viewportContext_.guizmo_.rectTool_ && op == ImGuizmo::ROTATE) ? activeColor : transparent);
 		if (ImGui::ImageButton("##Rotate", imguiTexture_.Icon(IconType::Rotate), iconSize))
 		{
 			context_.viewportContext_.guizmo_.showGuizmo_ = true;
+			context_.viewportContext_.guizmo_.rectTool_ = false;
 			op = ImGuizmo::ROTATE;
 		}
 		ImGui::PopStyleColor();
 
 		ImGui::SameLine();
 
-		ImGui::PushStyleColor(ImGuiCol_Button, (op == ImGuizmo::SCALE) ? activeColor : transparent);
+		ImGui::PushStyleColor(ImGuiCol_Button, (!context_.viewportContext_.guizmo_.rectTool_ && op == ImGuizmo::SCALE) ? activeColor : transparent);
 		if (ImGui::ImageButton("##Scale", imguiTexture_.Icon(IconType::Scale), iconSize))
 		{
 			context_.viewportContext_.guizmo_.showGuizmo_ = true;
+			context_.viewportContext_.guizmo_.rectTool_ = false;
 			op = ImGuizmo::SCALE;
+		}
+		ImGui::PopStyleColor();
+
+		ImGui::SameLine();
+
+		ImGui::PushStyleColor(ImGuiCol_Button, context_.viewportContext_.guizmo_.rectTool_ ? activeColor : transparent);
+		if (ImGui::ImageButton("##Rect", imguiTexture_.Icon(IconType::Rect), iconSize))
+		{
+			context_.viewportContext_.guizmo_.showGuizmo_ = true;
+			context_.viewportContext_.guizmo_.rectTool_ = true;
 		}
 		ImGui::PopStyleColor();
 
@@ -118,7 +132,7 @@ namespace SeedCore
 		/// [JP] ジェスチャ開始: 画像内の、ギズモハンドル上でない左押下。クリックかラバーバンドボックスかは、この後マウスの移動距離で決まる。
 		if (!isBoxSelectPending_ && !isBoxSelecting_)
 		{
-			if (mouseInImage && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !ImGuizmo::IsUsing() && !ImGuizmo::IsOver())
+			if (mouseInImage && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !ImGuizmo::IsUsing() && !ImGuizmo::IsOver() && !guizmoPanel_.RectToolActive())
 			{
 				isBoxSelectPending_ = true;
 				boxSelectStartScreen_ = mouse;
@@ -212,7 +226,7 @@ namespace SeedCore
 					Float sinRotation = std::sin(rotation);
 
 					Float centerX = 100000.0f + worldTranslation.x;
-					Float centerY = 100000.0f + ScResolution::SC_HD.Height - worldTranslation.y;
+					Float centerY = 100000.0f + ScResolution::SC_CANVAS.Height - worldTranslation.y;
 					Float halfWidth = bounds.extent_.x * worldScale.x;
 					Float halfHeight = bounds.extent_.y * worldScale.y;
 					Float pivotX = bounds.center_.x * worldScale.x;
@@ -268,7 +282,7 @@ namespace SeedCore
 					worldMatrix.Decompose(worldScale, worldRotation, worldTranslation);
 
 					Float centerX = 100000.0f + worldTranslation.x + bounds.center_.x * worldScale.x;
-					Float centerY = 100000.0f + ScResolution::SC_HD.Height - worldTranslation.y + bounds.center_.y * worldScale.y;
+					Float centerY = 100000.0f + ScResolution::SC_CANVAS.Height - worldTranslation.y + bounds.center_.y * worldScale.y;
 					Float halfWidth = bounds.extent_.x * worldScale.x;
 					Float halfHeight = bounds.extent_.y * worldScale.y;
 
@@ -301,7 +315,7 @@ namespace SeedCore
 					worldMatrix.Decompose(worldScale, worldRotation, worldTranslation);
 
 					Float centerX = 100000.0f + worldTranslation.x + bounds.center_.x * worldScale.x;
-					Float centerY = 100000.0f + ScResolution::SC_HD.Height - worldTranslation.y + bounds.center_.y * worldScale.y;
+					Float centerY = 100000.0f + ScResolution::SC_CANVAS.Height - worldTranslation.y + bounds.center_.y * worldScale.y;
 					Float halfWidth = bounds.extent_.x * worldScale.x;
 					Float halfHeight = bounds.extent_.y * worldScale.y;
 
@@ -358,7 +372,7 @@ namespace SeedCore
 					/// [EN] Mouse offset from the quad centre, rotated back into the quad's local frame (the shader applies Rz(-rotation), so undo with Rz(+rotation)).
 					/// [JP] クアッド中心からのマウスオフセットを、クアッドのローカルフレームへ回転で戻す(シェーダーは Rz(-rotation) を掛けるので Rz(+rotation) で戻す)。
 					Float deltaX = mouseWorldX - (100000.0f + worldTranslation.x);
-					Float deltaY = mouseWorldY - (100000.0f + ScResolution::SC_HD.Height - worldTranslation.y);
+					Float deltaY = mouseWorldY - (100000.0f + ScResolution::SC_CANVAS.Height - worldTranslation.y);
 					Float localX = deltaX * cosRotation - deltaY * sinRotation;
 					Float localY = deltaX * sinRotation + deltaY * cosRotation;
 
@@ -396,7 +410,7 @@ namespace SeedCore
 					worldMatrix.Decompose(worldScale, worldRotation, worldTranslation);
 
 					Float localX = mouseWorldX - (100000.0f + worldTranslation.x) - bounds.center_.x * worldScale.x;
-					Float localY = mouseWorldY - (100000.0f + ScResolution::SC_HD.Height - worldTranslation.y) - bounds.center_.y * worldScale.y;
+					Float localY = mouseWorldY - (100000.0f + ScResolution::SC_CANVAS.Height - worldTranslation.y) - bounds.center_.y * worldScale.y;
 
 					if (std::abs(localX) <= bounds.extent_.x * worldScale.x && std::abs(localY) <= bounds.extent_.y * worldScale.y)
 					{
@@ -427,7 +441,7 @@ namespace SeedCore
 					worldMatrix.Decompose(worldScale, worldRotation, worldTranslation);
 
 					Float localX = mouseWorldX - (100000.0f + worldTranslation.x) - bounds.center_.x * worldScale.x;
-					Float localY = mouseWorldY - (100000.0f + ScResolution::SC_HD.Height - worldTranslation.y) - bounds.center_.y * worldScale.y;
+					Float localY = mouseWorldY - (100000.0f + ScResolution::SC_CANVAS.Height - worldTranslation.y) - bounds.center_.y * worldScale.y;
 
 					if (std::abs(localX) <= bounds.extent_.x * worldScale.x && std::abs(localY) <= bounds.extent_.y * worldScale.y)
 					{
@@ -547,8 +561,8 @@ namespace SeedCore
 				{
 					CanvasCamera& canvasCamera = *context_.cameraContext_.canvasCamera_;
 
-					Vector3 targetFocus = Vector3(100000.0f + ScResolution::SC_HD.Width * 0.5f, 100000.0f + ScResolution::SC_HD.Height * 0.5f, 100000.0f);
-					Vector3 targetEye = Vector3(100000.0f + ScResolution::SC_HD.Width * 0.5f, 100000.0f + ScResolution::SC_HD.Height * 0.5f, 99990.0f);
+					Vector3 targetFocus = Vector3(100000.0f + ScResolution::SC_CANVAS.Width * 0.5f, 100000.0f + ScResolution::SC_CANVAS.Height * 0.5f, 100000.0f);
+					Vector3 targetEye = Vector3(100000.0f + ScResolution::SC_CANVAS.Width * 0.5f, 100000.0f + ScResolution::SC_CANVAS.Height * 0.5f, 99990.0f);
 
 					Float lerpAmount = Clamp(ImGui::GetIO().DeltaTime * 10.0f, 0.0f, 1.0f);
 					Vector3 newFocus = Vector3::Lerp(canvasCamera.Focus(), targetFocus, lerpAmount);
@@ -602,8 +616,8 @@ namespace SeedCore
 					ImGui::PopClipRect();
 
 					Float landmarkMinX = centerScreenX + (100000.0f - focus.x) / worldPerPixel;
-					Float landmarkMaxX = centerScreenX + (100000.0f + ScResolution::SC_HD.Width - focus.x) / worldPerPixel;
-					Float landmarkMinY = centerScreenY - (100000.0f + ScResolution::SC_HD.Height - focus.y) / worldPerPixel;
+					Float landmarkMaxX = centerScreenX + (100000.0f + ScResolution::SC_CANVAS.Width - focus.x) / worldPerPixel;
+					Float landmarkMinY = centerScreenY - (100000.0f + ScResolution::SC_CANVAS.Height - focus.y) / worldPerPixel;
 					Float landmarkMaxY = centerScreenY - (100000.0f - focus.y) / worldPerPixel;
 
 					ImVec2 landmarkMin = ImVec2(landmarkMinX, landmarkMinY);

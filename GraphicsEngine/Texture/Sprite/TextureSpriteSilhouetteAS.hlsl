@@ -27,7 +27,7 @@ void main(uint3 gtid : SV_GroupThreadID, uint3 dtid : SV_DispatchThreadID)
 
 		if (sprite.selected_ != 0 && sprite.scale_.x > 0.0 && sprite.scale_.y > 0.0)
 		{
-			is_visible = IsVisibleInScreen(sprite.position_, sprite.texture_size_ * sprite.scale_, scene_constant.screen_size_);
+			is_visible = IsVisibleInScreen(sprite.position_, sprite.texture_size_ * sprite.scale_, scene_constant.display_size_);
 		}
 	}
 

@@ -31,37 +31,51 @@ namespace SeedCore
 		if (ImGui::ImageButton("##NonSelected", imguiTexture_.Icon(IconType::NonSelected), iconSize))
 		{
 			context_.viewportContext_.guizmo_.showGuizmo_ = !context_.viewportContext_.guizmo_.showGuizmo_;
+			context_.viewportContext_.guizmo_.rectTool_ = false;
 			op = (ImGuizmo::OPERATION)0;
 		}
 		ImGui::PopStyleColor();
 
 		ImGui::SameLine();
 
-		ImGui::PushStyleColor(ImGuiCol_Button, (op == ImGuizmo::TRANSLATE) ? activeColor : transparent);
+		ImGui::PushStyleColor(ImGuiCol_Button, (!context_.viewportContext_.guizmo_.rectTool_ && op == ImGuizmo::TRANSLATE) ? activeColor : transparent);
 		if (ImGui::ImageButton("##Translate", imguiTexture_.Icon(IconType::Translate), iconSize))
 		{
 			context_.viewportContext_.guizmo_.showGuizmo_ = true;
+			context_.viewportContext_.guizmo_.rectTool_ = false;
 			op = ImGuizmo::TRANSLATE;
 		}
 		ImGui::PopStyleColor();
 
 		ImGui::SameLine();
 
-		ImGui::PushStyleColor(ImGuiCol_Button, (op == ImGuizmo::ROTATE) ? activeColor : transparent);
+		ImGui::PushStyleColor(ImGuiCol_Button, (!context_.viewportContext_.guizmo_.rectTool_ && op == ImGuizmo::ROTATE) ? activeColor : transparent);
 		if (ImGui::ImageButton("##Rotate", imguiTexture_.Icon(IconType::Rotate), iconSize))
 		{
 			context_.viewportContext_.guizmo_.showGuizmo_ = true;
+			context_.viewportContext_.guizmo_.rectTool_ = false;
 			op = ImGuizmo::ROTATE;
 		}
 		ImGui::PopStyleColor();
 
 		ImGui::SameLine();
 
-		ImGui::PushStyleColor(ImGuiCol_Button, (op == ImGuizmo::SCALE) ? activeColor : transparent);
+		ImGui::PushStyleColor(ImGuiCol_Button, (!context_.viewportContext_.guizmo_.rectTool_ && op == ImGuizmo::SCALE) ? activeColor : transparent);
 		if (ImGui::ImageButton("##Scale", imguiTexture_.Icon(IconType::Scale), iconSize))
 		{
 			context_.viewportContext_.guizmo_.showGuizmo_ = true;
+			context_.viewportContext_.guizmo_.rectTool_ = false;
 			op = ImGuizmo::SCALE;
+		}
+		ImGui::PopStyleColor();
+
+		ImGui::SameLine();
+
+		ImGui::PushStyleColor(ImGuiCol_Button, context_.viewportContext_.guizmo_.rectTool_ ? activeColor : transparent);
+		if (ImGui::ImageButton("##Rect", imguiTexture_.Icon(IconType::Rect), iconSize))
+		{
+			context_.viewportContext_.guizmo_.showGuizmo_ = true;
+			context_.viewportContext_.guizmo_.rectTool_ = true;
 		}
 		ImGui::PopStyleColor();
 
@@ -320,7 +334,7 @@ namespace SeedCore
 				///      空間のレイへ逆投影し、その Bounds に当たる最も近い
 				///      アクターを選択する（ViewportPicking 参照）。何もない場所を
 				///      クリックすると選択解除する（Unrealの挙動と同じ）。
-				if (ImGui::IsWindowHovered() && !ImGuizmo::IsUsing() && !ImGuizmo::IsOver() && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && context_.cameraContext_.editorCamera_ && context_.worldContext_.world_)
+				if (ImGui::IsWindowHovered() && !ImGuizmo::IsUsing() && !ImGuizmo::IsOver() && !guizmoPanel_.RectToolActive() && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && context_.cameraContext_.editorCamera_ && context_.worldContext_.world_)
 				{
 					ImVec2 mousePosition = ImGui::GetMousePos();
 					if (mousePosition.x >= screenPosition.x && mousePosition.x <= screenPosition.x + imageWidth &&
@@ -339,13 +353,32 @@ namespace SeedCore
 
 						Actor hitActor = ViewportPicking::Pick(*context_.worldContext_.world_, rayOrigin, rayDirection);
 
-						context_.selectionContext_.selectedActors_.clear();
-						if (hitActor)
+						SelectionContext& selection = context_.selectionContext_;
+						if (ImGui::GetIO().KeyCtrl)
 						{
-							context_.selectionContext_.selectedActors_.push_back(hitActor);
+							if (hitActor)
+							{
+								auto it = std::ranges::find(selection.selectedActors_, hitActor);
+								if (it != selection.selectedActors_.end())
+								{
+									selection.selectedActors_.erase(it);
+								}
+								else
+								{
+									selection.selectedActors_.push_back(hitActor);
+								}
+							}
 						}
-						context_.selectionContext_.selectedActor_ = hitActor;
-						context_.selectionContext_.selectedEntity_ = hitActor ? hitActor.GetEntity() : Entity::Null();
+						else
+						{
+							selection.selectedActors_.clear();
+							if (hitActor)
+							{
+								selection.selectedActors_.push_back(hitActor);
+							}
+						}
+						selection.selectedActor_ = selection.selectedActors_.empty() ? Actor() : selection.selectedActors_.back();
+						selection.selectedEntity_ = selection.selectedActor_ ? selection.selectedActor_.GetEntity() : Entity::Null();
 					}
 				}
 
@@ -413,7 +446,7 @@ namespace SeedCore
 			/// [JP] ビューポート上での Ctrl+ホイールは、カメラのドリーではなく
 			///      現在のギズモ操作のスナップ値を変更する - EditorCameraController は
 			///      Ctrl 押下中、自身のホイールドリーをスキップする（Update() 参照）。
-			if (ImGui::IsWindowHovered() && InputSystem::KeyState(InputSystem::Key::Control) && context_.viewportContext_.guizmo_.guizmoOperation_ != 0)
+			if (ImGui::IsWindowHovered() && InputSystem::KeyState(InputSystem::Key::Control) && context_.viewportContext_.guizmo_.guizmoOperation_ != 0 && !context_.viewportContext_.guizmo_.rectTool_)
 			{
 				auto& guizmo = context_.viewportContext_.guizmo_;
 
@@ -486,7 +519,7 @@ namespace SeedCore
 
 			if (!ImGuizmo::IsUsing() && ImGui::IsWindowHovered() && context_.cameraContext_.editorCamera_ && context_.cameraContext_.editorCameraController_)
 			{
-				if ((editorRotateHeld || editorPanHeld) && !InputSystem::IsMouseCaptured())
+				if ((editorRotateHeld || editorPanHeld) && !InputSystem::MouseCaptured())
 				{
 					InputSystem::BeginMouseCapture();
 				}
@@ -495,7 +528,7 @@ namespace SeedCore
 				context_.cameraContext_.editorCameraController_->Update(*context_.cameraContext_.editorCamera_, deltaTime);
 			}
 
-			if (!editorRotateHeld && !editorPanHeld && InputSystem::IsMouseCaptured())
+			if (!editorRotateHeld && !editorPanHeld && InputSystem::MouseCaptured())
 			{
 				InputSystem::EndMouseCapture();
 			}

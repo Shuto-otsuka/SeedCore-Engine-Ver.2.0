@@ -17,7 +17,7 @@ namespace SeedCore
 		{
 			textureIndex = bindlessHeap->AllocateIndex();
 			String filePath = String(std::string("../Runtime/Logo/") + name + "." + tag);
-			TextureLoader::CreateTexture(device, cmdQueue, bindlessHeap->Heap(), filePath, resource, textureIndex);
+			TextureLoader::CreateTexturePath(device, cmdQueue, bindlessHeap->Heap(), filePath, resource, textureIndex);
 		};
 
 		load("Day",   "logo", dayTextureIndex_, dayResource_);
@@ -25,9 +25,6 @@ namespace SeedCore
 		load("Warning", "sub.logo", warningTextureIndex_, warningResource_);
 		load("Fiction", "sub.logo", fictionTextureIndex_, fictionResource_);
 		load("CriWare", "logo", criLogoTextureIndex_, criLogoResource_);
-		load("ProgressBackground", "sub.logo", progressBackgroundTextureIndex_, progressBackgroundResource_);
-		load("ProgressBar",        "sub.logo", progressBarTextureIndex_, progressBarResource_);
-		load("ProgressFrame",      "sub.logo", progressFrameTextureIndex_, progressFrameResource_);
 
 		HRESULT hr{ S_OK };
 
@@ -38,54 +35,18 @@ namespace SeedCore
 		shaderResourceViewRange.RegisterSpace = 0;
 		shaderResourceViewRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-		D3D12_DESCRIPTOR_RANGE progressBarRange{};
-		progressBarRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-		progressBarRange.NumDescriptors = 1;
-		progressBarRange.BaseShaderRegister = 1;
-		progressBarRange.RegisterSpace = 0;
-		progressBarRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
-
-		D3D12_DESCRIPTOR_RANGE progressFrameRange{};
-		progressFrameRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-		progressFrameRange.NumDescriptors = 1;
-		progressFrameRange.BaseShaderRegister = 2;
-		progressFrameRange.RegisterSpace = 0;
-		progressFrameRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
-
-		D3D12_DESCRIPTOR_RANGE progressBackgroundRange{};
-		progressBackgroundRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-		progressBackgroundRange.NumDescriptors = 1;
-		progressBackgroundRange.BaseShaderRegister = 3;
-		progressBackgroundRange.RegisterSpace = 0;
-		progressBackgroundRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
-
-		D3D12_ROOT_PARAMETER params[5]{};
+		D3D12_ROOT_PARAMETER params[2]{};
 
 		params[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
 		params[0].Constants.ShaderRegister = 0;
 		params[0].Constants.RegisterSpace = 0;
-		params[0].Constants.Num32BitValues = 10;
+		params[0].Constants.Num32BitValues = 4;
 		params[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
 		params[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
 		params[1].DescriptorTable.NumDescriptorRanges = 1;
 		params[1].DescriptorTable.pDescriptorRanges = &shaderResourceViewRange;
 		params[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-
-		params[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-		params[2].DescriptorTable.NumDescriptorRanges = 1;
-		params[2].DescriptorTable.pDescriptorRanges = &progressBarRange;
-		params[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-
-		params[3].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-		params[3].DescriptorTable.NumDescriptorRanges = 1;
-		params[3].DescriptorTable.pDescriptorRanges = &progressFrameRange;
-		params[3].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-
-		params[4].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-		params[4].DescriptorTable.NumDescriptorRanges = 1;
-		params[4].DescriptorTable.pDescriptorRanges = &progressBackgroundRange;
-		params[4].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
 		D3D12_STATIC_SAMPLER_DESC sampler{};
 		sampler.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
@@ -103,7 +64,7 @@ namespace SeedCore
 		sampler.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
 		D3D12_ROOT_SIGNATURE_DESC rootSignatureDesc{};
-		rootSignatureDesc.NumParameters = 5;
+		rootSignatureDesc.NumParameters = 2;
 		rootSignatureDesc.pParameters = params;
 		rootSignatureDesc.NumStaticSamplers = 1;
 		rootSignatureDesc.pStaticSamplers = &sampler;
@@ -167,7 +128,7 @@ namespace SeedCore
 		SC_LOG_NOTICE("スプラッシュスクリーンを初期化しました");
 	}
 
-	void SplashScreen::Draw(ID3D12GraphicsCommandList6* cmdList, ID3D12Resource* backBuffer, D3D12_CPU_DESCRIPTOR_HANDLE renderTargetViewHandle, Float screenWidth, Float screenHeight, Bool loadComplete, Float progress, Bool showWarning, Bool showFiction)
+	void SplashScreen::Draw(ID3D12GraphicsCommandList6* cmdList, D3D12_CPU_DESCRIPTOR_HANDLE renderTargetViewHandle, Float screenWidth, Float screenHeight, Bool showWarning, Bool showFiction)
 	{
 		if (!initialized_ || finished_)
 		{
@@ -185,11 +146,11 @@ namespace SeedCore
 		auto now = std::chrono::steady_clock::now();
 		Float elapsed = std::chrono::duration<Float>(now - startTime_).count();
 
-		/// [EN] Warning -> Fiction -> CRI logo -> Engine logo -> Progress, in that
-		///      order. Each of the first two phases is skipped entirely (zero
+		/// [EN] Warning -> Fiction -> CRI logo -> Engine logo, in that order.
+		///      Each of the first two phases is skipped entirely (zero
 		///      duration) if its show flag is false; all four single-image
 		///      phases fade in/out the same way.
-		/// [JP] Warning -> Fiction -> CRIロゴ -> エンジンロゴ -> Progress の順。
+		/// [JP] Warning -> Fiction -> CRIロゴ -> エンジンロゴ の順。
 		///      最初の2フェーズはそれぞれの表示フラグがfalseなら丸ごと
 		///      スキップ（時間0）される。単一画像の4フェーズとも同じように
 		///      フェードイン/アウトする。
@@ -201,32 +162,7 @@ namespace SeedCore
 		Float criLogoEnd = fictionEnd + criLogoDuration_;
 		Float logoEnd = criLogoEnd + minDuration_;
 
-		Bool warningPhase = elapsed < warningEnd;
-		Bool fictionPhase = !warningPhase && elapsed < fictionEnd;
-		Bool criLogoPhase = !warningPhase && !fictionPhase && elapsed < criLogoEnd;
-		Bool logoPhase = !warningPhase && !fictionPhase && !criLogoPhase && elapsed < logoEnd;
-
-		Float alpha = 1.0f;
-
-		if (warningPhase || fictionPhase || criLogoPhase || logoPhase)
-		{
-			/// [EN] Elapsed time local to whichever phase is active, and that
-			///      phase's total duration - used for the shared fade in/out.
-			/// [JP] 現在アクティブなフェーズを基準にしたローカル経過時間と、
-			///      そのフェーズの総時間 - 共通のフェードイン/アウトに使う。
-			Float phaseElapsed = warningPhase ? elapsed : (fictionPhase ? elapsed - warningEnd : (criLogoPhase ? elapsed - fictionEnd : elapsed - criLogoEnd));
-			Float phaseDuration = warningPhase ? warningPhaseDuration : (fictionPhase ? fictionPhaseDuration : (criLogoPhase ? criLogoDuration_ : minDuration_));
-
-			if (phaseElapsed < fadeInTime_)
-			{
-				alpha = phaseElapsed / fadeInTime_;
-			}
-			else if (phaseElapsed > phaseDuration - fadeOutTime_)
-			{
-				alpha = (phaseDuration - phaseElapsed) / fadeOutTime_;
-			}
-		}
-		else if (loadComplete)
+		if (elapsed >= logoEnd)
 		{
 			finished_ = true;
 
@@ -238,17 +174,11 @@ namespace SeedCore
 			warningResource_.Reset();
 			fictionResource_.Reset();
 			criLogoResource_.Reset();
-			progressBackgroundResource_.Reset();
-			progressBarResource_.Reset();
-			progressFrameResource_.Reset();
 			bindlessHeap_->FreeIndex(dayTextureIndex_);
 			bindlessHeap_->FreeIndex(nightTextureIndex_);
 			bindlessHeap_->FreeIndex(warningTextureIndex_);
 			bindlessHeap_->FreeIndex(fictionTextureIndex_);
 			bindlessHeap_->FreeIndex(criLogoTextureIndex_);
-			bindlessHeap_->FreeIndex(progressBackgroundTextureIndex_);
-			bindlessHeap_->FreeIndex(progressBarTextureIndex_);
-			bindlessHeap_->FreeIndex(progressFrameTextureIndex_);
 
 			rootSignature_.Reset();
 			pipelineState_.Reset();
@@ -256,14 +186,34 @@ namespace SeedCore
 			return;
 		}
 
-		/// [EN] Selects which single centered/letterboxed image (if any) is
-		///      active this frame - warning/fiction/CRI-logo/day-or-night-logo -
-		///      all drawn through the same t0 slot + texture_aspect_/show_logo_
-		///      path in the shader.
+		Bool warningPhase = elapsed < warningEnd;
+		Bool fictionPhase = !warningPhase && elapsed < fictionEnd;
+		Bool criLogoPhase = !warningPhase && !fictionPhase && elapsed < criLogoEnd;
+
+		/// [EN] Elapsed time local to whichever phase is active, and that
+		///      phase's total duration - used for the shared fade in/out.
+		/// [JP] 現在アクティブなフェーズを基準にしたローカル経過時間と、
+		///      そのフェーズの総時間 - 共通のフェードイン/アウトに使う。
+		Float phaseElapsed = warningPhase ? elapsed : (fictionPhase ? elapsed - warningEnd : (criLogoPhase ? elapsed - fictionEnd : elapsed - criLogoEnd));
+		Float phaseDuration = warningPhase ? warningPhaseDuration : (fictionPhase ? fictionPhaseDuration : (criLogoPhase ? criLogoDuration_ : minDuration_));
+
+		Float alpha = 1.0f;
+		if (phaseElapsed < fadeInTime_)
+		{
+			alpha = phaseElapsed / fadeInTime_;
+		}
+		else if (phaseElapsed > phaseDuration - fadeOutTime_)
+		{
+			alpha = (phaseDuration - phaseElapsed) / fadeOutTime_;
+		}
+
+		/// [EN] Selects which single centered/letterboxed image is active this
+		///      frame - warning/fiction/CRI-logo/day-or-night-logo - all drawn
+		///      through the same t0 slot + texture_aspect_ path in the shader.
 		/// [JP] このフレームでどの単一の中央寄せ/レターボックス画像を使うか
-		///      選ぶ（無ければ無し） - 警告/フィクション/CRIロゴ/昼夜ロゴの
-		///      いずれも、シェーダー内で同じ t0 スロット +
-		///      texture_aspect_/show_logo_ の経路で描画される。
+		///      選ぶ - 警告/フィクション/CRIロゴ/昼夜ロゴのいずれも、
+		///      シェーダー内で同じ t0 スロット + texture_aspect_ の経路で
+		///      描画される。
 		Uint textureIndex = 0;
 		ID3D12Resource* texResource = nullptr;
 
@@ -284,15 +234,6 @@ namespace SeedCore
 		}
 		else
 		{
-			/// [EN] Also computed (harmlessly unused) outside logoPhase - keeps
-			///      root param 1 bound to a real Texture2D at all times, since
-			///      the progress phase's show_logo_=0 means the shader never
-			///      samples it, but D3D still expects a validly-typed descriptor
-			///      bound there.
-			/// [JP] logoPhase 以外でも（実害なく未使用のまま）計算しておく -
-			///      進捗フェーズでは show_logo_=0 なのでシェーダーは t0 を
-			///      サンプルしないが、D3D 側は root param 1 に常に妥当な型の
-			///      デスクリプタがバインドされていることを期待するため。
 			auto systemNow = std::chrono::system_clock::now();
 			std::time_t time = std::chrono::system_clock::to_time_t(systemNow);
 			std::tm local{};
@@ -309,21 +250,6 @@ namespace SeedCore
 		{
 			D3D12_RESOURCE_DESC desc = texResource->GetDesc();
 			textureAspect = static_cast<Float>(desc.Width) / static_cast<Float>(desc.Height);
-		}
-
-		/// [JP] ProgressBar.sub.logo/ProgressFrame.sub.logo は同じレイアウトの重ね合わせ前提なので、バーの縦横比だけ取得すれば両方に使える。
-		Float barAspect = 1.0f;
-		if (progressBarResource_)
-		{
-			D3D12_RESOURCE_DESC desc = progressBarResource_->GetDesc();
-			barAspect = static_cast<Float>(desc.Width) / static_cast<Float>(desc.Height);
-		}
-
-		Float backgroundAspect = 1.0f;
-		if (progressBackgroundResource_)
-		{
-			D3D12_RESOURCE_DESC desc = progressBackgroundResource_->GetDesc();
-			backgroundAspect = static_cast<Float>(desc.Width) / static_cast<Float>(desc.Height);
 		}
 
 		cmdList->OMSetRenderTargets(1, &renderTargetViewHandle, FALSE, nullptr);
@@ -347,31 +273,18 @@ namespace SeedCore
 		cmdList->SetPipelineState(pipelineState_.Get());
 		cmdList->SetGraphicsRootSignature(rootSignature_.Get());
 
-		Float showLogo = (warningPhase || fictionPhase || criLogoPhase || logoPhase) ? 1.0f : 0.0f;
-
-		/// [EN] Past all four single-image phases (and not yet complete, since
-		///      loadComplete already returned above) means the loading progress
-		///      bar is on screen instead.
-		/// [JP] 4つの単一画像フェーズを全て過ぎていて（かつ loadComplete なら
-		///      ここまでに return しているので）まだ完了していない場合、
-		///      代わりにロード進捗バーを表示する。
-		Float showProgress = showLogo > 0.5f ? 0.0f : 1.0f;
-
-		Float constants[10] = { alpha, screenWidth, screenHeight, textureAspect, showLogo, progress, showProgress, barAspect, backgroundAspect, elapsed };
-		cmdList->SetGraphicsRoot32BitConstants(0, 10, constants, 0);
+		Float constants[4] = { alpha, screenWidth, screenHeight, textureAspect };
+		cmdList->SetGraphicsRoot32BitConstants(0, 4, constants, 0);
 
 		ID3D12DescriptorHeap* heaps[] = { bindlessHeap_->Heap() };
 		cmdList->SetDescriptorHeaps(1, heaps);
 		cmdList->SetGraphicsRootDescriptorTable(1, bindlessHeap_->GPUHandle(textureIndex));
-		cmdList->SetGraphicsRootDescriptorTable(2, bindlessHeap_->GPUHandle(progressBarTextureIndex_));
-		cmdList->SetGraphicsRootDescriptorTable(3, bindlessHeap_->GPUHandle(progressFrameTextureIndex_));
-		cmdList->SetGraphicsRootDescriptorTable(4, bindlessHeap_->GPUHandle(progressBackgroundTextureIndex_));
 
 		cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		cmdList->DrawInstanced(3, 1, 0, 0);
 	}
 
-	Bool SplashScreen::IsFinished()const
+	Bool SplashScreen::Finished()const
 	{
 		return finished_;
 	}

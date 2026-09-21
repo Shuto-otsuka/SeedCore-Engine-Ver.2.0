@@ -5,10 +5,11 @@
 
 bool IsVisibleInScreen(float2 position, float2 size, float2 screen_size)
 {
-	return position.x + size.x > 0.0f
-		&& position.x < screen_size.x
-		&& position.y + size.y > 0.0f
-		&& position.y < screen_size.y;
+	float radius = length(size);
+	return position.x + radius > 0.0f
+		&& position.x - radius < screen_size.x
+		&& position.y + radius > 0.0f
+		&& position.y - radius < screen_size.y;
 }
 
 bool IsVisibleInFrustum(float3 pos, float radius, row_major float4x4 vp)

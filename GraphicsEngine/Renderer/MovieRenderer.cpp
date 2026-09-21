@@ -39,7 +39,7 @@ namespace SeedCore
 		shaderResourceIndicesSystem.SetMovieFullscreenIndex(fullscreenBuffer_->Index());
 	}
 
-	void MovieRenderer::Gather(LoaderSystem& loader, MovieResource& movieResource, World& world, Vector2 nativeScreenSize, Entity selectedEntity)
+	void MovieRenderer::Gather(LoaderSystem& loader, MovieResource& movieResource, World& world, Vector2 nativeScreenSize, std::span<const Entity> selectedEntities)
 	{
 		spriteInstances_.clear();
 		billboardInstances_.clear();
@@ -47,7 +47,7 @@ namespace SeedCore
 		hasSelectedSpriteInstance_ = false;
 		hasSelectedBillboardInstance_ = false;
 
-		Float spriteReferenceScale = (ScResolution::SC_HD.Height > 0.0f) ? (nativeScreenSize.y / ScResolution::SC_HD.Height) : 1.0f;
+		Float spriteReferenceScale = (ScResolution::SC_CANVAS.Height > 0.0f) ? (nativeScreenSize.y / ScResolution::SC_CANVAS.Height) : 1.0f;
 
 		/// [EN] Cached once so each Sprite-mode Movie actor's Bounds can be synced to its canvas rect below (mirrors TextureRenderer's Image -> Bounds sync), giving canvas movies a pickable box in CanvasViewPanel.
 		/// [JP] 各スプライトモード Movie アクターの Bounds を下でキャンバス矩形へ同期できるよう一度だけキャッシュする(TextureRenderer の Image -> Bounds 同期と同じ)。これでキャンバス動画が CanvasViewPanel でピック可能なボックスを持つ。
@@ -104,7 +104,7 @@ namespace SeedCore
 					size = Vector2(static_cast<Float>(nativeWidth), static_cast<Float>(nativeHeight));
 				}
 
-				Uint selected = (selectedEntity.Exists() && actor.GetEntity() == selectedEntity) ? 1 : 0;
+				Uint selected = std::ranges::find(selectedEntities, actor.GetEntity()) != selectedEntities.end() ? 1 : 0;
 
 				if (movie.displayMode_ == Movie::DisplayMode::Sprite)
 				{
@@ -113,7 +113,7 @@ namespace SeedCore
 					MovieSpriteStructuredBuffer instance{};
 					instance.position_ = Vector2(worldTranslation.x, worldTranslation.y) * spriteReferenceScale;
 					instance.rotation_ = worldRotation.ToEuler().x;
-					instance.scale_ = Vector2(worldScale.x, worldScale.y);
+					instance.scale_ = Vector2(worldScale.x, worldScale.y) * spriteReferenceScale;
 					instance.size_ = size;
 					instance.pivot_ = movie.pivot_;
 					instance.color_ = movie.color_;
@@ -124,7 +124,7 @@ namespace SeedCore
 					hasSelectedBillboardInstance_ = hasSelectedBillboardInstance_ || selected != 0;
 
 					MovieBillboardStructuredBuffer canvasInstance{};
-					canvasInstance.position_ = Vector3(100000.0f + worldTranslation.x, 100000.0f + (ScResolution::SC_HD.Height - worldTranslation.y), 100000.0f);
+					canvasInstance.position_ = Vector3(100000.0f + worldTranslation.x, 100000.0f + (ScResolution::SC_CANVAS.Height - worldTranslation.y), 100000.0f);
 					canvasInstance.rotation_ = Vector3::Zero;
 					canvasInstance.scale_ = Vector2(worldScale.x * size.x, worldScale.y * size.y);
 					canvasInstance.size_ = size;

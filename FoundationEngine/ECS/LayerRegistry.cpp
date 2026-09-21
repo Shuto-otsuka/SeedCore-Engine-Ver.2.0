@@ -1,6 +1,6 @@
 #include <FoundationEngine/ECS/LayerRegistry.h>
 #include <FoundationEngine/ECS/LayerCollisionMatrix.h>
-#include <FoundationEngine/Serialization/Json/JsonArchive.h>
+#include <FoundationEngine/Serialization/Binary/BinaryArchive.h>
 
 namespace SeedCore
 {
@@ -78,7 +78,7 @@ namespace SeedCore
 	* 使用では範囲内の全スロットで true - リネームされていないスロットも
 	* 既にプレースホルダーの"Layer N"という名前を持つため）。
 	*/
-	Bool LayerRegistry::IsUsed(Size index)
+	Bool LayerRegistry::Used(Size index)
 	{
 		if (index >= LayerCount)
 		{
@@ -156,7 +156,7 @@ namespace SeedCore
 	*/
 	void LayerRegistry::Load(const std::filesystem::path& path)
 	{
-		JsonInputArchive archive;
+		BinaryInputArchive archive;
 		if (!archive.Read(String(path.string())))
 		{
 			return;
@@ -199,7 +199,7 @@ namespace SeedCore
 			std::filesystem::create_directories(path.parent_path());
 		}
 
-		JsonOutputArchive archive;
+		BinaryOutputArchive archive;
 		archive.Field("names", Names());
 		LayerCollisionMatrix::Save(archive);
 

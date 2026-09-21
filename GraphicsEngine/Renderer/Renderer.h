@@ -64,7 +64,7 @@ namespace SeedCore
 		void Resize(ID3D12Device* device, BindlessHeap* bindlessHeap, ShaderCache& shaderCache, Uint32 nativeWidth, Uint32 nativeHeight, Uint32 outputWidth, Uint32 outputHeight);
 
 	public:
-		void PrepareFrame(D3D12CommandList* cmdList, LoaderSystem& loaderSystem, ResourceCache& resourceCache, World& world, const SceneConstantBuffer& scene, Float deltaTime, Entity selectedEntity);
+		void PrepareFrame(D3D12CommandList* cmdList, LoaderSystem& loaderSystem, ResourceCache& resourceCache, World& world, const SceneConstantBuffer& scene, Float deltaTime, std::span<const Entity> selectedEntities);
 
 		void BeginEditorFrame(D3D12CommandList* cmdList);
 
@@ -99,7 +99,7 @@ namespace SeedCore
 		void EndAvatarFrame(D3D12CommandList* cmdList);
 
 	public:
-		void GatherColliders(const DynamicArray<ColliderStructuredBuffer>& colliderInstances);
+		void GatherColliders(World& world);
 
 		void GatherTimelinePreview(LoaderSystem& loaderSystem, ResourceCache& resourceCache, Uint32 meshAssetId, Uint32 animationAssetId, Float time, const Matrix& worldMatrix);
 
@@ -113,6 +113,8 @@ namespace SeedCore
 
 	public:
 		void Raytracing(const RaytracingContext& settings);
+
+		void Upscale(Bool dlssRayReconstructionEnabled, UpscaleMode upscaleMode);
 
 		[[nodiscard]] Vector2 PostProcessOutputSize()const;
 
@@ -145,6 +147,8 @@ namespace SeedCore
 		[[nodiscard]] D3D12_GPU_DESCRIPTOR_HANDLE EditorFrameBufferGPUHandle()const;
 
 		[[nodiscard]] D3D12_GPU_DESCRIPTOR_HANDLE GameFrameBufferGPUHandle()const;
+
+		[[nodiscard]] ID3D12Resource* GameDisplayResource()const;
 
 		[[nodiscard]] D3D12_GPU_DESCRIPTOR_HANDLE CanvasFrameBufferGPUHandle()const;
 
@@ -221,10 +225,10 @@ namespace SeedCore
 
 		ResourcePtr<TaauUpsamplingRenderer> taauUpsamplingRenderer_;
 
-		/// [EN] Cached from the last Raytracing() call. Passed into
+		/// [EN] Cached from the last Upscale() call. Passed into
 		///      DlssRayReconstructionRenderer::Dispatch/TaauUpsamplingRenderer's
 		///      render-scale calculation in EndEditorFrame/EndGameFrame.
-		/// [JP] 直近の Raytracing() 呼び出しからキャッシュ。
+		/// [JP] 直近の Upscale() 呼び出しからキャッシュ。
 		///      EndEditorFrame/EndGameFrame で DlssRayReconstructionRenderer::
 		///      Dispatch / TaauUpsamplingRenderer のレンダースケール計算に渡す。
 		UpscaleMode upscaleMode_ = UpscaleMode::Balanced;

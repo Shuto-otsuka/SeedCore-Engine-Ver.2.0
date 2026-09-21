@@ -4,8 +4,19 @@
 
 namespace SeedCore
 {
+	/**
+	* [EN]
+	* Initializes Jolt and connects it to the supplied job executor.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* Jolt を初期化し、指定されたジョブエグゼキューターへ接続する。
+	*/
 	Bool JoltManager::Initialize(JobExecutor& executor)
 	{
+		/// [EN] Register Jolt's allocator, factory and runtime types before creating physics resources.
+		/// [JP] 物理リソースの生成前に、Jolt のアロケーター、ファクトリー、実行時型を登録する。
 		JPH::RegisterDefaultAllocator();
 		JPH::Factory::sInstance = new JPH::Factory();
 		JPH::RegisterTypes();
@@ -31,12 +42,30 @@ namespace SeedCore
 		return true;
 	}
 
+	/**
+	* [EN]
+	* Advances the physics simulation and dispatches queued contact events.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 物理シミュレーションを進め、キュー内の接触イベントを通知する。
+	*/
 	void JoltManager::Execute(Float elapsedTime)
 	{
 		physicsSystem_.Update(elapsedTime, 1, tempAllocator_.get(), executor_.get());
-		contactListener_.DispatchPendingEvents();
+		contactListener_.DispatchEvent();
 	}
 
+	/**
+	* [EN]
+	* Releases physics resources and unregisters Jolt types.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 物理リソースを解放し、Jolt の型登録を解除する。
+	*/
 	void JoltManager::Finalize()
 	{
 		/// [EN] Shapes must be released before UnregisterTypes.
@@ -61,38 +90,101 @@ namespace SeedCore
 		JPH::Factory::sInstance = nullptr;
 	}
 
-	JoltShapePool& JoltManager::GetShapePool()
+	/**
+	* [EN]
+	* Returns the shape pool owned by this manager.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* このマネージャーが所有する形状プールを返す。
+	*/
+	JoltShapePool& JoltManager::ShapePool()
 	{
 		return shapePool_;
 	}
 
-	JoltConstraintPool& JoltManager::GetConstraintPool()
+	/**
+	* [EN]
+	* Returns the constraint pool owned by this manager.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* このマネージャーが所有する拘束プールを返す。
+	*/
+	JoltConstraintPool& JoltManager::ConstraintPool()
 	{
 		return constraintPool_;
 	}
 
-	JPH::BodyInterface& JoltManager::GetBodyInterface()
+	/**
+	* [EN]
+	* Returns Jolt's body interface.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* Jolt のボディインターフェースを返す。
+	*/
+	JPH::BodyInterface& JoltManager::BodyInterface()
 	{
 		return physicsSystem_.GetBodyInterface();
 	}
 
-	JPH::PhysicsSystem& JoltManager::GetPhysicsSystem()
+	/**
+	* [EN]
+	* Returns the owned Jolt physics system.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 所有する Jolt 物理システムを返す。
+	*/
+	JPH::PhysicsSystem& JoltManager::PhysicsSystem()
 	{
 		return physicsSystem_;
 	}
 
-	JPH::TempAllocator& JoltManager::GetPhysicsAllocator()
+	/**
+	* [EN]
+	* Returns the temporary allocator used during physics updates.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 物理更新中に使う一時アロケーターを返す。
+	*/
+	JPH::TempAllocator& JoltManager::PhysicsAllocator()
 	{
 		return *tempAllocator_;
 	}
 
-	void JoltManager::SetActiveWorld(World* world)
+	/**
+	* [EN]
+	* Sets the World that receives contact events.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 接触イベントを受け取る World を設定する。
+	*/
+	void JoltManager::ActiveWorld(World* world)
 	{
-		contactListener_.SetActiveWorld(world);
+		contactListener_.ActiveWorld(world);
 	}
 
-	World* JoltManager::GetActiveWorld()const
+	/**
+	* [EN]
+	* Returns the World that receives contact events.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 接触イベントを受け取る World を返す。
+	*/
+	World* JoltManager::ActiveWorld()const
 	{
-		return contactListener_.GetActiveWorld();
+		return contactListener_.ActiveWorld();
 	}
 }

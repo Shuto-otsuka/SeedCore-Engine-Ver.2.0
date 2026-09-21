@@ -1440,7 +1440,7 @@ namespace SeedCore
 		}
 	}
 
-	[[nodiscard]] Bool AnimatorControllerPanel::IsFocused()const
+	[[nodiscard]] Bool AnimatorControllerPanel::Focused()const
 	{
 		return isFocused_;
 	}

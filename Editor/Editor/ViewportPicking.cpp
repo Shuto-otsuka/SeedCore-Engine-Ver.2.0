@@ -39,7 +39,7 @@ namespace SeedCore
 		for (EntityID entityID : world.GetComponents<Bounds>())
 		{
 			Actor actor = world.GetActor(entityID);
-			if (!actor)
+			if (!actor || !actor.GetActive())
 			{
 				continue;
 			}

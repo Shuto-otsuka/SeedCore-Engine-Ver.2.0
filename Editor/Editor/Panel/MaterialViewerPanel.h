@@ -39,7 +39,7 @@ namespace SeedCore
 
 		void DrawDetails();
 
-		[[nodiscard]] Bool IsFocused()const;
+		[[nodiscard]] Bool Focused()const;
 
 	private:
 		void EnsureEditingSurface();

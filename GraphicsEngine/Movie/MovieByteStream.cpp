@@ -133,7 +133,7 @@ namespace SeedCore
 		return S_OK;
 	}
 
-	HRESULT __stdcall MovieByteStream::IsEndOfStream(BOOL* endOfStream)
+	HRESULT __stdcall MovieByteStream::EndOfStream(BOOL* endOfStream)
 	{
 		if (!endOfStream)
 		{

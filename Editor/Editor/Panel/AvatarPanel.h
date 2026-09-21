@@ -32,7 +32,7 @@ namespace SeedCore
 
 		void SetPreviewHandle(D3D12_GPU_DESCRIPTOR_HANDLE previewHandle);
 
-		[[nodiscard]] Bool IsFocused()const;
+		[[nodiscard]] Bool Focused()const;
 
 	private:
 		static constexpr Uint32 regionSlotCount_ = 4;

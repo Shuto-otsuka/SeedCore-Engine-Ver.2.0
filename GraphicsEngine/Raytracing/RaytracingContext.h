@@ -78,40 +78,6 @@ namespace SeedCore
 
 		Bool causticsEnabled_ = false;
 
-		/// [EN] Switches the final composited frame's denoise+upscale path from
-		///      the per-effect custom compute denoisers (Shadow/AO/GI's own
-		///      spatio-temporal accumulation, each output at native 1280x720)
-		///      to NVIDIA DLSS Ray Reconstruction, which denoises the raw noisy
-		///      composited color as a whole and upscales it to 3840x2160 in one
-		///      pass. When true, Shadow/AO/GI each skip their own denoise
-		///      dispatch and expose their raw signal instead (double-denoising
-		///      would fight DLSS-RR's own denoiser and over-smooth).
-		/// [JP] 最終合成フレームのデノイズ+アップスケール経路を、エフェクトごとの
-		///      自前コンピュートデノイザ(Shadow/AO/GIそれぞれの空間+時間蓄積、
-		///      1280x720ネイティブ出力)から NVIDIA DLSS Ray Reconstruction へ
-		///      切り替える。DLSS-RRは生のノイズ入り合成カラー全体を1パスで
-		///      デノイズ+3840x2160へアップスケールする。true の間は Shadow/AO/GI
-		///      それぞれが自前デノイズのディスパッチを止め、生信号をそのまま
-		///      露出する(二重デノイズはDLSS-RR自身のデノイザと衝突し過剰な
-		///      ぼけを生むため)。
-		Bool dlssRayReconstructionEnabled_ = false;
-
-		/// [EN] Shared quality/performance mode for whichever upscale path is
-		///      active - DLSS Ray Reconstruction (applied to slDLSSDSetOptions
-		///      each frame it runs, see DlssManager::EvaluateRayReconstruction)
-		///      when dlssRayReconstructionEnabled_ is true, or TAAU's render
-		///      scale (see UpscaleRenderScale) when it's false. Independent of
-		///      dlssRayReconstructionEnabled_, which only chooses which of the
-		///      two paths consumes this mode.
-		/// [JP] 有効なアップスケール経路が使う共有の画質/性能モード -
-		///      dlssRayReconstructionEnabled_ が true なら DLSS Ray
-		///      Reconstruction(実行される毎フレーム slDLSSDSetOptions に適用、
-		///      DlssManager::EvaluateRayReconstruction 参照)、false なら TAAU の
-		///      レンダースケール(UpscaleRenderScale 参照)に使われる。
-		///      dlssRayReconstructionEnabled_ とは独立 - どちらの経路がこの
-		///      モードを消費するかを切り替えるだけ。
-		UpscaleMode upscaleMode_ = UpscaleMode::Balanced;
-
 		/// [EN] Each field is loaded/saved independently via TryField - a
 		///      missing or unparsable field (older save, schema change) only
 		///      falls back to that field's default; every other field still
@@ -123,8 +89,6 @@ namespace SeedCore
 		template<class Archive>
 		void Serialize(Archive& archive)
 		{
-			Int32 upscaleModeValue = static_cast<Int32>(upscaleMode_);
-
 			archive.TryField("shadowEnabled", shadowEnabled_);
 			archive.TryField("shadow", shadow_);
 			archive.TryField("ambientOcclusionEnabled", ambientOcclusionEnabled_);
@@ -149,10 +113,6 @@ namespace SeedCore
 			archive.TryField("volumetricStar", volumetricStar_);
 			archive.TryField("refractionEnabled", refractionEnabled_);
 			archive.TryField("refraction", refraction_);
-			archive.TryField("dlssRayReconstructionEnabled", dlssRayReconstructionEnabled_);
-			archive.TryField("upscaleMode", upscaleModeValue);
-
-			upscaleMode_ = static_cast<UpscaleMode>(upscaleModeValue);
 		}
 	};
 

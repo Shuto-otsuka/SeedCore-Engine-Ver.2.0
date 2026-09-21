@@ -1,5 +1,7 @@
 #include <FoundationEngine/Prelude.h>
 #include <FoundationEngine/ECS/ReflectionRegistry.h>
+#include <AudioEngine/Audio/AudioListener.h>
+#include <AudioEngine/Audio/AudioSource.h>
 #include <FoundationEngine/ECS/Component/Lifetime.h>
 #include <FoundationEngine/ECS/Component/Name.h>
 #include <FoundationEngine/ECS/Component/Position.h>
@@ -41,6 +43,8 @@
 #include <PhysicsEngine/Rigidbody/Rigidbody.h>
 #include <PhysicsEngine/Softbody/Softbody.h>
 
+extern "C" int _force_reflection_AudioListener = 0;
+extern "C" int _force_reflection_AudioSource = 0;
 extern "C" int _force_reflection_Lifetime = 0;
 extern "C" int _force_reflection_Name = 0;
 extern "C" int _force_reflection_Position = 0;
@@ -107,6 +111,88 @@ namespace SeedCore
 {
 	 namespace ScReflection
 	 {
+		// ---- AudioEngine/Audio/AudioListener.h ----
+		struct Register_AudioListener
+		{
+			Register_AudioListener()
+			{
+				ReflectionRegistry::Register(String("AudioListener"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
+					AudioListener& obj = *static_cast<AudioListener*>(ptr);
+					{
+						FieldInfo fi;
+						fi.name_ = String("ドップラー倍率");
+						fi.offset_ = offsetof(AudioListener, dopplerMultiplier_);
+						fi.type_ = AttributeType::Float;
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 10.0f;
+						outInfo.push_back(std::move(fi));
+					}
+				});
+			}
+		};
+		static Register_AudioListener global_AudioListener_register;
+
+		// ---- AudioEngine/Audio/AudioSource.h ----
+		struct Register_AudioSource
+		{
+			Register_AudioSource()
+			{
+				ReflectionRegistry::Register(String("AudioSource"), [](void* ptr, DynamicArray<FieldInfo>& outInfo) {
+					AudioSource& obj = *static_cast<AudioSource*>(ptr);
+					{
+						FieldInfo fi;
+						fi.name_ = String("cueName_");
+						fi.offset_ = offsetof(AudioSource, cueName_);
+						fi.type_ = AttributeType::String;
+						fi.editorVisible_ = false;
+						outInfo.push_back(std::move(fi));
+					}
+					outInfo.push_back({ String("自動再生"), offsetof(AudioSource, autoPlay_), AttributeType::Bool });
+					outInfo.push_back({ String("ループ再生"), offsetof(AudioSource, loop_), AttributeType::Bool });
+					{
+						FieldInfo fi;
+						fi.name_ = String("音量");
+						fi.offset_ = offsetof(AudioSource, volume_);
+						fi.type_ = AttributeType::Float;
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 5.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("ピッチ(半音)");
+						fi.offset_ = offsetof(AudioSource, pitch_);
+						fi.type_ = AttributeType::Float;
+						fi.clampMin_ = -12.0f;
+						fi.clampMax_ = 12.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					outInfo.push_back({ String("立体音響"), offsetof(AudioSource, spatial_), AttributeType::Bool });
+					{
+						FieldInfo fi;
+						fi.name_ = String("減衰開始距離");
+						fi.offset_ = offsetof(AudioSource, minDistance_);
+						fi.type_ = AttributeType::Float;
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<AudioSource*>(p); return o.spatial_; };
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 10000.0f;
+						outInfo.push_back(std::move(fi));
+					}
+					{
+						FieldInfo fi;
+						fi.name_ = String("減衰終了距離");
+						fi.offset_ = offsetof(AudioSource, maxDistance_);
+						fi.type_ = AttributeType::Float;
+						fi.enableIf_ = [](void* p) -> Bool { auto& o = *static_cast<AudioSource*>(p); return o.spatial_; };
+						fi.clampMin_ = 0.0f;
+						fi.clampMax_ = 10000.0f;
+						outInfo.push_back(std::move(fi));
+					}
+				});
+			}
+		};
+		static Register_AudioSource global_AudioSource_register;
+
 		// ---- FoundationEngine/ECS/Component/Lifetime.h ----
 		struct Register_Lifetime
 		{
@@ -2616,8 +2702,8 @@ namespace SeedCore
 						fi.name_ = String("半径");
 						fi.offset_ = offsetof(CircleCollider, radius_);
 						fi.type_ = AttributeType::Float;
-						fi.clampMin_ = 0.001f;
-						fi.clampMax_ = 100.0f;
+						fi.clampMin_ = 1.0f;
+						fi.clampMax_ = 10000.0f;
 						outInfo.push_back(std::move(fi));
 					}
 					outInfo.push_back({ String("中心オフセット"), offsetof(CircleCollider, center_), AttributeType::Vector2 });

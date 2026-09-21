@@ -12,6 +12,9 @@ namespace SeedCore
 		Framework(Engine& engine, const Bootstrap& boot);
 		~Framework();
 
-		Int Run(Engine& engine);
+		Int Run();
+
+	private:
+		Engine* engine_ = nullptr;
 	};
 }

@@ -46,7 +46,7 @@ namespace SeedCore
 		* このハンドルが（デフォルト構築ではなく）Generate() によって
 		* 発行されたものかどうかを返す。
 		*/
-		Bool IsValid()const;
+		Bool Valid()const;
 
 	public:
 		/// [EN] Equality compares the underlying id_ only.
@@ -120,7 +120,7 @@ namespace SeedCore
 		* [JP]
 		* 現在呼び出し可能オブジェクトがバインドされているかを返す。
 		*/
-		Bool IsBound()const
+		Bool Bound()const
 		{
 			return static_cast<Bool>(function_);
 		}
@@ -254,7 +254,7 @@ namespace SeedCore
 		* [JP]
 		* 現在少なくとも1つのリスナーがバインドされているかを返す。
 		*/
-		Bool IsBound()const
+		Bool Bound()const
 		{
 			return !listeners_.empty();
 		}

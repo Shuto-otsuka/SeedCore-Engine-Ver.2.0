@@ -14,7 +14,7 @@ MovieMSOutput main(uint vertex_id : SV_VertexID, uint instance_id : SV_InstanceI
 	bool is_visible = false;
 	if (instance.selected_ != 0 && instance.size_.x > 0.0 && instance.size_.y > 0.0)
 	{
-		is_visible = IsVisibleInScreen(instance.position_, instance.size_, scene_constant.screen_size_);
+		is_visible = IsVisibleInScreen(instance.position_, instance.size_ * instance.scale_, scene_constant.display_size_);
 	}
 	if (!is_visible)
 	{

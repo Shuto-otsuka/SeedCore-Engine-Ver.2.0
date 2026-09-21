@@ -184,10 +184,13 @@ namespace SeedCore
 		canvasConstantIndices_.volumetricLightIndex_ = index;
 	}
 
-	void ConstantIndicesSystem::SetColliderIndex(Uint index)
+	void ConstantIndicesSystem::SetEditorColliderIndex(Uint index)
 	{
 		editorConstantIndices_.colliderIndex_ = index;
-		gameConstantIndices_.colliderIndex_ = index;
+	}
+
+	void ConstantIndicesSystem::SetCanvasColliderIndex(Uint index)
+	{
 		canvasConstantIndices_.colliderIndex_ = index;
 	}
 

@@ -2,7 +2,7 @@
 
 namespace SeedCore
 {
-	Bool GraphicsQuality::IsEffectEnabledInFamily(GraphicsEffect effect, GraphicsEffectFamily family, const RaytracingContext& raytracing, const ScreenSpaceContext& screenSpace, const RasterizationContext& rasterization)
+	Bool GraphicsQuality::EffectEnabledInFamily(GraphicsEffect effect, GraphicsEffectFamily family, const RaytracingContext& raytracing, const ScreenSpaceContext& screenSpace, const RasterizationContext& rasterization)
 	{
 		switch (family)
 		{
@@ -52,7 +52,7 @@ namespace SeedCore
 		return false;
 	}
 
-	Bool GraphicsQuality::IsEffectClaimedOutside(GraphicsEffect effect, GraphicsEffectFamily family, const RaytracingContext& raytracing, const ScreenSpaceContext& screenSpace, const RasterizationContext& rasterization)
+	Bool GraphicsQuality::EffectClaimedOutside(GraphicsEffect effect, GraphicsEffectFamily family, const RaytracingContext& raytracing, const ScreenSpaceContext& screenSpace, const RasterizationContext& rasterization)
 	{
 		const GraphicsEffectFamily families[] = { GraphicsEffectFamily::Raytracing, GraphicsEffectFamily::ScreenSpace, GraphicsEffectFamily::Rasterization };
 
@@ -63,7 +63,7 @@ namespace SeedCore
 				continue;
 			}
 
-			if (IsEffectEnabledInFamily(effect, other, raytracing, screenSpace, rasterization))
+			if (EffectEnabledInFamily(effect, other, raytracing, screenSpace, rasterization))
 			{
 				return true;
 			}
@@ -72,14 +72,14 @@ namespace SeedCore
 		return false;
 	}
 
-	Bool GraphicsQuality::IsEnableCheckboxInteractive(GraphicsEffect effect, GraphicsEffectFamily family, GraphicsQualityPreset preset, const RaytracingContext& raytracing, const ScreenSpaceContext& screenSpace, const RasterizationContext& rasterization)
+	Bool GraphicsQuality::EnableCheckboxInteractive(GraphicsEffect effect, GraphicsEffectFamily family, GraphicsQualityPreset preset, const RaytracingContext& raytracing, const ScreenSpaceContext& screenSpace, const RasterizationContext& rasterization)
 	{
 		if (preset != GraphicsQualityPreset::Custom)
 		{
 			return false;
 		}
 
-		return !IsEffectClaimedOutside(effect, family, raytracing, screenSpace, rasterization);
+		return !EffectClaimedOutside(effect, family, raytracing, screenSpace, rasterization);
 	}
 
 	void GraphicsQuality::ApplyPreset(GraphicsQualityPreset preset, RaytracingContext& raytracing, ScreenSpaceContext& screenSpace, RasterizationContext& rasterization)

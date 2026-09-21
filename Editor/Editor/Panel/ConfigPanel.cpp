@@ -4,7 +4,15 @@
 #include <Editor/Editor/ImGui/ImGuiTexture.h>
 #include <FoundationEngine/Input/InputSystem.h>
 #include <FoundationEngine/Resource/Gateway.h>
+#include <FoundationEngine/File/FileDialog.h>
+#include <FoundationEngine/Resource/ResourceCache.h>
+#include <FoundationEngine/Log/Warning.h>
+#include <AudioEngine/CRI/CriManager.h>
 #include <GraphicsEngine/DLSS/DlssManager.h>
+#include <GraphicsEngine/Graphics.h>
+#include <GraphicsEngine/D3D12/Descriptor/DescriptorHeap.h>
+#include <GraphicsEngine/D3D12/Context/D3D12CommandQueue.h>
+#include <GraphicsEngine/Texture/TextureLoader.h>
 
 namespace SeedCore
 {
@@ -174,21 +182,25 @@ namespace SeedCore
 	ConfigPanel::ConfigPanel(EditorContext& context, ImGuiTexture& imguiTexture) : context_(context), imguiTexture_(imguiTexture)
 	{
 		initialScenePathBuffer_.resize(512);
+		executableNameBuffer_.resize(256);
 		newActionBuffer_.resize(128);
+
+		iconPreviewIndex_ = context_.graphicsContext_.imgui_->GetDescriptorHeap()->AllocateIndex();
 	}
 
 	void ConfigPanel::Open()
 	{
 		editorConfig_.Load();
 		gameConfig_.Load();
+		iconConfig_.Load();
 
 		/// [JP] gameConfig_ は GameConfig.scg(独立した設定ファイル)からの値で、
-		///      現在読み込まれているシーンの実際の DLSS/解像度設定
-		///      (context_.viewportContext_.raytracing_/context_.viewportContext_.outputResolution_)とは無関係に
+		///      エディタが実際に使っている DLSS/解像度設定
+		///      (context_.viewportContext_.upscale_/context_.viewportContext_.outputResolution_)とは
 		///      ずれ得る。パネルを開く時点の実際の値で上書きし、表示を
 		///      現在の状態と一致させる。
-		gameConfig_.useDlss_ = context_.viewportContext_.raytracing_.dlssRayReconstructionEnabled_;
-		gameConfig_.upscaleMode_ = context_.viewportContext_.raytracing_.upscaleMode_;
+		gameConfig_.useDlss_ = context_.viewportContext_.upscale_.dlssRayReconstructionEnabled_;
+		gameConfig_.upscaleMode_ = context_.viewportContext_.upscale_.upscaleMode_;
 		gameConfig_.resolution_ = context_.viewportContext_.outputResolution_;
 		gameConfig_.useFrameGeneration_ = context_.viewportContext_.frameGeneration_.enabled_;
 		gameConfig_.vsync_ = context_.viewportContext_.vsync_;
@@ -197,7 +209,13 @@ namespace SeedCore
 
 		std::ranges::fill(initialScenePathBuffer_, '\0');
 		std::string initialScenePath = gameConfig_.initialScenePath_.str();
-		std::ranges::copy(initialScenePath, initialScenePathBuffer_.begin());
+		std::ranges::copy(initialScenePath.substr(0, initialScenePathBuffer_.size() - 1), initialScenePathBuffer_.begin());
+
+		std::ranges::fill(executableNameBuffer_, '\0');
+		std::string executableName = gameConfig_.executableName_.str();
+		std::ranges::copy(executableName.substr(0, executableNameBuffer_.size() - 1), executableNameBuffer_.begin());
+
+		iconPreviewDirty_ = true;
 
 		show_ = true;
 	}
@@ -315,7 +333,7 @@ namespace SeedCore
 		if (ImGui::Checkbox("DLSSを使用する", &gameConfig_.useDlss_))
 		{
 			changed = true;
-			context_.viewportContext_.raytracing_.dlssRayReconstructionEnabled_ = gameConfig_.useDlss_;
+			context_.viewportContext_.upscale_.dlssRayReconstructionEnabled_ = gameConfig_.useDlss_;
 			context_.viewportContext_.resizeRequested_ = true;
 		}
 
@@ -326,7 +344,7 @@ namespace SeedCore
 		{
 			gameConfig_.upscaleMode_ = static_cast<UpscaleMode>(upscaleModeIndex);
 			changed = true;
-			context_.viewportContext_.raytracing_.upscaleMode_ = gameConfig_.upscaleMode_;
+			context_.viewportContext_.upscale_.upscaleMode_ = gameConfig_.upscaleMode_;
 			context_.viewportContext_.resizeRequested_ = true;
 		}
 
@@ -368,11 +386,218 @@ namespace SeedCore
 		ImGui::TextDisabled("起動シーン");
 		ImGui::Spacing();
 
-		if (ImGui::InputText("初回シーン", initialScenePathBuffer_.data(), initialScenePathBuffer_.capacity()))
+		Float folderIconSize = ImGui::GetFontSize();
+		Float folderButtonWidth = folderIconSize + ImGui::GetStyle().FramePadding.x * 2.0f;
+
+		ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - folderButtonWidth - ImGui::GetStyle().ItemSpacing.x);
+		if (ImGui::InputText("##InitialScene", initialScenePathBuffer_.data(), initialScenePathBuffer_.size()))
 		{
 			gameConfig_.initialScenePath_ = String(std::string(initialScenePathBuffer_.c_str()));
 			changed = true;
 		}
+
+		ImGui::SameLine();
+
+		if (ImGui::ImageButton("##InitialSceneBrowse", imguiTexture_.Icon(IconType::FolderNoItem), ImVec2(folderIconSize, folderIconSize)))
+		{
+			std::filesystem::path projectRoot = context_.worldContext_.resource_->ProjectRootPath();
+			std::filesystem::path sceneDirectory = projectRoot / "UserProject" / "Assets" / "Scene";
+
+			std::filesystem::path pickedScenePath;
+			if (FileDialog::OpenFile(pickedScenePath, std::filesystem::exists(sceneDirectory) ? sceneDirectory : projectRoot, L"Scene Files (*.scene)", L"*.scene"))
+			{
+				std::error_code relativeError;
+				std::filesystem::path relativePath = std::filesystem::relative(pickedScenePath, projectRoot, relativeError);
+
+				std::string scenePath;
+				if (!relativeError && !relativePath.empty() && relativePath.begin()->string() != "..")
+				{
+					scenePath = relativePath.generic_string();
+				}
+				else
+				{
+					scenePath = pickedScenePath.generic_string();
+					SC_LOG_WARNING("プロジェクト外のシーンが選ばれました。Runtime書き出しには含まれません: {}", scenePath);
+				}
+
+				gameConfig_.initialScenePath_ = String(scenePath);
+				std::ranges::fill(initialScenePathBuffer_, '\0');
+				std::ranges::copy(scenePath.substr(0, initialScenePathBuffer_.size() - 1), initialScenePathBuffer_.begin());
+				changed = true;
+			}
+		}
+
+		ImGui::SetItemTooltip("シーンファイルを選択");
+
+		ImGui::Spacing();
+		ImGui::Separator();
+		ImGui::Spacing();
+
+		ImGui::TextDisabled("スプラッシュ");
+		ImGui::Spacing();
+
+		changed |= ImGui::Checkbox("警告画面を表示する", &gameConfig_.showSplashWarning_);
+		changed |= ImGui::Checkbox("フィクション表記を表示する", &gameConfig_.showSplashFiction_);
+
+		ImGui::TextDisabled("(Runtime起動時のみ。エディターでは表示しません)");
+
+		ImGui::Spacing();
+		ImGui::Separator();
+		ImGui::Spacing();
+
+		ImGui::TextDisabled("実行ファイル");
+		ImGui::Spacing();
+
+		if (ImGui::InputText("実行ファイル名", executableNameBuffer_.data(), executableNameBuffer_.size()))
+		{
+			gameConfig_.executableName_ = String(std::string(executableNameBuffer_.c_str()));
+			changed = true;
+		}
+
+		ImGui::TextDisabled("Runtime書き出し時、プレイヤーが起動する Launcher.exe をこの名前にします（.exe は不要）。\n空欄なら Launcher.exe のままです。ファイル名に使えない文字は書き出し時に取り除きます。");
+
+		return changed;
+	}
+
+	Bool ConfigPanel::DrawAudioBindingTab()
+	{
+		Bool changed = false;
+
+		ImGui::TextDisabled("ACF");
+		ImGui::Spacing();
+
+		std::string acfPath = editorConfig_.acfPath_.str();
+		ImGui::TextWrapped("%s", acfPath.empty() ? "(なし)" : acfPath.c_str());
+
+		ImGui::Spacing();
+
+		if (ImGui::Button("選択..."))
+		{
+			std::filesystem::path pickedAcfPath;
+			std::filesystem::path acfInitialDir = acfPath.empty() ? std::filesystem::current_path() : std::filesystem::path(acfPath).parent_path();
+			if (FileDialog::OpenFile(pickedAcfPath, acfInitialDir, L"ACF Files (*.acf)", L"*.acf"))
+			{
+				editorConfig_.acfPath_ = String(pickedAcfPath.generic_string());
+				changed = true;
+			}
+		}
+
+		ImGui::SameLine();
+
+		if (ImGui::Button("解除") && !acfPath.empty())
+		{
+			editorConfig_.acfPath_ = String();
+			changed = true;
+		}
+
+		ImGui::Spacing();
+		ImGui::TextDisabled("エディター起動時に読み込み、AudioBindings.scg へ焼き込みます。\nランタイムは焼き込まれた内容だけを読むため、.acf の同梱は不要です。\n変更はエディターの再起動後に反映されます。");
+
+		ImGui::Spacing();
+		ImGui::Separator();
+		ImGui::Spacing();
+
+		ImGui::TextDisabled("マスター音量");
+		ImGui::Spacing();
+
+		CriManager& criManager = Gateway::GetCriManager();
+		Float defaultMasterVolume = criManager.DefaultMasterVolume();
+		if (ImGui::SliderFloat("既定値", &defaultMasterVolume, 0.0f, 1.0f, "%.2f"))
+		{
+			criManager.DefaultMasterVolume(defaultMasterVolume);
+			criManager.MasterVolume(defaultMasterVolume);
+		}
+
+		if (ImGui::IsItemDeactivatedAfterEdit())
+		{
+			criManager.Save();
+		}
+
+		ImGui::Spacing();
+		ImGui::TextDisabled("ゲーム出荷時の初期値です。MixerSystem::ResetVolume() でこの値に戻ります。\nカテゴリ（BGM / SE / Voice）の既定値は Atom Craft のカテゴリ設定で決まります。");
+
+		return changed;
+	}
+
+	Bool ConfigPanel::DrawIconConfigTab()
+	{
+		Bool changed = false;
+
+		DescriptorHeap* imguiHeap = context_.graphicsContext_.imgui_->GetDescriptorHeap();
+
+		if (iconPreviewDirty_)
+		{
+			iconPreviewDirty_ = false;
+
+			DynamicArray<Byte> previewData = iconConfig_.icon_;
+			if (previewData.empty())
+			{
+				std::ifstream stream("../Runtime/Logo/SeedCore.ico", std::ios::binary);
+				previewData.assign(std::istreambuf_iterator<Char>(stream), std::istreambuf_iterator<Char>());
+			}
+
+			Graphics* graphics = context_.graphicsContext_.graphics_;
+			graphics->WaitForGpuIdle();
+			iconPreviewResource_.Reset();
+			TextureLoader::CreateTextureMemory(graphics->GetContext()->GetDevice(), graphics->GetContext()->GetDirectQueue(), imguiHeap->Get(), previewData, iconPreviewResource_, iconPreviewIndex_);
+		}
+
+		ImGui::TextDisabled("実行ファイルのアイコン");
+		ImGui::Spacing();
+
+		if (iconPreviewResource_)
+		{
+			ImTextureID previewTexture = static_cast<ImTextureID>(imguiHeap->GPUHandle(iconPreviewIndex_).ptr);
+			ImGui::Image(previewTexture, ImVec2(128.0f, 128.0f));
+			ImGui::SameLine();
+			ImGui::BeginGroup();
+			ImGui::Image(previewTexture, ImVec2(48.0f, 48.0f));
+			ImGui::Image(previewTexture, ImVec2(32.0f, 32.0f));
+			ImGui::Image(previewTexture, ImVec2(16.0f, 16.0f));
+			ImGui::EndGroup();
+		}
+		else
+		{
+			ImGui::TextDisabled("(プレビューを表示できません)");
+		}
+
+		ImGui::Spacing();
+
+		if (iconConfig_.icon_.empty())
+		{
+			ImGui::TextWrapped("デフォルト (Runtime/Logo/SeedCore.ico)");
+		}
+		else
+		{
+			ImGui::TextWrapped("カスタム (%zu KB)", iconConfig_.icon_.size() / 1024);
+		}
+
+		ImGui::Spacing();
+
+		if (ImGui::Button("画像を選択..."))
+		{
+			std::filesystem::path pickedImagePath;
+			if (FileDialog::OpenFile(pickedImagePath, std::filesystem::current_path(), L"Image Files (*.png;*.jpg;*.jpeg;*.bmp;*.ico)", L"*.png;*.jpg;*.jpeg;*.bmp;*.ico"))
+			{
+				if (iconConfig_.Import(pickedImagePath))
+				{
+					iconPreviewDirty_ = true;
+					changed = true;
+				}
+			}
+		}
+
+		ImGui::SameLine();
+
+		if (ImGui::Button("デフォルトに戻す") && !iconConfig_.icon_.empty())
+		{
+			iconConfig_.icon_.clear();
+			iconPreviewDirty_ = true;
+			changed = true;
+		}
+
+		ImGui::Spacing();
+		ImGui::TextDisabled("Runtime書き出し時に、プレイヤーが起動する実行ファイル（ゲーム設定の実行ファイル名）と Runtime.exe へ埋め込みます。\n画像は 16〜256px の各サイズの .ico に変換して IconBindings.scg に保存します。\n正方形でない画像は、透明な余白を足して正方形にします。");
 
 		return changed;
 	}
@@ -558,7 +783,7 @@ namespace SeedCore
 
 		ImVec2 center = ImGui::GetMainViewport()->GetCenter();
 		ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-		ImGui::SetNextWindowSize(ImVec2(560, 620), ImGuiCond_Appearing);
+		ImGui::SetNextWindowSize(ImVec2(960, 680), ImGuiCond_Appearing);
 
 		ImGuiWindowFlags flags =
 			ImGuiWindowFlags_NoCollapse |
@@ -566,34 +791,81 @@ namespace SeedCore
 
 		if (ImGui::Begin("エンジン/ゲーム構成設定", &show_, flags))
 		{
-			if (ImGui::BeginTabBar("##ConfigTabs"))
+			constexpr std::pair<ConfigCategory, const Char*> categories[] =
 			{
-				if (ImGui::BeginTabItem("エンジン設定"))
+				{ ConfigCategory::Editor, "エンジン設定" },
+				{ ConfigCategory::Game, "ゲーム設定" },
+				{ ConfigCategory::Audio, "オーディオ設定" },
+				{ ConfigCategory::Icon, "アイコン設定" },
+				{ ConfigCategory::Input, "入力設定" },
+			};
+
+			const Char* selectedLabel = "";
+
+			ImGui::BeginChild("##ConfigCategories", ImVec2(200.0f, 0.0f), ImGuiChildFlags_Borders);
+			for (const std::pair<ConfigCategory, const Char*>& category : categories)
+			{
+				if (ImGui::Selectable(category.second, selectedCategory_ == category.first))
 				{
-					if (DrawEditorConfigTab())
-					{
-						editorConfig_.Save();
-					}
-					ImGui::EndTabItem();
+					selectedCategory_ = category.first;
 				}
 
-				if (ImGui::BeginTabItem("ゲーム設定"))
+				if (selectedCategory_ == category.first)
 				{
-					if (DrawGameConfigTab())
-					{
-						gameConfig_.Save();
-					}
-					ImGui::EndTabItem();
+					selectedLabel = category.second;
 				}
-
-				if (ImGui::BeginTabItem("入力設定"))
-				{
-					DrawInputBindingTab();
-					ImGui::EndTabItem();
-				}
-
-				ImGui::EndTabBar();
 			}
+			ImGui::EndChild();
+
+			ImGui::SameLine();
+
+			ImGui::BeginChild("##ConfigDetails", ImVec2(0.0f, 0.0f), ImGuiChildFlags_Borders);
+			ImGui::TextUnformatted(selectedLabel);
+			ImGui::Separator();
+			ImGui::Spacing();
+
+			switch (selectedCategory_)
+			{
+			case ConfigCategory::Editor:
+			{
+				if (DrawEditorConfigTab())
+				{
+					editorConfig_.Save();
+				}
+			}
+			break;
+			case ConfigCategory::Game:
+			{
+				if (DrawGameConfigTab())
+				{
+					gameConfig_.Save();
+				}
+			}
+			break;
+			case ConfigCategory::Audio:
+			{
+				if (DrawAudioBindingTab())
+				{
+					editorConfig_.Save();
+				}
+			}
+			break;
+			case ConfigCategory::Icon:
+			{
+				if (DrawIconConfigTab())
+				{
+					iconConfig_.Save();
+				}
+			}
+			break;
+			case ConfigCategory::Input:
+			{
+				DrawInputBindingTab();
+			}
+			break;
+			}
+
+			ImGui::EndChild();
 		}
 		ImGui::End();
 	}

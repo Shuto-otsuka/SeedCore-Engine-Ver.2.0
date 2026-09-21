@@ -26,7 +26,9 @@ namespace SeedCore
 		void EvictBudget(BindlessHeap* heap, Uint64 currentFrame);
 
 	public:
-		static void CreateTexture(in ID3D12Device* device, in D3D12CommandQueue* cmdQueue, in ID3D12DescriptorHeap* heap, in String filePath, inout Microsoft::WRL::ComPtr<ID3D12Resource>& resource, in Uint textureIndex);
+		static void CreateTexturePath(in ID3D12Device* device, in D3D12CommandQueue* cmdQueue, in ID3D12DescriptorHeap* heap, in String filePath, inout Microsoft::WRL::ComPtr<ID3D12Resource>& resource, in Uint textureIndex);
+
+		static void CreateTextureMemory(in ID3D12Device* device, in D3D12CommandQueue* cmdQueue, in ID3D12DescriptorHeap* heap, in const DynamicArray<Byte>& data, inout Microsoft::WRL::ComPtr<ID3D12Resource>& resource, in Uint textureIndex);
 
 	private:
 		StablePool<Texture> pool_;

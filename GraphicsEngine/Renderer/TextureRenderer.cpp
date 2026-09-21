@@ -36,14 +36,14 @@ namespace SeedCore
 		shaderResourceIndicesSystem.SetTextureBillboardIndex(billboardBuffer_->Index());
 	}
 
-	void TextureRenderer::Gather(LoaderSystem& loader, TextureResource& resource, World& world, Vector2 nativeScreenSize, Entity selectedEntity)
+	void TextureRenderer::Gather(LoaderSystem& loader, TextureResource& resource, World& world, Vector2 nativeScreenSize, std::span<const Entity> selectedEntities)
 	{
 		spriteInstances_.clear();
 		billboardInstances_.clear();
 		hasSelectedSpriteInstance_ = false;
 		hasSelectedBillboardInstance_ = false;
 
-		Float spriteReferenceScale = (ScResolution::SC_HD.Height > 0.0f) ? (nativeScreenSize.y / ScResolution::SC_HD.Height) : 1.0f;
+		Float spriteReferenceScale = (ScResolution::SC_CANVAS.Height > 0.0f) ? (nativeScreenSize.y / ScResolution::SC_CANVAS.Height) : 1.0f;
 
 		/// [EN] Cached once so each Image actor's Bounds can be synced to its texture rect below (mirrors ModelRenderer's Mesh -> Bounds sync), giving 2D elements a viewport-pickable box.
 		/// [JP] 各 Image アクターの Bounds を下でテクスチャ矩形に同期できるよう一度だけキャッシュする(ModelRenderer の Mesh -> Bounds 同期と同じ)。これで 2D 要素にビューポートでピック可能なボックスが付く。
@@ -111,7 +111,7 @@ namespace SeedCore
 					}
 				}
 
-				Uint selected = (selectedEntity.Exists() && actor.GetEntity() == selectedEntity) ? 1 : 0;
+				Uint selected = std::ranges::find(selectedEntities, actor.GetEntity()) != selectedEntities.end() ? 1 : 0;
 				Uint motionType = static_cast<Uint>(image.motionType_);
 
 				if (image.viewType_ == Image::ViewType::Sprite)
@@ -125,7 +125,7 @@ namespace SeedCore
 					TextureSpriteStructuredBuffer instance{};
 					instance.position_ = position * spriteReferenceScale;
 					instance.rotation_ = rotationAngle;
-					instance.scale_ = scale;
+					instance.scale_ = scale * spriteReferenceScale;
 					instance.textureSize_ = textureSize;
 					instance.texturePosition_ = Vector2(image.texturePosition_.x, image.texturePosition_.y);
 					instance.pivot_ = Vector2(image.pivot_.x, image.pivot_.y);
@@ -140,7 +140,7 @@ namespace SeedCore
 					hasSelectedBillboardInstance_ = hasSelectedBillboardInstance_ || selected != 0;
 
 					TextureBillboardStructuredBuffer canvasInstance{};
-					canvasInstance.position_ = Vector3(100000.0f + position.x, 100000.0f + (ScResolution::SC_HD.Height - position.y), 100000.0f);
+					canvasInstance.position_ = Vector3(100000.0f + position.x, 100000.0f + (ScResolution::SC_CANVAS.Height - position.y), 100000.0f);
 					canvasInstance.rotation_ = Vector3(0.0f, 0.0f, rotationAngle);
 					canvasInstance.scale_ = Vector2(scale.x * textureSize.x, scale.y * textureSize.y);
 					canvasInstance.textureSize_ = textureSize;

@@ -79,9 +79,9 @@ namespace SeedCore
 	* [JP]
 	* 入力の問い合わせが現在有効かどうかを返す（SetInputEnabled() 参照）。
 	*/
-	Bool InputSystem::IsInputEnabled()
+	Bool InputSystem::InputEnabled()
 	{
-		return Input::IsInputEnabled();
+		return Input::InputEnabled();
 	}
 
 	/**
@@ -237,9 +237,9 @@ namespace SeedCore
 	* [JP]
 	* マウスキャプチャが現在アクティブかどうかを返す。
 	*/
-	Bool InputSystem::IsMouseCaptured()
+	Bool InputSystem::MouseCaptured()
 	{
-		return Input::IsMouseCaptured();
+		return Input::MouseCaptured();
 	}
 
 	/**

@@ -17,7 +17,7 @@ namespace SeedCore
 
 	void MenuBarPanel::Draw()
 	{
-		const Bool isPlaying = context_.worldContext_.gameTimer_->IsPlaying();
+		const Bool isPlaying = context_.worldContext_.gameTimer_->Playing();
 
 		if (context_.sceneContext_.requestedSceneAssetID_ != 0)
 		{
@@ -134,7 +134,7 @@ namespace SeedCore
 				ImGui::EndMenu();
 			}
 
-			if (ImGui::BeginMenu("ウィンドウ"))
+			if (ImGui::BeginMenu("表示"))
 			{
 				if (ImGui::MenuItem("アニメーターコントローラー"))
 				{
@@ -156,14 +156,31 @@ namespace SeedCore
 				{
 					modelTransformRequested_ = true;
 				}
-				if (ImGui::MenuItem("アバター"))
-				{
-					avatarRequested_ = true;
-				}
 				ImGui::EndMenu();
 			}
 
 			graphicsMenuPanel_.Draw();
+
+			if (ImGui::BeginMenu("ツール"))
+			{
+				if (ImGui::MenuItem("アバター生成"))
+				{
+					avatarRequested_ = true;
+				}
+				if (ImGui::MenuItem("起動ローディング画面"))
+				{
+					bootScreenRequested_ = true;
+				}
+				if (ImGui::BeginMenu("CRI ADX2"))
+				{
+					if (ImGui::MenuItem("AtomCraft を開く"))
+					{
+						atomCraftRequested_ = true;
+					}
+					ImGui::EndMenu();
+				}
+				ImGui::EndMenu();
+			}
 
 			if (ImGui::BeginMenu("ヘルプ"))
 			{
@@ -329,6 +346,16 @@ namespace SeedCore
 		return false;
 	}
 
+	Bool MenuBarPanel::ConsumeAtomCraftRequest()
+	{
+		if (atomCraftRequested_)
+		{
+			atomCraftRequested_ = false;
+			return true;
+		}
+		return false;
+	}
+
 	Bool MenuBarPanel::ConsumeConfigRequest()
 	{
 		if (configRequested_)
@@ -409,6 +436,16 @@ namespace SeedCore
 		return false;
 	}
 
+	Bool MenuBarPanel::ConsumeBootScreenRequest()
+	{
+		if (bootScreenRequested_)
+		{
+			bootScreenRequested_ = false;
+			return true;
+		}
+		return false;
+	}
+
 	ViewMode MenuBarPanel::GetViewMode()const
 	{
 		return context_.viewportContext_.viewMode_;
@@ -466,9 +503,6 @@ namespace SeedCore
 			context_.viewportContext_.screenSpace_ = DeserializeScreenSpaceContext(screenSpaceSettingsJson);
 			context_.viewportContext_.rasterization_ = DeserializeRasterizationContext(rasterizationSettingsJson);
 			context_.viewportContext_.qualityPreset_ = GraphicsQualityPreset::Custom;
-			/// [JP] DLSS有効/モードはネイティブ解像度の再計算(Engine::MainLoop の
-			///      resizeRequested_ 分岐)を経て初めて反映されるため、ここで立てる。
-			context_.viewportContext_.resizeRequested_ = true;
 			context_.sceneContext_.currentScenePath_ = path;
 			context_.selectionContext_.selectedActor_ = Actor();
 			context_.selectionContext_.selectedActors_.clear();
@@ -489,9 +523,6 @@ namespace SeedCore
 			context_.viewportContext_.screenSpace_ = DeserializeScreenSpaceContext(screenSpaceSettingsJson);
 			context_.viewportContext_.rasterization_ = DeserializeRasterizationContext(rasterizationSettingsJson);
 			context_.viewportContext_.qualityPreset_ = GraphicsQualityPreset::Custom;
-			/// [JP] DLSS有効/モードはネイティブ解像度の再計算(Engine::MainLoop の
-			///      resizeRequested_ 分岐)を経て初めて反映されるため、ここで立てる。
-			context_.viewportContext_.resizeRequested_ = true;
 			context_.sceneContext_.currentScenePath_ = context_.worldContext_.resource_->GetAsset(assetID)->fullpath_.c_str();
 			context_.selectionContext_.selectedActor_ = Actor();
 			context_.selectionContext_.selectedActors_.clear();

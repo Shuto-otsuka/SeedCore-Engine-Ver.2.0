@@ -309,7 +309,7 @@ namespace SeedCore
 		return duration_;
 	}
 
-	Bool MovieDecoder::IsEndOfStream()const
+	Bool MovieDecoder::EndOfStream()const
 	{
 		return endOfStream_;
 	}

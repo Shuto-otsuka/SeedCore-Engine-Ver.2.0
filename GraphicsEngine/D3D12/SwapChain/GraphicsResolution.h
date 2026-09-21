@@ -17,6 +17,8 @@ namespace SeedCore
 		inline const ResSize SC_QHD{ 2560,1440 };
 		inline const ResSize SC_4KUHD{ 3840,2160 };
 		inline const ResSize SC_8KUHD{ 7680,4320 };
+
+		inline const ResSize SC_CANVAS{ 1920,1080 };
 	}
 
 	enum class ResolutionPreset : Int32

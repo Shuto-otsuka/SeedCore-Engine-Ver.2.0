@@ -192,6 +192,20 @@ namespace SeedCore
 
 	/**
 	* [EN]
+	* Returns this actor's Audio resource.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* この actor の Audio リソースを返す。
+	*/
+	Audio& Actor::GetAudio()const
+	{
+		return *world_->CreateAudio();
+	}
+
+	/**
+	* [EN]
 	* Reparents this actor under parent (or to the scene root if parent
 	* is invalid), updating both the old and new parent's children lists,
 	* and inheriting the new parent's active state.
@@ -525,7 +539,7 @@ namespace SeedCore
 		const DynamicArray<String>& names = TagRegistry::GetNames();
 		for (Size index = 0; index < names.size(); ++index)
 		{
-			if (!TagRegistry::IsRemoved(index) && tags.test(index))
+			if (!TagRegistry::Removed(index) && tags.test(index))
 			{
 				result.push_back(names[index]);
 			}

@@ -6,7 +6,7 @@ float2 OctNormalEncode(float3 n)
 	n /= (abs(n.x) + abs(n.y) + abs(n.z));
 	if (n.z < 0.0)
 	{
-		n.xy = (1.0 - abs(n.yx)) * (n.xy >= 0.0 ? 1.0 : -1.0);
+		n.xy = (1.0 - abs(n.yx)) * select(n.xy >= 0.0, 1.0, -1.0);
 	}
 	return n.xy * 0.5 + 0.5;
 }
@@ -17,7 +17,7 @@ float3 OctNormalDecode(float2 e)
 	float3 n = float3(e.xy, 1.0 - abs(e.x) - abs(e.y));
 	if (n.z < 0.0)
 	{
-		n.xy = (1.0 - abs(n.yx)) * (n.xy >= 0.0 ? 1.0 : -1.0);
+		n.xy = (1.0 - abs(n.yx)) * select(n.xy >= 0.0, 1.0, -1.0);
 	}
 	return normalize(n);
 }

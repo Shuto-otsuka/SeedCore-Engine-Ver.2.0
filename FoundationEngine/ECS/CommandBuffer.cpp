@@ -153,7 +153,7 @@ namespace SeedCore
 		for (const Command& command : commands_)
 		{
 			EntityID target = command.target_;
-			if (IsProvisional(target))
+			if (Provisional(target))
 			{
 				auto it = resolved_.find(target.index_);
 				target = (it != resolved_.end()) ? it->second : EntityID{};
@@ -170,7 +170,7 @@ namespace SeedCore
 			case Kind::SpawnPrefab:
 			{
 				EntityID parentID = command.parent_;
-				if (IsProvisional(parentID))
+				if (Provisional(parentID))
 				{
 					auto it = resolved_.find(parentID.index_);
 					parentID = (it != resolved_.end()) ? it->second : EntityID{};
@@ -283,7 +283,7 @@ namespace SeedCore
 	*/
 	EntityID CommandBuffer::Resolved(EntityID provisional)const
 	{
-		if (!IsProvisional(provisional))
+		if (!Provisional(provisional))
 		{
 			return EntityID{};
 		}
@@ -318,7 +318,7 @@ namespace SeedCore
 	* [JP]
 	* id が CommandBuffer が発行した暫定 ID かどうかを返す。
 	*/
-	Bool CommandBuffer::IsProvisional(EntityID id)
+	Bool CommandBuffer::Provisional(EntityID id)
 	{
 		return id.generation_ == ProvisionalGeneration;
 	}

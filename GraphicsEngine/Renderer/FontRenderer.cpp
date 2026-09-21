@@ -41,12 +41,12 @@ namespace SeedCore
 
 	}
 
-	void FontRenderer::Gather(LoaderSystem& loader, FontResource& fontResource, World& world, Vector2 nativeScreenSize, Entity selectedEntity)
+	void FontRenderer::Gather(LoaderSystem& loader, FontResource& fontResource, World& world, Vector2 nativeScreenSize, std::span<const Entity> selectedEntities)
 	{
 		spriteInstances_.clear();
 		billboardInstances_.clear();
 
-		Float spriteReferenceScale = (ScResolution::SC_HD.Height > 0.0f) ? (nativeScreenSize.y / ScResolution::SC_HD.Height) : 1.0f;
+		Float spriteReferenceScale = (ScResolution::SC_CANVAS.Height > 0.0f) ? (nativeScreenSize.y / ScResolution::SC_CANVAS.Height) : 1.0f;
 
 		/// [EN] Cached once so each sprite-view Text actor's Bounds can be synced to its measured text box below (mirrors TextureRenderer's Image -> Bounds sync), giving canvas text a pickable box in CanvasViewPanel.
 		/// [JP] 各スプライトビュー Text アクターの Bounds を下で計測したテキストボックスへ同期できるよう一度だけキャッシュする(TextureRenderer の Image -> Bounds 同期と同じ)。これでキャンバステキストが CanvasViewPanel でピック可能なボックスを持つ。
@@ -92,7 +92,7 @@ namespace SeedCore
 				Vector2 scale = Vector2(worldScale.x, worldScale.y);
 				Vector3 rotationEuler = worldRotation.ToEuler(); // (pitch, yaw, roll)
 
-				Uint selected = (selectedEntity.Exists() && actor.GetEntity() == selectedEntity) ? 1 : 0;
+				Uint selected = std::ranges::find(selectedEntities, actor.GetEntity()) != selectedEntities.end() ? 1 : 0;
 
 				Font* font = fontResource.Resolve(loader, fontResource.GetHandle(text.fontID_));
 				if (!font)
@@ -161,7 +161,7 @@ namespace SeedCore
 									textBoxMaxY = Max(textBoxMaxY, text.pivot_.y - glyphTop);
 
 									FontSpriteStructuredBuffer instance{};
-									instance.size_ = Vector2(glyphWidth * scale.x, glyphHeight * scale.y);
+									instance.size_ = Vector2(glyphWidth * scale.x * spriteReferenceScale, glyphHeight * scale.y * spriteReferenceScale);
 									instance.uvMin_ = uvMin;
 									instance.uvMax_ = uvMax;
 									instance.color_ = text.color_;
@@ -172,12 +172,12 @@ namespace SeedCore
 									instance.glowPower_ = text.glowPower_;
 									instance.unitRange_ = unitRange;
 
-									const Vector2 basePosition = Vector2(position.x * spriteReferenceScale - text.pivot_.x + glyphLeft * scale.x, position.y * spriteReferenceScale - text.pivot_.y + glyphTop * scale.y);
+									const Vector2 basePosition = Vector2((position.x + (glyphLeft - text.pivot_.x) * scale.x) * spriteReferenceScale, (position.y + (glyphTop - text.pivot_.y) * scale.y) * spriteReferenceScale);
 
 									if (text.shadowEnable_)
 									{
 										FontSpriteStructuredBuffer shadow = instance;
-										shadow.position_ = basePosition + Vector2(text.shadowOffset_.x * scale.x, text.shadowOffset_.y * scale.y);
+										shadow.position_ = basePosition + Vector2(text.shadowOffset_.x * scale.x * spriteReferenceScale, text.shadowOffset_.y * scale.y * spriteReferenceScale);
 										shadow.color_ = text.shadowColor_;
 										shadow.outlineColor_ = text.shadowColor_;
 										shadow.glowPower_ = 0.0f;
@@ -190,7 +190,7 @@ namespace SeedCore
 									spriteInstances_.push_back(instance);
 
 									FontBillboardStructuredBuffer canvasInstance{};
-									canvasInstance.position_ = Vector3(100000.0f + position.x, 100000.0f + (ScResolution::SC_HD.Height - position.y), 100000.0f);
+									canvasInstance.position_ = Vector3(100000.0f + position.x, 100000.0f + (ScResolution::SC_CANVAS.Height - position.y), 100000.0f);
 									canvasInstance.rotation_ = Vector3::Zero;
 									canvasInstance.localPosition_ = Vector2((glyphLeft - text.pivot_.x) * scale.x, (text.pivot_.y - glyphTop - glyphHeight) * scale.y);
 									canvasInstance.localSize_ = Vector2(glyphWidth * scale.x, glyphHeight * scale.y);

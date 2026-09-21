@@ -946,7 +946,9 @@ namespace SeedCore
 
 		void SetVolumetricLightRayConstantIndex(Uint index);
 
-		void SetColliderIndex(Uint index);
+		void SetEditorColliderIndex(Uint index);
+
+		void SetCanvasColliderIndex(Uint index);
 
 	private:
 		ConstantIndices editorConstantIndices_{};

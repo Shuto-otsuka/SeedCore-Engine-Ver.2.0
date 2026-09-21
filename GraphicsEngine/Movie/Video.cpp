@@ -52,7 +52,7 @@ namespace SeedCore
 			}
 		}
 
-		if (decoder_.IsEndOfStream())
+		if (decoder_.EndOfStream())
 		{
 			if (loop_)
 			{
@@ -228,12 +228,12 @@ namespace SeedCore
 		loop_ = loop;
 	}
 
-	Bool Video::IsLoop()const
+	Bool Video::Loop()const
 	{
 		return loop_;
 	}
 
-	Bool Video::IsPlaying()const
+	Bool Video::Playing()const
 	{
 		return playing_;
 	}

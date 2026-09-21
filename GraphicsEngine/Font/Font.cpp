@@ -113,7 +113,7 @@ namespace SeedCore
 		return atlas_.atlasGenerator().atlasStorage();
 	}
 
-	Bool Font::IsAtlasDirty()const
+	Bool Font::AtlasDirty()const
 	{
 		return atlasDirty_;
 	}

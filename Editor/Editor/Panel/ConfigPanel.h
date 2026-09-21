@@ -1,6 +1,8 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
-#include <Editor/Editor/Build/Config.h>
+#include <FoundationEngine/Resource/GameConfig.h>
+#include <FoundationEngine/Resource/EditorConfig.h>
+#include <FoundationEngine/Resource/IconConfig.h>
 
 namespace SeedCore
 {
@@ -22,7 +24,21 @@ namespace SeedCore
 
 		Bool DrawGameConfigTab();
 
+		Bool DrawAudioBindingTab();
+
+		Bool DrawIconConfigTab();
+
 		void DrawInputBindingTab();
+
+	private:
+		enum class ConfigCategory
+		{
+			Editor,
+			Game,
+			Audio,
+			Icon,
+			Input,
+		};
 
 	private:
 		EditorContext& context_;
@@ -31,12 +47,24 @@ namespace SeedCore
 
 		Bool show_ = false;
 
+		ConfigCategory selectedCategory_ = ConfigCategory::Editor;
+
 		EditorConfig editorConfig_;
 
 		GameConfig gameConfig_;
 
+		IconConfig iconConfig_;
+
 		std::string initialScenePathBuffer_;
 
+		std::string executableNameBuffer_;
+
 		std::string newActionBuffer_;
+
+		Microsoft::WRL::ComPtr<ID3D12Resource> iconPreviewResource_;
+
+		Uint iconPreviewIndex_ = 0;
+
+		Bool iconPreviewDirty_ = true;
 	};
 }

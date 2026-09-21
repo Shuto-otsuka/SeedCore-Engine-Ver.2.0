@@ -21,7 +21,8 @@ namespace SeedCore
 	* conflict - flushes the recorded structural changes, runs the
 	* built-in TransformSystem (all before Tick/LateTick so this frame's
 	* motion and any newly spawned actor's position are in this frame's
-	* world matrix), then drives Tick/LateTick (if isPlaying).
+	* world matrix), then drives Tick/LateTick (if isPlaying). Inactive
+	* actors receive none of Awake/Start/Tick/LateTick.
 	*
 	* ---------------------------------------------------------------------
 	*
@@ -33,7 +34,8 @@ namespace SeedCore
 	* 記録された構造変更を flush し、組み込みの TransformSystem を実行し
 	* （すべて Tick/LateTick より前 — 今フレームの移動や新しく生成された
 	* actor の位置が同じフレームのワールド行列に入るように）、
-	* （isPlaying であれば）Tick/LateTick を駆動する。
+	* （isPlaying であれば）Tick/LateTick を駆動する。非アクティブな
+	* actor には Awake/Start/Tick/LateTick のどれも送らない。
 	*/
 	void SystemScheduler::Run(World& world, ResourceCache& cache, JobExecutor& executor, Float elapsedTime, Bool isPlaying)
 	{
@@ -41,6 +43,11 @@ namespace SeedCore
 		{
 			for (Actor actor : world.GetActors())
 			{
+				if (!actor.GetActive())
+				{
+					continue;
+				}
+
 				Entity entity = actor.GetEntity();
 				EntityID entityID = entity.GetID();
 
@@ -66,6 +73,11 @@ namespace SeedCore
 
 			for (Actor actor : world.GetActors())
 			{
+				if (!actor.GetActive())
+				{
+					continue;
+				}
+
 				Entity entity = actor.GetEntity();
 				EntityID entityID = entity.GetID();
 
@@ -135,6 +147,11 @@ namespace SeedCore
 		{
 			for (Actor actor : world.GetActors())
 			{
+				if (!actor.GetActive())
+				{
+					continue;
+				}
+
 				Entity entity = actor.GetEntity();
 				EntityID entityID = entity.GetID();
 
@@ -156,6 +173,11 @@ namespace SeedCore
 
 			for (Actor actor : world.GetActors())
 			{
+				if (!actor.GetActive())
+				{
+					continue;
+				}
+
 				Entity entity = actor.GetEntity();
 				EntityID entityID = entity.GetID();
 
@@ -180,18 +202,25 @@ namespace SeedCore
 	/**
 	* [EN]
 	* Advances one fixed timestep: dispatches FixedTick to every
-	* ComponentBase-derived component that implements it.
+	* ComponentBase-derived component of an active actor that
+	* implements it.
 	*
 	* ---------------------------------------------------------------------
 	*
 	* [JP]
-	* 固定タイムステップぶん1ステップ進める: FixedTick を実装している
-	* 全ての ComponentBase 派生コンポーネントへディスパッチする。
+	* 固定タイムステップぶん1ステップ進める: アクティブな actor が持つ、
+	* FixedTick を実装している全ての ComponentBase 派生コンポーネント
+	* へディスパッチする。
 	*/
 	void SystemScheduler::Step(World& world, Float fixedTime)
 	{
 		for (Actor actor : world.GetActors())
 		{
+			if (!actor.GetActive())
+			{
+				continue;
+			}
+
 			Entity entity = actor.GetEntity();
 			EntityID entityID = entity.GetID();
 

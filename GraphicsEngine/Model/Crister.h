@@ -1855,17 +1855,17 @@ namespace SeedCore
 		* 反射/GI マテリアルテーブル(構築時に TextureBindlessIndex() を
 		* 焼き込んでいる)を再構築すべきか判断する。
 		*/
-		[[nodiscard]] Bool IsMaterialsDirty()const;
+		[[nodiscard]] Bool MaterialsDirty()const;
 
 		/**
 		* [EN]
-		* Clears the flag IsMaterialsDirty() reports, after the caller has
+		* Clears the flag MaterialsDirty() reports, after the caller has
 		* rebuilt whatever depended on the stale bindless indices.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* IsMaterialsDirty() が報告するフラグをクリアする。呼び出し側が、
+		* MaterialsDirty() が報告するフラグをクリアする。呼び出し側が、
 		* 古いバインドレスインデックスに依存していたものを再構築した後に呼ぶ。
 		*/
 		void ClearMaterialsDirty()const;
@@ -1961,18 +1961,18 @@ namespace SeedCore
 		* skins_ が空でなく、RT プロキシ構築時にスキンド SubMesh を
 		* 1つ以上見つけた場合に true。
 		*/
-		[[nodiscard]] Bool IsProxySkinned()const;
+		[[nodiscard]] Bool ProxySkinned()const;
 
 		/**
 		* [EN]
 		* GPU address of the RT proxy's skin vertex pool
-		* (raytracingSkinVertexResource_), or 0 when IsProxySkinned is false.
+		* (raytracingSkinVertexResource_), or 0 when ProxySkinned is false.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
 		* RT プロキシのスキン頂点プール (raytracingSkinVertexResource_) の
-		* GPU アドレス。IsProxySkinned が false なら 0。
+		* GPU アドレス。ProxySkinned が false なら 0。
 		*/
 		[[nodiscard]] D3D12_GPU_VIRTUAL_ADDRESS ProxySkinVertexBufferAddress()const;
 
@@ -2201,7 +2201,7 @@ namespace SeedCore
 		* [JP]
 		* クラスタのページが現在 GPU に常駐しているか。
 		*/
-		[[nodiscard]] Bool IsClusterResident(Uint32 clusterIndex)const;
+		[[nodiscard]] Bool ClusterResident(Uint32 clusterIndex)const;
 
 		/**
 		* [EN]
@@ -2212,7 +2212,7 @@ namespace SeedCore
 		* [JP]
 		* テクスチャがミップ 0（最も細かい）まで完全にストリームインしているか。
 		*/
-		[[nodiscard]] Bool IsTextureResident(Uint32 textureIndex)const;
+		[[nodiscard]] Bool TextureResident(Uint32 textureIndex)const;
 
 		/**
 		* [EN]

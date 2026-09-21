@@ -121,9 +121,17 @@ namespace SeedCore
 					ImGui::PushID(asset->assetID_);
 
 					ImTextureID icon = GetAssetIcon(*asset);
-					ImGui::Image(icon, ImVec2(16.0f, 16.0f));
+					ImGui::Image(icon, ImVec2(ImGui::GetTextLineHeight(), ImGui::GetTextLineHeight()));
 					ImGui::SameLine();
 					ImGui::Selectable(asset->path_.c_str(), false, ImGuiSelectableFlags_SpanAvailWidth | ImGuiSelectableFlags_AllowDoubleClick);
+
+					if (ImGui::BeginDragDropSource())
+					{
+						const Char* payloadType = GetDragDropType(asset->type_);
+						ImGui::SetDragDropPayload(payloadType, &asset->assetID_, sizeof(Uint32));
+						ImGui::Text("%s", std::filesystem::path(asset->path_.c_str()).filename().string().c_str());
+						ImGui::EndDragDropSource();
+					}
 
 					if (ImGui::IsItemHovered())
 					{
@@ -551,7 +559,7 @@ namespace SeedCore
 	void ContentsDrawerPanel::DrawAssetGridMode(DirectoryNode* target)
 	{
 		Float availWidth = ImGui::GetContentRegionAvail().x;
-		Float cellWidth = gridIconSize_ + ImGui::GetStyle().ItemSpacing.x;
+		Float cellWidth = gridIconSize_ + ImGui::GetStyle().FramePadding.x * 2.0f + ImGui::GetStyle().ItemSpacing.x;
 		Int columns = static_cast<Int>(availWidth / cellWidth);
 		if (columns < 1)
 		{
@@ -787,7 +795,7 @@ namespace SeedCore
 		}
 		else
 		{
-			ImGui::Image(icon, ImVec2(16.0f, 16.0f));
+			ImGui::Image(icon, ImVec2(ImGui::GetTextLineHeight(), ImGui::GetTextLineHeight()));
 			ImGui::SameLine();
 		}
 

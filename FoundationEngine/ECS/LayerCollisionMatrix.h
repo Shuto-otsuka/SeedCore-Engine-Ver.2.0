@@ -1,11 +1,9 @@
 #pragma once
 #include <FoundationEngine/Prelude.h>
+#include <FoundationEngine/ECS/LayerRegistry.h>
 
 namespace SeedCore
 {
-	class JsonOutputArchive;
-	class JsonInputArchive;
-
 	/**
 	* [EN]
 	* Global matrix (mirrors LayerRegistry's fixed LayerCount slots)
@@ -72,7 +70,11 @@ namespace SeedCore
 		* - LayerBindings.scg への一括書き込みの一部として
 		* LayerRegistry::Save() から呼ばれる。単独では使わない。
 		*/
-		static void Save(JsonOutputArchive& archive);
+		template<typename Archive>
+		static void Save(Archive& archive)
+		{
+			archive.Field("collisionEntries", Entries());
+		}
 
 		/**
 		* [EN]
@@ -93,7 +95,23 @@ namespace SeedCore
 		* LayerBindings.scg の一括読み込みの一部として
 		* LayerRegistry::Load() から呼ばれる。単独では使わない。
 		*/
-		static void Load(JsonInputArchive& archive);
+		template<typename Archive>
+		static void Load(Archive& archive)
+		{
+			DynamicArray<Bool> loaded;
+			if (!archive.TryField("collisionEntries", loaded))
+			{
+				return;
+			}
+
+			Size expectedCount = LayerRegistry::LayerCount * (LayerRegistry::LayerCount + 1) / 2;
+			if (loaded.size() != expectedCount)
+			{
+				return;
+			}
+
+			Entries() = std::move(loaded);
+		}
 
 	private:
 		/**

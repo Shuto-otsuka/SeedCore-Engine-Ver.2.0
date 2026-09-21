@@ -1,5 +1,8 @@
 #include <Editor/Editor/Editor.h>
+#include <Editor/Editor/Build/AtomCraft.h>
 #include <FoundationEngine/Log/Notice.h>
+#include <FoundationEngine/File/FileDialog.h>
+#include <FoundationEngine/Resource/EditorConfig.h>
 #include <FoundationEngine/ECS/Actor.h>
 #include <FoundationEngine/ECS/World.h>
 #include <FoundationEngine/Time/GameTimer.h>
@@ -21,7 +24,7 @@ namespace SeedCore
 	{
 		hierarchyPanel_ = MakePtr<HierarchyPanel>(context_, imguiTexture_);
 		inspectorPanel_ = MakePtr<InspectorPanel>(context_, imguiTexture_);
-		toolPanel_ = MakePtr<ToolPanel>(context_, imguiTexture_);
+		diagnosticsPanel_ = MakePtr<DiagnosticsPanel>(context_, imguiTexture_);
 		editorWindowPanel_ = MakePtr<EditorWindowPanel>(context_, imguiTexture_);
 		gameWindowPanel_ = MakePtr<GameWindowPanel>(*context_.cameraContext_.cameraSystem_, imguiTexture_);
 		canvasViewPanel_ = MakePtr<CanvasViewPanel>(context_, imguiTexture_);
@@ -40,6 +43,7 @@ namespace SeedCore
 		materialViewerPanel_ = MakePtr<MaterialViewerPanel>(context_);
 		modelTransformPanel_ = MakePtr<ModelTransformPanel>(context_);
 		avatarPanel_ = MakePtr<AvatarPanel>(context_);
+		bootScreenPanel_ = MakePtr<BootScreenPanel>(context_);
 
 		context_.panelContext_.animatorControllerPanel_ = &*animatorControllerPanel_;
 		context_.panelContext_.timelinePanel_ = &*timelinePanel_;
@@ -47,6 +51,7 @@ namespace SeedCore
 		context_.panelContext_.materialViewerPanel_ = &*materialViewerPanel_;
 		context_.panelContext_.skeletonControllerPanel_ = &*skeletonControllerPanel_;
 		context_.panelContext_.avatarPanel_ = &*avatarPanel_;
+		context_.panelContext_.bootScreenPanel_ = &*bootScreenPanel_;
 
 		SC_LOG_NOTICE("エディターの初期化が完了しました");
 	}
@@ -105,11 +110,11 @@ namespace SeedCore
 		}
 		if (menuBarPanel_->ConsumeConsoleRequest())
 		{
-			toolPanel_->ShowConsoleTab();
+			diagnosticsPanel_->ShowConsoleTab();
 		}
 		if (menuBarPanel_->ConsumeProfilerRequest())
 		{
-			toolPanel_->ShowProfilerTab();
+			diagnosticsPanel_->ShowProfilerTab();
 		}
 		if (menuBarPanel_->ConsumeTodoListRequest())
 		{
@@ -118,6 +123,16 @@ namespace SeedCore
 		if (menuBarPanel_->ConsumeVersionRequest())
 		{
 			versionPanel_->Open();
+		}
+		if (menuBarPanel_->ConsumeAtomCraftRequest())
+		{
+			std::filesystem::path pickedProjectPath;
+			if (FileDialog::OpenFile(pickedProjectPath, std::filesystem::current_path(), L"Atom Craft Project (*.atmcproject)", L"*.atmcproject"))
+			{
+				EditorConfig editorConfig;
+				editorConfig.Load();
+				AtomCraft::Open(editorConfig.atomCraftPath_, String(pickedProjectPath.generic_string()));
+			}
 		}
 		if (menuBarPanel_->ConsumeConfigRequest())
 		{
@@ -173,6 +188,10 @@ namespace SeedCore
 		{
 			avatarPanel_->Open();
 		}
+		if (menuBarPanel_->ConsumeBootScreenRequest())
+		{
+			bootScreenPanel_->Open();
+		}
 		if (context_.modelTransformPreviewContext_.requestedAssetId_ != 0)
 		{
 			modelTransformPanel_->Open(context_.modelTransformPreviewContext_.requestedAssetId_);
@@ -218,20 +237,21 @@ namespace SeedCore
 		materialViewerPanel_->Draw();
 		modelTransformPanel_->Draw();
 		avatarPanel_->Draw();
+		bootScreenPanel_->Draw();
 
 		gameWindowPanel_->Draw(gameFrameBufferHandle, toolbarHeight_);
 
-		if (!gameWindowPanel_->IsFullscreen())
+		if (!gameWindowPanel_->Fullscreen())
 		{
 			hierarchyPanel_->Draw();
 			inspectorPanel_->Draw();
-			toolPanel_->Draw(gpuProfiler);
+			diagnosticsPanel_->Draw(gpuProfiler);
 			canvasViewPanel_->Draw(canvasFrameBufferHandle);
 			editorWindowPanel_->Draw(editorFrameBufferHandle);
 			contentsDrawerPanel_->Draw();
 		}
 
-		if (!context_.worldContext_.gameTimer_->IsPlaying() && !ImGui::GetIO().WantTextInput)
+		if (!context_.worldContext_.gameTimer_->Playing() && !ImGui::GetIO().WantTextInput)
 		{
 			Bool ctrlPressed = ImGui::IsKeyDown(ImGuiKey_LeftCtrl) || ImGui::IsKeyDown(ImGuiKey_RightCtrl);
 			if (ctrlPressed && ImGui::IsKeyPressed(ImGuiKey_Z))
@@ -275,7 +295,7 @@ namespace SeedCore
 
 				if (isCanvasActor && context_.cameraContext_.canvasCamera_)
 				{
-					Vector3 canvasTarget = Vector3(100000.0f + worldMatrix._41, 100000.0f + (ScResolution::SC_HD.Height - worldMatrix._42), 100000.0f);
+					Vector3 canvasTarget = Vector3(100000.0f + worldMatrix._41, 100000.0f + (ScResolution::SC_CANVAS.Height - worldMatrix._42), 100000.0f);
 					context_.cameraContext_.canvasCamera_->FocusOn(canvasTarget);
 
 					ImGui::SetWindowFocus("キャンバスビュー");
@@ -308,9 +328,17 @@ namespace SeedCore
 		return menuBarPanel_->GetViewMode();
 	}
 
-	Entity Editor::GetSelectedEntity()const
+	DynamicArray<Entity> Editor::GetSelectedEntities()const
 	{
-		return context_.selectionContext_.selectedEntity_;
+		DynamicArray<Entity> selectedEntities;
+		for (Actor actor : context_.selectionContext_.selectedActors_)
+		{
+			if (actor)
+			{
+				selectedEntities.push_back(actor.GetEntity());
+			}
+		}
+		return selectedEntities;
 	}
 
 	const RaytracingContext& Editor::GetRaytracingSettings()const

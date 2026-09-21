@@ -37,7 +37,7 @@ namespace SeedCore
 	* このハンドルが（デフォルト構築ではなく）Generate() によって
 	* 発行されたものかどうかを返す。
 	*/
-	Bool DelegateHandle::IsValid()const
+	Bool DelegateHandle::Valid()const
 	{
 		return id_ != 0;
 	}

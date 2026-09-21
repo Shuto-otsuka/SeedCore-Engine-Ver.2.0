@@ -13,9 +13,9 @@ namespace SeedCore
 
 		void Draw(D3D12_GPU_DESCRIPTOR_HANDLE frameBufferHandle, Float toolbarHeight);
 
-		Bool IsFullscreen()const { return fullscreen_; }
+		Bool Fullscreen()const { return fullscreen_; }
 
-		Bool IsImageHovered()const { return imageHovered_; }
+		Bool ImageHovered()const { return imageHovered_; }
 
 	private:
 		CameraSystem& cameraSystem_;

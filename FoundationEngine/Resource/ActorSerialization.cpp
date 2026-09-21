@@ -31,7 +31,7 @@ namespace SeedCore
 		* （Name/Position/Rotation/Scale/Velocity/Active）のいずれかで
 		* あるかどうかを返す。
 		*/
-		Bool IsBuiltinComponent(const String& name)
+		Bool BuiltinComponent(const String& name)
 		{
 			static const String builtin[] =
 			{
@@ -450,7 +450,7 @@ namespace SeedCore
 			for (ComponentID id : layout)
 			{
 				String name = ComponentRegistry::GetName(id);
-				if (IsBuiltinComponent(name))
+				if (BuiltinComponent(name))
 				{
 					continue;
 				}

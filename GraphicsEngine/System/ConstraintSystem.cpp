@@ -49,7 +49,7 @@ namespace SeedCore
 		for (EntityID id : constrainedEntities)
 		{
 			Actor actor = world.GetActor(id);
-			if (actor)
+			if (actor && actor.GetActive())
 			{
 				MarkDirtySubtree(actor, dirty);
 			}

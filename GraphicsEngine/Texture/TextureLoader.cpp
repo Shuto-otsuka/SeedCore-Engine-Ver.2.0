@@ -24,7 +24,7 @@ namespace SeedCore
 		texture->textureIndex_ = heap->AllocateIndex();
 		texture->filePath_ = filePath;
 
-		CreateTexture(device, cmdQueue, heap->Heap(), filePath, texture->resource_, texture->textureIndex_);
+		CreateTexturePath(device, cmdQueue, heap->Heap(), filePath, texture->resource_, texture->textureIndex_);
 
 		if (texture->resource_)
 		{
@@ -82,7 +82,7 @@ namespace SeedCore
 		if (!texture->resource_ && device_ && cmdQueue_)
 		{
 			texture->textureIndex_ = heap->AllocateIndex();
-			CreateTexture(device_, cmdQueue_, heap->Heap(), texture->filePath_, texture->resource_, texture->textureIndex_);
+			CreateTexturePath(device_, cmdQueue_, heap->Heap(), texture->filePath_, texture->resource_, texture->textureIndex_);
 			if (texture->resource_)
 			{
 				D3D12_RESOURCE_DESC desc = texture->resource_->GetDesc();
@@ -143,7 +143,7 @@ namespace SeedCore
 		}
 	}
 
-	void TextureLoader::CreateTexture(in ID3D12Device* device, in D3D12CommandQueue* cmdQueue, in ID3D12DescriptorHeap* heap, in String filePath, inout Microsoft::WRL::ComPtr<ID3D12Resource>& resource, in Uint textureIndex)
+	void TextureLoader::CreateTexturePath(in ID3D12Device* device, in D3D12CommandQueue* cmdQueue, in ID3D12DescriptorHeap* heap, in String filePath, inout Microsoft::WRL::ComPtr<ID3D12Resource>& resource, in Uint textureIndex)
 	{
 		HRESULT hr{ S_OK };
 
@@ -259,6 +259,51 @@ namespace SeedCore
 			uploadFinished = resourceUpload.End(cmdQueue->GetCommandQueue());
 		}
 		uploadFinished.wait();
+
+		D3D12_SHADER_RESOURCE_VIEW_DESC shaderResourceViewDesc{};
+		shaderResourceViewDesc.Format = resource->GetDesc().Format;
+		shaderResourceViewDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+		shaderResourceViewDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		shaderResourceViewDesc.Texture2D.MipLevels = resource->GetDesc().MipLevels;
+		shaderResourceViewDesc.Texture2D.MostDetailedMip = 0;
+
+		D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle = heap->GetCPUDescriptorHandleForHeapStart();
+		Uint64 descriptorSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+		cpuHandle.ptr += textureIndex * descriptorSize;
+
+		device->CreateShaderResourceView(resource.Get(), &shaderResourceViewDesc, cpuHandle);
+	}
+
+	void TextureLoader::CreateTextureMemory(in ID3D12Device* device, in D3D12CommandQueue* cmdQueue, in ID3D12DescriptorHeap* heap, in const DynamicArray<Byte>& data, inout Microsoft::WRL::ComPtr<ID3D12Resource>& resource, in Uint textureIndex)
+	{
+		HRESULT hr{ S_OK };
+
+		DirectX::ResourceUploadBatch resourceUpload(device);
+		resourceUpload.Begin();
+
+		if (!data.empty())
+		{
+			hr = DirectX::CreateDDSTextureFromMemory(device, resourceUpload, reinterpret_cast<const Uint8*>(data.data()), data.size(), &resource);
+
+			if (FAILED(hr))
+			{
+				hr = DirectX::CreateWICTextureFromMemory(device, resourceUpload, reinterpret_cast<const Uint8*>(data.data()), data.size(), &resource);
+			}
+		}
+
+		std::future<void> uploadFinished;
+		{
+			auto queueLock = cmdQueue->AcquireLock();
+			uploadFinished = resourceUpload.End(cmdQueue->GetCommandQueue());
+		}
+		uploadFinished.wait();
+
+		if (data.empty() || FAILED(hr) || !resource)
+		{
+			SC_LOG_ERROR("メモリ上の画像からテクスチャを作成できませんでした");
+			resource.Reset();
+			return;
+		}
 
 		D3D12_SHADER_RESOURCE_VIEW_DESC shaderResourceViewDesc{};
 		shaderResourceViewDesc.Format = resource->GetDesc().Format;

@@ -17,7 +17,7 @@ namespace SeedCore
 	* begin を end に近づけない方向の場合に不正となる。
 	*/
 	template<std::integral T>
-	constexpr Bool IsIndexRangeInvalid(T begin, T end, T step)
+	constexpr Bool IndexRangeInvalid(T begin, T end, T step)
 	{
 		return ((step == T{ 0 } && begin != end) || (begin < end && step <= T{ 0 }) || (begin > end && step >= T{ 0 }));
 	}

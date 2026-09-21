@@ -190,7 +190,7 @@ namespace SeedCore
 		{
 			if (activeBrainEntity != activeBrain_)
 			{
-				Bool blend = timer.IsPlaying() && activeBrain_ != EntityID() && activeBrain->blendTime_ > 0.0f;
+				Bool blend = timer.Playing() && activeBrain_ != EntityID() && activeBrain->blendTime_ > 0.0f;
 				blendFromEye_ = lastEye_;
 				blendFromOrientation_ = lastOrientation_;
 				blendElapsed_ = 0.0f;

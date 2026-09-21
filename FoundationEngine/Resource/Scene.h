@@ -312,6 +312,30 @@ namespace SeedCore
 
 		/**
 		* [EN]
+		* Returns the scene the process-wide transition has switched to
+		* since the last call, or nullptr if none, clearing that state in
+		* the same step (see SceneTransitionSystem::ConsumeSwitchedScene).
+		* Lets the host that owns the main loop pick up whatever it keeps
+		* per scene - the scene's own contents are already instantiated
+		* into the world. Loading scenes shown during a transition are never
+		* returned. The returned scene stays valid until the next transition
+		* begins.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* 前回の呼び出し以降にプロセス全体の遷移が切り替えた先のシーンを
+		* 返す。無ければ nullptr。同時にその状態を取り下げる
+		* (SceneTransitionSystem::ConsumeSwitchedScene 参照)。メインループを
+		* 所有するホストが、シーンごとに持つものを受け取るために使う -
+		* シーン自体の中身は既に world へインスタンス化済み。遷移中に表示
+		* されるローディングシーンは返さない。返したシーンは次の遷移が
+		* 始まるまで有効。
+		*/
+		[[nodiscard]] static const Scene* ConsumeSwitchedScene();
+
+		/**
+		* [EN]
 		* Resolves path (project-root-relative, forward-slash) to its
 		* AssetRecord ID via the process-wide ResourceCache bound by
 		* Initialize(). Returns 0 if not initialized or path is unknown.

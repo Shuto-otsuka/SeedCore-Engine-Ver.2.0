@@ -197,6 +197,7 @@
 #pragma comment(lib, "mfplat.lib")
 #pragma comment(lib, "mfreadwrite.lib")
 #pragma comment(lib, "mfuuid.lib")
+#pragma comment(lib, "version.lib")
 
 #include <objbase.h>
 #include <oleauto.h>

@@ -85,11 +85,10 @@ namespace SeedCore
 		std::filesystem::path hlslFs(path);
 		std::filesystem::path csoFs(csoPath.str());
 		std::unordered_map<String, DynamicArray<Uint8>> cachedEntries;
-		if (!precompiledOnly && std::filesystem::exists(csoFs) && std::filesystem::exists(hlslFs))
+		if (!precompiledOnly && std::filesystem::exists(csoFs))
 		{
-			auto csoTime = std::filesystem::last_write_time(csoFs);
-			auto hlslTime = std::filesystem::last_write_time(hlslFs);
-			if (csoTime >= hlslTime)
+			Bool sourceNewer = std::filesystem::exists(hlslFs) && std::filesystem::last_write_time(hlslFs) > std::filesystem::last_write_time(csoFs);
+			if (!sourceNewer)
 			{
 				BinaryInputArchive cacheArchive;
 				if (cacheArchive.Read(csoPath))

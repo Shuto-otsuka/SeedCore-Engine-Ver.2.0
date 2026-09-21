@@ -51,7 +51,7 @@ namespace SeedCore
 		boneMatrices_.clear();
 		uploaded_ = false;
 
-		if (!mesh.IsCreated() || mesh.MeshletCount() == 0)
+		if (!mesh.Created() || mesh.MeshletCount() == 0)
 		{
 			return;
 		}

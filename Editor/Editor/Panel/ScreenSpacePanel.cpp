@@ -43,7 +43,7 @@ namespace SeedCore
 	{
 		ViewportContext& viewport = context_.viewportContext_;
 
-		Bool interactive = !siblingClaimed && GraphicsQuality::IsEnableCheckboxInteractive(effect, GraphicsEffectFamily::ScreenSpace, viewport.qualityPreset_, viewport.raytracing_, viewport.screenSpace_, viewport.rasterization_);
+		Bool interactive = !siblingClaimed && GraphicsQuality::EnableCheckboxInteractive(effect, GraphicsEffectFamily::ScreenSpace, viewport.qualityPreset_, viewport.raytracing_, viewport.screenSpace_, viewport.rasterization_);
 
 		ImGui::BeginDisabled(!interactive);
 		ImGui::Checkbox("有効", &enabled);

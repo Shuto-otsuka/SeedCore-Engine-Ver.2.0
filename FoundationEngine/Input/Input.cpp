@@ -1,5 +1,5 @@
 #include <FoundationEngine/Input/Input.h>
-#include <FoundationEngine/Serialization/Json/JsonArchive.h>
+#include <FoundationEngine/Serialization/Binary/BinaryArchive.h>
 
 namespace SeedCore
 {
@@ -8,11 +8,11 @@ namespace SeedCore
 		/// [EN] On-disk shape of one action's bindings (see Input::LoadBindings/SaveBindings).
 		///      Key/SDL_GamepadButton round-trip as Int32 since the archive has no
 		///      built-in support for raw enums (same convention as GameConfig's
-		///      upscaleMode_/resolution_, see Editor/Editor/Build/Config.cpp).
+		///      upscaleMode_/resolution_, see FoundationEngine/Resource/GameConfig.cpp).
 		/// [JP] 1アクション分のバインド情報のディスク上の形（Input::LoadBindings/
 		///      SaveBindings 参照）。Key/SDL_GamepadButton はアーカイブが生の enum を
 		///      直接扱えないため Int32 として往復させる（GameConfig の
-		///      upscaleMode_/resolution_ と同じ規約、Editor/Editor/Build/Config.cpp 参照）。
+		///      upscaleMode_/resolution_ と同じ規約、FoundationEngine/Resource/GameConfig.cpp 参照）。
 		struct AxisKeysRecord
 		{
 			Int32 up_ = 0;
@@ -256,7 +256,7 @@ namespace SeedCore
 	* [JP]
 	* 入力の問い合わせが現在有効かどうかを返す（SetInputEnabled() 参照）。
 	*/
-	Bool Input::IsInputEnabled()
+	Bool Input::InputEnabled()
 	{
 		return inputEnabled_;
 	}
@@ -506,7 +506,7 @@ namespace SeedCore
 	* [JP]
 	* マウスキャプチャが現在アクティブかどうかを返す。
 	*/
-	Bool Input::IsMouseCaptured()
+	Bool Input::MouseCaptured()
 	{
 		return mouseCaptured_;
 	}
@@ -1023,7 +1023,7 @@ namespace SeedCore
 			return;
 		}
 
-		JsonInputArchive archive;
+		BinaryInputArchive archive;
 		if (!archive.Read(String(path.string())))
 		{
 			return;
@@ -1100,7 +1100,7 @@ namespace SeedCore
 			records.push_back(std::move(record));
 		}
 
-		JsonOutputArchive archive;
+		BinaryOutputArchive archive;
 		archive.Field("bindings", records);
 		archive.Write(String(path.string()));
 	}

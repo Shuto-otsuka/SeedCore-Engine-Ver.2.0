@@ -13,9 +13,21 @@
       <Filter>Application</Filter>
     </ClCompile>
     <ClCompile Include="Prelude.cpp" />
+    <ClCompile Include="Application\Engine.cpp">
+      <Filter>Application</Filter>
+    </ClCompile>
+    <ClCompile Include="Application\Window.cpp">
+      <Filter>Application</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application\Framework.h">
+      <Filter>Application</Filter>
+    </ClInclude>
+    <ClInclude Include="Application\Engine.h">
+      <Filter>Application</Filter>
+    </ClInclude>
+    <ClInclude Include="Application\Window.h">
       <Filter>Application</Filter>
     </ClInclude>
   </ItemGroup>

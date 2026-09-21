@@ -13,7 +13,9 @@
 #include <GraphicsEngine/System/MovieSystem.h>
 #include <GraphicsEngine/Renderer/Renderer.h>
 #include <GraphicsEngine/Shape/Screen/SplashScreen.h>
+#include <GraphicsEngine/Shape/Screen/BootScreen.h>
 #include <GraphicsEngine/Shape/Screen/FadeScreen.h>
+#include <GraphicsEngine/Shape/Screen/LetterScreen.h>
 
 namespace SeedCore
 {
@@ -43,7 +45,9 @@ namespace SeedCore
 
 		void Resize(Uint32 nativeWidth, Uint32 nativeHeight, Uint32 outputWidth, Uint32 outputHeight, DescriptorHeap* imguiHeap);
 
-		void EditorRender(WorldTimer& timer, const EditorCamera& editorCamera, LoaderSystem& loaderSystem, ResourceCache& resourceCache, World& world, ViewMode viewMode, const DynamicArray<ColliderStructuredBuffer>& colliderInstances, Entity selectedEntity = Entity::Null());
+		void ResizeSwapChain(Uint32 width, Uint32 height);
+
+		void EditorRender(WorldTimer& timer, const EditorCamera& editorCamera, LoaderSystem& loaderSystem, ResourceCache& resourceCache, World& world, ViewMode viewMode, std::span<const Entity> selectedEntities = {});
 
 		void GameRender(GameTimer& timer, LoaderSystem& loaderSystem, ResourceCache& resourceCache, World& world);
 
@@ -72,6 +76,8 @@ namespace SeedCore
 	public:
 		void Raytracing(const RaytracingContext& settings);
 
+		void Upscale(Bool dlssRayReconstructionEnabled, UpscaleMode upscaleMode);
+
 		void Reflex(Bool enable, Bool useBoost);
 
 		void DeepDVC(Bool enable, Float intensity, Float saturationBoost);
@@ -99,7 +105,9 @@ namespace SeedCore
 	public:
 		void DrawSplashScreen(Bool loadComplete, Float progress, Bool showWarning, Bool showFiction);
 
-		[[nodiscard]] Bool IsSplashFinished()const;
+		[[nodiscard]] Bool SplashFinished()const;
+
+		void DrawLetterScreen();
 
 	public:
 		static void SetImGuiContext(ImGuiContext* context);
@@ -125,7 +133,7 @@ namespace SeedCore
 		[[nodiscard]] D3D12_GPU_DESCRIPTOR_HANDLE AvatarImGuiGPUHandle()const;
 
 	private:
-		void PrepareFrame(Float deltaTime, LoaderSystem& loaderSystem, ResourceCache& resourceCache, World& world, Entity selectedEntity);
+		void PrepareFrame(Float deltaTime, LoaderSystem& loaderSystem, ResourceCache& resourceCache, World& world, std::span<const Entity> selectedEntities);
 
 	private:
 		Float width_ = ScResolution::SC_HD.Width;
@@ -164,6 +172,18 @@ namespace SeedCore
 
 		SplashScreen splashScreen_;
 
+		BootScreen bootScreen_;
+
+		BootConfig bootConfig_;
+
+		std::chrono::steady_clock::time_point bootStartTime_;
+
+		Bool bootStarted_ = false;
+
+		Bool bootFinished_ = false;
+
 		FadeScreen fadeScreen_;
+
+		LetterScreen letterScreen_;
 	};
 }

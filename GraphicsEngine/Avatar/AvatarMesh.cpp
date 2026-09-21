@@ -175,7 +175,7 @@ namespace SeedCore
 
 	void AvatarMesh::Update(std::span<const Vector3> positions, std::span<const Vector3> normals)
 	{
-		if (!IsCreated())
+		if (!Created())
 		{
 			return;
 		}
@@ -210,7 +210,7 @@ namespace SeedCore
 		primitiveIndicesBuffer_->Update(primitiveIndices_.data(), static_cast<Uint>(primitiveIndices_.size()));
 	}
 
-	Bool AvatarMesh::IsCreated()const
+	Bool AvatarMesh::Created()const
 	{
 		return vertexBuffer_ != nullptr;
 	}

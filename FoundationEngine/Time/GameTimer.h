@@ -34,12 +34,14 @@ namespace SeedCore
 
 		/**
 		* [EN]
-		* Stops playback entirely, resetting both total-time accumulators.
+		* Stops playback entirely, resetting both total-time accumulators and
+		* the time scale back to 1.
 		*
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* 再生を完全に停止し、2つの合計時間の累積値をリセットする。
+		* 再生を完全に停止し、2つの合計時間の累積値とタイムスケール（1 に
+		* 戻す）をリセットする。
 		*/
 		void Stop();
 
@@ -155,7 +157,7 @@ namespace SeedCore
 		* [JP]
 		* タイマーが現在再生中かどうかを返す（一時停止状態は問わない）。
 		*/
-		Bool IsPlaying()const;
+		Bool Playing()const;
 
 		/**
 		* [EN]
@@ -166,7 +168,7 @@ namespace SeedCore
 		* [JP]
 		* タイマーが現在一時停止中かどうかを返す。
 		*/
-		Bool IsPaused()const;
+		Bool Paused()const;
 
 		/**
 		* [EN]

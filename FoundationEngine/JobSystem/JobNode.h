@@ -557,7 +557,7 @@ namespace SeedCore
 		* このノードの親がキャンセルされているかどうかを返す。
 		* キャンセルされている場合、このノードは実行を進めるべきではない。
 		*/
-		Bool IsParentCancelled()const;
+		Bool ParentCancelled()const;
 		
 		/**
 		* [EN]
@@ -570,7 +570,7 @@ namespace SeedCore
 		* このノードが条件分岐を表すかどうか（すなわちハンドルが
 		* SingleCondition または MultiCondition であるか）を返す。
 		*/
-		Bool IsConditioner()const;
+		Bool Conditioner()const;
 
 		/**
 		* [EN]

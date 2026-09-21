@@ -51,7 +51,7 @@ namespace SeedCore
 
 		msdfgen::BitmapConstRef<msdf_atlas::byte, 4> GetAtlasBitmap()const;
 
-		Bool IsAtlasDirty()const;
+		Bool AtlasDirty()const;
 
 		void ClearAtlasDirty();
 

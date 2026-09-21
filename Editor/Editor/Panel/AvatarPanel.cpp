@@ -30,7 +30,7 @@ namespace SeedCore
 	void AvatarPanel::Open()
 	{
 		show_ = true;
-		ImGui::SetWindowFocus("アバター");
+		ImGui::SetWindowFocus("アバター生成");
 	}
 
 	void AvatarPanel::SetPreviewHandle(D3D12_GPU_DESCRIPTOR_HANDLE previewHandle)
@@ -38,7 +38,7 @@ namespace SeedCore
 		previewHandle_ = previewHandle;
 	}
 
-	Bool AvatarPanel::IsFocused()const
+	Bool AvatarPanel::Focused()const
 	{
 		return isFocused_;
 	}
@@ -142,7 +142,7 @@ namespace SeedCore
 			regionTextureIndices_[regionIndex] = bindlessHeap->AllocateIndex();
 		}
 		regionTextureResources_[regionIndex].Reset();
-		TextureLoader::CreateTexture(d3d12Context->GetDevice(), d3d12Context->GetDirectQueue(), bindlessHeap->Heap(), filePath, regionTextureResources_[regionIndex], regionTextureIndices_[regionIndex]);
+		TextureLoader::CreateTexturePath(d3d12Context->GetDevice(), d3d12Context->GetDirectQueue(), bindlessHeap->Heap(), filePath, regionTextureResources_[regionIndex], regionTextureIndices_[regionIndex]);
 		regionTexturePaths_[regionIndex] = filePath;
 	}
 
@@ -260,10 +260,10 @@ namespace SeedCore
 			return;
 		}
 
-		ImGui::DockBuilderDockWindow("アバター", context_.graphicsContext_.imgui_->GetDockSpaceID());
+		ImGui::DockBuilderDockWindow("アバター生成", context_.graphicsContext_.imgui_->GetDockSpaceID());
 		ImGui::SetNextWindowSize(ImVec2(1180, 720), ImGuiCond_FirstUseEver);
 
-		isFocused_ = ImGui::Begin("アバター", &show_);
+		isFocused_ = ImGui::Begin("アバター生成", &show_);
 		if (isFocused_)
 		{
 			const Char* kindNames[] = { "人間", "動物" };
@@ -304,7 +304,7 @@ namespace SeedCore
 				}
 			}
 
-			Bool loaded = kind_ == AvatarKind::Human ? humanModel_.IsLoaded() : animalModel_.IsLoaded();
+			Bool loaded = kind_ == AvatarKind::Human ? humanModel_.Loaded() : animalModel_.Loaded();
 			if (!loaded)
 			{
 				ImGui::TextDisabled(kind_ == AvatarKind::Human ? "../GraphicsEngine/Avatar/Preset/SeedHuman.hc を読み込めませんでした" : "../GraphicsEngine/Avatar/Preset/SeedAnimal.ac を読み込めませんでした");
@@ -368,19 +368,19 @@ namespace SeedCore
 
 				if (ImGui::IsItemHovered() && context_.cameraContext_.avatarCamera_ && context_.cameraContext_.avatarCameraController_)
 				{
-					if ((orbitHeld || panHeld) && !InputSystem::IsMouseCaptured())
+					if ((orbitHeld || panHeld) && !InputSystem::MouseCaptured())
 					{
 						InputSystem::BeginMouseCapture();
 					}
 					context_.cameraContext_.avatarCameraController_->Update(*context_.cameraContext_.avatarCamera_, ImGui::GetIO().DeltaTime);
 				}
 
-				if (!orbitHeld && !panHeld && InputSystem::IsMouseCaptured())
+				if (!orbitHeld && !panHeld && InputSystem::MouseCaptured())
 				{
 					InputSystem::EndMouseCapture();
 				}
 
-				if (mesh->IsCreated())
+				if (mesh->Created())
 				{
 					context_.avatarPreviewContext_.previewActive_ = true;
 					context_.avatarPreviewContext_.mesh_ = &*mesh;
@@ -411,7 +411,7 @@ namespace SeedCore
 
 	void AvatarPanel::DrawDetails()
 	{
-		Bool loaded = kind_ == AvatarKind::Human ? humanModel_.IsLoaded() : animalModel_.IsLoaded();
+		Bool loaded = kind_ == AvatarKind::Human ? humanModel_.Loaded() : animalModel_.Loaded();
 		if (!loaded)
 		{
 			ImGui::TextDisabled(kind_ == AvatarKind::Human ? "SeedHuman.hc が読み込まれていません" : "SeedAnimal.ac が読み込まれていません");

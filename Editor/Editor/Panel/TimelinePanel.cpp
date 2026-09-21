@@ -439,7 +439,7 @@ namespace SeedCore
 
 					if (ImGui::IsItemHovered() && context_.cameraContext_.timelineCamera_ && context_.cameraContext_.timelineCameraController_)
 					{
-						if ((orbitHeld || panHeld) && !InputSystem::IsMouseCaptured())
+						if ((orbitHeld || panHeld) && !InputSystem::MouseCaptured())
 						{
 							InputSystem::BeginMouseCapture();
 						}
@@ -447,7 +447,7 @@ namespace SeedCore
 						context_.cameraContext_.timelineCameraController_->Update(*context_.cameraContext_.timelineCamera_, ImGui::GetIO().DeltaTime);
 					}
 
-					if (!orbitHeld && !panHeld && InputSystem::IsMouseCaptured())
+					if (!orbitHeld && !panHeld && InputSystem::MouseCaptured())
 					{
 						InputSystem::EndMouseCapture();
 					}

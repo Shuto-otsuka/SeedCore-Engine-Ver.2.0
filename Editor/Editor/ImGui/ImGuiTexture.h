@@ -48,6 +48,7 @@ namespace SeedCore
 		Translate,
 		Rotate,
 		Scale,
+		Rect,
 		Camera,
 		ViewMode,
 

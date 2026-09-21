@@ -178,7 +178,7 @@ namespace SeedCore
 		* [JP]
 		* 現在遷移が進行中かどうかを返す。
 		*/
-		Bool IsTransitioning()const;
+		Bool Transitioning()const;
 
 		/**
 		* [EN]
@@ -214,6 +214,27 @@ namespace SeedCore
 		* 完全に見える状態、1 = 完全に覆われた状態）。
 		*/
 		Float GetFadeAlpha()const;
+
+		/**
+		* [EN]
+		* Returns the target scene if a transition has instantiated one
+		* since the last call, or nullptr otherwise, clearing that state in
+		* the same step so each switch is observed exactly once. Loading
+		* scenes shown during a transition are never returned - they are a
+		* temporary cover, not the scene being switched to. The returned
+		* scene stays valid until the next transition begins.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* 前回の呼び出し以降に遷移がターゲットシーンをインスタンス化して
+		* いればそのシーンを、そうでなければ nullptr を返し、同時にその状態を
+		* 取り下げる。これにより各切り替えはちょうど1回だけ観測される。
+		* 遷移中に表示されるローディングシーンは返さない - それは一時的な
+		* 覆いであり、切り替え先のシーンではないため。返したシーンは次の
+		* 遷移が始まるまで有効。
+		*/
+		[[nodiscard]] const Scene* ConsumeSwitchedScene();
 
 	private:
 		/**
@@ -290,8 +311,8 @@ namespace SeedCore
 		/// [JP] 遷移の現在のフェーズ。
 		State state_ = State::Idle;
 
-		/// [EN] The scene data being loaded in the background.
-		/// [JP] バックグラウンドで読み込まれているシーンデータ。
+		/// [EN] The target scene's data - read in the background for asynchronous transitions, or directly for synchronous ones - and, once instantiated, the scene ConsumeSwitchedScene reports.
+		/// [JP] ターゲットシーンのデータ - 非同期遷移ではバックグラウンドで、同期遷移では直接読み込まれる - で、インスタンス化後は ConsumeSwitchedScene が報告するシーン。
 		Scene pendingScene_;
 
 		/// [EN] The small taskflow that performs the background scene load.
@@ -305,6 +326,10 @@ namespace SeedCore
 		/// [EN] Whether the most recent background load completed successfully.
 		/// [JP] 直近のバックグラウンド読み込みが正常に完了したかどうか。
 		Bool pendingLoadSucceeded_ = false;
+
+		/// [EN] Whether pendingScene_ has been instantiated as the target scene and not yet observed by ConsumeSwitchedScene.
+		/// [JP] pendingScene_ がターゲットシーンとしてインスタンス化され、まだ ConsumeSwitchedScene に観測されていないかどうか。
+		Bool sceneSwitched_ = false;
 
 		/// [EN] Current fade overlay alpha (0 = fully visible, 1 = fully covered).
 		/// [JP] 現在のフェードオーバーレイのアルファ値（0 = 完全に見える、1 = 完全に覆われている）。

@@ -125,7 +125,7 @@ namespace SeedCore
 				instance.entityID_ = entityID;
 
 				const Animator* animator = actor.GetComponent<Animator>();
-				if (animator && crister->IsProxySkinned())
+				if (animator && crister->ProxySkinned())
 				{
 					Uint32 boneOffset = 0;
 					if (modelRenderer.TryGetAnimatedBoneOffset(entityID, boneOffset))
@@ -562,10 +562,10 @@ namespace SeedCore
 		///      返ってこないハングになる。
 		/// [EN] Texture streaming can reassign a material's baked
 		///      TextureBindlessIndex() slot after the table was built -
-		///      rebuild when IsMaterialsDirty() reports that.
+		///      rebuild when MaterialsDirty() reports that.
 		/// [JP] テクスチャストリーミングにより、焼き込み済みの
 		///      TextureBindlessIndex() スロットが構築後に再割り当てされる
-		///      ことがある - IsMaterialsDirty() が検知したら再構築する。
+		///      ことがある - MaterialsDirty() が検知したら再構築する。
 		std::unordered_set<const Crister*> materialTableBuilt;
 		for (const PendingInstance& pending : pendingInstances_)
 		{
@@ -575,7 +575,7 @@ namespace SeedCore
 			}
 
 			Bool notCached = !reflectionMaterialTableCache_.contains(pending.crister_);
-			Bool wasDirty = pending.crister_->IsMaterialsDirty();
+			Bool wasDirty = pending.crister_->MaterialsDirty();
 			if (!notCached && !wasDirty)
 			{
 				continue;

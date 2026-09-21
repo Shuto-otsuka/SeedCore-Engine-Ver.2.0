@@ -89,7 +89,7 @@ namespace SeedCore
 		* [JP]
 		* 指定されたビットインデックスのタグが削除済みかどうかを返す。
 		*/
-		static Bool IsRemoved(Size index);
+		static Bool Removed(Size index);
 
 	private:
 		/// [EN] Maps registered tag names to their bit index.

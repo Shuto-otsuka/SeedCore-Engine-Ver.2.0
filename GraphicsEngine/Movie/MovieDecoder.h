@@ -28,7 +28,7 @@ namespace SeedCore
 
 		[[nodiscard]] Double GetDuration()const;
 
-		[[nodiscard]] Bool IsEndOfStream()const;
+		[[nodiscard]] Bool EndOfStream()const;
 
 	private:
 		Microsoft::WRL::ComPtr<IMFSourceReader> sourceReader_;

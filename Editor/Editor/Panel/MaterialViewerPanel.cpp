@@ -51,7 +51,7 @@ namespace SeedCore
 		previewHandle_ = previewHandle;
 	}
 
-	Bool MaterialViewerPanel::IsFocused()const
+	Bool MaterialViewerPanel::Focused()const
 	{
 		return isFocused_;
 	}
@@ -158,14 +158,14 @@ namespace SeedCore
 
 				if (ImGui::IsItemHovered() && context_.cameraContext_.materialCamera_ && context_.cameraContext_.materialCameraController_)
 				{
-					if ((orbitHeld || panHeld) && !InputSystem::IsMouseCaptured())
+					if ((orbitHeld || panHeld) && !InputSystem::MouseCaptured())
 					{
 						InputSystem::BeginMouseCapture();
 					}
 					context_.cameraContext_.materialCameraController_->Update(*context_.cameraContext_.materialCamera_, ImGui::GetIO().DeltaTime);
 				}
 
-				if (!orbitHeld && !panHeld && InputSystem::IsMouseCaptured())
+				if (!orbitHeld && !panHeld && InputSystem::MouseCaptured())
 				{
 					InputSystem::EndMouseCapture();
 				}

@@ -81,7 +81,7 @@ namespace SeedCore
 		oitBuffer_.Resize(device, bindlessHeap, constantIndicesSystem, unorderedAccessIndicesSystem, width, height);
 	}
 
-	void ModelRenderer::Gather(LoaderSystem& loaderSystem, ModelResource& modelResource, MaterialResource& materialResource, AnimationResource& animationResource, World& world, const SceneConstantBuffer& scene, Entity selectedEntity)
+	void ModelRenderer::Gather(LoaderSystem& loaderSystem, ModelResource& modelResource, MaterialResource& materialResource, AnimationResource& animationResource, World& world, const SceneConstantBuffer& scene, std::span<const Entity> selectedEntities)
 	{
 		streamingFrame_++;
 		geometryStreamingRequests_.clear();
@@ -183,7 +183,7 @@ namespace SeedCore
 				///      renders its bind pose rather than nothing - and so
 				///      stopping Play (which destroys the body) doesn't
 				///      leave the last simulated frame's deformed shape
-				///      stuck on screen forever (see Softbody::HasBody).
+				///      stuck on screen forever (see Softbody::BodyID).
 				/// [JP] 生きた Jolt ボディを持つ Softbody アクターは、下の
 				///      Softbody 専用ブロックで完全に描画される（この
 				///      Crister のクラスタ/LOD ストリーミング経路ではなく
@@ -194,9 +194,9 @@ namespace SeedCore
 				///      描かれないのではなくバインドポーズで描かれるように
 				///      するため。これにより Play を止めて（ボディが破棄
 				///      されて）も、最後にシミュレートしたフレームの変形
-				///      形状が画面に残り続けない（Softbody::HasBody 参照）。
+				///      形状が画面に残り続けない（Softbody::BodyID 参照）。
 				Softbody* softbody = actor.GetComponent<Softbody>();
-				if (softbody && softbody->HasBody())
+				if (softbody && !softbody->BodyID().IsInvalid())
 				{
 					return;
 				}
@@ -479,7 +479,7 @@ namespace SeedCore
 								desired = c;
 							}
 						}
-						if (!crister->IsClusterResident(subMesh.clusterOffset_ + desired))
+						if (!crister->ClusterResident(subMesh.clusterOffset_ + desired))
 						{
 							geometryStreamingRequests_.push_back({ crister, subMesh.clusterOffset_ + desired });
 						}
@@ -497,7 +497,7 @@ namespace SeedCore
 						for (Uint32 c = 0; c < subMesh.clusterCount_; ++c)
 						{
 							Uint32 clusterIndex = subMesh.clusterOffset_ + c;
-							if (!crister->IsClusterResident(clusterIndex))
+							if (!crister->ClusterResident(clusterIndex))
 							{
 								continue;
 							}
@@ -614,7 +614,7 @@ namespace SeedCore
 						for (Uint32 c = 0; c < subMesh.clusterCount_; ++c)
 						{
 							Uint32 clusterIndex = subMesh.clusterOffset_ + c;
-							if (crister->IsClusterResident(clusterIndex))
+							if (crister->ClusterResident(clusterIndex))
 							{
 								crister->TouchCluster(clusterIndex, streamingFrame_);
 							}
@@ -768,7 +768,7 @@ namespace SeedCore
 								instanceData.shading_.doubleSided_ = material.doubleSided_ ? 1 : 0;
 								instanceData.shading_.blend_ = material.alphaMode_ == 2 ? 1 : 0;
 
-								instanceData.shading_.selected_ = (selectedEntity.Exists() && actor.GetEntity() == selectedEntity) ? 1 : 0;
+								instanceData.shading_.selected_ = std::ranges::find(selectedEntities, actor.GetEntity()) != selectedEntities.end() ? 1 : 0;
 								if (instanceData.shading_.selected_)
 								{
 									hasSelectedInstance_ = true;
@@ -809,14 +809,14 @@ namespace SeedCore
 		///      not from Crister's cluster/LOD streaming path — see
 		///      SoftbodyMesh's class comment for why. Walked via
 		///      World::GetComponents (SparseSet component, same as
-		///      PhysicsSystem::ResolveSoftbodies), not Query<>, since Softbody
+		///      PhysicsSystem::ResolveSoftbody), not Query<>, since Softbody
 		///      is a SeedScript component like Animator/Rigidbody.
 		/// [JP] Softbody アクター: それぞれ自身の SoftbodyMesh（下で構築/
 		///      再量子化）から作った ModelStructuredBuffer を1つだけ持つ —
 		///      Crister のクラスタ/LOD ストリーミング経路は使わない
 		///      （理由は SoftbodyMesh のクラスコメント参照）。SparseSet
 		///      コンポーネントのため Query<> ではなく World::GetComponents
-		///      で走査する（PhysicsSystem::ResolveSoftbodies と同じ —
+		///      で走査する（PhysicsSystem::ResolveSoftbody と同じ —
 		///      Softbody は Animator/Rigidbody と同じ SeedScript コンポーネント）。
 		for (EntityID entityID : world.GetComponents<Softbody>())
 		{
@@ -833,7 +833,7 @@ namespace SeedCore
 			}
 
 			Softbody* softbody = actor.GetComponent<Softbody>();
-			if (!softbody || !softbody->HasBody())
+			if (!softbody || softbody->BodyID().IsInvalid())
 			{
 				continue;
 			}
@@ -867,7 +867,7 @@ namespace SeedCore
 				}
 			}
 
-			softbodyMesh->Update(softbody->GetVertexPositions());
+			softbodyMesh->Update(softbody->VertexPositionList());
 
 			Matrix worldMatrix = actor.GetWorldMatrix();
 			Matrix inverseTransposeWorld = worldMatrix.Invert().Transpose();
@@ -968,7 +968,7 @@ namespace SeedCore
 				instanceData.shading_.doubleSided_ = material.doubleSided_ ? 1 : 0;
 				instanceData.shading_.blend_ = material.alphaMode_ == 2 ? 1 : 0;
 
-				instanceData.shading_.selected_ = (selectedEntity.Exists() && actor.GetEntity() == selectedEntity) ? 1 : 0;
+				instanceData.shading_.selected_ = std::ranges::find(selectedEntities, actor.GetEntity()) != selectedEntities.end() ? 1 : 0;
 				if (instanceData.shading_.selected_)
 				{
 					hasSelectedInstance_ = true;
@@ -1010,7 +1010,7 @@ namespace SeedCore
 			{
 				break;
 			}
-			if (!request.first->IsClusterResident(request.second))
+			if (!request.first->ClusterResident(request.second))
 			{
 				request.first->MakeClusterResident(request.second);
 				request.first->TouchCluster(request.second, streamingFrame_);

@@ -7,7 +7,7 @@ namespace SeedCore
 {
 	void HumanCharacterConverter::Convert(const HumanCharacterModel& model, const HumanCharacterEvaluator& evaluator, tinygltf::Model& outModel)
 	{
-		if (!model.IsLoaded() || evaluator.Positions().empty())
+		if (!model.Loaded() || evaluator.Positions().empty())
 		{
 			return;
 		}

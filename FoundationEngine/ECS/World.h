@@ -14,6 +14,7 @@
 #include <FoundationEngine/Pool/StablePool.h>
 #include <FoundationEngine/Utility/FlatMap.h>
 #include <PhysicsEngine/Physics/Physics.h>
+#include <AudioEngine/Audio/Audio.h>
 
 namespace SeedCore
 {
@@ -127,6 +128,42 @@ namespace SeedCore
 		* デストラクタ。コンパイラ生成のデフォルトを使用する。
 		*/
 		~World() = default;
+
+		/**
+		* [EN]
+		* Records a request to quit the game. The world only holds the
+		* request; what quitting means is decided by the host that owns the
+		* main loop - the runtime ends the application, while the editor
+		* stops Play mode instead. Callable from gameplay code at any time;
+		* repeated calls before the host consumes the request collapse into
+		* one.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* ゲーム終了の要求を記録する。ワールドは要求を保持するだけで、終了が
+		* 何を意味するかはメインループを所有するホストが決める - ランタイム
+		* ではアプリケーションを終了し、エディタでは代わりに Play モードを
+		* 停止する。ゲームプレイコードからいつでも呼び出せ、ホストが要求を
+		* 消費する前に複数回呼ばれても1回分にまとまる。
+		*/
+		void RequestQuit();
+
+		/**
+		* [EN]
+		* Returns whether a quit has been requested via RequestQuit since
+		* the last call, clearing the request in the same step so each
+		* request is observed exactly once. Called once per frame by the
+		* host that owns the main loop.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* 前回の呼び出し以降に RequestQuit で終了が要求されたかどうかを返し、
+		* 同時に要求を取り下げる。これにより各要求はちょうど1回だけ観測
+		* される。メインループを所有するホストが毎フレーム1回呼び出す。
+		*/
+		[[nodiscard]] Bool ConsumeQuit();
 
 		// ============================================================
 		// Entity
@@ -775,6 +812,43 @@ namespace SeedCore
 		*/
 		const ResourcePtr<Physics>& GetPhysics()const;
 
+		// ============================================================
+		// Audio
+		// ============================================================
+
+		/**
+		* [EN]
+		* Creates and returns a new Audio resource owned by this world.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* このワールドが所有する新しい Audio リソースを生成して返す。
+		*/
+		Audio* CreateAudio();
+
+		/**
+		* [EN]
+		* Returns a mutable reference to this world's Audio resource.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* このワールドの Audio リソースへの変更可能な参照を返す。
+		*/
+		ResourcePtr<Audio>& GetAudio();
+
+		/**
+		* [EN]
+		* Const overload of GetAudio().
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* GetAudio() の const オーバーロード。
+		*/
+		const ResourcePtr<Audio>& GetAudio()const;
+
 	private:
 		// ============================================================
 		// Component (sparse-set storage helpers)
@@ -1005,6 +1079,14 @@ namespace SeedCore
 
 	private:
 		// ============================================================
+		// Lifecycle
+		// ============================================================
+
+		/// [EN] Whether RequestQuit has been called and not yet observed by ConsumeQuit.
+		/// [JP] RequestQuit が呼ばれ、まだ ConsumeQuit に観測されていないかどうか。
+		Bool quitRequested_ = false;
+
+		// ============================================================
 		// Entity
 		// ============================================================
 
@@ -1063,6 +1145,14 @@ namespace SeedCore
 		/// [EN] This world's Physics resource.
 		/// [JP] このワールドの Physics リソース。
 		ResourcePtr<Physics> physics_;
+
+		// ============================================================
+		// Audio
+		// ============================================================
+
+		/// [EN] This world's Audio resource, owning the players and the 3D listener the world's sounds play through.
+		/// [JP] このワールドの Audio リソース。このワールドの音が鳴るためのプレーヤーと 3D リスナーを所有する。
+		ResourcePtr<Audio> audio_;
 	};
 
 	/**

@@ -89,7 +89,9 @@ namespace SeedCore
 
 		ImGui::Separator();
 
-		ImGui::BeginChild("##LogArea", ImVec2(0, 0), false, ImGuiWindowFlags_HorizontalScrollbar);
+		ImGui::BeginChild("##LogArea", ImVec2(0, 0), false, ImGuiWindowFlags_None);
+
+		Float rowWidth = ImGui::GetContentRegionAvail().x;
 
 		ImGuiListClipper clipper;
 		DynamicArray<Uint32> visibleIndices;
@@ -119,7 +121,7 @@ namespace SeedCore
 			std::string rowText = std::format("{}  ({}:{})", entry.message_.str(), entry.file_.str(), entry.line_);
 
 			Float textOffsetX = 4.0f + 14.0f + 6.0f;
-			ImVec2 textSize = ImGui::CalcTextSize(rowText.c_str(), rowText.c_str() + rowText.size(), false, ImGui::GetContentRegionAvail().x - textOffsetX);
+			ImVec2 textSize = ImGui::CalcTextSize(rowText.c_str(), rowText.c_str() + rowText.size(), false, rowWidth - textOffsetX);
 			Float rowHeight = (textSize.y > 14.0f ? textSize.y : 14.0f) + 6.0f;
 
 			ImVec4 color;
@@ -145,7 +147,7 @@ namespace SeedCore
 
 			if (row % 2 == 1)
 			{
-				drawList->AddRectFilled(position, ImVec2(position.x + ImGui::GetContentRegionAvail().x, position.y + rowHeight), IM_COL32(255, 255, 255, 10));
+				drawList->AddRectFilled(position, ImVec2(position.x + rowWidth, position.y + rowHeight), IM_COL32(255, 255, 255, 10));
 			}
 
 			ImVec2 logIconSize(14, 14);
@@ -156,7 +158,7 @@ namespace SeedCore
 			ImGui::PushStyleColor(ImGuiCol_Text, color);
 			/// [EN] TextUnformatted with an explicit end pointer, not TextWrapped("%s", ...): ImGui's printf-style path formats into its own fixed-size buffer, which would reintroduce exactly the truncation this avoids. Wrapping is instead set up by the caller-side PushTextWrapPos below.
 			/// [JP] TextWrapped("%s", ...) ではなく終端ポインタ付きの TextUnformatted を使う: ImGui の printf 形式の経路は内部の固定サイズバッファへ整形するため、まさにここで避けている切り詰めが再発してしまう。折り返しは代わりに下の PushTextWrapPos で設定する。
-			ImGui::PushTextWrapPos(0.0f);
+			ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + rowWidth - textOffsetX);
 			ImGui::TextUnformatted(rowText.c_str(), rowText.c_str() + rowText.size());
 			ImGui::PopTextWrapPos();
 			ImGui::PopStyleColor();
@@ -168,7 +170,7 @@ namespace SeedCore
 			ImGui::SetCursorScreenPos(position);
 			Char rowId[32];
 			snprintf(rowId, sizeof(rowId), "##logRow%u", visibleIndices[row]);
-			ImGui::InvisibleButton(rowId, ImVec2(ImGui::GetContentRegionAvail().x, rowHeight));
+			ImGui::InvisibleButton(rowId, ImVec2(rowWidth, rowHeight));
 			if (ImGui::BeginPopupContextItem(rowId))
 			{
 				if (ImGui::MenuItem("この行をコピー"))

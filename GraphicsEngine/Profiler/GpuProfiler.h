@@ -130,7 +130,7 @@ namespace SeedCore
 		///      そのものではなく、Begin/End で囲んだパスの合計。
 		[[nodiscard]] Float GetViewMilliseconds(GpuProfileView view)const;
 
-		[[nodiscard]] Bool IsAvailable()const;
+		[[nodiscard]] Bool Available()const;
 
 		[[nodiscard]] static const Char* ScopeName(GpuProfileScope scope);
 

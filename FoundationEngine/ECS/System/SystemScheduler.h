@@ -72,9 +72,11 @@ namespace SeedCore
 		* structural changes, and runs the built-in TransformSystem (all
 		* before Tick/LateTick so this frame's motion and any newly
 		* spawned actor's position are in this frame's world matrix), then
-		* drives Tick/LateTick (if isPlaying). Shared by Runtime and
-		* Editor, so cache and executor are threaded through explicitly
-		* rather than assumed global.
+		* drives Tick/LateTick (if isPlaying). Awake/Start/Tick/LateTick
+		* are only dispatched to active actors, so an actor that starts
+		* inactive receives Awake/Start the first frame it is active.
+		* Shared by Runtime and Editor, so cache and executor are threaded
+		* through explicitly rather than assumed global.
 		*
 		* ---------------------------------------------------------------------
 		*
@@ -86,6 +88,9 @@ namespace SeedCore
 		* TransformSystem を実行する（すべて Tick/LateTick より前 — 今フレーム
 		* の移動や新しく生成された actor の位置が同じフレームのワールド行列に
 		* 入るように）。その後（isPlaying であれば）Tick/LateTick を駆動する。
+		* Awake/Start/Tick/LateTick はアクティブな actor にだけ送るので、
+		* 非アクティブで始まった actor は、アクティブになった最初の
+		* フレームで Awake/Start を受け取る。
 		* Runtime と Editor の両方から使われるため、cache と executor は
 		* グローバル前提にせず明示的に受け渡す。
 		*/
@@ -94,7 +99,8 @@ namespace SeedCore
 		/**
 		* [EN]
 		* Advances one fixed timestep: dispatches FixedTick to every
-		* ComponentBase-derived component that implements it. The caller
+		* ComponentBase-derived component of an active actor that
+		* implements it. The caller
 		* is expected to invoke this once per fixed timestep (e.g. from an
 		* accumulator loop, alongside stepping the physics simulation by
 		* the same fixedTime), independently of how many times Run fires
@@ -103,8 +109,9 @@ namespace SeedCore
 		* ---------------------------------------------------------------------
 		*
 		* [JP]
-		* 固定タイムステップぶん1ステップ進める: FixedTick を実装している
-		* 全ての ComponentBase 派生コンポーネントへディスパッチする。
+		* 固定タイムステップぶん1ステップ進める: アクティブな actor が持つ、
+		* FixedTick を実装している全ての ComponentBase 派生コンポーネント
+		* へディスパッチする。
 		* 呼び出し側は、Run が1フレームに何回発火するかとは無関係に、
 		* 固定タイムステップごとに（例えばアキュムレータループの中で、
 		* 同じ fixedTime 分だけ物理シミュレーションをステップするのと

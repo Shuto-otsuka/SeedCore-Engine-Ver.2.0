@@ -156,6 +156,9 @@
       <AdditionalLibraryDirectories>
       </AdditionalLibraryDirectories>
     </Link>
+    <PostBuildEvent>
+      <Command>xcopy /Y /D "$(SolutionDir)..\External\DXC\*.dll" "$(OutDir)"</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ProjectReference Include="..\SeedCore\SeedCore.vcxproj">
@@ -166,14 +169,16 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Editor\Build\Config.cpp" />
+    <ClCompile Include="Editor\Build\AtomCraft.cpp" />
     <ClCompile Include="Editor\Build\HotReload.cpp" />
     <ClCompile Include="Editor\Build\RuntimeBuilder.cpp" />
     <ClCompile Include="Editor\Build\VisualStudioAutomation.cpp" />
     <ClCompile Include="Editor\Panel\AnimatorControllerPanel.cpp" />
     <ClCompile Include="Editor\Panel\AvatarPanel.cpp" />
+    <ClCompile Include="Editor\Panel\BootScreenPanel.cpp" />
     <ClCompile Include="Editor\Panel\CanvasViewPanel.cpp" />
     <ClCompile Include="Editor\Panel\ConfigPanel.cpp" />
+    <ClCompile Include="Editor\Panel\DiagnosticsPanel.cpp" />
     <ClCompile Include="Editor\Panel\EnvironmentMenuPanel.cpp" />
     <ClCompile Include="Editor\Panel\GraphicsMenuPanel.cpp" />
     <ClCompile Include="Editor\Panel\LayerSettingsPanel.cpp" />
@@ -188,7 +193,6 @@
     <ClCompile Include="Editor\Panel\SpecMemoPanel.cpp" />
     <ClCompile Include="Editor\Panel\TimelinePanel.cpp" />
     <ClCompile Include="Editor\Panel\TodoListPanel.cpp" />
-    <ClCompile Include="Editor\Panel\ToolPanel.cpp" />
     <ClCompile Include="Editor\Panel\VersionPanel.cpp" />
     <ClCompile Include="Editor\ViewportPicking.cpp" />
     <ClCompile Include="Prelude.cpp">
@@ -247,7 +251,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Editor\Build\Config.h" />
+    <ClInclude Include="Editor\Build\AtomCraft.h" />
     <ClInclude Include="Editor\Build\HotReload.h" />
     <ClInclude Include="Editor\Build\RuntimeBuilder.h" />
     <ClInclude Include="Editor\Build\VisualStudioAutomation.h" />
@@ -262,11 +266,13 @@
     <ClInclude Include="Editor\Panel\AddComponentPanel.h" />
     <ClInclude Include="Editor\Panel\AnimatorControllerPanel.h" />
     <ClInclude Include="Editor\Panel\AvatarPanel.h" />
+    <ClInclude Include="Editor\Panel\BootScreenPanel.h" />
     <ClInclude Include="Editor\Panel\CanvasViewPanel.h" />
     <ClInclude Include="Editor\Panel\ConfigPanel.h" />
     <ClInclude Include="Editor\Panel\ConsolePanel.h" />
     <ClInclude Include="Editor\Panel\ContentsDrawerPanel.h" />
     <ClInclude Include="Editor\Panel\ControlPanel.h" />
+    <ClInclude Include="Editor\Panel\DiagnosticsPanel.h" />
     <ClInclude Include="Editor\Panel\EditorWindowPanel.h" />
     <ClInclude Include="Editor\Panel\EnvironmentMenuPanel.h" />
     <ClInclude Include="Editor\Panel\GameWindowPanel.h" />
@@ -288,14 +294,13 @@
     <ClInclude Include="Editor\Panel\SpecMemoPanel.h" />
     <ClInclude Include="Editor\Panel\TimelinePanel.h" />
     <ClInclude Include="Editor\Panel\TodoListPanel.h" />
-    <ClInclude Include="Editor\Panel\ToolPanel.h" />
     <ClInclude Include="Editor\Panel\VersionPanel.h" />
     <ClInclude Include="Editor\ViewportPicking.h" />
     <ClInclude Include="Editor\Window.h" />
   </ItemGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <PostBuildEvent>
-      <Command>xcopy /Y /D "$(SolutionDir)..\External\MTSDF\Lib\Debug\*.pdb" "$(OutDir)"</Command>
+      <Command>xcopy /Y /D "$(SolutionDir)..\External\DXC\*.dll" "$(OutDir)"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

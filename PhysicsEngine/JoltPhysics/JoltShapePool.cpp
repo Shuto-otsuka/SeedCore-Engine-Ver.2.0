@@ -4,7 +4,16 @@
 
 namespace SeedCore
 {
-	ShapeHandle JoltShapePool::CreateBoxShape(const Vector3& size, const Vector3& center)
+	/**
+	* [EN]
+	* Creates or reuses a box shape with the specified size and center.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 指定したサイズと中心を持つボックス形状を生成または再利用する。
+	*/
+	Handle<JPH::Shape> JoltShapePool::CreateBoxShape(const Vector3& size, const Vector3& center)
 	{
 		Uint64 key = HashCombine(0, static_cast<Uint64>(ShapeKind::Box));
 		key = HashVector3(key, size);
@@ -28,7 +37,16 @@ namespace SeedCore
 		return Register(std::move(shape), key);
 	}
 
-	ShapeHandle JoltShapePool::CreateSphereShape(Float radius)
+	/**
+	* [EN]
+	* Creates or reuses a sphere shape with the specified radius.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 指定した半径を持つ球形状を生成または再利用する。
+	*/
+	Handle<JPH::Shape> JoltShapePool::CreateSphereShape(Float radius)
 	{
 		Uint64 key = HashCombine(0, static_cast<Uint64>(ShapeKind::Sphere));
 		key = HashFloat(key, radius);
@@ -44,7 +62,16 @@ namespace SeedCore
 		return Register(std::move(shape), key);
 	}
 
-	ShapeHandle JoltShapePool::CreateCapsuleShape(Float height, Float radius)
+	/**
+	* [EN]
+	* Creates or reuses a capsule shape with the specified height and radius.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 指定した高さと半径を持つカプセル形状を生成または再利用する。
+	*/
+	Handle<JPH::Shape> JoltShapePool::CreateCapsuleShape(Float height, Float radius)
 	{
 		Uint64 key = HashCombine(0, static_cast<Uint64>(ShapeKind::Capsule));
 		key = HashFloat(key, height);
@@ -61,7 +88,16 @@ namespace SeedCore
 		return Register(std::move(shape), key);
 	}
 
-	ShapeHandle JoltShapePool::CreateCylinderShape(Float height, Float radius)
+	/**
+	* [EN]
+	* Creates or reuses a cylinder shape with the specified height and radius.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 指定した高さと半径を持つ円柱形状を生成または再利用する。
+	*/
+	Handle<JPH::Shape> JoltShapePool::CreateCylinderShape(Float height, Float radius)
 	{
 		Uint64 key = HashCombine(0, static_cast<Uint64>(ShapeKind::Cylinder));
 		key = HashFloat(key, height);
@@ -78,7 +114,16 @@ namespace SeedCore
 		return Register(std::move(shape), key);
 	}
 
-	ShapeHandle JoltShapePool::CreateRectShape(const Vector2& size, const Vector2& center)
+	/**
+	* [EN]
+	* Creates or reuses a rectangular shape in the XY plane.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* XY平面上の矩形形状を生成または再利用する。
+	*/
+	Handle<JPH::Shape> JoltShapePool::CreateRectShape(const Vector2& size, const Vector2& center)
 	{
 		Uint64 key = HashCombine(0, static_cast<Uint64>(ShapeKind::Rect));
 		key = HashVector2(key, size);
@@ -102,7 +147,16 @@ namespace SeedCore
 		return Register(std::move(shape), key);
 	}
 
-	ShapeHandle JoltShapePool::CreateCircleShape(Float radius, const Vector2& center)
+	/**
+	* [EN]
+	* Creates or reuses a circular shape in the XY plane.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* XY平面上の円形状を生成または再利用する。
+	*/
+	Handle<JPH::Shape> JoltShapePool::CreateCircleShape(Float radius, const Vector2& center)
 	{
 		Uint64 key = HashCombine(0, static_cast<Uint64>(ShapeKind::Circle));
 		key = HashFloat(key, radius);
@@ -114,15 +168,26 @@ namespace SeedCore
 			return it->second;
 		}
 
-		JPH::ShapeRefC shape = new JPH::CylinderShape(flatShapeHalfThickness_, radius);
+		JPH::ShapeRefC shape = new JPH::SphereShape(radius);
 
-		const JPH::Quat faceForwardRotation = JPH::Quat::sRotation(JPH::Vec3::sAxisX(), JPH::JPH_PI * 0.5f);
-		shape = new JPH::RotatedTranslatedShape(JPH::Vec3{ center.x, center.y, 0.0f }, faceForwardRotation, shape);
+		if (center.x != 0.0f || center.y != 0.0f)
+		{
+			shape = new JPH::RotatedTranslatedShape(JPH::Vec3{ center.x, center.y, 0.0f }, JPH::Quat::sIdentity(), shape);
+		}
 
 		return Register(std::move(shape), key);
 	}
 
-	ShapeHandle JoltShapePool::CreateMeshShape(Uint32 assetID, const DynamicArray<Vector3>& positions, const DynamicArray<Uint32>& indices)
+	/**
+	* [EN]
+	* Creates or reuses a triangle mesh shape for the specified asset.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 指定したアセットの三角形メッシュ形状を生成または再利用する。
+	*/
+	Handle<JPH::Shape> JoltShapePool::CreateMeshShape(Uint32 assetID, const DynamicArray<Vector3>& positions, const DynamicArray<Uint32>& indices)
 	{
 		Uint64 key = HashCombine(0, static_cast<Uint64>(ShapeKind::Mesh));
 		key = HashCombine(key, static_cast<Uint64>(assetID));
@@ -135,7 +200,7 @@ namespace SeedCore
 
 		if (positions.empty() || indices.size() < 3)
 		{
-			return ShapeHandle::null();
+			return Handle<JPH::Shape>::null();
 		}
 
 		JPH::VertexList vertices;
@@ -156,7 +221,7 @@ namespace SeedCore
 		if (!result.IsValid())
 		{
 			SC_LOG_ERROR("メッシュ形状の生成に失敗しました: %s", result.GetError().c_str());
-			return ShapeHandle::null();
+			return Handle<JPH::Shape>::null();
 		}
 
 		JPH::ShapeRefC shape = result.Get();
@@ -164,7 +229,16 @@ namespace SeedCore
 		return Register(std::move(shape), key);
 	}
 
-	ShapeHandle JoltShapePool::CreateConvexShape(Uint32 assetID, const DynamicArray<Vector3>& positions)
+	/**
+	* [EN]
+	* Creates or reuses a convex hull shape for the specified asset.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 指定したアセットの凸包形状を生成または再利用する。
+	*/
+	Handle<JPH::Shape> JoltShapePool::CreateConvexShape(Uint32 assetID, const DynamicArray<Vector3>& positions)
 	{
 		Uint64 key = HashCombine(0, static_cast<Uint64>(ShapeKind::Convex));
 		key = HashCombine(key, static_cast<Uint64>(assetID));
@@ -177,7 +251,7 @@ namespace SeedCore
 
 		if (positions.size() < 4)
 		{
-			return ShapeHandle::null();
+			return Handle<JPH::Shape>::null();
 		}
 
 		JPH::Array<JPH::Vec3> points;
@@ -191,7 +265,7 @@ namespace SeedCore
 		if (!result.IsValid())
 		{
 			SC_LOG_ERROR("凸包形状の生成に失敗しました: %s", result.GetError().c_str());
-			return ShapeHandle::null();
+			return Handle<JPH::Shape>::null();
 		}
 
 		JPH::ShapeRefC shape = result.Get();
@@ -199,7 +273,16 @@ namespace SeedCore
 		return Register(std::move(shape), key);
 	}
 
-	JPH::ShapeRefC JoltShapePool::Get(ShapeHandle handle)const
+	/**
+	* [EN]
+	* Returns the shape referenced by a valid handle.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 有効なハンドルが参照する形状を返す。
+	*/
+	JPH::ShapeRefC JoltShapePool::Get(Handle<JPH::Shape> handle)const
 	{
 		if (handle.empty() || handle.index_ >= slots_.size())
 		{
@@ -215,7 +298,16 @@ namespace SeedCore
 		return slot.shape_;
 	}
 
-	void JoltShapePool::AddRef(ShapeHandle handle)
+	/**
+	* [EN]
+	* Increments the reference count of a valid shape handle.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 有効な形状ハンドルの参照カウントを増やす。
+	*/
+	void JoltShapePool::AddRef(Handle<JPH::Shape> handle)
 	{
 		if (handle.empty() || handle.index_ >= slots_.size())
 		{
@@ -231,7 +323,16 @@ namespace SeedCore
 		slot.refCount_++;
 	}
 
-	void JoltShapePool::Release(ShapeHandle handle)
+	/**
+	* [EN]
+	* Releases one reference and recycles the slot when no owners remain.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 参照を一つ解放し、所有者がいなくなったスロットを再利用可能にする。
+	*/
+	void JoltShapePool::Release(Handle<JPH::Shape> handle)
 	{
 		if (handle.empty() || handle.index_ >= slots_.size())
 		{
@@ -255,6 +356,15 @@ namespace SeedCore
 		freeIndices_.push_back(handle.index_);
 	}
 
+	/**
+	* [EN]
+	* Releases every shape and resets the pool.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* すべての形状を解放してプールを初期状態へ戻す。
+	*/
 	void JoltShapePool::Clear()
 	{
 		for (Slot& slot : slots_)
@@ -267,7 +377,16 @@ namespace SeedCore
 		cache_.clear();
 	}
 
-	ShapeHandle JoltShapePool::Register(JPH::ShapeRefC shape, Uint64 cacheKey)
+	/**
+	* [EN]
+	* Stores a shape and associates its cache key with a new handle.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 形状を格納し、キャッシュキーを新しいハンドルへ関連付ける。
+	*/
+	Handle<JPH::Shape> JoltShapePool::Register(JPH::ShapeRefC shape, Uint64 cacheKey)
 	{
 		Uint64 index = 0;
 		if (!freeIndices_.empty())
@@ -286,7 +405,7 @@ namespace SeedCore
 		slot.cacheKey_ = cacheKey;
 		slot.refCount_ = 1;
 
-		ShapeHandle handle{};
+		Handle<JPH::Shape> handle{};
 		handle.index_ = index;
 		handle.generation_ = slot.generation_;
 		cache_.emplace(cacheKey, handle);

@@ -206,7 +206,7 @@ namespace SeedCore
 		* [JP]
 		* 入力の問い合わせが現在有効かどうかを返す（SetInputEnabled() 参照）。
 		*/
-		static Bool IsInputEnabled();
+		static Bool InputEnabled();
 
 		/**
 		* [EN]
@@ -331,7 +331,7 @@ namespace SeedCore
 		* [JP]
 		* マウスキャプチャが現在アクティブかどうかを返す。
 		*/
-		static Bool IsMouseCaptured();
+		static Bool MouseCaptured();
 
 		/**
 		* [EN]

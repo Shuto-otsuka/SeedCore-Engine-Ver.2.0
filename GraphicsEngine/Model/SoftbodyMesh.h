@@ -23,7 +23,7 @@ namespace SeedCore
 	*
 	* Physics does NOT simulate this full-resolution mesh (a mesh
 	* shader-scale vertex/edge count is far past what Jolt's soft body
-	* solver is meant for — see PhysicsSystem::ResolveSoftbodies). Instead
+	* solver is meant for — see Softbody::Build). Instead
 	* it simulates a much smaller proxy mesh (Crister::SoftbodyCoarsestVertices
 	* — each SubMesh's coarsest cluster). Create() binds every
 	* full-resolution render vertex to its bindMaxWeights_ nearest proxy
@@ -53,7 +53,7 @@ namespace SeedCore
 	*
 	* Physics はこのフル解像度メッシュを直接シミュレートしない
 	* （メッシュシェーダ規模の頂点/辺数は Jolt のソフトボディソルバーが
-	* 想定する規模をはるかに超える — PhysicsSystem::ResolveSoftbodies
+	* 想定する規模をはるかに超える — Softbody::Build
 	* 参照）。代わりにずっと小さいプロキシメッシュ
 	* （Crister::SoftbodyCoarsestVertices — 各 SubMesh の最粗クラスタ）を
 	* シミュレートする。Create() が全てのフル解像度描画頂点を、最も近い

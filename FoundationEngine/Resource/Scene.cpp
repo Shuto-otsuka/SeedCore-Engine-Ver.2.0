@@ -320,7 +320,7 @@ namespace SeedCore
 	*/
 	Bool Scene::Change(const std::filesystem::path& targetScene)
 	{
-		if (!world_ || !resource_ || transitionSystem_.IsTransitioning())
+		if (!world_ || !resource_ || transitionSystem_.Transitioning())
 		{
 			return false;
 		}
@@ -339,7 +339,7 @@ namespace SeedCore
 	*/
 	Bool Scene::Change(Uint32 targetScene)
 	{
-		if (!world_ || !resource_ || transitionSystem_.IsTransitioning())
+		if (!world_ || !resource_ || transitionSystem_.Transitioning())
 		{
 			return false;
 		}
@@ -362,7 +362,7 @@ namespace SeedCore
 	*/
 	void Scene::Change(const std::filesystem::path& targetScene, const std::filesystem::path& loadingScene)
 	{
-		if (!world_ || !resource_ || !executor_ || transitionSystem_.IsTransitioning())
+		if (!world_ || !resource_ || !executor_ || transitionSystem_.Transitioning())
 		{
 			return;
 		}
@@ -382,7 +382,7 @@ namespace SeedCore
 	*/
 	void Scene::Change(Uint32 targetScene, Uint32 loadingScene)
 	{
-		if (!world_ || !resource_ || !executor_ || transitionSystem_.IsTransitioning())
+		if (!world_ || !resource_ || !executor_ || transitionSystem_.Transitioning())
 		{
 			return;
 		}
@@ -403,7 +403,7 @@ namespace SeedCore
 	*/
 	void Scene::Change(const std::filesystem::path& targetScene, Float fadeOutDuration, Float fadeInDuration)
 	{
-		if (!world_ || !resource_ || !executor_ || transitionSystem_.IsTransitioning())
+		if (!world_ || !resource_ || !executor_ || transitionSystem_.Transitioning())
 		{
 			return;
 		}
@@ -423,7 +423,7 @@ namespace SeedCore
 	*/
 	void Scene::Change(Uint32 targetScene, Float fadeOutDuration, Float fadeInDuration)
 	{
-		if (!world_ || !resource_ || !executor_ || transitionSystem_.IsTransitioning())
+		if (!world_ || !resource_ || !executor_ || transitionSystem_.Transitioning())
 		{
 			return;
 		}
@@ -444,7 +444,7 @@ namespace SeedCore
 	*/
 	void Scene::Change(const std::filesystem::path& targetScene, const std::filesystem::path& loadingScene, Float coverDuration, Float revealDuration)
 	{
-		if (!world_ || !resource_ || !executor_ || transitionSystem_.IsTransitioning())
+		if (!world_ || !resource_ || !executor_ || transitionSystem_.Transitioning())
 		{
 			return;
 		}
@@ -465,7 +465,7 @@ namespace SeedCore
 	*/
 	void Scene::Change(Uint32 targetScene, Uint32 loadingScene, Float coverDuration, Float revealDuration)
 	{
-		if (!world_ || !resource_ || !executor_ || transitionSystem_.IsTransitioning())
+		if (!world_ || !resource_ || !executor_ || transitionSystem_.Transitioning())
 		{
 			return;
 		}
@@ -486,6 +486,24 @@ namespace SeedCore
 	Float Scene::GetFadeAlpha()
 	{
 		return transitionSystem_.GetFadeAlpha();
+	}
+
+	/**
+	* [EN]
+	* Returns the scene the process-wide transition has switched to since
+	* the last call, or nullptr if none, clearing that state in the same
+	* step (see SceneTransitionSystem::ConsumeSwitchedScene).
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 前回の呼び出し以降にプロセス全体の遷移が切り替えた先のシーンを
+	* 返す。無ければ nullptr。同時にその状態を取り下げる
+	* (SceneTransitionSystem::ConsumeSwitchedScene 参照)。
+	*/
+	const Scene* Scene::ConsumeSwitchedScene()
+	{
+		return transitionSystem_.ConsumeSwitchedScene();
 	}
 
 	/**

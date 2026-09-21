@@ -32,11 +32,11 @@ namespace SeedCore
 	class SEEDCORE_API GraphicsQuality
 	{
 	public:
-		static Bool IsEffectEnabledInFamily(GraphicsEffect effect, GraphicsEffectFamily family, const RaytracingContext& raytracing, const ScreenSpaceContext& screenSpace, const RasterizationContext& rasterization);
+		static Bool EffectEnabledInFamily(GraphicsEffect effect, GraphicsEffectFamily family, const RaytracingContext& raytracing, const ScreenSpaceContext& screenSpace, const RasterizationContext& rasterization);
 
-		static Bool IsEffectClaimedOutside(GraphicsEffect effect, GraphicsEffectFamily family, const RaytracingContext& raytracing, const ScreenSpaceContext& screenSpace, const RasterizationContext& rasterization);
+		static Bool EffectClaimedOutside(GraphicsEffect effect, GraphicsEffectFamily family, const RaytracingContext& raytracing, const ScreenSpaceContext& screenSpace, const RasterizationContext& rasterization);
 
-		static Bool IsEnableCheckboxInteractive(GraphicsEffect effect, GraphicsEffectFamily family, GraphicsQualityPreset preset, const RaytracingContext& raytracing, const ScreenSpaceContext& screenSpace, const RasterizationContext& rasterization);
+		static Bool EnableCheckboxInteractive(GraphicsEffect effect, GraphicsEffectFamily family, GraphicsQualityPreset preset, const RaytracingContext& raytracing, const ScreenSpaceContext& screenSpace, const RasterizationContext& rasterization);
 
 		static void ApplyPreset(GraphicsQualityPreset preset, RaytracingContext& raytracing, ScreenSpaceContext& screenSpace, RasterizationContext& rasterization);
 	};

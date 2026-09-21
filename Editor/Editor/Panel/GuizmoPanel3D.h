@@ -14,6 +14,8 @@ namespace SeedCore
 
 		void Draw(const Vector2& position, const Vector2& size);
 
+		[[nodiscard]] Bool RectToolActive()const;
+
 	private:
 		void Move(Matrix& view, Matrix& projection, Matrix& pivot, ImGuizmo::OPERATION operation, const Float* snap);
 
@@ -47,5 +49,9 @@ namespace SeedCore
 		/// [EN] The gizmo's displayed matrix, persisted across frames. Only rebuilt from the live selection while NOT dragging (ImGuizmo::IsUsing() false) - while a drag is in progress it is left alone here and instead mutated in-place by ImGuizmo::Manipulate() inside Move(), so a multi-select pivot's accumulated rotation/scale from earlier frames of the same drag isn't discarded (recomputing it fresh every frame from actor positions would collapse it back to an unrotated translate-only matrix mid-drag).
 		/// [JP] ギズモの表示行列。フレームをまたいで保持される。ドラッグ中でない（ImGuizmo::IsUsing()がfalseの）間だけ、現在の選択から作り直す — ドラッグ中はここでは触らず、Move()内のImGuizmo::Manipulate()がその場で書き換える。こうしないと、複数選択ピボットが同一ドラッグの前フレームまでに蓄積した回転/スケールが、毎フレームactorの位置から作り直すことで無回転の平行移動行列へ巻き戻ってしまう。
 		Matrix pivotMatrix_ = Matrix::Identity;
+
+		Int32 rectHandle_ = 0;
+		Vector4 rectDragStart_ = Vector4(0.0f, 0.0f, 0.0f, 0.0f);
+		Vector2 rectDragMouse_ = Vector2(0.0f, 0.0f);
 	};
 }

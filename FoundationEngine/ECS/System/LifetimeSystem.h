@@ -40,7 +40,8 @@ namespace SeedCore
 		* Advances every Lifetime component's countdown by deltaTime and
 		* destroys any actor whose remaining time has reached zero. A
 		* holding actor seen for the first time starts its countdown at
-		* Lifetime::duration_.
+		* Lifetime::duration_. The countdown of an inactive actor pauses
+		* until the actor becomes active again.
 		*
 		* ---------------------------------------------------------------------
 		*
@@ -48,7 +49,8 @@ namespace SeedCore
 		* 全 Lifetime コンポーネントのカウントダウンを deltaTime だけ
 		* 進め、残り時間が 0 に達したアクターの破棄を cmd へ記録する。
 		* 初めて見つかった保持アクターは Lifetime::duration_ から
-		* カウントダウンを開始する。
+		* カウントダウンを開始する。非アクティブなアクターのカウント
+		* ダウンは、再びアクティブになるまで止まる。
 		*/
 		void Execute(CommandBuffer& cmd, World& world, Float deltaTime);
 

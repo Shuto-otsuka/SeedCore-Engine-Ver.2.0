@@ -19,7 +19,31 @@ namespace SeedCore
 	*/
 	Bool SceneTransitionSystem::LoadScene(World& world, ResourceCache& cache, const std::filesystem::path& targetScene)
 	{
-		return Scene::Load(world, cache, targetScene);
+		/// [EN] Resolve targetScene as an asset name first (a bare "Foo.scene" is fine), falling back to the literal path.
+		/// [JP] targetScene をまずアセット名として解決し("Foo.scene" のような単なるファイル名でもよい)、見つからなければ文字通りのパスを使う。
+		std::filesystem::path resolvedPath = targetScene;
+		Uint32 assetID = cache.GetAssetID(String(targetScene.string()));
+		if (assetID != 0)
+		{
+			AssetRecord* asset = cache.GetAsset(assetID);
+			if (asset)
+			{
+				resolvedPath = std::filesystem::path(asset->fullpath_.c_str());
+			}
+		}
+
+		/// [EN] Read into pendingScene_ (not a scratch scene) so the synchronous path reports through ConsumeSwitchedScene exactly like the asynchronous ones.
+		/// [JP] スクラッチシーンではなく pendingScene_ へ読み込む。これにより同期経路も非同期経路と全く同じように ConsumeSwitchedScene から報告される。
+		if (!pendingScene_.Read(resolvedPath))
+		{
+			return false;
+		}
+
+		world.DestroyActors();
+		pendingScene_.Instantiate(world, cache);
+		sceneSwitched_ = true;
+
+		return true;
 	}
 
 	/**
@@ -34,7 +58,13 @@ namespace SeedCore
 	*/
 	Bool SceneTransitionSystem::LoadScene(World& world, ResourceCache& cache, Uint32 targetScene)
 	{
-		return Scene::Load(world, cache, targetScene);
+		AssetRecord* targetAsset = cache.GetAsset(targetScene);
+		if (!targetAsset)
+		{
+			return false;
+		}
+
+		return LoadScene(world, cache, std::filesystem::path(targetAsset->fullpath_.c_str()));
 	}
 
 	/**
@@ -264,6 +294,7 @@ namespace SeedCore
 				if (pendingLoadSucceeded_)
 				{
 					pendingScene_.Instantiate(world, cache);
+					sceneSwitched_ = true;
 				}
 
 				transitionTimer_ = 0.0f;
@@ -298,7 +329,7 @@ namespace SeedCore
 	* [JP]
 	* 現在遷移が進行中かどうかを返す。
 	*/
-	Bool SceneTransitionSystem::IsTransitioning()const
+	Bool SceneTransitionSystem::Transitioning()const
 	{
 		return state_ != State::Idle;
 	}
@@ -328,6 +359,7 @@ namespace SeedCore
 		}
 		pendingFlow_.Clear();
 		pendingLoadSucceeded_ = false;
+		sceneSwitched_ = false;
 
 		previousActors_.clear();
 		loadingSceneActors_.clear();
@@ -352,6 +384,30 @@ namespace SeedCore
 	Float SceneTransitionSystem::GetFadeAlpha()const
 	{
 		return fadeAlpha_;
+	}
+
+	/**
+	* [EN]
+	* Returns the target scene if a transition has instantiated one since
+	* the last call, or nullptr otherwise, clearing that state in the same
+	* step so each switch is observed exactly once.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 前回の呼び出し以降に遷移がターゲットシーンをインスタンス化して
+	* いればそのシーンを、そうでなければ nullptr を返し、同時にその状態を
+	* 取り下げる。これにより各切り替えはちょうど1回だけ観測される。
+	*/
+	const Scene* SceneTransitionSystem::ConsumeSwitchedScene()
+	{
+		if (!sceneSwitched_)
+		{
+			return nullptr;
+		}
+
+		sceneSwitched_ = false;
+		return &pendingScene_;
 	}
 
 	/**
@@ -412,5 +468,6 @@ namespace SeedCore
 
 		world.DestroyActors();
 		pendingScene_.Instantiate(world, cache);
+		sceneSwitched_ = true;
 	}
 }

@@ -46,6 +46,11 @@ namespace SeedCore
 
 		psoKey.renderTargetViewFormat_[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
 		pipelineStateDebugOverlay_ = pipelineStateObject_.GetOrCreate(device, psoKey);
+
+		psoKey.renderTargetViewFormat_[0] = DXGI_FORMAT_R16G16B16A16_FLOAT;
+		psoKey.depthStencilDesc_ = DepthStencilState::Get(DepthStencilStateType::DepthOff);
+		psoKey.depthStencilViewFormat_ = DXGI_FORMAT_UNKNOWN;
+		pipelineStateCanvas_ = pipelineStateObject_.GetOrCreate(device, psoKey);
 	}
 
 	ID3D12PipelineState* ColliderLineShader::GetPipelineState()const
@@ -56,6 +61,11 @@ namespace SeedCore
 	ID3D12PipelineState* ColliderLineShader::GetPipelineStateDebugOverlay()const
 	{
 		return pipelineStateObject_.Get(pipelineStateDebugOverlay_);
+	}
+
+	ID3D12PipelineState* ColliderLineShader::GetPipelineStateCanvas()const
+	{
+		return pipelineStateObject_.Get(pipelineStateCanvas_);
 	}
 
 	ID3D12RootSignature* ColliderLineShader::GetRootSignature()const

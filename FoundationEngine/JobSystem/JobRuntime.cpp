@@ -112,7 +112,7 @@ namespace SeedCore
 	* このタスクの実行がキャンセル済みとしてフラグ付けされているか
 	* どうかを返す。
 	*/
-	Bool JobPreemptiveRuntime::IsCancelled()
+	Bool JobPreemptiveRuntime::Cancelled()
 	{
 		return true;
 	}

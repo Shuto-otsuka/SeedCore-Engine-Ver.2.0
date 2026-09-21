@@ -2,6 +2,7 @@
 #include <GraphicsEngine/Environment/Weather.h>
 #include <FoundationEngine/ECS/Query.h>
 #include <FoundationEngine/ECS/World.h>
+#include <FoundationEngine/ECS/Component/Active.h>
 
 namespace SeedCore
 {
@@ -22,7 +23,7 @@ namespace SeedCore
 			return 1.0f;
 		}
 
-		Bool IsSnowSeason(Uint32 monthOfYear)
+		Bool SnowSeason(Uint32 monthOfYear)
 		{
 			return monthOfYear == 12 || monthOfYear == 1 || monthOfYear == 2;
 		}
@@ -124,7 +125,7 @@ namespace SeedCore
 			{ WeatherType::Cloudy, 2.0f },
 			{ WeatherType::Overcast, 1.0f },
 			{ WeatherType::Rain, weather.forceRain_ ? 2.0f : RainSeasonalWeight(monthOfYear) },
-			{ WeatherType::Snow, weather.forceSnow_ ? 1.5f : (IsSnowSeason(monthOfYear) ? 1.5f : 0.0f) },
+			{ WeatherType::Snow, weather.forceSnow_ ? 1.5f : (SnowSeason(monthOfYear) ? 1.5f : 0.0f) },
 			{ WeatherType::Storm, weather.forceStorm_ ? 1.0f : 0.15f },
 		};
 
@@ -150,13 +151,13 @@ namespace SeedCore
 
 	void WeatherSystem::Execute(World& world, Float deltaTime, Uint32 monthOfYear, VolumetricCloudScapesRayConstantBuffer& cloudSettings)
 	{
-		Query<Write<Weather>> query(world);
+		Query<Read<Active>, Write<Weather>> query(world);
 
 		Bool found = false;
 
-		query.ForEach([&](Weather& weather)
+		query.ForEach([&](const Active& active, Weather& weather)
 			{
-				if (found)
+				if (found || !active.active_)
 				{
 					return;
 				}
@@ -195,7 +196,7 @@ namespace SeedCore
 				/// [JP] 積雪: 雪の間に積もり、止むと雪解け(季節外の強制の場合は速く溶ける)。
 				Bool snowing = weather.type_ == WeatherType::Snow;
 				Float snowRampSpeed = 1.0f / 60.0f;
-				Float snowMeltSpeed = IsSnowSeason(monthOfYear) ? (1.0f / 180.0f) : (1.0f / 40.0f);
+				Float snowMeltSpeed = SnowSeason(monthOfYear) ? (1.0f / 180.0f) : (1.0f / 40.0f);
 				weather.snowCoverage_ += deltaTime * (snowing ? snowRampSpeed : -snowMeltSpeed);
 				weather.snowCoverage_ = std::clamp(weather.snowCoverage_, 0.0f, 1.0f);
 
@@ -236,12 +237,12 @@ namespace SeedCore
 	{
 		WeatherGpuState state;
 
-		Query<Read<Weather>> query(world);
+		Query<Read<Active>, Read<Weather>> query(world);
 		Bool found = false;
 
-		query.ForEach([&](const Weather& weather)
+		query.ForEach([&](const Active& active, const Weather& weather)
 			{
-				if (found)
+				if (found || !active.active_)
 				{
 					return;
 				}

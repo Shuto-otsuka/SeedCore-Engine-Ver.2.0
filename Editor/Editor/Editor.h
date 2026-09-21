@@ -5,7 +5,7 @@
 
 #include <Editor/Editor/Panel/HierarchyPanel.h>
 #include <Editor/Editor/Panel/InspectorPanel.h>
-#include <Editor/Editor/Panel/ToolPanel.h>
+#include <Editor/Editor/Panel/DiagnosticsPanel.h>
 #include <Editor/Editor/Panel/EditorWindowPanel.h>
 #include <Editor/Editor/Panel/GameWindowPanel.h>
 #include <Editor/Editor/Panel/CanvasViewPanel.h>
@@ -24,6 +24,7 @@
 #include <Editor/Editor/Panel/MaterialViewerPanel.h>
 #include <Editor/Editor/Panel/ModelTransformPanel.h>
 #include <Editor/Editor/Panel/AvatarPanel.h>
+#include <Editor/Editor/Panel/BootScreenPanel.h>
 
 namespace SeedCore
 {
@@ -35,21 +36,21 @@ namespace SeedCore
 
 		Float DrawToolbar();
 
-		/// [EN] gpuProfiler is forwarded to ToolPanel -> ProfilerPanel. Passed
+		/// [EN] gpuProfiler is forwarded to DiagnosticsPanel -> ProfilerPanel. Passed
 		///      explicitly rather than stored in EditorContext so the panel's
 		///      dependency on the renderer stays visible in the signatures.
-		/// [JP] gpuProfiler は ToolPanel → ProfilerPanel へ受け渡す。EditorContext
+		/// [JP] gpuProfiler は DiagnosticsPanel → ProfilerPanel へ受け渡す。EditorContext
 		///      に持たせずに引数で通すことで、パネルがレンダラーに依存している
 		///      ことをシグネチャに出しておく。
 		void Draw(D3D12_GPU_DESCRIPTOR_HANDLE editorFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE gameFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE canvasFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE timelinePreviewFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE modelTransformPreviewFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE materialPreviewFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE skeletonControllerPreviewFrameBufferHandle, D3D12_GPU_DESCRIPTOR_HANDLE avatarPreviewFrameBufferHandle, const GpuProfiler& gpuProfiler);
 
 		[[nodiscard]] ViewMode GetViewMode()const;
 
-		[[nodiscard]] Entity GetSelectedEntity()const;
+		[[nodiscard]] DynamicArray<Entity> GetSelectedEntities()const;
 
 		[[nodiscard]] const RaytracingContext& GetRaytracingSettings()const;
 
-		[[nodiscard]] Bool IsGameViewImageHovered()const { return gameWindowPanel_->IsImageHovered(); }
+		[[nodiscard]] Bool GameViewImageHovered()const { return gameWindowPanel_->ImageHovered(); }
 
 	private:
 		void PruneDeadSelection();
@@ -63,7 +64,7 @@ namespace SeedCore
 
 		ResourcePtr<HierarchyPanel> hierarchyPanel_;
 		ResourcePtr<InspectorPanel> inspectorPanel_;
-		ResourcePtr<ToolPanel> toolPanel_;
+		ResourcePtr<DiagnosticsPanel> diagnosticsPanel_;
 		ResourcePtr<EditorWindowPanel> editorWindowPanel_;
 		ResourcePtr<GameWindowPanel> gameWindowPanel_;
 		ResourcePtr<CanvasViewPanel> canvasViewPanel_;
@@ -82,5 +83,6 @@ namespace SeedCore
 		ResourcePtr<MaterialViewerPanel> materialViewerPanel_;
 		ResourcePtr<ModelTransformPanel> modelTransformPanel_;
 		ResourcePtr<AvatarPanel> avatarPanel_;
+		ResourcePtr<BootScreenPanel> bootScreenPanel_;
 	};
 }

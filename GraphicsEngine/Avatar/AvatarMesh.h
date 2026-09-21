@@ -27,7 +27,7 @@ namespace SeedCore
 
 		void Update(std::span<const Vector3> positions, std::span<const Vector3> normals);
 
-		[[nodiscard]] Bool IsCreated()const;
+		[[nodiscard]] Bool Created()const;
 
 		[[nodiscard]] Uint VertexBufferIndex()const;
 		[[nodiscard]] Uint SkinVertexBufferIndex()const;
