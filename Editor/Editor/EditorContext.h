@@ -5,6 +5,8 @@
 #include <FoundationEngine/World/Command/History.h>
 #include <FoundationEngine/Resource/Scene/Scene.h>
 #include <Editor/Editor/GizmoContext.h>
+#include <FoundationEngine/Resource/ResourceSync.h>
+#include <Editor/Editor/Panel/ResourceSyncControlPanel.h>
 #include <GraphicsEngine/Renderer/ViewMode.h>
 #include <GraphicsEngine/Raytracing/RaytracingContext.h>
 #include <GraphicsEngine/ScreenSpace/ScreenSpaceContext.h>
@@ -185,6 +187,7 @@ namespace SeedCore
 
 	struct EditorContext
 	{
+		ResourceSync* resourceSync_ = nullptr;
 		WorldContext worldContext_;
 		GraphicsContext graphicsContext_;
 		CameraContext cameraContext_;

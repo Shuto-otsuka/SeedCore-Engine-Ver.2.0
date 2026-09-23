@@ -79,6 +79,22 @@ namespace SeedCore
 
 		/**
 		* [EN]
+		* Reloads one asset whose file on disk has been replaced: releases
+		* what is held in memory and loads the new contents in its place.
+		* Used when the shared library brings down a newer revision while
+		* the Editor is running.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* ディスク上のファイルが差し替わったアセット1件を読み直す。メモリ上
+		* のものを解放し、新しい中身をその場所へ読み込む。Editor の実行中に
+		* 共有ライブラリが新しい Revision を持ってきた場合に使う。
+		*/
+		void Reload(Uint32 assetID, LoaderSystem& loader, ID3D12Device* device, D3D12CommandQueue* cmdQueue, BC7CompressShader& bc7Shader);
+
+		/**
+		* [EN]
 		* Starts (or restarts) an incremental scan/load pass: rescans the
 		* project directory tree, builds the pending-load queue ordered
 		* by AssetType, and resets progress counters.
@@ -515,6 +531,7 @@ namespace SeedCore
 			".vs",
 			"x64",
 			".git",
+			".asset",
 		};
 
 		/// [EN] File extensions that don't get a companion .meta file (their GUID is derived from a path hash instead).

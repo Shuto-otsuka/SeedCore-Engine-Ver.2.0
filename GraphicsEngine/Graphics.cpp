@@ -283,7 +283,7 @@ namespace SeedCore
 
 		renderer_->GameFlush(context_->GetDirectList(), gameSceneSystem_.get(), timer.DeltaTime(), hasActiveCamera);
 
-		fadeScreen_.Draw(context_->GetDirectList()->Get(), Scene::GetFadeAlpha(), static_cast<Float>(nativeWidth_), static_cast<Float>(nativeHeight_));
+		fadeScreen_.Draw(context_->GetDirectList()->Get(), Scene::FadeAlpha(), static_cast<Float>(nativeWidth_), static_cast<Float>(nativeHeight_));
 
 		/// [JP] アクティブカメラが無いフレームでも EndGameFrame は必ず呼ぶ
 		///      (PostProcess/DLSS-RRの経路を毎フレーム一貫させるため)。その

@@ -550,6 +550,12 @@ namespace SeedCore
 		}
 
 		actorRecords_[index].persistentId_ = resolvedId;
+		std::random_device randomDevice;
+		Uint32 uuidFirst = randomDevice();
+		Uint32 uuidSecond = randomDevice();
+		Uint32 uuidThird = randomDevice();
+		Uint32 uuidFourth = randomDevice();
+		actorRecords_[index].collaborationId_ = String(std::format("{:08x}-{:04x}-{:04x}-{:04x}-{:04x}{:08x}", uuidFirst, uuidSecond >> 16, (uuidSecond & 0x0fffu) | 0x4000u, (uuidThird >> 16 & 0x3fffu) | 0x8000u, uuidThird & 0xffffu, uuidFourth));
 		persistentIdIndex_[resolvedId] = index;
 
 		/// [EN] Keep the auto-allocation counter ahead of any explicitly-restored ID so future allocations never collide with it.

@@ -254,7 +254,7 @@ namespace SeedCore
 
 				if (const Scene* switchedScene = Scene::ConsumeSwitchedScene())
 				{
-					raytracing_ = DeserializeRaytracingContext(switchedScene->GetRaytracingSettingsJson());
+					raytracing_ = DeserializeRaytracingContext(switchedScene->Visual().raytracing_);
 				}
 
 				AudioSystem::Update(*world_, gameTimer_.DeltaTime());

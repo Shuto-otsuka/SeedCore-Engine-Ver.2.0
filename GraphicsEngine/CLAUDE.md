@@ -12,8 +12,8 @@ SeedCore is a Windows C++ game engine (DirectX 12) split into a set of Visual St
   `msbuild Runtime/Runtime.sln /p:Configuration=Debug /p:Platform=x64`
 - **Run the game runtime**: build/run the `Runtime` project (entry point `Runtime/Application/Main.cpp`, `WinMain`).
 - **Run the editor**: build/run the `Editor` project (entry point `Editor/Editor/Main.cpp`).
-- **Clean generated/codegen artifacts**: `UserProject/Clean.bat` (wraps `Tools/Python/Clean.py`) — clears `UserProject/Assets`, `Scene`, `Prefab`, `SourceCode`, and strips the auto-generated blocks out of `ReflectionRegistry.cpp` / `PayloadRegistry.cpp`.
-- **First-time setup**: `UserProject/Startup.bat` checks for a `py` (Python) install and offers to install it — Python must be on `PATH` as `py` before building, since codegen runs as an MSBuild pre-build step.
+- **Clean generated/codegen artifacts**: `UserProject/Clean.bat` (wraps `Tools/Python/Clean.py`) — clears `UserProject/Script` and every folder under `UserProject/Assets`, recreates the standard asset folders, and resets `UserProject/Reflection/Reflection.generated.cpp` and `UserProject/Payload/Payload.generated.cpp` to their empty form.
+- **First-time setup**: `UserProject/Startup/Startup.bat` checks for a `py` (Python) install and offers to install it — Python must be on `PATH` as `py` before building, since codegen runs as an MSBuild pre-build step.
 - There are no unit tests in this repo; there is no lint/test command to run.
 - **Do not edit `.vcxproj`/`.vcxproj.filters` files.** New files are registered into the project by the user, not by Claude — when a new source file is added, leave it out of the `.vcxproj`; don't add `<ClCompile>`/`<ClInclude>` entries yourself.
 - **Do not build the project to verify changes.** The user builds/checks compilation themselves — don't run `msbuild` (or otherwise attempt a build) just to confirm code compiles.
@@ -23,10 +23,10 @@ SeedCore is a Windows C++ game engine (DirectX 12) split into a set of Visual St
 
 `FoundationEngine`'s pre-build event runs two Python scripts against the whole project tree (`Tools/Python/Reflection.py` and `Tools/Python/Payload.py`, invoked with the repo root as argument). These scripts scan C++ source for annotation macros and regenerate code inside marked regions:
 
-- `SC_REFLECTION_FIELD()`, `SC_REFLECTION_FIELD_EX("name")`, `SC_REFLECTION_FIELD_CONDITION(...)`, `SC_REFLECTION_CLAMPED(min,max)`, `SC_REFLECTION_CLAMPED_EX(...)`, `SC_SERIALIZE_FIELD()` → parsed by `Reflection.py`, output regenerated into `FoundationEngine/ECS/ReflectionRegistry.cpp` (used for editor inspector UI, serialization).
-- `SC_PAYLOAD_FIELD(assetType)`, `SC_PAYLOAD_FIELD_EX("name", assetType)` → parsed by `Payload.py`, output regenerated into `FoundationEngine/ECS/PayloadRegistry.cpp` (asset-reference fields).
+- `SC_REFLECTION_FIELD()`, `SC_REFLECTION_FIELD_EX("name")`, `SC_REFLECTION_FIELD_CONDITION(...)`, `SC_REFLECTION_CLAMPED(min,max)`, `SC_REFLECTION_CLAMPED_EX(...)`, `SC_SERIALIZE_FIELD()` → parsed by `Reflection.py`, which rewrites `FoundationEngine/Reflection/Reflection.generated.cpp` (engine components) and `UserProject/Reflection/Reflection.generated.cpp` (gameplay scripts) in full (used for editor inspector UI, serialization).
+- `SC_PAYLOAD_FIELD(assetType)`, `SC_PAYLOAD_FIELD_EX("name", assetType)` → parsed by `Payload.py`, which rewrites `FoundationEngine/Payload/Payload.generated.cpp` and `UserProject/Payload/Payload.generated.cpp` in full (asset-reference fields).
 
-These macros are no-ops at compile time (defined empty in `FoundationEngine/Prelude.h`) — they exist purely as markers for the codegen scripts. When adding/editing a component or payload field, annotate it with the appropriate macro and let the pre-build step regenerate the registry; do not hand-edit the generated regions (bounded by `// [REFLECTION_AUTO_BEGIN]` / `// [REFLECTION_AUTO_END]` and `// [PAYLOAD_AUTO_BEGIN]` / `// [PAYLOAD_AUTO_END]` markers) — run `Clean.bat` if they get into a bad state.
+These macros are no-ops at compile time (defined empty in `FoundationEngine/Prelude.h`) — they exist purely as markers for the codegen scripts. When adding/editing a component or payload field, annotate it with the appropriate macro and let the pre-build step regenerate the registry; never hand-edit a `*.generated.cpp` — each one is rewritten whole on every build, so edits there are lost. Run `Clean.bat` if they get into a bad state.
 
 ## Architecture
 

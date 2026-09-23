@@ -1,6 +1,5 @@
 #pragma once
-#include <FoundationEngine/Prelude.h>
-#include <FoundationEngine/SeedScript.h>
+#include <SeedCore/ScScript.h>
 
 // SeedScriptを継承すると、Unityでいうスクリプト(MonoBehaviour)のようなものが作れます。
 // 下のOnAwake/OnStart/OnTick...は実装した関数だけが自動で呼ばれるようになる仕組みなので、
@@ -25,7 +24,7 @@ public:
 
 	void OnLateTick(float elapsedTime); // 全員のOnTickが終わった後に呼ばれる更新処理
 
-	void OnFixedTick(float elapsedTime); // 固定時間間隔（既定60Hz、GameTimer::SetFixedDeltaTimeで変更可）で呼ばれる更新処理（物理と足並みを揃えたい処理向け）
+	void OnFixedTick(float elapsedTime); // 固定時間間隔（既定60Hz）で呼ばれる更新処理（物理と足並みを揃えたい処理向け）
 
 	void OnDestroy(); // 破棄される直前に呼ばれる処理
 
@@ -41,6 +40,10 @@ public:
 
 	//SC_REFLECTION_FIELD_EX("デモ3")
 	//float demo3_;  // インスペクターの表示名を"デモ3"のように指定できる版
+
+	// 注意: SC_REFLECTION_FIELD_EXの表示名は、シーンへ保存するときのキーも兼ねています。
+	// 後から表示名を変えると、その名前で保存済みの値は読み込まれなくなる（初期値に戻る）ので、
+	// 既にシーンで使っている変数の表示名は、変える前に一度考えてください。
 
 	// --- ここから下は状況次第で使う応用系 ---
 

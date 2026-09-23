@@ -202,6 +202,7 @@ namespace SeedCore
 		/// [EN] The actor's persistent ID at capture time (see Actor::PersistentID), restored on instantiation so other actors (e.g. constraint targets) can reference it stably. 0 if never assigned.
 		/// [JP] 取得時点での actor の永続ID（Actor::PersistentID 参照）。インスタンス化時に復元され、他の actor（例: コンストレイントのターゲット）がこれを安定して参照できるようにする。未割り当てなら 0。
 		Uint32 persistentId_ = 0;
+		String collaborationId_;
 
 		/// [EN] If nonzero, this node is the root of a nested prefab instance: instantiate that prefab asset instead of using components_.
 		/// [JP] 0以外であれば、このノードはネストされたプレハブインスタンスのルートである: components_ を使う代わりに、そのプレハブアセットをインスタンス化する。
@@ -235,6 +236,7 @@ namespace SeedCore
 			archive.Field("nestedPrefabAssetID", nestedPrefabAssetID_);
 			archive.Field("overrides", overrides_);
 			archive.Field("persistentId", persistentId_);
+			archive.Field("collaborationId", collaborationId_);
 		}
 
 		/**
@@ -269,6 +271,7 @@ namespace SeedCore
 			archive.TryField("nestedPrefabAssetID", nestedPrefabAssetID_);
 			archive.TryField("overrides", overrides_);
 			archive.TryField("persistentId", persistentId_);
+			archive.TryField("collaborationId", collaborationId_);
 		}
 	};
 
@@ -307,6 +310,26 @@ namespace SeedCore
 	* 再親化する。新しい actor を返す。失敗時は nullptr を返す。
 	*/
 	SEEDCORE_API Actor InstantiateActorNode(World& world, ResourceCache& cache, const BlueprintNode& node, Actor parentActor, Bool fromPrefab);
+
+	/**
+	* [EN]
+	* Writes a captured node onto an actor that already exists, instead
+	* of creating a new one: adds the components the node has, removes
+	* the ones it no longer has, and restores every field, transform,
+	* tag and layer. Used when a change to this actor arrives from
+	* another member while the scene is open, so the actor keeps its
+	* identity, its children and its place in the hierarchy.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 取得済みのノードを、新しく作るのではなく既に存在する actor へ書き
+	* 込む: ノードが持つコンポーネントを追加し、持たなくなったものを削除
+	* し、各フィールド・トランスフォーム・タグ・レイヤーを復元する。Scene
+	* を開いている最中に、他のメンバーからその actor への変更が届いた場合
+	* に使う。actor の同一性・子・階層内の位置が保たれる。
+	*/
+	SEEDCORE_API void ApplyActorNode(World& world, ResourceCache& cache, const BlueprintNode& node, Actor actor);
 
 	/**
 	* [EN]

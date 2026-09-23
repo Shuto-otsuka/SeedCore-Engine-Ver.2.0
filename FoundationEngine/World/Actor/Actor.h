@@ -516,6 +516,8 @@ namespace SeedCore
 		* Scene/Prefab のシリアライズを往復する。0 は未割り当てを意味する。
 		*/
 		SEEDCORE_API Uint32 PersistentID()const;
+		SEEDCORE_API String CollaborationID()const;
+		SEEDCORE_API void CollaborationID(const String& value);
 
 	public:
 		/**

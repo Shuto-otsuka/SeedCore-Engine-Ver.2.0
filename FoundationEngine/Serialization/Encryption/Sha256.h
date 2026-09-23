@@ -46,6 +46,22 @@ namespace SeedCore
 		*/
 		static DynamicArray<Byte> Hash(const DynamicArray<Byte>& data);
 
+		/**
+		* [EN]
+		* Hashes the contents of a file without reading it into memory in
+		* one piece, and returns the 32-byte digest. Returns an empty array
+		* when the file cannot be read. Used by asset sharing, where a
+		* single asset can be larger than memory.
+		*
+		* ---------------------------------------------------------------------
+		*
+		* [JP]
+		* ファイルの内容を、一度に全部メモリへ読み込むことなくハッシュ化し、
+		* 32バイトのダイジェストを返す。読み取れない場合は空の配列を返す。
+		* アセット共有で使う。アセット1つがメモリより大きいこともあるため。
+		*/
+		static DynamicArray<Byte> Hash(const std::filesystem::path& path);
+
 	private:
 		/**
 		* [EN]

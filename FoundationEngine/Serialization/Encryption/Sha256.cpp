@@ -169,4 +169,89 @@ namespace SeedCore
 	{
 		return Hash(data.data(), data.size());
 	}
+
+	/**
+	* [EN]
+	* Hashes the contents of a file without reading it into memory in
+	* one piece, and returns the 32-byte digest. Returns an empty array
+	* when the file cannot be read. Used by asset sharing, where a
+	* single asset can be larger than memory.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* ファイルの内容を、一度に全部メモリへ読み込むことなくハッシュ化し、
+	* 32バイトのダイジェストを返す。読み取れない場合は空の配列を返す。
+	* アセット共有で使う。アセット1つがメモリより大きいこともあるため。
+	*/
+	DynamicArray<Byte> Sha256::Hash(const std::filesystem::path& path)
+	{
+		std::ifstream stream(path, std::ios::binary);
+		if (!stream)
+		{
+			return DynamicArray<Byte>();
+		}
+
+		/// [EN] Same FIPS 180-4 initial hash as Hash(); the difference here is only that the message arrives in pieces.
+		/// [JP] 初期ハッシュ値は Hash() と同じ FIPS 180-4 のもの。違うのは、メッセージが分割して届く点だけ。
+		Uint32 state[8] = { 0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19 };
+
+		/// [EN] The compression function consumes 64 bytes at a time, so whatever does not fill a block is carried to the next read.
+		/// [JP] 圧縮関数は64バイト単位で消費するため、1ブロックに満たない分は次の読み取りへ持ち越す。
+		DynamicArray<Byte> buffer(1024 * 1024);
+		Byte carry[64]{};
+		Size carrySize = 0;
+		Uint64 total = 0;
+		while (stream)
+		{
+			stream.read(buffer.data(), static_cast<std::streamsize>(buffer.size()));
+			Size read = static_cast<Size>(stream.gcount());
+			total += read;
+
+			Size offset = 0;
+			while (offset < read)
+			{
+				/// [EN] Bytes are moved into the carry block first, which is what lets a block straddle two reads.
+				/// [JP] まず持ち越し用のブロックへ移す。これによって、1ブロックが2回の読み取りにまたがれる。
+				Size take = std::min<Size>(64 - carrySize, read - offset);
+				std::memcpy(carry + carrySize, buffer.data() + offset, take);
+				carrySize += take;
+				offset += take;
+				if (carrySize == 64)
+				{
+					ProcessBlock(state, carry);
+					carrySize = 0;
+				}
+			}
+		}
+
+		/// [EN] Merkle-Damgard padding, exactly as in Hash(): 0x80, zeros, then the message bit length in the last 8 bytes.
+		/// [JP] Merkle-Damgard パディングは Hash() と同じ。0x80、ゼロ埋め、最後の8バイトにメッセージのビット長。
+		Byte tail[128]{};
+		std::memcpy(tail, carry, carrySize);
+		tail[carrySize] = static_cast<Byte>(0x80);
+
+		Size paddedSize = (carrySize < 56) ? 64 : 128;
+		Uint64 bitLength = total * 8;
+		for (Uint32 index = 0; index < 8; ++index)
+		{
+			tail[paddedSize - 1 - index] = static_cast<Byte>(bitLength >> (index * 8));
+		}
+
+		ProcessBlock(state, tail);
+		if (paddedSize == 128)
+		{
+			ProcessBlock(state, tail + 64);
+		}
+
+		DynamicArray<Byte> digest(32);
+		for (Uint32 index = 0; index < 8; ++index)
+		{
+			digest[index * 4] = static_cast<Byte>(state[index] >> 24);
+			digest[index * 4 + 1] = static_cast<Byte>(state[index] >> 16);
+			digest[index * 4 + 2] = static_cast<Byte>(state[index] >> 8);
+			digest[index * 4 + 3] = static_cast<Byte>(state[index]);
+		}
+		return digest;
+	}
 }

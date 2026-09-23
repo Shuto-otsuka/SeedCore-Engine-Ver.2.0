@@ -4,6 +4,7 @@
 #include <FoundationEngine/File/FileDialog.h>
 #include <FoundationEngine/Resource/Config/EditorConfig.h>
 #include <FoundationEngine/World/Actor/Actor.h>
+#include <FoundationEngine/World/Actor/Blueprint.h>
 #include <FoundationEngine/World/World.h>
 #include <FoundationEngine/Time/GameTimer.h>
 #include <GraphicsEngine/Model/Animation/Animator.h>
@@ -16,12 +17,14 @@
 #include <GraphicsEngine/Font/Text.h>
 #include <GraphicsEngine/Movie/Movie.h>
 #include <GraphicsEngine/D3D12/SwapChain/GraphicsResolution.h>
+#include <GraphicsEngine/Graphics.h>
 #include <FoundationEngine/World/ECS/Component/Bounds.h>
 
 namespace SeedCore
 {
-	Editor::Editor(EditorContext& context) :context_(context), imguiTexture_(context_)
+	Editor::Editor(EditorContext& context) :context_(context), resourceSync_(context.worldContext_.resource_->ProjectRootPath()), imguiTexture_(context_)
 	{
+		context_.resourceSync_ = &resourceSync_;
 		hierarchyPanel_ = MakePtr<HierarchyPanel>(context_, imguiTexture_);
 		inspectorPanel_ = MakePtr<InspectorPanel>(context_, imguiTexture_);
 		diagnosticsPanel_ = MakePtr<DiagnosticsPanel>(context_, imguiTexture_);
@@ -77,6 +80,132 @@ namespace SeedCore
 
 	Float Editor::DrawToolbar()
 	{
+		resourceSync_.Update();
+
+		/// [EN] Which scene is open decides which one the library follows, and opening a scene is not a single place in the Editor.
+		/// [JP] どの Scene を追いかけるかは、開いている Scene で決まる。Scene を開く操作は Editor の1か所には限られない。
+		if (followedScenePath_ != context_.sceneContext_.currentScenePath_)
+		{
+			followedScenePath_ = context_.sceneContext_.currentScenePath_;
+			resourceSync_.RequestOpenScene(followedScenePath_);
+		}
+
+		/// [EN] An asset the library replaced on disk is still the old one in memory, so each is reloaded here.
+		/// [JP] ライブラリがディスク上で差し替えたアセットも、メモリ上はまだ古いままなので、ここで読み直す。
+
+		/// [EN] This runs on the Editor thread between frames, which is the only safe place to swap what the renderer uses.
+		/// [JP] これは Editor のスレッドでフレームの合間に動く。レンダラが使っているものを入れ替えてよいのはそこだけ。
+		/// [EN] A file an artist dropped into the library arrives without an identity, so it is taken in and then shared from here.
+		/// [JP] アーティストがライブラリへ置いたファイルは識別情報を持たずに届くため、ここで取り込んでから共有へ回す。
+		D3D12Context* d3d12Context = context_.graphicsContext_.graphics_->GetContext();
+		DynamicArray<String> importedAssets;
+		resourceSync_.ConsumeImportedAsset(importedAssets);
+		for (const String& imported : importedAssets)
+		{
+			/// [EN] Reloading is what mints the .meta beside it, which is what gives the file the identifier the team will know it by.
+			/// [JP] 読み直しが隣に .meta を作る。それが、チームがそのファイルを識別する番号を与える処理にあたる。
+			context_.worldContext_.resource_->Reload(*context_.worldContext_.loader_, d3d12Context->GetDevice(), d3d12Context->GetDirectQueue(), context_.graphicsContext_.graphics_->GetBC7CompressShader());
+
+			std::filesystem::path local = context_.worldContext_.resource_->ProjectRootPath() / "UserProject" / imported.str();
+			Uint32 importedId = context_.worldContext_.resource_->GetAssetID(String(local.generic_string()));
+			AssetRecord* record = importedId == 0 ? nullptr : context_.worldContext_.resource_->GetAsset(importedId);
+
+			/// [EN] Sharing it here is what puts it in the catalog, from where every other member receives it on their own.
+			/// [JP] ここで共有することでカタログに載り、そこから他の全メンバーへ自動で届くようになる。
+			if (record && !resourceSync_.Shared(importedId))
+			{
+				resourceSync_.RequestRegister(*record);
+			}
+		}
+
+		DynamicArray<Uint32> changedAssets;
+		resourceSync_.ConsumeChangedAsset(changedAssets);
+		if (!changedAssets.empty())
+		{
+			/// [EN] An asset arriving for the first time is not in the cache yet, so the whole project is taken in before anything is swapped.
+			/// [JP] 初めて届いたアセットはまだキャッシュに無いため、入れ替えの前にプロジェクト全体を取り込む。
+			context_.worldContext_.resource_->Reload(*context_.worldContext_.loader_, d3d12Context->GetDevice(), d3d12Context->GetDirectQueue(), context_.graphicsContext_.graphics_->GetBC7CompressShader());
+
+			for (Uint32 assetId : changedAssets)
+			{
+				context_.worldContext_.resource_->Reload(assetId, *context_.worldContext_.loader_, d3d12Context->GetDevice(), d3d12Context->GetDirectQueue(), context_.graphicsContext_.graphics_->GetBC7CompressShader());
+
+				/// [EN] Reloading the scene asset is not enough, because what the member is looking at is the world, not the file.
+				/// [JP] Scene アセットを読み直すだけでは足りない。メンバーが見ているのはファイルではなく world であるため。
+				const SharedAsset* shared = resourceSync_.GetAsset(assetId);
+				if (!shared || !shared->scene_ || followedScenePath_.empty())
+				{
+					continue;
+				}
+
+				/// [EN] The arriving scene is read into an instance of its own, so nothing that is live is touched while it is parsed.
+				/// [JP] 届いた Scene はそれ専用のインスタンスへ読み込む。解析の間、生きているものに触れないようにするため。
+
+				/// [EN] It is not the pool's scratch, because a transition may be using that one at the same moment.
+				/// [JP] プールの作業用インスタンスは使わない。同じ瞬間に遷移処理がそれを使っていることがあるため。
+				Scene arriving;
+				if (!arriving.Read(followedScenePath_))
+				{
+					continue;
+				}
+
+				World& world = *context_.worldContext_.world_;
+				const DynamicArray<BlueprintNode>& nodes = arriving.Nodes();
+
+				/// [EN] Actors are matched by the identifier each one keeps, so a rename or a move does not look like a different actor.
+				/// [JP] Actor は、各自が持ち続ける識別子で突き合わせる。リネームや移動が別の Actor に見えないようにするため。
+				std::unordered_map<String, Actor> live;
+				for (Actor actor : world.GetActors())
+				{
+					if (!actor.CollaborationID().str().empty())
+					{
+						live[actor.CollaborationID()] = actor;
+					}
+				}
+
+				for (const BlueprintNode& node : nodes)
+				{
+					/// [EN] An entity this member holds the right to edit is being worked on right now, so what arrives is not applied over it.
+					/// [JP] このメンバーが編集権を持つ Entity は今まさに作業中なので、届いたものをその上から適用しない。
+					String scope = String(std::format("entity:{}", node.collaborationId_.str()));
+					if (resourceSync_.Editable(assetId, scope))
+					{
+						continue;
+					}
+
+					/// [EN] An actor already here is written over in place, which keeps its children, its selection and its undo history.
+					/// [JP] 既にいる Actor はその場に書き込む。子・選択状態・Undo 履歴が保たれる。
+					auto existing = live.find(node.collaborationId_);
+					if (existing != live.end())
+					{
+						ApplyActorNode(world, *context_.worldContext_.resource_, node, existing->second);
+						continue;
+					}
+
+					/// [EN] One that is not here yet was added by another member, and is created under the parent the hierarchy names.
+					/// [JP] まだ居ない Actor は他のメンバーが追加したもので、階層が示す親の下に作る。
+					Actor parent;
+					if (node.parentIndex_ >= 0 && static_cast<Size>(node.parentIndex_) < nodes.size())
+					{
+						auto found = live.find(nodes[static_cast<Size>(node.parentIndex_)].collaborationId_);
+						parent = found == live.end() ? Actor() : found->second;
+					}
+					live[node.collaborationId_] = InstantiateActorNode(world, *context_.worldContext_.resource_, node, parent, false);
+				}
+
+				/// [EN] An actor the arriving scene no longer lists was deleted by another member, so it goes here as well.
+				/// [JP] 届いた Scene に載っていない Actor は、他のメンバーが削除したもの。ここでも同じように消す。
+				for (const std::pair<const String, Actor>& entry : live)
+				{
+					Bool present = std::ranges::any_of(nodes, [&entry](const BlueprintNode& node) { return node.collaborationId_ == entry.first; });
+					if (!present && !resourceSync_.Editable(assetId, String(std::format("entity:{}", entry.first.str()))))
+					{
+						world.DestroyActor(entry.second);
+					}
+				}
+			}
+		}
+
 		PruneDeadSelection();
 
 		/// [EN] Must run before any ImGuizmo call this frame (per ImGuizmo's

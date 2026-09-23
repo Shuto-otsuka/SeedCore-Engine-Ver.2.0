@@ -385,6 +385,7 @@ namespace SeedCore
 		node.layerName_ = actor.LayerName();
 		node.active_ = actor.Active();
 		node.persistentId_ = actor.PersistentID();
+		node.collaborationId_ = actor.CollaborationID();
 
 		const Position* position = actor.GetComponent<Position>();
 		if (position)
@@ -575,6 +576,10 @@ namespace SeedCore
 
 		/// [EN] Apply the captured transform on top of whatever the actor ended up with (freshly created or nested-prefab-instantiated).
 		/// [JP] 取得済みのトランスフォームを、actor が最終的に持つことになった状態（新規生成、またはネストされたプレハブからのインスタンス化）の上から適用する。
+		if (!fromPrefab)
+		{
+			actor.CollaborationID(node.collaborationId_);
+		}
 		Position* position = const_cast<Position*>(actor.GetComponent<Position>());
 		if (position)
 		{
@@ -614,6 +619,120 @@ namespace SeedCore
 		}
 
 		return actor;
+	}
+
+	/**
+	* [EN]
+	* Writes a captured node onto an actor that already exists, instead
+	* of creating a new one: adds the components the node has, removes
+	* the ones it no longer has, and restores every field, transform,
+	* tag and layer. Used when a change to this actor arrives from
+	* another member while the scene is open, so the actor keeps its
+	* identity, its children and its place in the hierarchy.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* 取得済みのノードを、新しく作るのではなく既に存在する actor へ書き
+	* 込む: ノードが持つコンポーネントを追加し、持たなくなったものを削除
+	* し、各フィールド・トランスフォーム・タグ・レイヤーを復元する。Scene
+	* を開いている最中に、他のメンバーからその actor への変更が届いた場合
+	* に使う。actor の同一性・子・階層内の位置が保たれる。
+	*/
+	void ApplyActorNode(World& world, ResourceCache& cache, const BlueprintNode& node, Actor actor)
+	{
+		if (!actor)
+		{
+			return;
+		}
+
+		/// [EN] A component the node no longer carries was removed by whoever published it, so it goes here too.
+		/// [JP] ノードが持たなくなったコンポーネントは、公開した人が削除したということ。ここでも同じように消す。
+		for (const auto& [id, metadata] : ComponentRegistry::Registry())
+		{
+			if (!actor.HasComponent(id))
+			{
+				continue;
+			}
+
+			/// [EN] Built-in components are left alone, since the transform and the rest are applied below rather than captured as fields.
+			/// [JP] 組み込みのコンポーネントには触れない。トランスフォーム等は、フィールドとしてではなく下で適用するため。
+			String name = ComponentRegistry::Name(id);
+			if (BuiltinComponent(name) || std::ranges::find(node.components_, name, &BlueprintComponent::componentName_) != node.components_.end())
+			{
+				continue;
+			}
+			actor.RemoveComponent(id);
+		}
+
+		/// [EN] Everything the node does carry is added when missing and refilled either way, which is what carries another member's edit across.
+		/// [JP] ノードが持つものは、無ければ追加し、いずれにせよ中身を入れ直す。他のメンバーの編集が渡ってくるのはこの処理。
+		for (const BlueprintComponent& component : node.components_)
+		{
+			ComponentID id = ComponentRegistry::GetComponentID(component.componentName_);
+			if (!id)
+			{
+				continue;
+			}
+			if (!actor.HasComponent(id))
+			{
+				actor.AddComponent(id);
+			}
+
+			void* componentData = world.GetComponent(actor.GetEntity(), id);
+			if (componentData)
+			{
+				ApplyFields(component.componentName_, componentData, component.fields_);
+			}
+		}
+
+		/// [EN] The transform is applied on top, the same way instantiation applies it after building an actor.
+		/// [JP] トランスフォームは上から適用する。インスタンス化が actor を作った後に適用するのと同じ順序。
+		Position* position = const_cast<Position*>(actor.GetComponent<Position>());
+		if (position)
+		{
+			position->x_ = node.position_.x;
+			position->y_ = node.position_.y;
+			position->z_ = node.position_.z;
+		}
+
+		Rotation* rotation = const_cast<Rotation*>(actor.GetComponent<Rotation>());
+		if (rotation)
+		{
+			rotation->x_ = node.rotation_.x;
+			rotation->y_ = node.rotation_.y;
+			rotation->z_ = node.rotation_.z;
+		}
+
+		Scale* scale = const_cast<Scale*>(actor.GetComponent<Scale>());
+		if (scale)
+		{
+			scale->x_ = node.scale_.x;
+			scale->y_ = node.scale_.y;
+			scale->z_ = node.scale_.z;
+		}
+
+		/// [EN] The name lives in a component rather than on the actor, so a rename by another member is applied there.
+		/// [JP] 名前は actor ではなくコンポーネント側にあるため、他のメンバーによるリネームはそこへ適用する。
+		Name* name = const_cast<Name*>(actor.GetComponent<Name>());
+		if (name)
+		{
+			name->name_ = node.name_;
+		}
+
+		actor.Active(node.active_);
+		actor.Layer(node.layerName_);
+
+		/// [EN] Tags are replaced rather than merged, so a tag another member removed does not survive here.
+		/// [JP] タグは統合ではなく置き換える。他のメンバーが外したタグが、こちらに残らないようにするため。
+		for (const String& tag : actor.TagList())
+		{
+			actor.RemoveTag(tag);
+		}
+		for (const String& tag : node.tags_)
+		{
+			actor.AddTag(tag);
+		}
 	}
 
 	BlueprintComponent CaptureComponent(const String& componentName, void* componentData)

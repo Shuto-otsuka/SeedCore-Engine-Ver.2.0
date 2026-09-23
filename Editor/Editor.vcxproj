@@ -187,6 +187,7 @@
     <ClCompile Include="Editor\Panel\ProfilerPanel.cpp" />
     <ClCompile Include="Editor\Panel\RasterizationPanel.cpp" />
     <ClCompile Include="Editor\Panel\RaytracingPanel.cpp" />
+    <ClCompile Include="Editor\Panel\ResourceSyncControlPanel.cpp" />
     <ClCompile Include="Editor\Panel\ScreenSpacePanel.cpp" />
     <ClCompile Include="Editor\Panel\ShortCutKeyPanel.cpp" />
     <ClCompile Include="Editor\Panel\SkeletonControllerPanel.cpp" />
@@ -288,6 +289,7 @@
     <ClInclude Include="Editor\Panel\ProfilerPanel.h" />
     <ClInclude Include="Editor\Panel\RasterizationPanel.h" />
     <ClInclude Include="Editor\Panel\RaytracingPanel.h" />
+    <ClInclude Include="Editor\Panel\ResourceSyncControlPanel.h" />
     <ClInclude Include="Editor\Panel\ScreenSpacePanel.h" />
     <ClInclude Include="Editor\Panel\ShortCutKeyPanel.h" />
     <ClInclude Include="Editor\Panel\SkeletonControllerPanel.h" />

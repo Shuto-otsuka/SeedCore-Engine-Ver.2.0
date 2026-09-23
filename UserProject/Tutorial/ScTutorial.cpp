@@ -1,20 +1,19 @@
 #include "UserProject/Tutorial/ScTutorial.h"
-// 他のコンポーネントを触りたいときは、このように必要なコンポーネントのヘッダーをincludeします
-//#include <FoundationEngine/ECS/World.h>
-//#include <FoundationEngine/ECS/Component/Position.h>
-//#include <FoundationEngine/ECS/Component/Rotation.h>
-//#include <FoundationEngine/ECS/Component/Scale.h>
-//#include <FoundationEngine/ECS/Component/Velocity.h>
-//#include <FoundationEngine/ECS/Component/Name.h>
-//#include <PhysicsEngine/Rigidbody/Rigidbody.h>
-//#include <PhysicsEngine/Physics/Physics.h>
-//#include <GraphicsEngine/Camera/ScreenSpace.h>
 
-// 上の3つ（Rigidbody/Physics/ScreenSpace）のように、まとめヘッダーがまだ無いものは直接includeします。
-// 一方、下のSeedCoreプロジェクト直下の Sc○○.h は、正確な内部パスを覚えなくても使えるまとめヘッダーです
-//#include <SeedCore/ScInput.h>
-//#include <SeedCore/ScMath.h>
-//#include <SeedCore/ScScene.h>
+// SeedCoreプロジェクト直下の Sc○○.h は、正確な内部パスを覚えなくても使えるまとめヘッダーです。
+// 必要なものだけコメントを外してください（ScAll.h だけは全部入りなので、迷ったときや試作向け）。
+//#include <SeedCore/ScComponent.h>  // Position/Rotation/Rigidbody/Camera... コンポーネント全部 + Actor/World/Query
+//#include <SeedCore/ScInput.h>      // キーボード/マウス/ゲームパッド
+//#include <SeedCore/ScMath.h>       // Vector/Matrix/Quaternion/Ray/乱数
+//#include <SeedCore/ScPhysics.h>    // Raycast などの物理問い合わせ
+//#include <SeedCore/ScPrefab.h>     // Prefabの実体化
+//#include <SeedCore/ScScene.h>      // シーン切り替え
+//#include <SeedCore/ScScreen.h>     // スクリーン座標 ⇔ ワールド座標
+//#include <SeedCore/ScLog.h>        // ログ出力（エディターのログパネルに出る）
+//#include <SeedCore/ScAll.h>        // 上の全部
+
+// まとめヘッダーに無いものを使いたいときは、そのヘッダーを直接includeします
+//#include <GraphicsEngine/Model/Animation/Animator.h>
 
 //=== 基本 ===//
 
@@ -26,7 +25,7 @@ void ScTutorial::OnAwake()
 void ScTutorial::OnStart()
 {
 	// GetWorld()/GetActor()はSeedScript(ComponentBase)が持っている関数で、自分がアタッチされているWorld/Actorが取れる
-	//auto& world = GetWorld();
+	//SeedCore::World& world = GetWorld();
 	//SeedCore::Entity entity = GetActor().GetEntity();
 
 	// World::GetComponent<T>(entity)で、同じActorが持つ他のコンポーネントへのポインタが取れる（無ければnullptr）
@@ -41,29 +40,33 @@ void ScTutorial::OnStart()
 	//position->z = 0;
 
 	// 名前でActorを探したいときはWorld::GetActor(名前)。ただしEntityID/永続ID版と違って索引が無くO(actor数)なので、
-	// 毎フレーム呼ぶよりOnStart等で一度だけ探してポインタを保持しておくのがおすすめ
-	//SeedCore::Actor* targetActor = world.GetActor(SeedCore::String("Player"));
+	// 毎フレーム呼ぶよりOnStart等で一度だけ探しておくのがおすすめ。
+	// Actorは参照ではなく値（World内のEntityを指す軽い手形）なので、そのまま自分のメンバーに持っておける
+	//SeedCore::Actor targetActor = world.GetActor(SeedCore::String("Player"));
+
+	// ログを出したいときは SC_LOG_ 系のマクロ。std::formatと同じ書式で、エディターのログパネルに出る
+	//SC_LOG_NOTICE("開始しました: {}", 1);
 }
 
 void ScTutorial::OnTick(float elapsedTime)
 {
 	// elapsedTimeは前フレームからの経過秒数。毎フレーム動く処理はここに書く
 
-	// キー入力を直接見たいときはInputSystem::KeyStateを使う。第2引数は既定でIsPressed(押しっぱなし判定)、
-	// OnPressed(押した瞬間だけ)/OnReleased(離した瞬間だけ)も指定できる
-	//if (SeedCore::InputSystem::KeyState(SeedCore::InputSystem::Key::Space, SeedCore::InputSystem::OnPressed))
+	// キー入力を直接見たいときはInputSystem::KeyStateを使う。第2引数のTriggerModeは
+	// NONE(既定、押しっぱなし判定) / RISING_EDGE(押した瞬間だけ) / FALLING_EDGE(離した瞬間だけ)
+	//if (SeedCore::InputSystem::KeyState(SeedCore::InputSystem::Key::Space, SeedCore::InputSystem::TriggerMode::RISING_EDGE))
 	//{
 	//}
 
 	// ただしキーを直書きすると後から割り当てを変えづらいので、基本は「アクション」名で判定するのがおすすめ
 	// （アクション⇔キー/ゲームパッドボタンの対応はエディターの「入力設定」で編集・保存できる）
-	//if (SeedCore::InputSystem::ActionState("Jump", SeedCore::InputSystem::OnPressed))
+	//if (SeedCore::InputSystem::ActionState(SeedCore::String("Jump"), SeedCore::InputSystem::TriggerMode::RISING_EDGE))
 	//{
 	//}
 
 	// 移動のような2軸入力は ActionAxis2D が便利。WASD/矢印キー/アナログスティックのどれが押されていても
 	// 同じ1つのVector2として返ってくるので、キーボード/ゲームパッドを呼び出し側で分岐する必要が無い
-	//SeedCore::Vector2 moveInput = SeedCore::InputSystem::ActionAxis2D("Move");
+	//SeedCore::Vector2 moveInput = SeedCore::InputSystem::ActionAxis2D(SeedCore::String("Move"));
 }
 
 void ScTutorial::OnLateTick(float elapsedTime)
@@ -93,7 +96,7 @@ void ScTutorial::OnInspectorGUI()
 // --- 移動/ピッキング（下のコライダーコールバックとは別の話、OnTick等から使う想定） ---
 
 // 物理的に動かしたいときは、Positionを直接書き換えるのではなくRigidbodyを使う（Rigidbodyが毎フレーム物理演算の結果をPositionへ書き戻す）
-//SeedCore::Rigidbody* rigidbody = world.GetComponent<SeedCore::Rigidbody>(entity);
+//SeedCore::Rigidbody* rigidbody = GetWorld().GetComponent<SeedCore::Rigidbody>(GetActor().GetEntity());
 
 // マウスでクリックしたところにある物を拾いたい（マウスピッキング）ときは、
 // ScreenSpace::ScreenToWorld でスクリーン座標をワールド空間のRayに変換してからRaycastする。
@@ -103,7 +106,8 @@ void ScTutorial::OnInspectorGUI()
 //SeedCore::RaycastHit hit;
 //if (GetActor().GetPhysics().Raycast(mouseRay.origin_, mouseRay.direction_, 1000.0f, hit))
 //{
-//	SeedCore::Actor* pickedActor = GetWorld().GetActor(hit.entityID_);
+//	// hitには当たった位置(position_)、法線(normal_)、距離(distance_)、相手(entityID_)が入る
+//	SeedCore::Actor pickedActor = GetWorld().GetActor(hit.entityID_);
 //}
 
 // --- コライダーコールバック ---
@@ -111,17 +115,13 @@ void ScTutorial::OnInspectorGUI()
 void ScTutorial::OnCollisionEnter(SeedCore::Entity entity)
 {
 	// entity は衝突してきた相手のEntity。GetWorld().GetActor(entity)で相手のActorが取れる
-	//SeedCore::Actor* otherActor = GetWorld().GetActor(entity);
+	//SeedCore::Actor otherActor = GetWorld().GetActor(entity);
 
 	// 相手が何なのかを判定したいときは、名前で分岐するよりタグ/レイヤーで判定するのがおすすめ
 	// タグ=1つのActorに複数付けられる、ゆるいカテゴリ分け用（"Enemy"かつ"Flying"のように重ねられる）
 	// レイヤー=1つのActorに1つだけ、主に物理の衝突フィルタ（LayerSettingsPanelの衝突マトリクス）用
 	// どちらもインスペクターで設定する
-	//if (otherActor && otherActor->HasTag("Enemy"))
-	//{
-	//}
-	//
-	//if (otherActor && otherActor->GetLayerName() == "Enemy")
+	//if (otherActor.HasTag(SeedCore::String("Enemy")))
 	//{
 	//}
 }
@@ -151,14 +151,38 @@ void ScTutorial::OnTriggerExit(SeedCore::Entity entity)
 
 }
 
+//=== Prefab ===//
+
+// Prefabを実行中に出したいときはPrefabクラスの静的関数を使う。
+// Scene/Prefabの static 関数は、プロセス全体のWorld/ResourceCacheを(Editor.cpp/Runtime側で)束縛済みなので、
+// SeedScriptのOnTick等からでも、Worldを一切意識せず呼べる
+//
+// ファイル名だけで呼べる（内部でResourceCacheのアセット名検索に通してから開く）
+//SeedCore::Actor bullet = SeedCore::Prefab::Spawn(SeedCore::String("Bullet.prefab"));
+//
+// 第2引数に親Actorを渡すと、その子として出る
+//SeedCore::Actor effect = SeedCore::Prefab::Spawn(SeedCore::String("Muzzle.prefab"), GetActor());
+//
+// SC_PAYLOAD_FIELDでインスペクターから設定したアセットIDを、そのまま渡すこともできる
+//SeedCore::Actor spawned = SeedCore::Prefab::Spawn(demo7_);
+//
+// 出したものを時間で消したいときは、自分で数えるよりLifetimeコンポーネントを付けるのが楽
+// （インスペクターの「生存時間(秒)」を過ぎたら自動で破棄される）
+
+//=== Audio ===//
+
+// 音はAudioSourceコンポーネントに.audioアセットを設定して、キュー名で鳴らす。
+// AudioSource自体もSeedScriptなので、他のコンポーネントと同じようにWorldから取れる
+//SeedCore::AudioSource* audio = GetWorld().GetComponent<SeedCore::AudioSource>(GetActor().GetEntity());
+//if (audio)
+//{
+//	audio->Play(SeedCore::String("Shot"));   // インスペクターで選んだキューとは別のキューを鳴らす場合
+//	audio->Play();                            // インスペクターで選んだキューをそのまま鳴らす場合
+//}
+
 //=== Scene ===//
 
-// シーンを切り替えたいときはSceneクラスの静的関数を使う。
-// SceneTransitionSystemを直接使う場合はWorld/ResourceCache/JobExecutorが要るが、
-// Sceneの static Change()/Update() はプロセス全体の参照を(Editor.cpp/Runtime側で)束縛済みなので、
-// SeedScriptのOnTick等からでも、Worldを一切意識せず呼べる。
-//
-// パス（フォルダ構成）を知らなくても、ファイル名だけで呼べる（内部でResourceCacheのアセット名検索に通してから開く）
+// シーンを切り替えたいときはSceneクラスの静的関数を使う。こちらもファイル名だけで呼べる
 //
 // 即座に切り替える場合
 //SeedCore::Scene::Change("NextScene.scene");
@@ -169,9 +193,9 @@ void ScTutorial::OnTriggerExit(SeedCore::Entity entity)
 // ローディングシーンを挟んで非同期に切り替える場合
 //SeedCore::Scene::Change("NextScene.scene", "LoadingScene.scene");
 //
-// Scene::Update(deltaTime)は遷移の状態機械を進める処理で、こちらは呼ぶ必要はない（Editor.cpp側で毎フレーム呼ばれている）
-// 注意: Runtime側はまだ配線されていないので、Runtime実行ファイルではScene::Changeが今のところ動かない
+// Scene::Update(deltaTime)は遷移の状態機械を進める処理で、こちらは呼ぶ必要はない
+// （Editorと Runtime の両方で毎フレーム呼ばれている）
 //
-// パスからAssetIDを引きたいとき（PrefabやTexture等、他の何かにアセットIDを渡す前段として）はScene::GetAssetを使う
+// パスからAssetIDを引きたいとき（PrefabやTexture等、他の何かにアセットIDを渡す前段として）はScene::AssetIDを使う
 // これもSceneと同じ束縛済みのResourceCache経由で解決するので、SeedScriptから直接呼べる。こちらもファイル名だけで良い
-//SeedCore::Uint32 targetSceneAssetID = SeedCore::Scene::GetAsset("NextScene.scene");
+//SeedCore::Uint32 targetSceneAssetID = SeedCore::Scene::AssetID(SeedCore::String("NextScene.scene"));

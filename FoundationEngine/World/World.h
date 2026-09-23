@@ -79,6 +79,7 @@ namespace SeedCore
 		/// [EN] World-wide unique identifier assigned by World::CreateActor, round-tripped through Scene/Prefab save/load. 0 = unassigned.
 		/// [JP] World::CreateActor が割り当てる World 全体で一意な識別子。Scene/Prefab のセーブ/ロードを往復する。0 は未割り当て。
 		Uint32 persistentId_ = 0;
+		String collaborationId_;
 	};
 
 	/**

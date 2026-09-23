@@ -556,6 +556,49 @@ namespace SeedCore
 
 	/**
 	* [EN]
+	* Reloads one asset whose file on disk has been replaced: releases
+	* what is held in memory and loads the new contents in its place.
+	* Used when the shared library brings down a newer revision while
+	* the Editor is running.
+	*
+	* ---------------------------------------------------------------------
+	*
+	* [JP]
+	* ディスク上のファイルが差し替わったアセット1件を読み直す。メモリ上
+	* のものを解放し、新しい中身をその場所へ読み込む。Editor の実行中に
+	* 共有ライブラリが新しい Revision を持ってきた場合に使う。
+	*/
+	void ResourceCache::Reload(Uint32 assetID, LoaderSystem& loader, ID3D12Device* device, D3D12CommandQueue* cmdQueue, BC7CompressShader& bc7Shader)
+	{
+		/// [EN] An asset this cache has never seen has nothing to release, and its file is picked up by the next scan instead.
+		/// [JP] このキャッシュが知らないアセットには解放するものが無く、そのファイルは次の走査で拾われる。
+		auto it = assetsMap_.find(assetID);
+		if (it == assetsMap_.end() || it->second.type_ == AssetType::Unknown)
+		{
+			return;
+		}
+
+		Asset* resource = GetResource(it->second.type_);
+		if (!resource)
+		{
+			return;
+		}
+
+		/// [EN] The identifier survives the swap, so every reference held elsewhere keeps pointing at this asset.
+		/// [JP] 識別子は入れ替えをまたいで変わらないため、他所が持っている参照はこのアセットを指したままになる。
+		AssetContext context{ loader, *this, device, cmdQueue, heap_, &bc7Shader };
+		if (it->second.isLoaded_)
+		{
+			resource->Unload(context, assetID);
+			it->second.isLoaded_ = false;
+		}
+
+		resource->Load(context, assetID);
+		it->second.isLoaded_ = true;
+	}
+
+	/**
+	* [EN]
 	* Unloads every currently-loaded asset from its owning resource
 	* manager and clears the asset/search maps.
 	*

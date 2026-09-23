@@ -38,10 +38,21 @@ namespace SeedCore
 		Scene,
 
 		Lock,
-		LockFree,
+		Unlock,
 
 		Add,
 		Remove,
+
+		/// [EN] Shared-asset states: in the library, behind it, ahead of it and
+		///      in conflict. Who holds the edit lease is shown with Lock and
+		///      Unlock instead, so the meaning stays the same everywhere.
+		/// [JP] 共有アセットの状態。ライブラリにある／遅れている／進んでいる／
+		///      競合している。誰が編集中かは Lock と Unlock で示すため、
+		///      鍵の意味はエディタ全体で揃う。
+		SharedAsset,
+		SharedOutdated,
+		SharedModified,
+		SharedConflict,
 
 		Guizmo,
 		NonSelected,

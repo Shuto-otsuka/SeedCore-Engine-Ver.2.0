@@ -56,11 +56,16 @@ namespace SeedCore
 		load(IconType::PrefabChild, "Hierarchy", "PrefabChild");
 		load(IconType::Scene,       "Asset", "Scene");
 
-		load(IconType::Lock,     "Misc", "Lock");
-		load(IconType::LockFree, "Misc", "LockFree");
+		load(IconType::Lock,   "Misc", "Lock");
+		load(IconType::Unlock, "Misc", "Unlock");
 
 		load(IconType::Add,    "Misc", "Plus");
 		load(IconType::Remove, "Misc", "Cross");
+
+		load(IconType::SharedAsset,    "Sharing", "Cloud");
+		load(IconType::SharedOutdated, "Sharing", "CloudDownload");
+		load(IconType::SharedModified, "Sharing", "CloudUpload");
+		load(IconType::SharedConflict, "Sharing", "CloudWarning");
 
 		load(IconType::Guizmo,      "Viewport", "Guizmo");
 		load(IconType::NonSelected, "Viewport", "NonSelected");

@@ -28,7 +28,12 @@ namespace SeedCore
 		BuildDirectoryTree();
 
 		const std::filesystem::path& projectRoot = context_.worldContext_.resource_->ProjectRootPath();
-		directoryWatchHandle_ = FindFirstChangeNotificationW(projectRoot.wstring().c_str(), TRUE, FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_DIR_NAME | FILE_NOTIFY_CHANGE_LAST_WRITE);
+		std::filesystem::path contentRoot = projectRoot / "UserProject";
+		if (!std::filesystem::exists(contentRoot))
+		{
+			contentRoot = projectRoot;
+		}
+		directoryWatchHandle_ = FindFirstChangeNotificationW(contentRoot.wstring().c_str(), TRUE, FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_DIR_NAME | FILE_NOTIFY_CHANGE_LAST_WRITE);
 		if (directoryWatchHandle_ == INVALID_HANDLE_VALUE || directoryWatchHandle_ == nullptr)
 		{
 			directoryWatchHandle_ = INVALID_HANDLE_VALUE;
@@ -47,6 +52,11 @@ namespace SeedCore
 
 	void ContentsDrawerPanel::Draw()
 	{
+		if (context_.resourceSync_ && sharingRevision_ != context_.resourceSync_->Revision())
+		{
+			sharingRevision_ = context_.resourceSync_->Revision();
+			needsRebuild_ = true;
+		}
 		ImGuiID dockspaceID = ImGui::GetID("ScDockSpace");
 		ImGui::SetNextWindowDockID(dockspaceID, ImGuiCond_FirstUseEver);
 
@@ -60,6 +70,10 @@ namespace SeedCore
 
 		if (ImGui::Begin("コンテンツドロワー"))
 		{
+			if (context_.resourceSync_)
+			{
+				ResourceSyncControlPanel::DrawStatus(context_);
+			}
 			if (ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows))
 			{
 				if (ImGui::IsMouseClicked(3) && historyIndex_ > 0)
@@ -115,17 +129,36 @@ namespace SeedCore
 
 			if (!searchKey.empty())
 			{
-				auto results = context_.worldContext_.resource_->Search(String(searchKey));
-				for (AssetRecord* asset : results)
+				for (AssetRecord& record : browserAssets_)
 				{
+					AssetRecord* asset = &record;
+					if (asset->path_.str().find(searchKey) == std::string::npos)
+					{
+						continue;
+					}
 					ImGui::PushID(asset->assetID_);
 
 					ImTextureID icon = GetAssetIcon(*asset);
 					ImGui::Image(icon, ImVec2(ImGui::GetTextLineHeight(), ImGui::GetTextLineHeight()));
+
+					/// [EN] The badge sits on the lower-right quarter of the icon, the
+					///      corner an asset icon is least likely to fill.
+					/// [JP] バッジはアイコンの右下 1/4 に重ねる。アセットのアイコンが
+					///      埋めている可能性が最も低い角だから。
+					ImTextureID sharingIcon = GetSharingIcon(*asset);
+					if (sharingIcon)
+					{
+						ImVec2 badgeMin = ImGui::GetItemRectMin();
+						ImVec2 badgeMax = ImGui::GetItemRectMax();
+						badgeMin.x = badgeMin.x + (badgeMax.x - badgeMin.x) * 0.5f;
+						badgeMin.y = badgeMin.y + (badgeMax.y - badgeMin.y) * 0.5f;
+						ImGui::GetWindowDrawList()->AddImage(sharingIcon, badgeMin, badgeMax);
+					}
+
 					ImGui::SameLine();
 					ImGui::Selectable(asset->path_.c_str(), false, ImGuiSelectableFlags_SpanAvailWidth | ImGuiSelectableFlags_AllowDoubleClick);
 
-					if (ImGui::BeginDragDropSource())
+					if ((!context_.resourceSync_ || !context_.resourceSync_->RemoteOnly(asset->assetID_)) && ImGui::BeginDragDropSource())
 					{
 						const Char* payloadType = GetDragDropType(asset->type_);
 						ImGui::SetDragDropPayload(payloadType, &asset->assetID_, sizeof(Uint32));
@@ -233,7 +266,7 @@ namespace SeedCore
 			"AIEngine", "AudioEngine", "CompiledShaderObject", "Editor",
 			"External", "FoundationEngine", "GraphicsEngine", "Launcher", "Logs",
 			"Package", "PhysicsEngine", "Runtime", "SeedCore", "Tools",
-			".vs", "x64", ".git",
+			".vs", "x64", ".git", ".asset",
 		};
 
 		const std::filesystem::path& projectRoot = context_.worldContext_.resource_->ProjectRootPath();
@@ -280,7 +313,24 @@ namespace SeedCore
 		}
 
 		const auto& allAssets = context_.worldContext_.resource_->AssetList();
-		for (const auto& asset : allAssets | std::ranges::views::values)
+		browserAssets_.clear();
+		for (const AssetRecord& asset : allAssets | std::ranges::views::values)
+		{
+			browserAssets_.push_back(asset);
+		}
+		if (context_.resourceSync_)
+		{
+			DynamicArray<AssetRecord> remoteAssets;
+			context_.resourceSync_->Gather(remoteAssets);
+			for (const AssetRecord& remote : remoteAssets)
+			{
+				if (!std::ranges::any_of(browserAssets_, [&remote](const AssetRecord& local) { return local.assetID_ == remote.assetID_; }))
+				{
+					browserAssets_.push_back(remote);
+				}
+			}
+		}
+		for (const AssetRecord& asset : browserAssets_)
 		{
 			std::string path = asset.path_.str();
 
@@ -523,7 +573,7 @@ namespace SeedCore
 				ImGui::Selectable(assetFilename.c_str(), false, ImGuiSelectableFlags_SpanAvailWidth | ImGuiSelectableFlags_AllowDoubleClick);
 			}
 
-			if (ImGui::BeginDragDropSource())
+			if ((!context_.resourceSync_ || !context_.resourceSync_->RemoteOnly(asset->assetID_)) && ImGui::BeginDragDropSource())
 			{
 				const Char* payloadType = GetDragDropType(asset->type_);
 				ImGui::SetDragDropPayload(payloadType, &asset->assetID_, sizeof(Uint32));
@@ -544,6 +594,17 @@ namespace SeedCore
 
 			ImTextureID icon = GetAssetIcon(*asset);
 			drawList->AddImage(icon, iconMin, iconMax);
+
+			/// [EN] The badge sits on the lower-right quarter of the icon, the
+			///      corner an asset icon is least likely to fill.
+			/// [JP] バッジはアイコンの右下 1/4 に重ねる。アセットのアイコンが
+			///      埋めている可能性が最も低い角だから。
+			ImTextureID sharingIcon = GetSharingIcon(*asset);
+			if (sharingIcon)
+			{
+				ImVec2 badgeMin = ImVec2(iconMin.x + (iconMax.x - iconMin.x) * 0.5f, iconMin.y + (iconMax.y - iconMin.y) * 0.5f);
+				drawList->AddImage(sharingIcon, badgeMin, iconMax);
+			}
 
 			ImGui::PopID();
 
@@ -642,7 +703,19 @@ namespace SeedCore
 			ImGui::PushID(asset->assetID_);
 			ImGui::ImageButton("##asset", icon, ImVec2(gridIconSize_, gridIconSize_));
 
-			if (ImGui::BeginDragDropSource())
+			/// [EN] The badge takes a third of the button in grid mode, where the
+			///      icon is large enough that a quarter would read as noise.
+			/// [JP] グリッド表示ではボタンの1/3をバッジに使う。アイコンが大きいため、
+			///      1/4 ではゴミのように見えてしまう。
+			ImTextureID sharingIcon = GetSharingIcon(*asset);
+			if (sharingIcon)
+			{
+				ImVec2 badgeMax = ImGui::GetItemRectMax();
+				ImVec2 badgeMin = ImVec2(badgeMax.x - gridIconSize_ / 3.0f, badgeMax.y - gridIconSize_ / 3.0f);
+				ImGui::GetWindowDrawList()->AddImage(sharingIcon, badgeMin, badgeMax);
+			}
+
+			if ((!context_.resourceSync_ || !context_.resourceSync_->RemoteOnly(asset->assetID_)) && ImGui::BeginDragDropSource())
 			{
 				const Char* payloadType = GetDragDropType(asset->type_);
 				ImGui::SetDragDropPayload(payloadType, &asset->assetID_, sizeof(Uint32));
@@ -781,6 +854,68 @@ namespace SeedCore
 		return GetAssetTypeIcon(asset.type_);
 	}
 
+	ImTextureID ContentsDrawerPanel::GetSharingIcon(const AssetRecord& asset)const
+	{
+		if (!context_.resourceSync_)
+		{
+			return 0;
+		}
+
+		const SharedAsset* shared = context_.resourceSync_->GetAsset(asset.assetID_);
+		if (!shared)
+		{
+			return 0;
+		}
+
+		/// [EN] A conflict comes first because it is the only state that no
+		///      automatic step will clear on its own.
+		/// [JP] 競合を最優先にする。自動の処理では解消されない唯一の状態だから。
+		if (context_.resourceSync_->Conflicted(asset.assetID_))
+		{
+			return imguiTexture_.Icon(IconType::SharedConflict);
+		}
+
+		/// [EN] Someone else's lease is next, since it is the one state that
+		///      stops this member from doing anything with the asset.
+		/// [JP] 次は他のメンバーの Lease。このメンバーがそのアセットに何もできない、
+		///      唯一の状態だから。
+		for (const EditLease& lease : context_.resourceSync_->GetLeases())
+		{
+			if (lease.assetId_ == shared->id_ && !lease.mine_)
+			{
+				return imguiTexture_.Icon(IconType::Lock);
+			}
+		}
+
+		/// [EN] Unsent work outranks holding the lease, because the lease is
+		///      already visible in the panel while unsent work is not.
+		/// [JP] 未送信の作業は、Lease を持っていることより優先する。Lease はパネルに
+		///      既に出ているが、未送信の作業はどこにも出ないため。
+		if (context_.resourceSync_->Modified(asset.assetID_))
+		{
+			return imguiTexture_.Icon(IconType::SharedModified);
+		}
+
+		for (const EditLease& lease : context_.resourceSync_->GetLeases())
+		{
+			if (lease.assetId_ == shared->id_)
+			{
+				return imguiTexture_.Icon(IconType::Unlock);
+			}
+		}
+
+		/// [EN] Remote-only means the catalog has it but this workspace does
+		///      not, so it is on its way in rather than usable.
+		/// [JP] RemoteOnly はカタログにあってこのワークスペースに無い状態。
+		///      使えるのではなく、これから入ってくるということ。
+		if (context_.resourceSync_->RemoteOnly(asset.assetID_))
+		{
+			return imguiTexture_.Icon(IconType::SharedOutdated);
+		}
+
+		return imguiTexture_.Icon(IconType::SharedAsset);
+	}
+
 	void ContentsDrawerPanel::DrawAssetTooltip(const AssetRecord& asset)
 	{
 		ImGui::BeginTooltip();
@@ -801,6 +936,10 @@ namespace SeedCore
 
 		ImGui::Text("%s", asset.path_.c_str());
 		ImGui::Text("ID: %u", asset.assetID_);
+		if (context_.resourceSync_)
+		{
+			ResourceSyncControlPanel::DrawState(context_, asset);
+		}
 
 		std::error_code errorCode;
 		auto fileSize = std::filesystem::file_size(std::filesystem::path(asset.fullpath_.c_str()), errorCode);
@@ -837,6 +976,11 @@ namespace SeedCore
 
 	void ContentsDrawerPanel::OpenAssetExternal(const AssetRecord& asset)
 	{
+		if (context_.resourceSync_ && context_.resourceSync_->RemoteOnly(asset.assetID_))
+		{
+			context_.resourceSync_->RequestGet(asset.assetID_);
+			return;
+		}
 		if (asset.type_ == AssetType::Scene)
 		{
 			context_.sceneContext_.requestedSceneAssetID_ = asset.assetID_;
@@ -979,6 +1123,10 @@ namespace SeedCore
 	{
 		if (ImGui::BeginPopupContextItem("##AssetContext"))
 		{
+			if (context_.resourceSync_)
+			{
+				ResourceSyncControlPanel::DrawActions(context_, asset);
+			}
 			if (ImGui::MenuItem("開く"))
 			{
 				OpenAssetExternal(asset);
@@ -1537,6 +1685,11 @@ namespace SeedCore
 
 	void ContentsDrawerPanel::ExecuteDelete(const std::filesystem::path& fullPath)
 	{
+		if (context_.resourceSync_ && context_.resourceSync_->Managed(fullPath))
+		{
+			SC_LOG_WARNING("Shared content cannot be deleted or renamed through local file operations.");
+			return;
+		}
 		std::error_code errorCode;
 		std::filesystem::remove_all(fullPath, errorCode);
 
@@ -1557,6 +1710,11 @@ namespace SeedCore
 
 	void ContentsDrawerPanel::ExecuteRename(const std::filesystem::path& oldPath, const std::string& newName)
 	{
+		if (context_.resourceSync_ && context_.resourceSync_->Managed(oldPath))
+		{
+			SC_LOG_WARNING("Shared content cannot be deleted or renamed through local file operations.");
+			return;
+		}
 		std::filesystem::path newPath = oldPath.parent_path() / newName;
 		std::error_code errorCode;
 		std::filesystem::rename(oldPath, newPath, errorCode);
@@ -1588,6 +1746,11 @@ namespace SeedCore
 
 		std::filesystem::path destDirectory = ResolveFullPath(destinationRelative);
 		std::filesystem::path destPath = destDirectory / clipboardPath_.filename();
+		if (context_.resourceSync_ && (context_.resourceSync_->Managed(clipboardPath_) || context_.resourceSync_->Managed(destPath)))
+		{
+			SC_LOG_WARNING("Shared content cannot be moved or copied through local clipboard operations.");
+			return;
+		}
 		std::error_code errorCode;
 
 		if (clipboardAction_ == ClipboardAction::Cut)

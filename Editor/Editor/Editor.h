@@ -57,6 +57,11 @@ namespace SeedCore
 
 	private:
 		EditorContext& context_;
+		ResourceSync resourceSync_;
+
+		/// [EN] The scene path the library was last told about, so it is told again only when the Editor opens a different one.
+		/// [JP] ライブラリへ最後に伝えた Scene の位置。別の Scene を開いた時だけ伝え直すために持つ。
+		std::filesystem::path followedScenePath_;
 
 		Float toolbarHeight_ = 0.0f;
 

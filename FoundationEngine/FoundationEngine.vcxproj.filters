@@ -106,6 +106,9 @@
     <Filter Include="Resource\Asset">
       <UniqueIdentifier>{3208c952-c199-44be-8f66-c2884195048f}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Resource\Sharing">
+      <UniqueIdentifier>{0ace1b20-e7cb-4422-b66e-7d7777730675}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="JobSystem\FlowBuilder.cpp">
@@ -342,6 +345,33 @@
     </ClCompile>
     <ClCompile Include="World\WorldSnapshot.cpp">
       <Filter>World</Filter>
+    </ClCompile>
+    <ClCompile Include="Resource\ResourceSync.cpp">
+      <Filter>Resource</Filter>
+    </ClCompile>
+    <ClCompile Include="Resource\Sharing\HttpClient.cpp">
+      <Filter>Resource\Sharing</Filter>
+    </ClCompile>
+    <ClCompile Include="Resource\Sharing\GoogleAuth.cpp">
+      <Filter>Resource\Sharing</Filter>
+    </ClCompile>
+    <ClCompile Include="Resource\Sharing\GoogleDocument.cpp">
+      <Filter>Resource\Sharing</Filter>
+    </ClCompile>
+    <ClCompile Include="Resource\Sharing\GoogleDrive.cpp">
+      <Filter>Resource\Sharing</Filter>
+    </ClCompile>
+    <ClCompile Include="Resource\Sharing\SharedLockTable.cpp">
+      <Filter>Resource\Sharing</Filter>
+    </ClCompile>
+    <ClCompile Include="Resource\Sharing\SharedCatalog.cpp">
+      <Filter>Resource\Sharing</Filter>
+    </ClCompile>
+    <ClCompile Include="Resource\Sharing\SharedScene.cpp">
+      <Filter>Resource\Sharing</Filter>
+    </ClCompile>
+    <ClCompile Include="Resource\Sharing\SharingWorker.cpp">
+      <Filter>Resource\Sharing</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -772,6 +802,33 @@
     </ClInclude>
     <ClInclude Include="World\WorldSnapshot.h">
       <Filter>World</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource\ResourceSync.h">
+      <Filter>Resource</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource\Sharing\HttpClient.h">
+      <Filter>Resource\Sharing</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource\Sharing\GoogleAuth.h">
+      <Filter>Resource\Sharing</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource\Sharing\GoogleDocument.h">
+      <Filter>Resource\Sharing</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource\Sharing\GoogleDrive.h">
+      <Filter>Resource\Sharing</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource\Sharing\SharedLockTable.h">
+      <Filter>Resource\Sharing</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource\Sharing\SharedCatalog.h">
+      <Filter>Resource\Sharing</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource\Sharing\SharedScene.h">
+      <Filter>Resource\Sharing</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource\Sharing\SharingWorker.h">
+      <Filter>Resource\Sharing</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

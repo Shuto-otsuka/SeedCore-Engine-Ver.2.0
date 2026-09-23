@@ -491,17 +491,15 @@ namespace SeedCore
 			break;
 		case PendingSceneOp::OpenPath:
 		{
-			String raytracingSettingsJson;
-			String screenSpaceSettingsJson;
-			String rasterizationSettingsJson;
-			if (!Scene::Load(*context_.worldContext_.world_, *context_.worldContext_.resource_, path, &raytracingSettingsJson, &screenSpaceSettingsJson, &rasterizationSettingsJson))
+			SceneVisual visual;
+			if (!Scene::Load(*context_.worldContext_.world_, *context_.worldContext_.resource_, path, &visual))
 			{
 				SC_LOG_WARNING("シーンの読み込みに失敗しました: {}", path.string());
 				break;
 			}
-			context_.viewportContext_.raytracing_ = DeserializeRaytracingContext(raytracingSettingsJson);
-			context_.viewportContext_.screenSpace_ = DeserializeScreenSpaceContext(screenSpaceSettingsJson);
-			context_.viewportContext_.rasterization_ = DeserializeRasterizationContext(rasterizationSettingsJson);
+			context_.viewportContext_.raytracing_ = DeserializeRaytracingContext(visual.raytracing_);
+			context_.viewportContext_.screenSpace_ = DeserializeScreenSpaceContext(visual.screenSpace_);
+			context_.viewportContext_.rasterization_ = DeserializeRasterizationContext(visual.rasterization_);
 			context_.viewportContext_.qualityPreset_ = GraphicsQualityPreset::Custom;
 			context_.sceneContext_.currentScenePath_ = path;
 			context_.selectionContext_.selectedActor_ = Actor();
@@ -511,17 +509,15 @@ namespace SeedCore
 		}
 		case PendingSceneOp::OpenAsset:
 		{
-			String raytracingSettingsJson;
-			String screenSpaceSettingsJson;
-			String rasterizationSettingsJson;
-			if (!Scene::Load(*context_.worldContext_.world_, *context_.worldContext_.resource_, assetID, &raytracingSettingsJson, &screenSpaceSettingsJson, &rasterizationSettingsJson))
+			SceneVisual visual;
+			if (!Scene::Load(*context_.worldContext_.world_, *context_.worldContext_.resource_, assetID, &visual))
 			{
 				SC_LOG_WARNING("シーンの読み込みに失敗しました(assetID: {})", assetID);
 				break;
 			}
-			context_.viewportContext_.raytracing_ = DeserializeRaytracingContext(raytracingSettingsJson);
-			context_.viewportContext_.screenSpace_ = DeserializeScreenSpaceContext(screenSpaceSettingsJson);
-			context_.viewportContext_.rasterization_ = DeserializeRasterizationContext(rasterizationSettingsJson);
+			context_.viewportContext_.raytracing_ = DeserializeRaytracingContext(visual.raytracing_);
+			context_.viewportContext_.screenSpace_ = DeserializeScreenSpaceContext(visual.screenSpace_);
+			context_.viewportContext_.rasterization_ = DeserializeRasterizationContext(visual.rasterization_);
 			context_.viewportContext_.qualityPreset_ = GraphicsQualityPreset::Custom;
 			context_.sceneContext_.currentScenePath_ = context_.worldContext_.resource_->GetAsset(assetID)->fullpath_.c_str();
 			context_.selectionContext_.selectedActor_ = Actor();
@@ -573,7 +569,7 @@ namespace SeedCore
 			return;
 		}
 
-		if (!Scene::Save(*context_.worldContext_.world_, *context_.worldContext_.resource_, savePath, SerializeRaytracingContext(context_.viewportContext_.raytracing_), SerializeScreenSpaceContext(context_.viewportContext_.screenSpace_), SerializeRasterizationContext(context_.viewportContext_.rasterization_)))
+		if (!Scene::Save(*context_.worldContext_.world_, *context_.worldContext_.resource_, savePath, SceneVisual{ SerializeRaytracingContext(context_.viewportContext_.raytracing_), SerializeScreenSpaceContext(context_.viewportContext_.screenSpace_), SerializeRasterizationContext(context_.viewportContext_.rasterization_) }))
 		{
 			SC_LOG_WARNING("シーンの保存に失敗しました: {}", savePath.string());
 			return;
@@ -592,7 +588,7 @@ namespace SeedCore
 			return;
 		}
 
-		if (!Scene::Save(*context_.worldContext_.world_, *context_.worldContext_.resource_, context_.sceneContext_.currentScenePath_, SerializeRaytracingContext(context_.viewportContext_.raytracing_), SerializeScreenSpaceContext(context_.viewportContext_.screenSpace_), SerializeRasterizationContext(context_.viewportContext_.rasterization_)))
+		if (!Scene::Save(*context_.worldContext_.world_, *context_.worldContext_.resource_, context_.sceneContext_.currentScenePath_, SceneVisual{ SerializeRaytracingContext(context_.viewportContext_.raytracing_), SerializeScreenSpaceContext(context_.viewportContext_.screenSpace_), SerializeRasterizationContext(context_.viewportContext_.rasterization_) }))
 		{
 			SC_LOG_WARNING("シーンの上書き保存に失敗しました: {}", context_.sceneContext_.currentScenePath_.string());
 			return;

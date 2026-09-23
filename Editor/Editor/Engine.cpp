@@ -154,14 +154,12 @@ namespace SeedCore
 		if (!editorConfig_.lastScenePath_.str().empty())
 		{
 			std::filesystem::path lastScenePath = editorConfig_.lastScenePath_.str();
-			String raytracingSettingsJson;
-			String screenSpaceSettingsJson;
-			String rasterizationSettingsJson;
-			if (Scene::Load(*world_, *resource_, lastScenePath, &raytracingSettingsJson, &screenSpaceSettingsJson, &rasterizationSettingsJson))
+			SceneVisual visual;
+			if (Scene::Load(*world_, *resource_, lastScenePath, &visual))
 			{
-				editorContext_.viewportContext_.raytracing_ = DeserializeRaytracingContext(raytracingSettingsJson);
-				editorContext_.viewportContext_.screenSpace_ = DeserializeScreenSpaceContext(screenSpaceSettingsJson);
-				editorContext_.viewportContext_.rasterization_ = DeserializeRasterizationContext(rasterizationSettingsJson);
+				editorContext_.viewportContext_.raytracing_ = DeserializeRaytracingContext(visual.raytracing_);
+				editorContext_.viewportContext_.screenSpace_ = DeserializeScreenSpaceContext(visual.screenSpace_);
+				editorContext_.viewportContext_.rasterization_ = DeserializeRasterizationContext(visual.rasterization_);
 				editorContext_.viewportContext_.qualityPreset_ = GraphicsQualityPreset::Custom;
 				editorContext_.sceneContext_.currentScenePath_ = lastScenePath;
 				editorContext_.viewportContext_.resizeRequested_ = true;
@@ -372,9 +370,9 @@ namespace SeedCore
 
 					if (const Scene* switchedScene = Scene::ConsumeSwitchedScene())
 					{
-						editorContext_.viewportContext_.raytracing_ = DeserializeRaytracingContext(switchedScene->GetRaytracingSettingsJson());
-						editorContext_.viewportContext_.screenSpace_ = DeserializeScreenSpaceContext(switchedScene->GetScreenSpaceSettingsJson());
-						editorContext_.viewportContext_.rasterization_ = DeserializeRasterizationContext(switchedScene->GetRasterizationSettingsJson());
+						editorContext_.viewportContext_.raytracing_ = DeserializeRaytracingContext(switchedScene->Visual().raytracing_);
+						editorContext_.viewportContext_.screenSpace_ = DeserializeScreenSpaceContext(switchedScene->Visual().screenSpace_);
+						editorContext_.viewportContext_.rasterization_ = DeserializeRasterizationContext(switchedScene->Visual().rasterization_);
 					}
 				}
 

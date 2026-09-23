@@ -190,6 +190,18 @@ namespace SeedCore
 		}
 
 		EnsureEditingSurface();
+		if (context_.resourceSync_)
+		{
+			if (ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows) && ImGui::IsMouseDown(ImGuiMouseButton_Left))
+			{
+				context_.resourceSync_->RequestEdit(surfaceAssetId, String("asset"));
+			}
+			if (!context_.resourceSync_->Editable(surfaceAssetId, String("asset")))
+			{
+				ImGui::TextDisabled("共有マテリアルです。クリックすると編集権を取得します。保存はローカルのみです。");
+				return;
+			}
+		}
 		if (!editingSurface_)
 		{
 			ImGui::TextDisabled("マテリアルを読み込めません");

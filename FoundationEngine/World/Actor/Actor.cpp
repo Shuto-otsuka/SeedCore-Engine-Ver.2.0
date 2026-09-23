@@ -672,6 +672,26 @@ namespace SeedCore
 		return world_->GetActorRecord(entity_).persistentId_;
 	}
 
+	String Actor::CollaborationID()const
+	{
+		return world_->GetActorRecord(entity_).collaborationId_;
+	}
+
+	void Actor::CollaborationID(const String& value)
+	{
+		if (!value.str().empty())
+		{
+			for (Actor actor : world_->GetActors())
+			{
+				if (actor != *this && actor.CollaborationID() == value)
+				{
+					return;
+				}
+			}
+			world_->GetActorRecord(entity_).collaborationId_ = value;
+		}
+	}
+
 	/**
 	* [EN]
 	* Returns whether this and other are handles to the same actor: they

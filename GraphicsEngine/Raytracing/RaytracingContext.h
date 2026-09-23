@@ -116,8 +116,8 @@ namespace SeedCore
 		}
 	};
 
-	/// [EN] Encodes settings as a JSON string, for embedding into Scene::raytracingSettingsJson_.
-	/// [JP] settings を JSON 文字列へ変換する。Scene::raytracingSettingsJson_ に埋め込むために使う。
+	/// [EN] Encodes settings as a JSON string, for embedding into SceneVisual::raytracing_.
+	/// [JP] settings を JSON 文字列へ変換する。SceneVisual::raytracing_ に埋め込むために使う。
 	inline String SerializeRaytracingContext(const RaytracingContext& settings)
 	{
 		JsonOutputArchive archive;

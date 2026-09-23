@@ -62,6 +62,11 @@ namespace SeedCore
 			return;
 		}
 
+		if (context_.resourceSync_ && !ResourceSyncControlPanel::EditableSelection(context_, ImGui::IsMouseDown(ImGuiMouseButton_Left) && ImGui::IsMouseHoveringRect(ImVec2(position.x, position.y), ImVec2(position.x + size.x, position.y + size.y))))
+		{
+			return;
+		}
+
 		if (context_.viewportContext_.guizmo_.showGuizmo_)
 		{
 			if (context_.viewportContext_.guizmo_.rectTool_)

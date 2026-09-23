@@ -198,7 +198,14 @@
 #pragma comment(lib, "mfreadwrite.lib")
 #pragma comment(lib, "mfuuid.lib")
 #pragma comment(lib, "version.lib")
+#pragma comment(lib, "winhttp.lib")
+#pragma comment(lib, "ws2_32.lib")
+#pragma comment(lib, "shell32.lib")
 
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <winhttp.h>
+#include <shellapi.h>
 #include <objbase.h>
 #include <oleauto.h>
 #include <crtdbg.h>

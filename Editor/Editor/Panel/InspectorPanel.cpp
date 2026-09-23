@@ -103,6 +103,12 @@ namespace SeedCore
 
 			if (actor && actor.GetEntity().Exists())
 			{
+				Bool sharingEditable = !context_.resourceSync_ || ResourceSyncControlPanel::EditableActor(context_, actor, ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows) && ImGui::IsMouseDown(ImGuiMouseButton_Left));
+				if (!sharingEditable)
+				{
+					ImGui::TextDisabled("Shared entity: acquiring edit lease / read only");
+				}
+				ImGui::BeginDisabled(!sharingEditable);
 				ImGui::BeginChild("##InspectorContent", ImVec2(0, 0), ImGuiChildFlags_None, ImGuiWindowFlags_HorizontalScrollbar);
 				DrawName(actor);
 
@@ -137,6 +143,7 @@ namespace SeedCore
 				}
 
 				ImGui::EndChild();
+				ImGui::EndDisabled();
 			}
 			else if (locked_)
 			{
@@ -151,7 +158,7 @@ namespace SeedCore
 	void InspectorPanel::DrawName(Actor actor)
 	{
 		Float iconSize = ImGui::GetTextLineHeight();
-		ImTextureID lockIcon = locked_ ? imguiTexture_.Icon(IconType::Lock) : imguiTexture_.Icon(IconType::LockFree);
+		ImTextureID lockIcon = locked_ ? imguiTexture_.Icon(IconType::Lock) : imguiTexture_.Icon(IconType::Unlock);
 
 		if (ImGui::ImageButton("##Lock", lockIcon, ImVec2(iconSize, iconSize)))
 		{

@@ -54,6 +54,8 @@ namespace SeedCore
 
 		ImTextureID GetAssetIcon(const AssetRecord& asset)const;
 
+		ImTextureID GetSharingIcon(const AssetRecord& asset)const;
+
 		const Char* GetDragDropType(AssetType type)const;
 
 		ImTextureID GetFolderIcon(const DirectoryNode& node)const;
@@ -102,6 +104,8 @@ namespace SeedCore
 		EditorContext& context_;
 
 		DirectoryNode root_;
+		DynamicArray<AssetRecord> browserAssets_;
+		Uint64 sharingRevision_ = 0;
 
 		std::string selectedDirectory_;
 
