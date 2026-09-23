@@ -122,10 +122,23 @@ def main():
             if name.endswith('.exe'):
                 remove(os.path.join(root, name))
 
+    # 中間ファイルは絶対パスで依存関係を覚えているので、フォルダ名の変更や
+    # ブランチの切り替えの後は食い違ったままになる。消すと次のビルドは
+    # 全コンパイルからやり直しになるが、その食い違いは確実に無くなる。
+    intermediate = os.path.join(PROJECT_ROOT, 'Runtime', 'Intermediate')
+    if os.path.exists(intermediate):
+        remove(intermediate)
+
     # Visual Studio の作業用フォルダ。開いたまま流すと掴まれていて消せない。
     solution_cache = os.path.join(PROJECT_ROOT, '.vs')
     if os.path.exists(solution_cache):
         remove(solution_cache)
+
+    # --- エディターの作業状態 ---
+    # Todo は git で追跡しているので、消すと git 側に削除として残る。
+    todo = os.path.join(PROJECT_ROOT, 'Editor', 'TodoList.json')
+    if os.path.exists(todo):
+        remove(todo)
 
     # --- 共有アセットの設定 ---
     sharing = os.path.join(PROJECT_ROOT, '.asset')
