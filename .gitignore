@@ -69,6 +69,7 @@
 # ImGui
 ImGui.ini
 imgui.ini
+NodeEditor.json
 
 # バックアップ
 *.dds_backup

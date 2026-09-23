@@ -39,7 +39,12 @@ namespace SeedCore
 
 		/// [JP] デバイス作成前に呼ぶ必要がある(Enable() 呼び出し後に作成された
 		///      デバイスのクラッシュしか Aftermath から見えないため)。
+		/// [JP] ダンプの解析には対応するシェーダーのデバッグ情報と NVIDIA の
+		///      ツールが要るため配布物では使えず、有効化するとダンプの置き場も
+		///      作られてしまうので、Debug だけで有効にする。
+#ifdef _DEBUG
 		AftermathCrashTracker::Enable();
+#endif
 
 		context_ = MakePtr<D3D12Context>();
 		if (!context_->Initialize())
@@ -49,7 +54,9 @@ namespace SeedCore
 		}
 		SC_LOG_NOTICE("D3D12コンテキストを初期化しました");
 
+#ifdef _DEBUG
 		AftermathCrashTracker::Create(context_->GetDevice());
+#endif
 
 		swapChain_ = MakePtr<SwapChain>(width, height);
 		if (!swapChain_->Create(context_->GetFactory(), context_->GetDevice(), context_->GetDirectQueue()->GetCommandQueue(), hwnd))
@@ -217,7 +224,9 @@ namespace SeedCore
 
 		fadeScreen_.Finalize();
 
+#ifdef _DEBUG
 		AftermathCrashTracker::Disable();
+#endif
 
 		if (context_)
 		{
