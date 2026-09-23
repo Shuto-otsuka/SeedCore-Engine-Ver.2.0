@@ -39,11 +39,16 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="ScAll.h" />
     <ClInclude Include="ScComponent.h" />
     <ClInclude Include="ScInput.h" />
+    <ClInclude Include="ScLog.h" />
     <ClInclude Include="ScMath.h" />
+    <ClInclude Include="ScPhysics.h" />
     <ClInclude Include="ScPrefab.h" />
     <ClInclude Include="ScScene.h" />
+    <ClInclude Include="ScScreen.h" />
+    <ClInclude Include="ScScript.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>

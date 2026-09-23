@@ -9,5 +9,10 @@
     <ClInclude Include="ScScene.h" />
     <ClInclude Include="ScPrefab.h" />
     <ClInclude Include="ScComponent.h" />
+    <ClInclude Include="ScAll.h" />
+    <ClInclude Include="ScLog.h" />
+    <ClInclude Include="ScPhysics.h" />
+    <ClInclude Include="ScScreen.h" />
+    <ClInclude Include="ScScript.h" />
   </ItemGroup>
 </Project>
